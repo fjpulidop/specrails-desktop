@@ -273,7 +273,12 @@
     "noJobs": "No jobs yet — ask the agent to launch one",
     "analytics": "Analytics",
     "closeAnalytics": "Close analytics",
-    "resizeAnalytics": "Resize analytics pane"
+    "resizeAnalytics": "Resize analytics pane",
+    "specs": "Specs",
+    "closeSpecs": "Close specs",
+    "resizeSpecs": "Resize specs pane",
+    "noSpecs": "No specs yet — ask the agent to create one",
+    "specsClosed": "Closed"
   },
   "attachFile": "Attach file",
   "deleteConversation": "Delete \"{{title}}\"",
@@ -1484,6 +1489,7 @@
   "composer": {
     "ariaLabel": "Message to the agent",
     "dropFiles": "Drop files to attach",
+    "dropSpec": "Drop to reference this spec",
     "uploading": "Uploading…"
   },
   "conversation": {

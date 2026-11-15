@@ -248,6 +248,7 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
   it('prices the Claude lineup at the 2026-11-01 rate cards (legacy ids keep their own card)', () => {
     const cr = (m: string) => estimateCostUsd('claude', m, { tokens_cache_read: 1_000_000 })
     expect(cr('fable')).toBeCloseTo(0.25, 6)
+    expect(cr('claude-fable-5-2')).toBeCloseTo(0.25, 6)
     expect(cr('claude-fable-5-1')).toBeCloseTo(0.25, 6)
     expect(cr('claude-fable-5')).toBeCloseTo(1.0, 6)
     expect(cr('claude-sonnet-5-5')).toBeCloseTo(0.1, 6)

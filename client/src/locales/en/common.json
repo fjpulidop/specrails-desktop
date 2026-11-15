@@ -138,7 +138,19 @@
     "workspaceHint": "Optional. One directory per line, absolute or relative to this repository. Empty uses the repository folder. Implement and loop runs verify each listed code workspace.",
     "launchWorkspaces": "Workspaces for this run",
     "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository.",
-    "advanced": "Multi-repository setup"
+    "advanced": "Multi-repository setup",
+    "clone": {
+      "title": "Clone from GitHub",
+      "description": "Create a local copy, then add it to your project.",
+      "url": "GitHub repository",
+      "destination": "Destination (new folder)",
+      "browse": "Choose parent folder",
+      "hint": "The parent folder must exist; the new folder must not. Uses Git credentials configured on this computer. A completed clone stays on disk even if you cancel adding it.",
+      "preview": "Clone into: {{path}}",
+      "busy": "Cloning… This may take a few minutes.",
+      "submit": "Clone repository",
+      "failed": "Could not clone the repository."
+    }
   },
   "repositoryDelivery": {
     "building": "Building",

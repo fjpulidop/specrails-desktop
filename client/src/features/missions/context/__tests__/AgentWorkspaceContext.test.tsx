@@ -12,6 +12,8 @@ function WorkspaceStateProbe() {
       <button type="button" onClick={workspace.toggleJobsPane}>Toggle jobs</button>
       <button type="button" onClick={workspace.toggleCodePane}>Toggle code</button>
       <button type="button" onClick={workspace.openAnalyticsPane}>Open analytics</button>
+      <div data-testid="specs-state">{workspace.specsPaneOpen ? 'open' : 'closed'}</div>
+      <button type="button" onClick={workspace.toggleSpecsPane}>Toggle specs</button>
       <button type="button" onClick={() => workspace.restoreWorkspace({ codePaneOpen: true, jobsPaneOpen: false, analyticsPaneOpen: true, browserOpen: false, pendingCaptures: [] })}>Restore legacy</button>
     </div>
   )
@@ -55,5 +57,26 @@ describe('AgentWorkspaceContext', () => {
     expect(screen.getByTestId('code-state')).toHaveTextContent('open')
     expect(screen.getByTestId('analytics-state')).toHaveTextContent('closed')
     expect(screen.getByTestId('jobs-state')).toHaveTextContent('closed')
+  })
+
+  it('[spec:mission-specs-pane/specs-pane-availability-and-exclusivity] keeps the Specs pane exclusive with the other side panes', () => {
+    render(
+      <AgentWorkspaceProvider>
+        <WorkspaceStateProbe />
+      </AgentWorkspaceProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle jobs/i }))
+    fireEvent.click(screen.getByRole('button', { name: /toggle specs/i }))
+    expect(screen.getByTestId('specs-state')).toHaveTextContent('open')
+    expect(screen.getByTestId('jobs-state')).toHaveTextContent('closed')
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle code/i }))
+    expect(screen.getByTestId('specs-state')).toHaveTextContent('closed')
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle specs/i }))
+    fireEvent.click(screen.getByRole('button', { name: /toggle specs/i }))
+    expect(screen.getByTestId('specs-state')).toHaveTextContent('closed')
+    expect(screen.getByTestId('code-state')).toHaveTextContent('closed')
   })
 })

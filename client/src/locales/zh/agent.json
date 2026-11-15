@@ -273,7 +273,12 @@
     "noJobs": "还没有作业——让智能体启动一个吧",
     "analytics": "分析",
     "closeAnalytics": "关闭分析",
-    "resizeAnalytics": "调整分析面板大小"
+    "resizeAnalytics": "调整分析面板大小",
+    "specs": "规格",
+    "closeSpecs": "关闭规格",
+    "resizeSpecs": "调整规格面板大小",
+    "noSpecs": "还没有规格——让智能体创建一个吧",
+    "specsClosed": "已关闭"
   },
   "attachFile": "附加文件",
   "deleteConversation": "删除「{{title}}」",
@@ -1484,6 +1489,7 @@
   "composer": {
     "ariaLabel": "发送给智能体的消息",
     "dropFiles": "拖放文件以添加附件",
+    "dropSpec": "拖放以引用此规格",
     "uploading": "正在上传…"
   },
   "conversation": {

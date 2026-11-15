@@ -273,7 +273,12 @@
     "noJobs": "Aucun job pour l'instant — demandez à l'agent d'en lancer un",
     "analytics": "Analytique",
     "closeAnalytics": "Fermer l'analytique",
-    "resizeAnalytics": "Redimensionner le panneau d'analytique"
+    "resizeAnalytics": "Redimensionner le panneau d'analytique",
+    "specs": "Specs",
+    "closeSpecs": "Fermer les specs",
+    "resizeSpecs": "Redimensionner le panneau des specs",
+    "noSpecs": "Aucune spec pour l'instant — demandez à l'agent d'en créer une",
+    "specsClosed": "Fermées"
   },
   "attachFile": "Joindre un fichier",
   "deleteConversation": "Supprimer « {{title}} »",
@@ -1484,6 +1489,7 @@
   "composer": {
     "ariaLabel": "Message à l’agent",
     "dropFiles": "Déposez les fichiers pour les joindre",
+    "dropSpec": "Déposez pour référencer cette spec",
     "uploading": "Envoi en cours…"
   },
   "conversation": {

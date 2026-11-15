@@ -1,3 +1,4 @@
+import { SPEC_DRAG_TYPE } from '../../lib/agent-spec-drag'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1734,6 +1735,39 @@ describe('Mission conversation accessibility and navigation', () => {
     await act(async () => { fireEvent.click(pill) })
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 1000 }))
     await waitFor(() => expect(screen.queryByTestId('agent-jump-to-latest')).toBeNull())
+  })
+
+  it('accepts a spec drop as an inline reference and sends its scoped context', async () => {
+    vi.mocked(agentApi.createAgentConversation).mockResolvedValue({ ...api.conv, pinned_project_id: 'p1' })
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: { ...api.conv, pinned_project_id: 'p1' }, messages: [] })
+    const box = await openPanel()
+    inputEditor(box, 'Discuss ', 8)
+    const composer = screen.getByTestId('agent-composer-box')
+    const raw = JSON.stringify({ draftKey: 'c1', chip: { kind: 'spec', id: '99', label: 'Fresh spec', token: '@Fresh spec', projectId: 'p1' } })
+    const dataTransfer = { types: [SPEC_DRAG_TYPE], files: [], getData: () => raw }
+    fireEvent.dragOver(composer, { dataTransfer })
+    expect(screen.getByTestId('agent-composer-drop-hint')).toHaveTextContent('Drop to reference this spec')
+    fireEvent.drop(box, { dataTransfer })
+    expect(box.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@Fresh spec')
+    expect(editorText(box)).toBe('Discuss @Fresh spec ')
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(agentApi.sendAgentMessage).toHaveBeenLastCalledWith('c1', 'Discuss @Fresh spec', expect.objectContaining({
+      contextRefs: [expect.objectContaining({ kind: 'spec', id: '99', scope: expect.objectContaining({ projectId: 'p1' }) })],
+    }))
+  })
+
+  it('ignores spec drops from another project or mission without changing the draft', async () => {
+    vi.mocked(agentApi.createAgentConversation).mockResolvedValue({ ...api.conv, pinned_project_id: 'p1' })
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: { ...api.conv, pinned_project_id: 'p1' }, messages: [] })
+    const box = await openPanel()
+    inputEditor(box, 'Keep this', 9)
+    for (const [draftKey, projectId] of [['c2', 'p1'], ['c1', 'p2']]) {
+      fireEvent.drop(box, { dataTransfer: { types: [SPEC_DRAG_TYPE], files: [], getData: () => JSON.stringify({
+        draftKey, chip: { kind: 'spec', id: '99', label: 'Other', token: '@Other', projectId },
+      }) } })
+      expect(editorText(box)).toBe('Keep this')
+      expect(box.querySelector('[data-inline-reference]')).toBeNull()
+    }
   })
 
   it('shows a drop target while files are dragged over the composer', async () => {

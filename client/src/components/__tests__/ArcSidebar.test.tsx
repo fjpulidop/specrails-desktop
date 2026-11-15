@@ -1,9 +1,16 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useLocation } from 'react-router-dom'
-import { render, screen, fireEvent, act, within } from '../../test-utils'
+import { render as baseRender, screen, fireEvent, act, within } from '../../test-utils'
+import { useSidebarPin } from '../../context/SidebarPinContext'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
+
+function PinControls() {
+  const { cycleLeftMode } = useSidebarPin()
+  return <button onClick={cycleLeftMode}>Cycle sidebar from header</button>
+}
+function render(ui: React.ReactElement) { return baseRender(<>{ui}<PinControls /></>) }
 
 const mockProjects: DesktopProject[] = [
   { id: 'proj-1', slug: 'proj-1', name: 'Project Alpha', path: '/alpha', db_path: '/alpha/.db', added_at: '', last_seen_at: '' },
@@ -87,40 +94,39 @@ describe('ArcSidebar', () => {
 
   it('renders pinned open by default for a new user', () => {
     render(<ArcSidebar {...defaultProps} />)
-    expect(screen.getByRole('button', { name: /Collapse left sidebar \(keep pinned\)/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
   })
 
   it('renders collapsed when the stored mode is unpinned', () => {
     startUnpinned()
     render(<ArcSidebar {...defaultProps} />)
-    expect(screen.getByRole('button', { name: /Pin left sidebar open/i })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('inert')
+    expect(screen.queryByRole('button', { name: /Pin left sidebar open/i })).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('cycle from unpinned → pinned-open expands and updates label', () => {
     startUnpinned()
     render(<ArcSidebar {...defaultProps} />)
-    fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Collapse left sidebar \(keep pinned\)/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cycle sidebar from header' }))
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
   })
 
   it('cycle from pinned-open → pinned-collapsed collapses and keeps lit label', () => {
     render(<ArcSidebar {...defaultProps} />)
-    fireEvent.click(screen.getByRole('button', { name: /Collapse left sidebar/i })) // → pinned-collapsed
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Unpin left sidebar/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cycle sidebar from header' })) // → pinned-collapsed
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('cycle wraps pinned-collapsed → unpinned → pinned-open', () => {
     render(<ArcSidebar {...defaultProps} />)
-    const btn = () => screen.getByRole('button', { name: /left sidebar/i })
+    const btn = () => screen.getByRole('button', { name: 'Cycle sidebar from header' })
     fireEvent.click(btn()) // pinned-collapsed
     fireEvent.click(btn()) // unpinned
-    expect(screen.getByRole('button', { name: /Pin left sidebar open/i })).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-edge-left')).toBeInTheDocument()
     fireEvent.click(btn()) // pinned-open
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
   })
 
   it('expands on hover intent (after a short dwell) when unpinned, as an overlay', () => {
@@ -128,11 +134,11 @@ describe('ArcSidebar', () => {
     startUnpinned()
     const { container } = render(<ArcSidebar {...defaultProps} />)
     fireEvent.mouseEnter(sidebarRoot(container))
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
     act(() => { vi.advanceTimersByTime(150) })
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
     // The in-flow wrapper keeps the rail width; only the panel overlays.
-    expect((sidebarRoot(container) as HTMLElement).style.width).toBe('44px')
+    expect((sidebarRoot(container) as HTMLElement).style.width).toBe('0px')
     expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('data-overlay', 'true')
   })
 
@@ -144,7 +150,7 @@ describe('ArcSidebar', () => {
     act(() => { vi.advanceTimersByTime(100) })
     fireEvent.mouseLeave(sidebarRoot(container))
     act(() => { vi.advanceTimersByTime(500) })
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('collapses after a grace period on mouse leave when unpinned', () => {
@@ -154,9 +160,9 @@ describe('ArcSidebar', () => {
     fireEvent.mouseEnter(sidebarRoot(container))
     act(() => { vi.advanceTimersByTime(150) })
     fireEvent.mouseLeave(sidebarRoot(container))
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
     act(() => { vi.advanceTimersByTime(250) })
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('Esc closes the hover overlay', () => {
@@ -165,12 +171,13 @@ describe('ArcSidebar', () => {
     const { container } = render(<ArcSidebar {...defaultProps} />)
     fireEvent.mouseEnter(sidebarRoot(container))
     act(() => { vi.advanceTimersByTime(150) })
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
-  it('expands while keyboard focus is inside and collapses when focus leaves', () => {
+  it('retains focus access after opening and collapses when focus leaves', () => {
+    vi.useFakeTimers()
     startUnpinned()
     render(
       <>
@@ -178,35 +185,39 @@ describe('ArcSidebar', () => {
         <button type="button">outside</button>
       </>,
     )
+    fireEvent.mouseEnter(screen.getByTestId('sidebar-edge-left'))
+    act(() => { vi.advanceTimersByTime(150) })
+    fireEvent.mouseLeave(screen.getByRole('complementary', { name: 'Projects and missions' }))
     const addProject = screen.getByRole('button', { name: /Add project/i })
     act(() => { addProject.focus() })
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
     act(() => { screen.getByRole('button', { name: 'outside' }).focus() })
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('does not expand on mouse enter when pinned-collapsed', () => {
     vi.useFakeTimers()
     window.localStorage.setItem(LEFT_MODE_KEY, 'pinned-collapsed')
     const { container } = render(<ArcSidebar {...defaultProps} />)
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
     fireEvent.mouseEnter(sidebarRoot(container))
     act(() => { vi.advanceTimersByTime(500) })
-    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('stays expanded on mouse leave when pinned-open and reserves its width', () => {
     const { container } = render(<ArcSidebar {...defaultProps} />)
     fireEvent.mouseLeave(sidebarRoot(container))
-    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('aria-hidden', 'false')
     expect((sidebarRoot(container) as HTMLElement).style.width).toBe('300px')
   })
 
-  it('shows distinguishable monogram tiles for projects on the collapsed rail', () => {
+  it('[spec:app-area-chrome/sidebars-can-be-fully-hidden] hides all project tiles when explicitly hidden', () => {
     window.localStorage.setItem(LEFT_MODE_KEY, 'pinned-collapsed')
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getAllByTestId('project-monogram').map((el) => el.textContent)).toEqual(['PA', 'PB'])
-    expect(screen.getByRole('button', { name: 'Project Beta' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Project Beta' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('inert')
   })
 
   it('renders Add project button', () => {

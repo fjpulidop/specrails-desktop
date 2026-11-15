@@ -81,6 +81,12 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
     const startWidth = width
     const pointerId = e.pointerId
     const target = e.currentTarget
+    const previousSelect = document.body.style.userSelect
+    const previousCursor = document.body.style.cursor
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    const preventSelection = (event: Event) => event.preventDefault()
+    document.addEventListener('selectstart', preventSelection)
     try { target.setPointerCapture(pointerId) } catch { /* optional in webviews */ }
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -93,6 +99,9 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
       window.removeEventListener('pointercancel', onUp)
       window.removeEventListener('blur', finish)
       target.removeEventListener('lostpointercapture', finish)
+      document.removeEventListener('selectstart', preventSelection)
+      document.body.style.userSelect = previousSelect
+      document.body.style.cursor = previousCursor
       try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId) } catch { /* already released */ }
       resizeCleanup.current = null
     }
@@ -108,9 +117,9 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
   return (
     // Maximized = REALLY maximized: cover the whole Agent-Mode surface
     // (absolute over the relative surface root), not just grow in the flex row.
-    <div
+    <div data-area="files"
       ref={paneRef}
-      className={`flex h-full min-w-0 flex-col overflow-hidden border-l border-border bg-background${
+      className={`area-surface flex h-full min-w-0 flex-col overflow-hidden border-l border-border bg-background${
         maximized ? ' absolute inset-0 z-30 border-l-0' : ' relative'
       }`}
       style={maximized ? undefined : { width, maxWidth: '100%', flexShrink: 0 }}
@@ -139,7 +148,7 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
             title={t('workspace.resizeCode')}
           />
       )}
-      <div className="flex items-center gap-2 border-b border-border/60 bg-surface/40 px-3 py-1.5">
+      <div className="area-header flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface/40 px-3">
         <span className="text-label text-muted-foreground">{t('workspace.files')}</span>
         <div className="ml-auto flex items-center gap-1">
           <button

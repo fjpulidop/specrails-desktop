@@ -1,7 +1,6 @@
-import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
-import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
 import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
@@ -9,7 +8,7 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
+import { FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
@@ -774,12 +773,6 @@ function GroupHeader({
   )
 }
 
-const LEFT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
-  'pinned-open': 'sidebarPin.left.pinnedOpen',
-  'pinned-collapsed': 'sidebarPin.left.pinnedCollapsed',
-  'unpinned': 'sidebarPin.left.unpinned',
-}
-
 export function ArcSidebar({
   onAddProject,
   onOpenLoops,
@@ -800,7 +793,7 @@ export function ArcSidebar({
   // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
   const onSettingsRoute = location.pathname.startsWith('/settings')
   const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
-  const { leftMode, effectiveLeftMode, cycleLeftMode, setLeftMode } = useSidebarPin()
+  const { effectiveLeftMode, setLeftMode } = useSidebarPin()
   const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
@@ -1014,7 +1007,7 @@ export function ArcSidebar({
   const unpinned = effectiveLeftMode === 'unpinned'
   const docked = effectiveLeftMode === 'pinned-open'
   // Drag-resizable width (persisted), applied imperatively through the panel
-  // ref — 300px expanded, 44px (w-11) collapsed rail.
+  // ref — 300px expanded, 0px when hidden.
   const [dragging, setDragging] = useState(false)
   const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
   const expanded = docked || (unpinned && hover.hovered)
@@ -1022,7 +1015,7 @@ export function ArcSidebar({
   // hover-expanded unpinned panel overlays the content instead of reflowing it.
   // The hover-intent hook keeps the panel open during a drag.
   const resize = useResizableSidebar('left-arc', {
-    side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 44, expanded, docked,
+    side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 0, expanded, docked,
   })
   useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
   // Esc closes the hover/flyout overlay of a collapsed or unpinned sidebar and
@@ -1044,8 +1037,6 @@ export function ArcSidebar({
     return () => document.removeEventListener('keydown', onKey)
   }, [overlayOpen, activeProjectId, closeFlyout])
   const overlaying = expanded && !docked
-  const lit = leftMode !== 'unpinned'
-  const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
   /** Collapsed rail: a group header opens the sidebar (pinned) on that group. */
   const expandOnGroup = (key: string) => {
@@ -1093,19 +1084,25 @@ export function ArcSidebar({
   return (
     <aside
       ref={resize.wrapperRef}
+      tabIndex={unpinned && !expanded ? 0 : -1}
       aria-label={t('arcSidebar.landmark')}
       className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
       {...hover.handlers}
     >
+    {unpinned && !expanded && <div aria-hidden="true" data-testid="sidebar-edge-left" className="absolute inset-y-0 left-0 z-30 w-2" />}
     <div
       ref={resize.panelRef}
+      inert={!expanded}
+      aria-hidden={!expanded}
       data-testid="arc-sidebar-panel"
+      data-area="missions"
       data-overlay={overlaying || undefined}
       className={cn(
-        'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-border bg-background overflow-hidden',
+        'area-surface absolute inset-y-0 left-0 z-30 flex flex-col border-r border-border surface-side overflow-hidden',
         // Width is set imperatively by useResizableSidebar (px). The transition
         // animates collapse/expand + keyboard nudges; a drag turns it off itself.
         'transition-[width,box-shadow] duration-200 ease-in-out',
+        !expanded && 'invisible border-none',
         overlaying && 'shadow-xl',
       )}
     >
@@ -1121,35 +1118,6 @@ export function ArcSidebar({
           onKeyDown={resize.onGripKeyDown}
         />
       )}
-      {/* Header (browser only — the desktop title bar carries the pin button) */}
-      {!isTauri() && <div
-        className={cn(
-          'flex items-center h-12 border-b border-border flex-shrink-0',
-          expanded ? 'px-3 justify-between' : 'justify-center'
-        )}
-      >
-        {expanded && (
-          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
-            {t('arcSidebar.desktopTitle')}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={cycleLeftMode}
-          className={cn(
-            'flex items-center justify-center w-7 h-7 rounded-md transition-colors flex-shrink-0',
-            lit
-              ? 'text-foreground bg-muted'
-              : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
-            ROW_FOCUS,
-          )}
-          aria-label={pinLabel}
-          aria-pressed={lit}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌘B') })}
-        >
-          <PanelLeft className="w-4 h-4" />
-        </button>
-      </div>}
 
       {/* Agent Mode cluster — mode switch (both modes), New agent + Search (agent) */}
       {FEATURE_AGENT_MODE && (

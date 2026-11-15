@@ -138,7 +138,19 @@
     "workspaceHint": "Optional. Ein Verzeichnis pro Zeile, absolut oder relativ zum Repository. Leer verwendet den Repository-Ordner. Implement und Loops prüfen jedes angegebene Verzeichnis.",
     "launchWorkspaces": "Arbeitsverzeichnisse für diesen Lauf",
     "launchWorkspaceHint": "Codeänderungen und Tests sind auf diese Ordner begrenzt. Wähle mindestens ein Verzeichnis für jedes betroffene Repository.",
-    "advanced": "Einrichtung mit mehreren Repositorys"
+    "advanced": "Einrichtung mit mehreren Repositorys",
+    "clone": {
+      "title": "Von GitHub klonen",
+      "description": "Erstelle eine lokale Kopie und füge sie deinem Projekt hinzu.",
+      "url": "GitHub-Repository",
+      "destination": "Ziel (neuer Ordner)",
+      "browse": "Übergeordneten Ordner wählen",
+      "hint": "Der übergeordnete Ordner muss existieren, der neue Ordner darf noch nicht existieren. Verwendet die Git-Zugangsdaten dieses Computers. Die Kopie bleibt beim Abbrechen der Registrierung erhalten.",
+      "preview": "Klonen nach: {{path}}",
+      "busy": "Wird geklont… Dies kann einige Minuten dauern.",
+      "submit": "Repository klonen",
+      "failed": "Repository konnte nicht geklont werden."
+    }
   },
   "repositoryDelivery": {
     "building": "Implementierung läuft",

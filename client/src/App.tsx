@@ -622,7 +622,12 @@ function DesktopApp() {
         )}
 
         {/* Content */}
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden focus:outline-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          data-area={uiMode === 'agent' && !onGlobalRoute ? 'missions' : location.pathname === '/' ? 'specs' : location.pathname.startsWith('/code') ? 'files' : location.pathname.split('/')[1]}
+          className="area-surface surface-center flex-1 overflow-hidden focus:outline-none"
+        >
           {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
             // to <Routes>; Loops and Plugins open modals with an optional window action.

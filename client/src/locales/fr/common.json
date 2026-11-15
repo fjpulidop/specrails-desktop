@@ -138,7 +138,19 @@
     "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement et les loops vérifient chaque dossier indiqué.",
     "launchWorkspaces": "Dossiers pour cette exécution",
     "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné.",
-    "advanced": "Configuration multi-dépôts"
+    "advanced": "Configuration multi-dépôts",
+    "clone": {
+      "title": "Cloner depuis GitHub",
+      "description": "Créez une copie locale, puis ajoutez-la à votre projet.",
+      "url": "Dépôt GitHub",
+      "destination": "Destination (nouveau dossier)",
+      "browse": "Choisir le dossier parent",
+      "hint": "Le dossier parent doit exister ; le nouveau dossier ne doit pas exister. Utilise les identifiants Git de cet ordinateur. La copie est conservée si vous annulez son ajout.",
+      "preview": "Cloner dans : {{path}}",
+      "busy": "Clonage… Cela peut prendre quelques minutes.",
+      "submit": "Cloner le dépôt",
+      "failed": "Impossible de cloner le dépôt."
+    }
   },
   "repositoryDelivery": {
     "building": "Implémentation en cours",

@@ -1,7 +1,7 @@
 {
   "addProject": {
     "title": "Projekt hinzufügen",
-    "description": "Registrieren Sie ein Projektverzeichnis, um es über Specrails zu verwalten.",
+    "description": "Füge einen lokalen Ordner hinzu oder klone ein GitHub-Repository für Specrails.",
     "noProviderDetected": "Keine KI-CLI gefunden. Installieren Sie zuerst Claude oder Codex.",
     "pathLabel": "Projektpfad",
     "pathPlaceholder": "/Users/ich/mein-projekt",
@@ -26,7 +26,7 @@
     "chooser": {
       "description": "Bring ein bestehendes Repository mit oder baue ein ganz neues Projekt aus einer Idee.",
       "existingTitle": "Bestehendes Projekt",
-      "existingDescription": "Registriere ein Repository, das bereits auf der Festplatte existiert.",
+      "existingDescription": "Nutze ein lokales Repository oder klone eines von GitHub.",
       "newTitle": "Neues Projekt",
       "newDescription": "Beschreibe eine Idee und erhalte ein aufgesetztes Repo mit einem Meilenstein-1-Backlog."
     }

@@ -94,14 +94,15 @@ describe('claudeAdapter._resolveClaudeSpawnModel', () => {
     expect(_resolveClaudeSpawnModel('claude-opus-4-8')).toBe('claude-opus-5-5')
     expect(_resolveClaudeSpawnModel('claude-opus-5')).toBe('claude-opus-5-5')
   })
-  it('leaves unpinned aliases untouched', () => {
+  it('[spec:fable-model-alias/fable-alias-resolves-to-claude-fable-5-2] leaves unpinned aliases untouched', () => {
     expect(_resolveClaudeSpawnModel('sonnet')).toBe('claude-sonnet-5-5')
-    // Haiku is pinned to 5.5 like Sonnet and Opus; Fable pins to 5.1.
+    // Haiku is pinned to 5.5 like Sonnet and Opus; Fable pins to 5.2.
     expect(_resolveClaudeSpawnModel('haiku')).toBe('claude-haiku-5-5')
     expect(_resolveClaudeSpawnModel('claude-haiku-5-5')).toBe('claude-haiku-5-5')
-    expect(_resolveClaudeSpawnModel('fable')).toBe('claude-fable-5-1')
-    expect(_resolveClaudeSpawnModel('claude-fable-5-1')).toBe('claude-fable-5-1')
-    expect(_resolveClaudeSpawnModel('claude-fable-5')).toBe('claude-fable-5-1')
+    expect(_resolveClaudeSpawnModel('fable')).toBe('claude-fable-5-2')
+    expect(_resolveClaudeSpawnModel('claude-fable-5-2')).toBe('claude-fable-5-2')
+    expect(_resolveClaudeSpawnModel('claude-fable-5-1')).toBe('claude-fable-5-2')
+    expect(_resolveClaudeSpawnModel('claude-fable-5')).toBe('claude-fable-5-2')
   })
   it('passes an unknown concrete id through unchanged', () => {
     expect(_resolveClaudeSpawnModel('claude-something-9')).toBe('claude-something-9')

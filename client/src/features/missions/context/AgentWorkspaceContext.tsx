@@ -26,6 +26,11 @@ interface AgentWorkspaceContextValue {
   openAnalyticsPane: () => void
   closeAnalyticsPane: () => void
   toggleAnalyticsPane: () => void
+  /** The project's backlog (specs + status) listed beside the conversation. */
+  specsPaneOpen: boolean
+  openSpecsPane: () => void
+  closeSpecsPane: () => void
+  toggleSpecsPane: () => void
   browserOpen: boolean
   browserOwnerId: string | null
   browserUrl: string | null
@@ -47,6 +52,7 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [codePaneOpen, setCodePaneOpen] = useState(false)
   const [jobsPaneOpen, setJobsPaneOpen] = useState(false)
   const [analyticsPaneOpen, setAnalyticsPaneOpen] = useState(false)
+  const [specsPaneOpen, setSpecsPaneOpen] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
   // Latest pane flags for the stable toggles (read synchronously, no stale closure).
   const codePaneOpenRef = useRef(codePaneOpen)
@@ -55,6 +61,8 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   jobsPaneOpenRef.current = jobsPaneOpen
   const analyticsPaneOpenRef = useRef(analyticsPaneOpen)
   analyticsPaneOpenRef.current = analyticsPaneOpen
+  const specsPaneOpenRef = useRef(specsPaneOpen)
+  specsPaneOpenRef.current = specsPaneOpen
   const [browserOwnerId, setBrowserOwnerId] = useState<string | null>(null)
   const [browserUrl, setBrowserUrl] = useState<string | null>(null)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
@@ -68,18 +76,20 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
       setJobsPaneOpen(true)
       setCodePaneOpen(false)
       setAnalyticsPaneOpen(false)
+      setSpecsPaneOpen(false)
     }
     window.addEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
     return () => window.removeEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
   }, [])
 
-  // Jobs / Files / Analytics are mutually exclusive side panes: opening or
-  // toggling one ON closes the other two so the conversation column keeps a
+  // Jobs / Files / Analytics / Specs are mutually exclusive side panes: opening or
+  // toggling one ON closes the others so the conversation column keeps a
   // readable width (it holds a 360px floor) instead of being squeezed by a stack.
-  const showOnlyPane = useCallback((pane: 'jobs' | 'code' | 'analytics') => {
+  const showOnlyPane = useCallback((pane: 'jobs' | 'code' | 'analytics' | 'specs') => {
     setJobsPaneOpen(pane === 'jobs')
     setCodePaneOpen(pane === 'code')
     setAnalyticsPaneOpen(pane === 'analytics')
+    setSpecsPaneOpen(pane === 'specs')
   }, [])
   const openCodePane = useCallback(() => showOnlyPane('code'), [showOnlyPane])
   const closeCodePane = useCallback(() => setCodePaneOpen(false), [])
@@ -98,6 +108,12 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const toggleAnalyticsPane = useCallback(() => {
     if (analyticsPaneOpenRef.current) setAnalyticsPaneOpen(false)
     else showOnlyPane('analytics')
+  }, [showOnlyPane])
+  const openSpecsPane = useCallback(() => showOnlyPane('specs'), [showOnlyPane])
+  const closeSpecsPane = useCallback(() => setSpecsPaneOpen(false), [])
+  const toggleSpecsPane = useCallback(() => {
+    if (specsPaneOpenRef.current) setSpecsPaneOpen(false)
+    else showOnlyPane('specs')
   }, [showOnlyPane])
   const openBrowser = useCallback(() => { setBrowserOwnerId(crypto.randomUUID()); setBrowserOpen(true) }, [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
@@ -122,13 +138,14 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const restoreWorkspace = useCallback((snapshot: MissionWindowSnapshot['workspace']) => {
     // Panes are exclusive: a legacy snapshot with several open keeps the first
-    // in the order jobs → code → analytics.
+    // in the order jobs → code → analytics → specs.
     const jobs = snapshot.jobsPaneOpen
     const code = !jobs && snapshot.codePaneOpen
     const analytics = !jobs && !code && snapshot.analyticsPaneOpen
     setJobsPaneOpen(jobs)
     setCodePaneOpen(code)
     setAnalyticsPaneOpen(analytics)
+    setSpecsPaneOpen(!jobs && !code && !analytics && snapshot.specsPaneOpen === true)
     setBrowserOwnerId(snapshot.browserOwnerId ?? null)
     setBrowserUrl(snapshot.browserUrl ?? null)
     setBrowserOpen(snapshot.browserOpen)
@@ -136,19 +153,20 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
     setPendingCaptures(snapshot.pendingCaptures)
   }, [])
   const captureWorkspace = useCallback((): MissionWindowSnapshot['workspace'] => ({
-    codePaneOpen, jobsPaneOpen, analyticsPaneOpen, browserOpen, browserOwnerId, browserUrl,
+    codePaneOpen, jobsPaneOpen, analyticsPaneOpen, specsPaneOpen, browserOpen, browserOwnerId, browserUrl,
     pendingCaptures: pendingCapturesRef.current,
-  }), [codePaneOpen, jobsPaneOpen, analyticsPaneOpen, browserOpen, browserOwnerId, browserUrl])
+  }), [codePaneOpen, jobsPaneOpen, analyticsPaneOpen, specsPaneOpen, browserOpen, browserOwnerId, browserUrl])
 
   const value = useMemo(
     () => ({
       codePaneOpen, openCodePane, closeCodePane, toggleCodePane,
       jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, requestedJobId, clearRequestedJob,
       analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane,
+      specsPaneOpen, openSpecsPane, closeSpecsPane, toggleSpecsPane,
       browserOpen, openBrowser, closeBrowser, browserOwnerId, browserUrl, setBrowserUrl, captureWorkspace, restoreWorkspace,
       pendingCaptures, queueCapture, consumePendingCaptures,
     }),
-    [browserOwnerId, browserUrl, captureWorkspace, restoreWorkspace, codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, requestedJobId, clearRequestedJob, analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
+    [browserOwnerId, browserUrl, captureWorkspace, restoreWorkspace, codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, requestedJobId, clearRequestedJob, analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane, specsPaneOpen, openSpecsPane, closeSpecsPane, toggleSpecsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
   )
   return <AgentWorkspaceContext.Provider value={value}>{children}</AgentWorkspaceContext.Provider>
 }
@@ -168,6 +186,10 @@ const NOOP: AgentWorkspaceContextValue = {
   openAnalyticsPane: () => {},
   closeAnalyticsPane: () => {},
   toggleAnalyticsPane: () => {},
+  specsPaneOpen: false,
+  openSpecsPane: () => {},
+  closeSpecsPane: () => {},
+  toggleSpecsPane: () => {},
   browserOwnerId: null, browserUrl: null, setBrowserUrl: () => {},
   captureWorkspace: () => ({ codePaneOpen: false, jobsPaneOpen: false, analyticsPaneOpen: false, browserOpen: false, pendingCaptures: [] }),
   restoreWorkspace: () => {},

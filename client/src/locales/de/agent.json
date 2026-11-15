@@ -273,7 +273,12 @@
     "noJobs": "Noch keine Jobs — bitte den Agenten, einen zu starten",
     "analytics": "Analytics",
     "closeAnalytics": "Analytics schließen",
-    "resizeAnalytics": "Analytics-Bereich anpassen"
+    "resizeAnalytics": "Analytics-Bereich anpassen",
+    "specs": "Specs",
+    "closeSpecs": "Specs schließen",
+    "resizeSpecs": "Specs-Bereich anpassen",
+    "noSpecs": "Noch keine Specs — bitte den Agenten, eine zu erstellen",
+    "specsClosed": "Abgeschlossen"
   },
   "attachFile": "Datei anhängen",
   "deleteConversation": "„{{title}}“ löschen",
@@ -1484,6 +1489,7 @@
   "composer": {
     "ariaLabel": "Nachricht an den Agenten",
     "dropFiles": "Dateien zum Anhängen ablegen",
+    "dropSpec": "Ablegen, um diese Spec zu referenzieren",
     "uploading": "Wird hochgeladen…"
   },
   "conversation": {

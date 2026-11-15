@@ -138,7 +138,19 @@
     "workspaceHint": "Facoltativo. Una cartella per riga, assoluta o relativa al repository. Vuoto usa la cartella del repository. Implement e i loop verificano ogni cartella indicata.",
     "launchWorkspaces": "Cartelle per questa esecuzione",
     "launchWorkspaceHint": "Modifiche e test sono limitati a queste cartelle. Seleziona almeno una cartella per ogni repository interessato.",
-    "advanced": "Configurazione multi-repository"
+    "advanced": "Configurazione multi-repository",
+    "clone": {
+      "title": "Clona da GitHub",
+      "description": "Crea una copia locale e aggiungila al progetto.",
+      "url": "Repository GitHub",
+      "destination": "Destinazione (nuova cartella)",
+      "browse": "Scegli cartella superiore",
+      "hint": "La cartella superiore deve esistere; quella nuova no. Usa le credenziali Git di questo computer. La copia rimane anche se annulli la registrazione.",
+      "preview": "Clona in: {{path}}",
+      "busy": "Clonazione… Potrebbe richiedere alcuni minuti.",
+      "submit": "Clona repository",
+      "failed": "Impossibile clonare il repository."
+    }
   },
   "repositoryDelivery": {
     "building": "Implementazione in corso",

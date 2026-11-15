@@ -1,7 +1,7 @@
 {
   "addProject": {
     "title": "Adicionar projeto",
-    "description": "Registe um diretório de projeto para o gerir a partir do Specrails.",
+    "description": "Adicione uma pasta local ou clone um repositório GitHub para o gerir no Specrails.",
     "noProviderDetected": "Nenhuma CLI de IA detetada. Instale primeiro Claude ou Codex.",
     "pathLabel": "Caminho do projeto",
     "pathPlaceholder": "/Users/eu/o-meu-projeto",
@@ -26,7 +26,7 @@
     "chooser": {
       "description": "Traga um repositório existente ou construa um projeto novinho a partir de uma ideia.",
       "existingTitle": "Projeto existente",
-      "existingDescription": "Registre um repositório que já existe no disco.",
+      "existingDescription": "Use um repositório local ou clone um do GitHub.",
       "newTitle": "Projeto novo",
       "newDescription": "Descreva uma ideia e receba um repo inicializado com um backlog do Marco 1."
     }

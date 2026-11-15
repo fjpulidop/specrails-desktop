@@ -138,7 +138,19 @@
     "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement y los loops verifican cada workspace de código indicado.",
     "launchWorkspaces": "Workspaces de esta ejecución",
     "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado.",
-    "advanced": "Configuración multirrepositorio"
+    "advanced": "Configuración multirrepositorio",
+    "clone": {
+      "title": "Clonar desde GitHub",
+      "description": "Crea una copia local y añádela a tu proyecto.",
+      "url": "Repositorio de GitHub",
+      "destination": "Destino (carpeta nueva)",
+      "browse": "Elegir carpeta contenedora",
+      "hint": "La carpeta contenedora debe existir; la nueva no. Usa las credenciales de Git de este equipo. La copia se conserva aunque canceles su registro.",
+      "preview": "Clonar en: {{path}}",
+      "busy": "Clonando… Puede tardar unos minutos.",
+      "submit": "Clonar repositorio",
+      "failed": "No se pudo clonar el repositorio."
+    }
   },
   "repositoryDelivery": {
     "building": "Implementando",

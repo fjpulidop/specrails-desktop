@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1392 source/build files. Nearby tests are linked where names
+Includes 1396 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -591,9 +591,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentIntentDraftCard.tsx](../../client/src/features/missions/components/AgentIntentDraftCard.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentIntentDraftCard.test.tsx)
 - [AgentMessage.tsx](../../client/src/features/missions/components/AgentMessage.tsx)
 - [AgentMissionSelector.tsx](../../client/src/features/missions/components/AgentMissionSelector.tsx)
-- [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx)
+- [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeAnalyticsPane.test.tsx)
 - [AgentModeCodePane.tsx](../../client/src/features/missions/components/AgentModeCodePane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeCodePane.test.tsx)
 - [AgentModeJobsPane.tsx](../../client/src/features/missions/components/AgentModeJobsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeJobsPane.test.tsx)
+- [AgentModeSpecsPane.tsx](../../client/src/features/missions/components/AgentModeSpecsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeSpecsPane.test.tsx)
 - [AgentModeSurface.tsx](../../client/src/features/missions/components/AgentModeSurface.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeSurface.test.tsx)
 - [AgentModelSelector.tsx](../../client/src/features/missions/components/AgentModelSelector.tsx)
 - [AgentPrCiOfferCard.tsx](../../client/src/features/missions/components/AgentPrCiOfferCard.tsx)
@@ -669,6 +670,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-composer-drafts.ts](../../client/src/features/missions/lib/agent-composer-drafts.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-composer-drafts.test.ts)
 - [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
+- [agent-spec-drag.ts](../../client/src/features/missions/lib/agent-spec-drag.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-spec-drag.test.ts)
 - [live-store.ts](../../client/src/features/missions/lib/live-store.ts) · [test](../../client/src/features/missions/lib/__tests__/live-store.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
 - [mission-sessions.ts](../../client/src/features/missions/lib/mission-sessions.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-sessions.test.ts)
@@ -715,6 +717,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/projects/components
 
 - [AddProjectDialog.tsx](../../client/src/features/projects/components/AddProjectDialog.tsx) · [test](../../client/src/features/projects/components/__tests__/AddProjectDialog.test.tsx)
+- [CloneRepositoryDialog.tsx](../../client/src/features/projects/components/CloneRepositoryDialog.tsx) · [test](../../client/src/features/projects/components/__tests__/CloneRepositoryDialog.test.tsx)
 - [InstallInstructionsModal.tsx](../../client/src/features/projects/components/InstallInstructionsModal.tsx) · [test](../../client/src/features/projects/components/__tests__/InstallInstructionsModal.test.tsx)
 - [OnboardingWizard.tsx](../../client/src/features/projects/components/OnboardingWizard.tsx) · [test](../../client/src/features/projects/components/__tests__/OnboardingWizard.test.tsx)
 - [PrerequisitesPanel.tsx](../../client/src/features/projects/components/PrerequisitesPanel.tsx) · [test](../../client/src/features/projects/components/__tests__/PrerequisitesPanel.test.tsx)
@@ -1202,6 +1205,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [framework-reseed.ts](../../server/framework-reseed.ts) · [test](../../server/framework-reseed.test.ts)
 - [git-diagnostics.ts](../../server/git-diagnostics.ts) · [test](../../server/git-diagnostics.test.ts)
 - [git-guardrails.ts](../../server/git-guardrails.ts) · [test](../../server/git-guardrails.test.ts)
+- [github-clone.ts](../../server/github-clone.ts) · [test](../../server/github-clone.test.ts)
 - [global-plugins-router.ts](../../server/global-plugins-router.ts)
 - [headroom-manager.ts](../../server/headroom-manager.ts) · [test](../../server/headroom-manager.test.ts)
 - [headroom-routing.ts](../../server/headroom-routing.ts) · [test](../../server/headroom-routing.test.ts)

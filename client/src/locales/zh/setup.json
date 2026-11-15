@@ -1,7 +1,7 @@
 {
   "addProject": {
     "title": "添加项目",
-    "description": "注册一个项目目录，以便在 Specrails 中管理。",
+    "description": "添加本地文件夹或克隆 GitHub 仓库，通过 Specrails 进行管理。",
     "noProviderDetected": "未检测到 AI CLI。请先安装 Claude Code、Codex CLI。",
     "pathLabel": "项目路径",
     "pathPlaceholder": "/Users/me/my-project",
@@ -26,7 +26,7 @@
     "chooser": {
       "description": "导入现有仓库，或从一个想法构建全新项目。",
       "existingTitle": "现有项目",
-      "existingDescription": "注册磁盘上已存在的仓库。",
+      "existingDescription": "使用本地仓库或从 GitHub 克隆。",
       "newTitle": "新项目",
       "newDescription": "描述一个想法，获得已初始化的仓库和里程碑 1 待办清单。"
     }

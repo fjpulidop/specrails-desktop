@@ -321,6 +321,7 @@
   "projects": {
     "publicEntries": [
       "components/AddProjectDialog.tsx",
+      "components/CloneRepositoryDialog.tsx",
       "components/OnboardingWizard.tsx",
       "components/ProjectErrorBoundary.tsx",
       "components/RepositoryScopeSelector.tsx",
@@ -428,6 +429,7 @@
       "components/SpecTriageChip.tsx",
       "components/SpecsBoard.tsx",
       "components/TicketDetailModal.tsx",
+      "components/TicketStatusIndicator.tsx",
       "components/explore-spec/useSmoothStream.ts",
       "context/SmashTrackerContext.tsx",
       "context/SpecExtensionsContext.tsx",

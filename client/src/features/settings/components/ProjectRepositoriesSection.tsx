@@ -1,3 +1,4 @@
+import { CloneRepositoryDialog } from '../../projects/components/CloneRepositoryDialog'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FolderGit2, FolderOpen, Plus } from 'lucide-react'
@@ -114,6 +115,7 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
             }}><FolderOpen className="h-4 w-4" /></Button>}
           </div>
         </label>
+        {adding && <CloneRepositoryDialog disabled={busy} onCloned={setPath} />}
         <label className="block space-y-1 text-xs">{t('repositories.workspacePath')}
           <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={workspacePath} disabled={busy} placeholder={editing?.path ?? path} onChange={(event) => setWorkspacePath(event.target.value)} />
           <span className="block text-muted-foreground">{t('repositories.workspaceHint')}</span>

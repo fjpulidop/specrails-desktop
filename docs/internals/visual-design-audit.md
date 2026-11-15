@@ -21,6 +21,20 @@ chevron disclosure, closed initially. Expanded tools appear vertically in this
 order: Companion (when available), Analytics, Docs. The Settings icon and label
 open the app settings modal; a separate chevron button toggles the group.
 
+## Area identity and sidebar visibility
+
+The current workspace uses theme-derived `data-area` accents from `globals.css`:
+missions/terminal = primary, specs/browser = info, jobs = warning, analytics =
+success, files = highlight. Navigation icons, selected rows, pane headings and
+subtle surface backgrounds share the area accent. Status colours remain unchanged;
+an area colour is not evidence of success, failure or running state.
+
+All three sidebars reserve zero width and hide their contents (including keyboard
+focus targets) when closed. Auto-hide has an invisible 8px edge target and retains
+hover dwell/grace timing; explicit hiding has no edge target. The desktop and web
+headers provide the visibility controls, alongside existing keyboard shortcuts.
+Builder follows the same visibility preference. Expanded widths remain persisted.
+
 ## 1.2 Icon scale (lucide, `w-N h-N` pair idiom — never `size={}` props)
 | Context | Size | Margin |
 |---|---|---|
