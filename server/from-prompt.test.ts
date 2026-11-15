@@ -192,6 +192,17 @@ describe('POST /tickets/from-prompt (Raw mode)', () => {
     expect(countInvocations()).toBe(0)
   })
 
+  it('[spec:spec-creation-provider-affinity/non-mission-creation-unchanged] has no mission context: pins no provider and runs no AI step', async () => {
+    const pinProvider = vi.fn()
+    ;(ctx as unknown as { specTriage: unknown }).specTriage = { pinProvider }
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-prompt')
+      .send({ description: 'raw prompt', agentProvider: 'codex' })
+    expect(res.status).toBe(201)
+    expect(pinProvider).not.toHaveBeenCalled()
+    expect(countInvocations()).toBe(0)
+  })
+
   it('never broadcasts spending.invalidated (no invocation, no contract-refine)', async () => {
     const app = createApp(ctx)
     await request(app)

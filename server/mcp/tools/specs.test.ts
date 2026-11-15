@@ -411,6 +411,20 @@ describe('specrails_specs commit_draft — framing gate', () => {
     expect(listAgentMessages(db, conversationId)).toHaveLength(0)
   })
 
+  it('[spec:spec-creation-provider-affinity/mission-provider-governs-derived-ai-steps] a first-party commit sends the mission conversation provider as agentProvider', async () => {
+    conversationId = createAgentConversation(db, { provider: 'codex' }).id
+    answeredFrame()
+    await spec.handler(firstParty(), { ...commitArgs })
+    const call = fetchMock.mock.calls.at(-1) as [string, { body?: string }]
+    expect(JSON.parse(call[1].body ?? '{}')).toMatchObject({ agentProvider: 'codex' })
+  })
+
+  it('[spec:spec-creation-provider-affinity/non-mission-creation-unchanged] an EXTERNAL MCP client sends no agentProvider', async () => {
+    await spec.handler(baseCtx, { ...commitArgs })
+    const call = fetchMock.mock.calls.at(-1) as [string, { body?: string }]
+    expect(JSON.parse(call[1].body ?? '{}')).not.toHaveProperty('agentProvider')
+  })
+
   it('a first-party call without a conversation is not gated (nothing to read)', async () => {
     const noConversation = { ...baseCtx, firstPartyAgent: true, originConversationId: null }
     await expect(spec.handler(noConversation, { ...commitArgs })).resolves.toEqual({ id: 42 })

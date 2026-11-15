@@ -809,8 +809,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       if (explicitDraftMissing) {
         res.status(404).json({ error: 'Draft ticket not found or not in draft status' }); return
       }
-      const { broadcast, ticketWatcher, project } = ctx(req)
+      const { broadcast, ticketWatcher, project, specTriage } = ctx(req)
       ticketWatcher.notifyDesktopWrite(store.revision)
+
+      // The mission that initiates the save owns every AI step it triggers.
+      // Capture its provider now, before the ticket broadcast lets the triage
+      // watcher schedule a run, so a later selector change cannot alter it.
+      const convoProvider = conversationId
+        ? resolveConversationProvider(ctx(req), conversationId)
+        : null
+      const requestedAgentProvider = typeof body.agentProvider === 'string' && body.agentProvider !== '' ? body.agentProvider : null
+      const missionProvider = convoProvider ?? (requestedAgentProvider && validateRequestedProvider(project, requestedAgentProvider).ok ? requestedAgentProvider : null)
+      if (missionProvider && created) specTriage?.pinProvider(created.id, missionProvider)
 
       // Migrate attachments from pendingSpecId → real ticket id (mirrors the
       // generate-spec flow). Must complete before broadcasting ticket_created
@@ -869,9 +879,6 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       // Gate on the CONVERSATION's own engine, not the project's PRIMARY
       // provider: a multi-provider project with a non-claude primary can still
       // run an Explore on the claude engine + opt into Contract Refine.
-      const convoProvider = conversationId
-        ? resolveConversationProvider(ctx(req), conversationId)
-        : null
       if (
         conversationId &&
         created &&
@@ -914,7 +921,6 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         // specs facade defaults it ON for agent-authored commit_drafts. The
         // The originating agent provider is forwarded by the authenticated MCP
         // facade. Never borrow another installed provider (and its quota).
-        const requestedAgentProvider = typeof body.agentProvider === 'string' ? body.agentProvider : null
         const providerCheck = validateRequestedProvider(project, requestedAgentProvider)
         const refineProvider = providerCheck.ok ? providerCheck.provider : null
         if (refineProvider && supportsContractRefine(getAdapter(refineProvider))) {

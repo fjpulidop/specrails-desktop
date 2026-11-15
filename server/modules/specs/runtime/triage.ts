@@ -61,12 +61,19 @@ export function cheapestModelForProvider(provider: string): string {
   return best?.model ?? getProviderDefault(provider)
 }
 
-/** The `triage` role engine when configured and usable, else the primary provider's cheapest model. */
-export function resolveTriageEngine(project: TriageProject): TriageEngineResolution {
+/**
+ * The `triage` role engine when configured and usable, else the primary provider's cheapest model.
+ * A `provider` override (the mission that created the spec) wins over both and never falls back:
+ * an unusable override resolves to a reason, not to another provider. The stored role model is
+ * only reused when it belongs to the overriding provider.
+ */
+export function resolveTriageEngine(project: TriageProject, opts: { provider?: string } = {}): TriageEngineResolution {
   const stored = loadLoopRoleEngines(project).triage
-  let provider = derivePrimaryProvider(project)
+  let provider = opts.provider ?? derivePrimaryProvider(project)
   let model: string | undefined
-  if (stored && isProviderEnabled(project, stored.provider) && hasAdapter(stored.provider)) {
+  if (opts.provider) {
+    model = stored?.provider === provider && stored.model && isValidModelForProvider(stored.model, provider) ? stored.model : undefined
+  } else if (stored && isProviderEnabled(project, stored.provider) && hasAdapter(stored.provider)) {
     provider = stored.provider
     model = stored.model && isValidModelForProvider(stored.model, provider) ? stored.model : undefined
   }
@@ -138,7 +145,7 @@ export interface SpecTriageDeps {
   /** Suppress the ticket-watcher echo of our own write. */
   notifyDesktopWrite?: (revision: number) => void
   // Test seams.
-  resolveEngine?: () => TriageEngineResolution
+  resolveEngine?: (opts: { provider?: string }) => TriageEngineResolution
   runModel?: TriageModelRunner
   repoMap?: () => TriageRepoMap | null
   loops?: () => TriageLoopOption[]
@@ -158,6 +165,8 @@ export type TriageOutcome =
 export class SpecTriageService {
   private readonly seen = new Map<number, string>()
   private readonly pending = new Set<number>()
+  /** Mission provider captured at save time, per ticket: immutable until a terminal record is written. */
+  private readonly pinnedProviders = new Map<number, string>()
   private chain: Promise<unknown> = Promise.resolve()
   private timer: ReturnType<typeof setTimeout> | null = null
   private readonly abort = new AbortController()
@@ -202,6 +211,12 @@ export class SpecTriageService {
   /** On-demand triage. `force` ignores an unchanged inputsHash (Recalculate). */
   triageNow(ticketId: number, opts: { force?: boolean } = {}): Promise<TriageOutcome> {
     return this.enqueue(ticketId, opts.force === true)
+  }
+
+  /** Fix the provider a freshly saved spec must be triaged with (first pin wins). */
+  pinProvider(ticketId: number, provider: string): void {
+    if (this.disposed || this.pinnedProviders.has(ticketId)) return
+    this.pinnedProviders.set(ticketId, provider)
   }
 
   dispose(): void {
@@ -256,11 +271,16 @@ export class SpecTriageService {
     const applicability = triageApplicability(ticket)
     if (applicability !== 'ok') return { kind: 'not_applicable', reason: applicability }
 
-    const engine = (this.deps.resolveEngine ?? (() => resolveTriageEngine(this.deps.project)))()
+    const pinned = this.pinnedProviders.get(ticketId)
+    const resolveOpts = pinned ? { provider: pinned } : {}
+    const engine = (this.deps.resolveEngine ?? ((opts) => resolveTriageEngine(this.deps.project, opts)))(resolveOpts)
     const { inputs, loops } = await this.collectInputs(ticket, store, engine)
     const inputsHash = hashTriageInputs(inputs)
     const existing = ticket.metadata?.triage
-    if (!force && isTicketTriage(existing) && existing.inputsHash === inputsHash) return { kind: 'unchanged', triage: existing }
+    if (!force && isTicketTriage(existing) && existing.inputsHash === inputsHash) {
+      this.pinnedProviders.delete(ticketId)
+      return { kind: 'unchanged', triage: existing }
+    }
 
     const computedAt = () => (this.deps.now?.() ?? new Date()).toISOString()
     let record: TicketTriage
@@ -270,6 +290,7 @@ export class SpecTriageService {
       record = await this.callModel(ticket.id, engine.engine, inputs, loops, inputsHash, computedAt)
     }
     if (this.disposed) return { kind: 'disposed' }
+    this.pinnedProviders.delete(ticketId)
     const written = this.write(ticket.id, record)
     return written ? { kind: 'stored', triage: record } : { kind: 'not_found' }
   }
