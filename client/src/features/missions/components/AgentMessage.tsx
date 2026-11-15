@@ -341,7 +341,7 @@ function AgentReplyImage({ conversationId, image, onOpen }: { conversationId: st
       {src
         ? <img src={src} alt={image.filename} className="block h-auto w-full" />
         : <div className="flex aspect-square w-full items-center justify-center text-xs text-muted-foreground">
-            {failed ? t('attachment.loadFailed') : <ImageIcon className="h-6 w-6 animate-pulse text-muted-foreground/60" aria-hidden />}
+            {failed ? t('attachment.loadFailed') : <ImageIcon className="h-6 w-6 animate-pulse text-muted-foreground" aria-hidden />}
           </div>}
     </button>
   )
