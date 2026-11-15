@@ -164,16 +164,16 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
  * Must be mounted as the very first child of the root layout so it sits at
  * the top of the window and the drag region covers the full width.
  */
-export function TitleBar() {
+export function TitleBar({ showSidebarToggles = true }: { showSidebarToggles?: boolean }) {
   if (!isTauriEnv()) return <BrowserTitleBar />
 
   const macOverlay = isMacOverlay()
 
   if (macOverlay) {
-    return <MacTitleBar />
+    return <MacTitleBar showSidebarToggles={showSidebarToggles} />
   }
 
-  return <DefaultTitleBar />
+  return <DefaultTitleBar showSidebarToggles={showSidebarToggles} />
 }
 
 /** Web users also need a visible way back when both sidebars are hidden. */
@@ -223,7 +223,7 @@ function useRightSidebarMounted(): boolean {
   return hasRightSidebar({ uiMode, pathname, hasActiveProject })
 }
 
-function MacTitleBar() {
+function MacTitleBar({ showSidebarToggles }: { showSidebarToggles: boolean }) {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
@@ -244,17 +244,17 @@ function MacTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
+      <div className="ml-[80px] flex items-center gap-2">{showSidebarToggles && <SidebarWindowButton side="left" />}<PlaceNavButtons /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
       <div className="ml-auto mr-2 flex items-center gap-1">
         <InboxButton />
-        {showRight && <SidebarWindowButton side="right" />}
+        {showRight && showSidebarToggles && <SidebarWindowButton side="right" />}
       </div>
     </header>
   )
 }
 
-function DefaultTitleBar() {
+function DefaultTitleBar({ showSidebarToggles }: { showSidebarToggles: boolean }) {
   const { t } = useTranslation('nav')
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
@@ -314,7 +314,7 @@ function DefaultTitleBar() {
           both modes keeps the in-flow children identical. */}
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
 
-      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
+      <div className="flex items-center gap-2">{showSidebarToggles && <SidebarWindowButton side="left" />}<PlaceNavButtons /></div>
 
       {/* Right: native-feeling window controls for frameless Windows/Linux */}
       <div
@@ -328,7 +328,7 @@ function DefaultTitleBar() {
         } as React.CSSProperties}
       >
         <InboxButton />
-        {showRight && <SidebarWindowButton side="right" />}
+        {showRight && showSidebarToggles && <SidebarWindowButton side="right" />}
         <WinButton
           onClick={handleMinimize}
           icon={<Minus size={14} strokeWidth={1.8} />}
