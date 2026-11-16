@@ -213,6 +213,68 @@ describe('project-router', () => {
     db = initDb(':memory:')
   })
 
+  describe('blueprint generation settings', () => {
+    const preferred = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' }
+    function setup() {
+      const context = makeContext(db)
+      context.project.providers = ['claude', 'codex', 'kimi']
+      const contexts = new Map([['proj-1', context], ['proj-2', makeContext(initDb(':memory:'))]])
+      return { ...createApp(contexts), contexts }
+    }
+
+    it('persists the preference per project and applies it only to milestone conversations', async () => {
+      const { app, contexts } = setup()
+      const url = '/api/projects/proj-1/blueprint/generation-settings'
+      const saved = await request(app).put(url).send(preferred)
+      expect(saved.status).toBe(200)
+      expect(saved.body.selection).toEqual(preferred)
+      const execution = await request(app).get('/api/projects/proj-1/blueprint/launch-settings')
+      expect(execution.status).toBe(200)
+      expect(execution.body.selection.provider).toBe('claude')
+      expect(saved.body.providers.map((p: { provider: string }) => p.provider)).toEqual(['claude', 'codex'])
+      // Recreating the router reads durable state rather than instance memory.
+      const reopened = createApp(contexts).app
+      expect((await request(reopened).get(url)).body.selection).toEqual(preferred)
+      expect((await request(reopened).get('/api/projects/proj-2/blueprint/generation-settings')).body.selection.provider).toBe('claude')
+      const milestone = await request(app).post('/api/projects/proj-1/chat/conversations').send({ kind: 'milestone', milestone: 'm2' })
+      expect(milestone.status).toBe(201)
+      expect(milestone.body.conversation).toMatchObject({ provider: 'codex', model: preferred.model })
+      expect(JSON.parse(milestone.body.conversation.context_scope).reasoningEffort).toBe('high')
+      const ordinary = await request(app).post('/api/projects/proj-1/chat/conversations').send({})
+      expect(ordinary.body.conversation.provider).toBe('claude')
+    })
+
+    it('uses an explicit override without overwriting the preference', async () => {
+      const { app } = setup()
+      const url = '/api/projects/proj-1/blueprint/generation-settings'
+      await request(app).put(url).send(preferred)
+      const override = await request(app).post('/api/projects/proj-1/chat/conversations').send({
+        kind: 'milestone', milestone: 'm2', provider: 'claude', model: 'sonnet', reasoningEffort: 'low',
+      })
+      expect(override.status).toBe(201)
+      expect(override.body.conversation).toMatchObject({ provider: 'claude', model: 'sonnet' })
+      expect(JSON.parse(override.body.conversation.context_scope).reasoningEffort).toBe('low')
+      expect((await request(app).get(url)).body.selection).toEqual(preferred)
+    })
+
+    it('rejects unavailable providers, incompatible models and efforts without changing the saved preference', async () => {
+      const { app } = setup()
+      const url = '/api/projects/proj-1/blueprint/generation-settings'
+      await request(app).put(url).send(preferred)
+      for (const bad of [
+        { ...preferred, provider: 'kimi', model: 'k3' },
+        { ...preferred, provider: 'missing' },
+        { ...preferred, model: 'sonnet' },
+        { ...preferred, reasoningEffort: 'invalid' },
+      ]) expect((await request(app).put(url).send(bad)).status).toBe(400)
+      expect((await request(app).get(url)).body.selection).toEqual(preferred)
+      const rejected = await request(app).post('/api/projects/proj-1/chat/conversations').send({
+        kind: 'milestone', milestone: 'm2', ...preferred, reasoningEffort: 'invalid',
+      })
+      expect(rejected.status).toBe(400)
+    })
+  })
+
   // ─── Middleware: unknown projectId ──────────────────────────────────────────
 
   describe('unknown projectId middleware', () => {

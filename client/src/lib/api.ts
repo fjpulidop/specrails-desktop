@@ -2,8 +2,8 @@
  * Returns the base URL prefix for project-scoped API calls.
  *
  * The Super-mode server is the only supported runtime; this helper always returns
- * `${API_ORIGIN}/api/projects/<activeProjectId>`. Callers must set the active
- * project via `setActiveProjectId` before using the helper. Endpoints that are
+ * `${API_ORIGIN}/api/projects/<projectId>`. Defaults to the active project;
+ * pass an explicit id for a newly created project before activating it. Endpoints that are
  * not project-scoped (e.g. `/api/*`, `/api/health`) should reference
  * `API_ORIGIN` directly instead of going through `getApiBase`.
  */
@@ -19,9 +19,9 @@ export function setActiveProjectId(projectId: string | null): void {
 /** @deprecated alias kept for tests; prefer `setActiveProjectId`. */
 export const setApiContext = (projectId: string | null): void => setActiveProjectId(projectId)
 
-export function getApiBase(): string {
-  if (!_activeProjectId) {
+export function getApiBase(projectId: string | null = _activeProjectId): string {
+  if (!projectId) {
     throw new Error('getApiBase called with no active project — call setActiveProjectId first')
   }
-  return `${API_ORIGIN}/api/projects/${_activeProjectId}`
+  return `${API_ORIGIN}/api/projects/${projectId}`
 }

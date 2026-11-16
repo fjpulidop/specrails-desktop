@@ -29,6 +29,12 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
+Failure diagnosis accepts both legacy `stepId`/text errors and Engine 2
+`nodePath`/`{code, message}` errors. The HTTP projection retains a bounded text
+error and step id, so a structured provider failure cannot turn diagnosis into
+a 503. Repetition detection uses the failed attempt when Core omits a run-level
+error. Reading diagnosis never resumes an execution.
+
 ## Phase-3 Core capabilities
 
 [`runtime/core-capabilities.ts`](runtime/core-capabilities.ts) projects the

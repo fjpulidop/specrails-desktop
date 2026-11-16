@@ -6,7 +6,8 @@ import {
   createConversation, listConversations, getConversation,
   deleteConversation, updateConversation, getMessages
 } from './db'
-import { getAdapter } from './providers'
+import { getAdapter, reasoningEffortsForModel } from './providers'
+import { readMilestoneGenerationSelection } from './modules/builder/runtime/milestone-generation-settings'
 import { supportsToolPolicy } from './providers/runtime'
 import {
   getLastContextScope, setLastContextScope, normalizeContextScope, type ContextScope
@@ -38,14 +39,16 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     // it uses the project's primary provider. The chosen provider drives model
     // validation and is persisted on the conversation so resume turns and
     // ai_invocations attribute to the right engine.
-    const requestedEngine = req.body?.aiEngine ?? req.body?.provider
+    const milestoneDefaults = req.body?.kind === 'milestone' ? readMilestoneGenerationSelection(db) : null
+    const requestedEngine = req.body?.aiEngine ?? req.body?.provider ?? milestoneDefaults?.provider
     const engineCheck = validateRequestedProvider(project, requestedEngine)
     if (!engineCheck.ok) {
       res.status(400).json({ error: engineCheck.error })
       return
     }
     const provider = engineCheck.provider as SpecProvider
-    const rawModel = req.body?.model
+    const sameDefaultProvider = provider === milestoneDefaults?.provider
+    const rawModel = req.body?.model ?? (sameDefaultProvider ? milestoneDefaults?.model : undefined)
     let model: string
     if (rawModel === undefined || rawModel === null || rawModel === '') {
       model = resolveDefaultSpecModel({ projectPath: project.path, slug: project.slug, provider })
@@ -85,7 +88,15 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
         res.status(400).json({ error: 'milestone (e.g. "m2") is required for kind=milestone' })
         return
       }
-      milestoneScope = { milestone: rawMilestone.toLowerCase() }
+      const effort = req.body?.reasoningEffort === undefined
+        ? (sameDefaultProvider && model === milestoneDefaults?.model ? milestoneDefaults.reasoningEffort : null)
+        : req.body.reasoningEffort
+      if (effort !== null && effort !== undefined && (typeof effort !== 'string'
+        || !(reasoningEffortsForModel(getAdapter(provider), model) as readonly string[]).includes(effort))) {
+        res.status(400).json({ error: 'reasoning effort not in provider catalog' })
+        return
+      }
+      milestoneScope = { milestone: rawMilestone.toLowerCase(), ...(effort ? { reasoningEffort: effort } : {}) }
     }
     let scope: ContextScope | undefined
     if (kind === 'explore') {
@@ -100,9 +111,9 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
       setLastContextScope(db, scope)
       console.log(`[project-router] new explore conv ${id} provider=${provider} scope=${JSON.stringify(scope)} rawScope=${JSON.stringify(rawScope)}`)
     }
-    // Only persist provider when the project is multi-provider; single-provider
-    // projects leave it NULL so behaviour is byte-identical to before.
-    const persistProvider = isMultiProvider(project) ? provider : null
+    // Milestones capture the selected provider even on a single-provider machine;
+    // other legacy conversation kinds retain their single-provider NULL behavior.
+    const persistProvider = kind === 'milestone' || isMultiProvider(project) ? provider : null
     createConversation(db, { id, model, kind, contextScope: scope ?? milestoneScope, provider: persistProvider })
     const conversation = getConversation(db, id) as ChatConversationRow
     res.status(201).json({ conversation })

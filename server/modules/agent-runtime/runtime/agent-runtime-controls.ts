@@ -75,7 +75,7 @@ export function readRuntimeSteering(value: unknown): RuntimeSteeringState | unde
 }
 export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
-interface RuntimeFailure { stepId: string; status: string; at: string; error?: string }
+interface RuntimeFailure { stepId?: string; nodePath?: string; status: string; at: string; error?: string | { code?: string; message?: string } }
 interface RuntimeInspection {
   resumePhase?: string | null
   verification?: { valid: boolean; reasons: string[] }
@@ -418,8 +418,15 @@ export class AgentRuntimeControls {
     const { file, frozen, cwd, env } = this.context(runId)
     const state = await this.dependencies.status(file, cwd, env)
     if (!state || state.runId !== runId) throw new RuntimeControlError(409, 'runtime_state_unavailable', 'No saved workflow state is available')
-    const failures = (state.recentFailures ?? []).slice(-8).map(item => ({ stepId: item.stepId, status: item.status, at: item.at, error: item.error?.slice(-6000) }))
-    const matching = failures.filter(item => item.status === 'failed' && item.stepId === state.nextStep && !!item.error && item.error === state.error?.slice(-6000))
+    const failures = (state.recentFailures ?? []).slice(-8).map(item => ({
+      stepId: item.stepId ?? item.nodePath, status: item.status, at: item.at,
+      error: (typeof item.error === 'string' ? item.error
+        : item.error ? [item.error.code, item.error.message].filter(value => typeof value === 'string').join(': ') : undefined)?.slice(-6000),
+    }))
+    // Engine 2 reports the latest error on the failed attempt, whereas legacy
+    // status also carried it at the run level. Match either representation.
+    const currentError = state.error?.slice(-6000) ?? [...failures].reverse().find(item => item.stepId === state.nextStep)?.error
+    const matching = failures.filter(item => item.status === 'failed' && item.stepId === state.nextStep && !!item.error && item.error === currentError)
     const repeated = matching.length > 1
     const recommendation = summary.active ? 'wait_for_active_run'
       : summary.canSettle ? 'prepare_delivery'

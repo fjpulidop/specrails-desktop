@@ -25,6 +25,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({ activeProjectId: mockActiveProjectId, projects: [], setActiveProjectId: vi.fn() }),
 }))
 const mockNavigate = vi.fn()
+vi.mock('../../lib/api', () => ({ getApiBase: () => '/api/projects/proj-1' }))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return { ...(actual as object), useNavigate: () => mockNavigate }
@@ -80,6 +81,10 @@ async function openPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+    selection: { provider: 'claude', model: 'sonnet', reasoningEffort: null },
+    providers: [{ provider: 'claude', defaultModel: 'sonnet', models: [{ value: 'sonnet', label: 'Sonnet' }], effortsByModel: { sonnet: ['low', 'high'] } }],
+  }) })
   mockActiveProjectId = 'proj-1'
   localStorage.clear()
   progressState.blueprint = blueprint()
@@ -131,7 +136,7 @@ describe('BuilderSidebarEntry', () => {
     const user = await openPanel()
     expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'true')
     await user.click(screen.getByTestId('sidebar-launch-m1'))
-    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: true })
+    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: true, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } })
     expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — spec 1 of 3 is on its rail; the next specs follow automatically, one rail each')
   })
 
@@ -142,7 +147,7 @@ describe('BuilderSidebarEntry', () => {
     expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'false')
     expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('false')
     await user.click(screen.getByTestId('sidebar-launch-m1'))
-    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: false })
+    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: false, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } })
     expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — spec 1 of 3 is on its rail; you\'ll be asked before each next one')
   })
 

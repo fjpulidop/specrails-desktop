@@ -14,12 +14,16 @@ vi.mock('../lib/mission-windows', async original => ({
 }))
 
 let wsHandler: ((msg: unknown) => void) | null = null
+const wsHandlers = new Map<string, (msg: unknown) => void>()
 let wsConnectionStatus: 'connected' | 'disconnected' = 'connected'
 
 vi.mock('../../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
-    registerHandler: (_id: string, fn: (m: unknown) => void) => { wsHandler = fn },
-    unregisterHandler: () => { wsHandler = null },
+    registerHandler: (id: string, fn: (m: unknown) => void) => {
+      wsHandlers.set(id, fn)
+      wsHandler = (msg) => { for (const handler of [...wsHandlers.values()]) handler(msg) }
+    },
+    unregisterHandler: (id: string) => { wsHandlers.delete(id); if (!wsHandlers.size) wsHandler = null },
     connectionStatus: wsConnectionStatus,
   }),
 }))
@@ -123,6 +127,8 @@ function Harness() {
   const [applyResult, setApplyResult] = useState('')
   return (
     <div>
+      <button onClick={() => agentChat.builderMode.enter()}>enter-builder</button>
+      <span data-testid="builder-active">{String(agentChat.builderMode.active)}</span>
       <span data-testid="archive-scope">{agentChat.archiveScope}</span>
       <span data-testid="list-loading">{String(agentChat.conversationsLoading)}</span>
       <span data-testid="list-error">{agentChat.conversationsError ?? ''}</span>
@@ -177,6 +183,7 @@ function Harness() {
 }
 
 beforeEach(() => {
+  wsHandlers.clear()
   wsHandler = null
   wsConnectionStatus = 'connected'
   vi.clearAllMocks()
@@ -201,6 +208,18 @@ beforeEach(() => {
 })
 
 describe('cross-client mission synchronization', () => {
+  it('keeps the Builder visible when project creation announces its placeholder mission', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('enter-builder')) })
+    expect(screen.getByTestId('builder-active')).toHaveTextContent('true')
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([{ ...api.conv1, id: 'placeholder' }])
+    await act(async () => { wsHandler!({ type: 'agent_conversation_created', conversationId: 'placeholder', openOnArrival: true }) })
+    await waitFor(() => expect(screen.getByTestId('conversation-ids')).toHaveTextContent('placeholder'))
+    expect(screen.getByTestId('builder-active')).toHaveTextContent('true')
+    expect(screen.getByTestId('active-id')).not.toHaveTextContent('placeholder')
+    expect(agentApi.getAgentConversation).not.toHaveBeenCalledWith('placeholder')
+  })
+
   it('refreshes remotely created missions without changing the active conversation', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('select-c1')) })

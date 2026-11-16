@@ -209,7 +209,7 @@ describe('ChatManager', () => {
         model,
         kind: 'milestone',
         provider,
-        contextScope: { milestone: 'm2' },
+        contextScope: { milestone: 'm2', reasoningEffort: provider === 'gemini' ? null : 'high' },
       })
       return {
         manager: new ChatManager(broadcast, db, projectPath, 'Atlas', provider, 'project-atlas', slug),
@@ -275,6 +275,7 @@ describe('ChatManager', () => {
       const systemIndex = args.indexOf('--system-prompt')
       expect(systemIndex).toBeGreaterThanOrEqual(0)
       expectRichMilestoneContract(args[systemIndex + 1])
+      expect(args.slice(args.indexOf('--effort'), args.indexOf('--effort') + 2)).toEqual(['--effort', 'high'])
       expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
         .toEqual(['--tools', 'Read,Grep,Glob'])
       expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2))
@@ -316,6 +317,7 @@ describe('ChatManager', () => {
       expect(args).not.toContain('workspace-write')
       expect(args).not.toContain('danger-full-access')
       if (provider === 'codex') {
+        expect(args).toContain('model_reasoning_effort="high"')
         expect(args.slice(args.indexOf('--sandbox'), args.indexOf('--sandbox') + 2))
           .toEqual(['--sandbox', 'read-only'])
       } else {

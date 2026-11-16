@@ -143,7 +143,15 @@
       "details": "Writing specs {{from}}–{{to}} of {{total}} in full…",
       "audit": "Auditing all {{total}} specs…",
       "repair": "Re-asking for specs {{from}}–{{to}}…"
-    }
+    },
+    "habitual": "Usual configuration for the next iterations",
+    "override": "Use another configuration for M{{n}} only",
+    "defaultEffort": "Provider default",
+    "save": "Save usual configuration",
+    "saving": "Saving…",
+    "failed": "Could not load or save the configuration. Close and reopen Blueprint to retry.",
+    "unavailable": "The selected configuration is unavailable. Choose an installed, compatible AI and model.",
+    "reset": "Use provider defaults"
   },
   "readiness": {
     "title": "Ready to create specs?",
@@ -380,5 +388,11 @@
       "settledTitle": "Blueprint approved",
       "settledDescription": "The Builder is generating the Milestone-1 backlog from this blueprint."
     }
+  },
+  "execution": {
+    "configuration": "AI for executing M1",
+    "hint": "Applies to every rail in this milestone, including retries.",
+    "failed": "Could not load the available AI configurations.",
+    "retry": "Retry"
   }
 }

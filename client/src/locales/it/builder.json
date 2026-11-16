@@ -143,7 +143,15 @@
       "details": "Scrittura dettagliata delle spec {{from}}–{{to}} di {{total}}…",
       "audit": "Verifica di tutte le {{total}} spec…",
       "repair": "Nuova richiesta delle spec {{from}}–{{to}}…"
-    }
+    },
+    "habitual": "Configurazione abituale per le prossime iterazioni",
+    "override": "Usa un’altra configurazione solo per M{{n}}",
+    "defaultEffort": "Predefinito del provider",
+    "save": "Salva configurazione abituale",
+    "saving": "Salvataggio…",
+    "failed": "Impossibile caricare o salvare la configurazione. Chiudi e riapri Blueprint per riprovare.",
+    "unavailable": "La configurazione scelta non è disponibile. Scegli un’IA installata e un modello compatibile.",
+    "reset": "Usa i valori predefiniti del provider"
   },
   "readiness": {
     "title": "Pronto a creare le spec?",
@@ -380,5 +388,11 @@
       "settledTitle": "Blueprint approvato",
       "settledDescription": "Il Builder sta generando il backlog della Milestone 1 da questo blueprint."
     }
+  },
+  "execution": {
+    "configuration": "IA per eseguire M1",
+    "hint": "Si applica a tutti i rail di questo traguardo, inclusi i nuovi tentativi.",
+    "failed": "Impossibile caricare le configurazioni IA disponibili.",
+    "retry": "Riprova"
   }
 }

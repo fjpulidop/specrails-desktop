@@ -980,6 +980,28 @@ describe('rails-router loop mode', () => {
     expect(run.mock.calls[0][0].runtimeProviderOverride).toBeUndefined()
   })
 
+  it('rejects a milestone engine that conflicts with a loop-owned engine before spawning', async () => {
+    const graph = coreFactoryGraph('implement', true)
+    graph.config.agents!.agents.developer = { provider: 'codex', model: 'gpt-6.1-sol' }
+    createLoop(desktopDb, { id: 'fixed-engine', name: 'Fixed engine', graph })
+    publishLoop(desktopDb, 'fixed-engine')
+    const run = vi.fn()
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'fixed-engine', aiEngine: 'claude', model: 'sonnet', reasoning_effort: 'high', requireEngineSelection: true })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('loop_engine_conflict')
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('executes a strict milestone choice through the ordinary loop launch path', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId, aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: 'high', requireEngineSelection: true })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(run.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6.1-sol', effort: 'high', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6.1-sol', effort: 'high' } })
+  })
+
   it('falls back to the QueueManager mode when Loops are disabled', async () => {
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
     setRailTickets(db, 0, [1, 2], 'loop')

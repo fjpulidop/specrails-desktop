@@ -90,6 +90,27 @@ beforeEach(() => {
 })
 
 describe('MilestoneGenerateShell rich-spec gate', () => {
+  it('sends the selected provider, model and effort before the seeded turn', async () => {
+    render(<SharedWebSocketContext.Provider value={ws}>
+      <MilestoneGenerateShell open onClose={vi.fn()} projectId="proj-1" milestoneId="m2" blueprint={projectBlueprint}
+        provider="codex" model="gpt-6.1-sol" reasoningEffort="high" />
+    </SharedWebSocketContext.Provider>)
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/projects/proj-1/chat/conversations/conv-1/messages', expect.anything(),
+    ))
+    const request = vi.mocked(global.fetch).mock.calls[0][1]
+    expect(JSON.parse(String(request?.body))).toEqual({
+      kind: 'milestone', milestone: 'm2', provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high',
+    })
+  })
+
+  it('does not send a seeded turn when creation is rejected', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: 'invalid selection' }) } as Response)
+    renderShell()
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('milestone-commit')).toBeDisabled()
+  })
+
   it('does not create or send a milestone conversation for Kimi', () => {
     render(
       <SharedWebSocketContext.Provider value={ws}>

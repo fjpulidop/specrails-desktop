@@ -147,6 +147,27 @@ describe('chunking + naming + ordering', () => {
 })
 
 describe('MilestoneChainManager — sequential', () => {
+  it('freezes the selected engine across failure, a new manager, retry and the next rail', async () => {
+    const f = fake()
+    const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' }
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine })
+    if (!result.ok) throw new Error('start failed')
+    const expected = { aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: 'high', requireEngineSelection: true }
+    expect(f.launches[0].body).toMatchObject(expected)
+    expect(JSON.parse(getChain(db, result.chainId!)!.engine_config!)).toEqual(engine)
+    engine.provider = 'claude'
+    manager.onRunSettled('run-1', 'failed')
+    settle(f, manager, 3, 'implementation_failed', null)
+    await flush()
+    const restarted = new MilestoneChainManager(db, 'p1', f.io)
+    expect((await restarted.resume(result.chainId!)).ok).toBe(true)
+    expect(f.launches[1].body).toMatchObject(expected)
+    settle(f, restarted, f.launches[1].railIndex, 'merged', 'feat/first')
+    await flush()
+    expect(f.launches[2].body).toMatchObject(expected)
+  })
+
   it('stacks grouped chunks from durable delivery history after restart without guessing a primary branch', async () => {
     const f = fake()
     const mgr = new MilestoneChainManager(db, 'p1', f.io)

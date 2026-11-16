@@ -41,6 +41,34 @@ function seedWorkspaceSource(): void {
 }
 
 describe('applyWorktreeOverlay — relocated workspace source', () => {
+  it('copies untracked OpenSpec config from the repository fallback without sharing artifacts', () => {
+    const repo = path.join(source, 'repository')
+    write(repo, 'openspec/config.yaml', 'schema: spec-driven\n')
+    write(repo, 'openspec/changes/other/tasks.md', 'Other run')
+    const input = { worktreePath: wt, sourceRoot: source, fallbackSourceRoots: [repo], providerDir: '.codex', instructionsFilename: 'AGENTS.md' }
+    const result = applyWorktreeOverlay(input)
+    expect(fs.readFileSync(path.join(wt, 'openspec/config.yaml'), 'utf8')).toBe('schema: spec-driven\n')
+    expect(fs.existsSync(path.join(wt, 'openspec/changes'))).toBe(false)
+    expect(result.createdPaths).toContain('openspec/config.yaml')
+    expect(result.cleanupEvidence.map(entry => entry.path)).toContain('openspec/config.yaml')
+    expect(applyWorktreeOverlay(input).createdPaths).toContain('openspec/config.yaml')
+    write(wt, 'openspec/config.yaml', 'schema: custom\n')
+    expect(revalidateOverlayCleanupEvidence(input, result.cleanupEvidence).map(entry => entry.path)).not.toContain('openspec/config.yaml')
+  })
+
+  it('preserves a checkout OpenSpec config and does not write through an OpenSpec directory symlink', () => {
+    write(source, 'openspec/config.yaml', 'schema: spec-driven\n')
+    write(wt, 'openspec/config.yml', 'schema: custom\n')
+    expect(apply().createdPaths).not.toContain('openspec/config.yaml')
+    expect(fs.existsSync(path.join(wt, 'openspec/config.yaml'))).toBe(false)
+    fs.rmSync(path.join(wt, 'openspec'), { recursive: true })
+    const foreign = path.join(source, 'foreign')
+    fs.mkdirSync(foreign)
+    fs.symlinkSync(foreign, path.join(wt, 'openspec'), 'dir')
+    apply()
+    expect(fs.existsSync(path.join(foreign, 'config.yaml'))).toBe(false)
+  })
+
   it('retains authenticated Codex links and copies when switching to Claude', () => {
     write(source, '.codex/config.toml', 'model = "fixture"')
     write(source, '.codex/skills/implement/SKILL.md', '# implement')

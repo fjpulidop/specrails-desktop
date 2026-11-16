@@ -15,6 +15,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/blueprint-types.ts](runtime/blueprint-types.ts)
 - [runtime/milestone-chain-store.ts](runtime/milestone-chain-store.ts)
 - [runtime/milestone-chain.ts](runtime/milestone-chain.ts)
+- [runtime/milestone-generation-settings.ts](runtime/milestone-generation-settings.ts)
 - [runtime/milestone-progress.ts](runtime/milestone-progress.ts)
 
 The [boundary manifest](../boundaries.json) records dependencies for every
@@ -33,3 +34,20 @@ retain the delivery for retry; restart replays pending integration. See
 Chain snapshots expose `createdAt` from the existing `milestone_launch_chains.created_at`
 column alongside `updatedAt`, including progress and WebSocket projections. This
 additive field requires no migration.
+
+Milestone generation preferences (provider, model and optional reasoning effort)
+live in the project's `queue_state` under `blueprint.milestone_generation`.
+`GET/PUT /api/projects/:id/blueprint/generation-settings` expose the preference
+and installed providers supporting the native read-only policy, with model-specific
+effort catalogs. Validation precedes a single atomic preference write. These
+settings affect only future milestone conversations; explicit launch choices
+never overwrite them. No migration is needed for this existing key/value store.
+
+M1 execution has a separate per-launch selection. `GET /blueprint/launch-settings`
+returns the compatible catalog and project-primary default. The milestone launch
+body may include `engine: { provider, model, reasoningEffort }`, validated before
+creating a chain. Migration 92 adds nullable `engine_config` to the chain row:
+every subsequent rail and retry uses this frozen engine after restart. Legacy
+NULL rows keep their original behavior. Rails reject a recipe-owned conflicting
+engine when `requireEngineSelection` is set, preserving recipe ownership without
+silently changing the user's choice.

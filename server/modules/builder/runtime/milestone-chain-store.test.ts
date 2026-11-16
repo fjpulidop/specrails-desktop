@@ -25,6 +25,13 @@ function seed(n = 1, over: Partial<Parameters<typeof createChain>[1]> = {}) {
 }
 
 describe('milestone-chain-store', () => {
+  it('stores an explicit engine and keeps legacy chains without a selection', () => {
+    const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' }
+    const row = seed(1, { engine })
+    expect(JSON.parse(getChain(db, row.id)!.engine_config!)).toEqual(engine)
+    expect(seed(2).engine_config).toBeNull()
+  })
+
   it('creates a running row with the plan and ISO timestamps', () => {
     const row = seed()
     expect(row).toMatchObject({ milestone_n: 1, milestone_id: 'm1', mode: 'sequential', status: 'running', next_chunk: 0, head_branch: null, integration_branch: 'main' })

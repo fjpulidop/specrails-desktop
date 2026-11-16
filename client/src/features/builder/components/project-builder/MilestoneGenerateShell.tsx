@@ -36,6 +36,8 @@ interface MilestoneGenerateShellProps {
   milestoneId: string // e.g. "m2"
   blueprint: Blueprint
   provider?: string
+  model?: string
+  reasoningEffort?: string | null
 }
 
 interface ChatMessage {
@@ -51,6 +53,8 @@ export function MilestoneGenerateShell({
   milestoneId,
   blueprint,
   provider = 'claude',
+  model,
+  reasoningEffort,
 }: MilestoneGenerateShellProps) {
   const { t } = useTranslation('builder')
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
@@ -99,12 +103,16 @@ export function MilestoneGenerateShell({
   useEffect(() => {
     if (!open || conversationId || !generationAvailable) return
     let cancelled = false
-    fetch(`${getApiBase()}/chat/conversations`, {
+    const apiBase = getApiBase()
+    fetch(`${apiBase}/chat/conversations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'milestone', milestone: milestoneId }),
+      body: JSON.stringify({ kind: 'milestone', milestone: milestoneId, provider, model, reasoningEffort }),
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('Conversation creation failed')
+        return r.json()
+      })
       .then((data: { conversation?: { id: string } }) => {
         if (cancelled || !data.conversation) return
         // Synchronous, so the WS guard is armed BEFORE the seeded turn is sent.
@@ -120,10 +128,12 @@ export function MilestoneGenerateShell({
           : t('prompts.milestoneSeed', seedVars)
         setMessages([{ role: 'user', content: seed }])
         setBusy(true)
-        fetch(`${getApiBase()}/chat/conversations/${data.conversation.id}/messages`, {
+        fetch(`${apiBase}/chat/conversations/${data.conversation.id}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: seed }),
+        }).then((response) => {
+          if (!response.ok) throw new Error('Turn failed')
         }).catch(() => {
           setBusy(false)
           notifyError(t('errors.turnFailed'))
@@ -133,7 +143,7 @@ export function MilestoneGenerateShell({
         if (!cancelled) notifyError(t('errors.startFailed'))
       })
     return () => { cancelled = true }
-  }, [open, conversationId, milestoneId, milestone, label, generationAvailable, t])
+  }, [open, conversationId, projectId, milestoneId, milestone, label, generationAvailable, provider, model, reasoningEffort, t])
 
   useEffect(() => {
     if (!open) return
@@ -184,6 +194,8 @@ export function MilestoneGenerateShell({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: trimmed }),
+      }).then((response) => {
+        if (!response.ok) throw new Error('Turn failed')
       }).catch(() => {
         setBusy(false)
         notifyError(t('errors.turnFailed'))

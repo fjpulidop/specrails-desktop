@@ -110,6 +110,15 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect(res.status).toBe(202)
     expect(res.body.mode).toBe('sequential')
     expect(start).toHaveBeenCalledWith(1, { autoAdvance: false })
+    const engine = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ engine })
+    expect(res.status).toBe(202)
+    expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: undefined, engine })
+    const calls = start.mock.calls.length
+    for (const bad of [{ ...engine, provider: 'missing' }, { ...engine, model: 'wrong' }, { ...engine, reasoningEffort: 'wrong' }]) {
+      expect((await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ engine: bad })).status).toBe(400)
+    }
+    expect(start.mock.calls).toHaveLength(calls)
     res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({})
     // Omitted autoAdvance: the chain manager defaults it to ON.
     expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: undefined })

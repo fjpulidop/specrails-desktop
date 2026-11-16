@@ -216,6 +216,21 @@ describe('agent runtime lifecycle', () => {
     expect(listLoopStepRecoveries(db)).toEqual([])
   })
 
+  it('diagnoses Engine 2 node paths and structured errors without resuming the failed run', async () => {
+    status.mockResolvedValue({ runId: 'run-1', engineVersion: 2, status: 'failed', nextStep: 'architect',
+      steps: { architect: { status: 'failed' } },
+      recentFailures: [1, 2].map(n => ({ nodePath: 'architect', status: 'failed', at: `attempt-${n}`,
+        error: { code: 'invalid_role_output', message: 'Required OpenSpec role workflow was not executed' } })),
+    })
+    expect(await service.diagnose('run-1')).toMatchObject({
+      recommendation: 'repair_before_retry', repeatFailureCount: 2,
+      recentFailures: [{ stepId: 'architect', error: 'invalid_role_output: Required OpenSpec role workflow was not executed' },
+        { stepId: 'architect', error: 'invalid_role_output: Required OpenSpec role workflow was not executed' }],
+    })
+    expect(execute).not.toHaveBeenCalled()
+    expect(listLoopStepRecoveries(db)).toEqual([])
+  })
+
   it('carries the reviewer verdict in the diagnosis, live and historical (read-only, never throws)', async () => {
     const reviewer = vi.fn(async () => ({ source: 'retained-run' as const, review: { approved: false, score: 58, issues: ['Tag the tests'], issuesOmitted: 0, summary: 'Blocked', scopedReviewCount: 1 }, failingChecks: [{ command: 'npm test', exitCode: 1 }], derivation: null, flowOutcome: 'review' as const }))
     service = new AgentRuntimeControls(ctx, { status, execute, kill, reviewer })

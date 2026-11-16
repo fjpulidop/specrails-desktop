@@ -930,6 +930,18 @@ export function createRailsRouter(): Router {
     }
     const loopAgents = builtinSelection?.graph.config.agents ?? (librarySelection?.status === 'published' ? librarySelection.graph.config.agents : undefined)
     const ownsLoopEngine = !!loopAgents && loopAgents.agents.developer.provider !== 'inherit'
+    // Milestone chains require the execution choice shown at launch. A recipe
+    // owning a conflicting engine must reject it rather than silently replacing it.
+    if (req.body?.requireEngineSelection === true && loopAgents) {
+      const developer = loopAgents.agents.developer
+      const provider = ownsLoopEngine ? developer.provider : aiEngine
+      const selectedModel = ownsLoopEngine ? developer.model ?? getAdapter(developer.provider).defaultModel() : developer.model ?? model
+      const selectedEffort = ownsLoopEngine ? developer.effort : developer.effort ?? reasoning_effort
+      if (provider !== aiEngine || selectedModel !== model || selectedEffort !== reasoning_effort) {
+        res.status(409).json({ error: 'loop_engine_conflict', detail: 'The loop fixes a different provider, model or effort. Update its agent configuration before launching this milestone.' })
+        return
+      }
+    }
     if (ownsLoopEngine) runtimeProviderOverride = undefined
 
     // AI engine precedence: explicit body param > stored rail engine > primary.

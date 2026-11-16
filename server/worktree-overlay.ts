@@ -53,6 +53,8 @@ import fs from 'fs'
 import path from 'path'
 import { createHash } from 'crypto'
 
+const OPENSPEC_CONFIG_FILES = ['openspec/config.yaml', 'openspec/config.yml'] as const
+
 export interface WorktreeOverlayInput {
   /** The isolated rail worktree (spawn cwd). */
   worktreePath: string
@@ -165,7 +167,7 @@ function overlayRootsOf(input: WorktreeOverlayInput): string[] {
  *  manifest entry may authenticate against. Empty for unauthorised rels. */
 function sourceCandidatesForOverlayEntry(input: WorktreeOverlayInput, rel: string): string[] {
   const roots = overlayRootsOf(input)
-  if (rel === '.mcp.json' || [input.instructionsFilename, 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md'].includes(rel)) {
+  if (rel === '.mcp.json' || (OPENSPEC_CONFIG_FILES as readonly string[]).includes(rel) || [input.instructionsFilename, 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md'].includes(rel)) {
     return roots.map((root) => path.join(root, rel))
   }
   const providerPrefix = [input.providerDir, '.claude', '.codex', '.gemini', '.kimi-code'].map(dir => `${dir}/`).find(prefix => rel.startsWith(prefix))
@@ -648,6 +650,19 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
     //    First root that has one wins.
     const mcpSrc = roots.map((root) => path.join(root, '.mcp.json')).find((p) => fs.existsSync(p))
     if (mcpSrc) copyIfAbsent(mcpSrc, path.join(worktreePath, '.mcp.json'), '.mcp.json', created, warnings)
+
+    // An untracked OpenSpec config is absent from `git worktree add`. Without
+    // a local root, nested repositories may discover another project's root.
+    // Copy only configuration, preserving either checkout-owned spelling and
+    // keeping specs/changes isolated. Never write through an openspec symlink.
+    if (!OPENSPEC_CONFIG_FILES.some(rel => lstatSafe(path.join(worktreePath, rel)))) {
+      const openspecDir = lstatSafe(path.join(worktreePath, 'openspec'))
+      if (!openspecDir || (openspecDir.isDirectory() && !openspecDir.isSymbolicLink())) {
+        const config = roots.flatMap(root => OPENSPEC_CONFIG_FILES.map(rel => ({ rel, source: path.join(root, rel) })))
+          .find(entry => fs.existsSync(entry.source))
+        if (config) copyIfAbsent(config.source, path.join(worktreePath, config.rel), config.rel, created, warnings)
+      }
+    }
 
     // 3. Provider instruction path — COPY when a source has one and the
     //    checkout doesn't (a repo-tracked provider instruction always wins).
