@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change reskin-project-builder-into-agent-panel. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Builder mode lifecycle on the agent surfaces
 The app SHALL provide a builder mode owned by `AgentChatContext`: `enterBuilderMode()` opens the floating agent panel (if closed) and switches its conversation area to a day-0 blueprint session over the existing `/api/blueprint/*` transport; `exitBuilderMode()` restores the normal agent chrome exactly. The builder session SHALL use `blueprint_conversations` and the `blueprint.*` WS events — it SHALL NOT appear in the mission selector nor mix into `agent_conversations`. Session logic SHALL live in a reusable `useBuilderSession()` hook (bootstrap, streaming, phases, snapshot, send/commit/launch), extracted from the shipped shell.
 
@@ -78,3 +80,14 @@ An explicit exit (panel close or Esc from the chat phase) SHALL ask for confirma
 #### Scenario: Clean exit is silent
 - **WHEN** the user closes the panel before any dimension filled
 - **THEN** builder mode ends without confirmation
+
+### Requirement: Mission arrival preserves active Builder
+An agent conversation created event SHALL refresh the mission list. While Builder mode is active, openOnArrival SHALL NOT automatically select that mission or exit Builder, preserving the post-create M1 controls. Automatic arrival selection outside Builder SHALL retain its existing window constraints.
+
+#### Scenario: Placeholder mission arrives during Builder
+- **WHEN** project creation announces a mission with openOnArrival while Builder is active
+- **THEN** the mission appears in the refreshed list, Builder remains active, and the mission is not automatically loaded
+
+#### Scenario: Explicit project exit
+- **WHEN** the user activates Open project from the done screen
+- **THEN** the existing explicit exit action remains available
