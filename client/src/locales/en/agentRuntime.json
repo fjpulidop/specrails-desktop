@@ -620,7 +620,7 @@
       "input": "Maximum turns for {{steps}} (role {{role}})",
       "stepHint": "Role {{role}} stops after {{turns}} turns. Steps sharing this role share the limit; it applies to new launches after you publish.",
       "unlimited": "no limit",
-      "stepHintUnlimited": "Role {{role}} has no turn limit. Enter a number to cap it; it applies to new launches after you publish."
+      "stepHintUnlimited": "Role {{role}} has no turn limit. Enter a number to limit it; it applies to new launches after you publish."
     }
   },
   "reviewerSuggestion": {
