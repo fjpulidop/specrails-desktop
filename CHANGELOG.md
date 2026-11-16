@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.3.0...v3.4.0) (2026-11-16)
+
+
+### Features
+
+* choose the AI provider, model and effort for blueprint milestone genera… (1) ([#889](https://github.com/fjpulidop/specrails-desktop/issues/889)) ([e733d98](https://github.com/fjpulidop/specrails-desktop/commit/e733d98768f0999ff3cf84b72f46bd965aba2b14))
+
 ## [3.3.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.2.0...v3.3.0) (2026-11-15)
 
 
