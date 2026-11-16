@@ -618,7 +618,9 @@
       "hint": "Each tool call an agent makes counts as a turn. When a step stops with \"reached the configured limit of N turns\", raise that step here, save and publish; new launches use it. Empty uses Core's default ({{turns}}). Project Settings do not change loop runs.",
       "role": "Role {{role}}",
       "input": "Maximum turns for {{steps}} (role {{role}})",
-      "stepHint": "Role {{role}} stops after {{turns}} turns. Steps sharing this role share the limit; it applies to new launches after you publish."
+      "stepHint": "Role {{role}} stops after {{turns}} turns. Steps sharing this role share the limit; it applies to new launches after you publish.",
+      "unlimited": "no limit",
+      "stepHintUnlimited": "Role {{role}} has no turn limit. Enter a number to cap it; it applies to new launches after you publish."
     }
   },
   "reviewerSuggestion": {

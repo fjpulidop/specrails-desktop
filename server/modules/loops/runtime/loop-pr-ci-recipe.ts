@@ -1,7 +1,7 @@
 import { inheritedRolePrompt } from '../../agent-runtime/runtime/agent-runtime-settings'
 import { defaultLoopAgents } from './loop-agents'
 import { BUILTIN_CONSTANTS } from './loop-constants'
-import { HOST_BLOCKER_KINDS, IMPLEMENT_WRITE_ROLE_MAX_TURNS } from './loop-implement-recipe'
+import { HOST_BLOCKER_KINDS, writeRoleTurnLimit } from './loop-implement-recipe'
 import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 
 /**
@@ -79,8 +79,8 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   const hostBlockers = capabilities?.hostBlockers === 1
   const agents = defaultLoopAgents()
   agents.roles = {
-    correct: { ...agents.fixer!, maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, access: 'write', artifacts: 'none', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
-    resolve: { ...agents.fixer!, maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, access: 'write', artifacts: 'none', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
+    correct: { ...agents.fixer!, ...writeRoleTurnLimit(capabilities), access: 'write', artifacts: 'none', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
+    resolve: { ...agents.fixer!, ...writeRoleTurnLimit(capabilities), access: 'write', artifacts: 'none', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
   }
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }]
   const edges: LoopGraph['edges'] = []
