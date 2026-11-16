@@ -1,0 +1,99 @@
+# Spec Delta
+
+## MODIFIED Requirements
+
+### Requirement: Launch Milestone 1 CTA
+After a successful commit, the Builder's final screen SHALL offer "Launch Milestone 1": it SHALL call the server milestone launch route (`POST /:projectId/blueprint/milestones/1/launch { autoAdvance, engine }`) with the user's stored auto-continue preference (ON by default), which orders the M1-labeled `todo` tickets by their dependencies, puts ONE spec on each rail, launches through the ordinary rails launch path with the Implement factory loop (worktree isolation + ask-first PR), and chains each later spec on the previous spec's delivered branch server-side. There SHALL be no Sequential/Parallel choice. The client SHALL keep no launch plan in browser storage. After a launch the done screen SHALL show the live milestone progress card and keep "Open the project" as the exit. Before launch, both surfaces SHALL offer an independent provider/model/nullable effort selection from the compatible installed catalog, loaded for the target project even before it becomes active. Loading, unavailable selection or catalog failure SHALL disable launch; catalog failure SHALL offer Retry. This selection SHALL NOT save generation preferences. The CTA SHALL be skippable; the same action SHALL be available later from the sidebar entry.
+
+#### Scenario: Launch from the done screen
+- **WHEN** the user activates "Launch Milestone 1" with 3 M1 tickets
+- **THEN** one rail launches carrying 1 spec, the chain row holds the remaining two specs, and the done screen shows M1 as running with that rail listed
+
+#### Scenario: Auto-continue can be turned off
+- **WHEN** the user turns the done screen's auto-continue switch off and launches
+- **THEN** the chain stops at a checkpoint after each delivered rail
+
+#### Scenario: Skippable
+- **WHEN** the user closes the final screen without launching
+- **THEN** the project remains fully usable and the CTA reappears in the sidebar entry
+
+#### Scenario: Selected M1 execution
+- **WHEN** the user selects a compatible provider, model and effort on the post-create screen or sidebar
+- **THEN** Launch sends that engine with the auto-continue preference without changing generation defaults
+
+#### Scenario: Catalog failure
+- **WHEN** loading M1 configurations fails
+- **THEN** launch remains disabled and Retry reloads the catalog
+
+
+### Requirement: Sidebar re-entry
+A sidebar entry SHALL appear (board and mission modes, inside the active project only) when the active project's workspace contains `blueprint.json`. It SHALL render each milestone from the server-derived live progress model (`GET /:projectId/blueprint` `progress` + the `blueprint.milestone_progress` broadcast): a segmented bar (done / in review / in progress / failed / pending), counts that distinguish delivered from done, the milestone's rails with state and a Review action, and the launch chain state — never a `done`-only count and never a board fetch on open. It SHALL expose "Launch Milestone 1" (while M1 has launchable tickets and no active chain) with the auto-continue switch and a one-spec-per-rail hint (no Sequential | Parallel toggle), chain Resume / Cancel when applicable, and "Generate M<next>" with usual generation settings and an optional milestone-only exception. Selector listbox interaction SHALL keep the flyout open. Changing active project SHALL close the flyout and generation shell.
+
+#### Scenario: Entry visibility
+- **WHEN** the active project has no `blueprint.json`
+- **THEN** no Builder sidebar entry renders
+
+#### Scenario: Delivered milestone reads honestly
+- **WHEN** all 8 M1 tickets are `on_review`
+- **THEN** the entry shows the in-review segment filling the bar and reads the milestone as delivered / awaiting review, not `0/8 done`
+
+#### Scenario: Live update without reopening
+- **WHEN** the flyout is open and a chunk run settles
+- **THEN** the M1 bar and rail row update from the broadcast without any fetch triggered by the flyout
+
+#### Scenario: Board-derived progress
+- **WHEN** the user manually moves an M1 ticket to `done`
+- **THEN** the sidebar milestone progress reflects it on the next progress broadcast without any blueprint write
+
+#### Scenario: Generation configuration in the flyout
+- **WHEN** a later planned milestone is available
+- **THEN** the flyout exposes saved generation settings and a temporary exception before Generate
+
+
+### Requirement: Generate M2+ as project-level grounded generation
+"Generate M<next>" SHALL open a PROJECT-level conversation (`chat_conversations.kind='milestone'`) spawned through the existing ChatManager machinery, seeded with `blueprint.json`, the target milestone's `plannedSpecs`, the complete canonical rich-spec contract, and milestone grounding rules. It SHALL be an inspection-only authoring turn: the prompt SHALL forbid repository/workspace/ticket/config/git mutation, write-capable commands/tools, and builds/tests. It SHALL inspect the real project before naming paths or identifiers and SHALL require criteria covering behavior, failures/edge cases, and tests. For relocated projects the prompt SHALL identify the absolute source repo and its `./project` mount rather than letting tools inspect only the workspace. The complete dynamic instructions and blueprint context SHALL reach Claude, Codex, and Gemini; when an adapter lacks a dedicated system-prompt argument, the server SHALL fold them into the effective user turn. Native tool policy SHALL restrict Claude to plan/safe mode with Read/Grep/Glob, Codex to its read-only filesystem sandbox, and Gemini to plan mode without yolo. Because Gemini exposes no selectable Codex-style filesystem sandbox, its boundary SHALL be described as CLI plan/policy-layer rather than OS/filesystem enforced; incompatible safety flags SHALL fail the turn instead of relaxing to yolo. It SHALL reuse the `blueprint-draft` protocol for output and SHALL return every detailed spec for the target milestone in one response containing one complete snapshot, never an incrementally committable subset. Before any write, committing the exact raw batch SHALL atomically apply the same `specsComplete` and rich-spec quality gate used by M1; on success it SHALL insert authoritative detailed tickets labeled `M<n>` with `source='project-builder'` and `created_by='project-builder'`, preserving priority/short summary/domain labels, folding the separate criteria once, and mapping dependencies, then store only `status='committed'` and advisory `ticketIds` on that blueprint milestone. Turn accounting SHALL record per-project `ai_invocations` rows with `surface='explore-spec'` (no new surface value). On Jira-connected projects the inserted specs ride the existing spec-creation → Jira machinery unchanged. After success the client SHALL invalidate/refetch the blueprint and advance the Generate action to the first later milestone still `planned`. The conversation SHALL capture the explicit provider/model/effort selection, using the project's saved generation preference for omitted milestone settings. Provider SHALL be captured even on single-provider projects. An explicit override SHALL NOT change the preference; supported stored effort SHALL reach subsequent native milestone turns. Invalid requested effort SHALL reject conversation creation with 400; a rejected creation SHALL send no seeded turn.
+
+#### Scenario: Grounded generation
+- **WHEN** "Generate M2" runs on a project with real code
+- **THEN** the conversation spawns project-level with code-reading tools and the seeded milestone context, and detailed specs name only verified existing paths and identifiers
+
+#### Scenario: All providers receive the milestone contract
+- **WHEN** M2 generation uses Claude, Codex, or Gemini
+- **THEN** the effective invocation includes the same exact headings, structured fields, completion/dependency rules, one-response complete-set rule, grounding requirements, and blueprint context
+
+#### Scenario: Provider-native read-only policies
+- **WHEN** M2 generation spawns through Claude, Codex, or Gemini
+- **THEN** Claude receives plan/safe mode with only Read/Grep/Glob, Codex receives a read-only sandbox, and Gemini receives plan mode without yolo or an unsafe fallback
+
+#### Scenario: Relocated project grounds against the source repo
+- **WHEN** M2 generation runs from a relocated workspace
+- **THEN** the prompt identifies the real source repository path and `./project` mount so read tools do not inspect the workspace as though it were the codebase
+
+#### Scenario: Commit flips status
+- **WHEN** the M2 batch is committed
+- **THEN** authoritative rich tickets labeled `M2` appear as `todo` with reviewed priority/summary/folded criteria/domain labels/prerequisites, while `blueprint.json` records only `m2.status='committed'` and advisory ticket IDs
+
+#### Scenario: Successful commit advances the sidebar
+- **WHEN** committing M2 returns success and M3 remains planned
+- **THEN** the client refetches the blueprint, closes the M2 shell, and the next Generate action targets M3
+
+#### Scenario: Invalid M2 batch writes nothing
+- **WHEN** any detailed M2 spec fails the shared quality gate
+- **THEN** the endpoint inserts no tickets and leaves the milestone status and blueprint pair unchanged
+
+#### Scenario: Accounting per project
+- **WHEN** an M2 generation turn settles
+- **THEN** an `ai_invocations` row records with `surface='explore-spec'` and the project's id
+
+#### Scenario: Selected generation configuration
+- **WHEN** Generate opens M2 with Codex, a compatible model and high effort
+- **THEN** those values are sent when creating the conversation before the seeded turn, and supported effort is forwarded on native generation turns
+
+#### Scenario: Milestone defaults stay scoped
+- **WHEN** a milestone conversation omits its configuration after a preference was saved
+- **THEN** it captures the saved selection while ordinary chat keeps its ordinary defaults
+
+#### Scenario: Rejected creation
+- **WHEN** conversation creation returns a failure
+- **THEN** the client sends no seeded message and leaves commit unavailable
+

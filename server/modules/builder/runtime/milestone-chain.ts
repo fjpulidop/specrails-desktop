@@ -91,7 +91,7 @@ export type ChainIoFailure = { ok: false; status: number; error: string; detail?
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
   assignTickets(railIndex: number, ticketIds: number[]): Promise<{ ok: true } | ChainIoFailure>
-  launch(railIndex: number, body: { mode: 'implement'; baseBranch?: string; baseDeliveryIds?: string[]; aiEngine?: string; model?: string; reasoning_effort?: string; requireEngineSelection?: boolean }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
+  launch(railIndex: number, body: { mode: 'implement'; baseBranch?: string; baseDeliveryIds?: string[]; aiEngine?: string; model?: string; reasoning_effort?: string | null; requireEngineSelection?: boolean }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
   /** Newest non-terminal delivery on the rail (read right after a launch). */
   activeDeliveryForRail(railIndex: number): PrDeliverySnapshot | null
   /** A rail already carrying this chain-rail name (e.g. from a previous chain
@@ -211,7 +211,7 @@ export class MilestoneChainManager {
     if (!assigned.ok) return assigned
     const launched = await this.io.launch(railIndex, {
       mode: 'implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}),
-      ...(engine ? { aiEngine: engine.provider, model: engine.model, ...(engine.reasoningEffort ? { reasoning_effort: engine.reasoningEffort } : {}), requireEngineSelection: true } : {}),
+      ...(engine ? { aiEngine: engine.provider, model: engine.model, reasoning_effort: engine.reasoningEffort, requireEngineSelection: true } : {}),
     })
     if (!launched.ok) return launched
     const delivery = this.io.activeDeliveryForRail(railIndex)

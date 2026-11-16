@@ -93,6 +93,40 @@ beforeEach(() => {
 })
 
 describe('BuilderSidebarEntry', () => {
+  it('[spec:milestone-lifecycle/sidebar-re-entry] preserves the flyout while selecting effort in a portaled listbox', async () => {
+    const user = await openPanel()
+    const trigger = await screen.findByTestId('milestone-default-effort')
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    const listbox = await screen.findByRole('listbox')
+    const panel = screen.getByTestId('builder-sidebar-panel')
+    expect(panel.contains(listbox)).toBe(false)
+    await user.click(screen.getByRole('option', { name: 'High' }))
+    expect(screen.getByTestId('builder-sidebar-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('milestone-default-effort')).toHaveTextContent('High')
+  })
+
+  it('[spec:milestone-lifecycle/sidebar-re-entry] [spec:blueprint-generation-settings/selection-state-respects-project-boundaries] closes both flyout and generation shell on project switches', async () => {
+    const user = userEvent.setup()
+    const view = render(<BuilderSidebarEntry expanded />)
+    await user.click(screen.getByTestId('builder-sidebar-toggle'))
+    expect(screen.getByTestId('builder-sidebar-panel')).toBeInTheDocument()
+    mockActiveProjectId = 'proj-2'
+    view.rerender(<BuilderSidebarEntry expanded />)
+    expect(screen.queryByTestId('builder-sidebar-panel')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('builder-sidebar-toggle'))
+    await waitFor(() => expect(screen.getByTestId('sidebar-generate-next')).toBeEnabled())
+    await user.click(screen.getByTestId('sidebar-generate-next'))
+    expect(screen.getByTestId('mock-milestone-committed')).toBeInTheDocument()
+    mockActiveProjectId = 'proj-1'
+    view.rerender(<BuilderSidebarEntry expanded />)
+    expect(screen.queryByTestId('mock-milestone-committed')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('builder-sidebar-panel')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('builder-sidebar-toggle'))
+    expect(screen.queryByTestId('mock-milestone-committed')).not.toBeInTheDocument()
+    expect(screen.getByTestId('builder-sidebar-panel')).toBeInTheDocument()
+  })
+
   it('renders nothing when the project has no blueprint', () => {
     progressState.blueprint = null
     progressState.hasBlueprint = false
@@ -131,7 +165,7 @@ describe('BuilderSidebarEntry', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/review/d-3')
   })
 
-  it('Launch M1 posts the stored preference (auto-continue ON by default) and toasts the chain framing', async () => {
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] Launch M1 posts the stored preference (auto-continue ON by default) and toasts the chain framing', async () => {
     launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }], pending: [[2], [3]], ticketCount: 1, skippedCount: 2 })
     const user = await openPanel()
     expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'true')
@@ -140,7 +174,7 @@ describe('BuilderSidebarEntry', () => {
     expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — spec 1 of 3 is on its rail; the next specs follow automatically, one rail each')
   })
 
-  it('the auto-continue switch persists the preference and changes the launch body + framing', async () => {
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] the auto-continue switch persists the preference and changes the launch body + framing', async () => {
     launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }], pending: [[2], [3]], ticketCount: 1, skippedCount: 2 })
     const user = await openPanel()
     await user.click(screen.getByTestId('sidebar-auto-advance'))

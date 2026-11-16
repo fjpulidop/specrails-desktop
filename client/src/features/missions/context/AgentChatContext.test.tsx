@@ -208,7 +208,7 @@ beforeEach(() => {
 })
 
 describe('cross-client mission synchronization', () => {
-  it('keeps the Builder visible when project creation announces its placeholder mission', async () => {
+  it('[spec:builder-mode-agent-panel/mission-arrival-preserves-active-builder] keeps the Builder visible when project creation announces its placeholder mission', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('enter-builder')) })
     expect(screen.getByTestId('builder-active')).toHaveTextContent('true')

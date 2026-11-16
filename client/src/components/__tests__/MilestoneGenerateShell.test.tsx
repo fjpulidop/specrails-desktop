@@ -90,7 +90,7 @@ beforeEach(() => {
 })
 
 describe('MilestoneGenerateShell rich-spec gate', () => {
-  it('sends the selected provider, model and effort before the seeded turn', async () => {
+  it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] sends the selected provider, model and effort before the seeded turn', async () => {
     render(<SharedWebSocketContext.Provider value={ws}>
       <MilestoneGenerateShell open onClose={vi.fn()} projectId="proj-1" milestoneId="m2" blueprint={projectBlueprint}
         provider="codex" model="gpt-6.1-sol" reasoningEffort="high" />
@@ -104,7 +104,7 @@ describe('MilestoneGenerateShell rich-spec gate', () => {
     })
   })
 
-  it('does not send a seeded turn when creation is rejected', async () => {
+  it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] does not send a seeded turn when creation is rejected', async () => {
     vi.mocked(global.fetch).mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: 'invalid selection' }) } as Response)
     renderShell()
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))

@@ -101,7 +101,7 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect(res.body.progress[0]).toMatchObject({ id: 'm1', n: 1, state: 'committed', counts: { total: 2, onReview: 1, todo: 1, done: 0 } })
   })
 
-  it('milestone launch relays autoAdvance to the chain manager; PATCH /chains/:id flips it (D9)', async () => {
+  it('[spec:milestone-launch-chain/milestone-launch-is-a-server-owned-chain] milestone launch relays autoAdvance to the chain manager; PATCH /chains/:id flips it (D9)', async () => {
     const start = vi.fn(async () => ({ ok: true as const, status: 202 as const, chainId: 'c1', launched: [], pending: [] }))
     const setAutoAdvance = vi.fn(async (_id: string, on: boolean) => ({ ok: true as const, status: on ? 202 : 200, chain: { id: 'c1', autoAdvance: on } }))
     const ctx = makeContext(db, repo, { milestoneChains: { start, setAutoAdvance, listActive: () => [] } as never })

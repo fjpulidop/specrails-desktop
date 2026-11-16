@@ -472,7 +472,7 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     expect(screen.getByText(/GitHub repository creation failed/)).toBeInTheDocument()
   })
 
-  it('done phase offers Launch M1 and Open project', async () => {
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] done phase offers Launch M1 and Open project', async () => {
     mockFetchRoutes({ '/blueprint/launch-settings': {
       selection: { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' },
       providers: [{ provider: 'codex', defaultModel: 'gpt-6.1-sol', models: [{ value: 'gpt-6.1-sol', label: 'Sol' }], effortsByModel: { 'gpt-6.1-sol': ['high'] } }],

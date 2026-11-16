@@ -41,7 +41,7 @@ function seedWorkspaceSource(): void {
 }
 
 describe('applyWorktreeOverlay — relocated workspace source', () => {
-  it('copies untracked OpenSpec config from the repository fallback without sharing artifacts', () => {
+  it('[spec:rail-parallel-isolation/worktrees-retain-a-local-openspec-configuration] copies untracked OpenSpec config from the repository fallback without sharing artifacts', () => {
     const repo = path.join(source, 'repository')
     write(repo, 'openspec/config.yaml', 'schema: spec-driven\n')
     write(repo, 'openspec/changes/other/tasks.md', 'Other run')
@@ -56,7 +56,7 @@ describe('applyWorktreeOverlay — relocated workspace source', () => {
     expect(revalidateOverlayCleanupEvidence(input, result.cleanupEvidence).map(entry => entry.path)).not.toContain('openspec/config.yaml')
   })
 
-  it('preserves a checkout OpenSpec config and does not write through an OpenSpec directory symlink', () => {
+  it('[spec:rail-parallel-isolation/worktrees-retain-a-local-openspec-configuration] preserves a checkout OpenSpec config and does not write through an OpenSpec directory symlink', () => {
     write(source, 'openspec/config.yaml', 'schema: spec-driven\n')
     write(wt, 'openspec/config.yml', 'schema: custom\n')
     expect(apply().createdPaths).not.toContain('openspec/config.yaml')

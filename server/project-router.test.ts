@@ -222,7 +222,7 @@ describe('project-router', () => {
       return { ...createApp(contexts), contexts }
     }
 
-    it('persists the preference per project and applies it only to milestone conversations', async () => {
+    it('[spec:blueprint-generation-settings/project-scoped-generation-preference] [spec:blueprint-generation-settings/compatible-configuration-catalog] [spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] persists the preference per project and applies it only to milestone conversations', async () => {
       const { app, contexts } = setup()
       const url = '/api/projects/proj-1/blueprint/generation-settings'
       const saved = await request(app).put(url).send(preferred)
@@ -244,7 +244,7 @@ describe('project-router', () => {
       expect(ordinary.body.conversation.provider).toBe('claude')
     })
 
-    it('uses an explicit override without overwriting the preference', async () => {
+    it('[spec:blueprint-generation-settings/project-scoped-generation-preference] [spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] uses an explicit override without overwriting the preference', async () => {
       const { app } = setup()
       const url = '/api/projects/proj-1/blueprint/generation-settings'
       await request(app).put(url).send(preferred)
@@ -257,7 +257,26 @@ describe('project-router', () => {
       expect((await request(app).get(url)).body.selection).toEqual(preferred)
     })
 
-    it('rejects unavailable providers, incompatible models and efforts without changing the saved preference', async () => {
+    it('[spec:blueprint-generation-settings/compatible-configuration-catalog] falls back from an incompatible primary to the first compatible installed provider', async () => {
+      const { app, contexts } = setup()
+      contexts.get('proj-1')!.project.providers = ['kimi', 'codex', 'claude']
+      contexts.get('proj-1')!.project.provider = 'kimi' as never
+      const response = await request(app).get('/api/projects/proj-1/blueprint/generation-settings')
+      expect(response.status).toBe(200)
+      expect(response.body.providers.map((entry: { provider: string }) => entry.provider)).toEqual(['codex', 'claude'])
+      expect(response.body.selection).toEqual({ provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: null })
+    })
+
+    it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] captures the provider on single-provider milestone conversations', async () => {
+      const { app, contexts } = setup()
+      contexts.get('proj-1')!.project.providers = ['codex']
+      const response = await request(app).post('/api/projects/proj-1/chat/conversations').send({ kind: 'milestone', milestone: 'm2' })
+      expect(response.status).toBe(201)
+      expect(response.body.conversation).toMatchObject({ provider: 'codex', model: 'gpt-6.1-sol' })
+      expect(JSON.parse(response.body.conversation.context_scope)).toEqual({ milestone: 'm2' })
+    })
+
+    it('[spec:blueprint-generation-settings/validate-preference-before-persistence] rejects unavailable providers, incompatible models and efforts without changing the saved preference', async () => {
       const { app } = setup()
       const url = '/api/projects/proj-1/blueprint/generation-settings'
       await request(app).put(url).send(preferred)

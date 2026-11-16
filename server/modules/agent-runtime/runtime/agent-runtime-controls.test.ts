@@ -200,7 +200,7 @@ describe('agent runtime lifecycle', () => {
     expect(recovery).toHaveBeenCalledTimes(1)
   })
 
-  it('diagnoses repeated blockers with original scope and invalidation evidence without invoking a provider', async () => {
+  it('[spec:programmatic-agent-runtime/diagnosis-accepts-engine-2-failures] diagnoses repeated blockers with original scope and invalidation evidence without invoking a provider', async () => {
     const error = 'Archive validation failed: required section missing'
     status.mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'archive', error,
       steps: { architect: { status: 'succeeded' }, developer: { status: 'succeeded' }, archive: { status: 'failed' } },
@@ -216,7 +216,7 @@ describe('agent runtime lifecycle', () => {
     expect(listLoopStepRecoveries(db)).toEqual([])
   })
 
-  it('diagnoses Engine 2 node paths and structured errors without resuming the failed run', async () => {
+  it('[spec:programmatic-agent-runtime/diagnosis-accepts-engine-2-failures] diagnoses Engine 2 node paths and structured errors without resuming the failed run', async () => {
     status.mockResolvedValue({ runId: 'run-1', engineVersion: 2, status: 'failed', nextStep: 'architect',
       steps: { architect: { status: 'failed' } },
       recentFailures: [1, 2].map(n => ({ nodePath: 'architect', status: 'failed', at: `attempt-${n}`,

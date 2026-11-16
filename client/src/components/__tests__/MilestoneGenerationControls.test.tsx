@@ -1,3 +1,4 @@
+import { createInstance } from 'i18next'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
@@ -43,7 +44,38 @@ async function open(onGenerate = vi.fn()) {
 }
 
 describe('Milestone generation settings', () => {
-  it('offers the execution choice for a newly created project and sends all three values', async () => {
+  it('[spec:blueprint-generation-settings/guard-generation-controls-against-unusable-selections] keeps Generate disabled when generation-settings GET fails', async () => {
+    const onGenerate = vi.fn()
+    vi.mocked(global.fetch).mockResolvedValueOnce({ ok: false } as Response)
+    render(<MilestoneGenerationControls projectId="proj-1" milestoneN={2} onGenerate={onGenerate} />)
+    expect(screen.getByTestId('sidebar-generate-next')).toBeDisabled()
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-generate-next')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('sidebar-generate-next'))
+    expect(onGenerate).not.toHaveBeenCalled()
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/proj-1/blueprint/generation-settings', expect.anything())
+  })
+
+  it('[spec:blueprint-generation-settings/localized-configuration-controls] resolves configuration keys without fallback in all shipped locales', async () => {
+    const resources = import.meta.glob('../../locales/*/builder.json', { eager: true, import: 'default' })
+    const keys = [
+      ...['habitual', 'override', 'defaultEffort', 'save', 'saving', 'failed', 'unavailable', 'reset'].map((key) => 'generation.' + key),
+      ...['configuration', 'hint', 'failed', 'retry'].map((key) => 'execution.' + key),
+    ]
+    for (const locale of ['de', 'en', 'es', 'fr', 'it', 'ja', 'pt', 'zh']) {
+      const instance = createInstance()
+      await instance.init({ lng: locale, fallbackLng: false, resources: { [locale]: { builder: resources['../../locales/' + locale + '/builder.json'] as object } }, ns: ['builder'], defaultNS: 'builder' })
+      for (const key of keys) {
+        expect(instance.exists(key), locale + ':' + key).toBe(true)
+        const result = instance.t(key, { returnDetails: true, n: 2 })
+        expect(result.usedLng).toBe(locale)
+        expect(result.res).not.toBe(key)
+        expect(result.res.trim().length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] offers the execution choice for a newly created project and sends all three values', async () => {
     const onLaunch = vi.fn()
     render(<MilestoneLaunchControls projectId="new-project" busy={false} onLaunch={onLaunch} />)
     expect(screen.getByTestId('launch-m1')).toBeDisabled()
@@ -57,7 +89,7 @@ describe('Milestone generation settings', () => {
     expect(saved).toEqual(initial)
   })
 
-  it('blocks execution when the catalog fails and permits a retry', async () => {
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] blocks execution when the catalog fails and permits a retry', async () => {
     const onLaunch = vi.fn()
     vi.mocked(global.fetch).mockResolvedValueOnce({ ok: false } as Response)
     render(<MilestoneLaunchControls projectId="new-project" busy={false} onLaunch={onLaunch} />)
@@ -68,7 +100,7 @@ describe('Milestone generation settings', () => {
     expect(onLaunch).not.toHaveBeenCalled()
   })
 
-  it('saves all three values and restores them when the panel reopens', async () => {
+  it('[spec:blueprint-generation-settings/sidebar-usual-configuration-and-milestone-exception] [spec:blueprint-generation-settings/guard-generation-controls-against-unusable-selections] saves all three values and restores them when the panel reopens', async () => {
     const { user, unmount } = await open()
     await user.selectOptions(screen.getByTestId('milestone-default-provider'), 'codex')
     expect(screen.getByTestId('milestone-default-model')).toHaveValue('gpt-6.1-sol')
@@ -85,7 +117,7 @@ describe('Milestone generation settings', () => {
     expect(reopened.onGenerate).toHaveBeenCalledWith({ provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'ultra' })
   })
 
-  it('uses a one-milestone exception without saving it and resets model and effort on provider/model changes', async () => {
+  it('[spec:blueprint-generation-settings/sidebar-usual-configuration-and-milestone-exception] uses a one-milestone exception without saving it and resets model and effort on provider/model changes', async () => {
     const { user, onGenerate } = await open()
     await user.click(screen.getByRole('checkbox'))
     await user.selectOptions(screen.getByTestId('milestone-override-provider'), 'codex')
@@ -103,7 +135,7 @@ describe('Milestone generation settings', () => {
     expect(onGenerate).toHaveBeenLastCalledWith(initial)
   })
 
-  it('keeps launch disabled after a failed save', async () => {
+  it('[spec:blueprint-generation-settings/guard-generation-controls-against-unusable-selections] keeps launch disabled after a failed save', async () => {
     const { user, onGenerate } = await open()
     await user.selectOptions(screen.getByTestId('milestone-default-provider'), 'codex')
     vi.mocked(global.fetch).mockResolvedValue({ ok: false } as Response)
@@ -114,14 +146,14 @@ describe('Milestone generation settings', () => {
     expect(saved).toEqual(initial)
   })
 
-  it('blocks an unavailable saved provider instead of silently changing AI', async () => {
+  it('[spec:blueprint-generation-settings/guard-generation-controls-against-unusable-selections] blocks an unavailable saved provider instead of silently changing AI', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ selection: { ...initial, provider: 'missing' }, providers }) })
     render(<MilestoneGenerationControls projectId="proj-1" milestoneN={2} onGenerate={vi.fn()} />)
     expect(await screen.findByRole('status')).toHaveTextContent('unavailable')
     expect(screen.getByTestId('sidebar-generate-next')).toBeDisabled()
   })
 
-  it('repairs an obsolete effort even when the model no longer offers an effort selector', async () => {
+  it('[spec:blueprint-generation-settings/guard-generation-controls-against-unusable-selections] repairs an obsolete effort even when the model no longer offers an effort selector', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
       selection: initial, providers: [{ ...providers[0], effortsByModel: { sonnet: [] } }],
     }) })
@@ -133,7 +165,7 @@ describe('Milestone generation settings', () => {
     expect(screen.getByTestId('sidebar-generate-next')).toBeDisabled()
   })
 
-  it('discards a late response from a previous project', async () => {
+  it('[spec:blueprint-generation-settings/selection-state-respects-project-boundaries] discards a late response from a previous project', async () => {
     let finishOld!: (response: Response) => void
     global.fetch = vi.fn()
       .mockImplementationOnce(() => new Promise<Response>((resolve) => { finishOld = resolve }))

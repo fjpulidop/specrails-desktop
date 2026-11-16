@@ -263,7 +263,7 @@ describe('ChatManager', () => {
       expect(fsNode.realpathSync(pathNode.join(spawnOpts.cwd, 'project'))).toBe(projectPath)
     }
 
-    it('Claude receives the dynamic contract and blueprint through --system-prompt', async () => {
+    it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] Claude receives the dynamic contract and blueprint through --system-prompt', async () => {
       const { manager, conversationId } = seedMilestone('claude')
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -297,7 +297,7 @@ describe('ChatManager', () => {
     it.each([
       ['codex', '{"type":"item.completed","item":{"type":"agent_message","text":"Working on the grounded batch."}}'],
       ['gemini', '{"type":"message","role":"assistant","content":"Working on the grounded batch.","delta":true}'],
-    ] as const)('%s receives the same dynamic contract folded into the effective user turn', async (provider, event) => {
+    ] as const)('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] %s receives the same dynamic contract folded into the effective user turn', async (provider, event) => {
       const { manager, conversationId } = seedMilestone(provider)
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
