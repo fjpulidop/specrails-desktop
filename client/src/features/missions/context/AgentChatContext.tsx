@@ -884,6 +884,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [])
 
   const selectConversationRef = useRef<((id: string) => Promise<void>) | null>(null)
+  const builderActiveRef = useRef(false)
   const [projectRecoveryRevision, setProjectRecoveryRevision] = useState(0)
 
   // ── WebSocket: app-global agent_* events (no projectId filter) ──────────────
@@ -906,7 +907,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
       if (msg.type === 'agent_conversation_created') {
         const openId = msg.openOnArrival && !secondaryWindow && !fixedConversationId ? msg.conversationId : undefined
-        void refreshConversations().then(() => { if (openId) void selectConversationRef.current?.(openId) })
+        void refreshConversations().then(() => {
+          // Commit creates an empty mission, but selecting it exits the Builder
+          // and hides the M1 execution controls. Keep the post-create screen;
+          // the user can leave it through Open project or launch M1 explicitly.
+          if (openId && !builderActiveRef.current) void selectConversationRef.current?.(openId)
+        })
         return
       }
       // Auto-title updates apply to the LIST (any conversation), not just the
@@ -1447,6 +1453,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const [builderActive, setBuilderActive] = useState(false)
   const builderSessionRef = useRef<BuilderSession | null>(null)
   const exitBuilderMode = useCallback(() => {
+    builderActiveRef.current = false
     builderSessionRef.current?.abortAndReset()
     setBuilderActive(false)
   }, [])
@@ -1454,6 +1461,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   builderSessionRef.current = builderSession
   const enterBuilderMode = useCallback(() => {
     if (secondaryWindow || fixedConversationId) return
+    builderActiveRef.current = true
     setBuilderActive(true)
     // Board mode: the builder lives in the floating panel — summon it. Agent
     // Mode suppresses the panel; the mission surface takes the builder skin.

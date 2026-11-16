@@ -576,6 +576,7 @@
       "runtime/blueprint-types.ts",
       "runtime/milestone-chain-store.ts",
       "runtime/milestone-chain.ts",
+      "runtime/milestone-generation-settings.ts",
       "runtime/milestone-progress.ts"
     ],
     "dependencies": {
@@ -685,6 +686,13 @@
         "./blueprint-types",
         "./milestone-chain-store",
         "./milestone-progress"
+      ],
+      "runtime/milestone-generation-settings.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/runtime"
       ],
       "runtime/milestone-progress.ts": [
         "../../../db",

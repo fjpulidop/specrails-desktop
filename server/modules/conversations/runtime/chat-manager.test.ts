@@ -209,7 +209,7 @@ describe('ChatManager', () => {
         model,
         kind: 'milestone',
         provider,
-        contextScope: { milestone: 'm2' },
+        contextScope: { milestone: 'm2', reasoningEffort: provider === 'gemini' ? null : 'high' },
       })
       return {
         manager: new ChatManager(broadcast, db, projectPath, 'Atlas', provider, 'project-atlas', slug),
@@ -263,7 +263,7 @@ describe('ChatManager', () => {
       expect(fsNode.realpathSync(pathNode.join(spawnOpts.cwd, 'project'))).toBe(projectPath)
     }
 
-    it('Claude receives the dynamic contract and blueprint through --system-prompt', async () => {
+    it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] Claude receives the dynamic contract and blueprint through --system-prompt', async () => {
       const { manager, conversationId } = seedMilestone('claude')
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -275,6 +275,7 @@ describe('ChatManager', () => {
       const systemIndex = args.indexOf('--system-prompt')
       expect(systemIndex).toBeGreaterThanOrEqual(0)
       expectRichMilestoneContract(args[systemIndex + 1])
+      expect(args.slice(args.indexOf('--effort'), args.indexOf('--effort') + 2)).toEqual(['--effort', 'high'])
       expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
         .toEqual(['--tools', 'Read,Grep,Glob'])
       expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2))
@@ -296,7 +297,7 @@ describe('ChatManager', () => {
     it.each([
       ['codex', '{"type":"item.completed","item":{"type":"agent_message","text":"Working on the grounded batch."}}'],
       ['gemini', '{"type":"message","role":"assistant","content":"Working on the grounded batch.","delta":true}'],
-    ] as const)('%s receives the same dynamic contract folded into the effective user turn', async (provider, event) => {
+    ] as const)('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] %s receives the same dynamic contract folded into the effective user turn', async (provider, event) => {
       const { manager, conversationId } = seedMilestone(provider)
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -316,6 +317,7 @@ describe('ChatManager', () => {
       expect(args).not.toContain('workspace-write')
       expect(args).not.toContain('danger-full-access')
       if (provider === 'codex') {
+        expect(args).toContain('model_reasoning_effort="high"')
         expect(args.slice(args.indexOf('--sandbox'), args.indexOf('--sandbox') + 2))
           .toEqual(['--sandbox', 'read-only'])
       } else {

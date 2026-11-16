@@ -930,6 +930,18 @@ export function createRailsRouter(): Router {
     }
     const loopAgents = builtinSelection?.graph.config.agents ?? (librarySelection?.status === 'published' ? librarySelection.graph.config.agents : undefined)
     const ownsLoopEngine = !!loopAgents && loopAgents.agents.developer.provider !== 'inherit'
+    // Milestone chains require the execution choice shown at launch. A recipe
+    // owning a conflicting engine must reject it rather than silently replacing it.
+    if (req.body?.requireEngineSelection === true && loopAgents) {
+      const developer = loopAgents.agents.developer
+      const provider = ownsLoopEngine ? developer.provider : aiEngine
+      const selectedModel = ownsLoopEngine ? developer.model ?? getAdapter(developer.provider).defaultModel() : developer.model ?? model
+      const selectedEffort = ownsLoopEngine ? developer.effort : developer.effort ?? reasoning_effort
+      if (provider !== aiEngine || selectedModel !== model || (selectedEffort ?? null) !== (reasoning_effort ?? null)) {
+        res.status(409).json({ error: 'loop_engine_conflict', detail: 'The loop fixes a different provider, model or effort. Update its agent configuration before launching this milestone.' })
+        return
+      }
+    }
     if (ownsLoopEngine) runtimeProviderOverride = undefined
 
     // AI engine precedence: explicit body param > stored rail engine > primary.
@@ -1096,7 +1108,7 @@ export function createRailsRouter(): Router {
         // Local (OpenAI-compatible) engines have no per-invocation effort knob
         // unless the connection opts in; a requested effort is DROPPED, not a
         // 400 — the engine selectors send the last-used effort blindly.
-        const effortRequested = localEngine && !loopAdapter.capabilities.supportsReasoningEffort ? undefined : ownsLoopEngine ? loopAgents!.agents.developer.effort : (loopAgents?.agents.developer.effort ?? runtimeProviderOverride?.effort ?? reasoning_effort ?? verifierEngine?.effort)
+        const effortRequested = req.body?.requireEngineSelection === true && reasoning_effort === null ? null : localEngine && !loopAdapter.capabilities.supportsReasoningEffort ? undefined : ownsLoopEngine ? loopAgents!.agents.developer.effort : (loopAgents?.agents.developer.effort ?? runtimeProviderOverride?.effort ?? reasoning_effort ?? verifierEngine?.effort)
         if (effortRequested !== undefined && effortRequested !== null) {
           const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
           if (
@@ -1110,7 +1122,7 @@ export function createRailsRouter(): Router {
           }
           effort = effortRequested as ReasoningEffort
         } else if (
-          !ownsLoopEngine && globalAgentDefaults?.pipelineEffort
+          effortRequested !== null && !ownsLoopEngine && globalAgentDefaults?.pipelineEffort
           && isReasoningEffortValidForModel(loopAdapter, loopModel, globalAgentDefaults.pipelineEffort)
         ) {
           effort = globalAgentDefaults.pipelineEffort as ReasoningEffort

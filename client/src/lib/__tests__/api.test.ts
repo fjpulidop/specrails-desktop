@@ -7,6 +7,13 @@ describe('api', () => {
   })
 
   describe('getApiBase', () => {
+    it('targets a newly created project before it becomes active without changing the active project', () => {
+      expect(getApiBase('new-project')).toBe('/api/projects/new-project')
+      expect(() => getApiBase()).toThrow(/no active project/i)
+      setActiveProjectId('current')
+      expect(getApiBase('new-project')).toBe('/api/projects/new-project')
+      expect(getApiBase()).toBe('/api/projects/current')
+    })
     it('returns /api/projects/<id> when an active project is set', () => {
       setActiveProjectId('proj-123')
       expect(getApiBase()).toBe('/api/projects/proj-123')

@@ -143,7 +143,15 @@
       "details": "正在详细编写第 {{from}}–{{to}} 个规格（共 {{total}} 个）…",
       "audit": "正在审核全部 {{total}} 个规格…",
       "repair": "正在重新请求第 {{from}}–{{to}} 个规格…"
-    }
+    },
+    "habitual": "后续迭代的常用配置",
+    "override": "仅为 M{{n}} 使用其他配置",
+    "defaultEffort": "提供商默认值",
+    "save": "保存常用配置",
+    "saving": "正在保存…",
+    "failed": "无法加载或保存配置。请关闭并重新打开 Blueprint 以重试。",
+    "unavailable": "所选配置不可用。请选择已安装的 AI 和兼容模型。",
+    "reset": "使用提供商默认值"
   },
   "readiness": {
     "title": "准备好创建规格了吗？",
@@ -380,5 +388,11 @@
       "settledTitle": "蓝图已批准",
       "settledDescription": "构建器正根据此蓝图生成里程碑 1 的待办。"
     }
+  },
+  "execution": {
+    "configuration": "执行 M1 的 AI",
+    "hint": "应用于此里程碑的所有轨道，包括重试。",
+    "failed": "无法加载可用的 AI 配置。",
+    "retry": "重试"
   }
 }

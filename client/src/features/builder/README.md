@@ -35,6 +35,26 @@ Run the adjacent tests with `npm run test --prefix client -- src/features/builde
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
 
+The Blueprint flyout's `MilestoneGenerationControls` loads project-scoped
+provider/model/effort preferences and the compatible catalog. Save updates the
+usual configuration; the optional per-milestone exception only affects Generate.
+Changing provider or model clears the effort selection to the provider default.
+Unsaved changes, loading, save failures and unavailable selections block launch.
+The controls remount on project switches and panel reopening, and generation
+captures an immutable choice for the milestone conversation and its follow-ups.
+
+`MilestoneLaunchControls` offers a separate provider/model/effort choice before
+executing M1, on both the post-create screen and the Blueprint flyout. It loads
+the execution catalog for the explicit project id (the newly created project
+need not be active yet), blocks launch while loading or on failure, and sends
+the choice with the auto-continue preference. It does not update generation
+defaults; the server freezes it in the milestone chain.
+
+When project creation announces its empty mission, the missions context refreshes
+the list but does not auto-select that mission while Builder mode is active.
+Selecting it would exit Builder and hide the post-create M1 controls. Automatic
+opening remains unchanged outside Builder; Open project remains an explicit exit.
+
 Chain creation timestamps normalize to `createdAt: string | null`. Older servers
 and malformed timestamps retain the chain with a null start, so notification
 elapsed time can be omitted safely.

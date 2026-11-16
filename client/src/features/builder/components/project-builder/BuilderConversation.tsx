@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, AlertTriangle, CircleDashed, Loader2, Rocket, Sparkles, X } from 'lucide-react'
+import { Check, AlertTriangle, CircleDashed, Sparkles, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '../../../../components/ui/button'
 import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
@@ -15,6 +15,7 @@ import { BuilderGenerationProgress } from './BuilderGenerationProgress'
 import { AgentMessage } from '../../../missions/components/AgentMessage'
 import { AgentActivityChip } from '../../../missions/components/AgentActivityChip'
 import { COMMIT_STEP_ORDER, githubErrorKey } from '../../hooks/useBuilderSession'
+import { MilestoneLaunchControls } from './MilestoneLaunchControls'
 import { BuilderDoneMilestone } from './BuilderDoneMilestone'
 import { BuilderDecisionCard } from './BuilderDecisionCard'
 import { MilestoneAutoAdvanceToggle } from './MilestoneProgressCard'
@@ -254,10 +255,9 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
           <div className="mt-5 flex flex-col gap-2">
             {!session.launched && (
               <>
-                <Button onClick={() => void session.launchM1()} disabled={session.launching} data-testid="launch-m1">
-                  {session.launching ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Rocket className="mr-1.5 h-3.5 w-3.5" />}
-                  {t('done.launchM1')}
-                </Button>
+                {session.createdProjectId && <MilestoneLaunchControls key={session.createdProjectId}
+                  projectId={session.createdProjectId} busy={session.launching}
+                  onLaunch={(selection) => { void session.launchM1(selection) }} /> }
                 {/* Wave checkpoints (D9): the stored preference the launch reads. */}
                 <MilestoneAutoAdvanceToggle
                   checked={doneAutoAdvance}

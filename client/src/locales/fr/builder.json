@@ -143,7 +143,15 @@
       "details": "Rédaction détaillée des specs {{from}}–{{to}} sur {{total}}…",
       "audit": "Audit des {{total}} specs…",
       "repair": "Nouvelle demande des specs {{from}}–{{to}}…"
-    }
+    },
+    "habitual": "Configuration habituelle des prochaines itérations",
+    "override": "Utiliser une autre configuration pour M{{n}} uniquement",
+    "defaultEffort": "Valeur par défaut du fournisseur",
+    "save": "Enregistrer la configuration habituelle",
+    "saving": "Enregistrement…",
+    "failed": "Impossible de charger ou enregistrer la configuration. Fermez puis rouvrez Blueprint pour réessayer.",
+    "unavailable": "La configuration choisie est indisponible. Choisissez une IA installée et un modèle compatible.",
+    "reset": "Utiliser les valeurs par défaut du fournisseur"
   },
   "readiness": {
     "title": "Prêt à créer les specs ?",
@@ -380,5 +388,11 @@
       "settledTitle": "Blueprint approuvé",
       "settledDescription": "Le Constructeur génère le backlog du Jalon 1 à partir de ce blueprint."
     }
+  },
+  "execution": {
+    "configuration": "IA pour exécuter M1",
+    "hint": "S’applique à tous les rails de ce jalon, y compris les nouvelles tentatives.",
+    "failed": "Impossible de charger les configurations IA disponibles.",
+    "retry": "Réessayer"
   }
 }

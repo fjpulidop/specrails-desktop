@@ -142,6 +142,15 @@ describe('wave checkpoints (autoAdvance)', () => {
     expect(bodies).toEqual([{ autoAdvance: false }, { autoAdvance: false }, { autoAdvance: true }])
   })
 
+  it('sends the chosen execution engine together with checkpoint behavior', async () => {
+    const fetchImpl = vi.fn(async () => jsonRes(202, { chainId: 'c', launched: [], pending: [] })) as unknown as typeof fetch
+    const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' }
+    await launchMilestone('new-project', 1, { autoAdvance: false, engine, fetchImpl })
+    expect(fetchImpl).toHaveBeenCalledWith('/api/projects/new-project/blueprint/milestones/1/launch', expect.objectContaining({
+      body: JSON.stringify({ autoAdvance: false, engine }),
+    }))
+  })
+
   it('setChainAutoAdvance PATCHes the chain and parses the snapshot; errors relay', async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = []
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {

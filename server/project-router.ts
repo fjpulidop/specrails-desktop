@@ -24,6 +24,7 @@ import { analyzeBuilderSpecBatch, firstBuilderSpecQualityDetail } from './module
 import { FileStoryManager, buildStorySystemPrompt } from './modules/code/runtime/file-story-manager'
 import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
 import { getAdapter } from './providers'
+import { milestoneLaunchSettings, milestoneGenerationSettings, saveMilestoneGenerationSelection, validateMilestoneGenerationSelection, type MilestoneGenerationSelection } from './modules/builder/runtime/milestone-generation-settings'
 import { getDesktopSetting } from './desktop-db'
 import { registerJobsRoutes } from './project-router-jobs'
 import { registerSpendingRoutes } from './project-router-spending'
@@ -253,6 +254,24 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   // Project Builder sidebar re-entry (add-project-builder D5): read the
   // workspace-resident blueprint pair's source of truth. 404 when the project
   // has no blueprint (every non-Builder project) — the sidebar entry hides.
+  router.get('/:projectId/blueprint/launch-settings', (req: Request, res: Response) => {
+    res.json(milestoneLaunchSettings(ctx(req).project))
+  })
+
+  router.get('/:projectId/blueprint/generation-settings', (req: Request, res: Response) => {
+    const { db, project } = ctx(req)
+    res.json(milestoneGenerationSettings(db, project))
+  })
+
+  router.put('/:projectId/blueprint/generation-settings', (req: Request, res: Response) => {
+    const { db, project } = ctx(req)
+    const error = validateMilestoneGenerationSelection(project, req.body)
+    if (error) { res.status(400).json({ error }); return }
+    const { provider, model, reasoningEffort } = req.body as MilestoneGenerationSelection
+    saveMilestoneGenerationSelection(db, { provider, model, reasoningEffort })
+    res.json(milestoneGenerationSettings(db, project))
+  })
+
   router.get('/:projectId/blueprint', (req: Request, res: Response) => {
     const projectCtx = ctx(req)
     const project = projectCtx.project
@@ -295,10 +314,15 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     if (rawAuto !== undefined && typeof rawAuto !== 'boolean') {
       res.status(400).json({ error: 'autoAdvance must be a boolean' }); return
     }
+    const engine = req.body?.engine
+    if (engine !== undefined) {
+      const error = validateMilestoneGenerationSelection(projectCtx.project, engine)
+      if (error) { res.status(400).json({ error }); return }
+    }
     const chains = projectCtx.milestoneChains
     if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
     try {
-      const result = await chains.start(n, { autoAdvance: rawAuto })
+      const result = await chains.start(n, { autoAdvance: rawAuto, ...(engine ? { engine } : {}) })
       if (result.ok) {
         res.status(202).json({ chainId: result.chainId, mode: 'sequential', launched: result.launched, pending: result.pending })
       } else {

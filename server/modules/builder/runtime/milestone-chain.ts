@@ -29,6 +29,7 @@ import {
   updateChain,
   isActiveChainStatus,
   type MilestoneChainRow,
+  type MilestoneChainEngine,
 } from './milestone-chain-store'
 import { newId } from '../../../ids'
 
@@ -90,7 +91,7 @@ export type ChainIoFailure = { ok: false; status: number; error: string; detail?
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
   assignTickets(railIndex: number, ticketIds: number[]): Promise<{ ok: true } | ChainIoFailure>
-  launch(railIndex: number, body: { mode: 'implement'; baseBranch?: string; baseDeliveryIds?: string[] }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
+  launch(railIndex: number, body: { mode: 'implement'; baseBranch?: string; baseDeliveryIds?: string[]; aiEngine?: string; model?: string; reasoning_effort?: string | null; requireEngineSelection?: boolean }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
   /** Newest non-terminal delivery on the rail (read right after a launch). */
   activeDeliveryForRail(railIndex: number): PrDeliverySnapshot | null
   /** A rail already carrying this chain-rail name (e.g. from a previous chain
@@ -183,6 +184,14 @@ export class MilestoneChainManager {
    *  else a free builder-owned rail (same name, this chain's, then any builder
    *  rail), else a fresh one. At the rail limit it fails `rail_limit_reached`. */
   private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[], chain?: MilestoneChainRow): Promise<LaunchedChunk> {
+    let engine: MilestoneChainEngine | undefined
+    if (chain?.engine_config != null) {
+      try {
+        engine = JSON.parse(chain.engine_config)
+        if (!engine || typeof engine.provider !== 'string' || typeof engine.model !== 'string'
+          || (engine.reasoningEffort !== null && typeof engine.reasoningEffort !== 'string')) throw new Error('invalid engine')
+      } catch { return { ok: false, status: 409, error: 'milestone_engine_unavailable' } }
+    }
     const ticketIds = chunks[chunkIndex]
     let railIndex: number
     const name = chainRailName(n, ticketIds)
@@ -200,7 +209,10 @@ export class MilestoneChainManager {
     }
     const assigned = await this.io.assignTickets(railIndex, ticketIds)
     if (!assigned.ok) return assigned
-    const launched = await this.io.launch(railIndex, { mode: 'implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}) })
+    const launched = await this.io.launch(railIndex, {
+      mode: 'implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}),
+      ...(engine ? { aiEngine: engine.provider, model: engine.model, reasoning_effort: engine.reasoningEffort, requireEngineSelection: true } : {}),
+    })
     if (!launched.ok) return launched
     const delivery = this.io.activeDeliveryForRail(railIndex)
     return {
@@ -265,7 +277,7 @@ export class MilestoneChainManager {
    * the accumulated integration branch when integration is bound. `autoAdvance` defaults to ON; turning it off
    * parks the chain at a checkpoint after every delivered rail.
    */
-  async start(n: number, opts: { autoAdvance?: boolean } = {}): Promise<ChainStartResult> {
+  async start(n: number, opts: { autoAdvance?: boolean; engine?: MilestoneChainEngine } = {}): Promise<ChainStartResult> {
     const autoAdvance = opts.autoAdvance !== false
     const active = listActiveChains(this.db).find((c) => c.milestone_n === n)
     if (active) return { ok: false, status: 409, error: 'chain_active', chainId: active.id }
@@ -278,7 +290,7 @@ export class MilestoneChainManager {
 
     const row = createChain(this.db, {
       id: newId(), milestoneN: n, milestoneId: milestone.id, mode: 'sequential', chunks,
-      integrationBranch: await this.safeIntegrationBranch(), autoAdvance, nowMs: this.now(),
+      integrationBranch: await this.safeIntegrationBranch(), autoAdvance, engine: opts.engine, nowMs: this.now(),
     })
     const first = await this.launchChunk(n, chunks, 0, null, null, undefined, row)
     if (!first.ok) {

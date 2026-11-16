@@ -472,7 +472,11 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     expect(screen.getByText(/GitHub repository creation failed/)).toBeInTheDocument()
   })
 
-  it('done phase offers Launch M1 and Open project', async () => {
+  it('[spec:milestone-lifecycle/launch-milestone-1-cta] done phase offers Launch M1 and Open project', async () => {
+    mockFetchRoutes({ '/blueprint/launch-settings': {
+      selection: { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' },
+      providers: [{ provider: 'codex', defaultModel: 'gpt-6.1-sol', models: [{ value: 'gpt-6.1-sol', label: 'Sol' }], effortsByModel: { 'gpt-6.1-sol': ['high'] } }],
+    } })
     const user = userEvent.setup()
     const s = session({ phase: 'done', createdProjectId: 'proj-9' })
     renderWithMode(s)
@@ -481,8 +485,9 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     await user.click(screen.getByTestId('done-auto-advance'))
     expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'false')
     expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('false')
+    await waitFor(() => expect(screen.getByTestId('launch-m1')).toBeEnabled())
     await user.click(screen.getByTestId('launch-m1'))
-    expect(s.launchM1).toHaveBeenCalled()
+    expect(s.launchM1).toHaveBeenCalledWith({ provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' })
     await user.click(screen.getByTestId('open-project'))
     expect(s.openProject).toHaveBeenCalled()
   })

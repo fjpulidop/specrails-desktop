@@ -19,6 +19,7 @@ import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachm
 import {
   getAdapter,
   isModelAvailableForAdapter,
+  reasoningEffortsForModel,
   type ProviderAdapter,
   type AdapterEvent,
   type ProviderId,
@@ -1044,10 +1045,21 @@ export class ChatManager {
         .map((message) => ({ role: message.role, content: message.content })),
       promptForAdapter,
     )
+    // Milestone settings belong to this conversation, including follow-up and
+    // repair turns. Revalidate against the model catalog after app upgrades.
+    let milestoneEffort: SpawnOptions['reasoning_effort']
+    if (conversation.kind === 'milestone' && conversation.context_scope) {
+      try {
+        const effort = JSON.parse(conversation.context_scope).reasoningEffort
+        const allowed = reasoningEffortsForModel(adapter, model)
+        if ((allowed as readonly unknown[]).includes(effort)) milestoneEffort = effort
+      } catch { /* Legacy conversations have no effort selection. */ }
+    }
     const turnOptions: SpawnOptions = {
       prompt: promptForAdapter,
       systemPrompt,
       model,
+      reasoning_effort: milestoneEffort,
       sessionId: conversation.session_id ?? undefined,
       // Milestone generation only inspects the real repository and authors a
       // JSON draft. Enforce that boundary natively in every adapter; prompt

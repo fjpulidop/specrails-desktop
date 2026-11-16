@@ -9,6 +9,7 @@
 
 import type { MilestoneChainLaunched, MilestoneChainSnapshot } from './milestone-progress'
 import { coerceChain } from './milestone-progress'
+import { getApiBase } from '../../../lib/api'
 
 /** One spec per rail (the server owns the chain; this mirrors its chunking). */
 export const MAX_TICKETS_PER_RAIL = 1
@@ -107,6 +108,7 @@ async function readBody(res: Response): Promise<Record<string, unknown>> {
 }
 
 export interface MilestoneLaunchOptions {
+  engine?: { provider: string; model: string; reasoningEffort: string | null }
   /** Launch the next rail automatically after each delivered rail (true, the
    *  default) or stop at a checkpoint (false). */
   autoAdvance?: boolean
@@ -123,10 +125,10 @@ export async function launchMilestone(
   const autoAdvance = opts.autoAdvance ?? readMilestoneAutoAdvance()
   let res: Response
   try {
-    res = await fetchImpl(`/api/projects/${projectId}/blueprint/milestones/${milestone}/launch`, {
+    res = await fetchImpl(`${getApiBase(projectId)}/blueprint/milestones/${milestone}/launch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ autoAdvance }),
+      body: JSON.stringify({ autoAdvance, ...(opts.engine ? { engine: opts.engine } : {}) }),
     })
   } catch (err) {
     return { ok: false, reason: 'network', error: 'network', detail: err instanceof Error ? err.message : String(err) }

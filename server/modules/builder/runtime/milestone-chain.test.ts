@@ -147,6 +147,44 @@ describe('chunking + naming + ordering', () => {
 })
 
 describe('MilestoneChainManager — sequential', () => {
+  it.each(['high', null])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] freezes the selected engine (%s) across failure, a new manager, retry and the next rail', async (reasoningEffort) => {
+    const f = fake()
+    const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort }
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine })
+    if (!result.ok) throw new Error('start failed')
+    const expected = { aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: reasoningEffort, requireEngineSelection: true }
+    expect(f.launches[0].body).toMatchObject(expected)
+    expect(JSON.parse(getChain(db, result.chainId!)!.engine_config!)).toEqual(engine)
+    engine.provider = 'claude'
+    manager.onRunSettled('run-1', 'failed')
+    settle(f, manager, 3, 'implementation_failed', null)
+    await flush()
+    const restarted = new MilestoneChainManager(db, 'p1', f.io)
+    expect((await restarted.resume(result.chainId!)).ok).toBe(true)
+    expect(f.launches[1].body).toMatchObject(expected)
+    settle(f, restarted, f.launches[1].railIndex, 'merged', 'feat/first')
+    await flush()
+    expect(f.launches[2].body).toMatchObject(expected)
+  })
+
+  it.each(['{broken', '{}', '{"provider":"codex","model":"gpt-6.1-sol","reasoningEffort":42}'])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] rejects malformed persisted engine %s without launching', async (engineConfig) => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1)
+    if (!result.ok) throw new Error('start failed')
+    manager.onRunSettled('run-1', 'failed')
+    settle(f, manager, 3, 'implementation_failed', null)
+    await flush()
+    db.prepare('UPDATE milestone_launch_chains SET engine_config = ? WHERE id = ?').run(engineConfig, result.chainId)
+    const launches = f.launches.length
+    const assignments = f.assignments.length
+    const resumed = await new MilestoneChainManager(db, 'p1', f.io).resume(result.chainId!)
+    expect(resumed).toMatchObject({ ok: true, chain: { status: 'paused', pauseReason: 'launch_rejected:milestone_engine_unavailable' } })
+    expect(f.launches).toHaveLength(launches)
+    expect(f.assignments).toHaveLength(assignments)
+  })
+
   it('stacks grouped chunks from durable delivery history after restart without guessing a primary branch', async () => {
     const f = fake()
     const mgr = new MilestoneChainManager(db, 'p1', f.io)

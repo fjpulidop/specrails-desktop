@@ -143,7 +143,15 @@
       "details": "Specs {{from}}–{{to}} von {{total}} werden ausformuliert…",
       "audit": "Alle {{total}} Specs werden geprüft…",
       "repair": "Specs {{from}}–{{to}} werden erneut angefordert…"
-    }
+    },
+    "habitual": "Übliche Konfiguration für die nächsten Iterationen",
+    "override": "Andere Konfiguration nur für M{{n}} verwenden",
+    "defaultEffort": "Anbieterstandard",
+    "save": "Übliche Konfiguration speichern",
+    "saving": "Wird gespeichert…",
+    "failed": "Die Konfiguration konnte nicht geladen oder gespeichert werden. Blueprint zum Wiederholen schließen und erneut öffnen.",
+    "unavailable": "Die gewählte Konfiguration ist nicht verfügbar. Eine installierte KI und ein kompatibles Modell wählen.",
+    "reset": "Anbieterstandard verwenden"
   },
   "readiness": {
     "title": "Bereit, die Specs zu erstellen?",
@@ -380,5 +388,11 @@
       "settledTitle": "Blueprint freigegeben",
       "settledDescription": "Der Builder erzeugt aus diesem Blueprint das Backlog für Meilenstein 1."
     }
+  },
+  "execution": {
+    "configuration": "KI für die Ausführung von M1",
+    "hint": "Gilt für alle Rails dieses Meilensteins, einschließlich Wiederholungen.",
+    "failed": "Die verfügbaren KI-Konfigurationen konnten nicht geladen werden.",
+    "retry": "Erneut versuchen"
   }
 }

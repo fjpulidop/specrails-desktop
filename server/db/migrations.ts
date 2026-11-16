@@ -2062,6 +2062,11 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 92: freeze an explicit milestone execution engine for every rail,
+  // including checkpoint resume, retries and startup recovery. NULL is legacy.
+  (db) => {
+    db.exec('ALTER TABLE milestone_launch_chains ADD COLUMN engine_config TEXT')
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

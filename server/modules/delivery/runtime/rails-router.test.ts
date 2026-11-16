@@ -1,3 +1,4 @@
+import { applyAgentDefaultsPatch } from '../../agents/runtime/agent-defaults'
 import { coreFactoryGraph } from '../../loops/runtime/loop-core-factory'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
@@ -978,6 +979,43 @@ describe('rails-router loop mode', () => {
     expect(res.status, JSON.stringify(res.body)).toBe(202)
     expect(run.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.4', graph })
     expect(run.mock.calls[0][0].runtimeProviderOverride).toBeUndefined()
+  })
+
+  it('[spec:milestone-launch-chain/strict-selection-respects-loop-engine-ownership] rejects a milestone engine that conflicts with a loop-owned engine before spawning', async () => {
+    const graph = coreFactoryGraph('implement', true)
+    graph.config.agents!.agents.developer = { provider: 'codex', model: 'gpt-6.1-sol' }
+    createLoop(desktopDb, { id: 'fixed-engine', name: 'Fixed engine', graph })
+    publishLoop(desktopDb, 'fixed-engine')
+    const run = vi.fn()
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'fixed-engine', aiEngine: 'claude', model: 'sonnet', reasoning_effort: 'high', requireEngineSelection: true })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('loop_engine_conflict')
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('[spec:milestone-launch-chain/strict-selection-respects-loop-engine-ownership] executes a strict milestone choice through the ordinary loop launch path', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId, aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: 'high', requireEngineSelection: true })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(run.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6.1-sol', effort: 'high', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6.1-sol', effort: 'high' } })
+  })
+
+  it('[spec:milestone-launch-chain/frozen-milestone-execution-choice] keeps explicit provider-default effort when global effort changes between rails', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    for (const pipelineEffort of ['high', 'low']) {
+      applyAgentDefaultsPatch(desktopDb, { providers: { codex: { custom: true, pipelineModel: 'gpt-6.1-sol', pipelineEffort } } })
+      const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId, aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: null, requireEngineSelection: true })
+      expect(res.status, JSON.stringify(res.body)).toBe(202)
+      expect(run.mock.lastCall![0].effort).toBeUndefined()
+      expect(run.mock.lastCall![0].runtimeProviderOverride).toEqual({ provider: 'codex', model: 'gpt-6.1-sol' })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+    expect(run).toHaveBeenCalledTimes(2)
   })
 
   it('falls back to the QueueManager mode when Loops are disabled', async () => {

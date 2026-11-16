@@ -44,6 +44,24 @@ route).
   mission-style); in Agent Mode the hero and docked cards share a `layoutId`,
   so the first send morphs the agent smoothly down. Then commit
   (`BlueprintCommitForm`), progress step list, done (Launch M1 / Open project).
+  Before Launch M1, `MilestoneLaunchControls` shows the provider, model and effort
+  that will execute the milestone. The Blueprint flyout offers the same controls
+  when M1 is launchable. `GET /api/projects/:id/blueprint/launch-settings` returns
+  the installed read-only-capable catalog (the standard pipeline needs read-only
+  deciders) and project-primary default. This execution choice is independent of
+  the saved preference for generating M2+ specs. The launch body includes
+  `engine: {provider, model, reasoningEffort}`; null effort uses provider defaults.
+  The server validates before creating any chain, then stores the choice in
+  `milestone_launch_chains.engine_config` (migration 92). Every rail, retry and
+  resumed chain uses it. Legacy NULL chains keep their existing behavior.
+  A conflicting recipe-owned engine rejects the launch instead of replacing the
+  selection. No recipe, project primary or generation preference is modified.
+  Worktree hydration also copies an untracked `openspec/config.yaml` (or `.yml`)
+  from the ordered project roots when the checkout has neither. This establishes
+  a local OpenSpec root for newly bootstrapped/nested projects instead of
+  discovering an enclosing repository. The config is an authenticated, local
+  overlay copy; specs and changes are never shared, and existing configs or
+  OpenSpec directory symlinks are preserved.
   Esc: commit→chat, chat→exit (confirm-gated when dirty).
 - `BuilderComposer`: mirrors the mission composer's visual language — the SAME
   provider/model/effort selectors (provider/model bind to the blueprint
@@ -666,8 +684,19 @@ execution (one spec per rail) and can use Kimi.
   appear after reload without rewriting the user's ticket store.
 - **Generate M2+** (`MilestoneGenerateShell`): PROJECT-level conversation
   `kind='milestone'` through the existing ChatManager. The milestone id rides
-  `context_scope` as `{milestone:'m2'}` (`POST /chat/conversations` body
-  `{kind:'milestone', milestone}`); `ChatManager._buildMilestoneSystemPrompt`
+  `context_scope` as `{milestone:'m2', reasoningEffort?}` (`POST /chat/conversations`
+  body `{kind:'milestone', milestone, provider, model, reasoningEffort}`; null effort
+  uses the provider default). The Blueprint flyout offers a usual configuration
+  saved through `GET/PUT /blueprint/generation-settings`, scoped to the project's
+  SQLite `queue_state`, plus an optional exception for one milestone. Saving never
+  changes the project primary, day-0 Builder, existing conversations or rail execution
+  settings. Without a saved preference the compatible project primary is used,
+  or the first compatible installed provider if that primary lacks read-only tools.
+  Unavailable saved choices remain visible and block generation until corrected.
+  Provider/model switches reset model/effort as appropriate; only supported effort
+  levels are offered. The conversation stores provider/model and carries effort
+  through `context_scope` into every milestone turn's native spawn options.
+  `ChatManager._buildMilestoneSystemPrompt`
   seeds the prompt with the workspace `blueprint.json`, the target
   `plannedSpecs`, the complete canonical rich-spec/quality contract, and the
   code-grounding rules. It instructs the agent to return every detailed spec

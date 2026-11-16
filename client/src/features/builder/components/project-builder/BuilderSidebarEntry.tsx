@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Hammer, Loader2, Rocket, Sparkles } from 'lucide-react'
+import { Hammer } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
@@ -20,7 +20,8 @@ import {
 import { isMilestoneLaunchable } from '../../lib/milestone-progress'
 import { MilestoneAutoAdvanceToggle, MilestoneCard } from './MilestoneProgressCard'
 import { MilestoneGenerateShell } from './MilestoneGenerateShell'
-import { providerSupportsToolPolicy } from '../../../providers/lib/provider-capabilities'
+import { MilestoneLaunchControls } from './MilestoneLaunchControls'
+import { MilestoneGenerationControls, type MilestoneGenerationSelection } from './MilestoneGenerationControls'
 import { SIDEBAR_FLYOUT_ATTR } from '../../../../hooks/useSidebarHoverIntent'
 
 import { notifyError } from '../../../../lib/notify-error'
@@ -40,7 +41,7 @@ interface BuilderSidebarEntryProps {
 export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const { t } = useTranslation('builder')
   const navigate = useNavigate()
-  const { activeProjectId, projects } = useDesktop()
+  const { activeProjectId } = useDesktop()
   const { blueprint, progress, hasBlueprint, refresh } = useMilestoneProgress(activeProjectId)
 
   const [panelOpen, setPanelOpen] = useState(false)
@@ -49,7 +50,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   // Wave checkpoints (D9): auto-continue is ON by default; turning it off makes
   // the chain ask before each next rail. A failure always pauses.
   const [autoAdvance, setAutoAdvance] = useState<boolean>(() => readMilestoneAutoAdvance())
-  const [generating, setGenerating] = useState<string | null>(null)
+  const [generating, setGenerating] = useState<{ projectId: string; milestoneId: string; selection: MilestoneGenerationSelection } | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -87,6 +88,8 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     }
   }, [panelOpen])
 
+  useEffect(() => { setGenerating(null); setPanelOpen(false) }, [activeProjectId])
+
   // The host sidebar collapsing (expanded → rail) closes the flyout.
   const wasExpandedRef = useRef(expanded)
   useEffect(() => {
@@ -115,17 +118,19 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
       const target = e.target as Node
       if (rootRef.current?.contains(target)) return
       if (panelRef.current?.contains(target)) return
+      // Toolbar selectors portal their listbox outside this flyout.
+      if (target instanceof Element && target.closest('[role="listbox"]')) return
       setPanelOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [panelOpen])
 
-  const handleLaunchM1 = useCallback(async () => {
+  const handleLaunchM1 = useCallback(async (engine: MilestoneGenerationSelection) => {
     if (!activeProjectId || launching) return
     setLaunching(true)
     try {
-      const result = await launchMilestone(activeProjectId, 1, { autoAdvance })
+      const result = await launchMilestone(activeProjectId, 1, { autoAdvance, engine })
       const label = milestoneLabel(1)
       if (result.ok) {
         const totalRails = result.launched.length + result.pending.length
@@ -204,9 +209,6 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const m1 = progress.find((p) => p.n === 1) ?? null
   const m1Launchable = m1 !== null && isMilestoneLaunchable(m1)
   const nextPlanned = progress.find((p) => p.state === 'planned' && p.n > 1) ?? null
-  const project = projects.find((candidate) => candidate.id === activeProjectId)
-  const projectProvider = project?.provider ?? project?.providers?.[0] ?? 'claude'
-  const milestoneGenerationAvailable = providerSupportsToolPolicy(projectProvider, 'read-only')
 
   const launchControls = m1Launchable ? (
     <>
@@ -220,16 +222,8 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
         onChange={(on) => { setAutoAdvance(on); saveMilestoneAutoAdvance(on) }}
         testId="sidebar-auto-advance"
       />
-      <button
-        type="button"
-        onClick={handleLaunchM1}
-        disabled={launching}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-caption font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
-        data-testid="sidebar-launch-m1"
-      >
-        {launching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
-        {t('sidebar.launchM1')}
-      </button>
+      <MilestoneLaunchControls key={activeProjectId} projectId={activeProjectId}
+        busy={launching} onLaunch={(selection) => { void handleLaunchM1(selection) }} testId="sidebar-launch-m1" />
     </>
   ) : null
 
@@ -292,39 +286,28 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
           </div>
 
           {nextPlanned && (
-            <div className="mt-3 flex flex-col gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!milestoneGenerationAvailable) return
-                  setGenerating(nextPlanned.id)
-                  setPanelOpen(false)
-                }}
-                disabled={!milestoneGenerationAvailable}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-caption font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
-                title={milestoneGenerationAvailable
-                  ? t('sidebar.generateHint')
-                  : t('sidebar.generateUnavailable')}
-                data-testid="sidebar-generate-next"
-              >
-                <Sparkles className="h-3 w-3" />
-                {t('sidebar.generateNext', { n: nextPlanned.n })}
-              </button>
-            </div>
+            <MilestoneGenerationControls key={activeProjectId} projectId={activeProjectId} milestoneN={nextPlanned.n}
+              onGenerate={(selection) => {
+                setGenerating({ projectId: activeProjectId, milestoneId: nextPlanned.id, selection })
+                setPanelOpen(false)
+              }} />
           )}
         </div>,
         document.body,
       )}
 
-      {generating && (
+      {generating && generating.projectId === activeProjectId && (
         <MilestoneGenerateShell
+          key={`${activeProjectId}:${generating.milestoneId}`}
           open
           onClose={() => setGenerating(null)}
           onCommitted={() => { void refresh() }}
           projectId={activeProjectId}
-          milestoneId={generating}
+          milestoneId={generating.milestoneId}
           blueprint={blueprint}
-          provider={projectProvider}
+          provider={generating.selection.provider}
+          model={generating.selection.model}
+          reasoningEffort={generating.selection.reasoningEffort}
         />
       )}
     </div>

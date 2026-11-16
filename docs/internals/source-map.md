@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1401 source/build files. Nearby tests are linked where names
+Includes 1404 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -246,6 +246,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [BuilderRecentBlueprints.tsx](../../client/src/features/builder/components/project-builder/BuilderRecentBlueprints.tsx)
 - [BuilderSidebarEntry.tsx](../../client/src/features/builder/components/project-builder/BuilderSidebarEntry.tsx)
 - [MilestoneGenerateShell.tsx](../../client/src/features/builder/components/project-builder/MilestoneGenerateShell.tsx)
+- [MilestoneGenerationControls.tsx](../../client/src/features/builder/components/project-builder/MilestoneGenerationControls.tsx)
+- [MilestoneLaunchControls.tsx](../../client/src/features/builder/components/project-builder/MilestoneLaunchControls.tsx)
 - [MilestoneProgressCard.tsx](../../client/src/features/builder/components/project-builder/MilestoneProgressCard.tsx)
 
 ## client/src/features/builder/hooks
@@ -1492,6 +1494,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [builder-cwd-manager.ts](../../server/modules/builder/runtime/builder-cwd-manager.ts)
 - [milestone-chain-store.ts](../../server/modules/builder/runtime/milestone-chain-store.ts) · [test](../../server/modules/builder/runtime/milestone-chain-store.test.ts)
 - [milestone-chain.ts](../../server/modules/builder/runtime/milestone-chain.ts) · [test](../../server/modules/builder/runtime/milestone-chain.test.ts)
+- [milestone-generation-settings.ts](../../server/modules/builder/runtime/milestone-generation-settings.ts)
 - [milestone-progress.ts](../../server/modules/builder/runtime/milestone-progress.ts) · [test](../../server/modules/builder/runtime/milestone-progress.test.ts)
 - [mission-placeholder.ts](../../server/modules/builder/runtime/mission-placeholder.ts) · [test](../../server/modules/builder/runtime/mission-placeholder.test.ts)
 

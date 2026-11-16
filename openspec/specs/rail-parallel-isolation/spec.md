@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change parallel-implementation-worktrees. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Repo-mutation classification
 
 Every loop SHALL be classified as repo-mutating or read-only. A loop SHALL be treated as **repo-mutating by default**; it is read-only ONLY when its template explicitly declares `readOnly: true`. Custom (user-authored) loops SHALL always be treated as repo-mutating. The classification SHALL be a pure function of the loop definition.
@@ -261,3 +263,22 @@ When a launch carries an explicit target PR, the isolated launch SHALL resolve a
 
 - **WHEN** explicit-target validation fails for any reason
 - **THEN** no branch, worktree, overlay, or delivery row SHALL exist afterwards for that launch attempt
+
+### Requirement: Worktrees retain a local OpenSpec configuration
+When neither OpenSpec config spelling exists in the checkout, overlay SHALL copy the first available openspec/config.yaml or config.yml from ordered project roots into the worktree. It SHALL copy no specs or changes, preserve existing configuration, refuse writes through an openspec directory symlink, and include the copy in existing overlay ownership and cleanup authentication.
+
+#### Scenario: Repository fallback supplies configuration
+- **WHEN** the primary source lacks configuration and the repository fallback contains untracked OpenSpec configuration and changes
+- **THEN** the worktree receives a local config copy and receives no changes directory
+
+#### Scenario: Existing alternate spelling wins
+- **WHEN** the checkout has openspec/config.yml and a source offers config.yaml
+- **THEN** overlay preserves the checkout config and does not create config.yaml
+
+#### Scenario: Directory symlink is preserved
+- **WHEN** the worktree openspec directory is a symlink
+- **THEN** overlay writes no configuration through that symlink
+
+#### Scenario: Edited copy loses cleanup authorization
+- **WHEN** a copied configuration is subsequently edited
+- **THEN** revalidated cleanup evidence no longer authorizes removing that edited file

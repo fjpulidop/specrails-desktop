@@ -14,7 +14,7 @@ import {
   type BlueprintRejectionReason,
 } from '../lib/blueprint-draft'
 import type { CommitFormValue } from '../components/project-builder/BlueprintCommitForm'
-import { launchMilestone, milestoneLabel, readMilestoneAutoAdvance } from '../lib/milestone-launch'
+import { launchMilestone, milestoneLabel, readMilestoneAutoAdvance, type MilestoneLaunchOptions } from '../lib/milestone-launch'
 import { analyzeBlueprintSpecQuality, type BuilderSpecQualityIssue } from '../lib/blueprint-spec-quality'
 import { deriveReadiness, localizeQualityIssue, type ReadinessReport } from '../lib/blueprint-readiness'
 import {
@@ -260,7 +260,7 @@ export interface BuilderSession {
   goToCommit: () => void
   backToChat: () => void
   submitCommit: (value: CommitFormValue) => void
-  launchM1: () => Promise<void>
+  launchM1: (engine?: MilestoneLaunchOptions['engine']) => Promise<void>
   openProject: () => void
   /** Abort any in-flight turn and reset every state slice (exit path). */
   abortAndReset: () => void
@@ -704,7 +704,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     [blueprint, rawBlueprint],
   )
 
-  const launchM1 = useCallback(async () => {
+  const launchM1 = useCallback(async (engine?: MilestoneLaunchOptions['engine']) => {
     if (!createdProjectId || launching) return
     setLaunching(true)
     try {
@@ -713,7 +713,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       // branch. The done screen then shows the live milestone card — "Open the
       // project" remains the exit.
       const autoAdvance = readMilestoneAutoAdvance()
-      const result = await launchMilestone(createdProjectId, 1, { autoAdvance })
+      const result = await launchMilestone(createdProjectId, 1, { autoAdvance, ...(engine ? { engine } : {}) })
       const label = milestoneLabel(1)
       if (result.ok) {
         const totalRails = result.launched.length + result.pending.length

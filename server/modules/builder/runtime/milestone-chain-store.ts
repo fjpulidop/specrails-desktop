@@ -11,7 +11,14 @@ import type { MilestoneChainSnapshot, MilestoneChainLaunched, MilestoneChainStat
 
 export type MilestoneChainMode = 'sequential' | 'parallel'
 
+export interface MilestoneChainEngine {
+  provider: string
+  model: string
+  reasoningEffort: string | null
+}
+
 export interface MilestoneChainRow {
+  engine_config: string | null
   id: string
   milestone_n: number
   milestone_id: string
@@ -49,6 +56,7 @@ export function isActiveChainStatus(status: string): boolean {
 }
 
 export interface CreateChainInput {
+  engine?: MilestoneChainEngine
   id: string
   milestoneN: number
   milestoneId: string
@@ -69,9 +77,9 @@ export function createChain(db: DbInstance, input: CreateChainInput): MilestoneC
   const ts = iso(input.nowMs)
   db.prepare(`
     INSERT INTO milestone_launch_chains
-      (id, milestone_n, milestone_id, mode, chunks, next_chunk, current_run_ids, integration_branch, status, launched, auto_advance, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 0, '[]', ?, ?, '[]', ?, ?, ?)
-  `).run(input.id, input.milestoneN, input.milestoneId, input.mode, JSON.stringify(input.chunks), input.integrationBranch, input.status ?? 'running', input.autoAdvance === false ? 0 : 1, ts, ts)
+      (id, milestone_n, milestone_id, mode, chunks, next_chunk, current_run_ids, integration_branch, status, launched, auto_advance, created_at, updated_at, engine_config)
+    VALUES (?, ?, ?, ?, ?, 0, '[]', ?, ?, '[]', ?, ?, ?, ?)
+  `).run(input.id, input.milestoneN, input.milestoneId, input.mode, JSON.stringify(input.chunks), input.integrationBranch, input.status ?? 'running', input.autoAdvance === false ? 0 : 1, ts, ts, input.engine ? JSON.stringify(input.engine) : null)
   return getChain(db, input.id)!
 }
 

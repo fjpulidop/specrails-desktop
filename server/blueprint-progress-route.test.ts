@@ -101,7 +101,7 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect(res.body.progress[0]).toMatchObject({ id: 'm1', n: 1, state: 'committed', counts: { total: 2, onReview: 1, todo: 1, done: 0 } })
   })
 
-  it('milestone launch relays autoAdvance to the chain manager; PATCH /chains/:id flips it (D9)', async () => {
+  it('[spec:milestone-launch-chain/milestone-launch-is-a-server-owned-chain] milestone launch relays autoAdvance to the chain manager; PATCH /chains/:id flips it (D9)', async () => {
     const start = vi.fn(async () => ({ ok: true as const, status: 202 as const, chainId: 'c1', launched: [], pending: [] }))
     const setAutoAdvance = vi.fn(async (_id: string, on: boolean) => ({ ok: true as const, status: on ? 202 : 200, chain: { id: 'c1', autoAdvance: on } }))
     const ctx = makeContext(db, repo, { milestoneChains: { start, setAutoAdvance, listActive: () => [] } as never })
@@ -110,6 +110,15 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect(res.status).toBe(202)
     expect(res.body.mode).toBe('sequential')
     expect(start).toHaveBeenCalledWith(1, { autoAdvance: false })
+    const engine = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ engine })
+    expect(res.status).toBe(202)
+    expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: undefined, engine })
+    const calls = start.mock.calls.length
+    for (const bad of [{ ...engine, provider: 'missing' }, { ...engine, model: 'wrong' }, { ...engine, reasoningEffort: 'wrong' }]) {
+      expect((await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ engine: bad })).status).toBe(400)
+    }
+    expect(start.mock.calls).toHaveLength(calls)
     res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({})
     // Omitted autoAdvance: the chain manager defaults it to ON.
     expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: undefined })

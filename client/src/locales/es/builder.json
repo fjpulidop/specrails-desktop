@@ -143,7 +143,15 @@
       "details": "Escribiendo al detalle las specs {{from}}–{{to}} de {{total}}…",
       "audit": "Auditando las {{total}} specs…",
       "repair": "Volviendo a pedir las specs {{from}}–{{to}}…"
-    }
+    },
+    "habitual": "Configuración habitual para las siguientes iteraciones",
+    "override": "Usar otra configuración solo para M{{n}}",
+    "defaultEffort": "Predeterminado de la IA",
+    "save": "Guardar configuración habitual",
+    "saving": "Guardando…",
+    "failed": "No se pudo cargar o guardar la configuración. Cierra y abre Blueprint para reintentar.",
+    "unavailable": "La configuración elegida no está disponible. Elige una IA instalada y un modelo compatible.",
+    "reset": "Usar valores predeterminados de la IA"
   },
   "readiness": {
     "title": "¿Listo para crear las specs?",
@@ -380,5 +388,11 @@
       "settledTitle": "Blueprint aprobado",
       "settledDescription": "El Constructor está generando el backlog del Hito 1 a partir de este blueprint."
     }
+  },
+  "execution": {
+    "configuration": "IA para ejecutar M1",
+    "hint": "Se aplica a todos los rails de este hito, incluidos los reintentos.",
+    "failed": "No se pudieron cargar las configuraciones de IA disponibles.",
+    "retry": "Reintentar"
   }
 }

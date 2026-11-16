@@ -200,7 +200,7 @@ describe('agent runtime lifecycle', () => {
     expect(recovery).toHaveBeenCalledTimes(1)
   })
 
-  it('diagnoses repeated blockers with original scope and invalidation evidence without invoking a provider', async () => {
+  it('[spec:programmatic-agent-runtime/diagnosis-accepts-engine-2-failures] diagnoses repeated blockers with original scope and invalidation evidence without invoking a provider', async () => {
     const error = 'Archive validation failed: required section missing'
     status.mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'archive', error,
       steps: { architect: { status: 'succeeded' }, developer: { status: 'succeeded' }, archive: { status: 'failed' } },
@@ -211,6 +211,21 @@ describe('agent runtime lifecycle', () => {
       recommendation: 'repair_before_retry', repeatFailureCount: 2,
       completedSteps: ['architect', 'developer'], originalScope: { artifactRoot: directory },
       verification: { valid: false, reasons: ['Candidate files changed'] }, summary: { canResume: true },
+    })
+    expect(execute).not.toHaveBeenCalled()
+    expect(listLoopStepRecoveries(db)).toEqual([])
+  })
+
+  it('[spec:programmatic-agent-runtime/diagnosis-accepts-engine-2-failures] diagnoses Engine 2 node paths and structured errors without resuming the failed run', async () => {
+    status.mockResolvedValue({ runId: 'run-1', engineVersion: 2, status: 'failed', nextStep: 'architect',
+      steps: { architect: { status: 'failed' } },
+      recentFailures: [1, 2].map(n => ({ nodePath: 'architect', status: 'failed', at: `attempt-${n}`,
+        error: { code: 'invalid_role_output', message: 'Required OpenSpec role workflow was not executed' } })),
+    })
+    expect(await service.diagnose('run-1')).toMatchObject({
+      recommendation: 'repair_before_retry', repeatFailureCount: 2,
+      recentFailures: [{ stepId: 'architect', error: 'invalid_role_output: Required OpenSpec role workflow was not executed' },
+        { stepId: 'architect', error: 'invalid_role_output: Required OpenSpec role workflow was not executed' }],
     })
     expect(execute).not.toHaveBeenCalled()
     expect(listLoopStepRecoveries(db)).toEqual([])
