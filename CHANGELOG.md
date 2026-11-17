@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.4.0...v3.5.0) (2026-11-17)
+
+
+### Features
+
+* **loops:** run loop roles without a turn limit (pairs Core 6.11.0) ([#891](https://github.com/fjpulidop/specrails-desktop/issues/891)) ([187e2ef](https://github.com/fjpulidop/specrails-desktop/commit/187e2efb5f990e4b134c0a9f2cec45a33e34e1ee))
+
 ## [3.4.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.3.0...v3.4.0) (2026-11-16)
 
 
