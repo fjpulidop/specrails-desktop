@@ -13,12 +13,6 @@ use tauri::{Emitter, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
 pub const EVENT: &str = "surface-window:event";
 const MAX_WINDOWS: usize = 16;
 const MAX_RESULT_BYTES: usize = 64 * 1024;
-/// Top-left of the macOS traffic lights (14pt tall): their center sits on the
-/// header's title row (16px padding + half of the 22px title line ≈ 27pt).
-#[cfg(target_os = "macos")]
-const TRAFFIC_LIGHTS_X: f64 = 18.0;
-#[cfg(target_os = "macos")]
-const TRAFFIC_LIGHTS_Y: f64 = 20.0;
 
 /// The surfaces that may open natively, with their window chrome and the extra
 /// host permissions their content needs. Anything else stays an in-page modal.
@@ -158,11 +152,11 @@ pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: Str
         _ => builder.center(),
     };
     // Native window controls only (the page renders no close button of its own).
-    // macOS: traffic lights over our header, centered on its title row
-    // (`surfaceHeaderInset` in dialog.tsx). Elsewhere: the OS title bar.
+    // macOS: traffic lights at their standard place over our header; the header
+    // puts its title row on their line (`surfaceHeaderInset` in dialog.tsx).
+    // Elsewhere: the OS title bar.
     #[cfg(target_os = "macos")]
-    let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(TRAFFIC_LIGHTS_X, TRAFFIC_LIGHTS_Y));
+    let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(true);
     builder.build().map_err(|err| err.to_string())?;

@@ -113,11 +113,11 @@ close, minimize or zoom buttons.
 
 | OS | Chrome | Relationship to the opener |
 |---|---|---|
-| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title), moved to (18, 20)pt so their center (≈27pt) is on the header's title row (`TRAFFIC_LIGHTS_*` in `surface_windows.rs`, `surfaceHeaderInset` in `dialog.tsx`) | Child `NSWindow` (`parent`): moves with the opener and stays above it |
+| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place (center ≈ 15.5pt). The header's title row moves up onto that line and starts after the lights (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Child `NSWindow` (`parent`): moves with the opener and stays above it |
 | Windows | Native title bar (decorations on), then our header | Owned window: always above its owner and minimized with it |
 | Linux | Native title bar, as on Windows | Transient for the opener (GTK); the window manager decides stacking |
 
-If the header's padding or title size changes, move the traffic lights with it.
+If the header's title size changes, adjust `surfaceHeaderInset` so the title row stays on the lights' line.
 
 **The opener is not disabled.** Settings and Job detail are tasks you do next
 to your work: reading a run while the board updates is the point. Disabling

@@ -103,13 +103,14 @@ export function useSurfaceWindowFrame(): boolean {
 }
 
 /**
- * macOS draws the traffic lights over the header (overlay title bar), at
- * x 18–72pt, centered on the title row (see TRAFFIC_LIGHTS_* in
- * surface_windows.rs). The header starts its content after them. Other
- * platforms show the OS title bar above the header.
+ * macOS draws the traffic lights over the header (overlay title bar) at their
+ * standard place: x ≈ 13–68pt, vertical center ≈ 15.5pt. The header puts its
+ * title row (22px line) on that line (top padding 5px → center 16px) and
+ * starts its content after them. Other platforms show the OS title bar above
+ * the header, so the header keeps its normal padding.
  */
 function surfaceHeaderInset(): string | undefined {
-  return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pl-[88px]' : undefined
+  return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pl-[88px]! pt-[5px]!' : undefined
 }
 
 /** Header props that make a framed dialog's header the window's title bar. */
