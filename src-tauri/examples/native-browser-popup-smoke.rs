@@ -10,6 +10,9 @@ mod invoke_guard;
 #[allow(dead_code)]
 #[path = "../src/loop_windows.rs"]
 mod loop_windows;
+#[allow(dead_code)]
+#[path = "../src/surface_windows.rs"]
+mod surface_windows;
 #[cfg(any(target_os = "macos", windows))]
 #[allow(dead_code)]
 #[path = "../src/mission_windows.rs"]
