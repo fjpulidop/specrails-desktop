@@ -13,7 +13,8 @@ import type { DefinitionCompletion, DefinitionInterrupt } from './loop-definitio
 export interface DefinitionRunProbe {
   runId: string
   engineVersion: 2
-  status: 'paused' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'cancelled' | 'unavailable'
+  /** `interrupted`: a write step stopped mid-flight (e.g. its provider hit a limit) and needs explicit recovery. */
+  status: 'paused' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'interrupted' | 'cancelled' | 'unavailable'
   resumable: boolean
   /** Epoch milliseconds from Core, never inferred from Desktop's updated_at. */
   lease: { owner: string; epoch: number; expiresAt: number; active: boolean } | null
@@ -27,6 +28,8 @@ export interface DefinitionRunProbe {
   probedAt: string
   error?: { code: string; message: string }
 }
+/** Every run status Core's `runtime status` reports (`EngineRunStatus`). */
+const CORE_RUN_STATUSES = ['paused', 'running', 'succeeded', 'failed', 'blocked', 'interrupted', 'cancelled']
 export interface DefinitionProbeContext { db: DbInstance; cwd: string; env: NodeJS.ProcessEnv }
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
@@ -62,7 +65,7 @@ export async function probeDefinitionRun(ctx: DefinitionProbeContext, runId: str
     const result: unknown = JSON.parse(stdout)
     if (!record(result) || result.type !== 'runtime-status' || result.engineVersion !== 2 || !record(result.state)) return unavailable('Retained Core returned an incompatible status')
     const state = result.state
-    if (state.runId !== runId || !['paused', 'running', 'succeeded', 'failed', 'blocked', 'cancelled'].includes(String(state.status)) || !integer(result.revision) || !integer(result.eventCursor)) return unavailable('Retained Core returned an invalid run identity or cursor')
+    if (state.runId !== runId || !CORE_RUN_STATUSES.includes(String(state.status)) || !integer(result.revision) || !integer(result.eventCursor)) return unavailable('Retained Core returned an invalid run identity or cursor')
     const lease = state.lease
     if (lease !== null && (!record(lease) || typeof lease.owner !== 'string' || !integer(lease.epoch) || !integer(lease.expiresAt) || typeof lease.active !== 'boolean')) return unavailable('Retained Core returned an invalid lease')
     if (!Array.isArray(state.recoverableSteps) || state.recoverableSteps.length > 10_000 || state.recoverableSteps.some(value => !record(value) || typeof value.attemptId !== 'string' || !value.attemptId || typeof value.nodePath !== 'string' || typeof value.scopeId !== 'string')) return unavailable('Retained Core returned invalid recovery attempts')
