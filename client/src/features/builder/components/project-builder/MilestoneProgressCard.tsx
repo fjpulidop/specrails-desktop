@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap } from 'lucide-react'
+import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu'
+import type { ChainResumeFrom } from '../../lib/milestone-launch'
 import { cn } from '../../../../lib/utils'
 import { formatElapsed } from '../../../../lib/format-duration'
 import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
@@ -204,7 +206,7 @@ export function MilestoneAutoAdvanceToggle({
 export interface MilestoneChainRowProps {
   chain: MilestoneChainSnapshot
   busy?: boolean
-  onResume?: (chainId: string) => void
+  onResume?: (chainId: string, from?: ChainResumeFrom) => void
   onCancel?: (chainId: string) => void
   /** Flip the chain's auto-continue flag (wave checkpoints). */
   onSetAutoAdvance?: (chainId: string, on: boolean) => void
@@ -220,6 +222,9 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
     ? t(`milestoneProgress.chain.reasons.${reason.key}`, { detail: reason.detail, defaultValue: chain.pauseReason ?? '' })
     : null
   const showToggle = chain.mode === 'sequential' && (live || paused || checkpoint) && Boolean(onSetAutoAdvance)
+  // Paused on a spec that FAILED and ran as one run: it can continue from the failed step.
+  const failedSpec = paused && chain.retryChunk !== null
+    && (chain.launched.find((entry) => entry.chunk === chain.retryChunk! + 1)?.runIds.length ?? 0) === 1
   return (
     <div
       className={cn(
@@ -254,7 +259,37 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
             {t('milestoneProgress.chain.launchNext')}
           </button>
         )}
-        {paused && onResume && (
+        {paused && onResume && (failedSpec ? (
+          // A failed spec resumes from the step that failed (its own run and
+          // worktree) or runs again from the start.
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50"
+              data-testid="milestone-chain-resume"
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
+              {t('milestoneProgress.chain.resume')}
+              <ChevronDown className="h-3 w-3" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64">
+              <DropdownMenuItem onSelect={() => onResume(chain.id, 'failed_step')} data-testid="milestone-chain-resume-failed-step">
+                <StepForward className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-medium">{t('milestoneProgress.chain.resumeFromFailedStep')}</span>
+                  <span className="text-muted-foreground">{t('milestoneProgress.chain.resumeFromFailedStepHint')}</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onResume(chain.id, 'start')} data-testid="milestone-chain-resume-start">
+                <RotateCcw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-medium">{t('milestoneProgress.chain.resumeFromStart')}</span>
+                  <span className="text-muted-foreground">{t('milestoneProgress.chain.resumeFromStartHint')}</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
           <button
             type="button"
             disabled={busy}
@@ -265,7 +300,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
             {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
             {t('milestoneProgress.chain.resume')}
           </button>
-        )}
+        ))}
         {(live || paused || checkpoint) && onCancel && (
           <button
             type="button"
@@ -335,7 +370,7 @@ export interface MilestoneCardProps {
   chainBusy?: boolean
   onReview?: (deliveryId: string) => void
   onOpenRail?: (railIndex: number) => void
-  onResume?: (chainId: string) => void
+  onResume?: (chainId: string, from?: ChainResumeFrom) => void
   onCancel?: (chainId: string) => void
   onSetAutoAdvance?: (chainId: string, on: boolean) => void
   className?: string

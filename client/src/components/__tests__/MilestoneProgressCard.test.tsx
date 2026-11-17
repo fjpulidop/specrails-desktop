@@ -16,7 +16,7 @@ function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', launched: [], createdAt: null, updatedAt: 'x', ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', ...over }
 }
 
 describe('MilestoneProgressBar', () => {
@@ -97,6 +97,34 @@ describe('MilestoneChainRow / MilestoneRailRow', () => {
     await user.click(screen.getByTestId('milestone-chain-cancel'))
     expect(onCancel).toHaveBeenCalledWith('c1')
     expect(screen.queryByTestId('milestone-chain-resume')).not.toBeInTheDocument()
+  })
+
+  it('a chain paused on a failed spec asks where to resume: the failed step or the start', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    const failed = chain({ status: 'paused', pauseReason: 'chunk_stopped', retryChunk: 1, launched: [
+      { chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r1'], deliveryId: 'd-3' },
+      { chunk: 2, railIndex: 4, ticketIds: [2], runIds: ['r2'], deliveryId: 'd-4' },
+    ] })
+    render(<MilestoneChainRow chain={failed} onResume={onResume} />)
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    expect(onResume).not.toHaveBeenCalled()
+    expect(screen.getByTestId('milestone-chain-resume-failed-step')).toHaveTextContent('From the step that failed')
+    expect(screen.getByTestId('milestone-chain-resume-start')).toHaveTextContent('From the start')
+    await user.click(screen.getByTestId('milestone-chain-resume-failed-step'))
+    expect(onResume).toHaveBeenCalledWith('c1', 'failed_step')
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    await user.click(screen.getByTestId('milestone-chain-resume-start'))
+    expect(onResume).toHaveBeenLastCalledWith('c1', 'start')
+  })
+
+  it('a pause that is not a failed spec resumes directly', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'head_missing' })} onResume={onResume} />)
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    expect(onResume).toHaveBeenCalledWith('c1')
+    expect(screen.queryByTestId('milestone-chain-resume-failed-step')).not.toBeInTheDocument()
   })
 
   it('a wave checkpoint offers Launch next rail (resume), the auto-continue switch (PATCH) and Cancel', async () => {

@@ -310,7 +310,8 @@
     "repeatFromHere": "Reprendre à partir d’ici",
     "forkFailed": "Impossible de créer l’exécution liée",
     "forkPending": "Réessayez l’étape sélectionnée initialement pour terminer la bifurcation en attente.",
-    "forkCreated": "Exécution liée créée. Ouvrez-la et reprenez au point sélectionné.",
+    "forkCreated": "Exécution liée créée et reprise depuis l'étape choisie.",
+    "forkResumeFailed": "Exécution liée créée, mais elle n'a pas pu reprendre seule ({{detail}}). Ouvrez-la et reprenez-la.",
     "openFork": "Ouvrir l’exécution liée"
   },
   "logViewer": {

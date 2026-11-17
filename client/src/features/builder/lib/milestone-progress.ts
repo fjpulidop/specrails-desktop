@@ -65,6 +65,9 @@ export interface MilestoneChainSnapshot {
   totalChunks: number
   currentRailIndex: number | null
   headBranch: string | null
+  /** 0-based chunk a paused chain stopped on because it FAILED (Resume can
+   *  continue it from the failed step or relaunch it), else null. */
+  retryChunk: number | null
   launched: MilestoneChainLaunched[]
   createdAt: string | null
   updatedAt: string
@@ -163,6 +166,7 @@ export function coerceChain(raw: unknown): MilestoneChainSnapshot | null {
     totalChunks: num(o.totalChunks),
     currentRailIndex: typeof o.currentRailIndex === 'number' ? o.currentRailIndex : null,
     headBranch: str(o.headBranch),
+    retryChunk: typeof o.retryChunk === 'number' && o.retryChunk >= 0 ? o.retryChunk : null,
     launched,
     createdAt: typeof o.createdAt === 'string' && Number.isFinite(Date.parse(o.createdAt)) ? o.createdAt : null,
     updatedAt: str(o.updatedAt) ?? '',

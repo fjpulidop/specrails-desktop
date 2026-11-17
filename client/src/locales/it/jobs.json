@@ -310,7 +310,8 @@
     "repeatFromHere": "Ripeti da qui",
     "forkFailed": "Impossibile creare l’esecuzione collegata",
     "forkPending": "Riprova il passaggio selezionato inizialmente per completare la biforcazione in attesa.",
-    "forkCreated": "Esecuzione collegata creata. Aprila e riprendi dal punto selezionato.",
+    "forkCreated": "Esecuzione collegata creata e ripresa dal passaggio selezionato.",
+    "forkResumeFailed": "Esecuzione collegata creata, ma non è riuscita a riprendere da sola ({{detail}}). Aprila e riprendila.",
     "openFork": "Apri esecuzione collegata"
   },
   "logViewer": {

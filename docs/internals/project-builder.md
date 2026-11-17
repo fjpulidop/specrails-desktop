@@ -577,7 +577,17 @@ execution (one spec per rail) and can use Kimi.
   retry REUSES the failed attempt's rail when no undecided delivery sits on
   it any more (`activeDeliveryForRail` null — e.g. after Discard), else takes
   a fresh rail so the failed delivery stays reviewable; the launched entry
-  for that chunk is replaced (delivery rows keep the history). A NEW chain for
+  for that chunk is replaced (delivery rows keep the history). The body
+  `{ "from": "failed_step" }` instead continues the failed chunk's OWN run
+  from the step that stopped it (`resumeFailedRun` IO: the run's
+  `/loop-runs/:id/recovery` probe, then `/resume` authorizing every
+  `recoverableSteps` attempt), on its worktree and delivery; the chain goes
+  back to `running` and the resumed run's settle advances it as usual. It
+  needs a pause with `retry_chunk` whose launched entry has exactly one run
+  (409 `no_failed_step` / `failed_step_unavailable`); a rejected resume
+  restores the pause untouched. The snapshot's `retryChunk` tells the UI to
+  turn Resume into a menu: *From the step that failed* or *From the start*
+  (`{ "from": "start" }` or no body = the relaunch above). A NEW chain for
   the same milestone likewise reuses a rail already named for the chunk
   (`io.findRailByName` → `rails-store` `getRails`) when it holds no undecided
   delivery, so relaunching M1 never piles up duplicate "M1 · 1" rails;

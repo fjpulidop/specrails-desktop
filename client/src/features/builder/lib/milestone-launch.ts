@@ -162,10 +162,16 @@ export type ChainControlResult =
   | { ok: true; chain: MilestoneChainSnapshot | null }
   | { ok: false; error: string; detail?: string }
 
-async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch): Promise<ChainControlResult> {
+/** Where Resume restarts a FAILED spec: the step that failed (same run and
+ *  worktree, only the interrupted steps run again) or the whole spec. */
+export type ChainResumeFrom = 'failed_step' | 'start'
+
+async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch, payload?: object): Promise<ChainControlResult> {
   let res: Response
   try {
-    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}/${verb}`, { method: 'POST' })
+    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}/${verb}`, payload
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      : { method: 'POST' })
   } catch (err) {
     return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
   }
@@ -176,8 +182,8 @@ async function controlChain(projectId: string, chainId: string, verb: 'resume' |
   return { ok: true, chain: coerceChain(body.chain) }
 }
 
-export function resumeChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
-  return controlChain(projectId, chainId, 'resume', fetchImpl)
+export function resumeChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch, from?: ChainResumeFrom): Promise<ChainControlResult> {
+  return controlChain(projectId, chainId, 'resume', fetchImpl, from ? { from } : undefined)
 }
 
 export function cancelChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {

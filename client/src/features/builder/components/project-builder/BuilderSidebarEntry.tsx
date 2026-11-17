@@ -15,6 +15,7 @@ import {
   readMilestoneAutoAdvance,
   resumeChain,
   saveMilestoneAutoAdvance,
+  type ChainResumeFrom,
   setChainAutoAdvance,
 } from '../../lib/milestone-launch'
 import { isMilestoneLaunchable } from '../../lib/milestone-progress'
@@ -170,11 +171,11 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     }
   }, [activeProjectId, chainBusy, t])
 
-  const handleResume = useCallback(async (chainId: string) => {
+  const handleResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
     if (!activeProjectId || chainBusy) return
     setChainBusy(true)
     try {
-      const r = await resumeChain(activeProjectId, chainId)
+      const r = await resumeChain(activeProjectId, chainId, fetch, from)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
       else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally {

@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
-import { cancelChain, resumeChain, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
+import { cancelChain, resumeChain, type ChainResumeFrom, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
 import { MilestoneCard } from './MilestoneProgressCard'
 
 import { notifyError } from '../../../../lib/notify-error'
@@ -28,10 +28,10 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
     setTimeout(() => navigate(path), 50)
   }, [navigate, projectId, setActiveProjectId])
 
-  const onResume = useCallback(async (chainId: string) => {
+  const onResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
     setChainBusy(true)
     try {
-      const r = await resumeChain(projectId, chainId)
+      const r = await resumeChain(projectId, chainId, fetch, from)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
       else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally { setChainBusy(false) }

@@ -209,7 +209,11 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 Recorded v2 attempts expose **Repeat from here**, including internal component
 nodes. The request carries the node path, scope and visit; Core rejects ambiguous
 cuts. A stable request ID survives lost responses through the recovery endpoint.
-The linked child opens in the same project and starts paused for an explicit
-resume. Its original frozen inputs, worktree and delivery settlement are retained.
+The linked child opens in the same project and the fork route resumes it at once
+(`resumeDefinitionRunFromStop`: probe, then resume authorizing every recoverable
+attempt), so nobody has to open it and press Resume. The response reports
+`resumed`; when the automatic resume is refused (`resumeError`, `resumeDetail`)
+the child stays paused and the explorer says so. Its original frozen inputs,
+worktree and delivery settlement are retained.
 The source remains historical; its resume/cancel/settlement effects are fenced once
 ownership moves. The engine does not roll back working-tree files automatically.

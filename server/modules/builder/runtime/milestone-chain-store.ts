@@ -200,6 +200,7 @@ export function toChainSnapshot(row: MilestoneChainRow): MilestoneChainSnapshot 
     totalChunks: parseChunks(row).length,
     currentRailIndex: row.current_rail_index,
     headBranch: row.head_branch,
+    retryChunk: row.status === 'paused' ? row.retry_chunk : null,
     launched: parseLaunched(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,

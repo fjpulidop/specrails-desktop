@@ -1646,6 +1646,21 @@ export class ProjectRegistry {
           return (await resolveIntegrationBranch(defaultGitRunner, { repoDir: project.path, projectSetting: getProjectSettings(db).integrationBranch })).branch
         } catch { return null }
       },
+      resumeFailedRun: async (runId) => {
+        // Through the app's own recovery + resume routes (the single authority
+        // for budget, lease and settlement guards): authorize re-running every
+        // interrupted step, then continue the run in place.
+        const runPath = `/projects/${project.id}/loop-runs/${encodeURIComponent(runId)}`
+        const probe = await internalApi.call('GET', `${runPath}/recovery`)
+        if (!probe.ok) return { ok: false, status: probe.status, ...internalApiError(probe) }
+        const state = (probe.body ?? {}) as { resumable?: unknown; recoverableSteps?: unknown }
+        if (state.resumable !== true) return { ok: false, status: 409, error: 'run_not_resumable', detail: 'this run cannot continue from its failed step' }
+        const recover = Array.isArray(state.recoverableSteps)
+          ? state.recoverableSteps.flatMap((step) => typeof (step as { attemptId?: unknown })?.attemptId === 'string' ? [(step as { attemptId: string }).attemptId] : [])
+          : []
+        const r = await internalApi.call('POST', `${runPath}/resume`, recover.length ? { recover } : {})
+        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
+      },
       runState: (runId) => {
         const run = getLoopRun(db, runId)
         if (!run) return null

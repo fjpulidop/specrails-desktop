@@ -310,7 +310,8 @@
     "repeatFromHere": "Repeat from here",
     "forkFailed": "Could not create the linked run",
     "forkPending": "Retry the originally selected step to finish the pending fork.",
-    "forkCreated": "Linked run created. Open it and resume from the selected checkpoint.",
+    "forkCreated": "Linked run created and resumed from the selected step.",
+    "forkResumeFailed": "Linked run created, but it could not resume on its own ({{detail}}). Open it and resume it.",
     "openFork": "Open linked run"
   },
   "logViewer": {

@@ -100,7 +100,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     try {
       assertProcessAdmission(c.project.id)
       const result = await forkDefinitionRun(c, runId, input)
-      res.status(201).json(result)
+      // The linked run continues on its own from the selected step: a fork
+      // nobody resumes is a paused job the user must find and restart.
+      const resumed = await resumeDefinitionRunFromStop(c, result.loopRunId)
+      res.status(201).json({ ...result, resumed: resumed.ok, ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
       res.status(detail === 'runtime_status_unavailable' ? 503 : 409).json({ error: 'runtime_fork_rejected', detail })
@@ -405,6 +408,23 @@ export async function settleCompletedDefinitionRun(c: ProjectContext, runId: str
   const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
   if (!snapshot) throw new Error('Original isolated settlement snapshot is unavailable')
   await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+}
+
+/**
+ * Continue a stopped definition run from where it stopped, authorizing a re-run
+ * of every interrupted step (what the job's Recover/Resume button does). An
+ * already running run counts as resumed.
+ */
+export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  if (c.loopRunManager.isDefinitionRunActive(runId)) return { ok: true }
+  const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+  if (probe.lease?.active) return { ok: true }
+  if (!probe.resumable) return { ok: false, error: 'run_not_resumable', ...(probe.error?.message ? { detail: probe.error.message } : {}) }
+  const recover = probe.recoverableSteps.map(step => step.attemptId)
+  const outcome = await resumeRetainedDefinitionRun(c, runId, recover.length ? { recover } : {})
+  if (outcome.status < 300) return { ok: true }
+  const body = outcome.body as { error?: unknown; detail?: unknown }
+  return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${outcome.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
 }
 
 export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {

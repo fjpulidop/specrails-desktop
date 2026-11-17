@@ -376,6 +376,73 @@ describe('MilestoneChainManager — sequential', () => {
     expect(getChain(db, res.ok ? res.chainId! : '')!).toMatchObject({ status: 'paused', pause_reason: 'launch_rejected:tickets_in_flight', head_branch: 'feat/1' })
   })
 
+  it('Resume from the failed step continues the failed run in place and then advances', async () => {
+    const f = fake()
+    const resumedRuns: string[] = []
+    f.io.resumeFailedRun = async (runId) => { resumedRuns.push(runId); return { ok: true } }
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'failed')
+    settle(f, mgr, 3, 'failed', null)
+    await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'chunk_failed', retry_chunk: 0 })
+    expect(mgr.get(chainId)!.retryChunk).toBe(0)
+
+    const resumed = await mgr.resume(chainId, { from: 'failed_step' })
+    expect(resumed.ok).toBe(true)
+    // Same run, same rail, same delivery: no new launch, no new rail.
+    expect(resumedRuns).toEqual(['run-1'])
+    expect(f.launches).toHaveLength(1)
+    const row = getChain(db, chainId)!
+    expect(row).toMatchObject({ status: 'running', pause_reason: null, retry_chunk: null, last_run_outcome: null, current_rail_index: 3, current_delivery_id: 'd-3' })
+    expect(JSON.parse(row.current_run_ids)).toEqual(['run-1'])
+    expect(mgr.get(chainId)!.retryChunk).toBeNull()
+
+    // The resumed run delivers: the chain advances to the next spec as usual.
+    settle(f, mgr, 3, 'on_review', 'feat/1-resumed')
+    await flush()
+    expect(f.launches[1]).toMatchObject({ railIndex: 4, body: { baseBranch: 'feat/1-resumed' } })
+  })
+
+  it('a rejected failed-step resume restores the pause so Resume from the start stays available', async () => {
+    const f = fake()
+    f.io.resumeFailedRun = async () => ({ ok: false, status: 409, error: 'run_not_resumable', detail: 'nope' })
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'failed', null)
+    await flush()
+    const before = getChain(db, chainId)!
+    const r = await mgr.resume(chainId, { from: 'failed_step' })
+    expect(r).toMatchObject({ ok: false, status: 409, error: 'run_not_resumable', detail: 'nope' })
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: before.pause_reason, retry_chunk: 0, last_run_outcome: 'stopped', current_delivery_id: before.current_delivery_id })
+    expect(f.launches).toHaveLength(1)
+    const fresh = await mgr.resume(chainId, { from: 'start' })
+    expect(fresh.ok).toBe(true)
+    expect(f.launches).toHaveLength(2)
+  })
+
+  it('Resume from the failed step needs a chain paused on a failed spec with a resumable run', async () => {
+    const f = fake()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1, { autoAdvance: false })
+    const chainId = res.ok ? res.chainId! : ''
+    settle(f, mgr, 3, 'on_review', 'feat/1')
+    await flush()
+    // A checkpoint is not a failure.
+    expect(await mgr.resume(chainId, { from: 'failed_step' })).toMatchObject({ ok: false, error: 'no_failed_step' })
+    const g = fake()
+    const other = new MilestoneChainManager(initDb(':memory:'), 'p1', g.io)
+    const started = await other.start(1)
+    const otherId = started.ok ? started.chainId! : ''
+    settle(g, other, 3, 'failed', null)
+    await flush()
+    // No IO to resume runs ⇒ only Resume from the start.
+    expect(await other.resume(otherId, { from: 'failed_step' })).toMatchObject({ ok: false, error: 'failed_step_unavailable' })
+  })
+
   it('a missing head branch pauses head_missing (advance + resume)', async () => {
     const f = fake()
     const mgr = new MilestoneChainManager(db, 'p1', f.io)

@@ -310,7 +310,8 @@
     "repeatFromHere": "Ab hier wiederholen",
     "forkFailed": "Verknüpfter Lauf konnte nicht erstellt werden",
     "forkPending": "Wiederholen Sie den ursprünglich ausgewählten Schritt, um die ausstehende Abzweigung abzuschließen.",
-    "forkCreated": "Verknüpfter Lauf erstellt. Öffnen Sie ihn und setzen Sie am ausgewählten Prüfpunkt fort.",
+    "forkCreated": "Verknüpfter Lauf erstellt und ab dem gewählten Schritt fortgesetzt.",
+    "forkResumeFailed": "Verknüpfter Lauf erstellt, konnte aber nicht automatisch fortgesetzt werden ({{detail}}). Öffne ihn und setze ihn fort.",
     "openFork": "Verknüpften Lauf öffnen"
   },
   "logViewer": {

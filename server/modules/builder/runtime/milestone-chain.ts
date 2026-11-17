@@ -111,6 +111,10 @@ export interface MilestoneChainIO {
   integrationBranch(): Promise<string | null>
   /** Integrate this verified delivery through the normal guarded decision path. */
   integrateDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true } | ChainIoFailure>
+  /** Resume a failed run from the step that stopped it (re-running only the
+   *  interrupted steps), on its own worktree and delivery. Absent ⇒ a failed
+   *  chunk can only be relaunched from the start. */
+  resumeFailedRun?(runId: string): Promise<{ ok: true } | ChainIoFailure>
   /** Loop-run row state for startup recovery: null = row missing. */
   runState(runId: string): { settled: boolean; outcome: string | null } | null
   broadcast(msg: WsMessage): void
@@ -120,6 +124,10 @@ export interface MilestoneChainIO {
 export type ChainStartResult =
   | { ok: true; status: 202; chainId: string | null; launched: MilestoneChainLaunched[]; pending: number[][] }
   | { ok: false; status: number; error: string; detail?: string; chainId?: string }
+
+/** Where Resume restarts a FAILED chunk: the step that failed (same run,
+ *  worktree and delivery) or the whole spec again in a fresh run (default). */
+export type ChainResumeFrom = 'failed_step' | 'start'
 
 export type ChainControlResult =
   | { ok: true; status: number; chain: MilestoneChainSnapshot }
@@ -509,10 +517,11 @@ export class MilestoneChainManager {
     }
   }
 
-  async resume(id: string): Promise<ChainControlResult> {
+  async resume(id: string, opts: { from?: ChainResumeFrom } = {}): Promise<ChainControlResult> {
     const row = getChain(this.db, id)
     if (!row) return { ok: false, status: 404, error: 'chain_not_found' }
     if (row.status !== 'paused' && row.status !== 'awaiting_approval') return { ok: false, status: 409, error: 'chain_not_paused', detail: `chain is ${row.status}` }
+    if (opts.from === 'failed_step') return this.resumeFailedStep(row)
     if (this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
       await this.integrateChunk(id)
       return { ok: true, status: 202, chain: toChainSnapshot(getChain(this.db, id)!) }
@@ -526,6 +535,41 @@ export class MilestoneChainManager {
     await this.advance(row.id, row.head_branch)
     const after = getChain(this.db, row.id)!
     return { ok: true, status: 202, chain: toChainSnapshot(after) }
+  }
+
+  /**
+   * Continue a FAILED chunk from the step that stopped it: the chunk's own run
+   * resumes in place (its worktree, its delivery), re-running only the
+   * interrupted steps, instead of a fresh run of the whole spec. The chain is
+   * marked running first so the resumed run's settle advances it as usual; a
+   * rejected resume restores the pause untouched, so Resume from the start
+   * stays available.
+   */
+  private async resumeFailedStep(row: MilestoneChainRow): Promise<ChainControlResult> {
+    const failed = row.status === 'paused' && row.retry_chunk !== null
+      ? parseLaunched(row).find((entry) => entry.chunk === row.retry_chunk! + 1)
+      : undefined
+    if (!failed) return { ok: false, status: 409, error: 'no_failed_step', detail: 'the chain is not paused on a failed spec' }
+    if (failed.runIds.length !== 1 || !this.io.resumeFailedRun) return { ok: false, status: 409, error: 'failed_step_unavailable', detail: 'this spec can only be relaunched from the start' }
+    const runId = failed.runIds[0]
+    const restore = { status: 'paused' as const, pauseReason: row.pause_reason, retryChunk: row.retry_chunk, currentRunIds: parseRunIds(row), currentDeliveryId: row.current_delivery_id, currentRailIndex: row.current_rail_index, lastRunOutcome: row.last_run_outcome }
+    if (!updateChain(this.db, row.id, row.status, {
+      status: 'running', pauseReason: null, retryChunk: null, lastRunOutcome: null,
+      currentRailIndex: failed.railIndex, currentRunIds: failed.runIds, currentDeliveryId: failed.deliveryId,
+    }, this.now())) return { ok: false, status: 409, error: 'chain_not_paused', detail: 'the chain changed; try again' }
+    let resumed: { ok: true } | ChainIoFailure
+    try { resumed = await this.io.resumeFailedRun(runId) } catch (error) {
+      resumed = { ok: false, status: 409, error: 'run_resume_failed', detail: error instanceof Error ? error.message : String(error) }
+    }
+    if (!resumed.ok) {
+      updateChain(this.db, row.id, 'running', restore, this.now())
+      const back = getChain(this.db, row.id)
+      if (back) this.emit(back)
+      return { ok: false, status: resumed.status, error: resumed.error, ...(resumed.detail ? { detail: resumed.detail } : {}) }
+    }
+    const fresh = getChain(this.db, row.id)!
+    this.emit(fresh)
+    return { ok: true, status: 202, chain: toChainSnapshot(fresh) }
   }
 
   /**

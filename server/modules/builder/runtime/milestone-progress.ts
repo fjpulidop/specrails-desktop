@@ -87,6 +87,9 @@ export interface MilestoneChainSnapshot {
   totalChunks: number
   currentRailIndex: number | null
   headBranch: string | null
+  /** 0-based chunk a paused chain stopped on because it FAILED (Resume can
+   *  continue it from the failed step or relaunch it), else null. */
+  retryChunk: number | null
   launched: MilestoneChainLaunched[]
   createdAt: string
   updatedAt: string
