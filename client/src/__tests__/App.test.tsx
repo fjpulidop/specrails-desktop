@@ -183,7 +183,7 @@ it('a Learn more hint opens the guide over the current screen at the hinted sect
 })
 
 
-it('Loops over a mission: standard header with a visible close, focus returns to the sidebar trigger, toasts move clear of the footer', async () => {
+it('Loops over a mission: standard header with a visible close, focus returns to the sidebar trigger, toasts stay bottom-right', async () => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
   localStorage.setItem('specrails-desktop:uiMode', 'agent')
   const popup = vi.spyOn(window, 'open').mockReturnValue(null)
@@ -197,14 +197,13 @@ it('Loops over a mission: standard header with a visible close, focus returns to
     expect(modal).toHaveAttribute('data-dialog-size', 'fullscreen')
     // The visible heading is the dialog's accessible name.
     expect(screen.getByRole('dialog', { name: 'Loops' })).toBe(modal)
-    // While a modal is open, toasts render top-right (never over its footer).
-    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'top-right'))
+    // Toasts stay bottom-right while a modal is open (they stay clickable over it).
+    expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
     const closes = within(modal).getAllByRole('button', { name: 'Close' })
     expect(closes).toHaveLength(1)
     fireEvent.click(closes[0])
     await waitFor(() => expect(screen.queryByTestId('loops-modal')).not.toBeInTheDocument())
     await waitFor(() => expect(screen.getByRole('button', { name: 'Loops' })).toHaveFocus())
-    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right'))
   } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
 })
 

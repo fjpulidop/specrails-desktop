@@ -419,6 +419,7 @@ pub fn run() {
             loop_windows::plugin_window_open,
             surface_windows::surface_window_open,
             surface_windows::surface_window_result,
+            surface_windows::surface_window_toast,
             mission_windows::mission_windows_supported,
             mission_windows::mission_windows_list,
             mission_windows::mission_window_current,

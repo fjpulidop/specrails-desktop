@@ -23,6 +23,8 @@ import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
+import { useForwardSurfaceToasts, useShowSurfaceToasts } from './lib/surface-toasts'
+import { useToastsUsableOverModals } from './lib/toasts-over-modals'
 // Not lazy: a surface window's first paint should not wait for another chunk.
 import { isAppSettingsSurfaceResult, SurfaceWindowContent } from './SurfaceWindowContent'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
@@ -840,50 +842,8 @@ function ToastLoadingSpinner() {
   return <span aria-hidden style={{ display: 'none' }} />
 }
 
-// Any open modal surface: a standard `DialogContent` (carries
-// `data-dialog-size`), a raw-Radix modal on the shared scrim (`.modal-scrim`),
-// or a hand-rolled `aria-modal` dialog. Non-modal popovers (`role=dialog`
-// without aria-modal, e.g. Move to rail) do not count.
-const OPEN_MODAL_SELECTOR = [
-  '[data-dialog-size][data-state="open"]',
-  '.modal-scrim[data-state="open"]',
-  '[role="dialog"][aria-modal="true"]',
-].join(', ')
-
-/**
- * True while any modal dialog is open. Toasts move to the top-right then, so
- * they never cover a modal's sticky footer (Next / Save / Delete live at the
- * bottom-right of every dialog).
- */
-function useAnyModalDialogOpen(): boolean {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    if (typeof MutationObserver === 'undefined') return
-    let frame = 0
-    const check = () => {
-      frame = 0
-      setOpen(document.querySelector(OPEN_MODAL_SELECTOR) !== null)
-    }
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
-    const observer = new MutationObserver(schedule)
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['data-state', 'aria-modal'],
-    })
-    check()
-    return () => {
-      observer.disconnect()
-      if (frame) cancelAnimationFrame(frame)
-    }
-  }, [])
-  return open
-}
-
 function ThemedToaster() {
   const { theme } = useTheme()
-  const modalOpen = useAnyModalDialogOpen()
   const accent = theme.previewSwatches.accents[0]
   const success = theme.status.completed
   const danger = theme.status.failed
@@ -896,11 +856,12 @@ function ThemedToaster() {
   // TicketDetailModal z-[68], browser-capture z-[80]) no matter its own
   // z-index. At body level its max z-index wins over every modal — toasts are
   // always on top (globals.css pins [data-sonner-toaster] above the toast
-  // layer, LAYERS.toast). While a modal is open they move to the top-right,
-  // clear of the dialog footer.
+  // layer, LAYERS.toast). They stay bottom-right and stay usable over an open
+  // modal (`useToastsUsableOverModals`).
+  useToastsUsableOverModals()
   return createPortal(
     <Toaster
-      position={modalOpen ? 'top-right' : 'bottom-right'}
+      position="bottom-right"
       className="specrails-toaster"
       theme={theme.scheme}
       gap={8}
@@ -948,12 +909,18 @@ function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof s
         <TooltipProvider delayDuration={400}>
           <div className="h-screen overflow-hidden bg-popover">
             <SurfaceWindowContent id={route.id} params={route.params} />
-            <ThemedToaster />
+            {/* No toaster here: this window's toasts show in its opener. */}
+            <SurfaceToastForwarder />
           </div>
         </TooltipProvider>
       </UiModeProvider></DesktopProvider>
     </LanguageProvider></ThemeProvider></SharedWebSocketProvider>
   )
+}
+
+function SurfaceToastForwarder() {
+  useForwardSurfaceToasts()
+  return null
 }
 
 /** Preferences a surface window changes (theme, language, a11y) apply here live. */
@@ -971,6 +938,7 @@ function AppRoutes() {
   const surface = surfaceWindowRoute()
   useSuppressNativeContextMenu()
   useSurfaceStorageReplay()
+  useShowSurfaceToasts()
   if (surface) return <SurfaceWindowRoutes route={surface} />
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>

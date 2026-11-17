@@ -122,7 +122,7 @@ truly has none passes `aria-describedby={undefined}`.
 | dock | 75 | Minimized chats dock (stays clickable over modals) |
 | `capture` | 80 | Browser capture, web view, native browser pane, background-process logs, runtime graph |
 | `media` | 100 | Lightboxes |
-| toast | 110 | Toasts. Sonner portals to `<body>` (its own rule in `globals.css` pins it even higher) and switches to top-right while a modal is open, so a toast never covers a modal footer |
+| toast | 110 | Toasts. Sonner portals to `<body>` (its own rule in `globals.css` pins it even higher). Toasts stay bottom-right and stay clickable while a modal is open: they get `pointer-events: auto`, and a press on a toast never counts as an outside press that closes the modal (`useToastsUsableOverModals` in `lib/toasts-over-modals.ts`). In the desktop app, toasts raised inside a native surface window show in the window that opened it ([native window surfaces](native-window-surfaces.md#toasts)) |
 
 Pass `layer` to `DialogContent` (or to `ConfirmDialog`). A dialog rendered
 inside another dialog inherits a layer automatically. Inside an `entity` modal

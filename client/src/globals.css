@@ -796,6 +796,12 @@ select {
   z-index: 2147483647 !important;
 }
 
+/* An open Radix modal sets pointer-events: none on <body>; toasts stay
+   clickable over it (`lib/toasts-over-modals.ts`). */
+[data-sonner-toast] {
+  pointer-events: auto !important;
+}
+
 [data-sonner-toast][data-styled='true'] {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 8%, transparent),

@@ -169,6 +169,24 @@ apply live in the main window (`ThemeProvider` and `LanguageProvider` listen
 for `storage`). Server-backed state (projects, webhooks, provider connections)
 already reaches every window through the API and WebSocket.
 
+## Toasts
+
+Toasts belong to the window that opened the surface, not to the surface
+window, which renders no toaster ([`lib/surface-toasts.ts`](../../client/src/lib/surface-toasts.ts)).
+`useForwardSurfaceToasts` watches the surface window's toasts (sonner's store,
+`useSonner`) and relays each new or changed toast, and each dismissal, as text
+through `surface_window_toast`. The host delivers it to the opener only
+(`surface-window:toast`). The opener (`useShowSurfaceToasts`, main and mission
+windows) shows it under a stable `surface:<window>:<id>` id, so loading →
+success updates replace in place. An action button (Retry, Undo) keeps
+working: its click is sent back to the surface window
+(`surface-window:toast-action`), which runs the original handler. If the
+surface window has already closed, the click does nothing. Toasts with no text
+(fully custom JSX) are not shown.
+
+In every window, toasts stay bottom-right and stay clickable over an open
+modal ([modal standard](modal-standard.md), layers).
+
 ## Permissions (least privilege)
 
 `capabilities/default.json` stays bound to the `main` webview only
@@ -183,7 +201,7 @@ prefix.
 | `core:event:default`, `core:window:default`, close, minimize, toggle-maximize, start-dragging, set-title, show, set-focus; `dialog:allow-message/confirm/ask`; clipboard read/write text; `shell:allow-open` for http(s) and editor URL schemes | `updater:default`, `process:allow-restart` (the Updates section) |
 
 Custom commands (`invoke_guard`): a surface window may call
-`surface_window_result`, `desktop_reveal_path` and `desktop_save_text`, plus
+`surface_window_result`, `surface_window_toast`, `desktop_reveal_path` and `desktop_save_text`, plus
 its surface's own list (`check_app_update` and `restart_app` for Settings). It
 can never open windows, browsers or missions, spawn the sidecar, or change
 tray state. Navigation is locked to the app origin and to its own

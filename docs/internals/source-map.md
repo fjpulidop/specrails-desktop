@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1408 source/build files. Nearby tests are linked where names
+Includes 1410 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1091,10 +1091,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [save-text-file.ts](../../client/src/lib/save-text-file.ts) · [test](../../client/src/lib/__tests__/save-text-file.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
+- [surface-toasts.ts](../../client/src/lib/surface-toasts.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
 - [tauri-shell.ts](../../client/src/lib/tauri-shell.ts)
 - [toast-class-names.ts](../../client/src/lib/toast-class-names.ts)
+- [toasts-over-modals.ts](../../client/src/lib/toasts-over-modals.ts)
 - [utils.ts](../../client/src/lib/utils.ts) · [test](../../client/src/lib/__tests__/utils.test.ts)
 - [viewport.ts](../../client/src/lib/viewport.ts)
 - [ws-url.ts](../../client/src/lib/ws-url.ts) · [test](../../client/src/lib/__tests__/ws-url.test.ts)

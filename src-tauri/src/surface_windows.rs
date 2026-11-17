@@ -11,6 +11,9 @@ use serde_json::Value;
 use tauri::{Emitter, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
 
 pub const EVENT: &str = "surface-window:event";
+/// Toasts raised in a surface window show in its opener (the surface renders none).
+pub const TOAST_EVENT: &str = "surface-window:toast";
+const MAX_TOAST_BYTES: usize = 16 * 1024;
 const MAX_WINDOWS: usize = 16;
 const MAX_RESULT_BYTES: usize = 64 * 1024;
 /// The page shows its window once its content has painted; this is the
@@ -56,7 +59,7 @@ fn safe_token(value: &str, max: usize) -> bool { !value.is_empty() && value.len(
 /// needs. They can never open other windows, browsers or missions.
 pub fn permits_command(label: &str, command: &str) -> bool {
     let Some(entry) = entry(label) else { return false };
-    matches!(command, "surface_window_result" | "desktop_reveal_path" | "desktop_save_text")
+    matches!(command, "surface_window_result" | "surface_window_toast" | "desktop_reveal_path" | "desktop_save_text")
         || spec(entry.surface).is_some_and(|spec| spec.commands.contains(&command))
 }
 
@@ -190,6 +193,22 @@ pub fn surface_window_result(app: tauri::AppHandle, webview: Webview, result: Va
     app.emit_to(entry.owner.as_str(), EVENT, &event).map_err(|err| err.to_string())
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SurfaceToast<'a> { window_label: &'a str, toast: Value }
+
+/// Relays a toast (or its update/dismissal) from a surface window to its
+/// opener, which shows it. Plain text only; the opener validates the shape.
+#[tauri::command]
+pub fn surface_window_toast(app: tauri::AppHandle, webview: Webview, toast: Value) -> Result<(), String> {
+    let label = webview.label();
+    let entry = entry(label).ok_or("This window has no surface request.")?;
+    if !toast.is_object() || serde_json::to_vec(&toast).map_err(|err| err.to_string())?.len() > MAX_TOAST_BYTES {
+        return Err("Invalid surface toast.".into());
+    }
+    app.emit_to(entry.owner.as_str(), TOAST_EVENT, &SurfaceToast { window_label: label, toast }).map_err(|err| err.to_string())
+}
+
 /// Closure always reaches the opener (Escape, close button, Cmd-W, crash), and
 /// focus goes back to it so the opener can restore focus to its trigger.
 pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
@@ -235,6 +254,7 @@ mod tests {
         insert("surface-app-settings-test", "app-settings");
         insert("surface-job-detail-test", "job-detail");
         assert!(permits_command("surface-app-settings-test", "surface_window_result"));
+        assert!(permits_command("surface-job-detail-test", "surface_window_toast"));
         assert!(permits_command("surface-app-settings-test", "check_app_update"));
         assert!(!permits_command("surface-job-detail-test", "check_app_update"));
         for command in ["surface_window_open", "loop_window_open", "browser_open", "mission_window_detach", "set_tray_labels"] {
