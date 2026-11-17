@@ -72,6 +72,16 @@ it('takes active lease and exact recoverable attempt identity from Core', async 
   expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ resumable: false, lease, recoverableSteps: [{ attemptId: 'physical-7', nodePath: 'work', scopeId: 'root' }] })
 })
 
+it('accepts a run Core reports as interrupted, so its stopped write step can be resumed or replayed', async () => {
+  // Shape of a real run whose developer step stopped mid-write (provider turn limit).
+  const recoverable = { attemptId: '54700493-f6cd-46a0-ad94-1d0308dc5072', nodePath: 'developer', scopeId: 'root', status: 'interrupted', effect: 'write' }
+  respond({ ...status(), state: { ...status().state, status: 'interrupted', pendingInterrupts: [], recoverableSteps: [recoverable] } })
+  const result = await probeDefinitionRun(ctx(), 'run')
+  expect(result).toMatchObject({ status: 'interrupted', resumable: true, lease: null, recoverableSteps: [{ attemptId: recoverable.attemptId, nodePath: 'developer', scopeId: 'root' }] })
+  expect(result.error).toBeUndefined()
+  expect(toDefinitionStates(new Map([['run', result]])).get('run')).toMatchObject({ status: 'interrupted', coreStatus: 'interrupted' })
+})
+
 it('preserves unavailable and completed work for explicit settlement instead of marking it failed', async () => {
   respond({ ...status(), state: { ...status().state, runId: 'foreign' } })
   const unavailable = await probeDefinitionRun(ctx(), 'run')

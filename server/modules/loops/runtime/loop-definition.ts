@@ -60,6 +60,16 @@ const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'imple
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
+/** Core AI pieces that accept `timeoutMs` (0 = no total time limit). */
+const TIMED_AI_KINDS = new Set(['role-turn', 'decider', 'derive-change', 'prompt'])
+
+/** Total time budget of one AI step: the loop's `aiStepTimeoutMinutes` when positive, else the
+ *  loop agents' `limits.timeoutMs` (left to Core), else none (`0`). */
+export function aiStepTimeoutMs(aiStepTimeoutMinutes: number | undefined, loopLimitMs: number | undefined): number | undefined {
+  if (aiStepTimeoutMinutes !== undefined && aiStepTimeoutMinutes > 0) return Math.round(aiStepTimeoutMinutes * 60_000)
+  return loopLimitMs === undefined ? 0 : undefined
+}
+
 /** No I/O, model call, hash implementation or scheduling belongs in this adapter. */
 export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaunch): CoreWorkflowDefinition {
   assertDefinitionGraph(graph)
@@ -113,6 +123,13 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
         if (!engineInput.effort && launch.effort) engineInput.effort = launch.effort
       }
       const params = resolveValue(rawParams, launch, provider) as Record<string, unknown>
+      // Engine v2 honours the loop's AI-step time budget too: without an explicit step or loop
+      // limit an agent step runs with no total time limit (Core's default would stop it after
+      // an hour of real work). Core still stops a step that goes silent (idle timeout).
+      if (TIMED_AI_KINDS.has(kind) && params.timeoutMs === undefined) {
+        const timeoutMs = aiStepTimeoutMs(graph.config.aiStepTimeoutMinutes, agents?.limits?.timeoutMs)
+        if (timeoutMs !== undefined) params.timeoutMs = timeoutMs
+      }
       if (kind === 'prompt') {
         params.engine = {
           provider,
