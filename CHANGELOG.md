@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/fjpulidop/specrails-desktop/compare/v3.5.0...v3.5.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **loops:** resume interrupted runs and run agent steps without a total time limit ([#893](https://github.com/fjpulidop/specrails-desktop/issues/893)) ([6737a12](https://github.com/fjpulidop/specrails-desktop/commit/6737a12ebe448c5591047729bbdd9a44816bdfe1))
+
 ## [3.5.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.4.0...v3.5.0) (2026-11-17)
 
 
