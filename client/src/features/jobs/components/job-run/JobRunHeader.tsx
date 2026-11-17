@@ -5,7 +5,6 @@ import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '../../../../lib/utils'
-import { isLocalEngineId } from '../../../providers/lib/provider-capabilities'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
 import type { PhaseMap } from '../../hooks/usePipeline'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
@@ -17,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
-import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
+import { RuntimeSteering, steeringVisible } from '../../../settings/components/RuntimeSteering'
 import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
 import {
@@ -55,6 +54,11 @@ export interface JobRunDetailsContext {
   hasDetails: boolean
   detailsContent: ReactNode
   detailsRequest: number
+  /** The status row, drawn by the run details beside their tabs so the
+   *  evidence gets the height: state and time before the tabs, activity and
+   *  actions after them. */
+  statusLead: ReactNode
+  statusTrail: ReactNode
 }
 
 export interface JobRunHeaderProps {
@@ -154,8 +158,6 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const hasLiveCounters = isRunning && activity.turns > 0
   const runtimeError = runtime.runs.length > 0 ? runtime.error : ''
   const answerable = !!answerableRun(run)
-  const hasRuntimeDetails = !!run && !!projectId
-  const hasDetails = isTerminal || hasLiveCounters || hasRuntimeDetails || !!runtimeError
 
   // ── Runtime actions (compact, only when the run exposes them) ─────────
   const busy = runtime.busy !== null
@@ -196,6 +198,17 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const diagnosisOffersRetry = showDiagnosis && !!diagnosis && availableRemedies(diagnosis, diagnosisHandlers).includes('retry')
   const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
 
+  // Details show only what the run actually recorded: no empty metric tiles,
+  // no evidence or instructions panels for a run that has none.
+  const finalMetrics = isTerminal ? ([
+    ['cost', final.cost], ['turns', final.turns], ['tokens', final.tokens],
+  ] as const).filter(([, value]) => value != null) : []
+  const runError = run?.error && !showDiagnosis ? run.error : null
+  const runSectionVisible = !!projectId && (!!runtimeError || !!run && (
+    run.historical || run.status === 'succeeded' || run.canResume || !!runError || !!run.pendingApproval?.reason
+    || !!run.pendingQuestion || !!run.metrics || !!run.efficiencySummary || steeringVisible(run)))
+  const hasDetails = hasLiveCounters || finalMetrics.length > 0 || (isTerminal && !!pipelineTotals) || modifiedFiles.length > 0 || runSectionVisible
+
   const frameClass = variant === 'glass'
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
@@ -212,17 +225,11 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
             </div>
           )}
 
-          {isTerminal && (
+          {finalMetrics.length > 0 && (
             <div className="grid grid-cols-3 gap-2 max-w-lg">
-              <Metric
-                label={t('statusPanel.cost')}
-                value={final.cost}
-                valueClass="text-accent-warning"
-                naCaption={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocal') : t('statusPanel.notAvailable')}
-                naTooltip={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocalTooltip') : undefined}
-              />
-              <Metric label={t('statusPanel.turns')} value={final.turns} naCaption={t('statusPanel.notAvailable')} />
-              <Metric label={t('statusPanel.tokens')} value={final.tokens} naCaption={t('statusPanel.notAvailable')} />
+              {finalMetrics.map(([key, value]) => (
+                <Metric key={key} label={t(`statusPanel.${key}`)} value={value} valueClass={key === 'cost' ? 'text-accent-warning' : undefined} />
+              ))}
             </div>
           )}
 
@@ -264,13 +271,13 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
             </div>
           )}
 
-          {(run || runtimeError) && projectId && (
+          {runSectionVisible && (
             <section aria-label={tRuntime('runs.implementation')} className="space-y-2" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
               {runtimeError && <p role="alert" className="text-destructive">{runtimeError}</p>}
               {run?.historical && <p className="text-muted-foreground">{tRuntime('evidence.historical')}</p>}
               {run?.status === 'succeeded' && <p className="text-muted-foreground">{tRuntime('runs.reviewDelivery')}</p>}
               {run?.canResume && <p className="text-muted-foreground">{tRuntime('runs.preserveProgress')}</p>}
-              {run?.error && <p className="text-destructive">{run.error}</p>}
+              {runError && <p className="text-destructive">{runError}</p>}
               {run?.pendingApproval?.reason && <p className="text-muted-foreground">{run.pendingApproval.reason}</p>}
               {run?.pendingQuestion && (
                 <div className="space-y-2">
@@ -295,18 +302,14 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
                 </div>
               )}
               {run?.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
-              {run && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
+              {run?.efficiencySummary && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
               {run && <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />}
             </section>
           )}
         </div>
   )
 
-  return (
-    <>
-    <div data-testid="job-run-header" className={cn('shrink-0', frameClass)}>
-      {/* Row 1 — status · elapsed · phase · activity · steps · actions */}
-      <div className="flex items-center gap-2 flex-wrap px-3 py-2 min-w-0">
+  const statusLead = (<>
         <Tooltip>
           <TooltipTrigger asChild>
             <div><Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge></div>
@@ -332,6 +335,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           {elapsed}
         {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
         )}
+  </>)
+  const statusTrail = (<>
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
@@ -344,16 +349,20 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           {runtimeActions}
           {typeof actions === 'function' ? actions({ diagnosisOffersRetry }) : actions}
         </div>
-      </div>
+  </>)
 
+  return (
+    <>
+    {(!renderRunDetails || phaseDefinitions.length > 0) && <div data-testid="job-run-header" className={cn('shrink-0', frameClass)}>
+      {!renderRunDetails && <div className="flex items-center gap-2 flex-wrap px-3 py-2 min-w-0">{statusLead}{statusTrail}</div>}
       {/* Row 2 — pipeline chips, exactly once */}
       {phaseDefinitions.length > 0 && (
-        <div className="px-3 pb-2 overflow-x-auto">
+        <div className="px-3 pb-2 pt-2 overflow-x-auto">
           <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
         </div>
       )}
-    </div>
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, detailsRequest })}
+    </div>}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }

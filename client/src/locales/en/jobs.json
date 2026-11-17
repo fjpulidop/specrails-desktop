@@ -312,7 +312,10 @@
     "forkPending": "Retry the originally selected step to finish the pending fork.",
     "forkCreated": "Linked run created and resumed from the selected step.",
     "forkResumeFailed": "Linked run created, but it could not resume on its own ({{detail}}). Open it and resume it.",
-    "openFork": "Open linked run"
+    "openFork": "Open linked run",
+    "graphFollow": "Follow run",
+    "graphFitAll": "Fit all",
+    "graphLegend": "Graph legend"
   },
   "logViewer": {
     "loading": "Loading logs...",
@@ -365,7 +368,8 @@
       "running": "Running",
       "skipped": "Skipped",
       "passed": "Passed",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "unverified": "Not verified"
     }
   },
   "runHeader": {

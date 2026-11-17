@@ -122,8 +122,8 @@ describe('JobDetailPage', () => {
     fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
     expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
     expect(panel).toContainElement(screen.getByTestId('job-run-details'))
-    expect(screen.getByTestId('job-run-header')).not.toContainElement(panel)
-    expect(within(screen.getByTestId('job-run-header')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    expect(screen.getByTestId('run-detail-bar')).not.toContainElement(panel)
+    expect(within(screen.getByTestId('run-detail-bar')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
   })
@@ -148,23 +148,22 @@ describe('JobDetailPage', () => {
     expect(answer).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r' }), 'answer')
   })
 
-  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals loop graph before the remedy scrolls and leaves narrated detail preference unchanged', async () => {
+  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals the failed step in Log detail before the remedy scrolls and leaves narrated detail preference unchanged', async () => {
     localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
     const rows = [{ ...mockEvents[0], event_type: 'loop_step', payload: JSON.stringify({ index: 1, kind: 'ai-step', title: 'Verify' }) }, mockEvents[0], { ...mockEvents[0], id: 3, seq: 3, event_type: 'loop_step_end', payload: JSON.stringify({ index: 1, status: 'failed', exitCode: 1 }) }]
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l', status: 'failed', failureDiagnosis: diagnosis }, events: rows }) })
     const scroll = vi.fn(function (this: HTMLElement) {
       expect(this).toBeVisible()
       expect(this).toHaveAttribute('data-status', 'failed')
-      expect(screen.getByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'Log detail' })).toHaveAttribute('aria-selected', 'true')
     })
     const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scroll)
     render(<JobDetailPage />)
     fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
     await waitFor(() => expect(scroll).toHaveBeenCalled())
     expect(localStorage.getItem('specrails-desktop:job-log-mode')).toBe('narrated')
-    fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
-    expect(screen.getByTestId('job-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByTestId('job-narration-mode-log'))
+    expect(screen.getByTestId('loop-detail-mode-steps')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
     spy.mockRestore()
   })
@@ -174,8 +173,9 @@ describe('JobDetailPage', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: mockEvents }) })
     render(<JobDetailPage />)
     fireEvent.click(await screen.findByRole('tab', { name: 'Log detail' }))
+    expect(screen.queryByTestId('loop-detail-mode-narrated')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
-    expect(screen.queryByTestId('job-narration-mode-log')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Execution graph' })).toBeVisible()
   })
 
@@ -614,7 +614,7 @@ describe('JobDetailPage', () => {
       })
       render(<JobDetailPage />)
       await waitFor(() => {
-        expect(screen.getByTestId('job-run-header')).toBeInTheDocument()
+        expect(screen.getByTestId('run-detail-bar')).toBeInTheDocument()
       })
       expect(screen.getByTestId('job-run-activity')).toHaveTextContent('Connecting to the agent…')
       // No placeholder "calculated when finished" tiles — nothing to disclose yet.
@@ -785,6 +785,8 @@ describe('JobDetailPage', () => {
       await waitFor(() => {
         expect(screen.getByTestId('loop-step-explorer')).toBeInTheDocument()
       })
+      // The step logs live in Log detail; the graph tab has the outcome and graph.
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       // The step box renders with the cleaned title (also echoed on the strip
       // chip) and the live step line
       expect(screen.getAllByTestId('loop-step-section')).toHaveLength(1)
@@ -809,6 +811,7 @@ describe('JobDetailPage', () => {
       global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: loopJob, events: mode === 'replay' ? records : [] }) })
       render(<JobDetailPage />)
       await screen.findByTestId('loop-step-explorer')
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       if (mode === 'live') {
         const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
         act(() => {
@@ -845,6 +848,7 @@ describe('JobDetailPage', () => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
       render(<JobDetailPage />)
       await screen.findByTestId('loop-step-explorer')
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
       act(() => handler({ type: 'log', processId: loopJob.id, line: 'Verification A succeeded', source: 'stdout', attemptId: 'attempt-0', timestamp: loopEvents[0].timestamp }))
       // Open the first (finished receiving) attempt to observe the delayed line.

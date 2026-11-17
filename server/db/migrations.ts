@@ -2067,6 +2067,22 @@ const MIGRATIONS: Migration[] = [
   (db) => {
     db.exec('ALTER TABLE milestone_launch_chains ADD COLUMN engine_config TEXT')
   },
+
+  // Migration 93: the AI reading of why a failed job stopped (one per job,
+  // replaced when its log, language or prompt version changes).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS job_failure_analyses (
+        job_id      TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+        input_hash  TEXT NOT NULL,
+        language    TEXT NOT NULL,
+        provider    TEXT NOT NULL,
+        model       TEXT,
+        analysis    TEXT NOT NULL,
+        created_at  TEXT NOT NULL
+      )
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

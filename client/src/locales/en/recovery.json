@@ -26,7 +26,8 @@
       "phase": "The agent stopped unexpectedly in the {{phase}} phase",
       "plain": "The agent stopped unexpectedly"
     },
-    "unknown": "Unknown cause"
+    "unknown": "Unknown cause",
+    "stepFailed": "The {{phase}} step failed"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Use a Python {{version}} venv for checks",
     "saved": "Saved to the project settings. The next launch builds the venv before its checks.",
     "failed": "Could not save the settings. Open Project settings to configure them."
+  },
+  "analysis": {
+    "title": "AI analysis",
+    "offer": "Ask the AI to read the log and explain why this run stopped.",
+    "run": "Analyze with AI",
+    "retry": "Try again",
+    "running": "Reading the log to find why it stopped…",
+    "failed": "The analysis could not run: {{detail}}",
+    "noDetail": "no detail",
+    "evidence": "From the log",
+    "nextSteps": "What to do",
+    "failedStep": "step: {{step}}",
+    "by": "AI analysis by {{model}}. It reads the log; check the lines it cites.",
+    "stale": "The log changed since this analysis.",
+    "regenerate": "Analyze again",
+    "category": {
+      "providerLimit": "Quota or usage limit",
+      "missingArtifact": "Missing artifact",
+      "configuration": "Configuration",
+      "tests": "Tests",
+      "environment": "Environment",
+      "agentError": "Agent error",
+      "interrupted": "Interrupted",
+      "other": "Other"
+    }
   }
 }

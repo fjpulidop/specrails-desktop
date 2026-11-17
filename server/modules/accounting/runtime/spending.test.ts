@@ -30,8 +30,8 @@ describe('getSpending', () => {
     // The 7 original analytics surfaces + the 5 cost-accounting-audit additions
     // (chat-sidebar, spec-launcher, proposal, agent-studio, setup).
     // + 'flow' (Intent turns live in agent_invocations; listed in the shared vocabulary).
-    // + 'triage' (spec triage, launch-triage).
-    expect(r.bySurface).toHaveLength(14)
+    // + 'triage' (spec triage, launch-triage) + 'failure-analysis' (Failure reasons).
+    expect(r.bySurface).toHaveLength(15)
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
     expect(r.topTickets).toEqual([])
   })

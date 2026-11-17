@@ -26,7 +26,8 @@
       "phase": "Der Agent hat in der Phase {{phase}} unerwartet gestoppt",
       "plain": "Der Agent hat unerwartet gestoppt"
     },
-    "unknown": "Unbekannte Ursache"
+    "unknown": "Unbekannte Ursache",
+    "stepFailed": "Der Schritt {{phase}} ist fehlgeschlagen"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Ein Python-{{version}}-venv für Prüfungen verwenden",
     "saved": "In den Projekteinstellungen gespeichert. Der nächste Start erstellt das venv vor seinen Prüfungen.",
     "failed": "Die Einstellungen konnten nicht gespeichert werden. Öffne die Projekteinstellungen, um sie anzupassen."
+  },
+  "analysis": {
+    "title": "KI-Analyse",
+    "offer": "Lass die KI das Protokoll lesen und erklären, warum dieser Lauf gestoppt hat.",
+    "run": "Mit KI analysieren",
+    "retry": "Erneut versuchen",
+    "running": "Protokoll wird gelesen, um die Ursache zu finden…",
+    "failed": "Die Analyse konnte nicht laufen: {{detail}}",
+    "noDetail": "keine Details",
+    "evidence": "Aus dem Protokoll",
+    "nextSteps": "Nächste Schritte",
+    "failedStep": "Schritt: {{step}}",
+    "by": "KI-Analyse mit {{model}}. Sie liest das Protokoll; prüfe die zitierten Zeilen.",
+    "stale": "Das Protokoll hat sich seit dieser Analyse geändert.",
+    "regenerate": "Erneut analysieren",
+    "category": {
+      "providerLimit": "Kontingent- oder Nutzungslimit",
+      "missingArtifact": "Fehlendes Artefakt",
+      "configuration": "Konfiguration",
+      "tests": "Tests",
+      "environment": "Umgebung",
+      "agentError": "Agentenfehler",
+      "interrupted": "Unterbrochen",
+      "other": "Sonstiges"
+    }
   }
 }

@@ -203,21 +203,20 @@ describe('JobRunHeader', () => {
     expect(screen.getByText('100.0k')).toBeInTheDocument()
   })
 
-  it('shows em-dash + "Not available" for null terminal metrics, never a fake 0', () => {
+  it('leaves out Details when the run recorded no metrics, never showing empty tiles or a fake 0', () => {
     renderHeader(failedJob)
     expect(screen.getByText('Failed')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3) // duration + cost + turns + tokens
-    expect(screen.getAllByText('Not available')).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Not available')).not.toBeInTheDocument()
     expect(screen.queryByText(/^\$/)).not.toBeInTheDocument()
   })
 
-  it('captions a null cost on a local engine as "cost unknown (local engine)" with a tooltip', () => {
-    renderHeader({ ...failedJob, provider: 'lan-box' })
+  it('shows only the metrics a run recorded', () => {
+    renderHeader({ ...failedJob, tokens_in: 900, tokens_out: 100 })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    const caption = screen.getByText('Cost unknown (local engine)')
-    expect(caption.closest('[title]')).toHaveAttribute('title', expect.stringContaining('Add rates'))
-    expect(screen.getAllByText('Not available')).toHaveLength(2)
+    expect(screen.getByText('Tokens')).toBeInTheDocument()
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not available')).not.toBeInTheDocument()
   })
 
   it('lists modified files and the pipeline totals (≥ lower bound + partial hint) in Details', () => {
@@ -314,7 +313,7 @@ describe('JobRunHeader', () => {
 
   it('keeps chrome compact without an inline diagnosis or Details', () => {
     renderHeader(failedJob)
-    const chrome = screen.getByTestId('job-run-header')
+    const chrome = screen.getByTestId('run-detail-bar')
     expect(within(chrome).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
     expect(within(chrome).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Log' })).toBeVisible()
@@ -339,7 +338,7 @@ describe('JobRunHeader', () => {
     expect(vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith('/agent-runtime/runs/job-2') && !init?.method)).toHaveLength(1)
   })
 
-  it('renders the runtime metrics and evidence disclosures inside Details', async () => {
+  it('renders the runtime metrics inside Details, without an evidence panel the run has no evidence for', async () => {
     const total = { attempts: 1, measuredAttempts: 1, durationMs: 12000, agentDurationMs: 8000, providerCalls: 1, toolCalls: 7, inputTokens: 100, outputTokens: 10, costUsd: 1.25, uncachedInputTokens: 20, cacheReadInputTokens: 80, cacheWriteInputTokens: 0 }
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, historical: true, metrics: { schemaVersion: 1, total, phases: [] } })] }))
     renderHeader(completedJob, [], { projectId: 'p1' })
@@ -347,7 +346,7 @@ describe('JobRunHeader', () => {
     expect(await screen.findByRole('region', { name: 'Implementation' })).toBeInTheDocument()
     fireEvent.click(screen.getByText('Usage and time'))
     expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
-    expect(screen.getByText('Verification evidence')).toBeInTheDocument()
+    expect(screen.queryByText('Verification evidence')).not.toBeInTheDocument()
   })
 })
 

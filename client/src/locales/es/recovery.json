@@ -26,7 +26,8 @@
       "phase": "El agente se detuvo inesperadamente en la fase {{phase}}",
       "plain": "El agente se detuvo inesperadamente"
     },
-    "unknown": "Causa desconocida"
+    "unknown": "Causa desconocida",
+    "stepFailed": "Falló el paso {{phase}}"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Usar un venv con Python {{version}} para las comprobaciones",
     "saved": "Guardado en la configuración del proyecto. El próximo lanzamiento crea el venv antes de sus comprobaciones.",
     "failed": "No se pudo guardar la configuración. Abre la configuración del proyecto para ajustarla."
+  },
+  "analysis": {
+    "title": "Análisis de IA",
+    "offer": "Pide a la IA que lea el registro y explique por qué se detuvo esta ejecución.",
+    "run": "Analizar con IA",
+    "retry": "Reintentar",
+    "running": "Leyendo el registro para encontrar por qué se detuvo…",
+    "failed": "No se pudo hacer el análisis: {{detail}}",
+    "noDetail": "sin detalle",
+    "evidence": "Del registro",
+    "nextSteps": "Qué hacer",
+    "failedStep": "paso: {{step}}",
+    "by": "Análisis de IA hecho con {{model}}. Se basa en el registro; revisa las líneas que cita.",
+    "stale": "El registro ha cambiado desde este análisis.",
+    "regenerate": "Analizar de nuevo",
+    "category": {
+      "providerLimit": "Límite de cuota o uso",
+      "missingArtifact": "Falta un artefacto",
+      "configuration": "Configuración",
+      "tests": "Pruebas",
+      "environment": "Entorno",
+      "agentError": "Error del agente",
+      "interrupted": "Interrumpida",
+      "other": "Otra"
+    }
   }
 }

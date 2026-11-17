@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/button'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
 import {
-  availableRemedies, headlineKey, humanizePhase, whyKey,
+  availableRemedies, headlineKey, humanizePhase, recordedStepError, whyKey,
   type FailureDiagnosis, type RemedyHandlers, type RemedyId,
 } from '../lib/failure-diagnosis'
 
@@ -119,7 +119,10 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
   const tone = TONE_CLASS[look.tone]
   const Icon = look.icon
   const remedies = availableRemedies(diagnosis, handlers)
-  const unknown = diagnosis.kind === 'unknown'
+  // An unknown cause with the runtime's own record of the failed step is not
+  // a mystery: say which step failed and the runtime's words for why.
+  const recorded = diagnosis.kind === 'unknown' ? recordedStepError(logTail) : null
+  const unknown = diagnosis.kind === 'unknown' && !recorded
   const label = (id: RemedyId): string => {
     if (id === 'resume') return diagnosis.resumablePhase ? t('remedy.resumeFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.resume')
     return t(`remedy.${id === 'edit-spec' ? 'editSpec' : id === 'fix-environment' ? 'fixEnvironment' : id === 'open-logs' ? 'openLogs' : id}`)
@@ -136,15 +139,16 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} aria-hidden />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{headline}</p>
+          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{recorded ? t('headline.stepFailed', { phase: phaseName(recorded.step) }) : headline}</p>
+          {recorded && <p className="text-body text-foreground break-words" data-testid="failure-recorded-error">{recorded.reason}</p>}
           {unknown && <p className="text-body text-muted-foreground">{t('why.unknown')}</p>}
           {why && <p className="text-body text-muted-foreground" data-testid="failure-why">{why}</p>}
-          {diagnosis.detail && !unknown && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
+          {diagnosis.detail && diagnosis.kind !== 'unknown' && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
         </div>
       </div>
 
-      {unknown && logTail.length > 0 && (
-        <details open className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+      {diagnosis.kind === 'unknown' && logTail.length > 0 && (
+        <details open={unknown} className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
           <summary className="cursor-pointer text-caption font-medium text-muted-foreground">{t('logTail.title')}</summary>
           <pre data-testid="failure-log-tail" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{logTail.join('\n')}</pre>
         </details>

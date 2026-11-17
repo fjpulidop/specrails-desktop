@@ -5,8 +5,19 @@ import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import type { RuntimeRun } from '../lib/agent-runtime'
 
 /** Key the draft and its retry identity to the project and frozen execution. */
+/**
+ * Instructions matter while a later agent turn can still read them, or when
+ * some were already sent. A finished run with none has nothing to show.
+ */
+export function steeringVisible(run: RuntimeRun): boolean {
+  if (run.engineVersion !== 2 || !run.steering) return false
+  const { pending, consumed, receipts } = run.steering
+  if (pending > 0 || consumed > 0 || receipts.length > 0) return true
+  return run.active || run.canResume
+}
+
 export function RuntimeSteering(props: { projectId: string; run: RuntimeRun; onAccepted(): void }) {
-  if (props.run.engineVersion !== 2 || !props.run.steering) return null
+  if (!steeringVisible(props.run)) return null
   return <SteeringInbox key={`${props.projectId}:${props.run.runId}`} {...props} />
 }
 

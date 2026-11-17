@@ -118,5 +118,6 @@
   "repeats": "×{{count}}",
   "round": "修正ラウンド {{round}} / {{total}}",
   "checks_one": "+1 件の確認",
-  "checks_other": "+{{count}} 件の確認"
+  "checks_other": "+{{count}} 件の確認",
+  "modeSteps": "ステップ"
 }

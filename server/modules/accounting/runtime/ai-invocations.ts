@@ -23,6 +23,8 @@ export type Surface =
   | 'flow'
   // Spec triage (launch-triage): one cheap structured-output call per spec.
   | 'triage'
+  // The AI reading of why a failed job stopped (Failure reasons tab).
+  | 'failure-analysis'
 export type InvocationStatus = 'success' | 'failed' | 'aborted'
 
 const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
@@ -40,6 +42,7 @@ const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
   'setup',
   'flow',
   'triage',
+  'failure-analysis',
 ])
 
 export interface RecordInput extends NormalisedResult {
@@ -253,6 +256,7 @@ export function getTicketSpendingSummary(
     setup: { count: 0, costUsd: 0, unpricedCount: 0 },
     flow: { count: 0, costUsd: 0, unpricedCount: 0 },
     triage: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'failure-analysis': { count: 0, costUsd: 0, unpricedCount: 0 },
   }
   let totalCostUsd = 0
   let estimatedCostUsd = 0

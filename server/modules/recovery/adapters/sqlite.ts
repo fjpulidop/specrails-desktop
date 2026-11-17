@@ -3,6 +3,7 @@ import {
   deriveFailureDiagnosis, isDiagnosableOutcome, parseStoredDiagnosis, presentFailureDiagnosis,
   type PresentedFailureDiagnosis,
 } from '../domain'
+import type { FailureAnalysis } from '../analysis'
 
 interface RunRow {
   status: string
@@ -31,4 +32,31 @@ export function readJobDiagnosis(db: DbInstance, jobId: string, jobStatus: strin
   const run = db.prepare('SELECT 1 FROM loop_runs WHERE id = ?').get(jobId)
   if (run) return readRunDiagnosis(db, jobId)
   return jobStatus === 'failed' ? presentFailureDiagnosis(deriveFailureDiagnosis({ outcome: 'failed' })) : null
+}
+
+export interface StoredFailureAnalysis {
+  inputHash: string
+  language: string
+  provider: string
+  model: string | null
+  analysis: FailureAnalysis
+  createdAt: string
+}
+
+export function readFailureAnalysis(db: DbInstance, jobId: string): StoredFailureAnalysis | null {
+  const row = db.prepare('SELECT input_hash, language, provider, model, analysis, created_at FROM job_failure_analyses WHERE job_id = ?')
+    .get(jobId) as { input_hash: string; language: string; provider: string; model: string | null; analysis: string; created_at: string } | undefined
+  if (!row) return null
+  try {
+    return { inputHash: row.input_hash, language: row.language, provider: row.provider, model: row.model, analysis: JSON.parse(row.analysis) as FailureAnalysis, createdAt: row.created_at }
+  } catch { return null }
+}
+
+export function writeFailureAnalysis(db: DbInstance, jobId: string, stored: StoredFailureAnalysis): void {
+  db.prepare(`
+    INSERT INTO job_failure_analyses (job_id, input_hash, language, provider, model, analysis, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(job_id) DO UPDATE SET input_hash = excluded.input_hash, language = excluded.language,
+      provider = excluded.provider, model = excluded.model, analysis = excluded.analysis, created_at = excluded.created_at
+  `).run(jobId, stored.inputHash, stored.language, stored.provider, stored.model, JSON.stringify(stored.analysis), stored.createdAt)
 }

@@ -20,3 +20,16 @@ export {
   type PresentedFailureDiagnosis,
   type RemedyId,
 } from './domain'
+export {
+  ANALYSIS_CATEGORIES,
+  FAILURE_ANALYSIS_PROMPT_VERSION,
+  analysisLanguage,
+  evidenceHash,
+  failureAnalysisPrompt,
+  failureEvidence,
+  logLinesFromEvents,
+  parseFailureAnalysis,
+  type AnalysisCategory,
+  type FailureAnalysis,
+  type FailureEvidence,
+} from './analysis'

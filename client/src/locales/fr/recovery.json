@@ -26,7 +26,8 @@
       "phase": "L'agent s'est arrêté de façon inattendue en phase {{phase}}",
       "plain": "L'agent s'est arrêté de façon inattendue"
     },
-    "unknown": "Cause inconnue"
+    "unknown": "Cause inconnue",
+    "stepFailed": "L’étape {{phase}} a échoué"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Utiliser un venv Python {{version}} pour les vérifications",
     "saved": "Enregistré dans les paramètres du projet. Le prochain lancement crée le venv avant ses vérifications.",
     "failed": "Impossible d’enregistrer les paramètres. Ouvrez les paramètres du projet pour les configurer."
+  },
+  "analysis": {
+    "title": "Analyse IA",
+    "offer": "Demande à l’IA de lire le journal et d’expliquer pourquoi cette exécution s’est arrêtée.",
+    "run": "Analyser avec l’IA",
+    "retry": "Réessayer",
+    "running": "Lecture du journal pour trouver la cause…",
+    "failed": "L’analyse n’a pas pu s’exécuter : {{detail}}",
+    "noDetail": "aucun détail",
+    "evidence": "Extrait du journal",
+    "nextSteps": "Que faire",
+    "failedStep": "étape : {{step}}",
+    "by": "Analyse IA par {{model}}. Elle lit le journal ; vérifie les lignes citées.",
+    "stale": "Le journal a changé depuis cette analyse.",
+    "regenerate": "Analyser à nouveau",
+    "category": {
+      "providerLimit": "Limite de quota ou d’usage",
+      "missingArtifact": "Artefact manquant",
+      "configuration": "Configuration",
+      "tests": "Tests",
+      "environment": "Environnement",
+      "agentError": "Erreur de l’agent",
+      "interrupted": "Interrompue",
+      "other": "Autre"
+    }
   }
 }

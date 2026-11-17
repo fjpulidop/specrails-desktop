@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1410 source/build files. Nearby tests are linked where names
+Includes 1414 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -492,6 +492,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/components/job-run
 
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
+- [LoopRunDetail.tsx](../../client/src/features/jobs/components/job-run/LoopRunDetail.tsx)
 - [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
 - [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
 - [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
@@ -783,10 +784,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/recovery/components
 
 - [EnvironmentPlanOffer.tsx](../../client/src/features/recovery/components/EnvironmentPlanOffer.tsx)
+- [FailureAnalysisPanel.tsx](../../client/src/features/recovery/components/FailureAnalysisPanel.tsx)
 - [FailureDiagnosisCard.tsx](../../client/src/features/recovery/components/FailureDiagnosisCard.tsx)
 
 ## client/src/features/recovery/hooks
 
+- [useFailureAnalysis.ts](../../client/src/features/recovery/hooks/useFailureAnalysis.ts)
 - [useRunDiagnosis.ts](../../client/src/features/recovery/hooks/useRunDiagnosis.ts)
 
 ## client/src/features/recovery/lib
@@ -1798,6 +1801,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/recovery
 
+- [analysis.ts](../../server/modules/recovery/analysis.ts) · [test](../../server/modules/recovery/__tests__/analysis.test.ts)
 - [domain.ts](../../server/modules/recovery/domain.ts)
 - [index.ts](../../server/modules/recovery/index.ts)
 

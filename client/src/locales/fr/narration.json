@@ -118,5 +118,6 @@
   "repeats": "×{{count}}",
   "round": "Cycle de correction {{round}} sur {{total}}",
   "checks_one": "+1 vérification",
-  "checks_other": "+{{count}} vérifications"
+  "checks_other": "+{{count}} vérifications",
+  "modeSteps": "Étapes"
 }

@@ -215,7 +215,6 @@
       "loops",
       "missions",
       "projects",
-      "providers",
       "recovery",
       "settings",
       "specs"
@@ -377,6 +376,7 @@
   },
   "recovery": {
     "publicEntries": [
+      "components/FailureAnalysisPanel.tsx",
       "components/FailureDiagnosisCard.tsx",
       "hooks/useRunDiagnosis.ts",
       "lib/failure-diagnosis.ts"

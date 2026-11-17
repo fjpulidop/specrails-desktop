@@ -26,7 +26,8 @@
       "phase": "L'agente si è fermato all'improvviso nella fase {{phase}}",
       "plain": "L'agente si è fermato all'improvviso"
     },
-    "unknown": "Causa sconosciuta"
+    "unknown": "Causa sconosciuta",
+    "stepFailed": "Il passo {{phase}} non è riuscito"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Usa un venv Python {{version}} per i controlli",
     "saved": "Salvato nelle impostazioni del progetto. Il prossimo avvio crea il venv prima dei controlli.",
     "failed": "Impossibile salvare le impostazioni. Apri le impostazioni del progetto per configurarle."
+  },
+  "analysis": {
+    "title": "Analisi IA",
+    "offer": "Chiedi all’IA di leggere il log e spiegare perché questa esecuzione si è fermata.",
+    "run": "Analizza con l’IA",
+    "retry": "Riprova",
+    "running": "Lettura del log per trovare la causa…",
+    "failed": "Impossibile eseguire l’analisi: {{detail}}",
+    "noDetail": "nessun dettaglio",
+    "evidence": "Dal log",
+    "nextSteps": "Cosa fare",
+    "failedStep": "passo: {{step}}",
+    "by": "Analisi IA con {{model}}. Legge il log; verifica le righe citate.",
+    "stale": "Il log è cambiato da questa analisi.",
+    "regenerate": "Analizza di nuovo",
+    "category": {
+      "providerLimit": "Limite di quota o uso",
+      "missingArtifact": "Artefatto mancante",
+      "configuration": "Configurazione",
+      "tests": "Test",
+      "environment": "Ambiente",
+      "agentError": "Errore dell’agente",
+      "interrupted": "Interrotta",
+      "other": "Altro"
+    }
   }
 }

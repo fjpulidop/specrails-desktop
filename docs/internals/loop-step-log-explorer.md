@@ -129,6 +129,23 @@ The engine also still emits the flat-log divider line per step (`━━━━━
 
 **Legacy caveat (accepted v1).** Completed runs recorded **before** the enrichment have no `loop_step_end` rows at all, so their *final* step renders as Interrupted even though the run finished normally (mid-run steps are `unknown` → shown as done). Accepted for v1 — enriching historical rows was judged not worth a backfill.
 
+## Two views: graph and detail
+
+The **Log** tab of a loop job has two sections, chosen beside the tabs in the single navigation row
+(status · *Failure reasons* / *Log* · *Execution graph* / *Log detail* · actions):
+
+- **Execution graph** (`LoopStepExplorer view="graph"`): the outcome on one line and the run's graph,
+  always expanded and filling the window (no disclosure). The view follows the step that matters
+  (running, else failed, else the last that ran) until the person pans or zooms; *Follow run* and
+  *Fit all* return to either view; the legend sits inside the canvas. Picking an attempt opens its
+  log in Log detail (`RunDetailNavigation.showStep`). Runs without Core topology show the overview
+  strip instead.
+- **Log detail** (`LoopRunDetail`): *Steps* (the filter bar, the overview strip and the step-grouped
+  log, `view="detail"`), *Story* and the raw *Log*. *Open logs at the failure* lands here.
+
+Details under the header only show what a run recorded: no empty metric tiles, no evidence panel
+without an efficiency summary, no instructions panel for a finished run that never had any.
+
 ## Overview strip (`LoopOverviewStrip.tsx`)
 
 One chip per graph node, states `pending → running → ok / failed / interrupted`:

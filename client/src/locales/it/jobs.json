@@ -312,7 +312,10 @@
     "forkPending": "Riprova il passaggio selezionato inizialmente per completare la biforcazione in attesa.",
     "forkCreated": "Esecuzione collegata creata e ripresa dal passaggio selezionato.",
     "forkResumeFailed": "Esecuzione collegata creata, ma non è riuscita a riprendere da sola ({{detail}}). Aprila e riprendila.",
-    "openFork": "Apri esecuzione collegata"
+    "openFork": "Apri esecuzione collegata",
+    "graphFollow": "Segui esecuzione",
+    "graphFitAll": "Mostra tutto",
+    "graphLegend": "Legenda del grafo"
   },
   "logViewer": {
     "loading": "Caricamento dei log...",
@@ -365,7 +368,8 @@
       "running": "In corso",
       "skipped": "Saltato",
       "passed": "Superato",
-      "unavailable": "Non disponibile"
+      "unavailable": "Non disponibile",
+      "unverified": "Non verificata"
     }
   },
   "runHeader": {

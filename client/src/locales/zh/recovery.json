@@ -26,7 +26,8 @@
       "phase": "代理在{{phase}}阶段意外停止",
       "plain": "代理意外停止"
     },
-    "unknown": "原因未知"
+    "unknown": "原因未知",
+    "stepFailed": "{{phase}} 步骤失败"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "检查时使用 Python {{version}} venv",
     "saved": "已保存到项目设置。下次启动会在检查前创建 venv。",
     "failed": "无法保存设置。请打开项目设置进行配置。"
+  },
+  "analysis": {
+    "title": "AI 分析",
+    "offer": "让 AI 阅读日志并解释此次运行停止的原因。",
+    "run": "用 AI 分析",
+    "retry": "重试",
+    "running": "正在阅读日志查找停止原因…",
+    "failed": "无法完成分析：{{detail}}",
+    "noDetail": "无详细信息",
+    "evidence": "日志摘录",
+    "nextSteps": "下一步",
+    "failedStep": "步骤：{{step}}",
+    "by": "由 {{model}} 完成的 AI 分析。它基于日志，请核对引用的行。",
+    "stale": "此分析之后日志已变化。",
+    "regenerate": "重新分析",
+    "category": {
+      "providerLimit": "配额或用量上限",
+      "missingArtifact": "缺少产物",
+      "configuration": "配置",
+      "tests": "测试",
+      "environment": "环境",
+      "agentError": "代理错误",
+      "interrupted": "已中断",
+      "other": "其他"
+    }
   }
 }

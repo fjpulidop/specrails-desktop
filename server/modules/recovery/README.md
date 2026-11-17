@@ -30,4 +30,16 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
   later finishes without one (a resumed run that succeeds).
 - Read-only after settlement; project isolation: every read is bound to one project's database.
 
-Run `npx vitest run server/modules/recovery server/modules/inbox`.
+## AI failure analysis
+
+[analysis.ts](analysis.ts) (pure) builds the evidence a model reads (log tail, job metadata, the
+diagnosis), the prompt and the validated answer. [adapters/sqlite.ts](adapters/sqlite.ts) keeps one
+analysis per job (`job_failure_analyses`). The HTTP route and the provider call live in
+`server/project-router-jobs.ts` (see the [API reference](../../../docs/internals/api-reference.md#failure-analysis)).
+
+- It is an AI reading shown beside the diagnosis, labelled as such; the diagnosis keeps its kind,
+  confidence and remedies, so "no invented cause" still holds for the record.
+- Quoted evidence survives only when it appears verbatim in the log.
+- It runs on the provider and model that ran the job, so the account can run it.
+
+Run `npx vitest run server/modules/recovery server/modules/inbox server/project-router-failure-analysis.test.ts`.

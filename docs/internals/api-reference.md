@@ -154,6 +154,17 @@ A run that ended `failed`, `blocked` or `stalled` carries one typed record expla
 Shape: `{ kind, confidence, phase, rounds, resetAt, detail, resumablePhase, blocker, source, remedies }`.
 `kind` is `tests_failed`, `provider_limit`, `environment`, `blocked`, `timeout`, `tool_inactivity`, `crash` or `unknown`; `confidence` is `high` or `low` (a low-confidence record is always `unknown`); `source` is `core` (the classification of Core contract 5.8) or `desktop` (derived from the loop's stall reason, the provider-limit signal, Core's fixed blocker sentences or `completion.blocker`); `remedies` are ranked ids from `resume`, `retry`, `edit-spec`, `fix-environment`, `open-logs`. A run finished before the column existed reads as `unknown`/low, and a successful run has none. Module: [`server/modules/recovery`](../../server/modules/recovery/README.md).
 
+### Failure analysis
+
+The AI reading of why a failed job stopped, shown under the diagnosis in **Failure reasons**. It complements the diagnosis and never changes it.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/api/projects/:projectId/jobs/:id/failure-analysis?language=es` | The saved analysis for that language: `{ status: 'ready', analysis, provider, model, createdAt, stale }`, else `{ status: 'none' }`. `404` unless the job `failed` or was `canceled`. |
+| `POST` | `/api/projects/:projectId/jobs/:id/failure-analysis` | Body `{ language, force? }`. Returns the saved analysis while the log, language and prompt version are unchanged (`force` asks again); otherwise one call runs, deduped per job. `422 no_log`; `502 { error: 'analysis_failed', detail }` carries the provider's own error. |
+
+The call reads the last 400 log lines (24k characters) plus the job metadata and diagnosis, on the provider **and model that ran the job** (a loop run's `loop_runs.provider/model`), one turn and no tools. `analysis` is `{ headline, cause, category, failedStep, evidence, nextSteps }`. `category` is `provider_limit`, `missing_artifact`, `configuration`, `tests`, `environment`, `agent_error`, `interrupted` or `other`, and `evidence` keeps only lines that appear verbatim in the log. Saved in `job_failure_analyses` (migration 93). Each call is recorded in `ai_invocations` with surface `failure-analysis` and `surface_ref_id` = the job, so it shows in Analytics.
+
 ### Needs-you inbox (app-wide)
 
 | Method | Path | Notes |

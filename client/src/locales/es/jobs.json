@@ -312,7 +312,10 @@
     "forkPending": "Reintenta el paso seleccionado originalmente para completar la bifurcación pendiente.",
     "forkCreated": "Ejecución enlazada creada y reanudada desde el paso seleccionado.",
     "forkResumeFailed": "Ejecución enlazada creada, pero no pudo reanudarse sola ({{detail}}). Ábrela y reanúdala.",
-    "openFork": "Abrir ejecución enlazada"
+    "openFork": "Abrir ejecución enlazada",
+    "graphFollow": "Seguir ejecución",
+    "graphFitAll": "Ver todo",
+    "graphLegend": "Leyenda del grafo"
   },
   "logViewer": {
     "loading": "Cargando logs...",
@@ -365,7 +368,8 @@
       "running": "En curso",
       "skipped": "Omitido",
       "passed": "Correcto",
-      "unavailable": "No disponible"
+      "unavailable": "No disponible",
+      "unverified": "Sin verificar"
     }
   },
   "runHeader": {

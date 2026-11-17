@@ -26,7 +26,8 @@
       "phase": "O agente parou inesperadamente na fase {{phase}}",
       "plain": "O agente parou inesperadamente"
     },
-    "unknown": "Causa desconhecida"
+    "unknown": "Causa desconhecida",
+    "stepFailed": "A etapa {{phase}} falhou"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "Usar um venv Python {{version}} nas verificações",
     "saved": "Salvo nas configurações do projeto. O próximo lançamento cria o venv antes das verificações.",
     "failed": "Não foi possível salvar as configurações. Abra as configurações do projeto para ajustá-las."
+  },
+  "analysis": {
+    "title": "Análise de IA",
+    "offer": "Peça à IA para ler o log e explicar por que esta execução parou.",
+    "run": "Analisar com IA",
+    "retry": "Tentar novamente",
+    "running": "Lendo o log para encontrar o motivo…",
+    "failed": "Não foi possível fazer a análise: {{detail}}",
+    "noDetail": "sem detalhes",
+    "evidence": "Do log",
+    "nextSteps": "O que fazer",
+    "failedStep": "etapa: {{step}}",
+    "by": "Análise de IA feita com {{model}}. Baseia-se no log; confira as linhas citadas.",
+    "stale": "O log mudou desde esta análise.",
+    "regenerate": "Analisar novamente",
+    "category": {
+      "providerLimit": "Limite de cota ou uso",
+      "missingArtifact": "Artefato ausente",
+      "configuration": "Configuração",
+      "tests": "Testes",
+      "environment": "Ambiente",
+      "agentError": "Erro do agente",
+      "interrupted": "Interrompida",
+      "other": "Outro"
+    }
   }
 }

@@ -3,11 +3,22 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 import type { EventRow, JobSummary } from '../../../../types'
 import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
+import { FailureAnalysisPanel } from '../../../recovery/components/FailureAnalysisPanel'
 import type { FailureDiagnosis, RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { loadJobRunDetailsOpen, saveJobRunDetailsOpen, loadJobRunLogSection, saveJobRunLogSection, type RunDetailSurface, type RunLogSection } from './job-run-model'
 
 export type RunDetailTab = 'failure' | 'log'
 export type { RunLogSection } from './job-run-model'
+
+/** Lets the graph tab open a step's log in the detail tab. */
+export interface RunDetailNavigation {
+  showStep(key: string): void
+  /** The step the detail tab should open; `seq` repeats the same request. */
+  stepFocus: { key: string; seq: number } | null
+}
+type RunDetailContent = ReactNode | ((navigation: RunDetailNavigation) => ReactNode)
+const renderContent = (content: RunDetailContent | undefined, navigation: RunDetailNavigation) =>
+  typeof content === 'function' ? content(navigation) : content
 
 export interface RunDetailTabsProps {
   job: JobSummary
@@ -18,13 +29,17 @@ export interface RunDetailTabsProps {
   onOpenLogs(): void
   detailsContent: ReactNode
   isLoop: boolean
-  graphContent?: ReactNode
-  logContent: ReactNode
+  graphContent?: RunDetailContent
+  logContent: RunDetailContent
   pendingQuestion?: boolean
   diagnosisHandlers?: RemedyHandlers
   diagnosisTail?: readonly string[]
   hasDetails?: boolean
   detailsRequest?: number
+  statusLead?: ReactNode
+  statusTrail?: ReactNode
+  /** Project the job belongs to; enables the AI failure analysis. */
+  projectId?: string
 }
 
 export function RunDetailTabs(props: RunDetailTabsProps) {
@@ -34,7 +49,7 @@ export function RunDetailTabs(props: RunDetailTabsProps) {
 function RunDetailTabsView({
   surface, showDiagnosis, diagnosis, pendingQuestion = false,
   diagnosisHandlers = {}, diagnosisTail, detailsContent, hasDetails = true,
-  isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs,
+  isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job,
 }: RunDetailTabsProps) {
   const { t } = useTranslation('jobs')
   const id = useId()
@@ -55,6 +70,7 @@ function RunDetailTabsView({
   const questionToReveal = useRef(false)
   const detailsRoot = useRef<HTMLDivElement>(null)
   const [navigationPending, setNavigationPending] = useState(false)
+  const [stepFocus, setStepFocus] = useState<RunDetailNavigation['stepFocus']>(null)
   const openLogs = useRef(onOpenLogs)
   useEffect(() => { openLogs.current = onOpenLogs }, [onOpenLogs])
 
@@ -92,11 +108,21 @@ function RunDetailTabsView({
     return () => cancelAnimationFrame(frame)
   }, [navigationPending, selectedTab, selectedSection])
 
+  // The step logs live in the detail section, also for loops.
   function revealLogs() {
     explicitLogChoice.current = true
     setActiveTab('log')
-    selectSection(isLoop ? 'graph' : 'detail')
+    selectSection('detail')
     setNavigationPending(true)
+  }
+  const navigation: RunDetailNavigation = {
+    stepFocus,
+    showStep(key) {
+      explicitLogChoice.current = true
+      setActiveTab('log')
+      selectSection('detail')
+      setStepFocus(previous => ({ key, seq: (previous?.seq ?? 0) + 1 }))
+    },
   }
 
   function selectTab(value: RunDetailTab) {
@@ -138,7 +164,7 @@ function RunDetailTabsView({
         tabIndex={value === selected ? 0 : -1}
         onClick={() => select(value)}
         onKeyDown={event => navigate(event, values, value, select)}
-        className="rounded-md px-3 py-2 text-xs text-muted-foreground aria-selected:bg-muted aria-selected:text-foreground"
+        className="rounded-md px-2.5 py-1.5 text-xs text-muted-foreground aria-selected:bg-muted aria-selected:text-foreground"
       >
         {label}
       </button>
@@ -166,8 +192,19 @@ function RunDetailTabsView({
 
   return (
     <div className="min-h-0 flex-1 flex flex-col overflow-hidden" data-testid="run-detail-tabs">
-      <div role="tablist" aria-label={t('runDetail.navigation')} className="shrink-0 flex gap-1 border-b border-border px-3">
-        {topTabs.map(value => renderTab(value, t(`runDetail.${value}`), selectedTab, topTabs, selectTab))}
+      {/* One row for both levels: the log sections sit beside "Log", so the
+          evidence below starts as high as possible. */}
+      <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-1 min-w-0" data-testid="run-detail-bar">
+        {statusLead && <div className="flex items-center gap-2 shrink-0">{statusLead}</div>}
+        <div role="tablist" aria-label={t('runDetail.navigation')} className="flex gap-1">
+          {topTabs.map(value => renderTab(value, t(`runDetail.${value}`), selectedTab, topTabs, selectTab))}
+        </div>
+        {isLoop && selectedTab === 'log' && (
+          <div role="tablist" aria-label={t('runDetail.sections')} className="flex gap-1 border-l border-border pl-3">
+            {sections.map(value => renderTab(value, t(`runDetail.${value}`), selectedSection, sections, selectSection))}
+          </div>
+        )}
+        {statusTrail && <div className="flex min-w-0 flex-1 items-center gap-2">{statusTrail}</div>}
       </div>
       {failureAvailable && (
         <Activity mode={selectedTab === 'failure' ? 'visible' : 'hidden'}>
@@ -179,6 +216,9 @@ function RunDetailTabsView({
                 logTail={diagnosisTail}
               />
             )}
+            {showDiagnosis && diagnosis && job.status === 'failed' && (
+              <FailureAnalysisPanel projectId={projectId} jobId={job.id} auto={diagnosis.kind !== 'provider_limit'} />
+            )}
             {details}
           </div>
         </Activity>
@@ -186,22 +226,17 @@ function RunDetailTabsView({
       <Activity mode={selectedTab === 'log' ? 'visible' : 'hidden'}>
         <div role="tabpanel" id={`${id}-panel-log`} aria-labelledby={`${id}-tab-log`} className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {!failureAvailable && details}
-          {isLoop && (
-            <div role="tablist" aria-label={t('runDetail.sections')} className="shrink-0 flex gap-1 px-3 py-1">
-              {sections.map(value => renderTab(value, t(`runDetail.${value}`), selectedSection, sections, selectSection))}
-            </div>
-          )}
           {isLoop && (visited.graph || graphVisible) && (
             <Activity mode={graphVisible ? 'visible' : 'hidden'}>
               <div
                 role="tabpanel"
                 id={`${id}-panel-graph`}
                 aria-labelledby={`${id}-tab-graph`}
-                className="min-h-0 flex-1 flex flex-col overflow-hidden"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
                 data-run-evidence="graph"
                 data-active={graphVisible}
               >
-                {graphContent}
+                {renderContent(graphContent, navigation)}
               </div>
             </Activity>
           )}
@@ -215,7 +250,7 @@ function RunDetailTabsView({
                 data-run-evidence="detail"
                 data-active={detailVisible}
               >
-                {logContent}
+                {renderContent(logContent, navigation)}
               </div>
             </Activity>
           )}

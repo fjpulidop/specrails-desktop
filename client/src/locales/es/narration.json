@@ -118,5 +118,6 @@
   "repeats": "×{{count}}",
   "round": "Ronda de corrección {{round}} de {{total}}",
   "checks_one": "+1 comprobación",
-  "checks_other": "+{{count}} comprobaciones"
+  "checks_other": "+{{count}} comprobaciones",
+  "modeSteps": "Pasos"
 }

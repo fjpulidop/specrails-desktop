@@ -312,7 +312,10 @@
     "forkPending": "Wiederholen Sie den ursprünglich ausgewählten Schritt, um die ausstehende Abzweigung abzuschließen.",
     "forkCreated": "Verknüpfter Lauf erstellt und ab dem gewählten Schritt fortgesetzt.",
     "forkResumeFailed": "Verknüpfter Lauf erstellt, konnte aber nicht automatisch fortgesetzt werden ({{detail}}). Öffne ihn und setze ihn fort.",
-    "openFork": "Verknüpften Lauf öffnen"
+    "openFork": "Verknüpften Lauf öffnen",
+    "graphFollow": "Ausführung folgen",
+    "graphFitAll": "Alles anzeigen",
+    "graphLegend": "Graph-Legende"
   },
   "logViewer": {
     "loading": "Logs werden geladen…",
@@ -365,7 +368,8 @@
       "running": "Läuft",
       "skipped": "Übersprungen",
       "passed": "Bestanden",
-      "unavailable": "Nicht verfügbar"
+      "unavailable": "Nicht verfügbar",
+      "unverified": "Nicht verifiziert"
     }
   },
   "runHeader": {

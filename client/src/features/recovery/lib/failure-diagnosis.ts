@@ -170,3 +170,15 @@ export function openLogsAtFailure(root: ParentNode | null = typeof document === 
   target.focus({ preventScroll: true })
   return true
 }
+
+/**
+ * The runtime's own record of the step that failed (`step_failed: <step> — <reason>`),
+ * newest first. Not a guess: the words are the runtime's, only placed in view.
+ */
+export function recordedStepError(lines: readonly string[]): { step: string; reason: string } | null {
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const match = /step_failed:\s*([^\s—–-][^—–]*?)\s+[—–-]{1,2}\s+(.+)$/.exec(lines[index])
+    if (match) return { step: match[1].trim(), reason: match[2].trim() }
+  }
+  return null
+}

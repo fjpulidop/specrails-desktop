@@ -40,6 +40,7 @@ const COLOR: Record<Surface, string> = {
   setup: 'var(--color-accent-primary)',
   flow: 'var(--color-accent-intent)',
   triage: 'var(--color-accent-warning)',
+  'failure-analysis': 'var(--color-destructive)',
 }
 
 type PointShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'cross' | 'star' | 'wye'
@@ -61,6 +62,7 @@ const SHAPE: Record<Surface, PointShape> = {
   setup: 'star',
   flow: 'circle',
   triage: 'wye',
+  'failure-analysis': 'diamond',
 }
 
 function LegendGlyph({ surface }: { surface: Surface }) {

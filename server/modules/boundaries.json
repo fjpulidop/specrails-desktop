@@ -2532,12 +2532,17 @@
     "dependencies": {
       "adapters/sqlite.ts": [
         "../../../db",
+        "../analysis",
         "../domain"
+      ],
+      "analysis.ts": [
+        "crypto"
       ],
       "domain.ts": [
         "../../provider-limit"
       ],
       "index.ts": [
+        "./analysis",
         "./domain"
       ]
     }

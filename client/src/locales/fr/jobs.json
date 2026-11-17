@@ -312,7 +312,10 @@
     "forkPending": "Réessayez l’étape sélectionnée initialement pour terminer la bifurcation en attente.",
     "forkCreated": "Exécution liée créée et reprise depuis l'étape choisie.",
     "forkResumeFailed": "Exécution liée créée, mais elle n'a pas pu reprendre seule ({{detail}}). Ouvrez-la et reprenez-la.",
-    "openFork": "Ouvrir l’exécution liée"
+    "openFork": "Ouvrir l’exécution liée",
+    "graphFollow": "Suivre l’exécution",
+    "graphFitAll": "Tout afficher",
+    "graphLegend": "Légende du graphe"
   },
   "logViewer": {
     "loading": "Chargement des logs…",
@@ -365,7 +368,8 @@
       "running": "En cours",
       "skipped": "Ignoré",
       "passed": "Réussi",
-      "unavailable": "Indisponible"
+      "unavailable": "Indisponible",
+      "unverified": "Non vérifiée"
     }
   },
   "runHeader": {

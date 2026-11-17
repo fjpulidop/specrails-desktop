@@ -26,7 +26,8 @@
       "phase": "{{phase}}フェーズでエージェントが予期せず停止しました",
       "plain": "エージェントが予期せず停止しました"
     },
-    "unknown": "原因は不明です"
+    "unknown": "原因は不明です",
+    "stepFailed": "{{phase}} ステップが失敗しました"
   },
   "why": {
     "provider_limit": {
@@ -73,5 +74,30 @@
     "apply": "チェックに Python {{version}} の venv を使う",
     "saved": "プロジェクト設定に保存しました。次回の起動でチェックの前に venv を作成します。",
     "failed": "設定を保存できませんでした。プロジェクト設定を開いて設定してください。"
+  },
+  "analysis": {
+    "title": "AI 分析",
+    "offer": "AI にログを読ませ、この実行が止まった理由を説明させます。",
+    "run": "AI で分析",
+    "retry": "再試行",
+    "running": "停止した理由をログから調べています…",
+    "failed": "分析を実行できませんでした: {{detail}}",
+    "noDetail": "詳細なし",
+    "evidence": "ログより",
+    "nextSteps": "次にすること",
+    "failedStep": "ステップ: {{step}}",
+    "by": "{{model}} による AI 分析。ログに基づくため、引用行を確認してください。",
+    "stale": "この分析の後にログが変わりました。",
+    "regenerate": "再分析",
+    "category": {
+      "providerLimit": "クォータ・使用量の上限",
+      "missingArtifact": "成果物の欠落",
+      "configuration": "設定",
+      "tests": "テスト",
+      "environment": "環境",
+      "agentError": "エージェントのエラー",
+      "interrupted": "中断",
+      "other": "その他"
+    }
   }
 }

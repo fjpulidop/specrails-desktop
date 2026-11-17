@@ -38,18 +38,28 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
   </div>
 }
 
-export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
+/** `compact`: no frame, for a toolbar row. */
+export function LoopCompletionSummary({ result, compact = false }: { result: LoopCompletion; compact?: boolean }) {
   const { t } = useTranslation('jobs')
   const {t: tl} = useTranslation('loops')
   const core = result.core
   const status = (value: string) => t(`completion.status.${value}`, { defaultValue: value })
-  return <section aria-label={t('completion.title')} className="border-b border-border/40 px-4 py-3 text-xs space-y-2" data-testid="loop-completion">
-    <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>
-    {result.completion ? <div className="space-y-1">
-      <p className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</p>
-      <p>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</p>
-      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons.map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
-    </div> : core ? <>
+  return <section aria-label={t('completion.title')} className={compact ? 'min-w-0 text-xs space-y-1' : 'border-b border-border/40 px-3 py-2 text-xs space-y-2'} data-testid="loop-completion">
+    {result.completion ? <div className="space-y-1.5">
+      {/* One line: what happened, whether it was accepted, whether it was verified. */}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-medium">{t('completion.execution')}: {status(result.execution)}</span>
+        <span aria-hidden className="text-muted-foreground">·</span>
+        <span className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</span>
+        <span aria-hidden className="text-muted-foreground">·</span>
+        <span>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</span>
+      </p>
+      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons
+        // A reason that only repeats the verification state says nothing new.
+        .filter(reason => !['verified', 'unverified'].includes(reason.trim()))
+        .map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
+    </div> : <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>}
+    {result.completion ? null : core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>
           <dt className="text-muted-foreground">{t(`completion.${key}`)}</dt>

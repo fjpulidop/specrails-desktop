@@ -18,7 +18,7 @@ interface Props {
 
 const SURFACES: Surface[] = [
   'job', 'explore-spec', 'quick-spec', 'ai-edit', 'chat-sidebar',
-  'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop', 'flow', 'triage',
+  'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop', 'flow', 'triage', 'failure-analysis',
 ]
 
 export function SpendingHero({ data, loading, period }: Props) {

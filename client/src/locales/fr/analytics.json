@@ -13,7 +13,8 @@
     "agentStudio": "Agent Studio",
     "setup": "Configuration",
     "triage": "Triage",
-    "flow": "Intent"
+    "flow": "Intent",
+    "failureAnalysis": "Analyse des échecs"
   },
   "periods": {
     "d7": "7j",

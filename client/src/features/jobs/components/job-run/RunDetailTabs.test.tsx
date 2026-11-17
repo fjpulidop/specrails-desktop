@@ -215,7 +215,8 @@ describe('RunDetailTabs', () => {
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { callbacks.set(++next, callback); return next })
     const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => { callbacks.delete(id) })
     const opened = vi.fn(() => {
-      expect(screen.getByText(isLoop ? 'Graph evidence' : 'Raw evidence')).toBeVisible()
+      // The step logs live in Log detail, also for loops.
+      expect(screen.getByText('Raw evidence')).toBeVisible()
       expect(tab('Log')).toHaveAttribute('aria-selected', 'true')
     })
     const p = props({ showDiagnosis: true, isLoop, onOpenLogs: opened })
@@ -237,6 +238,19 @@ describe('RunDetailTabs', () => {
     expect(opened).toHaveBeenCalledTimes(1)
     raf.mockRestore()
     cancel.mockRestore()
+  })
+
+  it('opens a step picked in the graph in Log detail', () => {
+    const seen: Array<{ key: string; seq: number } | null> = []
+    render(<RunDetailTabs {...props({
+      graphContent: navigation => <button type="button" onClick={() => navigation.showStep('step-2')}>Pick step</button>,
+      logContent: navigation => { seen.push(navigation.stepFocus); return <p>Raw evidence</p> },
+    })} />)
+    fireEvent.click(tab('Execution graph'))
+    fireEvent.click(screen.getByRole('button', { name: 'Pick step' }))
+    expect(tab('Log detail')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Raw evidence')).toBeVisible()
+    expect(seen.at(-1)).toEqual({ key: 'step-2', seq: 1 })
   })
 
   it('keeps simultaneous page and modal structure equivalent, IDs distinct and remedy navigation scoped', async () => {

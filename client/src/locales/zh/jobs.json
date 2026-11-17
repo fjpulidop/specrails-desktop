@@ -312,7 +312,10 @@
     "forkPending": "请重试最初选择的步骤，以完成待处理的分支。",
     "forkCreated": "已创建关联运行，并从所选步骤继续。",
     "forkResumeFailed": "已创建关联运行，但无法自动继续（{{detail}}）。请打开并继续它。",
-    "openFork": "打开关联运行"
+    "openFork": "打开关联运行",
+    "graphFollow": "跟随执行",
+    "graphFitAll": "查看全部",
+    "graphLegend": "图例"
   },
   "logViewer": {
     "loading": "正在加载日志…",
@@ -365,7 +368,8 @@
       "running": "进行中",
       "skipped": "已跳过",
       "passed": "通过",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "unverified": "未验证"
     }
   },
   "runHeader": {

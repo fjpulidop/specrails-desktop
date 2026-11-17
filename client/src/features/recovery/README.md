@@ -7,6 +7,7 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
+- [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
@@ -44,6 +45,14 @@ server-ranked `remedies`.
 - **No invented diagnosis.** A low-confidence or unrecognised record is read as `unknown`
   (`readFailureDiagnosis`): the card says "Unknown cause", shows the raw tail of the log and offers
   only logs and a retry.
+- **The runtime's own record first.** An `unknown` record whose log tail holds the runtime's
+  `step_failed: <step> — <reason>` line names that step in the headline and shows the reason
+  (`recordedStepError`); the words are the runtime's, not a guess.
+- **AI analysis.** `FailureAnalysisPanel` (under the card for a failed job) shows the AI reading
+  of the log: headline, cause, category (quota limits are flagged), the cited log lines, next
+  steps and the provider/model that wrote it. `useFailureAnalysis` reads the saved one and, when
+  none exists, asks for it once; it is not automatic for `provider_limit`, whose call would hit
+  the same limit. See the [API reference](../../../../docs/internals/api-reference.md#failure-analysis).
 - **Runs without a card.** Delivery cards read the diagnosis of their last run
   (`useRunDiagnosis` → `GET /loop-runs/:id`); the old failure block stays under *Technical details*.
 - **Accessibility and design.** The card is a labelled `region` whose headline is a `status`;

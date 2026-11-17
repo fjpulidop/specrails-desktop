@@ -13,7 +13,8 @@
     "agentStudio": "Agent Studio",
     "setup": "设置",
     "triage": "分诊",
-    "flow": "Intent"
+    "flow": "Intent",
+    "failureAnalysis": "失败分析"
   },
   "periods": {
     "d7": "7天",

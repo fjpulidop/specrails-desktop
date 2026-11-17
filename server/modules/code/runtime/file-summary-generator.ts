@@ -230,6 +230,9 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
         if (settled) return
         settled = true
         if (code !== 0) {
+          // The provider's own error (an unsupported model, a usage limit) says
+          // more than the exit code and a stderr banner.
+          if (providerError) { rejectWithPartial(providerError.slice(0, 1000)); return }
           const tail = stderrBuf.slice(-500)
           // Carry any captured usage (the provider may have billed tokens before
           // exiting non-zero) so the manager records the real cost on the failed

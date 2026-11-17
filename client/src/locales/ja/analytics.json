@@ -13,7 +13,8 @@
     "agentStudio": "エージェントスタジオ",
     "setup": "セットアップ",
     "triage": "トリアージ",
-    "flow": "Intent"
+    "flow": "Intent",
+    "failureAnalysis": "失敗分析"
   },
   "periods": {
     "d7": "7日",

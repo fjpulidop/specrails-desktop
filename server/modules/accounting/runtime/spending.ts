@@ -205,6 +205,7 @@ export interface InvocationWithTicket extends InvocationRow {
 const ALL_SURFACES: Surface[] = [
   'job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary', 'loop',
   'chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup', 'flow', 'triage',
+  'failure-analysis',
 ]
 
 /** Fresh zeroed per-surface bucket covering every Surface, so aggregation

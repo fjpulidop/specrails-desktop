@@ -1,0 +1,96 @@
+import { useTranslation } from 'react-i18next'
+import { Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
+import { cn } from '../../../lib/utils'
+import { useFailureAnalysis, type AnalysisCategory } from '../hooks/useFailureAnalysis'
+
+export interface FailureAnalysisPanelProps {
+  projectId?: string
+  jobId: string
+  /** Ask for an analysis on open when none is saved. Off when the provider is
+   *  known to be out of quota: the call would hit the same limit. */
+  auto: boolean
+}
+
+/**
+ * The AI reading of why a failed run stopped: one line, a short explanation,
+ * the log lines it rests on (verbatim, checked by the server) and what to do
+ * next. Shown beside the app's own diagnosis, labelled as an AI analysis.
+ */
+export function FailureAnalysisPanel({ projectId, jobId, auto }: FailureAnalysisPanelProps) {
+  const { t, i18n } = useTranslation('recovery')
+  const { state, run } = useFailureAnalysis(projectId, jobId, i18n.language, { auto })
+  if (state.status === 'loading') return null
+  if (state.status === 'idle' || state.status === 'error') {
+    return (
+      <section data-testid="failure-analysis" data-state={state.status} className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border/60 px-3.5 py-2.5 text-body">
+        <Sparkles className="h-4 w-4 shrink-0 text-accent-primary" aria-hidden />
+        <p className="min-w-0 flex-1 text-muted-foreground">
+          {state.status === 'error' ? t('analysis.failed', { detail: state.detail ?? t('analysis.noDetail') }) : t('analysis.offer')}
+        </p>
+        <Button type="button" size="sm" variant="outline" onClick={() => void run()} data-testid="failure-analysis-run">
+          <Sparkles className="mr-1 h-3 w-3" aria-hidden />
+          {state.status === 'error' ? t('analysis.retry') : t('analysis.run')}
+        </Button>
+      </section>
+    )
+  }
+  if (state.status === 'running') {
+    return (
+      <section data-testid="failure-analysis" data-state="running" role="status" className="flex items-center gap-2 rounded-card border border-border/60 bg-card/40 px-3.5 py-3 text-body text-muted-foreground">
+        <Loader2 className="h-4 w-4 shrink-0 motion-safe:animate-spin text-accent-primary" aria-hidden />
+        {t('analysis.running')}
+      </section>
+    )
+  }
+
+  const { analysis, provider, model, stale } = state
+  const quota = analysis.category === 'provider_limit'
+  return (
+    <section
+      data-testid="failure-analysis"
+      data-state="ready"
+      data-category={analysis.category}
+      aria-label={t('analysis.title')}
+      className={cn('space-y-2.5 rounded-card border px-3.5 py-3', quota ? 'border-accent-warning/40 bg-accent-warning/5' : 'border-accent-primary/30 bg-accent-primary/5')}
+    >
+      <div className="flex items-start gap-2.5">
+        {quota ? <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" aria-hidden /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" aria-hidden />}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
+            <span className="font-medium uppercase tracking-wide">{t('analysis.title')}</span>
+            <span className="rounded-full border border-border/60 px-1.5">{t(`analysis.category.${categoryKey(analysis.category)}`)}</span>
+            {analysis.failedStep && <span>{t('analysis.failedStep', { step: analysis.failedStep })}</span>}
+          </p>
+          <p className="text-strong text-foreground" data-testid="failure-analysis-headline">{analysis.headline}</p>
+          <p className="text-body text-foreground">{analysis.cause}</p>
+        </div>
+      </div>
+      {analysis.evidence.length > 0 && (
+        <div>
+          <p className="mb-1 text-caption font-medium text-muted-foreground">{t('analysis.evidence')}</p>
+          <pre data-testid="failure-analysis-evidence" className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control border border-border/50 bg-background/40 px-3 py-2 font-mono text-caption leading-relaxed text-foreground">{analysis.evidence.join('\n')}</pre>
+        </div>
+      )}
+      {analysis.nextSteps.length > 0 && (
+        <div>
+          <p className="mb-1 text-caption font-medium text-muted-foreground">{t('analysis.nextSteps')}</p>
+          <ol className="list-decimal space-y-0.5 pl-5 text-body text-foreground">
+            {analysis.nextSteps.map((step, index) => <li key={index}>{step}</li>)}
+          </ol>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
+        <span>{t('analysis.by', { model: model ? `${provider}/${model}` : provider })}</span>
+        {stale && <span className="text-accent-warning">{t('analysis.stale')}</span>}
+        <Button type="button" size="sm" variant="ghost" className="ml-auto h-6 px-2" onClick={() => void run(true)} data-testid="failure-analysis-regenerate">
+          <RefreshCw className="mr-1 h-3 w-3" aria-hidden />{t('analysis.regenerate')}
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function categoryKey(category: AnalysisCategory): string {
+  return category.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase())
+}

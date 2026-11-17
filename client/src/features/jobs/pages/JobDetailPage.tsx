@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
+import { LoopRunDetail } from '../components/job-run/LoopRunDetail'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../../../lib/api'
 import { cancelJob } from '../lib/cancel-job'
@@ -512,17 +513,26 @@ export default function JobDetailPage() {
             job={job}
             events={events}
             surface="page"
+            projectId={activeProjectId ?? undefined}
             isLoop={isLoopJob}
             onOpenLogs={handleOpenLogs}
-            graphContent={<>
+            graphContent={navigation => <>
               {eventBuffer.omitted && (
                 <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
+              <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
             </>}
-            logContent={<>
+            logContent={navigation => isLoopJob ? <>
+              {eventBuffer.omitted && (
+                <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                  {t('logViewer.retainedTail')}
+                </p>
+              )}
+              <LoopRunDetail events={events} jobStatus={job.status} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
+                settled={job.status !== 'running' && job.status !== 'queued'} elapsedMs={job.duration_ms ?? null} />
+            </> : <>
               {eventBuffer.omitted && (
                 <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                   {t('logViewer.retainedTail')}

@@ -33,6 +33,7 @@ import {
 } from './modules/specs/runtime/spec-models'
 import { resolveProvider, validateRequestedProvider } from './provider-selection'
 import type { JobRow } from './types'
+import type { DbInstance } from './db'
 import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { getProjectMetrics } from './modules/accounting/runtime/metrics'
 import { getQueuedJobForListing, listUnifiedJobs } from './modules/execution/runtime/job-listing'
@@ -45,7 +46,11 @@ import {
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import { registerMissionResourceRoutes } from './project-router-mission-resources'
 import { createAgentAuditService } from './modules/audit'
-import { readJobDiagnosis } from './modules/recovery/adapters/sqlite'
+import { readJobDiagnosis, readFailureAnalysis, writeFailureAnalysis, type StoredFailureAnalysis } from './modules/recovery/adapters/sqlite'
+import { analysisLanguage, evidenceHash, failureAnalysisPrompt, failureEvidence, parseFailureAnalysis, type FailureEvidence } from './modules/recovery'
+import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
+import type { GenerateOutput } from './modules/code/runtime/file-summary-manager'
+import { recordInvocation } from './modules/accounting/runtime/ai-invocations'
 import { registerAgentAuditHttp } from './modules/audit/adapters/http'
 import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
@@ -700,6 +705,60 @@ const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status
     res.json({ job: annotated, events, phaseDefinitions })
   })
 
+  // ─── Failure analysis: the AI reading of why a failed job stopped ─────────
+  // docs/internals/api-reference.md#failure-analysis. Read-only for the job;
+  // the call runs on the provider that ran it, one turn, no tools.
+  const analysisRequest = (req: Request) => {
+    const c = ctx(req)
+    const job = getJob(c.db, String(req.params.id))
+    if (!job || (job.status !== 'failed' && job.status !== 'canceled')) return null
+    const language = analysisLanguage(req.query.language ?? req.body?.language)
+    let diagnosis: { kind: string; detail: string | null } | null = null
+    try { const record = readJobDiagnosis(c.db, job.id, job.status); diagnosis = record ? { kind: record.kind, detail: record.detail } : null } catch { /* none */ }
+    const evidence = failureEvidence({
+      job: { command: job.command, status: job.status, provider: job.provider ?? null, model: job.model ?? null },
+      diagnosis,
+      events: getJobEvents(c.db, job.id),
+    })
+    return { c, job, language, evidence, inputHash: evidenceHash(evidence, language) }
+  }
+  const presentAnalysis = (stored: StoredFailureAnalysis, inputHash: string) => ({
+    status: 'ready' as const, analysis: stored.analysis, provider: stored.provider, model: stored.model,
+    createdAt: stored.createdAt, stale: stored.inputHash !== inputHash,
+  })
+
+  router.get('/:projectId/jobs/:id/failure-analysis', (req: Request, res: Response) => {
+    const request = analysisRequest(req)
+    if (!request) { res.status(404).json({ error: 'not_a_failed_job' }); return }
+    const stored = readFailureAnalysis(request.c.db, request.job.id)
+    res.json(stored && stored.language === request.language ? presentAnalysis(stored, request.inputHash) : { status: 'none' })
+  })
+
+  router.post('/:projectId/jobs/:id/failure-analysis', async (req: Request, res: Response) => {
+    const request = analysisRequest(req)
+    if (!request) { res.status(404).json({ error: 'not_a_failed_job' }); return }
+    const { c, job, language, evidence, inputHash } = request
+    const stored = readFailureAnalysis(c.db, job.id)
+    if (stored && stored.language === language && stored.inputHash === inputHash && req.body?.force !== true) {
+      res.json(presentAnalysis(stored, inputHash)); return
+    }
+    if (evidence.lines.length === 0) { res.status(422).json({ error: 'no_log' }); return }
+    const inFlight = failureAnalysesInFlight.get(c.db) ?? new Map<string, Promise<StoredFailureAnalysis>>()
+    failureAnalysesInFlight.set(c.db, inFlight)
+    const key = `${job.id}:${inputHash}`
+    let pending = inFlight.get(key)
+    if (!pending) {
+      pending = generateFailureAnalysis(c.db, c.project, job, language, evidence, inputHash)
+        .finally(() => { inFlight.delete(key) })
+      inFlight.set(key, pending)
+    }
+    try {
+      res.json(presentAnalysis(await pending, inputHash))
+    } catch (err) {
+      res.status(502).json({ error: 'analysis_failed', detail: err instanceof Error ? err.message.slice(0, 400) : String(err) })
+    }
+  })
+
   router.delete('/:projectId/jobs', (req: Request, res: Response) => {
     try {
       const { from, to } = req.body ?? {}
@@ -734,4 +793,55 @@ const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status
     }
   })
 
+}
+
+/** In-flight analyses per project database: a second request rides the first. */
+const failureAnalysesInFlight = new WeakMap<DbInstance, Map<string, Promise<StoredFailureAnalysis>>>()
+
+/** The provider that ran the job, else the project's. A local engine has no CLI to ask. */
+function analysisAdapter(job: JobRow, project: { provider?: string | null }) {
+  for (const id of [job.provider, project.provider, 'claude']) {
+    if (!id) continue
+    try { return getAdapter(id) } catch { /* not a CLI provider */ }
+  }
+  return getAdapter('claude')
+}
+
+async function generateFailureAnalysis(
+  db: DbInstance, project: { id: string; path: string; provider?: string | null }, job: JobRow,
+  language: string, evidence: FailureEvidence, inputHash: string,
+): Promise<StoredFailureAnalysis> {
+  const adapter = analysisAdapter({ ...job, provider: getLoopRun(db, job.id)?.provider ?? job.provider }, project)
+  // The model that ran the job: the account can run it, which a provider's
+  // cheap default is not guaranteed to (Codex rejects mini models on ChatGPT plans).
+  const run = getLoopRun(db, job.id) as { provider?: string | null; model?: string | null } | undefined
+  const ranWith = { provider: run?.provider ?? job.provider, model: run?.model ?? job.model }
+  const model = adapter.id === ranWith.provider && ranWith.model ? ranWith.model : undefined
+  const generate = createFileSummaryGenerator({ adapter, cwd: project.path, ...(model ? { model } : {}), systemPrompt: () => failureAnalysisPrompt(language) })
+  const startedAt = new Date().toISOString()
+  const record = (status: 'success' | 'failed', out?: Partial<GenerateOutput>) => {
+    try {
+      recordInvocation(db, {
+        id: uuidv4(), project_id: project.id, provider: out?.provider ?? adapter.id, surface: 'failure-analysis',
+        surface_ref_id: job.id, status, started_at: startedAt, finished_at: new Date().toISOString(),
+        model: out?.model, total_cost_usd: out?.costUsd ?? undefined, tokens_in: out?.tokensIn ?? undefined,
+        tokens_out: out?.tokensOut ?? undefined, tokens_cache_read: out?.tokensCacheRead, tokens_cache_create: out?.tokensCacheCreate,
+        duration_ms: out?.durationMs ?? 0, num_turns: 1, total_cost_usd_estimated: !!out?.costEstimated,
+      })
+    } catch (err) { console.error('[failure-analysis] recordInvocation failed:', err) }
+  }
+  let out: GenerateOutput
+  try {
+    out = await generate({ relPath: `job:${job.id}`, contents: JSON.stringify(evidence), truncated: evidence.truncated, language: 'en' })
+  } catch (err) {
+    record('failed', (err as { partial?: Partial<GenerateOutput> }).partial)
+    throw err
+  }
+  record('success', out)
+  const stored: StoredFailureAnalysis = {
+    inputHash, language, provider: out.provider ?? adapter.id, model: out.model ?? null,
+    analysis: parseFailureAnalysis(out.summary, evidence), createdAt: new Date().toISOString(),
+  }
+  writeFailureAnalysis(db, job.id, stored)
+  return stored
 }

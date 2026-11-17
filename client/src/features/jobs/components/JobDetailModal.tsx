@@ -2,6 +2,7 @@ import { modalDialogStyle, modalOverlayStyle } from '../../../lib/modal-safe-are
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from './job-run/RunDetailTabs'
+import { LoopRunDetail } from './job-run/LoopRunDetail'
 import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { formatDistanceToNow } from 'date-fns'
@@ -419,17 +420,26 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                     job={job}
                     events={events}
                     surface="modal"
+                    projectId={projectId}
                     isLoop={job.command.startsWith('loop:')}
                     onOpenLogs={handleOpenLogs}
-                    graphContent={<>
+                    graphContent={navigation => <>
                       {eventBuffer.omitted && (
                         <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopStepExplorer events={events} jobStatus={job.status} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} />
+                      <LoopStepExplorer events={events} jobStatus={job.status} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
                     </>}
-                    logContent={<>
+                    logContent={navigation => job.command.startsWith('loop:') ? <>
+                      {eventBuffer.omitted && (
+                        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                          {t('logViewer.retainedTail')}
+                        </p>
+                      )}
+                      <LoopRunDetail events={events} jobStatus={job.status} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
+                        settled={job.status !== 'running' && job.status !== 'queued'} elapsedMs={job.duration_ms ?? null} />
+                    </> : <>
                       {eventBuffer.omitted && (
                         <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                           {t('logViewer.retainedTail')}

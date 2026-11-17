@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { within } from '@testing-library/react'
-import { render, screen, fireEvent } from '../../../../../test-utils'
+import { render, screen } from '../../../../../test-utils'
 import { RuntimeGraphExplorer } from '../RuntimeGraphExplorer'
 import type { RuntimeTopology } from '../runtime-topology'
 import type { LoopStepSegment } from '../loop-log-model'
@@ -20,9 +20,7 @@ function segment(id: string, scope: string, status: 'failed' | 'ok'): LoopStepSe
 }
 it('explores component topology and selects exact branch attempts without editing the definition', async () => {
   const user = userEvent.setup(), focus = vi.fn(), fork = vi.fn()
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed'), segment('right-attempt', 'right', 'ok')]} settled onFocus={focus} onFork={fork} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed'), segment('right-attempt', 'right', 'ok')]} settled onFocus={focus} onFork={fork} />)
   expect(await screen.findByText('map → end')).toBeInTheDocument()
   expect(screen.getByTestId('flow')).toHaveAttribute('data-draggable', 'false')
   expect(screen.getByTestId('flow')).toHaveAttribute('data-connectable', 'false')
@@ -47,9 +45,7 @@ it('highlights live steps, marks completed steps and retains live updates in ful
   const active = segment('end-active', 'root', 'ok')
   active.meta.nodePath = active.meta.nodeId = 'end'; delete active.end
   const props = { topology, segments: [done, active], settled: false, onFocus: vi.fn() }
-  const { container, rerender } = render(<RuntimeGraphExplorer {...props} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  const { rerender } = render(<RuntimeGraphExplorer {...props} />)
   expect(await screen.findByTestId('node-map')).toHaveTextContent('Succeeded')
   expect(screen.getByTestId('node-map')).toHaveAttribute('data-border', 'var(--color-accent-success)')
   expect(screen.getByTestId('node-end')).toHaveTextContent('Running')
@@ -73,9 +69,7 @@ it('does not mark unvisited or interrupted steps as completed and highlights a r
   done.meta.nodePath = done.meta.nodeId = 'map'
   const retry = { ...done, key: 'map-retry', meta: { ...done.meta, attemptId: 'retry' }, end: undefined }
   const props = { topology, segments: [done, retry], settled: false, onFocus: vi.fn() }
-  const { container, rerender } = render(<RuntimeGraphExplorer {...props} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  const { rerender } = render(<RuntimeGraphExplorer {...props} />)
   expect(await screen.findByTestId('node-map')).toHaveTextContent('Running')
   expect(screen.getByTestId('node-end')).toHaveTextContent('Pending')
   rerender(<RuntimeGraphExplorer {...props} settled />)
@@ -88,9 +82,7 @@ it('shows recorded trace and event-span correlation only for the owning attempt'
   const left = segment('left-attempt', 'left', 'failed')
   left.meta.traceId = 'recorded-trace'
   left.meta.spanId = 'recorded-span'
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[left, segment('right-attempt', 'right', 'ok')]} settled onFocus={vi.fn()} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[left, segment('right-attempt', 'right', 'ok')]} settled onFocus={vi.fn()} />)
   await user.click(await screen.findByTestId('node-map'))
   await user.click(screen.getByRole('button', { name: 'Open component' }))
   await user.click(screen.getByTestId('node-read'))
@@ -110,8 +102,6 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
     const { container } = render(<div className="fixed z-[65]" data-testid="log-modal">
       <RuntimeGraphExplorer topology={topology} segments={[]} settled onFocus={vi.fn()} />
     </div>)
-    const details = container.querySelector('details')!
-    details.open = true; fireEvent(details, new Event('toggle'))
     await user.click(await screen.findByRole('button', { name: 'Full screen' }))
     const dialog = screen.getByRole('dialog', { name: 'Run graph' })
     // Capture layer (z-80): above the entity log modal (z-65) and the dock.
@@ -131,16 +121,14 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
   }
 })
 
-it('opens on the failed step with "Repeat from here" laid over the compact graph', async () => {
+it('opens on the failed step with "Repeat from here" beside the always-expanded graph', async () => {
   const fork = vi.fn()
   const failed = segment('dev-attempt', 'root', 'failed')
   failed.meta.nodePath = failed.meta.nodeId = 'map'; failed.end!.nodeId = 'map'
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[failed]} settled onFocus={vi.fn()} onFork={fork} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[failed]} settled onFocus={vi.fn()} onFork={fork} />)
   const panel = await screen.findByTestId('runtime-graph-node-panel')
-  // Inside the graph box (overlaid), not below it where the log panel clips it.
-  expect(screen.getByTestId('flow').parentElement).toContainElement(panel)
+  // Beside the canvas, never over it: the graph stays fully visible.
+  expect(screen.getByTestId('flow').parentElement).not.toContainElement(panel)
   expect(panel).toHaveTextContent('map')
   await userEvent.setup().click(within(panel).getByRole('button', { name: 'Repeat from here' }))
   expect(fork).toHaveBeenCalledWith(expect.objectContaining({ key: 'dev-attempt' }))

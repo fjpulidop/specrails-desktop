@@ -41,6 +41,6 @@ describe('surface maps · tolerance (surface plumbing)', () => {
     expect(keys).toContain('triage')
     expect(keys).toContain('setup')
     expect(keys).not.toContain('brand-new-surface-9000')
-    expect(keys).toHaveLength(14)
+    expect(keys).toHaveLength(15)
   })
 })
