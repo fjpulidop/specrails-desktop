@@ -171,7 +171,9 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
             <button
               key={key}
               type="button"
-              onClick={disabled ? undefined : onClick}
+              // A floating (unpinned) rail gets out of the way of the section
+              // it just opened; a docked rail stays.
+              onClick={disabled ? undefined : () => { onClick(); if (overlaying) hover.dismiss() }}
               aria-disabled={disabled || undefined}
               aria-pressed={disabled ? undefined : active}
               aria-label={!expanded ? label : undefined}
