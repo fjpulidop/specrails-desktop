@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { configurableImplementGraph, IMPLEMENT_WRITE_ROLE_MAX_TURNS } from './loop-implement-recipe'
-import { CORE_DEFAULT_MAX_TURNS, loopTurnLimits, withTurnLimitHint } from './loop-turn-limits'
+import { LEGACY_CORE_DEFAULT_MAX_TURNS as CORE_DEFAULT_MAX_TURNS, coreDefaultMaxTurns, loopTurnLimits, withTurnLimitHint } from './loop-turn-limits'
 
 describe('loop turn limits', () => {
   it('maps every Implement AI step to its role and effective ceiling', () => {
@@ -10,6 +10,21 @@ describe('loop turn limits', () => {
       { stepId: 'developer', role: 'build', maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, source: 'role' },
       { stepId: 'reviewer', role: 'assess', maxTurns: CORE_DEFAULT_MAX_TURNS, source: 'core-default' },
       { stepId: 'fixer', role: 'correct', maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, source: 'role' },
+    ])
+  })
+
+  it('runs Implement write roles and unset roles without a turn limit on a Core advertising unlimitedTurns', () => {
+    const capabilities = { openRoles: 1, unlimitedTurns: 1 }
+    expect(coreDefaultMaxTurns(capabilities)).toBeNull()
+    expect(coreDefaultMaxTurns({ openRoles: 1 })).toBe(CORE_DEFAULT_MAX_TURNS)
+    const graph = configurableImplementGraph(capabilities)
+    expect(graph.config.agents!.roles!.build).not.toHaveProperty('maxTurns')
+    expect(graph.config.agents!.roles!.correct).not.toHaveProperty('maxTurns')
+    expect(loopTurnLimits(graph, capabilities).map(({ stepId, maxTurns, source }) => ({ stepId, maxTurns, source }))).toEqual([
+      { stepId: 'architect', maxTurns: null, source: 'core-default' },
+      { stepId: 'developer', maxTurns: null, source: 'core-default' },
+      { stepId: 'reviewer', maxTurns: null, source: 'core-default' },
+      { stepId: 'fixer', maxTurns: null, source: 'core-default' },
     ])
   })
 

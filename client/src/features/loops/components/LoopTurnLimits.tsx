@@ -22,13 +22,13 @@ function stepsByRole(graph: LoopGraph): Map<string, string[]> {
 }
 
 /** One place to read and set every AI step's turn ceiling for this loop. */
-export function LoopTurnLimits({ graph, value, onChange }: { graph: LoopGraph; value: LoopAgentConfig; onChange(value: LoopAgentConfig): void }) {
+export function LoopTurnLimits({ graph, value, defaultMaxTurns = CORE_DEFAULT_MAX_TURNS, onChange }: { graph: LoopGraph; value: LoopAgentConfig; /** `null` = Core runs unset roles without a turn limit. */ defaultMaxTurns?: number | null; onChange(value: LoopAgentConfig): void }) {
   const { t } = useTranslation('agentRuntime')
   const rows = [...stepsByRole(graph)].filter(([role]) => roleAgent(value, role))
   if (!rows.length) return null
   return <details open className="rounded-md border border-border p-2" aria-label={t('loopAgents.turnLimits.title')}>
     <summary className="cursor-pointer text-sm font-medium">{t('loopAgents.turnLimits.title')}</summary>
-    <p className="mt-2 text-xs text-muted-foreground">{t('loopAgents.turnLimits.hint', { turns: CORE_DEFAULT_MAX_TURNS })}</p>
+    <p className="mt-2 text-xs text-muted-foreground">{t('loopAgents.turnLimits.hint', { turns: defaultMaxTurns ?? t('loopAgents.turnLimits.unlimited') })}</p>
     <div className="mt-3 space-y-2">
       {rows.map(([role, steps]) => {
         const agent = roleAgent(value, role)!
@@ -38,7 +38,7 @@ export function LoopTurnLimits({ graph, value, onChange }: { graph: LoopGraph; v
             <span className="block truncate text-muted-foreground">{t('loopAgents.turnLimits.role', { role })}</span>
           </span>
           <Input type="number" min={1} inputMode="numeric" aria-label={t('loopAgents.turnLimits.input', { steps: steps.join(', '), role })}
-            placeholder={String(CORE_DEFAULT_MAX_TURNS)} value={agent.maxTurns ?? ''}
+            placeholder={defaultMaxTurns === null ? '∞' : String(defaultMaxTurns)} value={agent.maxTurns ?? ''}
             onChange={event => onChange(withRoleAgent(value, role, { ...agent, maxTurns: event.target.value ? Math.max(1, Math.floor(Number(event.target.value))) : undefined } as RuntimeAgent))} />
         </label>
       })}

@@ -31,6 +31,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
   const [models, setModels] = useState<Record<string, string[]>>({})
   const [defaults, setDefaults] = useState<LoopAgentConfig>()
   const [coreDefinitions, setCoreDefinitions] = useState<Record<string, string> | null>(null)
+  const [defaultMaxTurns, setDefaultMaxTurns] = useState<number | null>(CORE_DEFAULT_MAX_TURNS)
   const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
   const [showUnused, setShowUnused] = useState(false)
@@ -48,6 +49,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
     }))).then(([connections, factory]) => {
       if (controller.signal.aborted) return
       setProviders(connections.providers ?? []); setDefaults(factory.agents); setCoreDefinitions(factory.rolePromptDefaults ?? null)
+      if (factory.defaultMaxTurns === null || typeof factory.defaultMaxTurns === 'number') setDefaultMaxTurns(factory.defaultMaxTurns)
       setModels(Object.fromEntries(Object.entries(connections.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])))
     }).catch(() => { if (!controller.signal.aborted) setError(t('loadFailed')) })
     return () => controller.abort()
@@ -85,7 +87,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
       </select></label>
       <label className="block text-xs">{t('agents.model')}<Input value={agent.model ?? ''} list={`loop-models-${role}`} onChange={event => update({ ...agent, model: event.target.value || undefined })} /><datalist id={`loop-models-${role}`}>{choices.map(model => <option key={model} value={model} />)}</datalist></label>
       <label className="block text-xs">{t('loopAgents.effort')}<Input value={agent.effort ?? ''} onChange={event => update({ ...agent, effort: event.target.value || undefined })} /></label>
-      <label className="block text-xs">{t('agents.maxTurns', { turns: CORE_DEFAULT_MAX_TURNS })}<Input type="number" min={1} placeholder={String(CORE_DEFAULT_MAX_TURNS)} value={agent.maxTurns ?? ''} onChange={event => update({ ...agent, maxTurns: event.target.value ? Math.max(1, Math.floor(Number(event.target.value))) : undefined })} /><span className="mt-1 block text-muted-foreground">{t('loopAgents.turnLimits.stepHint', { role, turns: agent.maxTurns ?? CORE_DEFAULT_MAX_TURNS })}</span></label>
+      <label className="block text-xs">{t('agents.maxTurns', { turns: defaultMaxTurns ?? t('loopAgents.turnLimits.unlimited') })}<Input type="number" min={1} placeholder={defaultMaxTurns === null ? '∞' : String(defaultMaxTurns)} value={agent.maxTurns ?? ''} onChange={event => update({ ...agent, maxTurns: event.target.value ? Math.max(1, Math.floor(Number(event.target.value))) : undefined })} /><span className="mt-1 block text-muted-foreground">{(agent.maxTurns ?? defaultMaxTurns) === null ? t('loopAgents.turnLimits.stepHintUnlimited', { role }) : t('loopAgents.turnLimits.stepHint', { role, turns: agent.maxTurns ?? defaultMaxTurns })}</span></label>
       <label className="block text-xs">{t('agents.thinking')}<select className={field} value={agent.thinking ?? ''} onChange={event => update({ ...agent, thinking: event.target.value ? event.target.value as 'on' | 'off' : undefined })}><option value="">{t('loopAgents.default')}</option><option value="off">{t('agents.thinking_off')}</option><option value="on">{t('agents.thinking_on')}</option></select></label>
       <label className="block text-xs">{t('loopAgents.escalationModel')}<Input value={agent.escalation?.model ?? ''} onChange={event => update({ ...agent, escalation: event.target.value ? { ...agent.escalation, model: event.target.value } : undefined })} /></label>
       {agent.escalation && <label className="block text-xs">{t('loopAgents.escalationEffort')}<Input value={agent.escalation.effort ?? ''} onChange={event => update({ ...agent, escalation: { model: agent.escalation!.model, effort: event.target.value || undefined } })} /></label>}
@@ -96,7 +98,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
     <h3 className="text-sm font-medium">{t(title)}</h3>
     {showAgents && <p className="text-xs text-muted-foreground">{t(mode === 'step' ? 'loopAgents.stepHint' : 'loopAgents.hint')}</p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-    {mode === 'workflow' && value && graph && <LoopTurnLimits graph={graph} value={value} onChange={onChange} />}
+    {mode === 'workflow' && value && graph && <LoopTurnLimits graph={graph} value={value} defaultMaxTurns={defaultMaxTurns} onChange={onChange} />}
     {!value && <><p className="text-xs text-accent-warning">{t('loopAgents.legacy')}</p><Button size="sm" disabled={!defaults} onClick={() => defaults && onChange(structuredClone(defaults))}>{t('loopAgents.enable')}</Button></>}
     {mode !== 'step' && <Button size="sm" variant="secondary" disabled={!activeProjectId || !defaults || importing} onClick={() => void importProject()}>{t('loopAgents.import')}</Button>}
     {value && <>

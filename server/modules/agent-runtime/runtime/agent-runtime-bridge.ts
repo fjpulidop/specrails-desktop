@@ -18,7 +18,7 @@ import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
-import { CORE_DEFAULT_MAX_TURNS, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
+import { coreDefaultMaxTurns, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -327,8 +327,9 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     if (used?.has('developer')) used.add('fixer')
     const assignments = [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : []), ...Object.entries(frozen.roles ?? {})]
       .filter(([role]) => used ? used.has(role) : role in frozen.agents || role === 'fixer')
+    const coreDefault = coreDefaultMaxTurns(assignments.some(([, assignment]) => assignment.maxTurns === undefined) ? (await loadCoreAgentRuntime().catch(() => null))?.api?.capabilities : undefined)
     for (const [role, assignment] of assignments) {
-      const turns = assignment.maxTurns === undefined ? `max ${CORE_DEFAULT_MAX_TURNS} turns (Core default)` : `max ${assignment.maxTurns} turns`
+      const turns = assignment.maxTurns !== undefined ? `max ${assignment.maxTurns} turns` : coreDefault === null ? 'no turn limit (Core default)' : `max ${coreDefault} turns (Core default)`
       try { options.onLine?.(`[runtime] ${role}: ${assignment.provider}/${assignment.model ?? 'provider default'} · ${turns}\n`) } catch { /* Log observers cannot prevent execution. */ }
     }
   }

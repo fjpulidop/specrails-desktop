@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: fjpulidop/specrails-core
-          ref: f4ef25e2477757a8f2c35dd028f079818370d6c5  # specrails-core v6.10.0 release (contract 5.12, hostTasks)
+          ref: 171c186114c03626ba03454aed42e1c90d2a226c  # specrails-core v6.11.0 release (contract 5.12, unlimitedTurns)
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1

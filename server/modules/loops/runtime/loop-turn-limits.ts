@@ -1,8 +1,13 @@
 import type { LoopAgentConfig } from './loop-agents'
 import type { LoopGraph } from './loop-graph'
 
-/** Core's ceiling for one role turn when the role sets no `maxTurns` (Core `cli-executor`). */
-export const CORE_DEFAULT_MAX_TURNS = 100
+/** Ceiling older Cores apply when a role sets no `maxTurns` (Core `cli-executor`). */
+export const LEGACY_CORE_DEFAULT_MAX_TURNS = 100
+
+/** Core's ceiling when a role sets no `maxTurns`: none (`null`) for a Core advertising `unlimitedTurns`, else the legacy 100. */
+export function coreDefaultMaxTurns(capabilities?: Record<string, number>): number | null {
+  return capabilities?.unlimitedTurns === 1 ? null : LEGACY_CORE_DEFAULT_MAX_TURNS
+}
 
 export interface LoopStepTurnLimit {
   /** Canvas node id (e.g. `developer`). */
@@ -10,7 +15,8 @@ export interface LoopStepTurnLimit {
   label?: string
   /** Agent role the step runs (e.g. `build` for the Implement Developer step). */
   role: string
-  maxTurns: number
+  /** `null` = no turn limit. */
+  maxTurns: number | null
   source: 'step' | 'role' | 'core-default'
 }
 
@@ -36,7 +42,8 @@ function roleEngine(agents: LoopAgentConfig | undefined, role: string): RoleEngi
 }
 
 /** Effective per-step turn ceiling: step engine override, then the loop role, then Core's default. */
-export function loopTurnLimits(graph: LoopGraph): LoopStepTurnLimit[] {
+export function loopTurnLimits(graph: LoopGraph, capabilities?: Record<string, number>): LoopStepTurnLimit[] {
+  const coreDefault = coreDefaultMaxTurns(capabilities)
   const agents = graph.config.agents as LoopAgentConfig | undefined
   const limits: LoopStepTurnLimit[] = []
   const visit = (body: LoopGraph) => {
@@ -49,7 +56,7 @@ export function loopTurnLimits(graph: LoopGraph): LoopStepTurnLimit[] {
       const stepTurns = object(params.engine) ? params.engine.maxTurns : undefined
       const roleTurns = roleEngine(agents, role)?.maxTurns
       const [maxTurns, source] = typeof stepTurns === 'number' ? [stepTurns, 'step' as const]
-        : typeof roleTurns === 'number' ? [roleTurns, 'role' as const] : [CORE_DEFAULT_MAX_TURNS, 'core-default' as const]
+        : typeof roleTurns === 'number' ? [roleTurns, 'role' as const] : [coreDefault, 'core-default' as const]
       limits.push({ stepId: node.id, ...(label ? { label } : {}), role, maxTurns, source })
     }
   }

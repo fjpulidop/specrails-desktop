@@ -1,7 +1,8 @@
 import type { RuntimeAgent } from '../../settings/lib/agent-runtime'
 import type { LoopAgentConfig } from './loops-api'
 
-/** Core's per-turn ceiling when a role sets no `maxTurns` (mirrors the server's `CORE_DEFAULT_MAX_TURNS`). */
+/** Older Cores' per-turn ceiling when a role sets no `maxTurns` (mirrors the server's `LEGACY_CORE_DEFAULT_MAX_TURNS`).
+ *  Shown until `/api/loop-agent-defaults` reports the paired Core's `defaultMaxTurns` (`null` = no limit). */
 export const CORE_DEFAULT_MAX_TURNS = 100
 
 const BUILTIN = ['architect', 'developer', 'reviewer'] as const

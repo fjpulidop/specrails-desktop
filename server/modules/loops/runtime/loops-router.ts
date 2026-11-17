@@ -37,7 +37,7 @@ import { ensureBuiltinLoops, resolveBuiltinLoop, restoreBuiltin, type BuiltinLoo
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
-import { loopTurnLimits } from './loop-turn-limits'
+import { coreDefaultMaxTurns, loopTurnLimits } from './loop-turn-limits'
 
 export interface LoopsRoutesDeps {
   db: DbInstance
@@ -96,7 +96,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     const runtime = await loadCoreAgentRuntime().catch(() => null)
     // `inherit` definitions resolve at launch; the editor previews what they resolve to today.
     const rolePromptDefaults = runtime ? { ...runtime.rolePromptDefaults(), ...loadRuntimeRolePrompts() } : null
-    res.json({ agents: defaultLoopAgents(), rolePromptDefaults, guardrails: { supported: runtime?.api?.capabilities?.configurableGuardrails === 1, catalog: runtime?.api?.guardrails ?? [] } })
+    res.json({ agents: defaultLoopAgents(), rolePromptDefaults, defaultMaxTurns: coreDefaultMaxTurns(runtime?.api?.capabilities), guardrails: { supported: runtime?.api?.capabilities?.configurableGuardrails === 1, catalog: runtime?.api?.guardrails ?? [] } })
   })
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -290,7 +290,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     res.json(backup)
   })
 
-  router.get('/loops/:id', (req: Request, res: Response) => {
+  router.get('/loops/:id', async (req: Request, res: Response) => {
     if (!guard(res)) return
     const loop = getLoop(db, req.params.id as string)
     if (!loop) {
@@ -298,7 +298,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     // Effective per-step turn ceilings, so readers (UI, MCP) never guess where the limit lives.
-    res.json({ loop, turnLimits: loopTurnLimits(loop.graph) })
+    res.json({ loop, turnLimits: loopTurnLimits(loop.graph, await factoryCapabilities()) })
   })
 
   // ── Create ───────────────────────────────────────────────────────────────────
