@@ -202,6 +202,14 @@ publication. Launch must bind and validate the actual project configuration agai
 `loop-effect` conservatively isolates Core writes before role bindings are known.
 The builder never mixes Core pieces with legacy Desktop execution nodes.
 
+AI steps (`role-turn`, `decider`, `derive-change`, `prompt`) compile with a
+total time budget, unless the step sets its own `timeoutMs`. If the loop's
+`aiStepTimeoutMinutes` is positive, that is the budget. Otherwise the loop
+agents' `limits.timeoutMs` applies (left to Core); with neither set, the
+budget is `0`, which means no total limit. Core's own default of one hour
+therefore never stops an Implement agent. Core's idle timeout still stops a
+step that goes silent.
+
 The client schema forms, outcome handles and component navigation consume this
 catalog. Saved legacy graphs continue to use their existing editor and execution
 path. See the [authoring protocol](../../../openspec/changes/core-agent-engine/desktop-authoring-protocol.md)

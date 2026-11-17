@@ -61,9 +61,12 @@ describe('flow-spec definition', () => {
   it('keeps the closed params of the Core pieces', () => {
     for (const id of ['derive', 'check', 'archive', 'verify', 'repair-guard', 'repair-count', 'init', 'review-policy',
       'check-findings', 'review-findings', 'correction-budget', 'begin-correction', 'fix-progress', 'changes-requested', 'done', 'failed']) {
-      expect(definition.nodes[id]!.params, id).toEqual(fixture.nodes[id]!.params)
+      // Desktop adds the AI-step time budget (0 = no total limit) on top of the reference params.
+      const { timeoutMs: _budget, ...params } = definition.nodes[id]!.params as Record<string, unknown>
+      expect(params, id).toEqual(fixture.nodes[id]!.params)
     }
-    expect(definition.nodes.derive!.params).toEqual({ change: '{{run.changeId}}', summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' })
+    expect(definition.nodes.derive!.params).toEqual({ change: '{{run.changeId}}', summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}', timeoutMs: 0 })
+    expect(definition.nodes.review!.params).toMatchObject({ timeoutMs: 0 })
     expect(definition.nodes.review!.params).toMatchObject({ roleId: 'reviewer' })
     expect(String(definition.nodes.review!.params.prompt)).toContain('unexplainedFiles')
   })

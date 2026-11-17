@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compileLoopToDefinition } from './loop-definition'
+import { aiStepTimeoutMs, compileLoopToDefinition } from './loop-definition'
 import { configurableImplementGraph } from './loop-implement-recipe'
 import { coreFactoryGraph } from './loop-core-factory'
 import { assertDefinitionGraph, isDefinitionGraph, isDefinitionReviewerPath, validateLoopGraph, type LoopGraph } from './loop-graph'
@@ -199,6 +199,34 @@ it('does not transfer a rail model or effort to a different node-selected provid
   expect(compileLoopToDefinition(graph, { ...launch, effort: 'high' }).nodes.work.params.engine).toEqual({ provider: 'local' })
 })
 
+
+describe('AI step time budget', () => {
+  const agentSteps = ['architect', 'developer', 'reviewer', 'fixer']
+  it('runs every Implement agent step with no total time limit by default', () => {
+    const definition = compileLoopToDefinition(configurableImplementGraph(), { ...launch, id: 'factory:implement' })
+    for (const id of agentSteps) expect(definition.nodes[id].params.timeoutMs, id).toBe(0)
+    // Host steps keep their own command budgets; only agent steps get the AI budget.
+    expect(definition.nodes.verify.params).not.toHaveProperty('timeoutMs')
+  })
+  it('honours a step timeout, the loop AI-step budget and the loop agents limit, in that order', () => {
+    const graph = configurableImplementGraph()
+    graph.nodes.find(node => node.id === 'developer')!.data!.params!.timeoutMs = 90_000
+    graph.config.agents = { ...graph.config.agents!, limits: { timeoutMs: 120_000 } }
+    let definition = compileLoopToDefinition(graph, { ...launch, id: 'factory:implement' })
+    expect(definition.nodes.developer.params.timeoutMs).toBe(90_000)
+    expect(definition.nodes.reviewer.params).not.toHaveProperty('timeoutMs')
+    graph.config.aiStepTimeoutMinutes = 5
+    definition = compileLoopToDefinition(graph, { ...launch, id: 'factory:implement' })
+    expect(definition.nodes.developer.params.timeoutMs).toBe(90_000)
+    expect(definition.nodes.reviewer.params.timeoutMs).toBe(300_000)
+  })
+  it('maps an unset or zero budget without a loop limit to no limit', () => {
+    expect(aiStepTimeoutMs(undefined, undefined)).toBe(0)
+    expect(aiStepTimeoutMs(0, undefined)).toBe(0)
+    expect(aiStepTimeoutMs(0, 60_000)).toBeUndefined()
+    expect(aiStepTimeoutMs(2, 60_000)).toBe(120_000)
+  })
+})
 
 it('requires applied evidence for every frozen addendum before Implement can archive', () => {
   const graph = configurableImplementGraph()
