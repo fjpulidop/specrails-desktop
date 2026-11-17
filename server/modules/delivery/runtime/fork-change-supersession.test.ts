@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { initDb } from '../../../db'
@@ -56,6 +56,36 @@ describe('fork change supersession', () => {
     const retired = await retireSupersededForkChanges({ git: defaultGitRunner, worktreePath: root, baseRef: base, forkRunIds: ['fork-b', 'fork-a'] })
     expect(retired.sort()).toEqual(['feature', first].sort())
     expect(exists(root, second)).toBe(true)
+  })
+
+  it('never retires the change the settled run is using, even when truncated fork names collide (fork-dddf836f)', async () => {
+    const { root, base } = repository()
+    // The real lineage: ef2f929a → fork-44d9 → fork-ee78 → fork-dddf. After the
+    // 42-character truncation both later changes share one prefix, so each is
+    // the other's "successor" under some run of the chain.
+    const chain = ['fork-dddf836fb5ca7d250c6fcf6211f2ed98', 'fork-ee78a538295e69b85d71c78c4e23bfdb', 'fork-44d95bbcd74cbe6225696bde5254358a']
+    const first = forkSuccessorChangeName('runtime-842b43104eaf2d0e2d41', chain[2])
+    const previous = forkSuccessorChangeName(first, chain[1])
+    const current = forkSuccessorChangeName(previous, chain[0])
+    expect(previous).toBe('runtime-842b43104eaf2d0e2d41-fork-b0e8f0ed-fork-71382de94d95')
+    expect(forkSuccessorChangeName(current, chain[1])).toBe(previous)
+    change(root, previous); writeFileSync(path.join(change(root, current), 'tasks.md'), '- [x] 1.1 done')
+    const retired = await retireSupersededForkChanges({ git: defaultGitRunner, worktreePath: root, baseRef: base, forkRunIds: chain })
+    expect(retired).toEqual([previous])
+    expect(exists(root, current)).toBe(true)
+    expect(readFileSync(path.join(root, 'openspec', 'changes', current, 'tasks.md'), 'utf8')).toBe('- [x] 1.1 done')
+  })
+
+  it('moves a retired change into the git directory instead of deleting it', async () => {
+    const { root, base } = repository()
+    const fork = 'fork-bac65c888b9ac4cf0389f01f526db3b9'
+    change(root, 'runtime-158a339bcb274a3f52f3')
+    change(root, forkSuccessorChangeName('runtime-158a339bcb274a3f52f3', fork), true)
+    await retireSupersededForkChanges({ git: defaultGitRunner, worktreePath: root, baseRef: base, forkRunIds: [fork] })
+    const backups = path.join(root, '.git', 'specrails', 'retired-openspec-changes')
+    const [stamp] = readdirSync(backups)
+    expect(readFileSync(path.join(backups, stamp, 'runtime-158a339bcb274a3f52f3', 'proposal.md'), 'utf8')).toBe('runtime-158a339bcb274a3f52f3')
+    expect(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' })).not.toContain('retired-openspec-changes')
   })
 
   it('never touches baseline changes, symlinks, changes without a successor or non-fork runs', async () => {

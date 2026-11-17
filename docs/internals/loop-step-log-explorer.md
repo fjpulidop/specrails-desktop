@@ -214,6 +214,10 @@ The linked child opens in the same project and the fork route resumes it at once
 attempt), so nobody has to open it and press Resume. The response reports
 `resumed`; when the automatic resume is refused (`resumeError`, `resumeDetail`)
 the child stays paused and the explorer says so. Its original frozen inputs,
-worktree and delivery settlement are retained.
+worktree and delivery settlement are retained. Before settling a fork the host
+retires the source's superseded OpenSpec change (`retireSupersededForkChanges`):
+never the settled run's own change (truncated fork names collide after two
+forks), and always by moving it into `<git dir>/specrails/retired-openspec-changes/`,
+never by deleting it.
 The source remains historical; its resume/cancel/settlement effects are fenced once
 ownership moves. The engine does not roll back working-tree files automatically.
