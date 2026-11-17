@@ -8,6 +8,11 @@ Tests for the contract: [`dialog-standard.test.tsx`](../../client/src/components
 [`dialog-movable.test.tsx`](../../client/src/components/ui/__tests__/dialog-movable.test.tsx)
 and the source guard [`modal-standard-guard.test.ts`](../../client/src/components/ui/__tests__/modal-standard-guard.test.ts).
 
+In the desktop app, opted-in surfaces (App Settings, Job detail) open as native
+OS windows instead; see [native window surfaces](native-window-surfaces.md).
+The dialog stays the same component: inside the window it fills the window, and
+in the browser it is the modal described here.
+
 ## When a modal is the right pattern
 
 Use a modal for a decision (confirm, launch) or a protected, focused task

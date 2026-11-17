@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1404 source/build files. Nearby tests are linked where names
+Includes 1408 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -24,6 +24,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src
 
 - [App.tsx](../../client/src/App.tsx) · [test](../../client/src/__tests__/App.test.tsx)
+- [SurfaceWindowContent.tsx](../../client/src/SurfaceWindowContent.tsx)
 - [main.tsx](../../client/src/main.tsx)
 - [test-setup.ts](../../client/src/test-setup.ts)
 - [test-utils.tsx](../../client/src/test-utils.tsx)
@@ -88,6 +89,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)
+- [surface.tsx](../../client/src/components/ui/surface.tsx) · [test](../../client/src/components/ui/__tests__/surface.test.tsx)
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
 - [technical-detail.tsx](../../client/src/components/ui/technical-detail.tsx)
 - [tooltip.tsx](../../client/src/components/ui/tooltip.tsx)
@@ -1073,6 +1075,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
 - [model-label.ts](../../client/src/lib/model-label.ts)
+- [native-surfaces.ts](../../client/src/lib/native-surfaces.ts)
 - [notify-error.ts](../../client/src/lib/notify-error.ts) · [test](../../client/src/lib/__tests__/notify-error.test.ts)
 - [onboarding-events.ts](../../client/src/lib/onboarding-events.ts)
 - [open-in-editor.ts](../../client/src/lib/open-in-editor.ts) · [test](../../client/src/lib/__tests__/open-in-editor.test.ts)
@@ -1963,3 +1966,4 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop_windows.rs](../../src-tauri/src/loop_windows.rs)
 - [main.rs](../../src-tauri/src/main.rs)
 - [mission_windows.rs](../../src-tauri/src/mission_windows.rs)
+- [surface_windows.rs](../../src-tauri/src/surface_windows.rs)

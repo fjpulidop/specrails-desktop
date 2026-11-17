@@ -16,6 +16,7 @@ vi.mock('sonner', () => ({
 
 vi.mock('../../../../lib/api', () => ({
   getApiBase: () => '/api',
+  getActiveProjectId: () => null,
 }))
 
 vi.mock('../../../../lib/ws-url', () => ({

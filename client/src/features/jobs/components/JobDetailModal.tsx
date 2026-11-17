@@ -24,7 +24,12 @@ import {
   DialogHeader,
   DialogLayerProvider,
   DialogTitle,
+  SURFACE_WINDOW_PANEL_CLASS,
+  surfaceWindowHeaderProps,
+  useSurfaceWindowFrame,
 } from '../../../components/ui/dialog'
+import { useNativeSurface } from '../../../components/ui/surface'
+import { getActiveProjectId } from '../../../lib/api'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
@@ -72,7 +77,24 @@ interface JobDetailModalProps {
   projectId?: string
 }
 
-export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobDetailModalProps) {
+/**
+ * Job detail. In the desktop app it opens as its own native window (one per
+ * job, `job-detail` surface); in the browser, or when that window cannot open,
+ * it is the entity modal below.
+ */
+export function JobDetailModal(props: JobDetailModalProps) {
+  const native = useNativeSurface({
+    id: 'job-detail',
+    open: true,
+    // The window has no "active project" of its own: always pass the scope.
+    params: { jobId: props.jobId, projectId: props.projectId ?? getActiveProjectId() },
+    onClose: props.onClose,
+  })
+  return native ? null : <JobDetailModalContent {...props} />
+}
+
+function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobDetailModalProps) {
+  const framed = useSurfaceWindowFrame()
   const [jobId, openFork] = useState(initialJobId)
   useEffect(() => { openFork(initialJobId) }, [initialJobId])
   const { t } = useTranslation('jobs')
@@ -274,6 +296,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal({
     persistKey: 'specrails.modal.job-detail',
+    enabled: !framed,
   })
 
   // Focus return: this controlled dialog has no Radix `DialogTrigger`, so
@@ -313,10 +336,10 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     // transform would otherwise be the containing block for the fixed panel.
     <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
+        {!framed && <DialogPrimitive.Overlay
           style={modalOverlayStyle()}
           className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)}
-        />
+        />}
         <DialogPrimitive.Content
           ref={setPanelNode}
           data-testid="job-detail-modal"
@@ -325,8 +348,11 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           {...(notFound && !job ? { 'aria-describedby': undefined } : {})}
           // Bespoke geometry: the fullscreen size token, movable by the header
           // and resizable from inset grips (persisted per surface).
-          className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.entity, DIALOG_SIZE_CLASS.fullscreen)}
-          style={{ ...modalDialogStyle(92), ...panelStyle }}
+          data-surface-window={framed ? '' : undefined}
+          className={framed
+            ? cn(SURFACE_WINDOW_PANEL_CLASS, DIALOG_LAYER_CLASS.entity)
+            : cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.entity, DIALOG_SIZE_CLASS.fullscreen)}
+          style={framed ? undefined : { ...modalDialogStyle(92), ...panelStyle }}
           onCloseAutoFocus={(e) => {
             const target = returnFocusRef.current
             returnFocusRef.current = null
@@ -349,8 +375,9 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           <TooltipProvider delayDuration={400}>
           <DialogLayerProvider layer="entity">
             <DialogHeader
-              {...headerHandleProps}
-              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
+              {...(framed ? {} : headerHandleProps)}
+              data-tauri-drag-region={surfaceWindowHeaderProps(framed)['data-tauri-drag-region']}
+              className={framed ? surfaceWindowHeaderProps(framed).className : isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
               actions={<DialogCloseButton className="-mr-1.5 -mt-1" />}
             >
               <DialogTitle className="truncate">{title}</DialogTitle>
@@ -513,7 +540,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
             />
           </DialogLayerProvider>
           </TooltipProvider>
-          <ResizeGrips handles={resizeHandles} placement="inset" />
+          {!framed && <ResizeGrips handles={resizeHandles} placement="inset" />}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

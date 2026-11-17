@@ -123,6 +123,20 @@ export function ThemeProvider({ children, endpoint = '/api/theme' }: ThemeProvid
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint])
 
+  // Another window (a native Settings window, another tab) changed the theme:
+  // adopt it without persisting again.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== THEME_LOCAL_STORAGE_KEY) return
+      const next = normalizeThemeId(event.newValue)
+      if (!next) return
+      applyThemeToDocument(next)
+      setThemeIdState(next)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const setTheme = useCallback(async (next: ThemeId): Promise<void> => {
     if (next === themeId) return
     const previous = themeId

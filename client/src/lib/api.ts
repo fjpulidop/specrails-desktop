@@ -16,6 +16,11 @@ export function setActiveProjectId(projectId: string | null): void {
   _activeProjectId = projectId
 }
 
+/** The active project id (null before one is chosen). */
+export function getActiveProjectId(): string | null {
+  return _activeProjectId
+}
+
 /** @deprecated alias kept for tests; prefer `setActiveProjectId`. */
 export const setApiContext = (projectId: string | null): void => setActiveProjectId(projectId)
 

@@ -16,10 +16,15 @@ import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
-import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, openBudgetPanel, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
+import { Surface } from './components/ui/surface'
+import { TooltipProvider } from './components/ui/tooltip'
+import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
+import { isAppSettingsSurfaceResult } from './SurfaceWindowContent'
+const SurfaceWindowContent = lazy(() => import('./SurfaceWindowContent').then(module => ({ default: module.SurfaceWindowContent })))
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
@@ -697,7 +702,20 @@ function DesktopApp() {
           transform in Agent Mode) — no standalone overlay. */}
       <SampleGuide onAddProject={() => setAddDialogOpen(true)} />
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
-      <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      {/* App settings: a native window in the desktop app, this modal in the browser. */}
+      <Surface
+        id="app-settings"
+        open={settingsOpen}
+        params={{ section: settingsSection, settingId: settingsSettingId, onboarding: '1' }}
+        onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }}
+        onResult={(result) => {
+          if (!isAppSettingsSurfaceResult(result)) return
+          if (result.action === 'openOnboarding') setOnboardingOpen(true)
+          else openBudgetPanel()
+        }}
+      >
+        <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      </Surface>
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent size="workspace" data-testid="analytics-modal">
@@ -914,9 +932,38 @@ function InboxOwner({ enabled, children }: { enabled: boolean; children: React.R
   return enabled ? <InboxProvider>{children}<InboxDialog /></InboxProvider> : <>{children}</>
 }
 
+/** A native surface window: the surface's own content, no app shell (docs/internals/native-window-surfaces.md). */
+function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof surfaceWindowRoute>> }) {
+  return (
+    <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
+      <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
+        <TooltipProvider delayDuration={400}>
+          <div className="h-screen overflow-hidden bg-popover">
+            <Suspense fallback={null}><SurfaceWindowContent id={route.id} params={route.params} /></Suspense>
+            <ThemedToaster />
+          </div>
+        </TooltipProvider>
+      </UiModeProvider></DesktopProvider>
+    </LanguageProvider></ThemeProvider></SharedWebSocketProvider>
+  )
+}
+
+/** Preferences a surface window changes (theme, language, a11y) apply here live. */
+function useSurfaceStorageReplay() {
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    let disposed = false
+    void replaySurfaceStorageWrites().then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
+}
+
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
+  const surface = surfaceWindowRoute()
   useSuppressNativeContextMenu()
+  useSurfaceStorageReplay()
+  if (surface) return <SurfaceWindowRoutes route={surface} />
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>

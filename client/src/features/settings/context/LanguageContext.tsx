@@ -102,6 +102,19 @@ export function LanguageProvider({ children, endpoint = '/api/language' }: Langu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint])
 
+  // Another window (a native Settings window, another tab) changed the
+  // language: hot-switch here too without persisting again.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== LANGUAGE_LOCAL_STORAGE_KEY || !isLanguageId(event.newValue)) return
+      const next = event.newValue
+      if (next === getActiveLanguage()) return
+      void applyLanguageRuntime(next).then(() => setLanguageIdState(next))
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const setLanguage = useCallback(
     async (next: LanguageId): Promise<void> => {
       if (next === languageId) return
