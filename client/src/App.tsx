@@ -1,5 +1,5 @@
-import { isPluginWindowRoute } from './features/plugins/lib/plugin-windows'
-import { isLoopWindowRoute } from './features/loops/lib/loop-windows'
+import { isPluginWindowRoute, openPluginWindow } from './features/plugins/lib/plugin-windows'
+import { isLoopWindowRoute, openLoopWindow } from './features/loops/lib/loop-windows'
 import { MotionConfig } from 'motion/react'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
@@ -20,7 +20,7 @@ import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, o
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
-import { Surface } from './components/ui/surface'
+import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
 import { isAppSettingsSurfaceResult } from './SurfaceWindowContent'
@@ -339,6 +339,14 @@ function DesktopApp() {
     if (uiModeRef.current === 'agent' && overlayValueRef.current === 'plugins') closeOverlayParam()
     else setPluginsOpen(false)
   }, [closeOverlayParam])
+  // In the desktop app Loops and Plugins open in their own native windows
+  // (loop_windows.rs) instead of these modals; the browser keeps the modals.
+  const loopsInWindow = useNativeWindowHandoff({
+    open: loopsOpen,
+    openWindow: () => openLoopWindow(activeProjectId, loopBuilderId ?? undefined),
+    onOpened: closeLoops,
+  })
+  const pluginsInWindow = useNativeWindowHandoff({ open: pluginsOpen, openWindow: openPluginWindow, onOpened: closePlugins })
   // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
   const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
   const closeReview = useCallback(() => {
@@ -738,7 +746,7 @@ function DesktopApp() {
       </Dialog>
 
 
-      <Dialog open={loopsOpen} onOpenChange={open => { if (!open) closeLoops() }}>
+      <Dialog open={loopsOpen && !loopsInWindow} onOpenChange={open => { if (!open) closeLoops() }}>
         <DialogContent size="fullscreen" data-testid="loops-modal">
           <GlobalSurfaceDialogHeader surface="loops" />
           <DialogBody className="p-0 overflow-auto">
@@ -749,7 +757,7 @@ function DesktopApp() {
           </DialogBody>
         </DialogContent>
       </Dialog>
-      <Dialog open={pluginsOpen} onOpenChange={(open) => { if (!open) closePlugins() }}>
+      <Dialog open={pluginsOpen && !pluginsInWindow} onOpenChange={(open) => { if (!open) closePlugins() }}>
         <DialogContent size="fullscreen" data-testid="plugins-modal">
           <GlobalSurfaceDialogHeader surface="plugins" />
           <DialogBody className="p-0 overflow-auto">
@@ -968,7 +976,7 @@ function AppRoutes() {
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
         <div className="h-screen flex flex-col overflow-hidden">
-          <TitleBar />
+          <TitleBar showSidebarToggles={false} />
           <Suspense fallback={null}>{isPluginWindowRoute() ? <div className="flex-1 min-h-0"><PluginsPage /></div> : <LoopWindowSurface />}</Suspense>
           <ThemedToaster />
         </div>

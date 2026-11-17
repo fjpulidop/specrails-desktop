@@ -2,7 +2,9 @@
 
 In the desktop app, a modal surface can open as a real OS window instead of an
 in-page Radix modal. The browser build keeps the modal. App Settings and Job
-detail are the first two surfaces. Every other dialog still follows the
+detail are the first two surfaces. Loops and Plugins, which already had their
+own windows (`loop_windows.rs`), now open there instead of in their Mission-mode
+modals (`useNativeWindowHandoff`). Every other dialog still follows the
 [modal standard](modal-standard.md) unchanged.
 
 | Piece | Where |
@@ -95,8 +97,10 @@ focus, Escape, `aria-*`), but:
 
 - no scrim, no size token, no resize grips: the panel fills the window
   (`SURFACE_WINDOW_PANEL_CLASS`), and the OS resizes the window;
-- the header is the window's title bar (`data-tauri-drag-region`). On macOS it
-  leaves room for the traffic lights.
+- no in-page close button: the window closes with the OS controls (and Escape);
+- the header is the window's title bar (`data-tauri-drag-region`). On macOS the
+  traffic lights sit on the header's title row and the header content starts
+  after them.
 
 Dialogs opened inside it (confirms, pickers) are ordinary in-window modals on
 their normal layers. Raw-primitive surfaces (Job detail) read
@@ -104,14 +108,16 @@ their normal layers. Raw-primitive surfaces (Job detail) read
 
 ## Chrome and modality per OS
 
-The main window is frameless with our own title bar. Surface windows match the
-loop and mission windows:
+Surface windows use the OS window controls only; the page never draws its own
+close, minimize or zoom buttons.
 
 | OS | Chrome | Relationship to the opener |
 |---|---|---|
-| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) | Child `NSWindow` (`parent`): moves with the opener and stays above it |
-| Windows | Frameless; the header drags, the dialog's close button closes | Owned window: always above its owner and minimized with it |
-| Linux | Frameless, as on Windows | Transient for the opener (GTK); the window manager decides stacking. Edge resize on frameless windows depends on the WM |
+| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title), moved to (18, 20)pt so their center (≈27pt) is on the header's title row (`TRAFFIC_LIGHTS_*` in `surface_windows.rs`, `surfaceHeaderInset` in `dialog.tsx`) | Child `NSWindow` (`parent`): moves with the opener and stays above it |
+| Windows | Native title bar (decorations on), then our header | Owned window: always above its owner and minimized with it |
+| Linux | Native title bar, as on Windows | Transient for the opener (GTK); the window manager decides stacking |
+
+If the header's padding or title size changes, move the traffic lights with it.
 
 **The opener is not disabled.** Settings and Job detail are tasks you do next
 to your work: reading a run while the board updates is the point. Disabling
@@ -192,10 +198,10 @@ These keep the in-page modal. Grouped by the work each needs:
   `TicketDetailModalProvider`), compare view, agent activity log, loop and
   blueprint previews. They have serializable ids. Spec detail needs its
   mutations (move, launch, SMASH) to report results or go through the API.
-- **Full-screen shells.** Loops, Plugins, Review packet and Runtime graph. Loops
-  and Plugins already have dedicated windows (`loop_windows.rs`); fold them into
-  `SURFACES`. Review packet carries delivery decisions that need a result
-  contract.
+- **Full-screen shells.** Review packet and Runtime graph. Review packet carries
+  delivery decisions that need a result contract. Loops and Plugins are done
+  through their existing windows; folding `loop_windows.rs` into `SURFACES`
+  (owned windows, one permission model) is a later clean-up.
 - **Workspace modals.** Docs, Analytics, Add Spec, Agents catalog, Project
   settings (`ProjectSettingsDialog`) and background-process logs. Docs and
   Analytics are URL-driven places (`?overlay=`) and need their deep links kept.

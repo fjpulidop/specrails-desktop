@@ -102,9 +102,14 @@ export function useSurfaceWindowFrame(): boolean {
   return frame.owner.current === id
 }
 
-/** macOS draws the traffic lights over the header (overlay title bar). */
+/**
+ * macOS draws the traffic lights over the header (overlay title bar), at
+ * x 18–72pt, centered on the title row (see TRAFFIC_LIGHTS_* in
+ * surface_windows.rs). The header starts its content after them. Other
+ * platforms show the OS title bar above the header.
+ */
 function surfaceHeaderInset(): string | undefined {
-  return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pl-20' : undefined
+  return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pl-[88px]' : undefined
 }
 
 /** Header props that make a framed dialog's header the window's title bar. */
@@ -261,9 +266,11 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
       setHeaderCount((n) => n + 1)
       return () => setHeaderCount((n) => n - 1)
     }, [])
+    // A native window closes with the OS controls: no in-page close button.
+    const closeButton = showCloseButton && !framed
     const chrome = React.useMemo<DialogChrome>(
-      () => ({ layer, showCloseButton, claimHeader, framed }),
-      [layer, showCloseButton, claimHeader, framed],
+      () => ({ layer, showCloseButton: closeButton, claimHeader, framed }),
+      [layer, closeButton, claimHeader, framed],
     )
 
     const maxDvh = size === 'fullscreen' ? 92 : size === 'workspace' ? 88 : 85
@@ -288,7 +295,7 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
             {...rest}
           >
             {children}
-            {showCloseButton && headerCount === 0 && (
+            {closeButton && headerCount === 0 && (
               <DialogCloseButton className="absolute right-3 top-3 z-20" />
             )}
             {resizable && <ResizeGrips handles={resizeHandles} placement="inset" />}

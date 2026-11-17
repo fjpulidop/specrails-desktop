@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, SurfaceWindowFrame } from '../dialog'
 import { ConfirmDialog } from '../confirm-dialog'
-import { Surface } from '../surface'
+import { Surface, useNativeWindowHandoff } from '../surface'
 import {
   NATIVE_SURFACES_PREF_KEY,
   loadSurfaceGeometry,
@@ -162,6 +162,8 @@ describe('SurfaceWindowFrame: dialog as window content', () => {
     expect(frame.className).not.toContain('max-w-5xl')
     expect(frame.querySelector('[data-dialog-header]')?.hasAttribute('data-tauri-drag-region')).toBe(true)
     expect(frame.querySelectorAll('[data-resize-grip]').length).toBe(0)
+    // The OS window controls close it: no in-page close button.
+    expect(frame.querySelector('[data-dialog-header] button[aria-label]')).toBeNull()
     expect(confirm.hasAttribute('data-surface-window')).toBe(false)
     expect(confirm.getAttribute('data-dialog-size')).toBe('confirm')
   })
@@ -179,5 +181,39 @@ describe('native surface transport', () => {
     expect(loadSurfaceGeometry('job-detail')).toEqual({ x: 10, y: 20, width: 900, height: 700 })
     localStorage.setItem('specrails.surface.job-detail.geometry', '{bad')
     expect(loadSurfaceGeometry('job-detail')).toBeNull()
+  })
+})
+
+function Handoff({ openWindow, onOpened }: { openWindow: () => Promise<void>; onOpened: () => void }) {
+  const [open, setOpen] = useState(true)
+  const inWindow = useNativeWindowHandoff({ open, openWindow, onOpened: () => { onOpened(); setOpen(false) } })
+  return <span data-testid="handoff">{open && !inWindow ? 'modal' : inWindow ? 'window' : 'closed'}</span>
+}
+
+describe('useNativeWindowHandoff (Loops, Plugins)', () => {
+  it('keeps the modal in the browser and never opens a window', () => {
+    const openWindow = vi.fn(async () => {})
+    render(<Handoff openWindow={openWindow} onOpened={vi.fn()} />)
+    expect(screen.getByTestId('handoff').textContent).toBe('modal')
+    expect(openWindow).not.toHaveBeenCalled()
+  })
+
+  it('hands off to the native window in Tauri and clears the open state', async () => {
+    setTauri(true)
+    const openWindow = vi.fn(async () => {})
+    const onOpened = vi.fn()
+    render(<Handoff openWindow={openWindow} onOpened={onOpened} />)
+    await waitFor(() => expect(onOpened).toHaveBeenCalled())
+    expect(openWindow).toHaveBeenCalled()
+    expect(screen.getByTestId('handoff').textContent).toBe('window')
+  })
+
+  it('falls back to the modal when the window cannot open', async () => {
+    setTauri(true)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const onOpened = vi.fn()
+    render(<Handoff openWindow={vi.fn(async () => { throw new Error('refused') })} onOpened={onOpened} />)
+    await waitFor(() => expect(screen.getByTestId('handoff').textContent).toBe('modal'))
+    expect(onOpened).not.toHaveBeenCalled()
   })
 })

@@ -3,6 +3,7 @@ import {
   closeSurfaceWindow,
   listenSurfaceWindowEvents,
   nativeSurfaceEnabled,
+  nativeWindowsAllowed,
   newSurfaceRequestId,
   openSurfaceWindow,
   type NativeSurfaceId,
@@ -110,4 +111,38 @@ export interface SurfaceProps extends NativeSurfaceOptions {
 export function Surface({ children, ...options }: SurfaceProps) {
   const native = useNativeSurface(options)
   return native ? null : <>{children}</>
+}
+
+export interface NativeWindowHandoffOptions {
+  open: boolean
+  /** Opens (or focuses) the surface's own native window. Rejects when it cannot. */
+  openWindow: () => Promise<void>
+  /** The window is up: clear the opener's open state (the modal never shows). */
+  onOpened: () => void
+}
+
+/**
+ * For surfaces that already have a dedicated native window with its own
+ * lifecycle (Loops, Plugins: `loop_windows.rs`). While `open`, hand off to that
+ * window instead of the modal. Returns true while the modal must stay hidden;
+ * false in the browser, when switched off, or after the window failed to open.
+ */
+export function useNativeWindowHandoff({ open, openWindow, onOpened }: NativeWindowHandoffOptions): boolean {
+  const [enabled] = React.useState(nativeWindowsAllowed)
+  const [failed, setFailed] = React.useState(false)
+  const callbacks = React.useRef({ openWindow, onOpened })
+  callbacks.current = { openWindow, onOpened }
+  React.useEffect(() => {
+    if (!enabled || failed || !open) return
+    let cancelled = false
+    callbacks.current.openWindow().then(
+      () => { if (!cancelled) callbacks.current.onOpened() },
+      (error: unknown) => {
+        console.warn('[surface] native window could not open; using the in-page modal', error)
+        if (!cancelled) setFailed(true)
+      },
+    )
+    return () => { cancelled = true }
+  }, [enabled, failed, open])
+  return enabled && !failed
 }

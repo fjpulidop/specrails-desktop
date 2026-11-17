@@ -68,9 +68,12 @@ function readPref(key: string): string | null {
  * dialog opened inside one stays an in-window modal).
  */
 export function nativeSurfaceEnabled(id: NativeSurfaceId): boolean {
-  if (!isTauri() || isSurfaceWindowRoute()) return false
-  if (readPref(NATIVE_SURFACES_PREF_KEY) === 'off') return false
-  return (NATIVE_SURFACE_IDS as readonly string[]).includes(id)
+  return nativeWindowsAllowed() && (NATIVE_SURFACE_IDS as readonly string[]).includes(id)
+}
+
+/** Native windows may open from here: Tauri, not a surface window, not switched off. */
+export function nativeWindowsAllowed(): boolean {
+  return isTauri() && !isSurfaceWindowRoute() && readPref(NATIVE_SURFACES_PREF_KEY) !== 'off'
 }
 
 export function newSurfaceRequestId(): string {

@@ -378,7 +378,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
               {...(framed ? {} : headerHandleProps)}
               data-tauri-drag-region={surfaceWindowHeaderProps(framed)['data-tauri-drag-region']}
               className={framed ? surfaceWindowHeaderProps(framed).className : isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
-              actions={<DialogCloseButton className="-mr-1.5 -mt-1" />}
+              actions={framed ? undefined : <DialogCloseButton className="-mr-1.5 -mt-1" />}
             >
               <DialogTitle className="truncate">{title}</DialogTitle>
               {job ? (
