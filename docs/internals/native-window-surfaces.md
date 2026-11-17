@@ -99,8 +99,8 @@ focus, Escape, `aria-*`), but:
   (`SURFACE_WINDOW_PANEL_CLASS`), and the OS resizes the window;
 - no in-page close button: the window closes with the OS controls (and Escape);
 - the header is the window's title bar (`data-tauri-drag-region`). On macOS the
-  traffic lights sit on the header's title row and the header content starts
-  after them.
+  traffic lights have the top strip to themselves and the title row starts
+  right below them.
 
 Dialogs opened inside it (confirms, pickers) are ordinary in-window modals on
 their normal layers. Raw-primitive surfaces (Job detail) read
@@ -113,11 +113,11 @@ close, minimize or zoom buttons.
 
 | OS | Chrome | Relationship to the opener |
 |---|---|---|
-| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place (center ≈ 15.5pt). The header's title row moves up onto that line and starts after the lights (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Child `NSWindow` (`parent`): moves with the opener and stays above it |
+| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place, in a ~28pt strip at the top. The header's title row starts right below them, at its normal left padding (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Child `NSWindow` (`parent`): moves with the opener and stays above it |
 | Windows | Native title bar (decorations on), then our header | Owned window: always above its owner and minimized with it |
 | Linux | Native title bar, as on Windows | Transient for the opener (GTK); the window manager decides stacking |
 
-If the header's title size changes, adjust `surfaceHeaderInset` so the title row stays on the lights' line.
+If the traffic-light strip changes, adjust `surfaceHeaderInset` so the title row stays right below it.
 
 **The opener is not disabled.** Settings and Job detail are tasks you do next
 to your work: reading a run while the board updates is the point. Disabling
