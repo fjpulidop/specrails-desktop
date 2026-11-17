@@ -13,6 +13,9 @@ use tauri::{Emitter, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
 pub const EVENT: &str = "surface-window:event";
 const MAX_WINDOWS: usize = 16;
 const MAX_RESULT_BYTES: usize = 64 * 1024;
+/// The page shows its window once its content has painted; this is the
+/// fallback when it never does (a crashed or very slow page).
+const SHOW_FALLBACK: std::time::Duration = std::time::Duration::from_millis(2500);
 
 /// The surfaces that may open natively, with their window chrome and the extra
 /// host permissions their content needs. Anything else stays an in-page modal.
@@ -77,6 +80,7 @@ fn add_capability(app: &tauri::AppHandle, label: &str, spec: &SurfaceSpec) -> Re
     let mut capability = tauri::ipc::CapabilityBuilder::new(format!("{label}-interface")).webview(label);
     for permission in ["core:event:default", "core:window:default", "core:window:allow-close", "core:window:allow-minimize",
         "core:window:allow-toggle-maximize", "core:window:allow-start-dragging", "core:window:allow-set-title",
+        "core:window:allow-show", "core:window:allow-set-focus",
         "dialog:allow-message", "dialog:allow-confirm", "dialog:allow-ask", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
         .iter().chain(spec.permissions) { capability = capability.permission(*permission); }
     capability = capability.permission_scoped("shell:allow-open", vec![serde_json::json!({"url":"https://**"}), serde_json::json!({"url":"http://**"}), serde_json::json!({"url":"vscode://file/**"}), serde_json::json!({"url":"cursor://file/**"}), serde_json::json!({"url":"idea://open**"})], Vec::<Value>::new());
@@ -98,7 +102,7 @@ fn on_screen(app: &tauri::AppHandle, x: f64, y: f64, width: f64) -> bool {
 }
 
 #[tauri::command]
-pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: String, request_id: String, params: Option<HashMap<String, String>>, geometry: Option<Geometry>) -> Result<Opened, String> {
+pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: String, request_id: String, params: Option<HashMap<String, String>>, geometry: Option<Geometry>, background: Option<[u8; 3]>) -> Result<Opened, String> {
     let owner = webview.label().to_string();
     if owner != webview.window().label() || !crate::mission_windows::is_trusted_interface(&owner) {
         return Err("Only a Specrails interface can open a surface window.".into());
@@ -145,6 +149,9 @@ pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: Str
         // and moves with it on macOS (child NSWindow). Never blocks the opener.
         .parent(&parent).map_err(|err| err.to_string())?
         .focused(true)
+        // Hidden until the page paints its content (it calls `show()`), on the
+        // opener's panel color, so no empty or half-drawn window is ever seen.
+        .visible(false)
         .on_navigation(move |url| allowed_navigation(&nav_origin, url, surface_id))
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     builder = match (geometry.x, geometry.y) {
@@ -159,8 +166,16 @@ pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: Str
     let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(true);
+    let builder = match background { Some([r, g, b]) => builder.background_color(tauri::window::Color(r, g, b, 255)), None => builder };
     builder.build().map_err(|err| err.to_string())?;
     entries.insert(label.clone(), Entry { key, surface: spec.id, owner, request_id: request_id.clone() });
+    let (fallback_app, fallback_label) = (app.clone(), label.clone());
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SHOW_FALLBACK).await;
+        if let Some(window) = fallback_app.get_webview_window(&fallback_label) {
+            if !window.is_visible().unwrap_or(true) { let _ = focus(&window); }
+        }
+    });
     Ok(Opened { window_label: label, request_id, reused: false })
 }
 

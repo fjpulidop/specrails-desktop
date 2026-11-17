@@ -8,6 +8,7 @@ import {
   closeCurrentSurfaceWindow,
   mirrorSurfaceStorageWrites,
   reportSurfaceResult,
+  revealCurrentSurfaceWindow,
   trackSurfaceGeometry,
   type NativeSurfaceId,
   type SurfaceParams,
@@ -77,11 +78,34 @@ function JobDetailWindow({ params }: { params: SurfaceParams }) {
   return <JobDetailModal jobId={params.jobId} projectId={params.projectId} onClose={surface.close} />
 }
 
+/**
+ * Shows the (hidden) window once the surface has painted: two frames after the
+ * framed dialog is in the DOM, so the first visible frame is the real content.
+ */
+function RevealWhenPainted() {
+  useEffect(() => {
+    let frame = 0
+    let revealed = false
+    const reveal = () => {
+      if (revealed || !document.querySelector('[data-surface-window]')) return false
+      revealed = true
+      frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { void revealCurrentSurfaceWindow().catch(() => {}) }) })
+      return true
+    }
+    if (reveal()) return () => cancelAnimationFrame(frame)
+    const observer = new MutationObserver(() => { if (reveal()) observer.disconnect() })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => { observer.disconnect(); cancelAnimationFrame(frame) }
+  }, [])
+  return null
+}
+
 /** The content of a native surface window (`index.html?surfaceWindow=<id>`). */
 export function SurfaceWindowContent({ id, params }: { id: NativeSurfaceId; params: SurfaceParams }) {
   return (
     <SurfaceWindowFrame>
       {id === 'app-settings' ? <AppSettingsWindow params={params} /> : <JobDetailWindow params={params} />}
+      <RevealWhenPainted />
     </SurfaceWindowFrame>
   )
 }

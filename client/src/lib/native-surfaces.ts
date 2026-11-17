@@ -109,6 +109,22 @@ export function saveSurfaceGeometry(id: NativeSurfaceId, geometry: SurfaceGeomet
 
 // ─── Opener side ─────────────────────────────────────────────────────────────
 
+/**
+ * The current theme's dialog panel color as [r, g, b]. The new window is
+ * created with it, so it never flashes white or black before painting.
+ */
+export function surfacePanelColor(): [number, number, number] | null {
+  if (typeof document === 'undefined' || !document.body) return null
+  const probe = document.createElement('div')
+  probe.className = 'bg-popover'
+  probe.style.display = 'none'
+  document.body.appendChild(probe)
+  const color = getComputedStyle(probe).backgroundColor
+  probe.remove()
+  const match = /^rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/.exec(color)
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null
+}
+
 export async function openSurfaceWindow(id: NativeSurfaceId, params: SurfaceParams, requestId = newSurfaceRequestId()): Promise<OpenedSurfaceWindow> {
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<OpenedSurfaceWindow>('surface_window_open', {
@@ -116,6 +132,7 @@ export async function openSurfaceWindow(id: NativeSurfaceId, params: SurfacePara
     requestId,
     params,
     geometry: loadSurfaceGeometry(id),
+    background: surfacePanelColor(),
   })
 }
 
@@ -138,6 +155,18 @@ export async function reportSurfaceResult(result: unknown): Promise<void> {
   if (!isTauri()) return
   const { invoke } = await import('@tauri-apps/api/core')
   await invoke('surface_window_result', { result })
+}
+
+/**
+ * Surface windows are created hidden; the page shows its window once its
+ * content has painted (the host shows it anyway after 2.5 s).
+ */
+export async function revealCurrentSurfaceWindow(): Promise<void> {
+  if (!isTauri()) return
+  const { getCurrentWindow } = await import('@tauri-apps/api/window')
+  const current = getCurrentWindow()
+  await current.show()
+  await current.setFocus()
 }
 
 export async function closeCurrentSurfaceWindow(): Promise<void> {

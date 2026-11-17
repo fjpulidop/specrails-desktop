@@ -103,10 +103,12 @@ describe('Surface: native window in Tauri', () => {
     render(<Opener onResult={onResult} />)
     fireEvent.click(screen.getByText('Open settings'))
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
-    const [command, args] = invoke.mock.calls[0] as [string, { surface: string; params: Record<string, string>; requestId: string }]
+    const [command, args] = invoke.mock.calls[0] as [string, { surface: string; params: Record<string, string>; requestId: string; background?: unknown }]
     expect(command).toBe('surface_window_open')
     expect(args.surface).toBe('app-settings')
     expect(args.params).toEqual({ section: 'appearance' })
+    // The window is created on the theme's panel color (null when no CSS is loaded).
+    expect('background' in args).toBe(true)
     expect(screen.queryByRole('dialog')).toBeNull()
 
     // A result for another request is ignored; ours reaches onResult.

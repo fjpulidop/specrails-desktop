@@ -23,8 +23,8 @@ import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
-import { isAppSettingsSurfaceResult } from './SurfaceWindowContent'
-const SurfaceWindowContent = lazy(() => import('./SurfaceWindowContent').then(module => ({ default: module.SurfaceWindowContent })))
+// Not lazy: a surface window's first paint should not wait for another chunk.
+import { isAppSettingsSurfaceResult, SurfaceWindowContent } from './SurfaceWindowContent'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
@@ -947,7 +947,7 @@ function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof s
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
         <TooltipProvider delayDuration={400}>
           <div className="h-screen overflow-hidden bg-popover">
-            <Suspense fallback={null}><SurfaceWindowContent id={route.id} params={route.params} /></Suspense>
+            <SurfaceWindowContent id={route.id} params={route.params} />
             <ThemedToaster />
           </div>
         </TooltipProvider>

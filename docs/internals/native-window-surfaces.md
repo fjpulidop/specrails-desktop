@@ -74,6 +74,16 @@ cannot, and fall back to the in-window modal.
 
 ## Bootstrapping the window
 
+**No visible loading gap.** The host creates the window hidden, on the opener's
+dialog panel color (`surfacePanelColor`, sent as `background`). The page shows
+it (`revealCurrentSurfaceWindow`) two frames after the framed dialog is in the
+DOM, so the first visible frame is the real content. If the page never gets
+there, the host shows the window after 2.5 s anyway. Boot is kept short: the
+token and the UI language load in parallel, and the surface content is in the
+main chunk (not lazy). The project list is still fetched once before Job
+detail renders, because the isolated `DesktopProvider` resets the API project
+until it knows its projects.
+
 The window loads the same bundle, so `main.tsx` runs as usual: `initAuth()`
 reads the desktop token, `installFetchInterceptor()` and `initI18n()` apply the
 persisted language, and `applyA11yPrefs()` sets density and motion before the
@@ -170,7 +180,7 @@ prefix.
 
 | Granted to every surface window | Extra for `app-settings` |
 |---|---|
-| `core:event:default`, `core:window:default`, close, minimize, toggle-maximize, start-dragging, set-title; `dialog:allow-message/confirm/ask`; clipboard read/write text; `shell:allow-open` for http(s) and editor URL schemes | `updater:default`, `process:allow-restart` (the Updates section) |
+| `core:event:default`, `core:window:default`, close, minimize, toggle-maximize, start-dragging, set-title, show, set-focus; `dialog:allow-message/confirm/ask`; clipboard read/write text; `shell:allow-open` for http(s) and editor URL schemes | `updater:default`, `process:allow-restart` (the Updates section) |
 
 Custom commands (`invoke_guard`): a surface window may call
 `surface_window_result`, `desktop_reveal_path` and `desktop_save_text`, plus
