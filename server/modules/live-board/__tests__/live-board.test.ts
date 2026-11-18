@@ -86,7 +86,7 @@ describe('live board projection', () => {
     const board = snapshot(list)
     const byId = Object.fromEntries(board.cards.map((c) => [c.id, c]))
 
-    expect(byId['p1:delivery:d1']).toMatchObject({ column: 'decide', kind: 'rail', conversationId: 'm1', jobId: 'r-deliv', attention: { kind: 'review', subjectId: 'd1' } })
+    expect(byId['p1:delivery:d1']).toMatchObject({ column: 'needs', kind: 'rail', conversationId: 'm1', jobId: 'r-deliv', attention: { kind: 'review', subjectId: 'd1' } })
     // The delivery speaks for its run: the run is not a second card.
     expect(byId['p1:loop-run:r-deliv']).toBeUndefined()
     expect(byId['p1:loop-run:r-live']).toMatchObject({ column: 'working', kind: 'rail', conversationId: 'm1' })
@@ -98,7 +98,7 @@ describe('live board projection', () => {
     // An Intent session is named by its mission.
     expect(byId['p2:intent:f1']).toMatchObject({ column: 'working', kind: 'intent', title: 'Pricing page', conversationId: 'm2' })
 
-    expect(board.totals).toMatchObject({ needsYou: 1, inProgress: 4, toDecide: 1, doneToday: 1, costTodayUsd: 4.82 })
+    expect(board.totals).toMatchObject({ needsYou: 2, inProgress: 4, doneToday: 1, costTodayUsd: 4.82 })
     expect(board.projects).toEqual([{ projectId: 'p1', projectName: 'Alpha', count: 4 }, { projectId: 'p2', projectName: 'Beta', count: 3 }])
     // Lanes: the mission with something that needs a decision first, the free runs last.
     expect(board.lanes.map((lane) => lane.conversationId)).toEqual(['m1', 'm2', null])

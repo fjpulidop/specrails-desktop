@@ -18,14 +18,15 @@ already persist, one project at a time, plus the [inbox](../inbox/README.md) ite
 
 ## How a card is placed
 
-- **Needs you / To decide = the inbox.** The route projects the inbox with the same sources as
+- **Needs you = the inbox.** The route projects the inbox with the same sources as
   `GET /api/inbox` (`createInboxSources`) and lands each item on the run it speaks for (delivery id or
-  loop-run id). An item decides the column: `review` → To decide, every other kind → Needs you. An item
+  loop-run id). Every item, a review included, is in Needs you, so the column count is the inbox count. An item
   with no run on the board (a Jira update, a reached cap, a failure from an earlier day) is its own card.
   So a run is never in two columns and every inbox item is on the board exactly once.
 - **In progress:** a building delivery, a running or paused loop run, an open Intent session
   (active, paused, needs-review), a running or queued queue job (queued after running).
-- **To decide** also takes a delivery on review / PR draft / PR ready that the inbox did not list.
+- **Needs you** also takes a delivery on review / PR draft / PR ready that the inbox did not list (it still
+  waits on the person; the inbox lists every one, so in practice the counts agree).
 - **Done today:** anything settled inside the local day (`util/local-day`, the same day as spend caps and
   Analytics): merged / completed / no changes, stopped (cancelled, discarded, closed) and the settled runs
   the inbox does not list (a queue job that failed, a run superseded by a later one). Older history is not
@@ -39,7 +40,7 @@ A card's `conversationId` is the mission that launched it: `rail_pr_deliveries.o
 for isolated rail runs, `flow_sessions.conversation_id` for Intent, `pr_ci_admissions.origin_conversation_id`
 for a CI-fix run, and the live `ProjectContext.railLoopRuns` entry for a shared-checkout run (that link is
 in memory only, so a settled shared-checkout run falls into "Not from a mission"). Queue jobs carry no
-mission. Lanes order by their most urgent card (needs you, to decide, in progress, done), then by most
+mission. Lanes order by their most urgent card (needs you, in progress, done today), then by most
 recent activity; the lane without a mission is last. A lane's spend today is the mission's own turns
 today (its ledger) plus what its runs recorded today (`ai_invocations`).
 
@@ -53,6 +54,7 @@ today (its ledger) plus what its runs recorded today (`ai_invocations`).
   preview is broadcast as `rail.merge_preview`, which the board treats as a nudge.
 - Read-only. Every statement is parameterized and runs once per refresh (no per-card query); each read is
   guarded, so a missing table costs that read only, and a broken project costs that project only.
+- Totals are the column counts (`needsYou`, `inProgress` with paused runs included, `doneToday`).
 - Caps: 200 rows per table read, 120 cards per project (settled history dropped first).
 - The state's LOOK is not decided here: a card carries its domain status (`status`), and the client maps it
   through its run-state vocabulary.

@@ -11,9 +11,7 @@
     "inProgress_one": "{{count}} läuft",
     "inProgress_other": "{{count}} laufen",
     "today": "heute {{cost}}",
-    "todayEstimated": "heute ~{{cost}} (inkl. Schätzungen)",
-    "paused_one": "{{count}} pausiert",
-    "paused_other": "{{count}} pausiert"
+    "todayEstimated": "heute ~{{cost}} (inkl. Schätzungen)"
   },
   "layout": {
     "label": "Ansicht",
@@ -23,15 +21,13 @@
   "columns": {
     "needs": "Braucht dich",
     "working": "In Arbeit",
-    "decide": "Zu entscheiden",
     "done": "Heute erledigt",
-    "needsHint": "Älteste zuerst",
-    "doneHint": "Leert sich um Mitternacht"
+    "doneHint": "Leert sich um Mitternacht",
+    "openInbox": "Offen öffnen"
   },
   "columnEmpty": {
     "needs": "Nichts wartet auf dich.",
     "working": "Nichts läuft.",
-    "decide": "Nichts zu entscheiden.",
     "done": "Heute ist noch nichts fertig."
   },
   "filters": {
@@ -84,7 +80,14 @@
     "mergeSiblings_one": "Kollidiert mit {{count}} anderen Run",
     "mergeSiblings_other": "Kollidiert mit {{count}} anderen Runs",
     "baseMoved_one": "Basis ist {{count}} Commit weiter",
-    "baseMoved_other": "Basis ist {{count}} Commits weiter"
+    "baseMoved_other": "Basis ist {{count}} Commits weiter",
+    "mergeChip": {
+      "conflicts_one": "{{count}} Konflikt",
+      "conflicts_other": "{{count}} Konflikte",
+      "siblings_one": "Überschneidet {{count}} Run",
+      "siblings_other": "Überschneidet {{count}} Runs",
+      "baseMoved": "Basis weiter"
+    }
   },
   "empty": {
     "title": "Nichts läuft",

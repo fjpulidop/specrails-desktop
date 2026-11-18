@@ -11,9 +11,7 @@
     "inProgress_one": "{{count}} in progress",
     "inProgress_other": "{{count}} in progress",
     "today": "today {{cost}}",
-    "todayEstimated": "today ~{{cost}} (includes estimates)",
-    "paused_one": "{{count}} paused",
-    "paused_other": "{{count}} paused"
+    "todayEstimated": "today ~{{cost}} (includes estimates)"
   },
   "layout": {
     "label": "Layout",
@@ -23,15 +21,13 @@
   "columns": {
     "needs": "Needs you",
     "working": "In progress",
-    "decide": "To decide",
     "done": "Done today",
-    "needsHint": "Oldest first",
-    "doneHint": "Clears at midnight"
+    "doneHint": "Clears at midnight",
+    "openInbox": "Open inbox"
   },
   "columnEmpty": {
     "needs": "Nothing waits for you.",
     "working": "Nothing is running.",
-    "decide": "Nothing to decide.",
     "done": "Nothing has finished today yet."
   },
   "filters": {
@@ -84,7 +80,14 @@
     "mergeSiblings_one": "Collides with {{count}} other run",
     "mergeSiblings_other": "Collides with {{count}} other runs",
     "baseMoved_one": "Base moved {{count}} commit",
-    "baseMoved_other": "Base moved {{count}} commits"
+    "baseMoved_other": "Base moved {{count}} commits",
+    "mergeChip": {
+      "conflicts_one": "{{count}} conflict",
+      "conflicts_other": "{{count}} conflicts",
+      "siblings_one": "Overlaps {{count}} run",
+      "siblings_other": "Overlaps {{count}} runs",
+      "baseMoved": "Base moved"
+    }
   },
   "empty": {
     "title": "Nothing is running",

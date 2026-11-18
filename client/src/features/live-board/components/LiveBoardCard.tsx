@@ -4,11 +4,10 @@ import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { compactRelativeTime, parseTimestampMs } from '../../../lib/relative-time'
 import { formatUsd } from '../../../lib/format-usd'
-import { projectMonogram } from '../../../lib/project-monogram'
 import { cn } from '../../../lib/utils'
 import { primaryLabelKey } from '../../inbox/lib/inbox-model'
-import { useInboxItemText } from '../../inbox/hooks/useInboxItemText'
-import type { InboxItem } from '../../inbox/lib/inbox-model'
+import { useInboxItemTextOf, type InboxItemText } from '../../inbox/hooks/useInboxItemText'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { humanizeStepId } from '../../missions/components/mission-run-strip'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { canOpen, primaryOf, type LiveCard, type LiveMergePreview } from '../lib/live-board-model'
@@ -39,7 +38,7 @@ function useAgeLabel(): (iso: string | null, now: number) => string | null {
 function useTimeLabel(card: LiveCard, now: number): string | null {
   const { t, i18n } = useTranslation('liveBoard')
   const age = useAgeLabel()
-  if (card.column === 'needs' || card.column === 'decide') {
+  if (card.column === 'needs') {
     const value = age(card.at, now)
     return value ? t('card.waiting', { age: value }) : null
   }
@@ -63,17 +62,18 @@ function useRunPhrase(card: LiveCard): string {
   return look.state === 'working' && card.phase ? `${state} · ${humanizeStepId(card.phase)}` : state
 }
 
-function AttentionPhrase({ item }: { item: InboxItem }) {
-  const text = useInboxItemText(item)
+/** The inbox row's own words; the detail is left out when the card already shows the question it repeats. */
+function AttentionPhrase({ text, withDetail }: { text: InboxItemText; withDetail: boolean }) {
+  const detail = withDetail ? text.detail : null
   return (
-    <p className="truncate text-caption text-muted-foreground" title={text.rawDetail ?? undefined}>
-      {text.kindLabel}{text.detail ? ` · ${text.detail}` : ''}
+    <p className="truncate text-caption text-muted-foreground" title={detail ? `${text.kindLabel} · ${detail}` : text.rawDetail ?? undefined} data-testid="live-card-phrase">
+      {text.kindLabel}{detail ? ` · ${detail}` : ''}
     </p>
   )
 }
 
 function RunPhrase({ card }: { card: LiveCard }) {
-  return <p className="truncate text-caption text-muted-foreground">{useRunPhrase(card)}</p>
+  return <p className="truncate text-caption text-muted-foreground" data-testid="live-card-phrase">{useRunPhrase(card)}</p>
 }
 
 function Steps({ steps }: { steps: NonNullable<LiveCard['steps']> }) {
@@ -94,40 +94,65 @@ export interface LiveBoardCardProps {
   now: number
   /** Inside a mission lane the mission is the header: the card leads with its run. */
   compact?: boolean
+  /** Name the card's project (only when the board spans more than one). */
+  showProject?: boolean
 }
 
-/** One run: its state, project, kind, title, phrase, progress, engine, time, cost and its one action. */
 /**
- * A delivery's merge preview on its card: conflicts with the current base or
- * with sibling runs take the `blocked` (warning) look; a moved base is a quiet
- * note. A clean merge says nothing.
+ * A delivery's merge preview on its card: one short chip, the full sentence on
+ * hover and focus. Conflicts with the current base or with sibling runs take
+ * the `blocked` (warning) look; a moved base alone is a quiet chip. A clean
+ * merge says nothing.
  */
-function MergePreviewPhrase({ preview }: { preview: LiveMergePreview }) {
+function MergePreviewChip({ preview }: { preview: LiveMergePreview }) {
   const { t } = useTranslation('liveBoard')
   const parts: string[] = []
   if (preview.status === 'conflicts') parts.push(t('card.mergeConflicts', { count: preview.conflictFileCount }))
   if (preview.siblingConflictCount > 0) parts.push(t('card.mergeSiblings', { count: preview.siblingConflictCount }))
   const moved = preview.baseAdvancedBy ?? 0
   if (parts.length === 0 && moved === 0) return null
-  const text = [...parts, ...(moved > 0 ? [t('card.baseMoved', { count: moved })] : [])].join(' · ')
+  const sentence = [...parts, ...(moved > 0 ? [t('card.baseMoved', { count: moved })] : [])].join(' · ')
+  const warn = parts.length > 0
+  const chip = preview.status === 'conflicts' ? t('card.mergeChip.conflicts', { count: preview.conflictFileCount })
+    : preview.siblingConflictCount > 0 ? t('card.mergeChip.siblings', { count: preview.siblingConflictCount })
+      : t('card.mergeChip.baseMoved')
   return (
-    <p className="flex min-w-0 items-center gap-1.5 text-caption" data-testid="live-card-merge-preview" title={text}>
-      {parts.length > 0 ? <RunStateGlyph state="blocked" size="xs" /> : null}
-      <span className={cn('truncate', parts.length > 0 ? 'text-foreground' : 'text-muted-foreground')}>{text}</span>
-    </p>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={sentence}
+            data-testid="live-card-merge-preview"
+            className={cn(
+              'inline-flex h-5 max-w-full items-center gap-1 self-start rounded-pill border px-1.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              warn ? 'border-accent-warning/40 text-foreground' : 'border-border/60 text-muted-foreground',
+            )}
+          >
+            {warn ? <RunStateGlyph state="blocked" size="xs" /> : null}
+            <span className="truncate">{chip}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="max-w-[16rem]">{sentence}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
-export function LiveBoardCard({ card, actions, now, compact = false }: LiveBoardCardProps) {
+/** One run: its state, kind (and project when there are several), title, phrase, progress, engine, time, cost and its one action. */
+export function LiveBoardCard({ card, actions, now, compact = false, showProject = false }: LiveBoardCardProps) {
   const { t } = useTranslation(['liveBoard', 'inbox'])
   const kindLabel = useKindLabel()
   const look = liveCardLook(card, useMissionExtensions().runStateOf)
   const time = useTimeLabel(card, now)
   const primary = primaryOf(card)
   const busy = actions.busy(card)
-  const attentionText = card.attention ? card.attention.title : null
-  const title = card.title ?? attentionText ?? t(card.kind === 'intent' ? 'liveBoard:card.untitledIntent' : 'liveBoard:card.untitled')
+  const attentionText = useInboxItemTextOf(card.attention)
+  // An inbox item that is not a run (a reached cap, a Jira update) is named exactly as the inbox names it.
+  const ownTitle = card.status.source === 'attention' ? null : card.title
+  const title = ownTitle ?? attentionText?.title ?? t(card.kind === 'intent' ? 'liveBoard:card.untitledIntent' : 'liveBoard:card.untitled')
   const kind = kindLabel(card)
+  const meta = [showProject ? card.projectName : null, kind].filter(Boolean).join(' · ')
   const stateLabel = t(runStateLook(look.state).labelKey)
   const question = card.question
   const primaryLabel = primary.kind === 'inbox' ? t(`inbox:${primaryLabelKey(primary.item)}`)
@@ -144,35 +169,35 @@ export function LiveBoardCard({ card, actions, now, compact = false }: LiveBoard
       data-column={card.column}
       data-run-state={look.state}
     >
-      <div className="flex min-w-0 items-center gap-1.5">
-        <RunStateGlyph state={look.state} objectIcon={look.objectIcon} label={stateLabel} />
-        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-control bg-muted px-0.5 text-caption font-semibold leading-none text-muted-foreground" aria-hidden>
-          {projectMonogram(card.projectName)}
-        </span>
-        <span className="truncate text-caption text-muted-foreground">
-          {card.projectName}{kind ? ` · ${kind}` : ''}
-        </span>
-      </div>
-      {canOpen(card) ? (
-        <button
-          type="button"
-          className="truncate text-left text-strong text-foreground hover:underline focus-visible:underline"
-          title={title}
-          onClick={() => actions.open(card)}
-          data-testid="live-card-title"
-        >
-          <span className={cn(settledStopped && 'text-muted-foreground')}>{title}</span>
-        </button>
-      ) : (
-        <p className={cn('truncate text-strong', settledStopped ? 'text-muted-foreground' : 'text-foreground')} title={title}>{title}</p>
+      {meta && (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <RunStateGlyph state={look.state} objectIcon={look.objectIcon} label={stateLabel} />
+          <span className="truncate text-caption text-muted-foreground" data-testid="live-card-meta">{meta}</span>
+        </div>
       )}
+      <div className="flex min-w-0 items-center gap-1.5">
+        {!meta && <RunStateGlyph state={look.state} objectIcon={look.objectIcon} label={stateLabel} />}
+        {canOpen(card) ? (
+          <button
+            type="button"
+            className="min-w-0 truncate text-left text-strong text-foreground hover:underline focus-visible:underline"
+            title={title}
+            onClick={() => actions.open(card)}
+            data-testid="live-card-title"
+          >
+            <span className={cn(settledStopped && 'text-muted-foreground')}>{title}</span>
+          </button>
+        ) : (
+          <p className={cn('min-w-0 truncate text-strong', settledStopped ? 'text-muted-foreground' : 'text-foreground')} title={title} data-testid="live-card-title">{title}</p>
+        )}
+      </div>
       {question && (
         <blockquote className="line-clamp-3 rounded-control bg-muted px-2 py-1 text-caption text-foreground" data-testid="live-card-question">
           <span className="sr-only">{t('liveBoard:card.question')}: </span>{question}
         </blockquote>
       )}
-      {card.attention ? <AttentionPhrase item={card.attention} /> : <RunPhrase card={card} />}
-      {card.mergePreview ? <MergePreviewPhrase preview={card.mergePreview} /> : null}
+      {attentionText ? <AttentionPhrase text={attentionText} withDetail={!question} /> : <RunPhrase card={card} />}
+      {card.mergePreview ? <MergePreviewChip preview={card.mergePreview} /> : null}
       {card.steps && card.column === 'working' && <Steps steps={card.steps} />}
       <div className="flex items-center gap-2 text-caption tabular-nums text-muted-foreground">
         {card.provider && <span className="truncate">{providerLabel(card.provider)}</span>}

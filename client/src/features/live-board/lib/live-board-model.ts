@@ -8,8 +8,9 @@
 import { readInboxSnapshot, type InboxItem } from '../../inbox/lib/inbox-model'
 
 export type LiveRunKind = 'rail' | 'loop' | 'intent' | 'job'
-export type LiveColumn = 'needs' | 'working' | 'decide' | 'done'
-export const LIVE_COLUMNS: readonly LiveColumn[] = ['needs', 'working', 'decide', 'done']
+/** Needs you (the inbox, reviews included) · In progress · Done today. */
+export type LiveColumn = 'needs' | 'working' | 'done'
+export const LIVE_COLUMNS: readonly LiveColumn[] = ['needs', 'working', 'done']
 export const LIVE_KINDS: readonly LiveRunKind[] = ['rail', 'loop', 'intent', 'job']
 
 /** The domain status a card carries, as its owning capability names it. */
@@ -71,7 +72,6 @@ export interface LiveLane {
 export interface LiveBoardTotals {
   needsYou: number
   inProgress: number
-  toDecide: number
   doneToday: number
   costTodayUsd: number | null
   costTodayEstimated: boolean
@@ -109,15 +109,17 @@ function readCard(raw: unknown): LiveCard | null {
   if (!v || typeof v !== 'object') return null
   const id = str(v.id), projectId = str(v.projectId), at = str(v.at)
   const status = readStatus(v.status)
-  if (!id || !projectId || !at || !status || !LIVE_COLUMNS.includes(v.column as LiveColumn)) return null
+  // An older server's fourth "To decide" column is part of Needs you now.
+  const column = v.column === 'decide' ? 'needs' : v.column
+  if (!id || !projectId || !at || !status || !LIVE_COLUMNS.includes(column as LiveColumn)) return null
   const steps = v.steps as Record<string, unknown> | null
   const attention = v.attention ? readInboxSnapshot({ items: [v.attention] }).items[0] ?? null : null
   return {
     id, projectId, at, status,
     projectName: str(v.projectName) ?? projectId,
     kind: LIVE_KINDS.includes(v.kind as LiveRunKind) ? v.kind as LiveRunKind : null,
-    column: v.column as LiveColumn,
-    urgency: num(v.urgency) ?? 3,
+    column: column as LiveColumn,
+    urgency: num(v.urgency) ?? 2,
     title: str(v.title),
     phase: str(v.phase),
     question: str(v.question),
@@ -167,7 +169,7 @@ export function readLiveBoardSnapshot(raw: unknown): LiveBoardSnapshot {
       projectIds: Array.isArray(v.projectIds) ? v.projectIds.filter((x): x is string => typeof x === 'string') : [],
       cardIds: v.cardIds.filter((x): x is string => typeof x === 'string' && ids.has(x)),
       todayCostUsd: num(v.todayCostUsd),
-      urgency: num(v.urgency) ?? 3,
+      urgency: num(v.urgency) ?? 2,
     }]
   })
   const t = (body.totals ?? {}) as Record<string, unknown>
@@ -181,7 +183,7 @@ export function readLiveBoardSnapshot(raw: unknown): LiveBoardSnapshot {
     cards,
     lanes,
     totals: {
-      needsYou: num(t.needsYou) ?? 0, inProgress: num(t.inProgress) ?? 0, toDecide: num(t.toDecide) ?? 0, doneToday: num(t.doneToday) ?? 0,
+      needsYou: num(t.needsYou) ?? 0, inProgress: num(t.inProgress) ?? 0, doneToday: num(t.doneToday) ?? 0,
       costTodayUsd: num(t.costTodayUsd), costTodayEstimated: t.costTodayEstimated === true,
     },
   }
@@ -212,7 +214,7 @@ export function providersOf(cards: readonly LiveCard[]): string[] {
 
 /** Layout A: the visible cards per column, in the server's order. Inbox items the person snoozed or marked done are left out. */
 export function columnsOf(cards: readonly LiveCard[], filters: LiveBoardFilters, dismissed: (item: InboxItem) => boolean = () => false): Record<LiveColumn, LiveCard[]> {
-  const out: Record<LiveColumn, LiveCard[]> = { needs: [], working: [], decide: [], done: [] }
+  const out: Record<LiveColumn, LiveCard[]> = { needs: [], working: [], done: [] }
   for (const card of cards) {
     if (!matchesFilters(card, filters)) continue
     if (card.attention && dismissed(card.attention)) continue
@@ -240,16 +242,13 @@ export function lanesOf(snapshot: Pick<LiveBoardSnapshot, 'cards' | 'lanes'>, fi
   })
 }
 
-/** A paused loop run or Intent session: open, but nothing moves until the person resumes it. */
-export function isPausedCard(card: Pick<LiveCard, 'status'>): boolean {
-  const s = card.status
-  return (s.source === 'loop-run' && s.status === 'paused') || (s.source === 'intent' && s.state === 'paused')
-}
-
-/** The header counts for what is shown: paused runs are open but not "in progress". */
-export function countVisible(columns: Record<LiveColumn, LiveCard[]>): { needsYou: number; inProgress: number; paused: number } {
-  const paused = columns.working.filter(isPausedCard).length
-  return { needsYou: columns.needs.length, inProgress: columns.working.length - paused, paused }
+/**
+ * The header counts, read off the columns on screen (never a second tally):
+ * "Needs you" is the inbox's open items, "In progress" every card of its
+ * column (a paused run there carries its paused look).
+ */
+export function countVisible(columns: Record<LiveColumn, LiveCard[]>): { needsYou: number; inProgress: number } {
+  return { needsYou: columns.needs.length, inProgress: columns.working.length }
 }
 
 // ── Layout (per viewer) ─────────────────────────────────────────────────────
@@ -288,7 +287,7 @@ export type LivePrimary =
 
 export function primaryOf(card: LiveCard): LivePrimary {
   if (card.attention) return { kind: 'inbox', item: card.attention }
-  if (card.column === 'decide' && card.deliveryId) return { kind: 'review', deliveryId: card.deliveryId }
+  if (card.column === 'needs' && card.status.source === 'delivery' && card.deliveryId) return { kind: 'review', deliveryId: card.deliveryId }
   return canOpen(card) ? { kind: 'open' } : { kind: 'none' }
 }
 
@@ -301,9 +300,11 @@ export function canOpen(card: Pick<LiveCard, 'conversationId' | 'jobId'>): boole
 export type LiveBoardWindowResult =
   | { action: 'primary'; card: LiveCard }
   | { action: 'open'; card: LiveCard }
+  | { action: 'inbox' }
 
 export function readLiveBoardWindowResult(value: unknown): LiveBoardWindowResult | null {
   const v = value as { action?: unknown; card?: unknown } | null
+  if (v?.action === 'inbox') return { action: 'inbox' }
   if (!v || (v.action !== 'primary' && v.action !== 'open')) return null
   const card = readCard(v.card)
   return card ? { action: v.action, card } : null

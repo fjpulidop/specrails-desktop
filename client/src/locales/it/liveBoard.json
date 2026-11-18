@@ -11,9 +11,7 @@
     "inProgress_one": "{{count}} in corso",
     "inProgress_other": "{{count}} in corso",
     "today": "oggi {{cost}}",
-    "todayEstimated": "oggi ~{{cost}} (stime incluse)",
-    "paused_one": "{{count}} in pausa",
-    "paused_other": "{{count}} in pausa"
+    "todayEstimated": "oggi ~{{cost}} (stime incluse)"
   },
   "layout": {
     "label": "Vista",
@@ -23,15 +21,13 @@
   "columns": {
     "needs": "Ha bisogno di te",
     "working": "In corso",
-    "decide": "Da decidere",
     "done": "Completato oggi",
-    "needsHint": "Il più vecchio in alto",
-    "doneHint": "Si svuota a mezzanotte"
+    "doneHint": "Si svuota a mezzanotte",
+    "openInbox": "Apri Da gestire"
   },
   "columnEmpty": {
     "needs": "Niente ti aspetta.",
     "working": "Niente è in esecuzione.",
-    "decide": "Niente da decidere.",
     "done": "Oggi non è ancora terminato niente."
   },
   "filters": {
@@ -84,7 +80,14 @@
     "mergeSiblings_one": "Collide con {{count}} altro run",
     "mergeSiblings_other": "Collide con altri {{count}} run",
     "baseMoved_one": "La base è avanzata di {{count}} commit",
-    "baseMoved_other": "La base è avanzata di {{count}} commit"
+    "baseMoved_other": "La base è avanzata di {{count}} commit",
+    "mergeChip": {
+      "conflicts_one": "{{count}} conflitto",
+      "conflicts_other": "{{count}} conflitti",
+      "siblings_one": "Si sovrappone a {{count}} run",
+      "siblings_other": "Si sovrappone a {{count}} run",
+      "baseMoved": "Base avanzata"
+    }
   },
   "empty": {
     "title": "Niente in esecuzione",

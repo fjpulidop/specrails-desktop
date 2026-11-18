@@ -11,9 +11,7 @@
     "inProgress_one": "{{count}} 项进行中",
     "inProgress_other": "{{count}} 项进行中",
     "today": "今日 {{cost}}",
-    "todayEstimated": "今日 ~{{cost}}（含估算）",
-    "paused_one": "{{count}} 个已暂停",
-    "paused_other": "{{count}} 个已暂停"
+    "todayEstimated": "今日 ~{{cost}}（含估算）"
   },
   "layout": {
     "label": "布局",
@@ -23,15 +21,13 @@
   "columns": {
     "needs": "需要你",
     "working": "进行中",
-    "decide": "待决定",
     "done": "今日完成",
-    "needsHint": "最早的在上",
-    "doneHint": "午夜清空"
+    "doneHint": "午夜清空",
+    "openInbox": "打开待处理"
   },
   "columnEmpty": {
     "needs": "没有等你处理的事项。",
     "working": "没有正在运行的内容。",
-    "decide": "没有待决定的事项。",
     "done": "今天还没有完成的内容。"
   },
   "filters": {
@@ -84,7 +80,14 @@
     "mergeSiblings_one": "与另外 {{count}} 个运行冲突",
     "mergeSiblings_other": "与另外 {{count}} 个运行冲突",
     "baseMoved_one": "基线已前进 {{count}} 个提交",
-    "baseMoved_other": "基线已前进 {{count}} 个提交"
+    "baseMoved_other": "基线已前进 {{count}} 个提交",
+    "mergeChip": {
+      "conflicts_one": "{{count}} 个冲突",
+      "conflicts_other": "{{count}} 个冲突",
+      "siblings_one": "与 {{count}} 个运行重叠",
+      "siblings_other": "与 {{count}} 个运行重叠",
+      "baseMoved": "基线已前进"
+    }
   },
   "empty": {
     "title": "没有正在运行的内容",
