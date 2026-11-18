@@ -43,11 +43,13 @@
       "components/BackgroundProcessesPanel.tsx",
       "components/MissionResourcesPanel.tsx",
       "components/RetainedWorktreesSection.tsx",
+      "components/SafetyArchivesSection.tsx",
       "context/BackgroundProcessesContext.tsx",
       "hooks/useMissionResourceHistory.ts",
       "lib/background-processes-api.ts"
     ],
     "dependencies": [
+      "delivery",
       "diagnostics",
       "missions"
     ]
@@ -143,6 +145,7 @@
       "components/LoopChip.tsx",
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
+      "components/SafetyArchiveNotice.tsx",
       "components/TargetPrLaunchDialog.tsx",
       "components/TopRiskLine.tsx",
       "context/RailPrDecisionContext.tsx",
@@ -150,6 +153,7 @@
       "lib/pr-ci.ts",
       "lib/pr-delivery.ts",
       "lib/pr-follow-up-scope.ts",
+      "lib/safety-archives-api.ts",
       "pages/ReviewPacketPage.tsx"
     ],
     "dependencies": [

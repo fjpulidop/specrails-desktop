@@ -428,8 +428,6 @@
     "retryPushNote": "Die Implementierung war erfolgreich und die Änderungen sind lokal sicher. Wiederhole nur den Push.",
     "cleanupIncomplete_one": "Bereinigung unvollständig ({{count}} Warnung)",
     "cleanupIncomplete_other": "Bereinigung unvollständig ({{count}} Warnungen)",
-    "safetyArchiveTitle": "Sicherheitsarchiv ({{count}})",
-    "safetyArchiveHint": "Temporäre Workspace-Dateien wurden vorsichtshalber außerhalb des PR aufbewahrt. Du kannst sie prüfen oder manuell entfernen.",
     "confirm": {
       "recoverAndRetryTitle": "Das gesicherte Ergebnis committen und pushen?",
       "recoverAndRetryBody": "Specrails verwendet ausschließlich den isolierten Worktree oder den aufgezeichneten Fast-Forward-Branch für {{branch}}. Falls nötig, werden die lieferbaren Dateien committet. Anschließend wird nur dieser exakte Commit gepusht und auch nur dann, wenn der PR noch mit den erwarteten Quell- und Ziel-Branches geöffnet ist. Der Hauptordner deines Projekts und seine nicht committeten Änderungen bleiben unberührt.",

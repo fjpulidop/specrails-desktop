@@ -428,8 +428,6 @@
     "retryPushNote": "A implementação foi concluída com sucesso e as alterações estão seguras localmente. Tente novamente apenas o push.",
     "cleanupIncomplete_one": "Limpeza incompleta ({{count}} aviso)",
     "cleanupIncomplete_other": "Limpeza incompleta ({{count}} avisos)",
-    "safetyArchiveTitle": "Arquivo de segurança ({{count}})",
-    "safetyArchiveHint": "Os ficheiros temporários do espaço de trabalho foram preservados fora da PR por precaução. Pode inspecioná-los ou removê-los manualmente.",
     "confirm": {
       "recoverAndRetryTitle": "Fazer commit e enviar o resultado preservado?",
       "recoverAndRetryBody": "O Specrails utilizará apenas o worktree isolado ou o ramo registado compatível com avanço rápido para {{branch}}. Se necessário, criará um commit com os ficheiros entregáveis e enviará esse commit exato apenas se a PR continuar aberta nos ramos de origem e destino esperados. A pasta principal do projeto e as respetivas alterações sem commit não serão afetadas.",

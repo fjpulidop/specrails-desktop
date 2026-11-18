@@ -83,9 +83,6 @@
     "cleanupIncomplete_other": "Limpeza incompleta ({{count}} avisos)",
     "cleanupIncompleteHint": "Os dados de recuperação locais foram preservados. Verifique estes detalhes antes de remover algo manualmente.",
     "copyCleanupDetails": "Copiar detalhes de recuperação",
-    "safetyArchiveTitle": "Arquivo de segurança ({{count}})",
-    "safetyArchiveHint": "Os ficheiros temporários do espaço de trabalho foram preservados fora da PR por precaução. Pode inspecioná-los ou removê-los manualmente.",
-    "copySafetyArchive": "Copiar caminhos",
     "unit": {
       "failed": "implementação falhou",
       "blocked": "entrega bloqueada",
@@ -346,5 +343,33 @@
     "baseMoved_other": "{{base}} avançou {{count}} commits desde que esta branch foi criada",
     "moreFiles": "+{{count}} outros",
     "title": "Prévia do merge"
+  },
+  "safetyArchive": {
+    "title_one": "{{count}} arquivo foi guardado fora do PR",
+    "title_other": "{{count}} arquivos foram guardados fora do PR",
+    "hint": "O Specrails não conseguiu confirmar que eram dele, então os separou em vez de apagá-los.",
+    "toastHint": "Revise ou exclua em Detalhes.",
+    "delete": "Excluir",
+    "dismiss": "Dispensar",
+    "details": "Detalhes",
+    "close": "Fechar",
+    "copyPath": "Copiar caminho",
+    "copied": "Copiado",
+    "revealFinder": "Mostrar no Finder",
+    "revealFolder": "Mostrar na pasta",
+    "filesLabel": "Arquivos guardados",
+    "link": "link",
+    "moreFiles_one": "e mais {{count}} arquivo",
+    "moreFiles_other": "e mais {{count}} arquivos",
+    "confirmTitle_one": "Excluir {{count}} arquivo guardado?",
+    "confirmTitle_other": "Excluir {{count}} arquivos guardados?",
+    "confirmDescription_one": "A pasta {{folder}} com {{count}} arquivo ({{size}}) será apagada. Não é possível desfazer.",
+    "confirmDescription_other": "A pasta {{folder}} com {{count}} arquivos ({{size}}) será apagada. Não é possível desfazer.",
+    "confirmDescriptionMany_one": "{{folders}} pastas com {{count}} arquivo ({{size}}) serão apagadas. Não é possível desfazer.",
+    "confirmDescriptionMany_other": "{{folders}} pastas com {{count}} arquivos ({{size}}) serão apagadas. Não é possível desfazer.",
+    "deleteFailed_one": "Não foi possível excluir {{count}} pasta.",
+    "deleteFailed_other": "Não foi possível excluir {{count}} pastas.",
+    "goneTitle": "Nada mais para revisar",
+    "gone": "Esses arquivos já foram excluídos ou dispensados."
   }
 }

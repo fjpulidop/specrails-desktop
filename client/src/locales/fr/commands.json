@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "Worktrees d'exécution conservés",
           "keywords": "stockage, disque, worktrees, nettoyer, nettoyage, espace, conservés, branches, retirer"
+        },
+        "safetyArchives": {
+          "label": "Fichiers conservés hors d'une PR",
+          "keywords": "stockage, disque, archive de sécurité, fichiers conservés, quarantaine, nettoyer, supprimer"
         }
       }
     }

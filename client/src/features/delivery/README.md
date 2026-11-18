@@ -14,6 +14,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/LoopChip.tsx](components/LoopChip.tsx)
 - [components/RailPrDecisionStrip.tsx](components/RailPrDecisionStrip.tsx)
 - [components/RepositoryDeliveries.tsx](components/RepositoryDeliveries.tsx)
+- [components/SafetyArchiveNotice.tsx](components/SafetyArchiveNotice.tsx)
 - [components/TargetPrLaunchDialog.tsx](components/TargetPrLaunchDialog.tsx)
 - [components/TopRiskLine.tsx](components/TopRiskLine.tsx)
 - [context/RailPrDecisionContext.tsx](context/RailPrDecisionContext.tsx)
@@ -21,6 +22,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/pr-ci.ts](lib/pr-ci.ts)
 - [lib/pr-delivery.ts](lib/pr-delivery.ts)
 - [lib/pr-follow-up-scope.ts](lib/pr-follow-up-scope.ts)
+- [lib/safety-archives-api.ts](lib/safety-archives-api.ts)
 - [pages/ReviewPacketPage.tsx](pages/ReviewPacketPage.tsx)
 
 ## Feature dependencies

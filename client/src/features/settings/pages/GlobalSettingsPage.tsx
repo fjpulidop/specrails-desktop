@@ -2,6 +2,7 @@ import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
 import { RetainedWorktreesSection } from '../../background/components/RetainedWorktreesSection'
+import { SafetyArchivesSection } from '../../background/components/SafetyArchivesSection'
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
@@ -491,6 +492,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               <SettingsCard title={t('resources:retained.title')} description={t('resources:retained.description')} data-setting-id="retainedWorktrees">
                 {/* Reads Git evidence for every project: only while this pane is shown. */}
                 <RetainedWorktreesSection active={open && activeSection === 'storage'} />
+              </SettingsCard>
+              <SettingsCard title={t('resources:safetyArchives.title')} description={t('resources:safetyArchives.description')} data-setting-id="safetyArchives">
+                <SafetyArchivesSection active={open && activeSection === 'storage'} />
               </SettingsCard>
             </div>
 

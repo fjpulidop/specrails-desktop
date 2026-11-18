@@ -132,5 +132,28 @@
     "confirmBranchesKept": "Todas as branches são mantidas, por isso os seus commits continuam disponíveis.",
     "confirmBranchesDeleted": "{{count}} branches sem nada de novo também são eliminadas, só se ainda apontarem para o commit verificado. {{kept}} são mantidas.",
     "confirmRecheck": "Cada worktree é verificado de novo imediatamente antes de ser removido; o que tiver mudado entretanto é mantido."
+  },
+  "safetyArchives": {
+    "title": "Arquivos guardados fora de um PR",
+    "description": "Ao terminar uma execução, o Specrails remove os próprios arquivos temporários. O que ele não consegue confirmar como seu fica separado aqui em vez de ser apagado.",
+    "summary_one": "{{count}} pasta · {{files}} arquivos · {{size}}",
+    "summary_other": "{{count}} pastas · {{files}} arquivos · {{size}}",
+    "refresh": "Atualizar",
+    "error": "Não foi possível listar: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "Procurando arquivos guardados…",
+    "empty": "Nada guardado. Cada execução limpou o que criou.",
+    "select": "Selecionar {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} arquivo",
+    "rowTitle_other": "{{name}} · {{count}} arquivos",
+    "today": "Guardado hoje",
+    "age_one": "Guardado há {{count}} dia",
+    "age_other": "Guardado há {{count}} dias",
+    "details": "Detalhes",
+    "delete": "Excluir",
+    "selectAll": "Selecionar tudo",
+    "deleteSelected_one": "Excluir {{count}} pasta",
+    "deleteSelected_other": "Excluir {{count}} pastas",
+    "result": "{{deleted}} excluídas, {{kept}} não excluídas."
   }
 }

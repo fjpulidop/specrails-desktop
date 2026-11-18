@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "Worktree delle esecuzioni conservati",
           "keywords": "archiviazione, disco, worktree, pulizia, spazio, conservati, branch, rimuovi"
+        },
+        "safetyArchives": {
+          "label": "File conservati fuori da una PR",
+          "keywords": "archiviazione, disco, archivio di sicurezza, file conservati, quarantena, pulizia, elimina"
         }
       }
     }

@@ -132,5 +132,28 @@
     "confirmBranchesKept": "ブランチはすべて残るため、コミットは引き続き利用できます。",
     "confirmBranchesDeleted": "新しい内容のないブランチ {{count}} 件も、確認したコミットを指したままの場合に限り削除されます。{{kept}} 件は残ります。",
     "confirmRecheck": "各ワークツリーは削除の直前に再確認され、その後変わったものは残されます。"
+  },
+  "safetyArchives": {
+    "title": "PR の外に保管されたファイル",
+    "description": "実行が終わると、Specrails は自分の一時ファイルを削除します。自分のものだと確認できなかったものは、削除せずにここへ保管します。",
+    "summary_one": "{{count}} 個のフォルダ · {{files}} 件のファイル · {{size}}",
+    "summary_other": "{{count}} 個のフォルダ · {{files}} 件のファイル · {{size}}",
+    "refresh": "更新",
+    "error": "一覧を取得できませんでした: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "保管されたファイルを探しています…",
+    "empty": "保管されたものはありません。どの実行も後片付けを済ませています。",
+    "select": "{{name}} を選択",
+    "rowTitle_one": "{{name}} · {{count}} 件",
+    "rowTitle_other": "{{name}} · {{count}} 件",
+    "today": "今日保管",
+    "age_one": "{{count}} 日前に保管",
+    "age_other": "{{count}} 日前に保管",
+    "details": "詳細",
+    "delete": "削除",
+    "selectAll": "すべて選択",
+    "deleteSelected_one": "{{count}} 個のフォルダを削除",
+    "deleteSelected_other": "{{count}} 個のフォルダを削除",
+    "result": "{{deleted}} 個を削除、{{kept}} 個は削除されませんでした。"
   }
 }

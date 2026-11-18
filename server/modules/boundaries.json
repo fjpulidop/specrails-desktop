@@ -1245,6 +1245,8 @@
       "adapters/retained-worktrees-http.ts": [
         "../../../project-registry",
         "../../../worktree-manager",
+        "../runtime/isolated-worktree",
+        "../runtime/overlay-quarantines",
         "../runtime/retained-worktrees",
         "express"
       ],
@@ -1484,6 +1486,10 @@
         "./rail-pr-store",
         "./rail-pr-ticket-effects",
         "node:path"
+      ],
+      "runtime/overlay-quarantines.ts": [
+        "fs",
+        "path"
       ],
       "runtime/phase3-harvest.ts": [
         "../../../db",
@@ -1985,6 +1991,7 @@
         "../../terminals/runtime/worktree-process-reaper",
         "./ignored-copy-identity",
         "./rail-worktrees-store",
+        "crypto",
         "fs",
         "path"
       ],

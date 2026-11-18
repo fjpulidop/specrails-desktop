@@ -83,9 +83,6 @@
     "cleanupIncomplete_other": "クリーンアップが不完全です（警告 {{count}} 件）",
     "cleanupIncompleteHint": "ローカルの復旧データを保持しました。手動で削除する前に、以下の詳細を確認してください。",
     "copyCleanupDetails": "復旧情報をコピー",
-    "safetyArchiveTitle": "安全アーカイブ（{{count}}）",
-    "safetyArchiveHint": "念のため、一時ワークスペースファイルを PR の外部に保存しました。内容を確認するか、手動で削除できます。",
-    "copySafetyArchive": "パスをコピー",
     "unit": {
       "failed": "実装失敗",
       "blocked": "配信ブロック",
@@ -346,5 +343,33 @@
     "baseMoved_other": "このブランチの作成後、{{base}} は {{count}} コミット進みました",
     "moreFiles": "ほか {{count}} 件",
     "title": "マージのプレビュー"
+  },
+  "safetyArchive": {
+    "title_one": "PR に含まれなかったファイルを {{count}} 件保管しました",
+    "title_other": "PR に含まれなかったファイルを {{count}} 件保管しました",
+    "hint": "Specrails 自身のファイルだと確認できなかったため、削除せずに別の場所へ移しました。",
+    "toastHint": "詳細から確認または削除できます。",
+    "delete": "削除",
+    "dismiss": "閉じる",
+    "details": "詳細",
+    "close": "閉じる",
+    "copyPath": "パスをコピー",
+    "copied": "コピーしました",
+    "revealFinder": "Finder で表示",
+    "revealFolder": "フォルダで表示",
+    "filesLabel": "保管されたファイル",
+    "link": "リンク",
+    "moreFiles_one": "ほか {{count}} 件",
+    "moreFiles_other": "ほか {{count}} 件",
+    "confirmTitle_one": "保管された {{count}} 件のファイルを削除しますか?",
+    "confirmTitle_other": "保管された {{count}} 件のファイルを削除しますか?",
+    "confirmDescription_one": "フォルダ {{folder}}({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescription_other": "フォルダ {{folder}}({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescriptionMany_one": "{{folders}} 個のフォルダ({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescriptionMany_other": "{{folders}} 個のフォルダ({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "deleteFailed_one": "{{count}} 個のフォルダを削除できませんでした。",
+    "deleteFailed_other": "{{count}} 個のフォルダを削除できませんでした。",
+    "goneTitle": "確認するものはありません",
+    "gone": "これらのファイルはすでに削除されたか、通知を閉じました。"
   }
 }

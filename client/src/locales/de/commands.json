@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "Behaltene Run-Worktrees",
           "keywords": "speicher, festplatte, worktrees, aufräumen, platz, behalten, branches, entfernen"
+        },
+        "safetyArchives": {
+          "label": "Außerhalb eines PR aufbewahrte Dateien",
+          "keywords": "speicher, festplatte, sicherheitsarchiv, aufbewahrte dateien, quarantäne, aufräumen, löschen"
         }
       }
     }

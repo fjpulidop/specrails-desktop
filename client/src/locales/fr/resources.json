@@ -132,5 +132,28 @@
     "confirmBranchesKept": "Toutes les branches sont conservées, leurs commits restent donc disponibles.",
     "confirmBranchesDeleted": "{{count}} branches sans rien de nouveau sont aussi supprimées, uniquement si elles pointent encore sur le commit vérifié. {{kept}} sont conservées.",
     "confirmRecheck": "Chaque worktree est revérifié juste avant d'être retiré ; tout ce qui a changé depuis est conservé."
+  },
+  "safetyArchives": {
+    "title": "Fichiers conservés hors d'une PR",
+    "description": "À la fin d'une exécution, Specrails supprime ses propres fichiers temporaires. Ce qu'il ne peut pas confirmer comme sien est mis de côté ici au lieu d'être supprimé.",
+    "summary_one": "{{count}} dossier · {{files}} fichiers · {{size}}",
+    "summary_other": "{{count}} dossiers · {{files}} fichiers · {{size}}",
+    "refresh": "Actualiser",
+    "error": "Impossible de les lister : {{error}}",
+    "projectError": "{{project}} : {{error}}",
+    "loading": "Recherche des fichiers conservés…",
+    "empty": "Rien de conservé. Chaque exécution a fait le ménage.",
+    "select": "Sélectionner {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} fichier",
+    "rowTitle_other": "{{name}} · {{count}} fichiers",
+    "today": "Conservé aujourd'hui",
+    "age_one": "Conservé il y a {{count}} jour",
+    "age_other": "Conservé il y a {{count}} jours",
+    "details": "Détails",
+    "delete": "Supprimer",
+    "selectAll": "Tout sélectionner",
+    "deleteSelected_one": "Supprimer {{count}} dossier",
+    "deleteSelected_other": "Supprimer {{count}} dossiers",
+    "result": "{{deleted}} supprimé(s), {{kept}} non supprimé(s)."
   }
 }

@@ -17,12 +17,14 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/BackgroundProcessesPanel.tsx](components/BackgroundProcessesPanel.tsx)
 - [components/MissionResourcesPanel.tsx](components/MissionResourcesPanel.tsx)
 - [components/RetainedWorktreesSection.tsx](components/RetainedWorktreesSection.tsx)
+- [components/SafetyArchivesSection.tsx](components/SafetyArchivesSection.tsx)
 - [context/BackgroundProcessesContext.tsx](context/BackgroundProcessesContext.tsx)
 - [hooks/useMissionResourceHistory.ts](hooks/useMissionResourceHistory.ts)
 - [lib/background-processes-api.ts](lib/background-processes-api.ts)
 
 ## Feature dependencies
 
+- [delivery](../delivery/README.md)
 - [diagnostics](../diagnostics/README.md)
 - [missions](../missions/README.md)
 

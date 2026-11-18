@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "Worktrees de ejecuciones en disco",
           "keywords": "almacenamiento, disco, worktrees, limpiar, limpieza, espacio, retenidos, ramas, quitar"
+        },
+        "safetyArchives": {
+          "label": "Archivos guardados fuera de una PR",
+          "keywords": "almacenamiento, disco, archivo de seguridad, archivos guardados, cuarentena, limpiar, eliminar"
         }
       }
     }

@@ -174,6 +174,16 @@ beforeEach(() => {
 })
 
 // ── AgentPrDecisionCard: state matrix ─────────────────────────────────────────
+function inspectFetch(archive: string, fileCount = 1) {
+  const original = global.fetch
+  global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/worktrees/quarantines/inspect')
+    ? new Response(JSON.stringify({ items: [{ projectId: 'p1', path: archive, status: 'present', quarantine: {
+      path: archive, worktreeName: 'ticket-1', createdAt: 0, fileCount, bytes: 9, files: [{ path: 'CLAUDE.md', kind: 'file', bytes: 9 }], truncated: false,
+    } }] }), { status: 200 })
+    : original(input)) as unknown as typeof fetch
+  return () => { global.fetch = original }
+}
+
 describe('AgentPrDecisionCard states', () => {
   it('names the loop that ran (chip) and titles Intent → Spec outcomes after it; other loops keep their titles', () => {
     const flowReview = { reason: 'review' as const, summary: null, issues: ['Tag the tests'], issuesOmitted: 0, score: 58, failingChecks: [] }
@@ -550,17 +560,19 @@ describe('AgentPrDecisionCard states', () => {
     expect(queryAction('Checkout')).not.toBeInTheDocument()
   })
 
-  it('discloses durable safety archives separately from cleanup warnings', () => {
-    render(<AgentPrDecisionCard envelope={env({
-      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
-      safetyArchives: ['/worktrees/ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md'],
-      cleanupWarnings: [],
-    })} />)
-
-    const archives = screen.getByTestId('agent-pr-safety-archives')
-    expect(archives).toHaveTextContent('Safety archive (1)')
-    expect(archives).toHaveTextContent('ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md')
-    expect(screen.queryByTestId('agent-pr-cleanup-warning')).toBeNull()
+  it('discloses really kept files separately from cleanup warnings', async () => {
+    const archive = '/worktrees/run/ticket-4.specrails-overlay-quarantine-a1B2c3'
+    const restore = inspectFetch(archive)
+    try {
+      render(<AgentPrDecisionCard envelope={env({
+        decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
+        safetyArchives: [archive],
+        cleanupWarnings: [],
+      })} />)
+      const archives = await screen.findByTestId('agent-pr-safety-archives')
+      expect(archives).toHaveTextContent("1 file was kept that didn't go into the PR")
+      expect(screen.queryByTestId('agent-pr-cleanup-warning')).toBeNull()
+    } finally { restore() }
   })
 
   it('keeps a terminal Dismiss cleanup warning and recovery path visible in Agent history', () => {

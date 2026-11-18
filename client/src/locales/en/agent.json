@@ -427,8 +427,6 @@
     "retryPushNote": "Implementation succeeded and the changes are safe locally. Retry only the push.",
     "cleanupIncomplete_one": "Cleanup is incomplete ({{count}} warning)",
     "cleanupIncomplete_other": "Cleanup is incomplete ({{count}} warnings)",
-    "safetyArchiveTitle": "Safety archive ({{count}})",
-    "safetyArchiveHint": "Temporary workspace files were preserved outside the PR as a precaution. You can inspect or remove them manually.",
     "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
     "degraded": {
       "pushed": "The branch was pushed but the PR could not be created. Retry to finish.",

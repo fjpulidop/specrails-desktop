@@ -160,9 +160,6 @@
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
     "cleanupIncompleteHint": "Se han conservado datos de recuperación locales. Revisa estos detalles antes de eliminar nada manualmente.",
     "copyCleanupDetails": "Copiar detalles de recuperación",
-    "safetyArchiveTitle": "Archivo de seguridad ({{count}})",
-    "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
-    "copySafetyArchive": "Copiar rutas",
     "unit": {
       "failed": "implementación fallida",
       "blocked": "entrega bloqueada",
@@ -346,5 +343,33 @@
     "baseMoved_other": "{{base}} avanzó {{count}} commits desde que se creó esta rama",
     "moreFiles": "y {{count}} más",
     "title": "Vista previa de la fusión"
+  },
+  "safetyArchive": {
+    "title_one": "Se guardó {{count}} archivo que no entró en la PR",
+    "title_other": "Se guardaron {{count}} archivos que no entraron en la PR",
+    "hint": "Specrails no pudo confirmar que fueran suyos, así que los apartó en vez de borrarlos.",
+    "toastHint": "Revísalos o elimínalos desde Detalles.",
+    "delete": "Eliminar",
+    "dismiss": "Descartar",
+    "details": "Detalles",
+    "close": "Cerrar",
+    "copyPath": "Copiar ruta",
+    "copied": "Copiada",
+    "revealFinder": "Mostrar en Finder",
+    "revealFolder": "Mostrar en la carpeta",
+    "filesLabel": "Archivos guardados",
+    "link": "enlace",
+    "moreFiles_one": "y {{count}} archivo más",
+    "moreFiles_other": "y {{count}} archivos más",
+    "confirmTitle_one": "¿Eliminar {{count}} archivo guardado?",
+    "confirmTitle_other": "¿Eliminar {{count}} archivos guardados?",
+    "confirmDescription_one": "Se borrará la carpeta {{folder}} con {{count}} archivo ({{size}}). No se puede deshacer.",
+    "confirmDescription_other": "Se borrará la carpeta {{folder}} con {{count}} archivos ({{size}}). No se puede deshacer.",
+    "confirmDescriptionMany_one": "Se borrarán {{folders}} carpetas con {{count}} archivo ({{size}}). No se puede deshacer.",
+    "confirmDescriptionMany_other": "Se borrarán {{folders}} carpetas con {{count}} archivos ({{size}}). No se puede deshacer.",
+    "deleteFailed_one": "No se pudo eliminar {{count}} carpeta.",
+    "deleteFailed_other": "No se pudieron eliminar {{count}} carpetas.",
+    "goneTitle": "No queda nada por revisar",
+    "gone": "Estos archivos ya se eliminaron o descartaste el aviso."
   }
 }
