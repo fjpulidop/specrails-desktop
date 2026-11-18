@@ -59,7 +59,7 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
       <section data-testid="failure-analysis" data-state={state.status} className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border px-3.5 py-2.5 text-body">
         <Sparkles className="h-4 w-4 shrink-0 text-accent-primary" aria-hidden />
         <p className="min-w-0 flex-1 text-muted-foreground">
-          {state.status === 'error' ? t('analysis.failed', { detail: state.detail ?? t('analysis.noDetail') }) : t('analysis.offer')}
+          {state.status === 'error' ? (state.detail === 'interrupted' ? t('analysis.interrupted') : t('analysis.failed', { detail: state.detail ?? t('analysis.noDetail') })) : t('analysis.offer')}
         </p>
         <Button type="button" size="sm" variant="outline" onClick={() => void run()} data-testid="failure-analysis-run">
           <Sparkles className="mr-1 h-3 w-3" aria-hidden />

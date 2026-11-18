@@ -111,7 +111,8 @@
       "interrupted": "已中断",
       "incompleteTasks": "未完成的任务",
       "other": "其他"
-    }
+    },
+    "interrupted": "分析被中断了（运行时应用重新启动了）。请重试。"
   },
   "facts": {
     "label": "失败位置",

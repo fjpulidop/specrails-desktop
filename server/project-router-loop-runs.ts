@@ -14,7 +14,9 @@ import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
 import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
-import { INCOMPLETE_TASKS_REMEDIES, IncompleteTasksRemedyError, prepareIncompleteTasksFork, type IncompleteTasksRemedy } from './modules/delivery/runtime/incomplete-tasks-remedy'
+import { INCOMPLETE_TASKS_REMEDIES, IncompleteTasksRemedyError, browserRetryInstruction, prepareIncompleteTasksFork, type IncompleteTasksRemedy } from './modules/delivery/runtime/incomplete-tasks-remedy'
+import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
+import { parseStoredDiagnosis } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent } from './db'
@@ -169,8 +171,23 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
       const input = prepareIncompleteTasksFork(c.db, runId, remedy as IncompleteTasksRemedy, probe)
       const result = await forkDefinitionRun(c, runId, input)
+      // A fork re-runs the prompts its run was compiled with; runs from before the browser tool
+      // never hear of it there. The restarted developer gets the guidance as an operator
+      // instruction, queued before the fork resumes so its first turn reads it.
+      let guided: boolean | undefined
+      if (remedy === 'retry-with-browser') {
+        const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
+        const tasks = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)?.incompleteTasks ?? []
+        try {
+          await signalDefinitionRun(c, result.loopRunId, browserRetryInstruction(tasks), `remedy-browser-${result.loopRunId}`.slice(0, 128))
+          guided = true
+        } catch (error) {
+          guided = false
+          console.warn(`[remedy] could not queue the browser guidance for ${result.loopRunId}: ${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
       const resumed = await resumeDefinitionRunFromStop(c, result.loopRunId)
-      res.status(201).json({ ...result, remedy, resumed: resumed.ok, ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
+      res.status(201).json({ ...result, remedy, resumed: resumed.ok, ...(guided === undefined ? {} : { guided }), ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
     } catch (error) {
       if (error instanceof IncompleteTasksRemedyError) { res.status(409).json({ error: error.code, detail: error.message }); return }
       const detail = error instanceof Error ? error.message : String(error)

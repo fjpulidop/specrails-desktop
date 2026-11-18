@@ -111,7 +111,8 @@
       "interrupted": "Interrumpida",
       "incompleteTasks": "Tareas sin terminar",
       "other": "Otra"
-    }
+    },
+    "interrupted": "El análisis se interrumpió (la app se reinició mientras se hacía). Vuelve a intentarlo."
   },
   "facts": {
     "label": "Dónde falló",

@@ -758,6 +758,7 @@ const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status
     try {
       res.json(presentAnalysis(await pending, inputHash))
     } catch (err) {
+      if (err instanceof FailureAnalysisInterrupted) { res.status(503).json({ error: 'analysis_interrupted' }); return }
       res.status(502).json({ error: 'analysis_failed', detail: err instanceof Error ? err.message.slice(0, 400) : String(err) })
     }
   })
@@ -810,6 +811,15 @@ function analysisAdapter(job: JobRow, project: { provider?: string | null }) {
   return getAdapter('claude')
 }
 
+/** The analysis CLI was stopped by a signal (SIGTERM 143, SIGINT 130, SIGKILL 137), not by its own error. */
+function isInterruptedAnalysis(err: unknown): boolean {
+  return err instanceof Error && /exit code=(?:143|130|137)\b|exit code=null\b|generator aborted/.test(err.message)
+}
+
+class FailureAnalysisInterrupted extends Error {
+  constructor() { super('analysis_interrupted') }
+}
+
 async function generateFailureAnalysis(
   db: DbInstance, project: { id: string; path: string; provider?: string | null }, job: JobRow,
   language: string, evidence: FailureEvidence, inputHash: string,
@@ -834,10 +844,20 @@ async function generateFailureAnalysis(
     } catch (err) { console.error('[failure-analysis] recordInvocation failed:', err) }
   }
   let out: GenerateOutput
+  const attempt = () => generate({ relPath: `job:${job.id}`, contents: JSON.stringify(evidence), truncated: evidence.truncated, language: 'en' })
   try {
-    out = await generate({ relPath: `job:${job.id}`, contents: JSON.stringify(evidence), truncated: evidence.truncated, language: 'en' })
+    try {
+      out = await attempt()
+    } catch (err) {
+      // Killed from outside (the app restarting, a dev server reload): one fresh try,
+      // since nothing about the run or its log was wrong.
+      if (!isInterruptedAnalysis(err)) throw err
+      record('failed', (err as { partial?: Partial<GenerateOutput> }).partial)
+      out = await attempt()
+    }
   } catch (err) {
     record('failed', (err as { partial?: Partial<GenerateOutput> }).partial)
+    if (isInterruptedAnalysis(err)) throw new FailureAnalysisInterrupted()
     throw err
   }
   record('success', out)

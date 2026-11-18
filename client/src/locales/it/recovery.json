@@ -111,7 +111,8 @@
       "interrupted": "Interrotta",
       "incompleteTasks": "Attività incomplete",
       "other": "Altro"
-    }
+    },
+    "interrupted": "L'analisi si è interrotta (l'app si è riavviata nel frattempo). Riprova."
   },
   "facts": {
     "label": "Dove è fallito",

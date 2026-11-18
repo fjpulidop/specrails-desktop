@@ -111,7 +111,8 @@
       "interrupted": "Interrompida",
       "incompleteTasks": "Tarefas por terminar",
       "other": "Outro"
-    }
+    },
+    "interrupted": "A análise foi interrompida (o app reiniciou enquanto ela rodava). Tente de novo."
   },
   "facts": {
     "label": "Onde falhou",

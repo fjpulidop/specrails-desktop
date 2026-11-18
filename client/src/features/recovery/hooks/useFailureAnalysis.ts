@@ -51,7 +51,7 @@ export function useFailureAnalysis(projectId: string | undefined, jobId: string,
       // The server's refusal explains itself in its body; a transport failure in its message.
       if (error instanceof ApiResponseError) {
         const body = (error.body ?? {}) as ErrorBody
-        setState({ status: 'error', detail: body.detail ?? body.error ?? null })
+        setState({ status: 'error', detail: body.error === 'analysis_interrupted' ? 'interrupted' : body.detail ?? body.error ?? null })
       } else setState({ status: 'error', detail: error instanceof Error ? error.message : null })
     }
   }, [url, language])

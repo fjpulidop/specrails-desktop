@@ -111,7 +111,8 @@
       "interrupted": "Interrupted",
       "incompleteTasks": "Unfinished tasks",
       "other": "Other"
-    }
+    },
+    "interrupted": "The analysis was interrupted (the app restarted while it ran). Try again."
   },
   "facts": {
     "label": "Where it failed",

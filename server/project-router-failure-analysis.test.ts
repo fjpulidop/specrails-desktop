@@ -155,6 +155,22 @@ describe('failure analysis routes', () => {
     expect(db.prepare(`SELECT status FROM ai_invocations`).all()).toEqual([{ status: 'failed' }])
   })
 
+  it('retries once when the analysis CLI was stopped from outside (exit 143), then serves the answer', async () => {
+    generate.mockRejectedValueOnce(new Error('claude exit code=143; no stderr')).mockResolvedValueOnce({ summary: answer, provider: 'claude', costUsd: 0.01, durationMs: 900 })
+    const response = await request(app).post(url).send({ language: 'en' })
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({ status: 'ready' })
+    expect(generate).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the analysis was interrupted when it is stopped twice, instead of a raw exit code', async () => {
+    generate.mockRejectedValue(new Error('claude exit code=143; no stderr'))
+    const response = await request(app).post(url).send({ language: 'en' })
+    expect(response.status).toBe(503)
+    expect(response.body).toEqual({ error: 'analysis_interrupted' })
+    expect(generate).toHaveBeenCalledTimes(2)
+  })
+
   it('refuses a job that did not fail', async () => {
     createJob(db, { id: 'job-ok', command: 'loop:implement', started_at: '', provider: 'codex' })
     expect((await request(app).post('/api/projects/proj-codex/jobs/job-ok/failure-analysis').send({})).status).toBe(404)

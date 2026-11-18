@@ -1,7 +1,7 @@
 import { readRuntimeExpiration } from './agent-runtime-retention-records'
 import type { ProjectRoutesDeps } from '../../../project-router-helpers'
 import { hasAgentRuntimeRequest } from './agent-runtime-paths'
-import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard, type RuntimeRunSummary } from './agent-runtime-controls'
+import { AgentRuntimeControls, type RuntimeSteeringAccepted, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard, type RuntimeRunSummary } from './agent-runtime-controls'
 
 const controllers = new WeakMap<object, AgentRuntimeControls>()
 export function isRuntimeContinuationActive(context: object, runId: string): boolean { return controllers.get(context)?.isActive(runId) ?? false }
@@ -21,6 +21,13 @@ export async function runtimeRunSummary(context: ProjectContextLike, runId: stri
   try { return await controller.summary(runId) } catch { return null }
 }
 type ProjectContextLike = { project: { path: string; slug?: string } } & object
+
+/** Send an operator instruction to a retained engine v2 run (the same path as the run window's composer). */
+export async function signalDefinitionRun(context: ProjectContextLike, runId: string, text: string, requestId: string): Promise<RuntimeSteeringAccepted> {
+  let controller = controllers.get(context)
+  if (!controller) { controller = new AgentRuntimeControls(context as never); controllers.set(context, controller) }
+  return controller.signal(runId, { text, requestId })
+}
 
 export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectRoutesDeps, 'router' | 'ctx'>, options: {
   /** Composition-root port: settle a completed definition (engine v2) run through its isolated settlement. */

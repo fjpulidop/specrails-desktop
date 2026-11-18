@@ -111,7 +111,8 @@
       "interrupted": "Unterbrochen",
       "incompleteTasks": "Unerledigte Aufgaben",
       "other": "Sonstiges"
-    }
+    },
+    "interrupted": "Die Analyse wurde unterbrochen (die App wurde währenddessen neu gestartet). Versuche es erneut."
   },
   "facts": {
     "label": "Wo es fehlschlug",

@@ -111,7 +111,8 @@
       "interrupted": "中断",
       "incompleteTasks": "未完了のタスク",
       "other": "その他"
-    }
+    },
+    "interrupted": "分析が中断されました（実行中にアプリが再起動しました）。もう一度お試しください。"
   },
   "facts": {
     "label": "失敗した箇所",

@@ -111,7 +111,8 @@
       "interrupted": "Interrompue",
       "incompleteTasks": "Tâches inachevées",
       "other": "Autre"
-    }
+    },
+    "interrupted": "L'analyse a été interrompue (l'application a redémarré pendant ce temps). Réessayez."
   },
   "facts": {
     "label": "Où l'échec s'est produit",
