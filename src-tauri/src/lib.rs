@@ -8,6 +8,7 @@ mod host_profile;
 mod mission_windows;
 mod loop_windows;
 mod surface_windows;
+mod sidecar_supervisor;
 
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,8 +23,9 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
 
 static HOST_CONTROL_TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+/// Creation time of the current sidecar generation (replaced on every relaunch).
 #[cfg(windows)]
-static SIDECAR_CREATION_TIME: std::sync::OnceLock<Option<(u32, u64)>> = std::sync::OnceLock::new();
+static SIDECAR_CREATION_TIME: Mutex<Option<(u32, u64)>> = Mutex::new(None);
 
 fn host_control_token() -> &'static str {
     HOST_CONTROL_TOKEN.get_or_init(|| {
@@ -139,7 +141,7 @@ fn same_process_generation(expected: Option<(u32, u64)>, pid: u32, observed: Opt
 
 #[cfg(windows)]
 fn pid_is_sidecar(pid: u32) -> bool {
-    let expected = SIDECAR_CREATION_TIME.get().copied().flatten();
+    let expected = SIDECAR_CREATION_TIME.lock().ok().and_then(|created| *created);
     if !same_process_generation(expected, pid, process_creation_time(pid)) { return false; }
     // `tasklist /FI "PID eq <pid>" /FO CSV /NH` yields a CSV row whose first
     // field is the image name. We confirm both that the PID is alive (a row is
@@ -246,10 +248,36 @@ fn terminate_process(pid: u32) {
     }
 }
 
-/// Shared handle to the spawned sidecar PID, exposed to commands via managed state.
+/// Shared sidecar lifecycle state, exposed to commands via managed state and
+/// cloned into the threads of each sidecar generation.
+#[derive(Clone)]
 struct SidecarState {
+    /// PID of the live generation; `None` once it exited.
     pid: Arc<Mutex<Option<u32>>>,
+    /// Set by quit, tray Exit and update restart: exits are planned, never relaunched.
     stopping: Arc<AtomicBool>,
+    /// Bounds automatic relaunches (sidecar_supervisor).
+    breaker: Arc<Mutex<sidecar_supervisor::RestartBreaker>>,
+    /// Held across "check stopping, spawn, record PID" so quit never misses a relaunch.
+    spawn_lock: Arc<Mutex<()>>,
+}
+
+impl SidecarState {
+    fn new() -> Self {
+        Self {
+            pid: Arc::new(Mutex::new(None)),
+            stopping: Arc::new(AtomicBool::new(false)),
+            breaker: Arc::new(Mutex::new(sidecar_supervisor::RestartBreaker::default())),
+            spawn_lock: Arc::new(Mutex::new(())),
+        }
+    }
+
+    /// Mark the shutdown as planned, then read the PID once no launch is in flight.
+    fn begin_stop(&self) -> Option<u32> {
+        self.stopping.store(true, Ordering::SeqCst);
+        let _guard = self.spawn_lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        *self.pid.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 }
 
 /// Retire only the process generation that exited. Return whether the user
@@ -303,9 +331,7 @@ fn tray_action_for_id(id: &str) -> TrayAction {
 /// rejects a recycled/unrelated PID — so calling this twice (tray Exit then the
 /// `ExitRequested` fired by `app.exit(0)`) is safe.
 fn shutdown_sidecar(state: &SidecarState) {
-    state.stopping.store(true, Ordering::SeqCst);
-    let pid = *state.pid.lock().unwrap();
-    if let Some(pid) = pid {
+    if let Some(pid) = state.begin_stop() {
         terminate_process(pid);
     }
 }
@@ -362,7 +388,7 @@ fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
     if sidecar.stopping.swap(true, Ordering::SeqCst) {
         return;
     }
-    let pid = *sidecar.pid.lock().unwrap();
+    let pid = sidecar.begin_stop();
     let stopping = Arc::clone(&sidecar.stopping);
     // Run off the command thread so the `invoke` resolves immediately and the UI
     // stays responsive while the (up to several second) teardown happens.
@@ -385,13 +411,547 @@ fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
     });
 }
 
+/// The login-shell PATH is resolved once: a relaunch must not wait for zsh again.
+#[cfg(target_os = "macos")]
+fn macos_sidecar_path() -> &'static str {
+    static PATH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    PATH.get_or_init(|| {
+        let home = dirs_next::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+        let home_s = home.to_string_lossy();
+
+        // zsh login PATH (covers nvm, pyenv, etc. configured in .zshrc)
+        let zsh_path = std::process::Command::new("/bin/zsh")
+            .args(["-l", "-c", "echo $PATH"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_default();
+
+        let prepend = format!(
+            "{home}/.local/bin:{home}/.bun/bin:{home}/.cargo/bin:\
+             /opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin",
+            home = home_s
+        );
+
+        let base = if zsh_path.is_empty() {
+            "/usr/bin:/bin:/usr/sbin:/sbin".to_string()
+        } else {
+            zsh_path
+        };
+        format!("{prepend}:{base}")
+    })
+}
+
+/// Every way a sidecar launch can fail.
+#[derive(Debug)]
+enum LaunchError {
+    /// The bundled server binary is missing from the app bundle.
+    NotFound(String),
+    /// The OS refused to start the process.
+    Spawn(String),
+    /// The app is quitting or restarting: nothing was launched.
+    Stopping,
+}
+
+impl std::fmt::Display for LaunchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LaunchError::NotFound(error) => write!(f, "The bundled local server could not be found: {error}. Reinstall Specrails; your saved projects remain on disk."),
+            LaunchError::Spawn(error) => write!(f, "The local server could not start: {error}. Your saved projects remain on disk."),
+            LaunchError::Stopping => write!(f, "Specrails is shutting down."),
+        }
+    }
+}
+
+impl std::error::Error for LaunchError {}
+
+/// The sidecar command with its arguments and environment. Rebuilt for every
+/// launch so a relaunch gets exactly the contract of the first start: same
+/// port, same host-control token, same data home and bundled resources.
+fn sidecar_command(app: &tauri::AppHandle) -> Result<tauri_plugin_shell::process::Command, LaunchError> {
+    let parent_pid_arg = format!("--parent-pid={}", std::process::id());
+
+    // Resolve the bundled runtimes path from Tauri's resource directory.
+    // On macOS: <app>.app/Contents/Resources/runtimes
+    // On Windows: <install-dir>/resources/runtimes
+    let runtimes_path = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|p| p.join("runtimes").to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    // Only enter desktop bundled-runtimes mode when a bundled Node binary is
+    // actually present (not just a `.gitkeep` placeholder). A build that ships
+    // no runtimes (e.g. an architecture without bundled binaries, or a corrupted
+    // resource copy) then runs as a normal server: the sidecar's path-resolver /
+    // setup-prerequisites fall back to system PATH discovery instead of
+    // dead-ending Add Project with a "bundle corrupted" error the user can't fix.
+    let runtimes_root = std::path::Path::new(&runtimes_path);
+    let has_runtimes = runtimes_root.join("node").join("bin").join("node").exists()
+        || runtimes_root.join("node").join("node.exe").exists();
+
+    let sidecar = app
+        .shell()
+        .sidecar("specrails-server")
+        .map_err(|error| LaunchError::NotFound(error.to_string()))?
+        .args([&parent_pid_arg])
+        // The server reads crash markers and host logs from here for
+        // "Report a problem" (server/modules/diagnostics).
+        .env("SPECRAILS_HOST_LOG_DIR", host_log_dir().to_string_lossy().into_owned())
+        .env("SPECRAILS_HOST_CONTROL_TOKEN", host_control_token())
+        // server/dev-ports.ts reads SPECRAILS_DEV_SERVER_PORT before SPECRAILS_PORT;
+        // set both so an inherited value can never move the server off our port.
+        .env("SPECRAILS_PORT", server_port().to_string())
+        .env("SPECRAILS_DEV_SERVER_PORT", server_port().to_string());
+    // A dev build keeps its databases, worktrees and tokens apart from the
+    // installed app's ~/.specrails (server/util/specrails-home.ts).
+    let sidecar = match &host_profile::current().data_home {
+        Some(home) => sidecar.env("SPECRAILS_REGISTRY_HOME", home.to_string_lossy().into_owned()),
+        None => sidecar,
+    };
+    let sidecar = if has_runtimes {
+        // Bundled node/git win: server/path-resolver.ts prepends the bundled bin
+        // dirs ahead of the macOS login-shell PATH set below, so a system
+        // homebrew/nvm node or git can never shadow the bundled runtimes.
+        sidecar
+            .env("SPECRAILS_IS_DESKTOP", "1")
+            .env("SPECRAILS_BUNDLED_RUNTIMES_PATH", &runtimes_path)
+    } else {
+        sidecar
+    };
+
+    // Resolve the bundled specrails-core path from Tauri's resource directory
+    // (mirrors the runtimes resolution above: lib.rs:181-215). The bundled
+    // core lets the setup wizard materialize + assemble the framework OFFLINE
+    // (no `npx specrails-core` network round-trip).
+    //   On macOS:   <app>.app/Contents/Resources/core
+    //   On Windows: <install-dir>/resources/core
+    let core_path = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|p| p.join("core").to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    // EXISTENCE-GATE the bundled core exactly like the runtimes: only export
+    // SPECRAILS_BUNDLED_CORE_PATH when the compiled CLI actually exists on disk
+    // (not just a `.gitkeep` placeholder). When absent, the env is never set so
+    // server/bundled-core.ts returns null and setup-manager falls back to the
+    // legacy `npx specrails-core init` path — never dead-ending.
+    let core_root = std::path::Path::new(&core_path);
+    let has_core = core_root
+        .join("dist")
+        .join("installer")
+        .join("cli.js")
+        .exists();
+    let sidecar = if has_core {
+        sidecar.env("SPECRAILS_BUNDLED_CORE_PATH", &core_path)
+    } else {
+        sidecar
+    };
+
+    // Resolve the bundled @fission-ai/openspec path from Tauri's resource
+    // directory (mirrors the bundled-core block above). The bundled openspec
+    // is the LAST network step of project-add: when present, the bundled-core
+    // init runs `openspec init` from this tree instead of `npx`, making
+    // project-add FULLY OFFLINE.
+    //   On macOS:   <app>.app/Contents/Resources/openspec
+    //   On Windows: <install-dir>/resources/openspec
+    // openspec ships as an `npm install`ed tree (it has runtime deps), so the
+    // CLI entry lives at openspec/node_modules/@fission-ai/openspec/bin/openspec.js.
+    let openspec_path = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|p| p.join("openspec").to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    // EXISTENCE-GATE on the CLI entry exactly like the bundled core: only
+    // export SPECRAILS_BUNDLED_OPENSPEC_PATH when the openspec CLI node entry
+    // actually exists on disk (not just a `.gitkeep` placeholder). When absent
+    // the env is never set so server/bundled-openspec.ts returns null and the
+    // bundled-core init falls back to `npx @fission-ai/openspec` — never
+    // dead-ending.
+    let openspec_root = std::path::Path::new(&openspec_path);
+    let has_openspec = openspec_root
+        .join("node_modules")
+        .join("@fission-ai")
+        .join("openspec")
+        .join("bin")
+        .join("openspec.js")
+        .exists();
+    let sidecar = if has_openspec {
+        sidecar.env("SPECRAILS_BUNDLED_OPENSPEC_PATH", &openspec_path)
+    } else {
+        sidecar
+    };
+
+    // Resolve the bundled user-guide docs path from Tauri's resource
+    // directory (mirrors the bundled-core block above). The Documentation
+    // panel serves these language-aware Markdown files; server/docs-router.ts
+    // reads SPECRAILS_BUNDLED_DOCS_PATH (expecting a `guide/` subdir).
+    // The docs are declared as `../docs/guide/**/*` in tauri.conf.json, so
+    // Tauri places them under `<resource_dir>/_up_/docs/guide` (the `_up_`
+    // segment is how Tauri preserves a parent-relative resource path). We
+    // try that layout first, then a plain `<resource_dir>/docs` fallback.
+    //   On macOS:   <app>.app/Contents/Resources/_up_/docs
+    //   On Windows: <install-dir>/resources/_up_/docs
+    let resource_dir = app.path().resource_dir().ok();
+    let docs_path = resource_dir.as_ref().and_then(|rd| {
+        let up = rd.join("_up_").join("docs");
+        if up.join("guide").is_dir() {
+            return Some(up.to_string_lossy().into_owned());
+        }
+        let plain = rd.join("docs");
+        if plain.join("guide").is_dir() {
+            return Some(plain.to_string_lossy().into_owned());
+        }
+        None
+    });
+    let sidecar = if let Some(ref docs_path) = docs_path {
+        sidecar.env("SPECRAILS_BUNDLED_DOCS_PATH", docs_path)
+    } else {
+        sidecar
+    };
+
+    // Resolve the bundled specrails-mcp stdio bridge from Tauri's resource
+    // directory (mirrors the blocks above). Without this env the sidecar's
+    // resolveBridgeScript() falls back to a repo-relative climb
+    // (src-tauri/binaries/specrails-mcp.js) that only exists in dev — in the
+    // packaged .app it returns null, so the in-app agent chat spawns WITHOUT
+    // --mcp-config and can't see any specrails_* tools. The bridge JS is
+    // declared as `binaries/specrails-mcp.js` in tauri.conf.json.
+    //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-mcp.js
+    //   On Windows: <install-dir>/resources/binaries/specrails-mcp.js
+    let mcp_bridge_path = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|p| {
+            p.join("binaries")
+                .join("specrails-mcp.js")
+                .to_string_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default();
+
+    // EXISTENCE-GATE exactly like the bundled core/openspec: only export the
+    // env when the bridge JS actually exists on disk, so a build that somehow
+    // shipped without it falls back to the relative climb rather than pointing
+    // the server at a non-existent file.
+    let sidecar = if std::path::Path::new(&mcp_bridge_path).exists() {
+        sidecar.env("SPECRAILS_BUNDLED_MCP_BRIDGE_PATH", &mcp_bridge_path)
+    } else {
+        sidecar
+    };
+
+    // Same story for the bundled local agent runner (`local-runner/`,
+    // declared as `binaries/specrails-local-runner.js`): without this env
+    // the sidecar's resolveLocalRunnerScript() climbs relative to
+    // __dirname, which only resolves in dev — in the packaged app it
+    // returns null and every local-engine turn spawns node against a
+    // non-existent script (observed on Windows: the mission composer
+    // offers the engine, then the turn dies with a Node error).
+    //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-local-runner.js
+    //   On Windows: <install-dir>/resources/binaries/specrails-local-runner.js
+    let local_runner_path = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|p| {
+            p.join("binaries")
+                .join("specrails-local-runner.js")
+                .to_string_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default();
+
+    // Existence-gated like the bridge above: a build without the runner
+    // falls back to the relative climb instead of a dead path.
+    let sidecar = if std::path::Path::new(&local_runner_path).exists() {
+        sidecar.env("SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH", &local_runner_path)
+    } else {
+        sidecar
+    };
+
+    // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
+    // from launchd that omits user tool dirs (homebrew, cargo, bun,
+    // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend
+    // well-known locations so tools like `claude` are found.
+    //
+    // On Windows and Linux, GUI apps inherit the user's PATH correctly
+    // from Explorer / the desktop environment, so we do NOT override —
+    // any override here would be POSIX-only garbage and hide real tools.
+    #[cfg(target_os = "macos")]
+    let sidecar = sidecar.env("PATH", macos_sidecar_path());
+
+    Ok(sidecar)
+}
+
+/// Host log folder (`sidecar.log`, `desktop.log` and `crashes/`). The sidecar
+/// receives it as `SPECRAILS_HOST_LOG_DIR` so "Report a problem" can read it.
+fn host_log_dir() -> std::path::PathBuf {
+    dirs_next::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .join("Library/Logs")
+        .join(host_profile::current().log_dir)
+}
+
+/// Host lifecycle events (launches, exits, relaunches, breaker decisions).
+fn desktop_log(line: &str) {
+    sidecar_supervisor::append_log(&host_log_dir().join("desktop.log"), line);
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BackendRestarting {
+    attempt: usize,
+    max_restarts: usize,
+    exit: String,
+}
+
+/// Sleep for `delay` unless the app starts quitting meanwhile (returns false then).
+fn sleep_unless_stopping(delay: Duration, stopping: &AtomicBool) -> bool {
+    let deadline = Instant::now() + delay;
+    while Instant::now() < deadline {
+        if stopping.load(Ordering::SeqCst) { return false; }
+        std::thread::sleep(Duration::from_millis(100).min(deadline.saturating_duration_since(Instant::now())));
+    }
+    !stopping.load(Ordering::SeqCst)
+}
+
+/// Start one sidecar generation: spawn it, record its PID and start the
+/// threads that drain its output and watch its readiness. Used for the first
+/// start, for automatic relaunches and for "Try again".
+fn launch_sidecar(app: &tauri::AppHandle, state: &SidecarState) -> Result<u32, LaunchError> {
+    use sidecar_supervisor::{rotate_log, MAX_LOG_BYTES};
+    let command = sidecar_command(app)?;
+    let log_dir = host_log_dir();
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_path = log_dir.join("sidecar.log");
+    rotate_log(&log_path, MAX_LOG_BYTES);
+    rotate_log(&log_dir.join("desktop.log"), MAX_LOG_BYTES);
+
+    // Quit/restart set `stopping` and then take this lock, so a relaunch can
+    // never start a server that the quit path has already decided not to stop.
+    let guard = state.spawn_lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if state.stopping.load(Ordering::SeqCst) {
+        return Err(LaunchError::Stopping);
+    }
+    let (mut rx, child) = command.spawn().map_err(|error| LaunchError::Spawn(error.to_string()))?;
+    let pid = child.pid();
+    #[cfg(windows)]
+    if let Ok(mut created) = SIDECAR_CREATION_TIME.lock() {
+        *created = process_creation_time(pid).map(|created| (pid, created));
+    }
+    *state.pid.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(pid);
+    drop(guard);
+    desktop_log(&format!("[sidecar] started pid {pid} on port {}", server_port()));
+
+    let spawned_at = Instant::now();
+    let ready = Arc::new(AtomicBool::new(false));
+
+    // Drain sidecar stdout/stderr (a full pipe would block the server) into
+    // sidecar.log, keep the last stderr lines for a crash marker, and hand an
+    // unexpected exit to the supervisor.
+    {
+        let state = state.clone();
+        let app = app.clone();
+        let ready = Arc::clone(&ready);
+        std::thread::spawn(move || {
+            use std::io::Write;
+            use tauri_plugin_shell::process::CommandEvent;
+            let mut log = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).ok();
+            let mut tail = sidecar_supervisor::StderrTail::default();
+            while let Some(event) = rx.blocking_recv() {
+                let mut exit = None;
+                let line = match event {
+                    CommandEvent::Stdout(bytes) => format!("[OUT] {}", String::from_utf8_lossy(&bytes)),
+                    CommandEvent::Stderr(bytes) => {
+                        let text = String::from_utf8_lossy(&bytes).into_owned();
+                        tail.push(&text);
+                        format!("[ERR] {text}")
+                    }
+                    CommandEvent::Error(error) => format!("[TAURI_ERR] {error}"),
+                    CommandEvent::Terminated(status) => {
+                        // Forget the PID: the sidecar is gone and its PID may
+                        // be reassigned by the OS to unrelated software.
+                        if record_sidecar_exit(&state.pid, &state.stopping, pid) {
+                            exit = Some((status.code, status.signal));
+                        }
+                        format!("[EXIT] code={:?} signal={:?}", status.code, status.signal)
+                    }
+                    _ => continue,
+                };
+                if let Some(file) = log.as_mut() {
+                    let stamp = sidecar_supervisor::rfc3339(std::time::SystemTime::now());
+                    let _ = writeln!(file, "{stamp} {}", line.trim_end());
+                }
+                if let Some((exit_code, signal)) = exit {
+                    drop(log.take());
+                    recover_from_exit(&app, &state, sidecar_supervisor::ExitFacts {
+                        pid,
+                        exit_code,
+                        signal,
+                        uptime: spawned_at.elapsed(),
+                        was_ready: ready.load(Ordering::SeqCst),
+                        stderr_tail: tail.snapshot(),
+                    });
+                    break;
+                }
+            }
+        });
+    }
+
+    // --- Readiness monitor (runs off the UI thread) ---
+    // Cold starts can take longer than 30s while migrations/recovery run.
+    // A timeout is not proof of process failure: keep monitoring and let
+    // the frontend retry authentication rather than killing a healthy
+    // slow-starting server and presenting an apparently empty registry.
+    {
+        let app = app.clone();
+        let state = state.clone();
+        let health_url = format!("http://127.0.0.1:{}/api/health", server_port());
+        std::thread::spawn(move || {
+            use backend_health::{wait_for_backend, BackendReadiness};
+            let mut reported_delay = false;
+            loop {
+                let readiness = wait_for_backend(
+                    &health_url,
+                    Duration::from_secs(HEALTH_TIMEOUT_SECS),
+                    || !state.stopping.load(Ordering::SeqCst)
+                        && state.pid.lock().map(|current| *current == Some(pid)).unwrap_or(false),
+                );
+                match readiness {
+                    BackendReadiness::Ready => {
+                        ready.store(true, Ordering::SeqCst);
+                        desktop_log(&format!("[sidecar] pid {pid} ready after {} ms", spawned_at.elapsed().as_millis()));
+                        let _ = app.emit("specrails:backend-ready", ());
+                        break;
+                    }
+                    BackendReadiness::Stopped => break,
+                    BackendReadiness::TimedOut => {
+                        if !reported_delay {
+                            reported_delay = true;
+                            desktop_log("[sidecar] Backend readiness is delayed; keeping the sidecar alive and retrying health.");
+                            let _ = app.emit("specrails:backend-starting", ());
+                        }
+                    }
+                }
+            }
+        });
+    }
+    Ok(pid)
+}
+
+/// An unexpected exit: leave a crash marker, then relaunch within the breaker
+/// budget or stop and ask the person.
+fn recover_from_exit(app: &tauri::AppHandle, state: &SidecarState, facts: sidecar_supervisor::ExitFacts) {
+    use sidecar_supervisor::{crash_dir, describe_exit, write_marker, CrashMarker, RestartDecision, MAX_RESTARTS};
+    let exit = describe_exit(facts.exit_code, facts.signal);
+    let uptime_ms = facts.uptime.as_millis();
+    let decision = state
+        .breaker
+        .lock()
+        .map(|mut breaker| breaker.register(Instant::now()))
+        .unwrap_or(RestartDecision::GiveUp { recent: MAX_RESTARTS });
+    let mut marker = CrashMarker::new(facts, decision, std::time::SystemTime::now());
+    let markers = crash_dir(&host_log_dir());
+    let save = |marker: &CrashMarker| {
+        if let Err(error) = write_marker(&markers, marker) {
+            desktop_log(&format!("[sidecar] could not write crash marker: {error}"));
+        }
+    };
+    desktop_log(&format!("[sidecar] pid {} stopped unexpectedly ({exit}) after {uptime_ms} ms; decision: {decision:?}", marker.pid));
+    match decision {
+        RestartDecision::GiveUp { recent } => {
+            save(&marker);
+            report_server_stopped(app, state, &exit, recent);
+        }
+        RestartDecision::Restart { attempt, delay } => {
+            // Written before the relaunch so the new server can explain it.
+            save(&marker);
+            let _ = app.emit("specrails:backend-restarting", BackendRestarting { attempt, max_restarts: MAX_RESTARTS, exit: exit.clone() });
+            if !sleep_unless_stopping(delay, &state.stopping) {
+                return;
+            }
+            // A crashed process releases the port at once; a wedged one may
+            // still hold it for a moment. Never start into an occupied port.
+            let failure = if !wait_for_port_available(server_port(), Duration::from_secs(10)) {
+                Some(format!("port {} is still in use", server_port()))
+            } else {
+                match launch_sidecar(app, state) {
+                    Ok(pid) => {
+                        desktop_log(&format!("[sidecar] relaunched as pid {pid} (attempt {attempt} of {MAX_RESTARTS})"));
+                        None
+                    }
+                    Err(LaunchError::Stopping) => return,
+                    Err(error) => Some(error.to_string()),
+                }
+            };
+            if let Some(failure) = failure {
+                desktop_log(&format!("[sidecar] relaunch failed: {failure}"));
+                marker.mark_stopped();
+                save(&marker);
+                report_server_stopped(app, state, &exit, attempt);
+            }
+        }
+    }
+}
+
+/// The breaker tripped (or a relaunch failed): tell every window and show the
+/// native dialog with a fresh "Try again".
+fn report_server_stopped(app: &tauri::AppHandle, state: &SidecarState, exit: &str, recent: usize) {
+    use tauri_plugin_dialog::MessageDialogButtons;
+    if state.stopping.load(Ordering::SeqCst) {
+        return;
+    }
+    let detail = sidecar_supervisor::give_up_message(recent, exit, &host_log_dir());
+    let _ = app.emit("specrails:backend-unavailable", &detail);
+    let retry_app = app.clone();
+    let retry_state = state.clone();
+    app.dialog()
+        .message(detail)
+        .title("Specrails — Server stopped")
+        .buttons(MessageDialogButtons::OkCancelCustom("Try again".into(), "Close".into()))
+        .show(move |try_again| {
+            if !try_again || retry_state.stopping.load(Ordering::SeqCst) {
+                return;
+            }
+            if let Ok(mut breaker) = retry_state.breaker.lock() {
+                breaker.reset();
+            }
+            desktop_log("[sidecar] relaunch requested from the stopped-server dialog");
+            // The dialog callback may run on the UI thread; launching waits for the port.
+            std::thread::spawn(move || {
+                let result = if wait_for_port_available(server_port(), Duration::from_secs(10)) {
+                    launch_sidecar(&retry_app, &retry_state).map(|_| ())
+                } else {
+                    Err(LaunchError::Spawn(format!("port {} is still in use", server_port())))
+                };
+                match result {
+                    Ok(()) | Err(LaunchError::Stopping) => {}
+                    Err(error) => {
+                        desktop_log(&format!("[sidecar] manual relaunch failed: {error}"));
+                        let message = format!("{error} Quit and reopen Specrails. Diagnostics: {}", host_log_dir().display());
+                        let _ = retry_app.emit("specrails:backend-unavailable", &message);
+                        retry_app.dialog().message(message).title("Specrails — Server stopped").show(|_| {});
+                    }
+                }
+            });
+        });
+}
+
 pub fn run() {
     // Shared, captured by `move` into the setup closure; exposed to commands via
     // SidecarState. The window-close handler no longer needs the PID (close now
     // hides to tray); sidecar termination runs from the tray Exit path and the
     // true-quit `RunEvent::ExitRequested` hook, which read SidecarState.
-    let sidecar_pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
-    let sidecar_stopping = Arc::new(AtomicBool::new(false));
+    let sidecar_state = SidecarState::new();
 
     tauri::Builder::default()
         // Single-instance MUST be registered FIRST so a second launch focuses the
@@ -454,10 +1014,7 @@ pub fn run() {
 
             // Expose the sidecar PID to the `restart_app` command, the tray Exit
             // handler, and the `RunEvent::ExitRequested` quit hook.
-            app.manage(SidecarState {
-                pid: Arc::clone(&sidecar_pid),
-                stopping: Arc::clone(&sidecar_stopping),
-            });
+            app.manage(sidecar_state.clone());
 
             // --- Port conflict check (with a grace window) ---
             // Run this BEFORE showing/maximizing the window so a conflict bails
@@ -538,360 +1095,20 @@ pub fn run() {
                 tray: Mutex::new(Some(tray)),
             });
 
+
             // --- Spawn sidecar ---
-            let parent_pid_arg = format!("--parent-pid={}", std::process::id());
-
-            // Resolve the bundled runtimes path from Tauri's resource directory.
-            // On macOS: <app>.app/Contents/Resources/runtimes
-            // On Windows: <install-dir>/resources/runtimes
-            let runtimes_path = app_handle
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("runtimes").to_string_lossy().into_owned())
-                .unwrap_or_default();
-
-            // Only enter desktop bundled-runtimes mode when a bundled Node binary is
-            // actually present (not just a `.gitkeep` placeholder). A build that ships
-            // no runtimes (e.g. an architecture without bundled binaries, or a corrupted
-            // resource copy) then runs as a normal server: the sidecar's path-resolver /
-            // setup-prerequisites fall back to system PATH discovery instead of
-            // dead-ending Add Project with a "bundle corrupted" error the user can't fix.
-            let runtimes_root = std::path::Path::new(&runtimes_path);
-            let has_runtimes = runtimes_root.join("node").join("bin").join("node").exists()
-                || runtimes_root.join("node").join("node.exe").exists();
-
-            let sidecar = app_handle
-                .shell()
-                .sidecar("specrails-server")
-                .map_err(|error| {
+            // Later generations are relaunched by the supervisor (recover_from_exit).
+            let state = app.state::<SidecarState>().inner().clone();
+            if let Err(error) = launch_sidecar(&app_handle, &state) {
+                if !matches!(error, LaunchError::Stopping) {
+                    desktop_log(&format!("[sidecar] first launch failed: {error}"));
                     app_handle.dialog()
-                        .message(format!("The bundled local server could not be found: {error}. Reinstall Specrails; your saved projects remain on disk."))
+                        .message(error.to_string())
                         .title("Specrails — Startup Error")
                         .blocking_show();
-                    error
-                })?
-                .args([&parent_pid_arg])
-                .env("SPECRAILS_HOST_CONTROL_TOKEN", host_control_token())
-                // server/dev-ports.ts reads SPECRAILS_DEV_SERVER_PORT before SPECRAILS_PORT;
-                // set both so an inherited value can never move the server off our port.
-                .env("SPECRAILS_PORT", server_port().to_string())
-                .env("SPECRAILS_DEV_SERVER_PORT", server_port().to_string());
-            // A dev build keeps its databases, worktrees and tokens apart from the
-            // installed app's ~/.specrails (server/util/specrails-home.ts).
-            let sidecar = match &host_profile::current().data_home {
-                Some(home) => sidecar.env("SPECRAILS_REGISTRY_HOME", home.to_string_lossy().into_owned()),
-                None => sidecar,
-            };
-            let sidecar = if has_runtimes {
-                // Bundled node/git win: server/path-resolver.ts prepends the bundled bin
-                // dirs ahead of the macOS login-shell PATH set below, so a system
-                // homebrew/nvm node or git can never shadow the bundled runtimes.
-                sidecar
-                    .env("SPECRAILS_IS_DESKTOP", "1")
-                    .env("SPECRAILS_BUNDLED_RUNTIMES_PATH", &runtimes_path)
-            } else {
-                sidecar
-            };
-
-            // Resolve the bundled specrails-core path from Tauri's resource directory
-            // (mirrors the runtimes resolution above: lib.rs:181-215). The bundled
-            // core lets the setup wizard materialize + assemble the framework OFFLINE
-            // (no `npx specrails-core` network round-trip).
-            //   On macOS:   <app>.app/Contents/Resources/core
-            //   On Windows: <install-dir>/resources/core
-            let core_path = app_handle
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("core").to_string_lossy().into_owned())
-                .unwrap_or_default();
-
-            // EXISTENCE-GATE the bundled core exactly like the runtimes: only export
-            // SPECRAILS_BUNDLED_CORE_PATH when the compiled CLI actually exists on disk
-            // (not just a `.gitkeep` placeholder). When absent, the env is never set so
-            // server/bundled-core.ts returns null and setup-manager falls back to the
-            // legacy `npx specrails-core init` path — never dead-ending.
-            let core_root = std::path::Path::new(&core_path);
-            let has_core = core_root
-                .join("dist")
-                .join("installer")
-                .join("cli.js")
-                .exists();
-            let sidecar = if has_core {
-                sidecar.env("SPECRAILS_BUNDLED_CORE_PATH", &core_path)
-            } else {
-                sidecar
-            };
-
-            // Resolve the bundled @fission-ai/openspec path from Tauri's resource
-            // directory (mirrors the bundled-core block above). The bundled openspec
-            // is the LAST network step of project-add: when present, the bundled-core
-            // init runs `openspec init` from this tree instead of `npx`, making
-            // project-add FULLY OFFLINE.
-            //   On macOS:   <app>.app/Contents/Resources/openspec
-            //   On Windows: <install-dir>/resources/openspec
-            // openspec ships as an `npm install`ed tree (it has runtime deps), so the
-            // CLI entry lives at openspec/node_modules/@fission-ai/openspec/bin/openspec.js.
-            let openspec_path = app_handle
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("openspec").to_string_lossy().into_owned())
-                .unwrap_or_default();
-
-            // EXISTENCE-GATE on the CLI entry exactly like the bundled core: only
-            // export SPECRAILS_BUNDLED_OPENSPEC_PATH when the openspec CLI node entry
-            // actually exists on disk (not just a `.gitkeep` placeholder). When absent
-            // the env is never set so server/bundled-openspec.ts returns null and the
-            // bundled-core init falls back to `npx @fission-ai/openspec` — never
-            // dead-ending.
-            let openspec_root = std::path::Path::new(&openspec_path);
-            let has_openspec = openspec_root
-                .join("node_modules")
-                .join("@fission-ai")
-                .join("openspec")
-                .join("bin")
-                .join("openspec.js")
-                .exists();
-            let sidecar = if has_openspec {
-                sidecar.env("SPECRAILS_BUNDLED_OPENSPEC_PATH", &openspec_path)
-            } else {
-                sidecar
-            };
-
-            // Resolve the bundled user-guide docs path from Tauri's resource
-            // directory (mirrors the bundled-core block above). The Documentation
-            // panel serves these language-aware Markdown files; server/docs-router.ts
-            // reads SPECRAILS_BUNDLED_DOCS_PATH (expecting a `guide/` subdir).
-            // The docs are declared as `../docs/guide/**/*` in tauri.conf.json, so
-            // Tauri places them under `<resource_dir>/_up_/docs/guide` (the `_up_`
-            // segment is how Tauri preserves a parent-relative resource path). We
-            // try that layout first, then a plain `<resource_dir>/docs` fallback.
-            //   On macOS:   <app>.app/Contents/Resources/_up_/docs
-            //   On Windows: <install-dir>/resources/_up_/docs
-            let resource_dir = app_handle.path().resource_dir().ok();
-            let docs_path = resource_dir.as_ref().and_then(|rd| {
-                let up = rd.join("_up_").join("docs");
-                if up.join("guide").is_dir() {
-                    return Some(up.to_string_lossy().into_owned());
                 }
-                let plain = rd.join("docs");
-                if plain.join("guide").is_dir() {
-                    return Some(plain.to_string_lossy().into_owned());
-                }
-                None
-            });
-            let sidecar = if let Some(ref docs_path) = docs_path {
-                sidecar.env("SPECRAILS_BUNDLED_DOCS_PATH", docs_path)
-            } else {
-                sidecar
-            };
-
-            // Resolve the bundled specrails-mcp stdio bridge from Tauri's resource
-            // directory (mirrors the blocks above). Without this env the sidecar's
-            // resolveBridgeScript() falls back to a repo-relative climb
-            // (src-tauri/binaries/specrails-mcp.js) that only exists in dev — in the
-            // packaged .app it returns null, so the in-app agent chat spawns WITHOUT
-            // --mcp-config and can't see any specrails_* tools. The bridge JS is
-            // declared as `binaries/specrails-mcp.js` in tauri.conf.json.
-            //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-mcp.js
-            //   On Windows: <install-dir>/resources/binaries/specrails-mcp.js
-            let mcp_bridge_path = app_handle
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|p| {
-                    p.join("binaries")
-                        .join("specrails-mcp.js")
-                        .to_string_lossy()
-                        .into_owned()
-                })
-                .unwrap_or_default();
-
-            // EXISTENCE-GATE exactly like the bundled core/openspec: only export the
-            // env when the bridge JS actually exists on disk, so a build that somehow
-            // shipped without it falls back to the relative climb rather than pointing
-            // the server at a non-existent file.
-            let sidecar = if std::path::Path::new(&mcp_bridge_path).exists() {
-                sidecar.env("SPECRAILS_BUNDLED_MCP_BRIDGE_PATH", &mcp_bridge_path)
-            } else {
-                sidecar
-            };
-
-            // Same story for the bundled local agent runner (`local-runner/`,
-            // declared as `binaries/specrails-local-runner.js`): without this env
-            // the sidecar's resolveLocalRunnerScript() climbs relative to
-            // __dirname, which only resolves in dev — in the packaged app it
-            // returns null and every local-engine turn spawns node against a
-            // non-existent script (observed on Windows: the mission composer
-            // offers the engine, then the turn dies with a Node error).
-            //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-local-runner.js
-            //   On Windows: <install-dir>/resources/binaries/specrails-local-runner.js
-            let local_runner_path = app_handle
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|p| {
-                    p.join("binaries")
-                        .join("specrails-local-runner.js")
-                        .to_string_lossy()
-                        .into_owned()
-                })
-                .unwrap_or_default();
-
-            // Existence-gated like the bridge above: a build without the runner
-            // falls back to the relative climb instead of a dead path.
-            let sidecar = if std::path::Path::new(&local_runner_path).exists() {
-                sidecar.env("SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH", &local_runner_path)
-            } else {
-                sidecar
-            };
-
-            // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
-            // from launchd that omits user tool dirs (homebrew, cargo, bun,
-            // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend
-            // well-known locations so tools like `claude` are found.
-            //
-            // On Windows and Linux, GUI apps inherit the user's PATH correctly
-            // from Explorer / the desktop environment, so we do NOT override —
-            // any override here would be POSIX-only garbage and hide real tools.
-            #[cfg(target_os = "macos")]
-            let sidecar = {
-                let home = dirs_next::home_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
-                let home_s = home.to_string_lossy();
-
-                // zsh login PATH (covers nvm, pyenv, etc. configured in .zshrc)
-                let zsh_path = std::process::Command::new("/bin/zsh")
-                    .args(["-l", "-c", "echo $PATH"])
-                    .output()
-                    .ok()
-                    .and_then(|o| String::from_utf8(o.stdout).ok())
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_default();
-
-                let prepend = format!(
-                    "{home}/.local/bin:{home}/.bun/bin:{home}/.cargo/bin:\
-                     /opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin",
-                    home = home_s
-                );
-
-                let base = if zsh_path.is_empty() {
-                    "/usr/bin:/bin:/usr/sbin:/sbin".to_string()
-                } else {
-                    zsh_path
-                };
-                let shell_path = format!("{prepend}:{base}");
-
-                sidecar.env("PATH", &shell_path)
-            };
-
-            let (mut rx, child) = sidecar
-                .spawn()
-                .map_err(|error| {
-                    app_handle.dialog()
-                        .message(format!("The local server could not start: {error}. Your saved projects remain on disk."))
-                        .title("Specrails — Startup Error")
-                        .blocking_show();
-                    error
-                })?;
-
-            let pid = child.pid();
-            #[cfg(windows)]
-            let _ = SIDECAR_CREATION_TIME.set(process_creation_time(pid).map(|created| (pid, created)));
-            *sidecar_pid.lock().unwrap() = Some(pid);
-
-            // Drain sidecar stdout/stderr to prevent pipe buffer blocking.
-            // Write to ~/Library/Logs/Specrails/sidecar.log for diagnostics.
-            let log_path = dirs_next::home_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-                .join("Library/Logs")
-                .join(host_profile::current().log_dir)
-                .join("sidecar.log");
-            if let Some(parent) = log_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
+                return Err(Box::new(error));
             }
-            // Clear the stored PID when the sidecar terminates so a later
-            // window-close / restart_app never signals a stale (possibly
-            // OS-recycled) PID — the second half of the BUG-TAURI-02 guard.
-            let terminated_pid_state = Arc::clone(&sidecar_pid);
-            let terminated_stopping = Arc::clone(&sidecar_stopping);
-            let terminated_app = app_handle.clone();
-            let readiness_log_path = log_path.clone();
-            std::thread::spawn(move || {
-                use tauri_plugin_shell::process::CommandEvent;
-                use std::io::Write;
-                let mut log = std::fs::OpenOptions::new()
-                    .create(true).append(true).open(&log_path).ok();
-                while let Some(event) = rx.blocking_recv() {
-                    let mut unexpected_exit = false;
-                    let line = match event {
-                        CommandEvent::Stdout(b) => format!("[OUT] {}\n", String::from_utf8_lossy(&b)),
-                        CommandEvent::Stderr(b) => format!("[ERR] {}\n", String::from_utf8_lossy(&b)),
-                        CommandEvent::Error(e)  => format!("[TAURI_ERR] {}\n", e),
-                        CommandEvent::Terminated(s) => {
-                            // Forget the PID: the sidecar is gone and its PID may
-                            // be reassigned by the OS to unrelated software.
-                            unexpected_exit = record_sidecar_exit(&terminated_pid_state, &terminated_stopping, pid);
-                            format!("[EXIT] code={:?}\n", s.code)
-                        }
-                        _ => continue,
-                    };
-                    if let Some(f) = log.as_mut() { let _ = f.write_all(line.as_bytes()); }
-                    if unexpected_exit {
-                        let detail = format!(
-                            "The local Specrails server stopped unexpectedly. Your saved projects remain on disk. Restart Specrails to reconnect. Diagnostics: {}",
-                            log_path.display()
-                        );
-                        let _ = terminated_app.emit("specrails:backend-unavailable", &detail);
-                        terminated_app.dialog()
-                            .message(detail)
-                            .title("Specrails — Server disconnected")
-                            .show(|_| {});
-                    }
-                }
-            });
-
-            // --- Readiness monitor (runs off the UI thread) ---
-            // Cold starts can take longer than 30s while migrations/recovery run.
-            // A timeout is not proof of process failure: keep monitoring and let
-            // the frontend retry authentication rather than killing a healthy
-            // slow-starting server and presenting an apparently empty registry.
-            let app_handle2 = app_handle.clone();
-            let health_url = format!("http://127.0.0.1:{}/api/health", server_port());
-            let readiness_pid = Arc::clone(&sidecar_pid);
-            let readiness_stopping = Arc::clone(&sidecar_stopping);
-            std::thread::spawn(move || {
-                use backend_health::{wait_for_backend, BackendReadiness};
-                use std::io::Write;
-                let mut reported_delay = false;
-                loop {
-                    let readiness = wait_for_backend(
-                        &health_url,
-                        Duration::from_secs(HEALTH_TIMEOUT_SECS),
-                        || !readiness_stopping.load(Ordering::SeqCst)
-                            && readiness_pid.lock().map(|state| *state == Some(pid)).unwrap_or(false),
-                    );
-                    match readiness {
-                        BackendReadiness::Ready => {
-                            let _ = app_handle2.emit("specrails:backend-ready", ());
-                            break;
-                        }
-                        BackendReadiness::Stopped => break,
-                        BackendReadiness::TimedOut => {
-                            if !reported_delay {
-                                reported_delay = true;
-                                if let Ok(mut log) = std::fs::OpenOptions::new().create(true).append(true).open(&readiness_log_path) {
-                                    let _ = writeln!(log, "[HOST] Backend readiness is delayed; keeping the sidecar alive and retrying health.");
-                                }
-                                let _ = app_handle2.emit("specrails:backend-starting", ());
-                            }
-                        }
-                    }
-                }
-            });
 
             Ok(())
         })
@@ -1098,10 +1315,7 @@ mod tests {
     // signal anything. We assert it returns promptly with a None pid.
     #[test]
     fn shutdown_sidecar_is_noop_when_pid_is_none() {
-        let state = SidecarState {
-            pid: Arc::new(Mutex::new(None)),
-            stopping: Arc::new(AtomicBool::new(false)),
-        };
+        let state = SidecarState::new();
         let start = Instant::now();
         shutdown_sidecar(&state);
         assert!(
@@ -1120,10 +1334,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn shutdown_sidecar_short_circuits_for_non_sidecar_pid() {
-        let state = SidecarState {
-            pid: Arc::new(Mutex::new(Some(std::process::id()))),
-            stopping: Arc::new(AtomicBool::new(false)),
-        };
+        let state = SidecarState::new();
+        *state.pid.lock().unwrap() = Some(std::process::id());
         let start = Instant::now();
         shutdown_sidecar(&state);
         assert!(
