@@ -1,4 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest'
+
+// These fixtures date rows `${today}T10:00Z`, where today is the UTC date,
+// while "today" in the code is the person's LOCAL day and the period windows
+// are UTC dates. Around local midnight those cannot all agree (they failed
+// between 00:00 and 01:00 in Madrid), so the clock is pinned to a midday that
+// is the same calendar day in every timezone the suite runs in.
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-06-15T12:00:00.000Z') }) })
+afterAll(() => { vi.useRealTimers() })
 import { APP_LEDGER_ROW_ID, getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
 import { initDb } from '../../../db'
 import { recordInvocation, type Surface } from './ai-invocations'
