@@ -461,3 +461,21 @@ describe('usage-limit pause controls (provider-quota)', () => {
     expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })).body.error).toBe('switch_unavailable')
   })
 })
+
+describe('resuming a run a Desktop restart interrupted', () => {
+  it('treats the empty-handed Resume of a restart-paused run as the explicit recovery of its interrupted steps', async () => {
+    const { isRestartResume, restartRecoveryControls } = await import('./project-router-loop-runs')
+    const interrupted = { status: 'paused', restart_reason: 'restart' }
+    expect(isRestartResume(interrupted, {})).toBe(true)
+    expect(restartRecoveryControls({}, [{ attemptId: 'a1' }, { attemptId: 'a2' }])).toEqual({ recover: ['a1', 'a2'] })
+    // Nothing interrupted mid-write: the body stays as it was.
+    expect(restartRecoveryControls({}, [])).toEqual({})
+  })
+  it('leaves answers, explicit recovery and other pauses alone', async () => {
+    const { isRestartResume } = await import('./project-router-loop-runs')
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { answer: 'yes', interruptId: 'i1' })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { recover: [] })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'budget_paused' }, {})).toBe(false)
+    expect(isRestartResume({ status: 'completed', restart_reason: null }, {})).toBe(false)
+  })
+})

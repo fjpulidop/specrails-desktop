@@ -78,7 +78,15 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       c.loopRunManager.resolveLimitPause(runId, { action: 'resume' })
       res.status(202).json({ loopRunId: runId, resumed: true }); return
     }
-    const outcome = await resumeRetainedDefinitionRun(c, runId, req.body ?? {})
+    let controls: unknown = req.body ?? {}
+    // A run a Desktop restart interrupted is resumed from the inbox or the restart dialog
+    // with an empty body. That click is the person's explicit recovery: re-run the step
+    // the restart cut off instead of failing on "An interrupted write requires explicit recovery".
+    if (run && run.project_id === c.project.id && run.engine_version === 2 && isRestartResume(run, controls)) {
+      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      controls = restartRecoveryControls(controls, probe.recoverableSteps)
+    }
+    const outcome = await resumeRetainedDefinitionRun(c, runId, controls)
     res.status(outcome.status).json(outcome.body)
   })
 
@@ -564,4 +572,18 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   } catch (error) {
     return { status: 409, body: { error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) } }
   }
+}
+
+/** An empty-handed resume of a run paused by a Desktop restart (no answer, no explicit recovery). */
+export function isRestartResume(run: { status: string; restart_reason?: string | null }, controls: unknown): boolean {
+  if (run.status !== 'paused' || run.restart_reason !== 'restart') return false
+  const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>
+  return body.recover === undefined && body.answer === undefined && body.interruptId === undefined
+}
+
+/** The resume controls that authorize re-running every step the restart interrupted. */
+export function restartRecoveryControls(controls: unknown, recoverable: ReadonlyArray<{ attemptId: string }>): unknown {
+  if (recoverable.length === 0) return controls
+  const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>
+  return { ...body, recover: recoverable.map((step) => step.attemptId) }
 }
