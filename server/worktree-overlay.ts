@@ -52,6 +52,7 @@
 import fs from 'fs'
 import path from 'path'
 import { createHash } from 'crypto'
+import { cloneCopySync } from './util/clone-copy'
 
 const OPENSPEC_CONFIG_FILES = ['openspec/config.yaml', 'openspec/config.yml'] as const
 
@@ -348,8 +349,8 @@ function linkOrCopyEntry(src: string, dest: string, rel: string, created: string
     try {
       // A filter avoids Node 22's native Unicode directory-copy failure on
       // Windows (nodejs/node#61878). The caller admits only a missing destination.
-      if (srcIsDir) fs.cpSync(src, dest, { recursive: true, dereference: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
-      else fs.copyFileSync(src, dest)
+      // Copy-on-write clone where possible (APFS via `cp -c`; util/clone-copy.ts).
+      cloneCopySync(src, dest, { dereference: true })
       linked = true
     } catch (err) {
       warnings.push(`failed to link ${rel}: ${errMsg(err)}`)
@@ -564,7 +565,7 @@ function copyIfAbsent(src: string, dest: string, rel: string, created: string[],
     // Adapter instruction paths may be nested (Kimi uses
     // `.kimi-code/AGENTS.md`), unlike the historical root-level CLAUDE.md.
     fs.mkdirSync(path.dirname(dest), { recursive: true })
-    fs.copyFileSync(src, dest)
+    cloneCopySync(src, dest)
     created.push(rel)
   } catch (err) {
     warnings.push(`failed to copy ${rel}: ${errMsg(err)}`)
