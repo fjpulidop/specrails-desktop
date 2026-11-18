@@ -32,6 +32,17 @@ Você também pode clicar com o botão direito na seleção ou pressionar **Shif
 percorrer o menu e **Escape** para fechá-lo. Selecione mensagens já confirmadas;
 o texto ainda em streaming ou à espera na fila ainda não está disponível.
 
+## Várias missões lado a lado {#split-view}
+
+Clique com o botão direito numa missão da barra lateral (ou prima **Shift+F10**) e escolha **Vista dividida**, **Abrir à direita** ou **Abrir abaixo**. A vista dividida coloca-a ao lado da missão em que está quando há espaço para as duas; caso contrário, abaixo.
+
+- **Redimensionar:** arraste a linha entre duas missões. Ela encaixa no meio; um duplo clique divide o espaço por igual. Com a linha em foco, as setas movem-na (Shift para passos maiores) e Home centra-a.
+- **Menu de layout** (o botão de colunas no cabeçalho de cada missão): abrir outra missão à direita ou abaixo, mover a missão para a esquerda, direita, cima ou baixo, trocá-la com outra, maximizá-la, igualar todas as missões ou fechá-la. As opções que deixariam uma missão pequena demais (menos de cerca de 360 × 240 px) ficam desativadas.
+- **Atalhos:** **⌥⌘]** / **⌥⌘[** missão seguinte ou anterior, **⌘⇧↵** maximizar ou restaurar, **⌥⌘=** igualar, **⌥⌘W** fechar a missão atual (no Windows/Linux, Ctrl+Alt em vez de ⌥⌘ e Ctrl+Shift+Enter).
+- **Janelas pequenas:** quando as missões já não cabem, ficam empilhadas: uma fila de separadores no topo escolhe a que se vê e as outras continuam a correr.
+
+O layout e os seus tamanhos são lembrados nesta janela entre reinícios; missões arquivadas ou eliminadas são descartadas. Fechar o painel de uma missão nunca a para nem a elimina.
+
 ## Quão cheio está o contexto {#context-ring}
 
 Um pequeno anel ao lado da caixa de mensagem mostra quanto da janela de contexto da missão a sessão do provedor já usou, conforme o provedor informa. Clique nele para ver os tokens usados, o tamanho da janela e o modelo. Quando o provedor não informa a janela, ou acabou de compactar o contexto, o anel fica vazio e diz o que é desconhecido. Os provedores compactam o contexto por conta própria quando ele enche.

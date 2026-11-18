@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1750 source/build files. Nearby tests are linked where names
+Includes 1755 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -730,7 +730,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
 - [MissionHomeHeader.tsx](../../client/src/features/missions/components/MissionHomeHeader.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionHomeHeader.test.tsx)
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
+- [MissionPaneLayoutMenu.tsx](../../client/src/features/missions/components/MissionPaneLayoutMenu.tsx)
 - [MissionSelectionMenu.tsx](../../client/src/features/missions/components/MissionSelectionMenu.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSelectionMenu.test.tsx)
+- [MissionSplitDivider.tsx](../../client/src/features/missions/components/MissionSplitDivider.tsx)
 - [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
 - [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)
@@ -789,7 +791,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
 - [MissionExtensionsContext.tsx](../../client/src/features/missions/context/MissionExtensionsContext.tsx)
 - [MissionSessionsContext.tsx](../../client/src/features/missions/context/MissionSessionsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSessionsContext.test.tsx)
-- [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
+- [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSplitViewsContext.test.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
 - [usePrCardResync.ts](../../client/src/features/missions/context/usePrCardResync.ts)
 
@@ -836,7 +838,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-run-state.ts](../../client/src/features/missions/lib/mission-run-state.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-run-state.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
 - [mission-sessions.ts](../../client/src/features/missions/lib/mission-sessions.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-sessions.test.ts)
-- [mission-split-layout.ts](../../client/src/features/missions/lib/mission-split-layout.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-layout.test.ts)
+- [mission-side-pane.ts](../../client/src/features/missions/lib/mission-side-pane.ts)
+- [mission-split-keys.ts](../../client/src/features/missions/lib/mission-split-keys.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-keys.test.ts)
+- [mission-split-storage.ts](../../client/src/features/missions/lib/mission-split-storage.ts)
+- [mission-split-tree.ts](../../client/src/features/missions/lib/mission-split-tree.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-tree.test.ts)
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)

@@ -32,6 +32,17 @@ Puoi anche fare clic destro sulla selezione o premere **Shift+F10**. Usa le frec
 muoverti nel menu ed **Esc** per chiuderlo. Seleziona messaggi già confermati;
 il testo ancora in streaming o in attesa in coda non è ancora disponibile.
 
+## Più missioni affiancate {#split-view}
+
+Fai clic destro su una missione nella barra laterale (o premi **Shift+F10**) e scegli **Vista divisa**, **Apri a destra** o **Apri sotto**. La vista divisa la mette accanto alla missione in cui ti trovi se c'è spazio per entrambe, altrimenti sotto.
+
+- **Ridimensiona** trascinando la linea tra due missioni. Si aggancia al centro; un doppio clic divide lo spazio in parti uguali. Con la linea selezionata, le frecce la spostano (Shift per passi più ampi) e Home la centra.
+- **Menu del layout** (il pulsante a colonne nell'intestazione di ogni missione): apri un'altra missione a destra o sotto, sposta la missione a sinistra, destra, su o giù, scambiala con un'altra, massimizzala, uniforma tutte le missioni o chiudila. Le opzioni che renderebbero una missione troppo piccola (meno di circa 360 × 240 px) sono disattivate.
+- **Scorciatoie:** **⌥⌘]** / **⌥⌘[** missione successiva o precedente, **⌘⇧↵** massimizza o ripristina, **⌥⌘=** uniforma, **⌥⌘W** chiudi la missione corrente (su Windows/Linux, Ctrl+Alt al posto di ⌥⌘ e Ctrl+Shift+Invio).
+- **Finestre piccole:** quando le missioni non entrano più, si impilano: una fila di schede in alto sceglie quella visibile e le altre continuano a funzionare.
+
+Il layout e le sue dimensioni vengono ricordati in questa finestra tra un riavvio e l'altro; le missioni archiviate o eliminate vengono escluse. Chiudere il riquadro di una missione non la ferma né la elimina mai.
+
 ## Quanto è pieno il contesto {#context-ring}
 
 Un piccolo anello accanto alla casella del messaggio mostra quanta parte della finestra di contesto della missione ha usato la sessione del provider, secondo quanto riportato dal provider. Cliccalo per vedere i token usati, la dimensione della finestra e il modello. Quando il provider non indica la finestra, o ha appena compattato il contesto, l'anello resta vuoto e dice cosa è sconosciuto. I provider compattano il contesto da soli quando si riempie.

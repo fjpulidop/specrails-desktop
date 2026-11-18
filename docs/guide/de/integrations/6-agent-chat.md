@@ -32,6 +32,17 @@ Du kannst auch mit der rechten Maustaste auf die Auswahl klicken oder **Shift+F1
 bewegst du dich durch das Menü, **Escape** schließt es. Markiere abgeschlossene Nachrichten;
 Text, der noch gestreamt wird oder in der Warteschlange wartet, ist noch nicht verfügbar.
 
+## Mehrere Missionen nebeneinander {#split-view}
+
+Klicke mit der rechten Maustaste auf eine Mission in der Seitenleiste (oder drücke **Shift+F10** darauf) und wähle **Geteilte Ansicht**, **Rechts öffnen** oder **Unten öffnen**. Die geteilte Ansicht setzt sie neben die Mission, in der du bist, wenn beide Platz haben, sonst darunter.
+
+- **Größe ändern:** Ziehe die Linie zwischen zwei Missionen. Sie rastet in der Mitte ein; ein Doppelklick teilt den Platz gleichmäßig. Ist die Linie fokussiert, verschieben die Pfeiltasten sie (Shift für größere Schritte), Pos1 zentriert sie.
+- **Bereichslayout-Menü** (die Spalten-Schaltfläche im Kopf jeder Mission): eine weitere Mission rechts oder unten öffnen, die Mission nach links, rechts, oben oder unten verschieben, mit einer anderen tauschen, maximieren, alle Missionen angleichen oder schließen. Optionen, die eine Mission zu klein machen würden (unter etwa 360 × 240 px), sind deaktiviert.
+- **Tastenkürzel:** **⌥⌘]** / **⌥⌘[** nächste oder vorherige Mission, **⌘⇧↵** maximieren oder wiederherstellen, **⌥⌘=** angleichen, **⌥⌘W** die aktuelle Mission schließen (unter Windows/Linux Strg+Alt statt ⌥⌘ und Strg+Shift+Enter).
+- **Kleine Fenster:** Passen die Missionen nicht mehr hinein, werden sie gestapelt: Eine Tab-Leiste oben wählt die angezeigte, die anderen laufen weiter.
+
+Das Layout und seine Größen bleiben in diesem Fenster über Neustarts erhalten; archivierte oder gelöschte Missionen werden ausgelassen. Das Schließen eines Bereichs stoppt oder löscht die Mission nie.
+
 ## Wie voll der Kontext ist {#context-ring}
 
 Ein kleiner Ring neben dem Nachrichtenfeld zeigt, wie viel vom Kontextfenster der Mission die Anbietersitzung belegt hat, so wie der Anbieter es meldet. Klicke darauf für die verwendeten Tokens, die Fenstergröße und das Modell. Meldet der Anbieter das Fenster nicht oder hat er den Kontext gerade komprimiert, bleibt der Ring leer und sagt, was unbekannt ist. Anbieter komprimieren den Kontext von selbst, wenn er voll wird.

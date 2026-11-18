@@ -32,6 +32,17 @@ Vous pouvez aussi faire un clic droit sur la sélection ou appuyer sur **Shift+F
 parcourir le menu et **Échap** pour le fermer. Sélectionnez des messages terminés ;
 le texte encore en cours de diffusion ou en attente dans la file n'est pas encore disponible.
 
+## Plusieurs missions côte à côte {#split-view}
+
+Faites un clic droit sur une mission dans la barre latérale (ou appuyez sur **Shift+F10**) et choisissez **Vue partagée**, **Ouvrir à droite** ou **Ouvrir en dessous**. La vue partagée la place à côté de la mission en cours s'il y a de la place pour les deux, sinon en dessous.
+
+- **Redimensionner :** faites glisser la ligne entre deux missions. Elle s'aimante au milieu ; un double-clic partage l'espace équitablement. Ligne sélectionnée, les flèches la déplacent (Shift pour de plus grands pas) et Début la recentre.
+- **Menu de disposition** (le bouton colonnes dans l'en-tête de chaque mission) : ouvrir une autre mission à droite ou en dessous, déplacer la mission à gauche, à droite, en haut ou en bas, l'échanger avec une autre, l'agrandir, égaliser toutes les missions ou la fermer. Les options qui rendraient une mission trop petite (moins d'environ 360 × 240 px) sont désactivées.
+- **Raccourcis :** **⌥⌘]** / **⌥⌘[** mission suivante ou précédente, **⌘⇧↵** agrandir ou restaurer, **⌥⌘=** égaliser, **⌥⌘W** fermer la mission en cours (sous Windows/Linux, Ctrl+Alt au lieu de ⌥⌘ et Ctrl+Shift+Entrée).
+- **Petites fenêtres :** quand les missions ne tiennent plus, elles s'empilent : une rangée d'onglets en haut choisit celle affichée, les autres continuent de tourner.
+
+La disposition et ses tailles sont conservées dans cette fenêtre d'un redémarrage à l'autre ; les missions archivées ou supprimées sont écartées. Fermer le panneau d'une mission ne l'arrête ni ne la supprime jamais.
+
 ## Le remplissage du contexte {#context-ring}
 
 Un petit anneau à côté de la zone de message indique quelle part de la fenêtre de contexte de la mission la session du fournisseur a utilisée, telle que le fournisseur la signale. Cliquez dessus pour voir les tokens utilisés, la taille de la fenêtre et le modèle. Quand le fournisseur ne signale pas la fenêtre, ou vient de compacter le contexte, l'anneau reste vide et indique ce qui est inconnu. Les fournisseurs compactent le contexte d'eux-mêmes quand il se remplit.

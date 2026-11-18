@@ -32,6 +32,17 @@ Usa las flechas para recorrer el menú y **Escape** para cerrarlo. Selecciona
 mensajes guardados: el texto que sigue llegando o espera en cola aún no está
 disponible.
 
+## Varias misiones lado a lado {#split-view}
+
+Haz clic derecho en una misión de la barra lateral (o pulsa **Shift+F10** sobre ella) y elige **Vista dividida**, **Abrir a la derecha** o **Abrir debajo**. La vista dividida la coloca junto a la misión en la que estás si caben las dos; si no, debajo.
+
+- **Redimensionar:** arrastra la línea entre dos misiones. Se ajusta al centro; con doble clic reparte ese espacio a partes iguales. Con la línea enfocada, las flechas la mueven (Shift para pasos mayores) e Inicio la centra.
+- **Menú de disposición** (el botón de columnas en la cabecera de cada misión): abre otra misión a la derecha o debajo, mueve la misión a la izquierda, derecha, arriba o abajo, intercámbiala con otra, maximízala, iguala todas las misiones o ciérrala. Las opciones que dejarían una misión demasiado pequeña (menos de unos 360 × 240 px) aparecen desactivadas.
+- **Atajos:** **⌥⌘]** / **⌥⌘[** misión siguiente o anterior, **⌘⇧↵** maximizar o restaurar, **⌥⌘=** igualar, **⌥⌘W** cerrar la misión en la que estás (en Windows/Linux, Ctrl+Alt en lugar de ⌥⌘ y Ctrl+Shift+Enter).
+- **Ventanas pequeñas:** cuando las misiones ya no caben, se apilan: una fila de pestañas arriba elige la que se ve y las demás siguen funcionando.
+
+La disposición y sus tamaños se recuerdan en esta ventana entre reinicios; las misiones archivadas o eliminadas se descartan. Cerrar el panel de una misión nunca la detiene ni la elimina.
+
 ## Cuánto está lleno el contexto {#context-ring}
 
 Un pequeño anillo junto al cuadro de mensaje muestra cuánto de la ventana de contexto de la misión ha usado la sesión del proveedor, según lo informa el proveedor. Haz clic en él para ver los tokens usados, el tamaño de la ventana y el modelo. Cuando el proveedor no informa de la ventana, o acaba de compactar el contexto, el anillo queda vacío y dice qué se desconoce. Los proveedores compactan el contexto por su cuenta cuando se llena.
