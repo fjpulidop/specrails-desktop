@@ -44,11 +44,11 @@ function api() {
   return request(app)
 }
 
-describe('incomplete-tasks remedy route', () => {
-  it('retry with the browser queues the browser guidance for the restarted developer before the fork resumes', async () => {
-    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'retry-with-browser' })
+describe('continue remedy route', () => {
+  it('Continue queues the browser guidance for the restarted developer before the fork resumes', async () => {
+    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'continue' })
     expect(result.status).toBe(201)
-    expect(result.body).toMatchObject({ loopRunId: 'child', remedy: 'retry-with-browser', guided: true })
+    expect(result.body).toMatchObject({ loopRunId: 'child', remedy: 'continue', mode: 'fork', fromStep: 'developer', guided: true })
     expect(runtime.signal).toHaveBeenCalledTimes(1)
     const [, runId, text, requestId] = runtime.signal.mock.calls[0]
     expect(runId).toBe('child')
@@ -56,14 +56,32 @@ describe('incomplete-tasks remedy route', () => {
     expect(text).toContain('$SPECRAILS_BROWSE')
     expect(text).toContain('$PORT')
     expect(text).toMatch(/install it/i)
-    expect(requestId).toBe('remedy-browser-child')
+    expect(requestId).toMatch(/^continue-child-/)
     expect(order).toEqual(['signal', 'resume'])
+    // The new attempt says how it came to be.
+    expect(db.prepare('SELECT run_id, source_run_id, remedy, mode, from_step, cause, automatic FROM run_continuations').all())
+      .toEqual([{ run_id: 'child', source_run_id: 'run', remedy: 'continue', mode: 'fork', from_step: 'developer', cause: 'incomplete_tasks', automatic: 0 }])
+  })
+
+  it('keeps the older "Retry with the browser" id working as Continue', async () => {
+    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'retry-with-browser' })
+    expect(result.status).toBe(201)
+    expect(result.body).toMatchObject({ loopRunId: 'child', remedy: 'continue', guided: true })
+    expect(runtime.prepare).toHaveBeenCalledWith(db, 'run', 'retry-with-browser', expect.anything())
+  })
+
+  it('refuses an unknown remedy and an attempt that was already continued', async () => {
+    expect((await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'rm -rf' })).status).toBe(400)
+    db.prepare("INSERT INTO definition_fork_operations (project_id, source_run_id, request_id, child_run_id, request_json, adopted) VALUES ('p','run','r','child','{}',1)").run()
+    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'continue' })
+    expect(result.status).toBe(409)
+    expect(result.body).toMatchObject({ error: 'runtime_fork_owns_worktree', loopRunId: 'child' })
   })
 
   it('still resumes when the guidance cannot be queued, and says so', async () => {
     runtime.signal.mockRejectedValue(new Error('steering_unsupported'))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'retry-with-browser' })
+    const result = await api().post('/api/p/loop-runs/run/remedy').send({ remedy: 'continue' })
     expect(result.status).toBe(201)
     expect(result.body).toMatchObject({ guided: false })
     expect(begin).toHaveBeenCalled()

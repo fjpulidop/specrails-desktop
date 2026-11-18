@@ -72,6 +72,8 @@ import { beginProjectProcessQuiescence } from './process-admission'
 import { resolveSpecrailsHome } from './util/specrails-home'
 // Per-capability wiring for _loadProjectContext (each file owns one concern).
 import { createProjectBroadcast, createProjectBroadcastTaps } from './project-context-broadcast'
+import { createAutoContinuation } from './project-context-auto-continue'
+import { continueDefinitionRun } from './project-router-loop-runs'
 import { createProjectBudgetGates } from './project-context-budget'
 import { createProjectIntent } from './project-context-intent'
 import { createLoopRunFinishedHandler, recoverOrphanLoopRuns } from './project-context-loop-outcome'
@@ -775,6 +777,11 @@ export class ProjectRegistry {
     createProjectIntent({ ctx, db, desktopDb, internalApi, providerBilling: () => this._providerBilling, readFlowTicket: tickets.readFlowTicket, taps })
 
     this._contexts.set(project.id, ctx)
+    // A failed run whose cause is known and fixable continues once by itself (Settings can turn it off).
+    taps.autoContinue = createAutoContinuation({
+      context: () => (this._contexts.get(project.id) === ctx ? ctx : null), desktopDb,
+      continueRun: (context, runId, remedy, options) => continueDefinitionRun(context, runId, remedy, options),
+    })
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
     startProjectEnvWarmup(db)

@@ -35,6 +35,7 @@ import { resolveProvider, validateRequestedProvider } from './provider-selection
 import type { JobRow } from './types'
 import type { DbInstance } from './db'
 import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { readRunAttempts } from './modules/loops/runtime/run-attempts'
 import { getProjectMetrics } from './modules/accounting/runtime/metrics'
 import { getQueuedJobForListing, listUnifiedJobs } from './modules/execution/runtime/job-listing'
 import {
@@ -491,7 +492,10 @@ const accepted = loopPaused
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const { db } = ctx(req)
-    const result = listUnifiedJobs(db, { limit, offset, status, from, to, activeRuntimeIds: activeRuntimeContinuationIds(ctx(req)) })
+    const attempts = req.query.attempts === 'all' ? 'all' as const : 'latest' as const
+    const result = listUnifiedJobs(db, { limit, offset, status, from, to, attempts, activeRuntimeIds: activeRuntimeContinuationIds(ctx(req)) })
+    // A continued run names its place in its chain ("attempt 3"); earlier attempts are folded into it.
+    const chain = (() => { try { return readRunAttempts(db, result.jobs.map((job) => job.id)) } catch { return new Map() as ReturnType<typeof readRunAttempts> } })()
 
     // Annotate each job with hasTelemetry so the client can show the
     // Export diagnostic button without an extra round trip.
@@ -514,6 +518,7 @@ const accepted = loopPaused
       ...(isRuntimeContinuationActive(ctx(req), j.id) ? { status: 'running', finished_at: null } : {}),
       hasTelemetry: jobsWithTelemetry.has(j.id),
       ...(specOf(j.command) ?? {}),
+      ...(chain.get(j.id) ? { attempt: { number: chain.get(j.id)!.attempt, of: chain.get(j.id)!.attempts, firstRunId: chain.get(j.id)!.rootRunId } } : {}),
     }))
 
     res.json({ jobs: annotatedJobs, total: result.total })

@@ -7,14 +7,20 @@
  * to a certain signal is `unknown` with low confidence.
  */
 import { classifyProviderLimit } from '../../provider-limit'
+import { remainingAreHumanChecks } from './continuation'
 
 export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 export type FailureConfidence = 'high' | 'low'
 export type FailureSource = 'core' | 'desktop'
 
-/** Remedies that map to ACTIONS THAT ALREADY EXIST; the client shows only those its surface can run. */
-export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
+/**
+ * Remedies that map to ACTIONS THAT ALREADY EXIST; the client shows only those its surface can run.
+ * `continue` is the one primary remedy for a run that can go on (it keeps the work and attaches the
+ * cause's guidance); `retry` is "Start over" from the base. `resume` and `retry-with-browser` are the
+ * older ids of `continue`: still read, never ranked.
+ */
+export const REMEDY_IDS = ['continue', 'resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
 
 /** The structured host precondition behind an `environment` failure (Core's HostBlocker, bounded). */
@@ -217,28 +223,26 @@ function portConflictOf(input: DeriveInput): { port: number | null; line: string
   return { port: conflict.port, line: oneSentence(conflict.line) ?? conflict.line }
 }
 
-const RESUMABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash'])
+const CONTINUABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks'])
 
-/** Ranked remedies for a diagnosis. Order matters: the client shows the first available ones (at most three). */
-export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'resumablePhase'>): RemedyId[] {
-  // Resuming can help when Core named a phase, and for causes that are outside the change itself.
-  // A plain failed verification needs a change, not a resume. The client still shows `resume` only
-  // where the surface can actually resume the run.
-  const resume: RemedyId[] = diagnosis.resumablePhase || RESUMABLE_KINDS.has(diagnosis.kind) ? ['resume'] : []
+/** Ranked remedies for a diagnosis. Order matters: the client shows the first available ones; `retry` (Start over) sits apart. */
+export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'resumablePhase'> & Partial<Pick<FailureDiagnosis, 'incompleteTasks'>>): RemedyId[] {
+  // Continuing helps when Core named a phase, and for causes that are outside the change itself
+  // or that more work in the same run can finish. A plain failed verification needs a change first.
+  const go: RemedyId[] = diagnosis.resumablePhase || CONTINUABLE_KINDS.has(diagnosis.kind) ? ['continue'] : []
   if (diagnosis.confidence === 'low') return ['open-logs', 'retry']
   switch (diagnosis.kind) {
-    case 'tests_failed': return [...resume, 'edit-spec', 'open-logs', 'retry']
-    case 'provider_limit': return [...resume, 'retry', 'open-logs']
-    case 'environment': return ['fix-environment', ...resume, 'open-logs', 'retry']
-    // Something else held the port: free it (or let the run use its own PORT) and run again.
-    case 'port_in_use': return [...resume, 'retry', 'open-logs']
-    case 'blocked': return [...resume, 'edit-spec', 'open-logs', 'retry']
+    case 'tests_failed': return [...go, 'edit-spec', 'open-logs', 'retry']
+    // Continue first: its guidance says what is missing and how to install it; the panel shows the host's part.
+    case 'environment': return [...go, 'fix-environment', 'open-logs', 'retry']
+    case 'blocked': return [...go, 'edit-spec', 'open-logs', 'retry']
+    case 'provider_limit':
+    case 'port_in_use':
     case 'timeout':
     case 'tool_inactivity':
-    case 'crash': return [...resume, 'retry', 'open-logs']
-    // What is left is either a person's check (continue to review with it listed) or work the
-    // run can finish with its tools (retry from the developer with the unblock guidance).
-    case 'incomplete_tasks': return ['continue-to-review', 'retry-with-browser', 'open-logs', 'retry']
+    case 'crash': return [...go, 'open-logs', 'retry']
+    // The run can finish what is left with its tools; only checks a person must make go to review.
+    case 'incomplete_tasks': return [...go, ...(remainingAreHumanChecks(diagnosis.incompleteTasks) ? ['continue-to-review' as const] : []), 'open-logs', 'retry']
     case 'spec_invalid': return ['edit-spec', 'open-logs', 'retry']
     default: return ['open-logs', 'retry']
   }

@@ -11,7 +11,7 @@ import type { Router } from 'express'
 import { readDesktopVersion } from './core-compat'
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import type { ProjectRegistry } from './project-registry'
-import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, getUpdateChannel, setUpdateChannel } from './desktop-db'
+import { AUTO_CONTINUE_RUNS_KEY, GLOBAL_ALLOW_SUBAGENTS_KEY, getAutoContinueRuns, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, getUpdateChannel, setUpdateChannel } from './desktop-db'
 import { DESKTOP_CAP_KEYS, readDesktopCaps } from './modules/execution/adapters/budget-storage'
 import { readSpendOverview } from './modules/execution/runtime/budget-overview'
 import { isUpdateChannel } from './update-channel'
@@ -137,7 +137,7 @@ export function displayPath(file: string, home: string = os.homedir()): string {
   return file === home ? '~' : file.startsWith(home + '/') || file.startsWith(home + '\\') ? `~${file.slice(home.length)}` : file
 }
 
-/** `/settings`: port, specrails-tech URL, cost alert, sub-agent policy, update channel. */
+/** `/settings`: port, specrails-tech URL, cost alert, sub-agent policy, update channel, automatic continuation. */
 function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry): void {
   // GET /api/settings — get app-level settings
   router.get('/settings', (_req, res) => {
@@ -151,6 +151,7 @@ function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry
     const allowSubagents = getGlobalAllowSubagents(registry.desktopDb)
     res.json({
       port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents,
+      autoContinueRuns: getAutoContinueRuns(registry.desktopDb),
       subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb), updateChannel: getUpdateChannel(registry.desktopDb),
       // About: the real version and where this instance keeps its data (it follows SPECRAILS_REGISTRY_HOME).
       version: readDesktopVersion(),
@@ -161,9 +162,13 @@ function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry
 
   // PUT /api/settings — update app-level settings
   router.put('/settings', (req, res) => {
-    const { port, specrailsTechUrl, costAlertThresholdUsd, allowSubagents, updateChannel } = req.body ?? {}
+    const { port, specrailsTechUrl, costAlertThresholdUsd, allowSubagents, updateChannel, autoContinueRuns } = req.body ?? {}
     if (allowSubagents !== undefined && typeof allowSubagents !== 'boolean') {
       res.status(400).json({ error: 'allowSubagents must be a boolean' })
+      return
+    }
+    if (autoContinueRuns !== undefined && typeof autoContinueRuns !== 'boolean') {
+      res.status(400).json({ error: 'autoContinueRuns must be a boolean' })
       return
     }
     if (updateChannel !== undefined && !isUpdateChannel(updateChannel)) {
@@ -215,6 +220,7 @@ function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry
       if (previous !== JSON.stringify(subagentRuntime)) registry.notifySettingsChanged({ projectId: null })
     }
     if (updateChannel !== undefined) setUpdateChannel(registry.desktopDb, updateChannel)
+    if (autoContinueRuns !== undefined) setDesktopSetting(registry.desktopDb, AUTO_CONTINUE_RUNS_KEY, autoContinueRuns ? 'true' : 'false')
     res.json({ ok: true })
   })
 }

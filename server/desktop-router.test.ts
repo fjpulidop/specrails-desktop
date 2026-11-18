@@ -1355,6 +1355,15 @@ describe('desktop-router', () => {
       expect((await request(app).get('/api/settings')).body.subagentRuntime).toBeNull()
     })
 
+    it('keeps the automatic continuation setting, on by default', async () => {
+      const { app } = createApp()
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(true)
+      expect((await request(app).put('/api/settings').send({ autoContinueRuns: false })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(false)
+      expect((await request(app).put('/api/settings').send({ autoContinueRuns: 'no' })).status).toBe(400)
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(false)
+    })
+
     it('rejects a non-boolean allowSubagents without writing anything', async () => {
       const { app } = createApp()
       const res = await request(app).put('/api/settings').send({ allowSubagents: 'yes', port: 4300 })

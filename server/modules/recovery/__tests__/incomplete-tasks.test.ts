@@ -10,7 +10,14 @@ describe('incomplete tasks diagnosis', () => {
     const diagnosis = deriveFailureDiagnosis({ outcome: 'failed', core: { kind: 'unknown', confidence: 'low', phase: 'implementation-stalled' }, blockedReason: STALLED })
     expect(diagnosis).toMatchObject({ kind: 'incomplete_tasks', confidence: 'high', phase: 'implementation-stalled', source: 'desktop',
       incompleteTasks: ['4.1 README: the visual-review note needs a manual browser check [desktop]'] })
-    expect(rankRemedies(diagnosis)).toEqual(['continue-to-review', 'retry-with-browser', 'open-logs', 'retry'])
+    // Continue first; a check that reads as manual can also go to review.
+    expect(rankRemedies(diagnosis)).toEqual(['continue', 'continue-to-review', 'open-logs', 'retry'])
+  })
+  it('offers Continue to review only when every remaining task is a check a person must make', () => {
+    const base = { kind: 'incomplete_tasks' as const, confidence: 'high' as const, resumablePhase: null }
+    expect(rankRemedies({ ...base, incompleteTasks: ['5.2 Add the README note with the screenshots'] })).toEqual(['continue', 'open-logs', 'retry'])
+    expect(rankRemedies({ ...base, incompleteTasks: ['5.2 [human] Confirm the live charge in Stripe'] })).toEqual(['continue', 'continue-to-review', 'open-logs', 'retry'])
+    expect(rankRemedies({ ...base, incompleteTasks: ['5.1 Product owner sign-off', '5.2 Write the note'] })).toEqual(['continue', 'open-logs', 'retry'])
   })
   it('keeps Core 5.15\'s own record with its task list', () => {
     const core = { kind: 'incomplete_tasks', confidence: 'high', phase: 'implementation-stalled', incompleteTasks: ['4.1 Write the note'], detail: 'x' }

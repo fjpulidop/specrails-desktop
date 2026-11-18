@@ -21,7 +21,19 @@ export {
   type RemedyId,
 } from './domain'
 export {
+  autoContinueVerdict,
+  continuationGuidance,
+  failureFingerprint,
+  remainingAreHumanChecks,
+  unfinishedTasksGuidance,
+  type AutoContinueReason,
+  type AutoContinueRefusal,
+  type AutoContinueVerdict,
+} from './continuation'
+export {
+  ANALYSIS_ACTION_KINDS,
   ANALYSIS_CATEGORIES,
+  analysisAction,
   FAILURE_ANALYSIS_PROMPT_VERSION,
   analysisLanguage,
   evidenceHash,
@@ -29,6 +41,8 @@ export {
   failureEvidence,
   logLinesFromEvents,
   parseFailureAnalysis,
+  type AnalysisAction,
+  type AnalysisActionKind,
   type AnalysisCategory,
   type FailureAnalysis,
   type FailureEvidence,

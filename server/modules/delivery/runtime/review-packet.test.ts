@@ -576,6 +576,19 @@ describe('programmatic-runtime evidence in the proof', () => {
     expect(packet.confidence?.overall).toBe(92)
   })
 
+  it('a delivered packet proves the final verification and keeps earlier failed runs as collapsed history', () => {
+    const retried = { ...runtime, commands: [
+      { label: 'node --test test/', outcome: 'failed', exitCode: 1, durationMs: 1200, required: true, hostRun: true, outputTail: 'not ok 3 - clears four lines' },
+      { label: 'node --test test/', outcome: 'passed', exitCode: 0, durationMs: 900, required: true, hostRun: true, outputTail: 'ok 3 - clears four lines' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: retried }) })
+    expect(packet.variant).not.toBe('failed')
+    expect(packet.proof.filter((p) => p.code === 'proof.hostCommandFailed')).toEqual([])
+    const [final] = packet.proof.filter((p) => p.code === 'proof.hostCommandPassed')
+    expect(final).toMatchObject({ values: { label: 'node --test test/', exitCode: 0, seconds: 1 }, rawExcerpt: 'ok 3 - clears four lines',
+      earlier: [{ passed: false, exitCode: 1, seconds: 1, rawExcerpt: 'not ok 3 - clears four lines' }] })
+  })
+
   it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {
     const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: null }) })
     expect(packet.proof.some((p) => p.code === 'proof.noVerificationReported')).toBe(true)

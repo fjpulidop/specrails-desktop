@@ -15,6 +15,7 @@ let internal: http.Server
 let internalPort = 0
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let runState: Record<string, unknown> = {}
+let loopRunStatus = 'paused'
 
 const item = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:question:r1', projectId: 'p1', projectName: 'P1', kind: 'question', title: 'Run', detail: null,
@@ -38,6 +39,10 @@ beforeAll(async () => {
   app.get('/api/projects/:id/agent-runtime/runs/:rid', (req, res) => {
     calls.push({ method: 'GET', path: req.path, body: null })
     res.json({ runs: [runState] })
+  })
+  app.get('/api/projects/:id/loop-runs/:rid', (req, res) => {
+    calls.push({ method: 'GET', path: req.path, body: null })
+    res.json({ loopRun: { id: req.params.rid, status: loopRunStatus } })
   })
   app.use((req, res) => {
     calls.push({ method: req.method, path: req.path, body: req.body })
@@ -111,6 +116,11 @@ describe('companion inbox decisions', () => {
       expect(companionTargetsFor(item({ kind: 'failed', railIndex: 1, diagnosis: null })).ids).toEqual([])
     })
 
+    it('offers Resume for a run whose primary remedy is Continue (and its older id)', () => {
+      expect(companionTargetsFor(item({ kind: 'failed', diagnosis: diagnosis(['continue', 'open-logs', 'retry']) }))).toEqual({ ids: ['resume'], target: { runId: 'r1' } })
+      expect(companionTargetsFor(item({ kind: 'blocked', diagnosis: diagnosis(['resume', 'retry']) })).ids).toEqual(['resume'])
+    })
+
     it('leaves budget caps and Jira to the desktop', () => {
       expect(companionTargetsFor(item({ kind: 'budget', action: 'raise-cap' })).ids).toEqual([])
       expect(companionTargetsFor(item({ kind: 'jira', action: 'retry-jira' })).ids).toEqual([])
@@ -150,6 +160,14 @@ describe('companion inbox decisions', () => {
     it('resumes through the desktop loop-run resume, addressed to the item project', async () => {
       await request(app).post('/v1/projects/p2/inbox/resume').set(auth).send({ runId: 'r9' })
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p2/loop-runs/r9/resume', body: {} })
+    })
+
+    it('continues a run that already ended, the desktop\'s Continue', async () => {
+      loopRunStatus = 'completed'
+      try {
+        await request(app).post('/v1/projects/p1/inbox/resume').set(auth).send({ runId: 'r1' })
+        expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/remedy', body: { remedy: 'continue' } })
+      } finally { loopRunStatus = 'paused' }
     })
 
     it('carries the run-cap choice: ignore or raise, never both nor junk', async () => {
