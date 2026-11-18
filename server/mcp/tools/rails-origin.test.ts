@@ -24,7 +24,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // ── End-to-end origin link (design §8, safe-pr-review-flow) ───────────────────
 //

@@ -11,7 +11,6 @@ const coreDependencies: Record<string, string[]> = {
   'subscription-usage/domain.ts': [],
   'subscription-usage/ports.ts': ['./domain'],
   'subscription-usage/application.ts': ['./domain'],
-  'subscription-usage/index.ts': ['./domain', './ports'],
   'project-settings/domain.ts': ['../../shared/git-branch-name'],
   'project-settings/ports.ts': ['./domain'],
   'project-settings/application.ts': ['./domain', './ports'],
@@ -79,7 +78,6 @@ const coreDependencies: Record<string, string[]> = {
   'onboarding/domain.ts': [],
   'onboarding/ports.ts': ['./domain'],
   'onboarding/application.ts': ['./domain', './ports'],
-  'onboarding/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

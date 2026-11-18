@@ -241,21 +241,6 @@
     "phase": "Phase",
     "attempts": "Attempts"
   },
-  "prompts": {
-    "title": "Agent role prompts",
-    "description": "View and edit the instructions for each role. Shared by all projects and providers; changes apply to new jobs. Resumed jobs keep their original prompts.",
-    "definition": "{{role}} definition",
-    "default": "Factory default",
-    "custom": "Customized",
-    "restore": "Restore default",
-    "contracts": "Spec context, OpenSpec workflow and required response format are added automatically and are not edited here.",
-    "invalid": "Each definition must contain 1–20,000 characters, with nonblank text and no null bytes.",
-    "saved": "Role prompts saved",
-    "unsaved": "Unsaved changes",
-    "discard": "Discard changes",
-    "save": "Save prompts",
-    "fixerHint": "Used on correction rounds only — after a failed verification or a rejected review. Runs on the developer's engine unless Settings ▸ Agent engine ▸ Fixer names its own. A CLI provider that resumes the developer's session receives the short correction follow-up instead; the definition applies whenever a fresh session starts (local engines, the fixer engine, a lost session)."
-  },
   "efficiency": {
     "title": "Implementation efficiency",
     "scope": "Applies to new runs. Saved runs retain their original configuration and runtime.",

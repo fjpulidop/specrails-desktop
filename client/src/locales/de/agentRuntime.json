@@ -241,21 +241,6 @@
     "phase": "Phase",
     "attempts": "Versuche"
   },
-  "prompts": {
-    "title": "Prompts der Agentenrollen",
-    "description": "Anweisungen für jede Rolle anzeigen und bearbeiten. Sie gelten für alle Projekte und Anbieter; Änderungen gelten für neue Jobs. Fortgesetzte Jobs behalten ihre ursprünglichen Prompts.",
-    "definition": "Definition für {{role}}",
-    "default": "Werkseinstellung",
-    "custom": "Angepasst",
-    "restore": "Standard wiederherstellen",
-    "contracts": "Spec-Kontext, OpenSpec-Workflow und erforderliches Antwortformat werden automatisch ergänzt und hier nicht bearbeitet.",
-    "invalid": "Jede Definition muss 1–20.000 Zeichen mit nicht leerem Text und ohne Nullbytes enthalten.",
-    "saved": "Rollen-Prompts gespeichert",
-    "unsaved": "Ungespeicherte Änderungen",
-    "discard": "Änderungen verwerfen",
-    "save": "Prompts speichern",
-    "fixerHint": "Nur in Korrekturrunden – nach einer fehlgeschlagenen Prüfung oder einem abgelehnten Review. Läuft auf der Engine des Entwicklers, sofern Einstellungen ▸ Agent-Engine ▸ Korrektor keine eigene nennt. Ein CLI-Anbieter, der die Entwickler-Sitzung fortsetzt, erhält stattdessen den kurzen Korrekturhinweis; die Definition gilt, sobald eine neue Sitzung startet (lokale Engines, Korrektor-Engine, verlorene Sitzung)."
-  },
   "efficiency": {
     "title": "Effizienz der Implementierung",
     "scope": "Gilt für neue Ausführungen. Gespeicherte Ausführungen behalten ihre Konfiguration und Laufzeit.",

@@ -241,21 +241,6 @@
     "phase": "Fase",
     "attempts": "Intentos"
   },
-  "prompts": {
-    "title": "Prompts de los agentes",
-    "description": "Consulta y edita las instrucciones de cada rol. Son comunes a todos los proyectos y proveedores; los cambios se aplican a los nuevos trabajos. Los trabajos reanudados conservan sus prompts originales.",
-    "definition": "Definición de {{role}}",
-    "default": "Valor de fábrica",
-    "custom": "Personalizado",
-    "restore": "Restaurar valor de fábrica",
-    "contracts": "El contexto de la spec, el flujo de OpenSpec y el formato de respuesta se añaden automáticamente y no se editan aquí.",
-    "invalid": "Cada definición debe contener entre 1 y 20.000 caracteres, con texto no vacío y sin caracteres nulos.",
-    "saved": "Prompts guardados",
-    "unsaved": "Cambios sin guardar",
-    "discard": "Descartar cambios",
-    "save": "Guardar prompts",
-    "fixerHint": "Solo se usa en rondas de corrección: tras una verificación fallida o una revisión rechazada. Corre en el motor del desarrollador salvo que Ajustes ▸ Motor de agentes ▸ Corrector indique uno propio. Un proveedor CLI que reanuda la sesión del desarrollador recibe el seguimiento breve de corrección; la definición se aplica siempre que arranca una sesión nueva (motores locales, motor corrector, sesión perdida)."
-  },
   "efficiency": {
     "title": "Eficiencia de implementación",
     "scope": "Se aplica a nuevas ejecuciones. Las guardadas conservan su configuración y runtime originales.",

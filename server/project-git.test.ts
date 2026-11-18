@@ -7,7 +7,7 @@ import path from 'path'
 import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, inspectProjectCheckoutCleanliness, parseWorktreePorcelain, compactCheckoutError } from './project-git'
 import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
-import { listenOnLoopback } from './loopback-test-server'
+import { listenOnLoopback } from './__fixtures__/loopback-test-server'
 
 const GIT_ENV = {
   ...process.env,

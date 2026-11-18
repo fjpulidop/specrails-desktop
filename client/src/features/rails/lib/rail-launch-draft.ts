@@ -1,10 +1,9 @@
 // ─── Rail launch proposal protocol (mission-rail-cards) ──────────────────────
 // The operator agent proposes "assign these specs to a rail and launch" as ONE
 // fenced ```rail-launch JSON block instead of prose. The mission renders it as
-// an editable launch card (client/src/components/agent-chat/AgentRailLaunchCard).
-// This module is the parser HALF shared by server and client — the client copy
-// lives at client/src/features/rails/lib/rail-launch-draft.ts and MUST stay byte-identical
-// except for its import path (a parity test guards that).
+// an editable launch card (features/missions/components/AgentRailLaunchCard).
+// This is the only parser: the server emits the prompt contract but never parses
+// the blocks (behavior tests: __tests__/rail-launch-draft.test.ts).
 //
 // Tolerance (spec-draft precedent + snapshot hardening): unknown keys are
 // dropped, a malformed block is reported in `rejected[]` (never silent), a

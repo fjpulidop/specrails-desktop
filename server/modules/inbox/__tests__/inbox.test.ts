@@ -10,7 +10,7 @@ import { compareInboxItems, inboxItemId, oneLine, toIso, type InboxItem } from '
 import { deriveFailureDiagnosis, serializeDiagnosis } from '../../recovery'
 import { createProjectInboxSource } from '../adapters/project-source'
 import { registerInboxRoutes } from '../adapters/http'
-import { listenOnLoopback } from '../../../loopback-test-server'
+import { listenOnLoopback } from '../../../__fixtures__/loopback-test-server'
 
 const NOW = Date.parse('2026-10-24T12:00:00.000Z')
 const iso = (offsetMs: number): string => new Date(NOW + offsetMs).toISOString()

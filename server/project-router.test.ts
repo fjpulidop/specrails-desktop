@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { premiumSpec } from './modules/builder/runtime/blueprint-spec-fixtures'
+import { premiumSpec } from './modules/builder/runtime/__fixtures__/blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'

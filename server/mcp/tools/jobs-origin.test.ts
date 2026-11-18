@@ -16,7 +16,7 @@ import { AGENT_CAPABILITY_HEADER } from '../../modules/missions/runtime/agent-ti
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // ── Conversation-provider engine default on specrails_jobs(spawn) ─────────────
 //

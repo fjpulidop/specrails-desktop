@@ -66,11 +66,10 @@ reflection, filesystem loading, external consumers, aliases or generated entry
 points. Check those, build configuration and references across the repository
 before deleting a candidate. Nonliteral imports are listed for manual review.
 
-Two intentional candidates remain:
-
-- `server/modules/builder/runtime/blueprint-spec-fixtures.ts`: shared test fixture used by five suites.
-- `server/modules/delivery/runtime/rail-launch-parser.ts`: protocol reference implementation used by the
-  parser tests and a byte-parity contract with the active client parser.
+The audit currently reports no candidates. Test-only helpers live under a
+`__fixtures__/` directory (for example `server/__fixtures__/loopback-test-server.ts`
+and `server/modules/builder/runtime/__fixtures__/blueprint-spec-fixtures.ts`), which
+the audit, coverage, build output and package checks treat as test support.
 
 The removed UI modules formed unreachable islands, including the old root/nav
 layout, ticket view variants, template library, proposal modal and unused hooks.
@@ -129,3 +128,6 @@ historical documentation.
 - `client/src/hooks/useSpecLauncher.ts`
 - `client/src/pages/DesktopOverviewPage.tsx`
 - `server/ticket-broadcast.ts`
+- `client/src/features/settings/components/RuntimeRolePrompts.tsx` (unmounted global role-prompt editor; per-workflow definitions are edited in `LoopAgentsEditor`)
+- `server/modules/delivery/runtime/rail-launch-parser.ts` (server mirror of the client `rail-launch-draft.ts` parser; the server never parses rail-launch blocks, so the behavior tests moved to the client)
+- `server/modules/onboarding/index.ts`, `server/modules/subscription-usage/index.ts` (barrels without consumers; callers use the focused subpaths recorded in `boundaries.json`)

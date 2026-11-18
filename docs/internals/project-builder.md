@@ -375,7 +375,7 @@ uncertainty. `PREMIUM_SCAFFOLD_EXAMPLE` is the mandatory first spec written
 at that depth; "shorter is a defect, not a style". The floors were raised
 because the old minima ("at least two bullets", 4–10 criteria) became the
 ceiling the model aimed at (design D6/D8). Test fixtures that need a
-gate-valid spec use `server/modules/builder/runtime/blueprint-spec-fixtures.ts` ⇄
+gate-valid spec use `server/modules/builder/runtime/__fixtures__/blueprint-spec-fixtures.ts` ⇄
 `client/src/lib/__tests__/premium-spec-fixture.ts`.
 
 `server/modules/builder/runtime/blueprint-spec-quality.ts` is the shared deterministic authority. It

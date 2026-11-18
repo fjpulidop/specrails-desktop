@@ -17,7 +17,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // ── specrails_rails: create_rail + launch_all (server-side fan-out) ───────────
 //

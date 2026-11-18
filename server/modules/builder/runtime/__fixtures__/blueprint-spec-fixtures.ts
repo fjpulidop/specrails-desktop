@@ -4,7 +4,7 @@
 // SPEC_DEPTH_FLOORS): narrative problem, sub-blocked solution, ≥3 / ≥5
 // bullets, reasoned complexity, 6 behavioural criteria.
 
-import type { BlueprintM1Spec } from './blueprint-types'
+import type { BlueprintM1Spec } from '../blueprint-types'
 
 export interface PremiumDescriptionOptions {
   /** Mention the existing README (required for the M1 scaffold). */

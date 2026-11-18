@@ -74,7 +74,7 @@ card also omits the property, instead of sending an invalid empty map.
 }
 ```
 
-Parser pair `server/modules/delivery/runtime/rail-launch-parser.ts` ⇄ `client/src/features/rails/lib/rail-launch-draft.ts` (byte-identical except the mirror note; `server/modules/delivery/runtime/rail-launch-parser.test.ts` enforces parity). `extractRailLaunchProposals(content, streaming)` returns `{ body, proposals, rejected, pending, truncated, repaired }`:
+Parser: `client/src/features/rails/lib/rail-launch-draft.ts` (client only; the server emits the prompt contract but never parses blocks). `extractRailLaunchProposals(content, streaming)` returns `{ body, proposals, rejected, pending, truncated, repaired }`:
 
 - tolerant JSON repair (`json-tolerant`) before rejecting; `repaired` flags it;
 - unknown keys dropped; `ticketIds` accepts `12`, `"12"`, `"#12"` (also under `specs` / `tickets`); `mode` folds the removed `batch` / `batch-implement` into `implement`, `newRail: true` for an unnamed rail; `railIndex` is ignored when `newRail` is set;
@@ -153,7 +153,8 @@ Migration 29 and the envelope fields are additive; persisted intents are inert w
 
 | Area | Tests |
 |---|---|
-| Parser + promotion + mirror parity | `server/modules/delivery/runtime/rail-launch-parser.test.ts` |
+| Parser | `client/src/features/rails/lib/__tests__/rail-launch-draft.test.ts` |
+| Fence promotion + mirror parity | `server/modules/missions/runtime/agent-fence-promotion.test.ts`, `client/src/features/missions/components/__tests__/agent-fence-promotion.test.ts` |
 | Intent store/route, `dismissRunCard` | `server/agent-message-intent.test.ts` |
 | Run-only cards, availability, run-card dismiss route | `server/modules/delivery/runtime/rails-router.test.ts`, `server/mcp/tools/rails-origin.test.ts` |
 | Failure trigger / briefing / system turn | `server/modules/missions/runtime/mission-run-notify.test.ts`, `server/modules/missions/runtime/agent-failure-briefing.test.ts`, `server/agent-chat-mission-turn.test.ts`, `server/modules/delivery/runtime/rail-isolated-launch.test.ts` |

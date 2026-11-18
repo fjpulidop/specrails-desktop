@@ -3,9 +3,6 @@ import type { RuntimeEfficiency, RuntimeEfficiencySummary } from './runtime-effi
 export const RUNTIME_CLI_PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
 export const RUNTIME_ROLES = ['architect', 'developer', 'reviewer'] as const
 export type RuntimeRole = typeof RUNTIME_ROLES[number]
-/** Roles with an editable prompt definition: the pipeline trio plus the FIXER stance the developer takes on correction rounds (Core ≥ the fixer-prompt catalog; older cores omit it). */
-export const PROMPT_ROLES = [...RUNTIME_ROLES, 'fixer'] as const
-export type PromptRole = typeof PROMPT_ROLES[number]
 /** The optional correction-round role: absent ⇒ the developer corrects its own work. */
 export const FIXER_ROLE = 'fixer' as const
 export type RuntimeAgentRole = RuntimeRole | typeof FIXER_ROLE

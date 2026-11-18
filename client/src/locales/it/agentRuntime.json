@@ -241,21 +241,6 @@
     "phase": "Fase",
     "attempts": "Tentativi"
   },
-  "prompts": {
-    "title": "Prompt dei ruoli degli agenti",
-    "description": "Visualizza e modifica le istruzioni di ogni ruolo. Sono condivise da tutti i progetti e provider; le modifiche si applicano ai nuovi lavori. I lavori ripresi mantengono i prompt originali.",
-    "definition": "Definizione di {{role}}",
-    "default": "Impostazione predefinita",
-    "custom": "Personalizzato",
-    "restore": "Ripristina predefinito",
-    "contracts": "Il contesto della spec, il workflow OpenSpec e il formato di risposta richiesto vengono aggiunti automaticamente e non sono modificabili qui.",
-    "invalid": "Ogni definizione deve contenere da 1 a 20.000 caratteri, con testo non vuoto e senza byte nulli.",
-    "saved": "Prompt dei ruoli salvati",
-    "unsaved": "Modifiche non salvate",
-    "discard": "Scarta modifiche",
-    "save": "Salva prompt",
-    "fixerHint": "Usato solo nei giri di correzione: dopo una verifica fallita o una revisione respinta. Gira sul motore dello sviluppatore, salvo che Impostazioni ▸ Motore agenti ▸ Correttore ne indichi uno proprio. Un provider CLI che riprende la sessione dello sviluppatore riceve il breve seguito di correzione; la definizione si applica ogni volta che parte una sessione nuova (motori locali, motore correttore, sessione persa)."
-  },
   "efficiency": {
     "title": "Efficienza dell’implementazione",
     "scope": "Si applica alle nuove esecuzioni. Quelle salvate mantengono configurazione e motore originali.",

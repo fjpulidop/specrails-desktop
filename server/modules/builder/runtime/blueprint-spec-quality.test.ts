@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeBuilderSpecBatch, BUILDER_SPEC_HEADINGS } from './blueprint-spec-quality'
-import { premiumDescription, premiumSpec } from './blueprint-spec-fixtures'
+import { premiumDescription, premiumSpec } from './__fixtures__/blueprint-spec-fixtures'
 import { SPEC_DEPTH_FLOORS } from '../../specs/runtime/spec-contract-prompt'
 import type { BlueprintM1Spec } from './blueprint-types'
 

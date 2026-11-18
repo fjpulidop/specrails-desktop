@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { premiumSpec } from './blueprint-spec-fixtures'
+import { premiumSpec } from './__fixtures__/blueprint-spec-fixtures'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
 

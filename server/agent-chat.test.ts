@@ -749,7 +749,7 @@ vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({
 }))
 import { runAiCliInvocation } from './modules/execution/runtime/spawn-lifecycle'
 import { AgentChatManager as RealManager } from './modules/missions/runtime/agent-chat-manager'
-import { listenOnLoopback } from './loopback-test-server'
+import { listenOnLoopback } from './__fixtures__/loopback-test-server'
 
 describe('AgentChatManager', () => {
   let db: DbInstance

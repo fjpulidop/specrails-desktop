@@ -16,7 +16,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { createProjectAgentAudit, type ProjectAgentAudit } from '../../modules/audit/adapters/runtime'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // specrails_jobs(audit) through the REAL jobs route + the mission MCP wrapper rows.
 describe('MCP specrails_jobs audit + mission wrapper rows', () => {
