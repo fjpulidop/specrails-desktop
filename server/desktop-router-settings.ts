@@ -6,7 +6,9 @@
  * Every value lives in `desktop_settings` (desktop.sqlite); changes that
  * running agent sessions depend on notify the registry.
  */
+import os from 'node:os'
 import type { Router } from 'express'
+import { readDesktopVersion } from './core-compat'
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import type { ProjectRegistry } from './project-registry'
 import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, getUpdateChannel, setUpdateChannel } from './desktop-db'
@@ -129,6 +131,12 @@ function registerAttentionPrefsRoutes(router: Router, registry: ProjectRegistry,
   })
 }
 
+/** A local path for display: the home folder shortened to `~`. */
+export function displayPath(file: string, home: string = os.homedir()): string {
+  if (!file || !home) return file
+  return file === home ? '~' : file.startsWith(home + '/') || file.startsWith(home + '\\') ? `~${file.slice(home.length)}` : file
+}
+
 /** `/settings`: port, specrails-tech URL, cost alert, sub-agent policy, update channel. */
 function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry): void {
   // GET /api/settings — get app-level settings
@@ -141,7 +149,13 @@ function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry
     const costAlertThresholdRaw = getDesktopSetting(registry.desktopDb, 'cost_alert_threshold_usd')
     const costAlertThresholdUsd = costAlertThresholdRaw != null ? parseFloat(costAlertThresholdRaw) : null
     const allowSubagents = getGlobalAllowSubagents(registry.desktopDb)
-    res.json({ port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents, subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb), updateChannel: getUpdateChannel(registry.desktopDb) })
+    res.json({
+      port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents,
+      subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb), updateChannel: getUpdateChannel(registry.desktopDb),
+      // About: the real version and where this instance keeps its data (it follows SPECRAILS_REGISTRY_HOME).
+      version: readDesktopVersion(),
+      databasePath: displayPath(registry.desktopDb.name),
+    })
   })
 
   // PUT /api/settings — update app-level settings

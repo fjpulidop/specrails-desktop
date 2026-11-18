@@ -83,10 +83,10 @@
     "platformTour": "Plattform-Tour",
     "platformTourDescription": "Den Willkommensassistenten erneut abspielen, um die wichtigsten Funktionen zu sehen.",
     "replayTour": "Tour erneut abspielen",
-    "infoHeading": "Desktop-Informationen",
+    "infoHeading": "Über",
     "infoPort": "Port",
     "infoProjects": "Projekte",
-    "infoDb": "Desktop-DB",
+    "infoDb": "Datenbank",
     "removeProjectConfirmTitle": "{{name}} entfernen?",
     "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen.",
     "navLabel": "Einstellungsbereiche",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Ungespeicherte Änderungen",
     "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
-    "dailyBudgetNone": "Kein Tageslimit gesetzt"
+    "dailyBudgetNone": "Kein Tageslimit gesetzt",
+    "infoVersion": "Version"
   },
   "webhooks": {
     "heading": "Ausgehende Webhooks",

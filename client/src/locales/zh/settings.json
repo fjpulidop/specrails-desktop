@@ -83,10 +83,10 @@
     "platformTour": "平台导览",
     "platformTourDescription": "重播欢迎向导，回顾核心功能。",
     "replayTour": "重播导览",
-    "infoHeading": "Desktop 信息",
+    "infoHeading": "关于",
     "infoPort": "端口",
     "infoProjects": "项目",
-    "infoDb": "Desktop 数据库",
+    "infoDb": "数据库",
     "removeProjectConfirmTitle": "移除 {{name}}？",
     "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。",
     "navLabel": "设置分区",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "未保存的更改",
     "dailyBudgetCurrent": "当前每日 {{amount}}",
-    "dailyBudgetNone": "未设置每日上限"
+    "dailyBudgetNone": "未设置每日上限",
+    "infoVersion": "版本"
   },
   "webhooks": {
     "heading": "出站 Webhook",

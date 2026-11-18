@@ -69,6 +69,10 @@ interface DesktopSettings {
   port: number
   specrailsTechUrl: string
   costAlertThresholdUsd: number | null
+  /** The running app's version (server). */
+  version?: string
+  /** Where this instance keeps its database, home shortened to `~` (server). */
+  databasePath?: string
 }
 
 interface SettingsDialogProps {
@@ -656,18 +660,18 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
             <div className={paneCls('about')}>
               <SettingsCard title={t('desktop.infoHeading')} contentClassName="space-y-2" data-setting-id="about">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoPort')}</span>
-                  <span className="font-mono">{desktopSettings?.port ?? '—'}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoProjects')}</span>
-                  <span className="font-mono">{projects.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoDb')}</span>
-                  <span className="font-mono text-muted-foreground">~/.specrails/desktop.sqlite</span>
-                </div>
+                {/* Real values from the running server; a value it did not report is left out (never a dash). */}
+                {([
+                  ['infoVersion', desktopSettings?.version && desktopSettings.version !== 'unknown' ? desktopSettings.version : null, 'about-version'],
+                  ['infoDb', desktopSettings?.databasePath || null, 'about-database'],
+                  ['infoPort', desktopSettings?.port != null ? String(desktopSettings.port) : null, 'about-port'],
+                  ['infoProjects', String(projects.length), 'about-projects'],
+                ] as const).map(([key, value, testId]) => value && (
+                  <div key={key} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="shrink-0 text-muted-foreground">{t(`desktop.${key}`)}</span>
+                    <span data-testid={testId} className="min-w-0 truncate font-mono" title={value}>{value}</span>
+                  </div>
+                ))}
               </SettingsCard>
               <SettingsCard title={t('diagnostics:report.title')} description={t('diagnostics:report.aboutDescription')} data-setting-id="reportProblem"
                 action={<Button type="button" size="sm" variant="outline" data-testid="settings-report-problem" onClick={() => setReportOpen(true)}>{t('diagnostics:report.open')}</Button>} />

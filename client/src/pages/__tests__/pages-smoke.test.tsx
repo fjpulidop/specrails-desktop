@@ -179,12 +179,12 @@ describe('GlobalSettingsPage', () => {
     })
   })
 
-  it('renders desktop information section', async () => {
+  it('renders the About section', async () => {
     const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Desktop information')).toBeInTheDocument()
+      expect(screen.getByTestId('about-projects')).toBeInTheDocument()
     })
   })
 })

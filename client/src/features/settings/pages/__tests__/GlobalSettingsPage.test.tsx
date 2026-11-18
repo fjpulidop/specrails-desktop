@@ -47,6 +47,8 @@ vi.mock('../../../../hooks/useDesktop', () => ({
 
 const desktopSettings = {
   port: 4200,
+  version: '2.3.4',
+  databasePath: '~/.specrails-dev/.specrails/desktop.sqlite',
   specrailsTechUrl: 'http://localhost:3000',
 }
 
@@ -178,11 +180,12 @@ describe('GlobalSettingsPage (Settings dialog)', () => {
     expect(secret).toHaveAttribute('autocomplete', 'off')
   })
 
-  it('renders the panes immediately and shows an em dash for the port before settings resolve', async () => {
+  it('renders the panes immediately and leaves the port out (no dash) before settings resolve', async () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     expect(await screen.findByText('Registered projects')).toBeInTheDocument()
-    expect(screen.getByText('Port').nextElementSibling).toHaveTextContent('—')
+    expect(screen.queryByTestId('about-port')).not.toBeInTheDocument()
+    expect(screen.getByTestId('about-projects')).toBeInTheDocument()
   })
 
   it('renders Registered projects section after load', async () => {
@@ -305,19 +308,21 @@ describe('GlobalSettingsPage (Settings dialog)', () => {
 
 
 
-  it('renders Desktop information section with port', async () => {
+  it('About shows the port and project count', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Desktop information')).toBeInTheDocument()
-      expect(screen.getByText('4200')).toBeInTheDocument()
+      expect(screen.getByText('About', { selector: 'h3, h2, [data-setting-id] *' })).toBeInTheDocument()
+      expect(screen.getByTestId('about-port')).toHaveTextContent('4200')
     })
   })
 
-  it('renders desktop.sqlite path in Desktop information', async () => {
+  it('About shows the real version and database location from the server, and leaves out what it did not report', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('~/.specrails/desktop.sqlite')).toBeInTheDocument()
+      expect(screen.getByTestId('about-version')).toHaveTextContent('2.3.4')
+      expect(screen.getByTestId('about-database')).toHaveTextContent('~/.specrails-dev/.specrails/desktop.sqlite')
     })
+    expect(screen.queryByText('~/.specrails/desktop.sqlite')).not.toBeInTheDocument()
   })
 
   it('does not fetch when open=false', () => {

@@ -83,10 +83,10 @@
     "platformTour": "Platform tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
     "replayTour": "Replay tour",
-    "infoHeading": "Desktop information",
+    "infoHeading": "About",
     "infoPort": "Port",
     "infoProjects": "Projects",
-    "infoDb": "Desktop DB",
+    "infoDb": "Database",
     "removeProjectConfirmTitle": "Remove {{name}}?",
     "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later.",
     "navLabel": "Settings sections",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Unsaved changes",
     "dailyBudgetCurrent": "Currently {{amount}} a day",
-    "dailyBudgetNone": "No daily limit set"
+    "dailyBudgetNone": "No daily limit set",
+    "infoVersion": "Version"
   },
   "webhooks": {
     "heading": "Outbound webhooks",

@@ -83,10 +83,10 @@
     "platformTour": "Visite de la plateforme",
     "platformTourDescription": "Rejouez l'assistant de bienvenue pour revoir les fonctionnalités clés.",
     "replayTour": "Rejouer la visite",
-    "infoHeading": "Informations de Desktop",
+    "infoHeading": "À propos",
     "infoPort": "Port",
     "infoProjects": "Projets",
-    "infoDb": "BD de Desktop",
+    "infoDb": "Base de données",
     "removeProjectConfirmTitle": "Retirer {{name}} ?",
     "removeProjectConfirmBody": "{{name}} est retiré de Specrails et son travail en cours s’arrête. Les fichiers du dépôt sur le disque ne sont pas supprimés ; vous pourrez rajouter le dossier plus tard.",
     "navLabel": "Sections des réglages",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Modifications non enregistrées",
     "dailyBudgetCurrent": "Actuellement {{amount}} par jour",
-    "dailyBudgetNone": "Aucun plafond quotidien"
+    "dailyBudgetNone": "Aucun plafond quotidien",
+    "infoVersion": "Version"
   },
   "webhooks": {
     "heading": "Webhooks sortants",

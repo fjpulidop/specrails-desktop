@@ -83,10 +83,10 @@
     "platformTour": "プラットフォームツアー",
     "platformTourDescription": "ウェルカムウィザードを再生して主要機能を確認します。",
     "replayTour": "ツアーを再生",
-    "infoHeading": "Desktop 情報",
+    "infoHeading": "情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
-    "infoDb": "Desktop DB",
+    "infoDb": "データベース",
     "removeProjectConfirmTitle": "{{name}} を削除しますか？",
     "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。",
     "navLabel": "設定セクション",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "未保存の変更",
     "dailyBudgetCurrent": "現在 1 日 {{amount}}",
-    "dailyBudgetNone": "1 日の上限は未設定"
+    "dailyBudgetNone": "1 日の上限は未設定",
+    "infoVersion": "バージョン"
   },
   "webhooks": {
     "heading": "アウトバウンド Webhook",
