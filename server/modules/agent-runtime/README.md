@@ -180,7 +180,7 @@ no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.
 
 ## Durable steering
 
-`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `runtime_steer` with write permission. See [live steering](../../../docs/agent-live-steering.md).
+`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `specrails_runs(steer)` with write permission. See [live steering](../../../docs/agent-live-steering.md).
 
 ## History retention
 

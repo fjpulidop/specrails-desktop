@@ -186,7 +186,7 @@ harvest (`probeDefinitionRuns` + `healRuntimeEvidence({ refreshMissingReview })`
 Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts).
 
 [`readRunReviewDiagnosis`](runtime/run-review-diagnosis.ts) gives the
-operator's diagnosis tools (`runtime_diagnose`, the `runtime_evidence`
+operator's diagnosis tools (`specrails_runs(diagnose)`, the `specrails_runs(evidence)`
 overview) the run's latest reviewer verdict, failing host checks and Intent →
 Spec derivation coverage: stored settle evidence first, else the retained run
 through the same `healRuntimeEvidence` projection (engine 2 probe, engine 1
@@ -293,7 +293,7 @@ for a `factory:pr-ci` generation. The kept worktree's branch records carry
 `run_stopped` instead of `settlement_interrupted`. A multi-repository parent is
 `run_stopped` only when every failed child is.
 
-`runtime_settle` (`POST /agent-runtime/runs/:runId/settle`) on a completed
+`specrails_runs(settle)` (`POST /agent-runtime/runs/:runId/settle`) on a completed
 definition run goes through the same `reattachIsolatedSettlement`
 (`settleCompletedDefinitionRun`, bound at the route composition root). It never
 uses the legacy `.specrails` pipeline journal check, which engine v2 runs do not

@@ -164,7 +164,7 @@ Blocked / Not reported* per addendum. If the run fails or you discard the
 delivery, the addenda return to **Open** automatically.
 
 The board shows an accent chip with the open-addenda count on the spec card, and
-the mission agent can add addenda for you (`specrails_specs(add_addendum)`)
+the mission agent can add addenda for you (`specrails_specs_write(add_addendum)`)
 when you ask it to change something about an existing spec.
 
 ## Status visuals

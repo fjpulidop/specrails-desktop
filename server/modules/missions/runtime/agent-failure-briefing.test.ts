@@ -21,7 +21,7 @@ describe('buildFailureBriefing', () => {
     expect(text).toContain('Relaunch')
     expect(text).toContain('Delivery id: d1.')
     expect(text).toContain('Do NOT relaunch')
-    expect(text).toContain('runtime_diagnose')
+    expect(text).toContain('specrails_runs(diagnose)')
     expect(text).toContain('not a card button')
     expect(text).toContain('do not default to Relaunch')
     expect(text).not.toContain('Last output')

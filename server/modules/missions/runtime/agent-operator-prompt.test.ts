@@ -199,13 +199,13 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
   })
 
   it('carries the background shell confirmation rule', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('jobs background_start')
+    expect(OPERATOR_INSTRUCTIONS).toContain('background start/list/logs/kill')
     expect(OPERATOR_INSTRUCTIONS).toContain('without first proposing it')
     expect(OPERATOR_INSTRUCTIONS).toContain('receiving an explicit yes')
     expect(OPERATOR_INSTRUCTIONS).toContain('Long-running shell commands get chips')
-    expect(OPERATOR_INSTRUCTIONS).toContain('background_logs')
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_background(logs)')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('not a raw shell runner')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('background_logs')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('specrails_background(logs)')
   })
 
   it('asks before exposing a dev server on the local network and links its appUrls', () => {
@@ -460,7 +460,7 @@ describe('existing guardrails survive the framing rewrite', () => {
   })
 
   it('requires evidence and a changed precondition instead of escalating retries to relaunch', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('runtime_diagnose, jobId')
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_runs(diagnose, jobId)')
     expect(OPERATOR_INSTRUCTIONS).toContain('Do not use Relaunch as escalation from a failed Resume')
     expect(OPERATOR_INSTRUCTIONS).toContain('specrails_recovery inspect')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('canResume is availability, not proof a retry will work')
@@ -489,7 +489,7 @@ describe('rail launch cards (mission-rail-cards)', () => {
     // Failure-turn conduct: explain, recommend ONE action, never act in that turn.
     expect(RAIL_LAUNCH_CARD_SECTION).toContain('[Specrails run-failure briefing')
     expect(RAIL_LAUNCH_CARD_SECTION).toContain('at most 6 short lines')
-    expect(RAIL_LAUNCH_CARD_SECTION).toContain('NEVER call runtime_resume / runtime_recover / launch / discard yourself')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain("NEVER call specrails_runs(resume) / specrails_runs(resume, mode:'recover') / launch / discard yourself")
   })
 
   it('is appended to the manual and the system prompt only while the feature is on', () => {
@@ -559,7 +559,7 @@ describe('spec addenda rule (spec-addenda)', () => {
   it('teaches the agent to iterate through add_addendum instead of editing the description, and that preparation failures self-close', async () => {
     const { OPERATOR_INSTRUCTIONS: text } = await import('./agent-operator-prompt')
     expect(text).toContain('"Iterate on / extend / adjust an existing spec" = a SPEC ADDENDUM')
-    expect(text).toContain('specrails_specs(add_addendum)')
+    expect(text).toContain('specrails_specs_write(add_addendum)')
     expect(text).toContain('list_addenda')
     expect(text).toContain('closed\n  automatically by the next launch')
   })

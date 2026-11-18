@@ -56,8 +56,8 @@ saga (`start:ticket`, `start:worktree`, `start:session`, `handoff:freeze`,
 `handoff:launch`).
 
 Pause, discard and hand-off first run the `stopProcesses` effect: the dev
-servers the Intent agent started in the worktree (`specrails_jobs
-background_start`, tagged `flowId`) stop before the worktree is frozen,
+servers the Intent agent started in the worktree (`specrails_background(start)`,
+tagged `flowId`) stop before the worktree is frozen,
 removed or handed to a rail. Best effort, like closing the session.
 
 ## Invariants

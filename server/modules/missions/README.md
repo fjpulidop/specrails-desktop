@@ -74,7 +74,7 @@ write-role level, so the agent can run tests and installs headless; see
 [Intent permissions](../../../docs/internals/intent-mode.md#permissions)),
 default tools, the mission's Specrails MCP, sub-agents under the project
 policy and the static [Intent persona](runtime/agent-flow-prompt.ts), which runs
-long-lived apps through `specrails_jobs background_start`. Mid-turn input is delivered as
+long-lived apps through `specrails_background(start)`. Mid-turn input is delivered as
 `interrupt` ([core-session-runner.ts](runtime/core-session-runner.ts) follows
 the correction's turn and sums usage). Intent turns never use a legacy
 transport, never overwrite the mission's provider session and are recorded
@@ -83,7 +83,7 @@ See [Intent mode](../../../docs/internals/intent-mode.md).
 
 ## Failure assistance
 
-The operator uses `specrails_jobs runtime_diagnose` and paged `runtime_evidence`
+The operator uses `specrails_runs(diagnose)` and paged `specrails_runs(evidence)`
 before recommending recovery. A repeated error requires a changed precondition
 and a concrete validation plan; Relaunch is not the fallback for a failed Resume.
 The automatic briefing remains read-only and short. Subsequent user requests
