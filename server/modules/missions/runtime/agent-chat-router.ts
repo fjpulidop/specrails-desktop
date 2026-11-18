@@ -375,7 +375,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       pendingMessages: manager.pendingMessages(conversation.id),
       live: manager.conversationLive(conversation.id),
       session: manager.sessionState(conversation.id),
-      limitContinueAt: manager.limitContinueAt(conversation.id),
+      // provider-quota: a continue the person scheduled at a usage-limit reset (optional manager capability).
+      limitContinueAt: typeof manager.limitContinueAt === 'function' ? manager.limitContinueAt(conversation.id) : null,
     })
   })
 

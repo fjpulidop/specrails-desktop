@@ -13,9 +13,12 @@ export function createDesktopLaunchPreflight(quota: (providerId: string) => { pr
     },
     freeBytes: statfsFreeBytes,
     executable: async (providerId) => {
+      // Only a CLI detection did not find is missing. A slow `--version` probe
+      // (a loaded machine) must not read as "not installed": the status command
+      // runs with its own timeout, and a spawn ENOENT still reports missing.
+      if (!hasAdapter(providerId)) return null
       const provider = (await getDetectionSnapshot()).providers[providerId]
-      if (!provider?.installed || !provider.executable || !hasAdapter(providerId)) return null
-      return getAdapter(providerId).binary
+      return provider && !provider.installed ? null : getAdapter(providerId).binary
     },
     quota,
     now: () => Date.now(),
