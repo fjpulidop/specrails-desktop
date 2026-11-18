@@ -70,7 +70,7 @@ describe('specrails_jobs runtime_* actions', () => {
     await call({ action: 'runtime_recover', jobId: 'r1', stepId: 'verify' })
     expect(vi.mocked(apiCall).mock.calls[0][3]).toEqual({ recover: ['verify'] })
     vi.mocked(apiCall).mockReset().mockResolvedValue({ runs: [{ recoverableSteps: [] }] })
-    await expect(call({ action: 'runtime_recover', jobId: 'r1' })).rejects.toThrow('read runtime_diagnose')
+    await expect(call({ action: 'runtime_recover', jobId: 'r1' })).rejects.toThrow('read specrails_runs(diagnose)')
   })
 
   it('runtime_approve needs a step and maps settle / dismiss / cancel to their routes', async () => {

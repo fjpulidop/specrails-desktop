@@ -88,14 +88,23 @@ describe('tool discovery with full contracts', () => {
 
   it('reports permissions for the current caller and distinguishes cost-incurring draft commits', async () => {
     setDesktopSetting(db, 'mcp_tier_ai_spawn', 'false')
-    const result = await tool('describe').handler(ctx, { name: 'specrails_specs' }) as any
-    expect(result.actions).toContainEqual({ action: 'commit_draft', tier: 'ai-spawn', allowed: false })
-    const preview = await tool('describe').handler(ctx, { name: 'specrails_specs', arguments: { action: 'commit_draft', title: 'Ready', contractRefine: false } }) as any
+    const result = await tool('describe').handler(ctx, { name: 'specrails_specs_write' }) as any
+    expect(result.actions).toContainEqual(expect.objectContaining({ action: 'commit_draft', tier: 'ai-spawn', allowed: false }))
+    const preview = await tool('describe').handler(ctx, { name: 'specrails_specs_write', arguments: { action: 'commit_draft', title: 'Ready', contractRefine: false } }) as any
     expect(preview.validation).toEqual({ valid: true, tier: 'write', allowed: true })
     const mission = { ...ctx, firstPartyAgent: true, agentTierLevel: 0 as const }
     const missionResult = await tool('describe').handler(mission, { name: 'specrails_rails' }) as any
     expect(missionResult.actions).toContainEqual({ action: 'set_tickets', tier: 'write', allowed: false })
     expect(missionResult.actions).toContainEqual({ action: 'list', tier: 'read', allowed: true })
+  })
+
+  it('describes per-action arguments, hides legacy aliases and validates required fields', async () => {
+    const jobs = await tool('describe').handler(ctx, { name: 'specrails_jobs' }) as any
+    expect(jobs.actions.map((entry: { action: string }) => entry.action)).not.toContain('runtime_runs')
+    expect(jobs.actions).toContainEqual(expect.objectContaining({ action: 'get', takes: 'jobId (required), eventLimit, eventOffset', required: ['jobId'] }))
+    expect(jobs.inputSchema.properties.action.enum).not.toContain('background_start')
+    const missing = await tool('describe').handler(ctx, { name: 'specrails_runs', arguments: { action: 'diagnose' } }) as any
+    expect(missing.validation).toEqual({ valid: false, issues: [{ path: ['action'], message: expect.stringContaining('missing "jobId"') }] })
   })
 
   it.each([
@@ -104,6 +113,17 @@ describe('tool discovery with full contracts', () => {
     ['review_packet', 'specrails_rails'],
     ['phase_breakdown', 'specrails_jobs'],
     ['esperar ejecución', 'specrails_watch'],
+    ['tablero del proyecto', 'specrails_board'],
+    ['project board columns', 'specrails_board'],
+    ['cuánto hemos gastado hoy', 'specrails_spend'],
+    ['spend against the budget caps', 'specrails_spend'],
+    ['memoria y cpu de los procesos', 'specrails_resources'],
+    ['resources memory usage', 'specrails_resources'],
+    ['recuperar una ejecución runtime', 'specrails_runs'],
+    ['approve a pending runtime step', 'specrails_runs'],
+    ['arrancar el servidor de desarrollo en segundo plano', 'specrails_background'],
+    ['start the dev server in the background', 'specrails_background'],
+    ['editar una especificación', 'specrails_specs_write'],
   ])('finds useful tools for %s', async (query, name) => {
     const result = await tool('search').handler(ctx, { query }) as any[]
     expect(result.slice(0, 3).map(row => row.name)).toContain(name)

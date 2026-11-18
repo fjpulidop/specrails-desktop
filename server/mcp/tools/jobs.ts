@@ -1,61 +1,69 @@
 import { z } from 'zod'
 import type { McpToolContext, McpToolSpec } from './types'
-import type { ProjectContext } from '../../project-registry'
-import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository, toolTierAllowed } from './types'
-import { startBackgroundProcess, getBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
-import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
-import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
-import { getProjectRepositories } from '../../project-repositories'
+import { apiCall, projectPath, originConversationDefaults, requireRepository } from './types'
 import { toolResponse, type NextCall } from './envelope'
 import { DEFAULT_LOG_LINES, MAX_LOG_LINES, focusedLog } from './job-logs'
+import { actionEnum, linkAliases, type ActionAlias, type ActionFields } from './actions'
+import { runsTool } from './runs'
+import { backgroundTool } from './background'
 
-const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give the user each as a clickable markdown link: local opens on this computer; network opens from a phone or another device on the same Wi-Fi/VPN. No network URL means the server only listens on this computer (it was started without its host/LAN flag).'
+export { activeFlowWorkspace } from './background'
 
-const FLOW_APP_HINT = 'Started in the Intent worktree. Read background_logs now for the listening URL or a startup failure, then give the user the appUrls as clickable links. The Intent bar shows Preview and Stop while it runs; Specrails stops it when the Intent is paused, discarded or handed off.'
-
-/**
- * The ACTIVE Intent of the authenticated conversation in this project, through
- * the project's Intent use cases (bound at composition). A paused or settling
- * Intent, a missing Intent service or a failing lookup all mean "no Intent".
- */
-export function activeFlowWorkspace(projectCtx: Pick<ProjectContext, 'flow'>, conversationId: string | null | undefined): { flowId: string; worktreePath: string; repositoryId?: string } | null {
-  if (!conversationId) return null
-  try {
-    const flow = projectCtx.flow?.getByConversation(conversationId)
-    if (!flow || flow.state !== 'active' || flow.step !== null || !flow.worktreePath) return null
-    // `repositoryId`: the non-primary repository the Intent runs in (absent ⇒ primary).
-    return { flowId: flow.id, worktreePath: flow.worktreePath, ...(flow.repositoryId ? { repositoryId: flow.repositoryId } : {}) }
-  } catch {
-    return null
-  }
-}
+/** Job-queue actions advertised by `specrails_jobs`. */
+export const JOB_ACTIONS = [
+  'list', 'get', 'logs', 'diagnose_failure', 'queue', 'cancel', 'stats',
+  'spawn', 'interactive_turn', 'finalize', 'pause', 'resume', 'reorder', 'priority', 'purge',
+  'compare', 'export', 'diagnostic', 'run_state', 'pipeline', 'activity', 'metrics', 'phase_breakdown', 'default_spec_model', 'audit',
+] as const
 
 /**
- * Entering Intent already granted write and execution in the Intent worktree, so
- * inside an ACTIVE Intent the in-app agent may start (with the user's explicit
- * confirmation) and stop that Intent's background processes below the
- * Autonomous level. Everything else keeps the ladder.
+ * Actions that moved to `specrails_runs` / `specrails_background`. They stay
+ * accepted on `specrails_jobs` (hidden from the schema and description) so
+ * existing clients and prompts keep working.
  */
-function flowBackgroundException(ctx: McpToolContext, args: Record<string, unknown>): boolean {
-  const action = args.action
-  if (action !== 'background_start' && action !== 'background_kill') return false
-  if (action === 'background_start' && args.confirmed !== true) return false
-  let projectCtx: ProjectContext
-  try { projectCtx = requireProject(ctx, args.projectId as string | undefined) } catch { return false }
-  const flow = activeFlowWorkspace(projectCtx, ctx.originConversationId)
-  if (!flow) return false
-  if (action === 'background_start') return true
-  const pid = args.pid
-  if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) return false
-  const process = getBackgroundProcess(pid, typeof args.processId === 'string' ? args.processId : undefined)
-  return process?.flowId === flow.flowId && process.projectId === projectCtx.project.id && process.chatId === ctx.originConversationId
+export const JOB_ALIASES: Record<string, ActionAlias> = {
+  runtime_runs: { tool: 'specrails_runs', action: 'state' },
+  runtime_diagnose: { tool: 'specrails_runs', action: 'diagnose' },
+  runtime_evidence: { tool: 'specrails_runs', action: 'evidence' },
+  runtime_steer: { tool: 'specrails_runs', action: 'steer' },
+  runtime_resume: { tool: 'specrails_runs', action: 'resume' },
+  runtime_recover: { tool: 'specrails_runs', action: 'resume', args: { mode: 'recover' } },
+  runtime_approve: { tool: 'specrails_runs', action: 'resume', args: { mode: 'approve' } },
+  runtime_settle: { tool: 'specrails_runs', action: 'settle' },
+  runtime_dismiss: { tool: 'specrails_runs', action: 'dismiss' },
+  runtime_cancel: { tool: 'specrails_runs', action: 'cancel' },
+  background_start: { tool: 'specrails_background', action: 'start' },
+  background_list: { tool: 'specrails_background', action: 'list' },
+  background_logs: { tool: 'specrails_background', action: 'logs' },
+  background_kill: { tool: 'specrails_background', action: 'kill' },
 }
 
-function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
-  if (!ctx.firstPartyAgent || !ctx.originConversationId) {
-    throw new Error(`${action} is available only to an authenticated in-app agent turn.`)
-  }
-  return ctx.originConversationId
+export const JOB_ACTION_FIELDS: Record<string, ActionFields> = {
+  list: { optional: ['status', 'from', 'to', 'limit', 'offset'] },
+  get: { required: ['jobId'], optional: ['eventLimit', 'eventOffset'] },
+  logs: { required: ['jobId'], optional: ['limit'] },
+  diagnose_failure: { required: ['jobId'], optional: ['generate', 'language'] },
+  queue: {},
+  cancel: { required: ['jobId'] },
+  stats: {},
+  spawn: { required: ['command'], optional: ['priority', 'dependsOnJobId', 'pipelineId', 'profileName', 'aiEngine', 'model', 'repositoryId'] },
+  interactive_turn: { required: ['jobId', 'text'] },
+  finalize: { required: ['jobId'] },
+  pause: {},
+  resume: {},
+  reorder: { required: ['jobIds'] },
+  priority: { required: ['jobId', 'priority'] },
+  purge: { optional: ['from', 'to'] },
+  compare: { required: ['jobIds'] },
+  export: { optional: ['format', 'from', 'to'] },
+  diagnostic: { required: ['jobId'] },
+  run_state: {},
+  pipeline: { required: ['pipelineId'] },
+  activity: { optional: ['limit', 'before'] },
+  metrics: {},
+  phase_breakdown: { required: ['jobId'] },
+  default_spec_model: { optional: ['provider'] },
+  audit: { optional: ['jobId', 'format', 'from', 'to'] },
 }
 
 /**
@@ -69,98 +77,44 @@ function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0
  * enqueues an arbitrary slash-command job (incurs token cost, async 202).
  */
 export function jobsTools(): McpToolSpec[] {
-  return [
+  // The aliases target tools of this group, so they are linked here as well
+  // as in the catalog (linkAliases is idempotent).
+  return linkAliases([
     {
       name: 'specrails_jobs',
       title: 'Jobs & Queue',
       description:
-        'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
-        'Actions: list, get, queue, spawn (ai-spawn — enqueues a direct slash-command job in the primary repository only, returns {jobId,position}, async; repositoryId is required for multi-repository projects; use specrails_rails launch for spec implementations or specrails_loops run for coordinated secondary/multi-repository work; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation; inside an active Intent it runs in the Intent worktree, is tagged with the Intent and is allowed below the Autonomous level), background_list (read scoped running/recent applications), background_logs (read bounded stdout/stderr and actual lifecycle), background_kill (in-app-agent-only destructive; stopping is not yet stopped; an Intent session\'s own processes can be stopped from that Intent below the Autonomous level), ' +
-        'cancel (destructive — requests cancellation of a running/queued job; it does not delete terminal history), ' +
-        'purge (destructive — bulk-delete persisted job rows in a date range), ' +
-        'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
-        'compare (two jobs side-by-side), export (up to 10k rows as JSON/CSV — inlines everything; prefer list/stats for token economy), ' +
-        'diagnostic (binary ZIP — returns a note, not the bytes), run_state (project run state), ' +
-        'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
-        'activity (recent activity feed), stats, metrics, phase_breakdown (per-phase timing and token use for jobId), default_spec_model, ' +
-        'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
-        'finalize (settle a running interactive job now — an interactive session otherwise waits for it, others auto-settle), ' +
-        'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
-        'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures, verification invalidation reasons and `reviewer` — the latest reviewer verdict: approved, score, issues, summary, failing host checks, Intent → Spec derivation coverage; use before recommending retry or relaunch and to explain a rejected review), ' +
-        'runtime_evidence (read the durable runtime evidence of jobId; the overview page also carries `reviewer`; page with evidenceId/section/sourceId/cursor/limit), ' +
-        'runtime_steer (write — queue steeringText in an engine v2 run with a stable requestId; acceptance is not consumption; inspect runtime_runs steering receipts), ' +
-        'runtime_resume (ai-spawn — continue a resumable run: optional approve/recover/invalidate step-id lists + answer for a pending question; act ONLY after the user confirmed on the card), ' +
-        'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +
-        'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
-        'runtime_settle (write — prepare delivery for a succeeded-but-unsettled run), runtime_dismiss (write — dismiss a settled continuation from the rail card), ' +
-        'runtime_cancel (destructive — cancel an active runtime continuation), ' +
-        'diagnose_failure (read — why a failed job stopped: the deterministic diagnosis plus the saved AI analysis {headline, cause, category, evidence, nextSteps}; generate:true asks the provider that ran it for a new analysis — ai-spawn, one short no-tools call), ' +
-        'logs (read — bounded, failure-focused log of jobId: the failed step\'s lines first, then the end of the log; default 200 lines via limit, max 1000), ' +
-        'audit (read — what the agents of jobId read, wrote, executed, called over MCP or fetched, as JSONL or CSV via format; omit jobId for a project-wide export bounded by from/to; reads are only as complete as each provider\'s stream).',
+        'A project\'s AI job queue and individual jobs. ' +
+        'Actions: list, get (job + paged events), logs (failure-focused log: the failed step first, then the tail), ' +
+        'diagnose_failure (why a failed job stopped: diagnosis + saved AI analysis; generate:true is ai-spawn), queue, cancel (destructive), stats, ' +
+        'spawn (ai-spawn — direct slash-command job in the primary repository; prefer specrails_rails(launch) for specs), ' +
+        'interactive_turn (ai-spawn — steer a running interactive job), finalize (write — settle an interactive job now), ' +
+        'pause / resume (write — the queue), reorder / priority (write — queued jobs), purge (destructive — delete job rows in a date range), ' +
+        'compare (two jobs), export (up to 10k rows; prefer list/stats), diagnostic (ZIP path, not inlined), run_state, pipeline, activity, metrics, phase_breakdown, default_spec_model, ' +
+        'audit (what the agents of jobId read/wrote/ran, JSONL or CSV). ' +
+        'Runtime runs: specrails_runs. Background processes: specrails_background. Arguments per action: specrails_describe.',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
-        if (['cancel', 'purge', 'background_start', 'background_kill', 'runtime_cancel'].includes(action)) return 'destructive'
-        if (['spawn', 'interactive_turn', 'runtime_resume', 'runtime_recover'].includes(action)) return 'ai-spawn'
+        if (['cancel', 'purge'].includes(action)) return 'destructive'
+        if (['spawn', 'interactive_turn'].includes(action)) return 'ai-spawn'
         if (action === 'diagnose_failure' && a.generate === true) return 'ai-spawn'
-        if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss', 'runtime_steer'].includes(action)) return 'write'
+        if (['pause', 'resume', 'reorder', 'priority', 'finalize'].includes(action)) return 'write'
         return 'read'
       },
-      tierException: flowBackgroundException,
+      aliases: JOB_ALIASES,
+      actionFields: JOB_ACTION_FIELDS,
       inputSchema: {
-        action: z
-          .enum([
-            'list',
-            'get',
-            'queue',
-            'spawn',
-            'cancel',
-            'purge',
-            'pause',
-            'resume',
-            'reorder',
-            'priority',
-            'compare',
-            'export',
-            'diagnostic',
-            'run_state',
-            'pipeline',
-            'activity',
-            'stats',
-            'metrics',
-            'phase_breakdown',
-            'default_spec_model',
-            'interactive_turn',
-            'finalize',
-            'background_start',
-            'background_list',
-            'background_logs',
-            'background_kill',
-            'runtime_runs',
-            'runtime_diagnose',
-            'runtime_evidence',
-            'runtime_steer',
-            'runtime_resume',
-            'runtime_recover',
-            'runtime_approve',
-            'runtime_settle',
-            'runtime_dismiss',
-            'runtime_cancel',
-            'audit',
-            'diagnose_failure',
-            'logs',
-          ])
-          .describe('Operation to perform'),
+        action: actionEnum(JOB_ACTIONS, Object.keys(JOB_ALIASES)),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         // ── job identity ──
         jobId: z
           .string()
           .optional()
-          .describe('Job id (for get / cancel / priority / diagnostic / interactive_turn / finalize)'),
+          .describe('Job id'),
         // ── list / export pagination + filters ──
-        limit: z.number().int().positive().max(200).optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50) / runtime_evidence (1-100, default 25); background_logs returns the last N buffered log lines'),
-        offset: z.number().int().nonnegative().optional().describe('Page offset for list/background_list'),
+        limit: z.number().int().positive().max(200).optional().describe('list: page size (default 50); activity: rows (max 100); logs: lines (default 200, max 1000)'),
+        offset: z.number().int().nonnegative().optional().describe('list: page offset'),
         eventLimit: z.number().int().positive().max(200).optional().describe('get: maximum persisted events to return (default 50, latest events by default)'),
         eventOffset: z.number().int().nonnegative().optional().describe('get: chronological event offset; omit for the latest eventLimit events'),
         status: z.string().optional().describe('Filter by job status (list)'),
@@ -168,7 +122,7 @@ export function jobsTools(): McpToolSpec[] {
         to: z.string().optional().describe('ISO date upper bound (list / export / purge)'),
         before: z.string().optional().describe('Activity cursor: return rows before this timestamp'),
         // ── spawn (rail-bypass enqueue) ──
-        command: z.string().optional().describe('Direct slash-command to enqueue in the primary repository (spawn), or shell command (background_start). Implement backlog specs through specrails_rails launch to retain isolation and delivery tracking.'),
+        command: z.string().optional().describe('spawn: slash-command to enqueue in the primary repository'),
         priority: z
           .enum(['low', 'normal', 'high', 'critical'])
           .optional()
@@ -180,8 +134,8 @@ export function jobsTools(): McpToolSpec[] {
           .nullable()
           .optional()
           .describe('Agent profile for spawn (omit = default resolution; null forces legacy)'),
-        aiEngine: z.string().optional().describe('Per-job provider override for spawn (must be installed on the project). From the in-app agent chat, omitting it defaults to the launching conversation\'s provider.'),
-        model: z.string().optional().describe('Model for spawn; defaults to the launching conversation model when the provider matches. Explicit override is validated by the server.'),
+        aiEngine: z.string().optional().describe('spawn: provider override (defaults to the in-app conversation provider)'),
+        model: z.string().optional().describe('spawn: model override'),
         // ── reorder ──
         jobIds: z
           .array(z.string())
@@ -189,33 +143,13 @@ export function jobsTools(): McpToolSpec[] {
           .describe('reorder: exact set of currently-queued job ids in the desired order; compare: exactly 2 job ids'),
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
-        chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
-        repositoryId: z.string().min(1).optional().describe('spawn/background_start: repository membership ID; required when the project has several repositories. spawn accepts only the primary repository; use specrails_rails launch or specrails_loops run for other repositories.'),
-        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root (inside an active Intent: inside the Intent worktree, and repositoryId is ignored). For tests/dev servers, discover workspacePaths with specrails_projects get and pass the intended code workspace cwd explicitly'),
-        pid: z.number().int().positive().optional().describe('Background process pid for background_logs/background_kill'),
-        processId: z.string().min(1).max(200).optional().describe('Background execution UUID returned by background_start/list. Pass with pid on logs/kill to avoid targeting a reused PID.'),
-        includeFinished: z.boolean().optional().describe('background_list: include persisted completed/disconnected executions (default true). Active applications are listed first; use limit/offset for older history.'),
-        confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
-        allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
+        repositoryId: z.string().min(1).optional().describe('spawn: repository membership id (required for multi-repository projects; only the primary is accepted)'),
         // ── export ──
         format: z.enum(['json', 'csv', 'jsonl']).optional().describe('Export format: export json|csv (default json); audit jsonl|csv (default jsonl)'),
         // ── default_spec_model ──
         provider: z.string().optional().describe('Provider to resolve the default spec model for (default_spec_model)'),
-        // ── runtime_* (mission-rail-cards: the agent's eyes + hands on a failed run) ──
-        railIndex: z.number().int().nonnegative().optional().describe('runtime_runs: only the latest continuation of this rail (0-based)'),
-        steeringText: z.string().min(1).max(20_000).optional().describe('runtime_steer: operator instruction consumed at the next eligible AI attempt'),
-        requestId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/).optional().describe('runtime_steer: stable idempotency key; reuse only with identical text'),
-        approve: z.array(z.string()).optional().describe('runtime_resume/runtime_approve: step ids to approve'),
-        recover: z.array(z.string()).optional().describe('runtime_resume/runtime_recover: step ids to recover (default for runtime_recover: every recoverableStep)'),
-        invalidate: z.array(z.string()).optional().describe('runtime_resume: step ids whose results must be discarded before continuing'),
-        answer: z.string().optional().describe('runtime_resume: the answer to the run\'s pending question'),
-        stepId: z.string().optional().describe('runtime_approve/runtime_recover: the single step id (alternative to the arrays)'),
-        evidenceId: z.string().max(1024).optional().describe('runtime_evidence: verification evidence id returned by the index'),
-        section: z.enum(['summary', 'stdout', 'stderr', 'source']).optional().describe('runtime_evidence: summary index, command output or recorded source'),
-        sourceId: z.string().max(1024).optional().describe('runtime_evidence: source id returned by the evidence index'),
-        cursor: z.string().max(1024).optional().describe('runtime_evidence: continuation cursor returned by the previous page'),
         // ── diagnose_failure ──
-        generate: z.boolean().optional().describe('diagnose_failure: true asks the provider that ran the job for a fresh AI analysis when none is current (ai-spawn, costs a little); default false only reads the saved one'),
+        generate: z.boolean().optional().describe('diagnose_failure: true asks for a fresh AI analysis when none is current (ai-spawn, small cost)'),
         language: z.string().regex(/^[a-z]{2}(?:-[A-Za-z0-9]{2,8})?$/).optional().describe('diagnose_failure: language of the AI analysis (en, es, de, fr, it, ja, pt, zh; default en)'),
       },
       async handler(ctx, args) {
@@ -426,174 +360,6 @@ export function jobsTools(): McpToolSpec[] {
             return apiCall(ctx, 'POST', `${base}/jobs/${encodeURIComponent(id)}/finalize`)
           }
 
-          case 'runtime_runs': {
-            const id = args.jobId as string | undefined
-            if (id) return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}`)
-            const railIndex = args.railIndex as number | undefined
-            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs${typeof railIndex === 'number' ? `?railIndex=${railIndex}` : ''}`)
-          }
-
-          case 'runtime_diagnose': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_diagnose requires a "jobId".')
-            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/diagnosis`)
-          }
-          case 'runtime_evidence': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_evidence requires a "jobId".')
-            const query = new URLSearchParams()
-            if (typeof args.evidenceId === 'string') query.set('id', args.evidenceId)
-            for (const key of ['section', 'sourceId', 'cursor', 'limit']) if (args[key] !== undefined) query.set(key, String(args[key]))
-            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/evidence${query.size ? '?' + query.toString() : ''}`)
-          }
-
-          case 'runtime_steer': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_steer requires a "jobId".')
-            if (typeof args.steeringText !== 'string' || !args.steeringText.trim() || args.steeringText.length > 20_000 || typeof args.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(args.requestId)) throw new Error('runtime_steer requires steeringText and a stable requestId.')
-            const result = await apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/steer`, { text: args.steeringText, requestId: args.requestId })
-            return { ...(result as Record<string, unknown>), hint: 'Accepted into the durable inbox; consumption happens at the next eligible AI attempt. Inspect runtime_runs steering receipts.' }
-          }
-
-          case 'runtime_resume':
-          case 'runtime_recover':
-          case 'runtime_approve': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error(`${action} requires a "jobId".`)
-            const single = typeof args.stepId === 'string' && args.stepId.trim() ? [args.stepId.trim()] : undefined
-            const body: Record<string, unknown> = {}
-            if (action === 'runtime_recover') {
-              let recover = (args.recover as string[] | undefined) ?? single
-              if (!recover?.length) {
-                const state = await apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}`) as { runs?: Array<{ recoverableSteps?: string[] }> }
-                recover = state.runs?.[0]?.recoverableSteps ?? []
-              }
-              if (!recover.length) throw new Error('runtime_recover: the run has no interrupted steps to recover — read runtime_diagnose before deciding whether a repair or resume is appropriate.')
-              body.recover = recover
-            } else if (action === 'runtime_approve') {
-              const approve = (args.approve as string[] | undefined) ?? single
-              if (!approve?.length) throw new Error('runtime_approve requires "stepId" or "approve".')
-              body.approve = approve
-            } else {
-              for (const key of ['approve', 'recover', 'invalidate'] as const) if (Array.isArray(args[key])) body[key] = args[key]
-              if (typeof args.answer === 'string') body.answer = args.answer
-            }
-            const r = await apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/resume`, body)
-            return { ...(r as Record<string, unknown>), hint: 'Resume accepted (202) — it is not completion. Progress streams into the mission run card; verify with runtime_runs or specrails_watch.' }
-          }
-
-          case 'runtime_settle': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_settle requires a "jobId".')
-            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/settle`)
-          }
-
-          case 'runtime_dismiss': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_dismiss requires a "jobId".')
-            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/dismiss`)
-          }
-
-          case 'runtime_cancel': {
-            const id = args.jobId as string | undefined
-            if (!id) throw new Error('runtime_cancel requires a "jobId".')
-            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/cancel`)
-          }
-
-          case 'background_start': {
-            const command = args.command as string | undefined
-            if (!command || !command.trim()) throw new Error('background_start requires a "command".')
-            if (args.confirmed !== true) throw new Error('background_start requires confirmed:true after explicit user confirmation for this exact command.')
-            const chatId = requireFirstPartyConversation(ctx, 'background_start')
-            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            // Inside an active Intent the app runs in the Intent worktree (never the
-            // project checkout), tagged with the Intent so it stops with it. The
-            // worktree is isolated, so the project's busy guard does not apply.
-            const flow = activeFlowWorkspace(projectCtx, chatId)
-            if (flow) {
-              const cwd = resolveBackgroundCwd(flow.worktreePath, args.cwd as string | undefined, 'the Intent worktree')
-              const repository = flow.repositoryId ? getProjectRepositories(projectCtx.project).find((member) => member.id === flow.repositoryId) : undefined
-              const process = startBackgroundProcess(command.trim(), cwd, chatId.trim(), projectCtx.project.id,
-                backgroundProcessHooks(ctx.broadcast), { flowId: flow.flowId, ...(repository ? { repositoryId: repository.id, repositoryName: repository.name } : {}) })
-              return { ok: true, flowId: flow.flowId, cwd, process, hint: FLOW_APP_HINT }
-            }
-            // The Intent exception admitted this call, but the Intent ended meanwhile.
-            if (ctx.agentTierLevel !== undefined && !toolTierAllowed(ctx, 'destructive')) throw new Error('The Intent is no longer active, so background_start needs the Autonomous permission level again.')
-            const busyReason = backgroundStartBusyReason(projectCtx)
-            if (busyReason && args.allowWhileBusy !== true) {
-              throw new Error(`background_start refused because ${busyReason}. Wait for it to finish, or pass allowWhileBusy:true only after explicit user confirmation.`)
-            }
-            const repository = requireRepository(ctx, args.projectId as string | undefined, args.repositoryId as string | undefined)
-            const cwd = resolveBackgroundCwd(repository.path, args.cwd as string | undefined)
-            const process = startBackgroundProcess(
-              command.trim(),
-              cwd,
-              chatId.trim(),
-              projectCtx.project.id,
-              backgroundProcessHooks(ctx.broadcast),
-              { repositoryId: repository.id, repositoryName: repository.name },
-            )
-            return { ok: true, repositoryId: repository.id, process,
-              hint: 'Application command accepted, not proof of readiness. Preserve pid and processId; inspect background_logs now for the listening URL or startup failure as part of this launch, without asking for another permission to read. The user can inspect persisted logs from its chip or mission process history.' }
-          }
-
-          case 'background_list': {
-            const chatId = ctx.firstPartyAgent ? requireFirstPartyConversation(ctx, 'background_list') : args.chatId as string | undefined
-            if (!chatId?.trim()) throw new Error('background_list requires a "chatId".')
-            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            const terminal = new Set(['exited', 'killed', 'failed', 'interrupted'])
-            const processes = listBackgroundProcesses({ projectId: projectCtx.project.id, chatId: chatId.trim(), includeFinished: args.includeFinished !== false })
-              .sort((a, b) => Number(terminal.has(a.status)) - Number(terminal.has(b.status)) || b.startedAt - a.startedAt)
-            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 50
-            const offset = typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : 0
-            return { processes: processes.slice(offset, offset + limit).map(withAppUrls), total: processes.length, offset, limit, hasMore: offset + limit < processes.length,
-              ...(Number.isSafeInteger(ctx.desktopPort) && ctx.desktopPort > 0 ? { specrailsApi: { host: '127.0.0.1', port: ctx.desktopPort } } : {}),
-              hint: 'History includes persisted executions. interrupted means supervision ended after restart; current OS state is unknown and the historical PID cannot be signalled. Keep application ports separate from the Specrails API. Inspect persisted failure logs before proposing another launch.' }
-          }
-
-          case 'background_kill': {
-            const pid = args.pid as number | undefined
-            if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) throw new Error('background_kill requires a positive integer "pid".')
-            const chatId = requireFirstPartyConversation(ctx, 'background_kill')
-            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            const process = stopOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim(),
-              ...(typeof args.processId === 'string' ? { processId: args.processId } : {}) })
-            if (!process) throw new Error('background_kill requires a registered execution in the same project/chat.')
-            if (process.error && !['stopping', 'exited', 'killed', 'failed'].includes(process.status)) throw new Error(process.error)
-            return { ok: true, pid, process, status: process.status,
-              hint: process.status === 'stopping' ? 'Stop requested; inspect background_list or background_logs until terminal before reporting the application stopped.' : 'Inspect the returned terminal status and retained logs.' }
-          }
-
-          case 'background_logs': {
-            const pid = args.pid as number | undefined
-            if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) throw new Error('background_logs requires a positive integer "pid".')
-            // A first-party turn is confined to its authenticated conversation
-            // for reads as well as start/kill. External read-tier clients still
-            // supply chatId explicitly because they have no agent capability.
-            const chatId = ctx.firstPartyAgent
-              ? requireFirstPartyConversation(ctx, 'background_logs')
-              : (args.chatId as string | undefined)
-            if (!chatId || !chatId.trim()) throw new Error('background_logs requires a "chatId".')
-            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 100
-            const logs = getBackgroundProcessLogs(pid, {
-              projectId: projectCtx.project.id,
-              chatId: chatId.trim(),
-              ...(typeof args.processId === 'string' ? { processId: args.processId } : {}),
-              ...(limit !== undefined ? { limit } : {}),
-            })
-            if (!logs) throw new Error('background_logs requires a registered pid in the same project/chat; logs may have expired.')
-            const { appUrls } = withAppUrls(logs.process)
-            return {
-              ok: true,
-              ...logs,
-              ...(appUrls ? { appUrls, appUrlsHint: APP_URLS_HINT } : {}),
-              hint: logs.lines.length > 0
-                ? 'Inspect stdout/stderr to explain why the background process exited or failed.'
-                : 'No stdout/stderr output has been captured yet. Check the returned process status; empty logs do not prove application readiness.',
-            }
-          }
-
           case 'diagnose_failure':
             return diagnoseFailure(ctx, base, args)
 
@@ -605,7 +371,9 @@ export function jobsTools(): McpToolSpec[] {
         }
       },
     },
-  ]
+    runsTool(),
+    backgroundTool(),
+  ])
 }
 
 type Row = Record<string, unknown>
@@ -652,7 +420,7 @@ async function diagnoseFailure(ctx: McpToolContext, base: string, args: Record<s
     ?? (text(diagnosisRow.kind) && diagnosisRow.kind !== 'unknown' ? String(diagnosisRow.kind).replace(/_/g, ' ') : null)
   const next: NextCall[] = [{ tool: 'specrails_jobs', args: { action: 'logs', jobId, ...scope }, why: 'Read the failed step’s log lines.' }]
   if (!ready || analysis.stale === true) next.unshift({ tool: 'specrails_jobs', args: { action: 'diagnose_failure', jobId, generate: true, ...scope }, why: 'Ask the provider that ran it for an AI reading of the log (ai-spawn, small cost).' })
-  next.push({ tool: 'specrails_jobs', args: { action: 'runtime_diagnose', jobId, ...scope }, why: 'Recovery assessment before recommending a retry.' })
+  next.push({ tool: 'specrails_runs', args: { action: 'diagnose', jobId, ...scope }, why: 'Recovery assessment before recommending a retry.' })
   return toolResponse({
     jobId, status, command: job.command ?? null, provider: job.provider ?? null, model: job.model ?? null,
     diagnosis,

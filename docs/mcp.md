@@ -37,13 +37,19 @@ reading one description. The tools are:
 | Tool | What it covers |
 |---|---|
 | `specrails_status` | One cheap app-wide glance: headline, mood (`idle`/`working`/`needs_you`/`failing`), running missions/rails/jobs, what needs the person, recent failures, today's spend, CPU/memory; poll with `ifNoneMatch` |
+| `specrails_board` | One project's board: backlog columns (draft → cancelled) with counts and the newest specs, every rail with its label, availability, specs, what runs on it and its delivery, and the queue |
+| `specrails_spend` | Spend today or over a period, app-wide or for one project: billed + estimated total, `byCategory` (implementation, missions, specs, code, support), every cap with utilization and whether it is exhausted, the month-end projection, the costliest projects / specs / missions |
+| `specrails_resources` | CPU/memory of everything Specrails launched, by category; with `conversationId`, one mission's process trees, history and worktree disk |
 | `specrails_inbox` | The "Needs you" inbox: `list`, `open`, `question`; `answer` (write), `resume` / `retry` (AI-spawn) through the routes the desktop and phone use |
 | `specrails_missions` | Agent missions: `list`, `active`, `get` (recent messages, context usage), `send` / `ask` (AI-spawn), `abort` (destructive); never changes a mission's permission level, provider or pin |
 | `specrails_projects` | List / resolve projects; unregister (destructive) |
 | `specrails_context` | Compact live briefing: project/providers, backlog, rails/runs/deliveries, Git/worktrees, blueprint; source and availability per section |
-| `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend, and **spec addenda** (`list_addenda`, `add_addendum`, `update_addendum`, `dismiss_addendum`, `reopen_addendum`, `delete_addendum`) — the way to iterate on an existing spec without rewriting its description: an open addendum rides into the next launch on any loop and the packet reports it |
-| `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail |
-| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs; read and drive programmatic runtime runs (`runtime_*`); `diagnose_failure` (diagnosis + saved AI analysis; `generate:true` is AI-spawn) and `logs` (bounded, failed step first) |
+| `specrails_specs` | Read the backlog: `list` (compact page, server-side `cursor`), `search` (`q`), `board` (status columns), `get`, `list_addenda`, `spending_summary`, `files_touched`, attachments |
+| `specrails_specs_write` | Change specs: `create` / `generate` (AI, Quick Add Spec), `commit_draft`, `from_prompt`, `update`, `delete` / `restore`, drafts, AI-edit, Contract Refine, SMASH, and **spec addenda** (`add_addendum`, `update_addendum`, `dismiss_addendum`, `reopen_addendum`, `delete_addendum`) — the way to iterate on an existing spec without rewriting its description: an open addendum rides into the next launch on any loop and the packet reports it |
+| `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail; `list` pages with `limit`/`cursor` |
+| `specrails_jobs` | The job queue and individual jobs: `list`, `get` (paged events), `logs` (bounded, failed step first), `diagnose_failure` (diagnosis + saved AI analysis; `generate:true` is AI-spawn), `queue`, `cancel`, `stats`, `spawn`, queue control, exports and audit |
+| `specrails_runs` | Core runtime runs: `state`, `diagnose`, `evidence`, `steer`, `resume` (`mode: resume \| recover \| approve`), `settle`, `dismiss`, `cancel` |
+| `specrails_background` | Background processes of an in-app agent conversation: `start` / `kill` (destructive, in-app agent only), `list`, `logs` |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
 | `specrails_agents` | Provider-scoped agent profiles and catalog; explicit profiles are validated for the selected provider |
 | `specrails_plugins` | The per-project plugin marketplace (install / verify / uninstall) |
@@ -98,14 +104,81 @@ with stable codes: `not_found`, `invalid_input`, `conflict`, `unauthorized`,
 `choices`) and `confirmation_required`. The full contract is in
 [MCP response envelope](internals/mcp-response-envelope.md).
 
+#### Moved actions keep working
+
+The tool names are stable. Actions that moved to a new tool stay accepted on
+their old tool as **hidden aliases** (accepted at runtime, absent from the
+schema and description), so existing clients and prompts keep working:
+
+| Old call | Now |
+|---|---|
+| `specrails_jobs(runtime_runs \| runtime_diagnose \| runtime_evidence \| runtime_steer \| runtime_settle \| runtime_dismiss \| runtime_cancel)` | `specrails_runs(state \| diagnose \| evidence \| steer \| settle \| dismiss \| cancel)` |
+| `specrails_jobs(runtime_resume \| runtime_recover \| runtime_approve)` | `specrails_runs(resume)` with `mode: resume \| recover \| approve` |
+| `specrails_jobs(background_start \| background_list \| background_logs \| background_kill)` | `specrails_background(start \| list \| logs \| kill)` |
+| `specrails_specs(create, update, delete, commit_draft, …, *_addendum)` | `specrails_specs_write(<same action>)` |
+
+An alias runs with the target's permission tier, Intent exception, validation
+and summary, and its arguments are validated against the target tool's schema.
+
+#### Arguments per action
+
+MCP input schemas must be one JSON object, so each tool keeps a flat set of
+optional fields. Every action of the split tools declares the fields it takes;
+the server checks them before calling the backend and answers `invalid_input`
+naming them (`specrails_runs(diagnose) missing "jobId". It takes: jobId (required).`).
+`specrails_describe(name)` lists them per action (`takes`, `required`, `oneOf`),
+and `specrails_describe(name, arguments)` validates a call without executing it.
+
+#### Pagination
+
+`specrails_specs(list/search)`, `specrails_rails(list)` and
+`specrails_context(backlog)` page on the server: pass `limit`, then the
+`nextCursor` you got back as `cursor` (the envelope carries it as `cursor` with
+`truncated: true`). The REST routes behind them (`GET /tickets`, `GET /rails`)
+keep their full default answer when `limit` is absent.
+
+### Examples
+
+```jsonc
+// tools/call specrails_board { "projectId": "p1" }
+{ "ok": true, "summary": "Shop: 42 specs (todo 9, in progress 2, on review 3, done 28); 3 rails, 1 running, 2 free, 1 awaiting review.",
+  "data": { "columns": [{ "status": "todo", "count": 9, "top": [{ "id": 51, "title": "CSV export" }] }], "rails": [{ "railIndex": 0, "label": "Rail 1", "availability": "busy", "running": { "kind": "loop", "jobId": "run-1" } }], "queue": { "queued": 0, "paused": false } },
+  "next": [{ "tool": "specrails_rails", "args": { "action": "review_packet", "prDeliveryId": "d-1", "projectId": "p1" }, "why": "Rail 3 has a delivery waiting for review." }] }
+
+// tools/call specrails_spend { "period": "today" }
+{ "ok": true, "status": "ok", "summary": "Spent $4.20 today across 6 runs. Most went to missions ($3.10). Caps: desktop day 42%.",
+  "data": { "scope": "app", "totalUsd": 4.2, "byCategory": { "missions": 3.1, "implementation": 1.1 }, "caps": [{ "scope": "desktop", "period": "day", "budgetUsd": 10, "utilizationPct": 42, "exhausted": false }], "top": [{ "kind": "project", "title": "Shop", "usd": 3.9 }] } }
+
+// tools/call specrails_jobs { "action": "get" }   (missing jobId)
+{ "ok": false, "summary": "specrails_jobs(get) failed: …", "error": { "code": "invalid_input", "message": "specrails_jobs(get) missing \"jobId\". It takes: jobId (required), eventLimit, eventOffset.", "retryable": false } }
+```
+
 ### Resources
 
 Read-only state is also exposed as MCP **resources** so a client can fetch it
 without a tool call:
 
 - `specrails://guide` — the platform guide (concepts, workflow, invariants).
+- `specrails://status` — the `specrails_status` snapshot (with its `etag`).
 - `specrails://projects` — all registered projects.
 - `specrails://projects/{projectId}` — a single project.
+- `specrails://projects/{projectId}/board` — the `specrails_board` snapshot (listed per project).
+- `specrails://jobs/{jobId}` — a job of any loaded project with its latest 20 events.
+- `specrails://missions/{conversationId}` — a mission with its state and latest messages.
+
+Clients can `resources/subscribe` to any of them. The app's own events that
+change a resource (job and loop-run updates, rail and queue changes, spec
+changes, inbox triggers, mission activity) send
+`notifications/resources/updated`, debounced to at most one per resource per
+second; high-volume stream frames (log lines, token streams) never notify on
+their own. A client without subscriptions polls `specrails_status` with
+`ifNoneMatch:<etag>`.
+
+### Prompts
+
+Three short prompts chain the tools; they only describe calls and grant no
+permission: `diagnose-failure` (`jobId?`, `projectId?`), `launch-spec`
+(`specId`, `projectId?`) and `triage-inbox`.
 
 ### Async results — `specrails_watch`
 
@@ -122,22 +195,34 @@ run returns immediately even if its completion event preceded the call. Use
 `kind: "loop_run"` with a loop-run id. Timeouts do not establish success or
 failure; inspect `specrails_jobs(get)` or `specrails_loops(run_get)` for evidence.
 
+### Catalog size
+
+Tool descriptions stay short; recipes (launch rules, budget refusals, loop
+lifecycle, recovery) live in `specrails_guide`. The `tools/list` answer
+(33 tools, JSON) is about 124 KB: input schemas ~61 KB, the shared output
+schema ~32 KB (about 1 KB per tool), descriptions ~23 KB. Before the split it was
+about 150 KB for 27 tools.
+
 ## Runtime runs and rail availability (mission-rail-cards)
 
-`specrails_jobs` exposes the programmatic runtime of a job (the same state the
+`specrails_runs` exposes the programmatic runtime of a job (the same state the
 app's Resume / Approve / Recover controls use), so an agent can explain a
-failure and act only on the user's confirmation:
+failure and act only on the user's confirmation (the former
+`specrails_jobs(runtime_*)` names are aliases):
 
 | Action | Tier | What it does |
 |---|---|---|
-| `runtime_runs` | read | Runtime state of `jobId` (or every run when omitted): status, current step, `canResume`, `recoverableSteps`, `pendingApproval` |
-| `runtime_evidence` | read | Durable runtime evidence of `jobId` |
-| `runtime_resume` | ai-spawn | Continue a resumable run (optional `approve` / `recover` / instruction body) |
-| `runtime_recover` | ai-spawn | Shorthand for `runtime_resume` with `recover: [stepIds]` |
-| `runtime_approve` | write | Shorthand for `runtime_resume` with `approve: [stepId]` |
-| `runtime_settle` | write | Prepare delivery for a succeeded-but-unsettled run |
-| `runtime_dismiss` | write | Dismiss a runtime continuation card |
-| `runtime_cancel` | destructive | Cancel an active runtime continuation |
+| `state` | read | Runtime state of `jobId` (or every run when omitted; `railIndex` for a rail's latest): status, current step, `canResume`, `recoverableSteps`, `pendingApproval` |
+| `diagnose` | read | Recovery assessment: original scope, completed steps, repeated failures, the reviewer verdict |
+| `evidence` | read | Durable runtime evidence of `jobId`, paged |
+| `steer` | write | Queue `steeringText` with a stable `requestId` (acceptance is not consumption) |
+| `resume` | ai-spawn | Continue a resumable run (`approve` / `recover` / `invalidate` / `answer`); `mode: "recover"` replays the recoverable steps (default: all of them) |
+| `resume` + `mode: "approve"` | write | Approve a pending step (`stepId` or `approve`) |
+| `settle` | write | Prepare delivery for a succeeded-but-unsettled run |
+| `dismiss` | write | Dismiss a runtime continuation card |
+| `cancel` | destructive | Cancel an active runtime continuation |
+
+The runtime has no fork route, so `specrails_runs` offers no fork.
 
 ## Agent actions audit
 
@@ -172,7 +257,7 @@ any of them in **Settings ▸ MCP** to restrict clients:
 | **AI-spawn** | On | Actions that spawn an AI CLI and **cost money**: launch a rail, generate a spec, send a chat turn |
 | **Destructive** | On | Delete data, kill processes, or mutate an external system (e.g. unregister a project, `smash_undo`, Jira writes) |
 
-`specrails_specs(commit_draft)` requires AI-spawn when it can append a Contract
+`specrails_specs_write(commit_draft)` requires AI-spawn when it can append a Contract
 Layer. A fresh direct insert with `contractRefine: false` and no Explore/draft
 ids remains Write. `specrails_describe` can preview the tier for specific
 arguments; its shared-schema validation does not replace action-specific or
@@ -181,7 +266,7 @@ backend state checks.
 The split is deliberate: a client you only half-trust can be dropped to
 read-only with three unticks, and **destructive and cost-incurring actions can
 be withheld independently**. A tool's tier is dynamic per action — e.g.
-`specrails_specs(list)` is read while `specrails_specs(delete)` is destructive —
+`specrails_specs(list)` is read while `specrails_specs_write(delete)` is destructive —
 so the same tool exposes different actions at different trust levels.
 
 **Explicit confirmation.** An external client must resend every destructive
@@ -300,7 +385,7 @@ out of v1. None of these are reachable by an external MCP client authenticated
 only with the scoped MCP token:
 
 - **Raw terminal shell execution.** The built-in terminal panel is not exposed
-  to external MCP clients. `background_start` and `background_kill` are a
+  to external MCP clients. `specrails_background(start)` and `(kill)` are a
   private Agent Mode path: they require a live server-minted capability,
   Autonomous permission, and explicit confirmation for the exact command.
   Supplying legacy context headers or enabling the external Destructive tier

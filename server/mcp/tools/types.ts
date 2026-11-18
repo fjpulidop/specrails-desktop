@@ -14,6 +14,7 @@ import { getProjectRepositories, resolveProjectRepository, type ProjectRepositor
 import { acknowledgeAgentSteering, acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from '../../modules/missions/runtime/agent-steering'
 import { ENVELOPE_OUTPUT_SHAPE, McpToolError, errorEnvelope, isToolResponse, successEnvelope, type Envelope } from './envelope'
 import { summarizeResult } from './summaries'
+import { validateActionArgs, type ActionAlias, type ActionFields, type ResolvedAlias } from './actions'
 
 export type { McpTier } from '../mcp-tiers'
 
@@ -185,6 +186,15 @@ export interface McpToolSpec {
    * tiers stay governed by Settings ▸ MCP. Must not throw.
    */
   tierException?: (ctx: McpToolContext, args: Record<string, unknown>) => boolean
+  /**
+   * Hidden legacy actions that moved to another tool (accepted, never
+   * advertised). Wired by `linkAliases` in the catalog; see ./actions.ts.
+   */
+  aliases?: Record<string, ActionAlias>
+  /** Arguments each action takes; validated at runtime before the handler runs. */
+  actionFields?: Record<string, ActionFields>
+  /** Set by `linkAliases`: the target spec and mapped arguments of an alias call. */
+  resolveAlias?: (args: Record<string, unknown>) => ResolvedAlias | null
 }
 
 /** Resolve a per-project context or throw a clear, LLM-readable error. */
@@ -304,13 +314,19 @@ export function withConfirmationFields(spec: McpToolSpec): McpToolSpec {
 }
 
 /** One sentence on what a destructive action does, read from the tool description. */
-export function describeEffect(spec: McpToolSpec, action: string | null): string {
+export function describeEffect(spec: McpToolSpec, action: string | null, args: Record<string, unknown> = {}): string {
+  const routed = action ? resolveAliasSafe(spec, { ...args, action }) : null
+  if (routed) return describeEffect(routed.spec as unknown as McpToolSpec, String(routed.args.action))
   if (action) {
     const escaped = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const match = new RegExp(`${escaped}\\s*\\(([^)]*)\\)`).exec(spec.description)
     if (match?.[1]) return match[1].replace(/^destructive\s*[—–-]\s*/i, '').trim()
   }
   return spec.title
+}
+
+function resolveAliasSafe(spec: McpToolSpec, args: Record<string, unknown>): ResolvedAlias | null {
+  try { return spec.resolveAlias?.(args) ?? null } catch { return null }
 }
 
 function stripControl(args: Record<string, unknown>): Record<string, unknown> {
@@ -392,7 +408,9 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
     {
       title: spec.title,
       description: spec.description,
-      inputSchema: spec.inputSchema,
+      // A facade with hidden aliases keeps the arguments of the moved actions
+      // (validated below against the target tool's own schema).
+      inputSchema: spec.aliases ? z.object(spec.inputSchema).loose() : spec.inputSchema,
       outputSchema: ENVELOPE_OUTPUT_SHAPE,
       annotations,
     },
@@ -425,7 +443,7 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       }
       const confirmable = 'confirm' in spec.inputSchema
       if (confirmable && args?.dryRun === true) {
-        const effect = describeEffect(spec, action)
+        const effect = describeEffect(spec, action, args ?? {})
         const label = action ? `${spec.name}(${action})` : spec.name
         return envelopeResult(successEnvelope({
           tool: spec.name, action, tier, args: stripControl(args ?? {}), effect,
@@ -441,17 +459,35 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       if (confirmable && tier === 'destructive' && !callCtx.firstPartyAgent && args?.confirm !== true) {
         const resend = { tool: spec.name, args: { ...stripControl(args ?? {}), confirm: true } }
         return errorResult(new McpToolError('confirmation_required',
-          `${action ? `${spec.name}(${action})` : spec.name} is destructive (${describeEffect(spec, action)}). Ask the person to confirm, then resend with confirm:true.`,
+          `${action ? `${spec.name}(${action})` : spec.name} is destructive (${describeEffect(spec, action, args ?? {})}). Ask the person to confirm, then resend with confirm:true.`,
           { resend, next: [{ ...resend, why: 'Resend after the person explicitly confirmed.' }, { tool: spec.name, args: { ...stripControl(args ?? {}), dryRun: true }, why: 'Preview what it would do without executing.' }] }), spec.name, action)
       }
       const handlerArgs = confirmable ? stripControl(args ?? {}) : (args ?? {})
       if (capability) recordMissionMcpAction(callCtx, spec.name, handlerArgs)
       const operation = async (): Promise<CallToolResult> => {
         try {
-          const data = await spec.handler(callCtx, handlerArgs)
+          // An alias is validated and summarized as the call it stands for.
+          const routed = resolveAliasSafe(spec, handlerArgs)
+          const canonical = routed
+            ? { name: routed.spec.name, args: routed.args, fields: (routed.spec as unknown as McpToolSpec).actionFields }
+            : { name: spec.name, args: handlerArgs, fields: spec.actionFields }
+          let data: unknown
+          if (routed) {
+            const parsed = z.object(routed.spec.inputSchema as ZodRawShape).safeParse(routed.args)
+            if (!parsed.success) {
+              throw new McpToolError('invalid_input', `${spec.name}(${action}) is now ${routed.spec.name}(${String(routed.args.action)}): ${parsed.error.issues.map((issue) => `${issue.path.join('.') || 'arguments'}: ${issue.message}`).join('; ')}.`)
+            }
+            validateActionArgs(canonical.name, canonical.fields, parsed.data)
+            data = await routed.spec.handler(callCtx as never, parsed.data)
+          } else {
+            validateActionArgs(canonical.name, canonical.fields, canonical.args)
+            data = await spec.handler(callCtx, handlerArgs)
+          }
           if (tier !== 'read') emitMcpActivity(callCtx, spec, handlerArgs, tier)
           let meta
-          if (!isToolResponse(data)) { try { meta = summarizeResult(spec.name, action, handlerArgs, data) } catch { meta = undefined } }
+          if (!isToolResponse(data)) {
+            try { meta = summarizeResult(canonical.name, actionOf(canonical.args), canonical.args, data) } catch { meta = undefined }
+          }
           return envelopeResult(successEnvelope(data, { tool: spec.name, action, meta }))
         } catch (err) {
           return errorResult(err, spec.name, action)

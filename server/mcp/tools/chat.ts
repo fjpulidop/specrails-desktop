@@ -21,7 +21,7 @@ export function chatTools(): McpToolSpec[] {
         'Manage a project\'s chat & Explore-Spec conversations and drive their AI turns. ' +
         'EXPLORE RECIPE: create(kind:\'explore\', contextScope) → send the bootstrap text "/specrails:explore-spec\\n\\n<idea>" ' +
         'with {lightweight:true, maxTurns:20} → watch chat_done per turn → spec_draft to read the accumulated draft → ' +
-        'persist via specrails_specs(commit_draft, conversationId=<this conversation>) which preserves origin linkage, ' +
+        'persist via specrails_specs_write(commit_draft, conversationId=<this conversation>) which preserves origin linkage, ' +
         'Contract Refine and "Continue Explore". NOTE: spec_draft state is in-memory; it returns {draft:null} after a server restart. ' +
         'Actions: list_conversations, get (conversation + messages), create (kind sidebar|explore, optional provider/model/contextScope), ' +
         'update (rename title / change model), ' +

@@ -1,4 +1,5 @@
 import type { EnvelopeMeta, NextCall } from './envelope'
+import { READ_SUMMARIZERS } from './summaries-catalog'
 
 /**
  * Hand-written envelope summaries and follow-up calls for the most used
@@ -70,17 +71,23 @@ const specsList: Summarizer = (args, data) => {
   const total = typeof result.total === 'number' ? result.total : tickets.length
   const matched = typeof result.matched === 'number' ? result.matched : tickets.length
   const nextOffset = typeof result.nextOffset === 'number' ? result.nextOffset : null
+  const nextCursor = str(result.nextCursor)
   const projectId = str(args.projectId)
   const scope = projectId ? { projectId } : {}
   const next: NextCall[] = []
   if (tickets[0]?.id !== undefined) next.push({ tool: 'specrails_specs', args: { action: 'get', id: tickets[0].id, ...scope }, why: 'Read the full description and acceptance criteria.' })
-  if (nextOffset !== null) next.push({ tool: 'specrails_specs', args: { ...args, offset: nextOffset }, why: 'Fetch the next page.' })
+  if (nextCursor || nextOffset !== null) {
+    const { offset: _offset, ...rest } = args
+    void _offset
+    next.push({ tool: 'specrails_specs', args: nextCursor ? { ...rest, cursor: nextCursor } : { ...args, offset: nextOffset }, why: 'Fetch the next page.' })
+  }
+  const query = args.action === 'search' && str(args.q) ? ` for “${str(args.q)}”` : ''
   return {
     summary: tickets.length
-      ? `Showing ${tickets.length} of ${matched} matching specs (${total} in the backlog): ${countBy(tickets, 'status')}.`
-      : `No specs match${matched !== total ? '' : ' this filter'} (${total} in the backlog).`,
-    truncated: nextOffset !== null,
-    cursor: nextOffset,
+      ? `Showing ${tickets.length} of ${matched} matching specs${query} (${total} in the backlog): ${countBy(tickets, 'status')}.`
+      : `No specs match${query || (matched !== total ? '' : ' this filter')} (${total} in the backlog).`,
+    truncated: nextCursor !== null || nextOffset !== null,
+    cursor: nextCursor ?? nextOffset,
     next,
   }
 }
@@ -115,9 +122,13 @@ const railsList: Summarizer = (args, data) => {
   const running = [...activeJobs.map((job) => str(job.jobId)), ...activeRuns.map((run) => str(run.loopRunId))].filter((id): id is string => !!id)
   if (running[0]) next.push({ tool: 'specrails_watch', args: { ref: running[0], ...scope }, why: 'Wait for the running work to settle.' })
   const busy = activeJobs.length + activeRuns.length
+  const nextCursor = str(result.nextCursor)
+  if (nextCursor) next.push({ tool: 'specrails_rails', args: { ...args, cursor: nextCursor }, why: 'Fetch the next page of rails.' })
+  const total = typeof result.total === 'number' ? result.total : rails.length
   return {
-    summary: `${plural(rails.length, 'rail')}: ${busy ? `${busy} running` : 'none running'}, ${plural(reviewable.length, 'delivery', 'deliveries')} awaiting review${deliveries.length > reviewable.length ? `, ${deliveries.length - reviewable.length} other open` : ''}.`,
+    summary: `${total > rails.length ? `Showing ${rails.length} of ${total} rails` : plural(rails.length, 'rail')}: ${busy ? `${busy} running` : 'none running'}, ${plural(reviewable.length, 'delivery', 'deliveries')} awaiting review${deliveries.length > reviewable.length ? `, ${deliveries.length - reviewable.length} other open` : ''}.`,
     next,
+    ...(nextCursor ? { truncated: true, cursor: nextCursor } : {}),
   }
 }
 
@@ -168,9 +179,11 @@ const analyticsSpending: Summarizer = (args, data) => {
 }
 
 const SUMMARIZERS: Record<string, Summarizer> = {
+  ...READ_SUMMARIZERS,
   'specrails_projects:list': projectsList,
   'specrails_projects:get': projectsGet,
   'specrails_specs:list': specsList,
+  'specrails_specs:search': specsList,
   'specrails_specs:get': specsGet,
   'specrails_rails:list': railsList,
   'specrails_jobs:get': jobsGet,

@@ -81,15 +81,10 @@ export function watchTool(): McpToolSpec {
     name: 'specrails_watch',
     title: 'Watch async result',
     description:
-      'Wait for an asynchronous operation (rail launch, spec generation, chat turn, agent refine, SMASH, loop run, plugin install, setup install) to settle ' +
-      'and return its events. Pass the reference (jobId / requestId / conversationId / loopRunId) returned by the action; projectId is optional ' +
-      '(defaults to the active project; app-level operations need none). ' +
-      'Resolves when a terminal event for that reference is seen, or after untilMs. ' +
-      'Use kind:"job" or kind:"loop_run" for durable recovery: reads current state immediately, then every 5s, including operations that finished before this call. UUID refs auto-detect jobs/loop runs. ' +
-      'Default untilMs 120000 is often shorter than a rail run (max 600000). ' +
-      'settled means terminal, NOT necessarily successful; inspect terminalEvent.status/outcome. Events are bounded/truncated to protect context; other operation kinds only observe future events. ' +
-      'settled:false with reason:"timeout" means TIMEOUT, not failure — re-watch or poll the domain read. Cancellation stops waiting without stopping the operation. ' +
-      'A new message in the owning mission ends only this wait immediately with reason:"user_update" so the agent can incorporate it; the underlying job/rail keeps running.',
+      'Wait for an async operation (rail launch, spec generation, chat turn, refine, SMASH, loop run, plugin/setup install) to settle and return its events. ' +
+      'Pass the ref the action returned (jobId / requestId / conversationId / loopRunId); kind:"job" or "loop_run" reads durable state first, so finished work returns at once. ' +
+      'untilMs default 120000, max 600000. settled means terminal, not successful (read terminalEvent.status); settled:false with reason "timeout" is not a failure — re-watch or read the domain state. ' +
+      'Cancelling stops waiting, not the operation; a new mission message ends the wait with reason "user_update".',
     tier: 'read',
     inputSchema: {
       projectId: z

@@ -4,6 +4,7 @@ import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-sc
 import { SPECRAILS_GUIDE } from '../guide'
 import type { McpToolContext, McpToolSpec } from './types'
 import { setActiveProject, toolTierAllowed } from './types'
+import { advertisedActions, describeActionFields, validateActionArgs } from './actions'
 
 /** One serialized input field for `specrails_describe`. */
 interface DescribedField {
@@ -62,10 +63,26 @@ function permissions(ctx: McpToolContext, spec: McpToolSpec, args: Record<string
   return { tier, allowed: toolTierAllowed(ctx, tier) }
 }
 
+/** Advertised actions with their default-argument tier and (when declared) the arguments they take. */
 function actions(ctx: McpToolContext, spec: McpToolSpec) {
-  const field = spec.inputSchema.action
-  if (!(field instanceof z.ZodEnum)) return []
-  return (field.options as string[]).map(action => ({ action, ...permissions(ctx, spec, { action }) }))
+  return advertisedActions(spec).map(action => {
+    const fields = spec.actionFields?.[action]
+    return {
+      action, ...permissions(ctx, spec, { action }),
+      ...(fields ? { takes: describeActionFields(fields), ...(fields.required?.length ? { required: [...fields.required] } : {}), ...(fields.oneOf?.length ? { oneOf: [...fields.oneOf] } : {}) } : {}),
+    }
+  })
+}
+
+/** Per-action validation result for prospective arguments (never throws). */
+function actionIssues(spec: McpToolSpec, args: Record<string, unknown>): string | null {
+  try {
+    const routed = spec.resolveAlias?.(args)
+    validateActionArgs(routed?.spec.name ?? spec.name, (routed?.spec as McpToolSpec | undefined)?.actionFields ?? spec.actionFields, routed?.args ?? args)
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err)
+  }
 }
 
 const STOP_WORDS = new Set('a an the to for of in and or with how do i my me is are was be it what which right now this el la los las un una de del en y o con como que quiero para mi por esta estan hay tengo me ahora'.split(' '))
@@ -88,6 +105,19 @@ const INTENTS: Record<string, string[]> = {
   fallo: ['failure', 'diagnose_failure', 'logs'], fallos: ['failure', 'diagnose_failure'], fallado: ['failure', 'diagnose_failure'],
   failed: ['failure', 'diagnose_failure', 'logs'], why: ['diagnose_failure', 'failure'], registros: ['logs'], logs: ['logs'],
   gasto: ['spending', 'spend'], gastos: ['spending', 'spend'], coste: ['spending', 'cost'], costo: ['spending', 'cost'], hoy: ['today', 'status'],
+  // Board, spend, resources, runtime runs, background processes, spec changes (EN synonyms + ES intents).
+  board: ['board', 'columns'], tablero: ['board', 'columns'], columnas: ['board', 'columns'], kanban: ['board'], backlog: ['board', 'specs'],
+  spend: ['spend', 'spending'], spent: ['spend', 'spending'], budget: ['spend', 'budget', 'caps'], presupuesto: ['spend', 'budget', 'caps'],
+  cap: ['spend', 'caps'], caps: ['spend', 'caps'], limite: ['spend', 'caps'], gastado: ['spend', 'spending'], dinero: ['spend', 'cost'],
+  resources: ['resources', 'cpu', 'memory'], recursos: ['resources', 'cpu', 'memory'], memoria: ['resources', 'memory'], cpu: ['resources', 'cpu'],
+  ram: ['resources', 'memory'], consumo: ['resources', 'spend'], procesos: ['resources', 'background', 'processes'], process: ['background', 'resources'],
+  runtime: ['runs', 'state'], run: ['runs', 'launch'], recuperar: ['recover', 'resume', 'runs'], recover: ['recover', 'resume', 'runs'],
+  aprobar: ['approve', 'resume', 'runs'], approve: ['approve', 'resume', 'runs'], evidencia: ['evidence', 'runs'], evidence: ['evidence', 'runs'],
+  steer: ['steer', 'runs'], dirigir: ['steer', 'runs'], guiar: ['steer', 'runs'], liquidar: ['settle', 'runs'], settle: ['settle', 'runs'],
+  servidor: ['background', 'start', 'server'], server: ['background', 'start'], dev: ['background', 'start'], segundo: ['background'], plano: ['background'],
+  arrancar: ['background', 'start', 'launch'], iniciar: ['start', 'launch'], matar: ['kill', 'background'], kill: ['kill', 'background'],
+  crear: ['create', 'write'], editar: ['update', 'write', 'ai_edit'], cambiar: ['update', 'write'], borrar: ['delete', 'write'], eliminar: ['delete', 'write'],
+  nota: ['addendum', 'write'], addendum: ['addendum', 'write'], buscar_spec: ['search', 'specs'], search_specs: ['search', 'specs'],
 }
 const normalize = (text: string) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -158,15 +188,18 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
         const schema = z.object(spec.inputSchema)
         const prospective = args.arguments as Record<string, unknown> | undefined
         const validation = prospective === undefined ? undefined : schema.safeParse(prospective)
+        const actionProblem = validation?.success ? actionIssues(spec, validation.data) : null
         return {
           name: spec.name,
           title: spec.title,
           description: spec.description,
           inputSchema: toJsonSchemaCompat(schema),
           actions: actions(ctx, spec),
-          permissionNote: 'Action previews use default arguments. Validation checks the shared JSON schema only; action-specific requirements and backend state are checked at execution. No tool is executed here.',
-          ...(validation ? { validation: validation.success
+          permissionNote: 'Action previews use default arguments. Validation checks the JSON schema and each action\'s required arguments; backend state is checked at execution. No tool is executed here.',
+          ...(validation ? { validation: validation.success && !actionProblem
             ? { valid: true, ...permissions(ctx, spec, validation.data) }
+            : validation.success
+            ? { valid: false, issues: [{ path: ['action'], message: actionProblem }] }
             : { valid: false, issues: validation.error.issues.map(issue => ({ path: issue.path, message: issue.message })) } } : {}),
           inputFields: Object.entries(spec.inputSchema).map(([fieldName, field]) =>
             describeZodField(fieldName, field as z.ZodTypeAny),

@@ -89,23 +89,25 @@ export function isToolResponse(value: unknown): value is ToolResponse {
   return typeof value === 'object' && value !== null && (value as Record<symbol, unknown>)[RESPONSE] === true
 }
 
-/** Output schema advertised for every tool (MCP `outputSchema`). Passthrough keeps it extensible. */
+/**
+ * Output schema advertised for every tool (MCP `outputSchema`). Kept compact —
+ * it is repeated in every tools/list entry; the field meanings live in
+ * docs/internals/mcp-response-envelope.md and specrails_guide. Error payloads
+ * are not validated by the SDK, so `error` stays a loose object.
+ */
 const nextCallSchema = z.object({ tool: z.string(), args: z.record(z.string(), z.unknown()), why: z.string() })
 export const ENVELOPE_OUTPUT_SHAPE = {
-  ok: z.boolean().describe('true on success; failures also set isError and carry `error`'),
-  summary: z.string().describe('One or two plain sentences a model can relay to the person'),
-  status: z.string().optional().describe('Short machine status of the subject (running, failed, unchanged, dry_run, …)'),
-  data: z.unknown().optional().describe('The tool payload (the pre-envelope result, unchanged)'),
-  ids: z.record(z.string(), z.unknown()).optional().describe('Identifiers to carry into the next call'),
+  ok: z.boolean(),
+  summary: z.string(),
+  status: z.string().optional(),
+  data: z.unknown().optional(),
+  ids: z.record(z.string(), z.unknown()).optional(),
   links: z.record(z.string(), z.string()).optional(),
-  next: z.array(nextCallSchema).optional().describe('Suggested follow-up calls with exact arguments'),
+  next: z.array(nextCallSchema).optional(),
   truncated: z.boolean().optional(),
-  cursor: z.union([z.string(), z.number(), z.null()]).optional().describe('Pass back to continue a truncated listing'),
-  partial: z.boolean().optional().describe('Some sources failed; the rest is still valid'),
-  error: z.object({
-    code: z.string(), message: z.string(), retryable: z.boolean(),
-    choices: z.array(z.unknown()).optional(), next: z.array(nextCallSchema).optional(),
-  }).passthrough().optional(),
+  cursor: z.union([z.string(), z.number(), z.null()]).optional(),
+  partial: z.boolean().optional(),
+  error: z.object({ code: z.string(), message: z.string(), retryable: z.boolean() }).passthrough().optional(),
 }
 
 // ── Success ─────────────────────────────────────────────────────────────────

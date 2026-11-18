@@ -87,7 +87,7 @@ describe('specrails_jobs diagnose_failure / logs', () => {
       jobId: 'j1', status: 'failed', diagnosis: { kind: 'tests' },
       analysis: { headline: 'The api test expects 2 but gets 3.', category: 'tests', evidence: ['FAIL api.test.ts'], nextSteps: ['Fix the off-by-one'], stale: false, generated: false },
     })
-    expect(result.next?.map((n) => n.args.action)).toEqual(['logs', 'runtime_diagnose'])
+    expect(result.next?.map((n) => `${n.tool}:${n.args.action}`)).toEqual(['specrails_jobs:logs', 'specrails_runs:diagnose'])
     expect(vi.mocked(apiCall).mock.calls.some((c) => c[1] === 'POST')).toBe(false)
   })
 

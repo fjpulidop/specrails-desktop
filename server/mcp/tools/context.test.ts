@@ -14,10 +14,10 @@ beforeEach(() => { vi.mocked(apiCall).mockReset() })
 describe('live project context', () => {
   it('reads actual source shapes, keeps rail identity and delivery outcomes, and bounds backlog text', async () => {
     vi.mocked(apiCall).mockImplementation(async (_ctx, _method, url) => {
-      if (url.endsWith('/tickets')) return { tickets: [
+      // The backlog is paged on the server: only `limit` specs come back, counts cover all.
+      if (url.includes('/tickets?')) return { tickets: [
         { id: 1, title: 'x'.repeat(900), status: 'todo', description: 'full secret-free specification' },
-        { id: 2, status: 'done' }, { id: 3, status: 'todo' },
-      ], revision: 7 }
+      ], revision: 7, total: 3, matched: 3, statusCounts: { todo: 2, done: 1 }, nextCursor: 'c2' }
       if (url.endsWith('/rails')) return { rails: [{ railIndex: 2, ticketIds: [1], mode: 'loop', aiEngine: 'codex', profileName: 'premium' }], activeLoopRuns: { 2: { loopRunId: 'run-1' } }, prDeliveries: { 2: { id: 'delivery-1', deliveryOutcome: 'local_ready', units: Array(200).fill({}) } } }
       if (url.includes('/jobs?')) return { total: 20, jobs: [{ id: 'j1', status: 'failed', exit_code: 1 }] }
       if (url.endsWith('/git')) return { git: true, branch: 'main', dirty: true, worktrees: [{ path: '/tmp/wt' }] }
@@ -26,7 +26,8 @@ describe('live project context', () => {
     const result = await call({ limit: 1 })
     expect(result.projectId).toBe('p1')
     expect(result.sections.overview.data.providers).toEqual(['codex'])
-    expect(result.sections.backlog.data).toMatchObject({ total: 3, revision: 7, statusCounts: { todo: 2, done: 1 }, truncated: true })
+    expect(result.sections.backlog.data).toMatchObject({ total: 3, revision: 7, statusCounts: { todo: 2, done: 1 }, truncated: true, nextCursor: 'c2' })
+    expect(vi.mocked(apiCall).mock.calls.some(([, , url]) => url === '/projects/p1/tickets?limit=1')).toBe(true)
     expect(result.sections.backlog.data.recent).toHaveLength(1)
     expect(result.sections.backlog.data.recent[0].title).toContain('[truncated]')
     expect(result.sections.backlog.data.recent[0]).not.toHaveProperty('description')
@@ -40,11 +41,18 @@ describe('live project context', () => {
     expect(vi.mocked(apiCall).mock.calls.every(([, method]) => method === 'GET')).toBe(true)
   })
 
+  it('pages the backlog with the cursor of the previous answer', async () => {
+    vi.mocked(apiCall).mockResolvedValue({ tickets: [{ id: 9, status: 'todo' }], total: 3, statusCounts: { todo: 3 }, nextCursor: null })
+    const result = await call({ sections: ['backlog'], limit: 1, cursor: 'c2' })
+    expect(vi.mocked(apiCall).mock.calls[0][2]).toBe('/projects/p1/tickets?limit=1&cursor=c2')
+    expect(result.sections.backlog.data).toMatchObject({ truncated: false, nextCursor: null })
+  })
+
   it('isolates partial failures and never reports an unavailable backlog as empty', async () => {
     vi.mocked(apiCall).mockRejectedValue(new Error('database unavailable'))
     const result = await call({ sections: ['overview', 'backlog'] })
     expect(result.sections.overview.status).toBe('ok')
-    expect(result.sections.backlog).toMatchObject({ status: 'unavailable', error: 'database unavailable', source: '/api/projects/p1/tickets' })
+    expect(result.sections.backlog).toMatchObject({ status: 'unavailable', error: 'database unavailable', source: '/api/projects/p1/tickets?limit=10' })
     expect(result.sections.backlog).not.toHaveProperty('data')
     expect(result.sections).not.toHaveProperty('git')
   })

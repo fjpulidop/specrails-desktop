@@ -11,7 +11,14 @@ Source: [envelope.ts](../../server/mcp/tools/envelope.ts) (pure contract),
 every tool), [status.ts](../../server/mcp/tools/status.ts),
 [inbox.ts](../../server/mcp/tools/inbox.ts),
 [missions.ts](../../server/mcp/tools/missions.ts),
-[job-logs.ts](../../server/mcp/tools/job-logs.ts).
+[job-logs.ts](../../server/mcp/tools/job-logs.ts),
+[actions.ts](../../server/mcp/tools/actions.ts) (hidden aliases and per-action
+fields), [board.ts](../../server/mcp/tools/board.ts),
+[spend.ts](../../server/mcp/tools/spend.ts),
+[resources.ts](../../server/mcp/tools/resources.ts) (the tool),
+[summaries-catalog.ts](../../server/mcp/tools/summaries-catalog.ts) (read-action
+summaries), [resources.ts](../../server/mcp/resources.ts) (MCP resources and
+subscriptions), [prompts.ts](../../server/mcp/prompts.ts).
 
 ## Success
 
@@ -30,8 +37,10 @@ every tool), [status.ts](../../server/mcp/tools/status.ts),
   old text now read `data`.
 - `summary`: one or two plain sentences. Tools without a hand-written summary
   get a generic one (`specrails_jobs(list) returned 50 of 212 jobs.`).
-  Hand-written: `projects.list/get`, `specs.list/get`, `rails.list`, `jobs.get`,
-  `analytics.spending`, and every action of the new tools below.
+  Every read action has a hand-written summary (`summaries.ts` for the most
+  used ones, `summaries-catalog.ts` for the rest, keyed `tool:action`); the
+  generic one remains the fallback when a payload has an unexpected shape.
+  An alias call is summarized as the call it stands for.
 - `next` suggests follow-up calls with exact arguments. A suggestion is never a
   permission: ai-spawn and destructive suggestions still need the person.
 - A handler opts into its own metadata by returning `toolResponse(data, meta)`;
@@ -78,6 +87,72 @@ two optional inputs, `confirm` and `dryRun`, added in `buildToolSpecs`.
 - The control fields never reach the handler or the activity broadcast.
 
 The Destructive tier remains on by default.
+
+## Hidden aliases and per-action validation
+
+`actions.ts` keeps moved actions working without advertising them:
+
+- `actionEnum(advertised, hidden)` accepts every value at runtime; zod v4
+  metadata overrides the generated JSON-schema `enum` with the advertised ones.
+- `McpToolSpec.aliases` maps a hidden action to `{ tool, action, args? }`.
+  `linkAliases` (run by `buildToolSpecs` and by `jobsTools` / `specsTools`
+  themselves, idempotent) routes the alias's tier, Intent `tierException` and
+  handler to the target, so a direct handler call works too.
+- `registerTieredTool` registers an aliased tool's schema as a loose object (the
+  moved arguments must survive the SDK's parse), then parses an alias call with
+  the target tool's own zod schema, validates its per-action fields and
+  summarizes it under the target's name.
+- `McpToolSpec.actionFields` declares `required` / `oneOf` / `optional` per
+  action. Missing fields fail with `invalid_input` before any REST call; fields
+  an action ignores are tolerated for older clients. `specrails_describe`
+  publishes them per action.
+- Annotations stay conservative for a tool that still accepts write aliases
+  (`specrails_specs`), because clients may auto-approve `readOnlyHint` tools.
+
+## Pagination
+
+`GET /api/projects/:id/tickets` and `GET /api/projects/:id/rails` accept
+optional `limit` (tickets ≤ 200, rails ≤ 100) with `cursor` (opaque, from the
+previous `nextCursor`) or `offset`; without `limit` their answer is unchanged.
+A paged tickets answer adds `matched`, `statusCounts` (of the whole match),
+`offset`, `limit`, `nextOffset`, `nextCursor` and `cursorStale` when the cursor
+predates the store revision; `groupBy=status&perGroup=N` returns per-status
+`groups` for boards. Paged rails keep only the page's entries in
+`activeJobs` / `activeLoopRuns` / `prDeliveries` and add `total`. A malformed
+cursor is `400 invalid_cursor` ([page-cursor.ts](../../server/util/page-cursor.ts)).
+`specrails_specs(list)` still pages in memory when an older server ignores
+`limit`.
+
+## `specrails_board`, `specrails_spend`, `specrails_resources`
+
+- Board: `GET /tickets?groupBy=status`, `GET /rails`, `GET /queue` in parallel;
+  each source fails independently (`partial`, `sources`). Columns follow the
+  workflow order, then unknown statuses.
+- Spend: app-wide `GET /api/analytics` (period; `today` is the local day as
+  exact UTC instants, like `specrails_status`) + `GET /api/budget/caps`; with
+  `projectId`, `GET /projects/:id/spending` (with the local `tzOffsetMinutes`) +
+  `/budget/caps`. `top` lists the costliest projects (app) or specs and missions
+  (project). `status: 'cap_exhausted'` when any cap is exhausted.
+- Resources: `GET /api/resources`, or with `conversationId`
+  `GET /projects/:id/missions/:chatId/resources` (project from the argument,
+  else the mission pin, else the active project). It never starts a disk scan.
+
+## Resources, subscriptions and prompts
+
+`registerResources` serves `specrails://status` (`collectStatus`),
+`specrails://projects/{id}/board` (`collectBoard`, listed per project),
+`specrails://jobs/{jobId}` (the jobs `get` handler with 20 events, trying each
+loaded project until one does not answer 404) and
+`specrails://missions/{conversationId}` (the missions `get` handler).
+`registerResourceSubscriptions` declares `resources.subscribe`, keeps the
+session's subscribed URIs, listens to the in-process event bus that mirrors
+every WebSocket broadcast and maps events with the pure `resourceUrisFor`
+(status: queue, rail, loop-run, mission-turn, spending and inbox triggers;
+board: spec, rail, loop-run and queue events of that project; job: any event
+with its `jobId`; mission: `agent*`/`mission*` events of its conversation; log
+and token-stream frames never notify). One notification per URI per second;
+the session's disposer stops it on close. Prompts (`prompts.ts`) render
+fixed text with the tool calls to make.
 
 ## `specrails_status`
 
@@ -131,4 +206,8 @@ characters), using the recovery module's `logLinesFromEvents`.
 
 - No route lets an MCP client focus the desktop UI on an item; `open` returns
   the detail instead.
-- `spendToday` uses the UTC day (the app-wide analytics route buckets by UTC date).
+- `spendToday` and `specrails_spend(period:"today")` ask the analytics route for
+  the local day as exact UTC instants.
+- The in-app mission prompts still name the legacy `specrails_jobs(runtime_*)`
+  and `specrails_jobs(background_*)` actions; they run through the aliases.
+- `specrails_runs` has no `fork`: the runtime exposes no fork route.

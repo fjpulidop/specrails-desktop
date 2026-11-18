@@ -24,6 +24,10 @@ import { supportTools } from './support'
 import { envTools } from './env'
 import { contextTools } from './context'
 import { missionTools } from './mission'
+import { linkAliases } from './actions'
+import { boardTools } from './board'
+import { spendTools } from './spend'
+import { resourcesTools } from './resources'
 
 /**
  * The full MCP tool catalog. Domain-facade tools each expose an `action` enum
@@ -34,6 +38,9 @@ export function buildToolSpecs(): McpToolSpec[] {
   const specs: McpToolSpec[] = []
   // App-level + meta + watch
   specs.push(...statusTools())
+  specs.push(...boardTools())
+  specs.push(...spendTools())
+  specs.push(...resourcesTools())
   specs.push(...projectsTools())
   specs.push(...contextTools())
   specs.push(...inboxTools())
@@ -57,6 +64,8 @@ export function buildToolSpecs(): McpToolSpec[] {
   specs.push(...gitTools())
   specs.push(...envTools())
   specs.push(...supportTools())
+  // Hidden legacy actions route to the tool they moved to (./actions.ts).
+  linkAliases(specs)
   // Destructive actions take confirm/dryRun (enforced in registerTieredTool).
   const confirmed = specs.map(withConfirmationFields)
   // Meta last (needs the full list for search/describe)

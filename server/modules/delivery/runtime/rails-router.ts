@@ -1,3 +1,4 @@
+import { PageCursorError, pageOf, parsePageQuery } from '../../../util/page-cursor'
 import { FollowUpValidationError, freezeFollowUp, parseFollowUpInput, type PrFollowUp } from './pr-follow-up'
 import { validateRuntimeProviderOverride } from '../../agent-runtime/runtime/agent-runtime-settings'
 import path from 'path'
@@ -352,8 +353,18 @@ export function createRailsRouter(): Router {
       // against it (absent in bare contexts without the gate).
       const wip = c.reviewWipGate?.status()
       const reviewWip = wip ? { limit: wip.limit, pending: wip.pending, reached: wip.limit !== null && wip.pending.length + wip.reserved >= wip.limit } : undefined
+      // Optional paging (limit + cursor/offset): the per-rail maps keep only the page's rails.
+      const page = parsePageQuery(_req.query as Record<string, unknown>, { max: 100 })
+      if (page) {
+        const { items, ...paging } = pageOf(railsWithAvailability, page)
+        const indexes = new Set(items.map((rail) => rail.railIndex))
+        const only = <T>(map: Record<number, T>) => Object.fromEntries(Object.entries(map).filter(([index]) => indexes.has(Number(index)))) as Record<number, T>
+        res.json({ rails: items, activeJobs: only(activeJobs), activeLoopRuns: only(activeLoopRuns), prDeliveries: only(prDeliveries), ...(reviewWip ? { reviewWip } : {}), total: railsWithAvailability.length, ...paging })
+        return
+      }
       res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries, ...(reviewWip ? { reviewWip } : {}) })
     } catch (err) {
+      if (err instanceof PageCursorError) { res.status(err.status).json({ error: err.code, message: err.message }); return }
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
     }

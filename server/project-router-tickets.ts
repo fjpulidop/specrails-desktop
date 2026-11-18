@@ -1,5 +1,6 @@
 // Domain routes extracted from project-router.ts (tickets).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
+import { PageCursorError, pageOf, parsePageQuery } from './util/page-cursor'
 import fs from 'fs'
 import { validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
 import { Request, Response, NextFunction } from 'express'
@@ -188,8 +189,33 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       })
       // Sort by updated_at descending
       filtered.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+      // Optional board view: per-status counts and the newest items of each.
+      if (req.query.groupBy === 'status') {
+        const requested = Number.parseInt(String(req.query.perGroup ?? '5'), 10)
+        const perGroup = Math.min(Math.max(Number.isFinite(requested) ? requested : 5, 0), 50)
+        const groups = new Map<string, { status: string; count: number; tickets: typeof filtered }>()
+        for (const ticket of filtered) {
+          const status = String(ticket.status ?? 'unknown')
+          const group = groups.get(status) ?? { status, count: 0, tickets: [] }
+          group.count += 1
+          if (group.tickets.length < perGroup) group.tickets.push(ticket)
+          groups.set(status, group)
+        }
+        res.json({ groups: [...groups.values()], revision: store.revision, total: allTickets.length, matched: filtered.length, perGroup })
+        return
+      }
+      // Optional paging (limit + cursor/offset); without limit the full list is returned as before.
+      const page = parsePageQuery(req.query as Record<string, unknown>, { max: 200, revision: store.revision })
+      if (page) {
+        const statusCounts: Record<string, number> = {}
+        for (const ticket of filtered) statusCounts[String(ticket.status ?? 'unknown')] = (statusCounts[String(ticket.status ?? 'unknown')] ?? 0) + 1
+        const { items, ...paging } = pageOf(filtered, page, store.revision)
+        res.json({ tickets: items, revision: store.revision, total: allTickets.length, matched: filtered.length, statusCounts, ...paging })
+        return
+      }
       res.json({ tickets: filtered, revision: store.revision, total: allTickets.length })
     } catch (err) {
+      if (err instanceof PageCursorError) { res.status(err.status).json({ error: err.code, message: err.message }); return }
       console.error('[project-router] ticket list error:', err)
       res.status(500).json({ error: 'Failed to read tickets' })
     }
