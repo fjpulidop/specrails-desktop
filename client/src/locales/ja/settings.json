@@ -65,7 +65,7 @@
       "notifications": "通知",
       "storage": "ストレージ"
     },
-    "title": "Desktop 設定",
+    "title": "設定",
     "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
     "registeredProjects": "登録済みプロジェクト",
     "noProjects": "登録されたプロジェクトはまだありません",
@@ -155,7 +155,7 @@
   "appearance": {
     "taglines": {
       "dracula": "オリジナル — 紫がかったダークにネオンのアクセント",
-      "aurora-light": "プレミアムライト — Linear風のインディゴと温かみのあるオフホワイト",
+      "aurora-light": "昼光の製図台 — 温かみのある紙にインク、柔らかな影で奥行きを表現",
       "obsidian-dark": "グラファイト・プロ — ニュートラルなほぼ黒に、落ち着いた紫のアクセントひとつ",
       "specrails": "ブランドテーマ — 深いネイビーインディゴに鮮やかなシアン",
       "code-rain": "蛍光ターミナル — 緑がかった漆黒にソフトミント",
@@ -168,7 +168,7 @@
   },
   "mobile": {
     "heading": "モバイルコンパニオン",
-    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
+    "description": "スマートフォンの Specrails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
     "accessOn": "モバイルアクセス オン",
     "accessOff": "モバイルアクセス オフ",
     "listeningOnPort": "ポート {{port}} で待機中",
@@ -181,7 +181,7 @@
     "identityReset": "モバイル ID をリセットしました",
     "enableFailed": "モバイルアクセスを有効にできませんでした",
     "disableFailed": "モバイルアクセスを無効にできませんでした",
-    "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
+    "windowsFirewall": "初回有効化時に Windows ファイアウォールが Specrails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
     "revokeDevice": "{{name}} を無効化",

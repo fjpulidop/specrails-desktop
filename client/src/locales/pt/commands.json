@@ -26,7 +26,7 @@
       "desktopAnalytics": "Análises do Desktop",
       "projectAnalytics": "Análises do projeto",
       "activityFeed": "Feed de atividade",
-      "desktopSettings": "Definições do Desktop",
+      "desktopSettings": "Definições",
       "docs": "Docs",
       "replayTour": "Rever o tour"
     },
@@ -69,7 +69,7 @@
       "switchTheme": "Trocar tema",
       "switchToMission": "Mudar para o modo Missão",
       "switchToBoard": "Mudar para o modo Quadro",
-      "openAppSettings": "Abrir configurações do app",
+      "openAppSettings": "Abrir definições",
       "openProjectSettings": "Abrir configurações do projeto",
       "switchProject": "Trocar de projeto",
       "runLoop": "Executar loop",
@@ -95,7 +95,7 @@
         "themeTitle": "Tema",
         "themePlaceholder": "Escolha um tema...",
         "noThemes": "Nenhum tema disponível.",
-        "appSettingsTitle": "Configurações do app",
+        "appSettingsTitle": "Definições",
         "projectSettingsTitle": "Configurações do projeto",
         "sectionPlaceholder": "Escolha uma seção...",
         "noSections": "Nenhuma seção.",
@@ -215,7 +215,7 @@
       }
     },
     "settings": {
-      "appScope": "Configurações do Desktop",
+      "appScope": "Definições",
       "projectScope": "Configurações do projeto",
       "entries": {
         "theme": {

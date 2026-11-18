@@ -173,7 +173,7 @@ const AURORA_PALETTE = {
 const AURORA_LIGHT: ThemeDescriptor = {
   id: 'aurora-light',
   displayName: 'Aurora Light',
-  tagline: 'Premium light — Linear-inspired indigo on warm off-white',
+  tagline: 'Daylight drafting table — ink on warm paper, depth from soft shadows',
   scheme: 'light',
   previewSwatches: {
     background: AURORA_PALETTE.bg,
@@ -338,7 +338,7 @@ const CODE_RAIN: ThemeDescriptor = {
   },
 }
 
-// ─── SpecRails ─────────────────────────────────────────────────────────────
+// ─── Specrails ─────────────────────────────────────────────────────────────
 
 const SPECRAILS_PALETTE = {
   bg:          'hsl(240 33% 4%)',     // near-black #06060c
@@ -357,7 +357,7 @@ const SPECRAILS_PALETTE = {
 
 const SPECRAILS: ThemeDescriptor = {
   id: 'specrails',
-  displayName: 'SpecRails',
+  displayName: 'Specrails',
   tagline: 'Brand theme — deep navy-indigo with saturated cyan accents',
   scheme: 'dark',
   previewSwatches: {

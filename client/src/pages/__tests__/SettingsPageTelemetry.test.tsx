@@ -74,11 +74,11 @@ describe('SettingsPage — pipeline telemetry toggle', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the Pipeline Telemetry section', async () => {
+  it('renders the Pipeline telemetry section', async () => {
     global.fetch = makeFetchMock(false)
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Pipeline Telemetry')).toBeInTheDocument()
+      expect(screen.getByText('Pipeline telemetry')).toBeInTheDocument()
     })
   })
 

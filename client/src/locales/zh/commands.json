@@ -26,7 +26,7 @@
       "desktopAnalytics": "Desktop 分析",
       "projectAnalytics": "项目分析",
       "activityFeed": "活动流",
-      "desktopSettings": "Desktop 设置",
+      "desktopSettings": "设置",
       "docs": "文档",
       "replayTour": "重新播放导览"
     },
@@ -69,7 +69,7 @@
       "switchTheme": "切换主题",
       "switchToMission": "切换到任务模式",
       "switchToBoard": "切换到看板模式",
-      "openAppSettings": "打开应用设置",
+      "openAppSettings": "打开设置",
       "openProjectSettings": "打开项目设置",
       "switchProject": "切换项目",
       "runLoop": "运行 Loop",
@@ -95,7 +95,7 @@
         "themeTitle": "主题",
         "themePlaceholder": "选择主题...",
         "noThemes": "没有可用的主题。",
-        "appSettingsTitle": "应用设置",
+        "appSettingsTitle": "设置",
         "projectSettingsTitle": "项目设置",
         "sectionPlaceholder": "选择分区...",
         "noSections": "没有分区。",
@@ -215,7 +215,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop 设置",
+      "appScope": "设置",
       "projectScope": "项目设置",
       "entries": {
         "theme": {

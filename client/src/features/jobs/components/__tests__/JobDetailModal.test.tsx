@@ -857,7 +857,7 @@ describe('JobDetailModal', () => {
       })
       expect(screen.getByPlaceholderText(/Send a message to the running job/i)).toBeInTheDocument()
       expect(screen.getByText('Wrap up now')).toBeInTheDocument()
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
     })
 
     it("keeps Finalize semantics for a 'finalize' (freestyle) session", async () => {
@@ -871,7 +871,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-running" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+        expect(screen.getByText('Finalize job')).toBeInTheDocument()
       })
     })
 

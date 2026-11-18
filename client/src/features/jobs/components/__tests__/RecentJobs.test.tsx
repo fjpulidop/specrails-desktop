@@ -377,14 +377,14 @@ describe('RecentJobs', () => {
       const user = userEvent.setup()
       render(<RecentJobs jobs={mockJobs} />)
       await user.click(screen.getByRole('button', { name: 'Clear jobs' }))
-      const dialog = screen.getByRole('dialog', { name: 'Clear Jobs' })
+      const dialog = screen.getByRole('dialog', { name: 'Clear jobs' })
       const buttons = within(dialog).getAllByRole('button').map((b) => b.textContent)
       const cancelIdx = buttons.indexOf('Cancel')
       const clearAllIdx = buttons.findIndex((t) => /clear all/i.test(t ?? ''))
       expect(cancelIdx).toBeGreaterThanOrEqual(0)
       expect(clearAllIdx).toBeGreaterThan(cancelIdx)
       await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      expect(screen.queryByRole('dialog', { name: 'Clear Jobs' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Clear jobs' })).not.toBeInTheDocument()
     })
 
     it('marks a pricing-table estimate with ~ and sr-only "estimated"', () => {

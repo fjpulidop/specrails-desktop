@@ -65,7 +65,7 @@
       "notifications": "Notifiche",
       "storage": "Archiviazione"
     },
-    "title": "Impostazioni Desktop",
+    "title": "Impostazioni",
     "description": "Aspetto, provider di IA, aggiornamenti e preferenze generali di Desktop.",
     "registeredProjects": "Progetti registrati",
     "noProjects": "Nessun progetto ancora registrato",
@@ -155,7 +155,7 @@
   "appearance": {
     "taglines": {
       "dracula": "L'originale — scuro con sfumature viola e vividi accenti neon",
-      "aurora-light": "Chiaro premium — indaco ispirato a Linear su bianco caldo",
+      "aurora-light": "Tavolo da disegno alla luce del giorno — inchiostro su carta calda, profondità con ombre morbide",
       "obsidian-dark": "Grafite pro — quasi nero neutro con un solo accento viola tenue",
       "specrails": "Tema del brand — blu navy-indaco profondo con accenti ciano saturi",
       "code-rain": "Terminale al fosforo — menta tenue su quasi nero verdastro",
@@ -168,7 +168,7 @@
   },
   "mobile": {
     "heading": "Companion mobile",
-    "description": "Controlla Specrails dall'app SpecRails Companion sul tuo telefono, 100% sulla tua rete locale. Disattivato per impostazione predefinita. Un telefono associato può rispondere alle domande, riprendere, riprovare e creare PR in bozza dalla posta in arrivo, entro i livelli di permesso MCP; unire, scartare e le impostazioni restano su questo computer.",
+    "description": "Controlla Specrails dall'app Specrails Companion sul tuo telefono, 100% sulla tua rete locale. Disattivato per impostazione predefinita. Un telefono associato può rispondere alle domande, riprendere, riprovare e creare PR in bozza dalla posta in arrivo, entro i livelli di permesso MCP; unire, scartare e le impostazioni restano su questo computer.",
     "accessOn": "Accesso mobile attivo",
     "accessOff": "Accesso mobile disattivato",
     "listeningOnPort": "In ascolto sulla porta {{port}}",
@@ -181,7 +181,7 @@
     "identityReset": "Identità mobile reimpostata",
     "enableFailed": "Impossibile abilitare l'accesso mobile",
     "disableFailed": "Impossibile disabilitare l'accesso mobile",
-    "windowsFirewall": "Alla prima attivazione Windows Firewall chiederà di consentire il server SpecRails — scegli “Consenti su reti private”.",
+    "windowsFirewall": "Alla prima attivazione Windows Firewall chiederà di consentire il server Specrails — scegli “Consenti su reti private”.",
     "pairedDevices": "Dispositivi associati",
     "noDevices": "Nessun dispositivo ancora associato.",
     "revokeDevice": "Revoca {{name}}",

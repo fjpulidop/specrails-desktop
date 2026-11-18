@@ -158,7 +158,7 @@
     "discardedToast": "PR descartada — specs devolvidas a Specs",
     "decisionPending": "Este rail tem uma decisão de PR pendente — crie, publique ou descarte-a antes de relançar",
     "discardConfirmTitle": "Descartar esta entrega?",
-    "discardConfirmBody": "A PR será fechada sem excluir o branch remoto. Apenas branches locais e worktrees pertencentes ao SpecRails que ainda estejam no commit registrado serão removidos; qualquer item alterado será preservado com um aviso. As specs voltarão ao backlog de Specs. Os recursos locais removidos não podem ser recuperados.",
+    "discardConfirmBody": "A PR será fechada sem excluir o branch remoto. Apenas branches locais e worktrees pertencentes ao Specrails que ainda estejam no commit registrado serão removidos; qualquer item alterado será preservado com um aviso. As specs voltarão ao backlog de Specs. Os recursos locais removidos não podem ser recuperados.",
     "implementationFailedDiscardTitle": "Descartar esta entrega com falha?",
     "implementationFailedDiscardBody": "O cartão será fechado e as specs voltarão a Specs. O trabalho local e os branches serão preservados para inspeção. Apenas recursos comprovadamente seguros para limpeza poderão ser removidos.",
     "mergeLocal": "Integrar localmente",
@@ -184,7 +184,7 @@
     "relaunchSent": "Relançando o rail",
     "relaunchFailed": "Não foi possível relançar o rail",
     "recheckRecoveryConfirmTechnical": "O Specrails examinará novamente neste clone o worktree, a branch, as refs, os reflogs e os objetos Git órfãos pertencentes à entrega de {{branch}}. Se comprovar um único resultado, poderá fazer commit das alterações isoladas e repetir o push exato. A pasta principal do projeto não será alterada.",
-    "fixCi": "Corrigir CI / Conflitos",
+    "fixCi": "Corrigir CI / conflitos",
     "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
     "fixCiStarted": "Acompanhamento do CI iniciado",
     "fixCiFailed": "Não foi possível iniciar o loop de CI"

@@ -442,7 +442,7 @@
       "mergeLocalTitle": "Integrare localmente?",
       "mergeLocalBody": "I branch consegnati saranno uniti a {{base}} localmente. Le modifiche esistenti vengono preservate; quelle sovrapposte potrebbero richiedere una risoluzione prima dell’integrazione.",
       "freshDiscardTitle": "Eliminare questa consegna?",
-      "freshDiscardBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di SpecRails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog. Le risorse locali rimosse non possono essere recuperate.",
+      "freshDiscardBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di Specrails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog. Le risorse locali rimosse non possono essere recuperate.",
       "implementationFailedDiscardTitle": "Scartare questa consegna non riuscita?",
       "implementationFailedDiscardBody": "La scheda verrà chiusa e le spec torneranno nel backlog. Il lavoro locale e i branch saranno conservati per l’ispezione. Potranno essere rimosse solo le risorse la cui pulizia è dimostrata sicura.",
       "dismissTitle": "Chiudere questo follow-up?",
@@ -1587,7 +1587,7 @@
     "startFailed": "Impossibile avviare il loop di CI.",
     "dismissFailed": "Impossibile salvare la scelta. Riprova.",
     "startedToast": "Monitoraggio della CI avviato sul binario {{index}}",
-    "fixCi": "Correggi CI / Conflitti",
+    "fixCi": "Correggi CI / conflitti",
     "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
     "step": {
       "checks": "In attesa della CI",
@@ -1605,7 +1605,7 @@
     "noCiMany": "Le PR {{pr}} non hanno check di CI",
     "needsAttentionMany": "Le PR {{pr}} sono inviate; la loro CI non è ancora verde",
     "dismissedMany": "Monitoraggio della CI delle PR {{pr}} non avviato.",
-    "retry": "Correggi di nuovo CI / Conflitti",
+    "retry": "Correggi di nuovo CI / conflitti",
     "openLog": "Apri il log"
   },
   "missionResources": {

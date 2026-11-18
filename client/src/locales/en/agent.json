@@ -472,7 +472,7 @@
       "recheckRecoveryTitle": "Check this computer again?",
       "recheckRecoveryBody": "We’ll check whether anything from this delivery can still be recovered. Nothing is deleted.",
       "freshDiscardTitle": "Discard this delivery?",
-      "freshDiscardBody": "The PR will be closed without deleting its remote branch. Only SpecRails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the backlog. Removed local resources cannot be recovered.",
+      "freshDiscardBody": "The PR will be closed without deleting its remote branch. Only Specrails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the backlog. Removed local resources cannot be recovered.",
       "implementationFailedDiscardTitle": "Discard this failed delivery?",
       "implementationFailedDiscardBody": "The card will be cleared and its specs will return to the backlog. Local work and branches will be kept for inspection. Only resources proven safe to clean up may be removed.",
       "dismissTitle": "Dismiss this follow-up?",
@@ -1587,7 +1587,7 @@
     "startFailed": "The CI loop could not start.",
     "dismissFailed": "Could not save your choice. Try again.",
     "startedToast": "CI watch started on rail {{index}}",
-    "fixCi": "Fix CI / Conflicts",
+    "fixCi": "Fix CI / conflicts",
     "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
     "step": {
       "checks": "Waiting for CI",
@@ -1605,7 +1605,7 @@
     "noCiMany": "PRs {{pr}} have no CI checks",
     "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
     "dismissedMany": "CI watch for PRs {{pr}} not started.",
-    "retry": "Fix CI / Conflicts again",
+    "retry": "Fix CI / conflicts again",
     "openLog": "Open the log"
   },
   "missionResources": {

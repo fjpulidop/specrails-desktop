@@ -150,7 +150,7 @@ export interface AgentModel {
 
 export interface AgentModelsResponse {
   models: AgentModel[]
-  /** Provider accepts safe aliases configured outside SpecRails. */
+  /** Provider accepts safe aliases configured outside Specrails. */
   customModelAliases: boolean
   /** Composer gates the image affordance on this capability (design D22). */
   supportsImageInput: boolean

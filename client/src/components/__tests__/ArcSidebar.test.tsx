@@ -82,13 +82,13 @@ describe('ArcSidebar', () => {
     expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
   })
 
-  it('lists app tools as plain rows above App settings (no disclosure)', () => {
+  it('lists app tools as plain rows above Settings (no disclosure)', () => {
     render(<ArcSidebar {...defaultProps} onOpenCompanion={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Expand', expanded: false })).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'App settings' })).not.toBeInTheDocument()
-    const footer = screen.getByRole('button', { name: 'App settings' }).parentElement as HTMLElement
+    expect(screen.queryByRole('group', { name: 'Settings' })).not.toBeInTheDocument()
+    const footer = screen.getByRole('button', { name: 'Settings' }).parentElement as HTMLElement
     expect(within(footer).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
-      'All-projects analytics', 'Docs', 'Companion', 'App settings',
+      'All-projects analytics', 'Docs', 'Companion', 'Settings',
     ])
   })
 
@@ -265,7 +265,7 @@ describe('ArcSidebar', () => {
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getByRole('button', { name: /Docs/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'All-projects analytics' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'App settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('calls onOpenAnalytics when All-projects analytics is clicked', () => {
@@ -274,9 +274,9 @@ describe('ArcSidebar', () => {
     expect(defaultProps.onOpenAnalytics).toHaveBeenCalledOnce()
   })
 
-  it('calls onOpenSettings when App settings is clicked', () => {
+  it('calls onOpenSettings when Settings is clicked', () => {
     render(<ArcSidebar {...defaultProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'App settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(defaultProps.onOpenSettings).toHaveBeenCalledOnce()
   })
 

@@ -191,7 +191,7 @@ export function providerSupportsProfiles(provider: string | null | undefined): b
 }
 
 /**
- * The provider accepts model aliases configured outside SpecRails. The server
+ * The provider accepts model aliases configured outside Specrails. The server
  * remains authoritative and validates the exact alias before spawning a CLI.
  */
 export function providerSupportsCustomModelAliases(

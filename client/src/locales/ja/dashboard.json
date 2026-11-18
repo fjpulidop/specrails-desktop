@@ -158,7 +158,7 @@
     "discardedToast": "PR を破棄しました — スペックは Specs に戻されました",
     "decisionPending": "このレールには未処理の PR 決定があります — 再起動する前に作成・公開・破棄のいずれかを行ってください",
     "discardConfirmTitle": "この成果物を破棄しますか？",
-    "discardConfirmBody": "PR はリモートブランチを削除せずにクローズされます。SpecRails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。スペックは Specs のバックログに戻ります。削除されたローカルリソースは復旧できません。",
+    "discardConfirmBody": "PR はリモートブランチを削除せずにクローズされます。Specrails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。スペックは Specs のバックログに戻ります。削除されたローカルリソースは復旧できません。",
     "implementationFailedDiscardTitle": "失敗した配信を破棄しますか？",
     "implementationFailedDiscardBody": "カードを閉じ、スペックを Specs に戻します。ローカルの作業とブランチは確認できるよう保持されます。安全にクリーンアップできることが確認されたリソースのみ削除される場合があります。",
     "mergeLocal": "ローカルに統合",

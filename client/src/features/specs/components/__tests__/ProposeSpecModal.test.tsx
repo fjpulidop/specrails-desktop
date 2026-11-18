@@ -124,12 +124,12 @@ describe('ProposeSpecModal', () => {
 
   it('does not render dialog when open=false', () => {
     render(<ProposeSpecModal open={false} onClose={onCloseMock} tickets={emptyTickets} />)
-    expect(screen.queryByText('Add Spec')).not.toBeInTheDocument()
+    expect(screen.queryByText('Add spec')).not.toBeInTheDocument()
   })
 
   it('renders dialog with textarea when open=true', () => {
     render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
-    expect(screen.getByText('Add Spec')).toBeInTheDocument()
+    expect(screen.getByText('Add spec')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/add a dark mode toggle/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /generate spec/i })).toBeInTheDocument()
   })
@@ -139,13 +139,13 @@ describe('ProposeSpecModal', () => {
     expect(mockStartWithMessage).not.toHaveBeenCalled()
   })
 
-  it('disables Generate Spec button when textarea is empty', () => {
+  it('disables Generate spec button when textarea is empty', () => {
     render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const button = screen.getByRole('button', { name: /generate spec/i })
     expect(button).toBeDisabled()
   })
 
-  it('enables Generate Spec button when textarea has content after its model resolves', async () => {
+  it('enables Generate spec button when textarea has content after its model resolves', async () => {
     render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Add dark mode' } })
@@ -274,7 +274,7 @@ describe('ProposeSpecModal', () => {
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
   })
 
-  it('shows Context Awareness and Fine-tune in both Quick and Explore', async () => {
+  it('shows Context awareness and Fine-tune in both Quick and Explore', async () => {
     render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     await waitFor(() => {
       expect(screen.getByTestId('context-scope-slider')).toBeInTheDocument()

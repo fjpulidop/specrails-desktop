@@ -6,14 +6,14 @@
     "updateFailed": "Could not save the language preference"
   },
   "page": {
-    "title": "Project Settings",
+    "title": "Project settings",
     "loadFailed": "Couldn't load the project configuration"
   },
   "errors": {
     "saveFailed": "Failed to save"
   },
   "telemetry": {
-    "title": "Pipeline Telemetry",
+    "title": "Pipeline telemetry",
     "description": "Capture token usage, phase durations, and subagent activity for diagnostic export. On by default.",
     "toggleLabel": "Enable pipeline telemetry",
     "toggleDescription": "When on, OTEL data from pipeline jobs is captured locally. Use the <mono>Export diagnostic</mono> button on any job card to download.",
@@ -22,7 +22,7 @@
     "saveFailed": "Failed to save telemetry setting"
   },
   "prePrompt": {
-    "title": "Rail Pre-prompt",
+    "title": "Rail pre-prompt",
     "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before the run.",
     "label": "Pre-prompt",
     "placeholder": "Example: Prefer incremental changes, keep migrations backward compatible, and add tests for every rail change.",
@@ -65,9 +65,9 @@
       "notifications": "Notifications",
       "storage": "Storage"
     },
-    "title": "Desktop Settings",
+    "title": "Settings",
     "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
-    "registeredProjects": "Registered Projects",
+    "registeredProjects": "Registered projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
     "techUrlSaved": "specrails-tech URL saved",
@@ -80,10 +80,10 @@
     "projectRemoved": "Project removed",
     "projectRemoveFailed": "Failed to remove project",
     "onboardingHeading": "Onboarding",
-    "platformTour": "Platform Tour",
+    "platformTour": "Platform tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
-    "replayTour": "Replay Tour",
-    "infoHeading": "Desktop Information",
+    "replayTour": "Replay tour",
+    "infoHeading": "Desktop information",
     "infoPort": "Port",
     "infoProjects": "Projects",
     "infoDb": "Desktop DB",
@@ -100,7 +100,7 @@
     "dailyBudgetNone": "No daily limit set"
   },
   "webhooks": {
-    "heading": "Outbound Webhooks",
+    "heading": "Outbound webhooks",
     "description": "Notify external tools (Slack, Zapier, CI/CD) on Desktop events. Requests are signed via <code>X-Specrails-Signature</code> when a secret is set.",
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
@@ -110,7 +110,7 @@
     "sendTestPing": "Send test ping",
     "addHeading": "Add webhook",
     "secretPlaceholder": "Signing secret (optional)",
-    "addButton": "Add Webhook",
+    "addButton": "Add webhook",
     "urlRequired": "URL is required",
     "selectEvent": "Select at least one event",
     "added": "Webhook added",
@@ -155,7 +155,7 @@
   "appearance": {
     "taglines": {
       "dracula": "The original — dark purple-tinted with vivid neon accents",
-      "aurora-light": "Premium light — Linear-inspired indigo on warm off-white",
+      "aurora-light": "Daylight drafting table — ink on warm paper, depth from soft shadows",
       "obsidian-dark": "Graphite pro — neutral near-black with one muted violet accent",
       "specrails": "Brand theme — deep navy-indigo with saturated cyan accents",
       "code-rain": "Phosphor terminal — soft mint on green-tinted near-black",
@@ -168,7 +168,7 @@
   },
   "mobile": {
     "heading": "Mobile companion",
-    "description": "Control Specrails from the SpecRails Companion app on your phone, 100% over your local network. Off by default. A paired phone can answer questions, resume, retry and create draft PRs from the inbox, as far as the MCP permission tiers allow; merging, discarding and settings stay on this computer.",
+    "description": "Control Specrails from the Specrails Companion app on your phone, 100% over your local network. Off by default. A paired phone can answer questions, resume, retry and create draft PRs from the inbox, as far as the MCP permission tiers allow; merging, discarding and settings stay on this computer.",
     "accessOn": "Mobile access on",
     "accessOff": "Mobile access off",
     "listeningOnPort": "Listening on port {{port}}",
@@ -181,7 +181,7 @@
     "identityReset": "Mobile identity reset",
     "enableFailed": "Could not enable mobile access",
     "disableFailed": "Could not disable mobile access",
-    "windowsFirewall": "Windows Firewall will ask to allow the SpecRails server on first enable — choose “Allow on private networks”.",
+    "windowsFirewall": "Windows Firewall will ask to allow the Specrails server on first enable — choose “Allow on private networks”.",
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
     "revokeDevice": "Revoke {{name}}",
@@ -502,7 +502,7 @@
   },
   "budgetMoved": "Limits are edited in Analytics ▸ Spend limits.",
   "openBudget": "Open Spend limits",
-  "openSettings": "Open Settings",
+  "openSettings": "Open settings",
   "accessibility": {
     "density": {
       "title": "Density",

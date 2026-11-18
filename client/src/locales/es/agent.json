@@ -472,7 +472,7 @@
       "recheckRecoveryTitle": "¿Volver a comprobar este equipo?",
       "recheckRecoveryBody": "Comprobaremos si aún se puede recuperar algo de esta entrega. No se borra nada.",
       "freshDiscardTitle": "¿Descartar esta entrega?",
-      "freshDiscardBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog. Los recursos locales eliminados no se pueden recuperar.",
+      "freshDiscardBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a Specrails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog. Los recursos locales eliminados no se pueden recuperar.",
       "implementationFailedDiscardTitle": "¿Descartar esta entrega fallida?",
       "implementationFailedDiscardBody": "Se cerrará la tarjeta y sus specs volverán al backlog. El trabajo local y las ramas se conservarán para su inspección. Solo se podrán eliminar los recursos cuya limpieza sea segura.",
       "dismissTitle": "¿Cerrar este seguimiento?",
@@ -1587,7 +1587,7 @@
     "startFailed": "No se pudo iniciar el loop de CI.",
     "dismissFailed": "No se pudo guardar tu elección. Inténtalo de nuevo.",
     "startedToast": "Vigilancia del CI iniciada en el carril {{index}}",
-    "fixCi": "Arreglar CI / Conflictos",
+    "fixCi": "Arreglar CI / conflictos",
     "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
     "step": {
       "checks": "Esperando al CI",
@@ -1605,7 +1605,7 @@
     "noCiMany": "Las PRs {{pr}} no tienen checks de CI",
     "needsAttentionMany": "Las PRs {{pr}} están subidas; su CI aún no está en verde",
     "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}.",
-    "retry": "Arreglar CI / Conflictos de nuevo",
+    "retry": "Arreglar CI / conflictos de nuevo",
     "openLog": "Ver el log"
   },
   "missionResources": {

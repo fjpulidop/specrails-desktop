@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatCommandForProvider } from '../format-command'
 
 describe('formatCommandForProvider', () => {
-  it('renders both SpecRails aliases with Kimi skill syntax', () => {
+  it('renders both Specrails aliases with Kimi skill syntax', () => {
     expect(formatCommandForProvider('/specrails:implement #42', 'kimi'))
       .toBe('/skill:specrails-implement #42')
     expect(formatCommandForProvider('then /sr:batch-implement #7', 'kimi'))

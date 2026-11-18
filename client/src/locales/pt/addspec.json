@@ -99,7 +99,7 @@
     "cmdEnterToSend": "Cmd+Enter para enviar",
     "confirmCreateIssue": "Criar uma Issue do GitHub a partir desta proposta?",
     "yesCreateIssue": "Sim, criar issue",
-    "createGithubIssue": "Criar Issue do GitHub",
+    "createGithubIssue": "Criar issue do GitHub",
     "startOver": "Recomeçar",
     "creatingIssueTitle": "A criar a Issue do GitHub...",
     "creatingIssueViaCli": "A criar a issue através da CLI do GitHub...",

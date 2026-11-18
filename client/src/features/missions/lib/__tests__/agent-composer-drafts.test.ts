@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { AgentAttachment } from '../agent-api'
 import {
   NEW_MISSION_DRAFT_KEY,
+  MISSION_PLACEHOLDER_COUNT,
+  missionPlaceholderIndex,
   composerDrafts,
   composerAttachmentDrafts,
   composerReferenceDrafts,
@@ -353,5 +355,29 @@ describe('clear/restore around a submitted turn', () => {
     seedSubmitted('c1')
     expect(restoreSubmittedComposerDraft('c1', submitted)).toBe(true)
     expect(composerDrafts.get('c1')).toBe('enviado')
+  })
+})
+
+describe('missionPlaceholderIndex', () => {
+  it('opens a new mission on the first welcome', () => {
+    expect(missionPlaceholderIndex(NEW_MISSION_DRAFT_KEY)).toBe(0)
+  })
+
+  it('keeps the same welcome for a mission across calls (no randomness)', () => {
+    const id = 'conv-5f1c2a'
+    const first = missionPlaceholderIndex(id)
+    for (let i = 0; i < 5; i++) expect(missionPlaceholderIndex(id)).toBe(first)
+  })
+
+  it('stays in range and varies between missions', () => {
+    const indexes = new Set<number>()
+    for (let i = 0; i < 200; i++) {
+      const index = missionPlaceholderIndex(`conversation-${i}`)
+      expect(index).toBeGreaterThanOrEqual(0)
+      expect(index).toBeLessThan(MISSION_PLACEHOLDER_COUNT)
+      expect(Number.isInteger(index)).toBe(true)
+      indexes.add(index)
+    }
+    expect(indexes.size).toBeGreaterThan(10)
   })
 })

@@ -146,19 +146,19 @@ describe('GlobalSettingsPage', () => {
     })
   })
 
-  it('renders Desktop Settings dialog when open=true', async () => {
+  it('renders Settings dialog when open=true', async () => {
     const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByText('Settings')).toBeInTheDocument()
     })
   })
 
   it('does not render dialog content when open=false', async () => {
     const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={false} onClose={vi.fn()} />)
-    expect(screen.queryByText('Desktop Settings')).toBeNull()
+    expect(screen.queryByText('Settings')).toBeNull()
   })
 
   it('renders registered projects section when open=true', async () => {
@@ -184,7 +184,7 @@ describe('GlobalSettingsPage', () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Desktop Information')).toBeInTheDocument()
+      expect(screen.getByText('Desktop information')).toBeInTheDocument()
     })
   })
 })

@@ -527,7 +527,7 @@ describe('RailPrDecisionStrip interactions', () => {
     const dialog = await screen.findByTestId('rail-pr-discard-confirm')
     expect(dialog).toHaveTextContent('Discard this delivery?')
     expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
-    expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
+    expect(dialog).toHaveTextContent('Specrails-owned local branches and worktrees that are still at their recorded commit')
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
     expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')

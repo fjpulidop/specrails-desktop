@@ -127,7 +127,7 @@
     "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções deste modelo não têm telemetria de custo."
   },
   "scatter": {
-    "title": "Custo vs Turnos",
+    "title": "Custo vs turnos",
     "empty": "Sem invocações para representar.",
     "turnsLabel": "turnos",
     "costLabel": "custo",

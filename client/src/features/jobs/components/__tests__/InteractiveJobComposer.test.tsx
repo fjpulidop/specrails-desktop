@@ -55,19 +55,19 @@ describe('InteractiveJobComposer', () => {
   describe('settle-mode matrix', () => {
     it("'finalize' keeps today's Finalize button (no auto hint, no wrap-up)", () => {
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
       expect(screen.queryByText('Wrap up now')).not.toBeInTheDocument()
       expect(screen.queryByText(/finishes on its own/i)).not.toBeInTheDocument()
     })
 
     it("absent settleMode falls back to 'finalize' (legacy payloads)", () => {
       render(<InteractiveJobComposer jobId="j1" />)
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
     })
 
     it("'auto' shows the quiet hint + 'Wrap up now' secondary, NOT Finalize", () => {
       render(<InteractiveJobComposer jobId="j1" settleMode="auto" />)
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
       expect(screen.getByText(/finishes on its own/i)).toBeInTheDocument()
       expect(screen.getByText('Wrap up now')).toBeInTheDocument()
     })
@@ -211,10 +211,10 @@ describe('InteractiveJobComposer', () => {
   })
 
   describe('settle actions', () => {
-    it('Finalize Job POSTs /finalize and shows the finalize toast', async () => {
+    it('Finalize job POSTs /finalize and shows the finalize toast', async () => {
       const user = userEvent.setup()
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith('/api/jobs/j1/finalize', expect.objectContaining({ method: 'POST' }))
       })
@@ -245,9 +245,9 @@ describe('InteractiveJobComposer', () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'boom' }) })
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalled())
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
     })
   })
 })

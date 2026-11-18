@@ -65,7 +65,7 @@
       "notifications": "Notifications",
       "storage": "Stockage"
     },
-    "title": "Paramètres de Desktop",
+    "title": "Paramètres",
     "description": "Apparence, fournisseurs d’IA, mises à jour et préférences globales de Desktop.",
     "registeredProjects": "Projets enregistrés",
     "noProjects": "Aucun projet enregistré pour l'instant",
@@ -155,7 +155,7 @@
   "appearance": {
     "taglines": {
       "dracula": "L'original — sombre teinté de violet aux accents néon éclatants",
-      "aurora-light": "Clair premium — indigo inspiré de Linear sur blanc cassé chaleureux",
+      "aurora-light": "Table à dessin en plein jour — encre sur papier chaud, profondeur par des ombres douces",
       "obsidian-dark": "Graphite pro — presque noir neutre avec un seul accent violet atténué",
       "specrails": "Thème de la marque — bleu marine-indigo profond aux accents cyan saturés",
       "code-rain": "Terminal phosphore — menthe douce sur fond presque noir verdâtre",
@@ -168,7 +168,7 @@
   },
   "mobile": {
     "heading": "Compagnon mobile",
-    "description": "Contrôlez Specrails depuis l'application SpecRails Companion sur votre téléphone, 100 % via votre réseau local. Désactivé par défaut. Un téléphone associé peut répondre aux questions, reprendre, réessayer et créer des PR en brouillon depuis la boîte de réception, dans la limite des niveaux d'autorisation MCP ; fusionner, abandonner et les réglages restent sur cet ordinateur.",
+    "description": "Contrôlez Specrails depuis l'application Specrails Companion sur votre téléphone, 100 % via votre réseau local. Désactivé par défaut. Un téléphone associé peut répondre aux questions, reprendre, réessayer et créer des PR en brouillon depuis la boîte de réception, dans la limite des niveaux d'autorisation MCP ; fusionner, abandonner et les réglages restent sur cet ordinateur.",
     "accessOn": "Accès mobile activé",
     "accessOff": "Accès mobile désactivé",
     "listeningOnPort": "À l'écoute sur le port {{port}}",
@@ -181,7 +181,7 @@
     "identityReset": "Identité mobile réinitialisée",
     "enableFailed": "Impossible d'activer l'accès mobile",
     "disableFailed": "Impossible de désactiver l'accès mobile",
-    "windowsFirewall": "Le Pare-feu Windows demandera d'autoriser le serveur SpecRails à la première activation — choisissez « Autoriser sur les réseaux privés ».",
+    "windowsFirewall": "Le Pare-feu Windows demandera d'autoriser le serveur Specrails à la première activation — choisissez « Autoriser sur les réseaux privés ».",
     "pairedDevices": "Appareils appairés",
     "noDevices": "Aucun appareil appairé pour l'instant.",
     "revokeDevice": "Révoquer {{name}}",

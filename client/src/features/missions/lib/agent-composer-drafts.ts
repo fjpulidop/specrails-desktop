@@ -24,6 +24,25 @@ export interface AgentComposerReferenceDraft {
 
 export const NEW_MISSION_DRAFT_KEY = '__new-mission__'
 
+/** Number of `agent:missionPlaceholders.N` welcomes shipped in every locale. */
+export const MISSION_PLACEHOLDER_COUNT = 20
+
+/**
+ * Welcome placeholder index for a composer draft key. Deterministic, so the
+ * empty composer shows the same line across renders, remounts and reloads: the
+ * new-mission screen always opens on the first welcome, and each mission keeps
+ * its own line (FNV-1a hash of its id), which still varies between missions.
+ */
+export function missionPlaceholderIndex(draftKey: string): number {
+  if (draftKey === NEW_MISSION_DRAFT_KEY) return 0
+  let hash = 0x811c9dc5
+  for (let i = 0; i < draftKey.length; i++) {
+    hash ^= draftKey.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0) % MISSION_PLACEHOLDER_COUNT
+}
+
 export const composerDrafts = new Map<string, string>()
 export const composerAttachmentDrafts = new Map<string, AgentAttachment[]>()
 export const composerReferenceDrafts = new Map<string, AgentComposerReferenceDraft[]>()
