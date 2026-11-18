@@ -15,7 +15,7 @@ import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState } from 
 import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 import { ticketBranchName, resolveCollisionFreeName } from './pr-naming'
 import {
-  assertRepositoryHasCommits, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
+  assertRepositoryHasCommits, materializeIsolatedWorktree, startPreparationBesideFetch, usesWorktreePreparation, readHeadSha, resolveOverlaySources, ticketNamingInput,
 } from './isolated-worktree'
 import { getProjectSettings } from '../../../db'
 import { saveIsolatedSettlementSnapshot } from './isolated-settlement-store'
@@ -23,6 +23,7 @@ import {
   resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch,
 } from '../../../integration-branch'
 import { withRepoLock } from '../../../repo-lock'
+import { preparedCheckoutClaimer } from './worktree-preparation-pool'
 import { getProjectRepositories } from '../../../project-repositories'
 import { createPrDeliveryGeneration, getPrDelivery, transitionDecision, toPrDeliverySnapshot } from './rail-pr-store'
 import {
@@ -146,17 +147,25 @@ async function resolveLaunchBase(stage: AllocationStageInput): Promise<{
   // this same withRepoLock) performs one real fetch, not one per rail. A
   // failed fetch (no network / no remote / auth error) never blocks the
   // launch — resolveWorktreeBaseRef below degrades to the local ref.
-  const fetchResult = await fetchOrigin(git, baseRepo)
+  const fetching = fetchOrigin(git, baseRepo)
+  const executionRepository = getProjectRepositories(ctx.project).find((repo) => input.repositoryExecution
+    ? repo.id === input.repositoryExecution.repositoryId : repo.isPrimary)
+  const projectSetting = executionRepository?.integrationBranch ?? (input.repositoryExecution && !input.repositoryExecution.primary ? undefined : getProjectSettings(ctx.db).integrationBranch)
+  // A fresh launch with nothing prepared (Launch all prepares ahead) populates
+  // one checkout from the pre-fetch base while the fetch is on the network;
+  // allocation adopts it and only writes the delta to the fetched base.
+  if (usesWorktreePreparation(stage.io) && !input.revision && !input.requiredFlowWorktree) {
+    await startPreparationBesideFetch(git, baseRepo, stage.worktreesRoot, input.baseBranch ?? undefined, projectSetting)
+  }
+  const fetchResult = await fetching
 
   // Resolve the project's designated integration branch ONCE, and branch every
   // ticket's worktree off it (not the ambient HEAD). Empty setting → auto-resolve
   // (repo default → HEAD fallback). See server/integration-branch.ts.
-  const executionRepository = getProjectRepositories(ctx.project).find((repo) => input.repositoryExecution
-    ? repo.id === input.repositoryExecution.repositoryId : repo.isPrimary)
   const integration = await resolveIntegrationBranch(git, {
     repoDir: baseRepo,
     explicit: input.baseBranch ?? undefined,
-    projectSetting: executionRepository?.integrationBranch ?? (input.repositoryExecution && !input.repositoryExecution.primary ? undefined : getProjectSettings(ctx.db).integrationBranch),
+    projectSetting,
   })
 
   // Prefer the freshly-fetched remote-tracking ref (origin/<branch>) over the
@@ -542,6 +551,9 @@ async function allocateUnit(stage: AllocationStageInput, plan: AllocationPlan, u
       refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
       fresh: !revisionBranch && !continuationTarget && !flowWorktree,
       reuseBranchWorktree: Boolean(revisionBranch || continuationTarget || flowWorktree),
+      ...(usesWorktreePreparation(io) && !revisionBranch && !continuationTarget && !flowWorktree
+        ? { claimPrepared: preparedCheckoutClaimer(git, baseRepo, worktreesRoot) }
+        : {}),
       verifyHead: async (mounted) => {
         if (flowWorktree) return verifyFlowWorktree(git, mounted, flowWorktree)
         if (continuationTarget) {
