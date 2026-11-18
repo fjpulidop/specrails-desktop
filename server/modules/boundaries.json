@@ -930,6 +930,7 @@
       "runtime/flow-worktree-return.ts",
       "runtime/isolated-settlement-reconstruction.ts",
       "runtime/isolated-worktree.ts",
+      "runtime/merge-preview.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-ci/pr-ci-admission-runtime.ts",
@@ -1127,6 +1128,7 @@
       "domain/decision-policy.ts": [
         "./state"
       ],
+      "domain/merge-preview.ts": [],
       "domain/retained-worktrees.ts": [],
       "domain/review-wip.ts": [
         "./state"
@@ -1248,6 +1250,7 @@
         "../../../worktree-overlay",
         "../../code/runtime/file-provenance",
         "./pr-naming",
+        "./worktree-preparation-pool",
         "path"
       ],
       "runtime/local-restore-branch.ts": [
@@ -1273,7 +1276,23 @@
       ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager",
+        "../domain/merge-preview",
         "./pr-naming"
+      ],
+      "runtime/merge-preview-git.ts": [
+        "../../../repo-lock",
+        "../../../util/git-invocation",
+        "../../code/runtime/file-provenance",
+        "child_process",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/merge-preview.ts": [
+        "../../../project-repositories",
+        "../domain/merge-preview",
+        "./merge-preview-git",
+        "./rail-pr-store"
       ],
       "runtime/multi-repo-bases.ts": [
         "../../../db",
@@ -1491,6 +1510,7 @@
         "./rail-isolated-launch-support",
         "./rail-pr-store",
         "./rail-worktrees-store",
+        "./worktree-preparation-pool",
         "path"
       ],
       "runtime/rail-isolated-launch-contracts.ts": [
@@ -1769,7 +1789,8 @@
         "../../loops/runtime/loop-command-catalog",
         "../../loops/runtime/loop-constants",
         "../../loops/runtime/loop-run-manager",
-        "./merge-manager"
+        "./merge-manager",
+        "./merge-preview-git"
       ],
       "runtime/rail-pr-decision.ts": [
         "..",
@@ -1868,6 +1889,12 @@
         "./rails-http-shared",
         "express"
       ],
+      "runtime/rails-merge-preview-http.ts": [
+        "./merge-preview",
+        "./merge-preview-git",
+        "./rails-http-shared",
+        "express"
+      ],
       "runtime/rails-pr-ci-http.ts": [
         "../../../feature-flags",
         "../../missions/runtime/agent-chat-registry",
@@ -1883,6 +1910,15 @@
         "./rails-http-shared",
         "express",
         "path"
+      ],
+      "runtime/rails-preparation-http.ts": [
+        "../../../db",
+        "../../../integration-branch",
+        "../../../worktree-manager",
+        "./isolated-worktree",
+        "./rails-http-shared",
+        "./worktree-preparation-pool",
+        "express"
       ],
       "runtime/rails-review-http.ts": [
         "../../../feature-flags",
@@ -1919,7 +1955,9 @@
         "./rail-delivery-revision",
         "./rails-http-shared",
         "./rails-launch-http",
+        "./rails-merge-preview-http",
         "./rails-pr-ci-http",
+        "./rails-preparation-http",
         "./rails-review-http",
         "./rails-settings-http",
         "./rails-state-http",
@@ -1993,6 +2031,13 @@
         "./delivery-evidence",
         "./flow-review-outcome",
         "node:fs"
+      ],
+      "runtime/worktree-preparation-pool.ts": [
+        "../../../ids",
+        "../../../repo-lock",
+        "../../../worktree-manager",
+        "fs",
+        "path"
       ]
     }
   },
@@ -2390,6 +2435,7 @@
         "../../../project-registry",
         "../../../util/local-day",
         "../../accounting/runtime/desktop-analytics",
+        "../../delivery/runtime/merge-preview",
         "../../inbox",
         "../../inbox/adapters/http",
         "../application",

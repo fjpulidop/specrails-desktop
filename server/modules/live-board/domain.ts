@@ -98,6 +98,17 @@ export interface LiveCard<A extends LiveAttentionRef = LiveAttentionRef> extends
   at: string
   /** The inbox item that speaks for this card, unchanged (null when nothing waits on the person). */
   attention: A | null
+  /** A delivery card's last merge preview (conflicts with the current base or
+   *  with sibling deliveries); null when none was computed yet. */
+  mergePreview?: LiveMergePreview | null
+}
+
+/** Merge preview summary of a delivery card (computed by the delivery capability). */
+export interface LiveMergePreview {
+  status: 'clean' | 'conflicts' | 'already_merged' | 'unknown'
+  conflictFileCount: number
+  siblingConflictCount: number
+  baseAdvancedBy: number | null
 }
 
 export interface LiveLane {
