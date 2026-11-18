@@ -105,6 +105,29 @@ export interface OverlayCleanupEvidence {
 /** Overlay manifest filename (worktree root). Overlay-owned + git-excluded. */
 export const OVERLAY_MANIFEST = '.sr-rail-overlay.json'
 
+/**
+ * Manifest v2 adds, per path, what the overlay itself wrote there, so release
+ * can tell Specrails's own kit (regenerable, removed) from something a person
+ * or an agent changed (kept in the safety archive). v1 manifests carry paths only.
+ */
+export const OVERLAY_MANIFEST_VERSION = 2
+
+/** What the overlay wrote at one manifest path. */
+export type OverlayManifestRecord =
+  /** A link; `target` is the absolute resolved target. */
+  | { kind: 'symlink'; target: string }
+  /** A copied file. `json` is the parsed body of the managed local settings,
+   *  so release can compare it after stripping Specrails-owned entries. */
+  | { kind: 'file'; sha256: string; size: number; json?: Record<string, unknown> }
+  /** A dereferencing directory copy (link fallback): its dereferenced digest. */
+  | { kind: 'directory'; digest: string }
+
+export interface OverlayManifest {
+  version: number
+  paths: string[]
+  records: Record<string, OverlayManifestRecord>
+}
+
 /** Claude's local settings: an overlay-managed copy when the policy hook is managed. */
 export const MANAGED_LOCAL_SETTINGS = '.claude/settings.local.json'
 
@@ -163,13 +186,136 @@ function lstatSafe(p: string): fs.Stats | null {
 
 /** Read a prior pass's manifest — tolerant of absence/corruption. */
 function readManifest(manifestPath: string): string[] {
-  try {
-    const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as unknown
-    const paths = Array.isArray(raw) ? raw : (raw as { paths?: unknown })?.paths
-    return Array.isArray(paths) ? paths.filter((p): p is string => typeof p === 'string') : []
-  } catch {
-    return []
+  return readOverlayManifest(manifestPath)?.paths ?? []
+}
+
+function parseManifestRecord(value: unknown): OverlayManifestRecord | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  if (record.kind === 'symlink' && typeof record.target === 'string' && path.isAbsolute(record.target)) {
+    return { kind: 'symlink', target: record.target }
   }
+  if (record.kind === 'file' && typeof record.sha256 === 'string' && /^[0-9a-f]{64}$/.test(record.sha256) &&
+      typeof record.size === 'number' && Number.isSafeInteger(record.size) && record.size >= 0) {
+    const json = record.json && typeof record.json === 'object' && !Array.isArray(record.json)
+      ? record.json as Record<string, unknown>
+      : undefined
+    return { kind: 'file', sha256: record.sha256, size: record.size, ...(json ? { json } : {}) }
+  }
+  if (record.kind === 'directory' && typeof record.digest === 'string' && /^[0-9a-f]{64}$/.test(record.digest)) {
+    return { kind: 'directory', digest: record.digest }
+  }
+  return null
+}
+
+/** Parse an overlay manifest (v1 `paths` only, or v2 with `records`). Null
+ *  when absent or unreadable. Malformed records are dropped, never trusted. */
+export function readOverlayManifest(manifestPath: string): OverlayManifest | null {
+  try {
+    return parseOverlayManifest(fs.readFileSync(manifestPath, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+/** Parse manifest text (see {@link readOverlayManifest}). */
+export function parseOverlayManifest(text: string): OverlayManifest | null {
+  try {
+    const raw = JSON.parse(text) as unknown
+    const paths = Array.isArray(raw) ? raw : (raw as { paths?: unknown })?.paths
+    if (!Array.isArray(paths)) return null
+    const version = !Array.isArray(raw) && typeof (raw as { version?: unknown }).version === 'number'
+      ? (raw as { version: number }).version
+      : 1
+    const records: Record<string, OverlayManifestRecord> = {}
+    const rawRecords = Array.isArray(raw) ? null : (raw as { records?: unknown }).records
+    if (version >= 2 && rawRecords && typeof rawRecords === 'object' && !Array.isArray(rawRecords)) {
+      for (const [rel, value] of Object.entries(rawRecords as Record<string, unknown>)) {
+        const record = parseManifestRecord(value)
+        if (record && safeRelativePath(rel) === rel) records[rel] = record
+      }
+    }
+    return { version, paths: paths.filter((p): p is string => typeof p === 'string'), records }
+  } catch {
+    return null
+  }
+}
+
+/** Describe what is at `target` now, for the manifest. Null for anything else. */
+export function overlayManifestRecordFor(target: string, rel: string): OverlayManifestRecord | null {
+  try {
+    const stat = fs.lstatSync(target)
+    if (stat.isSymbolicLink()) {
+      return { kind: 'symlink', target: path.resolve(path.dirname(target), fs.readlinkSync(target)) }
+    }
+    if (stat.isFile()) {
+      const bytes = fs.readFileSync(target)
+      const record: OverlayManifestRecord = { kind: 'file', sha256: createHash('sha256').update(bytes).digest('hex'), size: bytes.length }
+      if (rel === MANAGED_LOCAL_SETTINGS) {
+        try {
+          const parsed = JSON.parse(bytes.toString('utf8')) as unknown
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) record.json = parsed as Record<string, unknown>
+        } catch { /* not JSON: only the exact hash can prove it */ }
+      }
+      return record
+    }
+    if (stat.isDirectory()) {
+      const digest = dereferencedDigest(target)
+      return digest ? { kind: 'directory', digest } : null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const entries = Object.keys(value as Record<string, unknown>).sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`)
+    return `{${entries.join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+/**
+ * Local settings with only Specrails-owned content removed: every agent policy
+ * hook entry, and `deniedMcpServers` (the connectors writer's key) unless the
+ * Specrails-written baseline already carried it — then it came from the
+ * project's own settings and must match exactly.
+ */
+function withoutSpecrailsSettings(settings: Record<string, unknown>, baseline: Record<string, unknown> | null): string {
+  const next = stripPolicyHook(settings)
+  if (!baseline || !Object.prototype.hasOwnProperty.call(baseline, 'deniedMcpServers')) delete next.deniedMcpServers
+  return stableJson(next)
+}
+
+/**
+ * True when `target` (the live path, or its moved copy) still holds exactly
+ * what the overlay recorded writing at `rel`. Symlinks compare their target;
+ * files their bytes; the managed local settings may differ only in
+ * Specrails-owned entries; copied directories their dereferenced digest.
+ * Anything unreadable or of another kind is unproven (false).
+ */
+export function matchesOverlayManifestRecord(target: string, rel: string, record: OverlayManifestRecord): boolean {
+  const live = overlayManifestRecordFor(target, rel)
+  if (!live || live.kind !== record.kind) return false
+  if (live.kind === 'symlink' && record.kind === 'symlink') return live.target === record.target
+  if (live.kind === 'directory' && record.kind === 'directory') return live.digest === record.digest
+  if (live.kind !== 'file' || record.kind !== 'file') return false
+  if (live.sha256 === record.sha256 && live.size === record.size) return true
+  if (rel !== MANAGED_LOCAL_SETTINGS || !live.json || !record.json) return false
+  return withoutSpecrailsSettings(live.json, record.json) === withoutSpecrailsSettings(record.json, record.json)
+}
+
+/** v1 manifests have no records: the managed local settings are provably
+ *  Specrails's own only when nothing but Specrails-owned entries remain. */
+export function isSpecrailsOnlyLocalSettings(target: string): boolean {
+  const stat = lstatSafe(target)
+  if (!stat?.isFile() || stat.isSymbolicLink()) return false
+  const parsed = readJsonObject(target)
+  return !!parsed && withoutSpecrailsSettings(parsed, null) === '{}'
 }
 
 function safeRelativePath(value: string): string | null {
@@ -793,7 +939,17 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
   const all = [...new Set([...prior.filter((rel) => !converted.has(rel)), ...created])]
   if (all.length > 0) {
     try {
-      fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, paths: all }, null, 2))
+      // Record what the overlay wrote, only for paths authenticated against
+      // the sources right now (a just-written link/copy, or a prior pass's
+      // still source-identical entry). Anything unauthenticated gets no
+      // record, so release can never take it for regenerable kit.
+      const records: Record<string, OverlayManifestRecord> = {}
+      for (const entry of captureOverlayCleanupEvidence(input, all)) {
+        const record = overlayManifestRecordFor(path.join(worktreePath, ...entry.path.split('/')), entry.path)
+        if (record) records[entry.path] = record
+      }
+      const manifest: OverlayManifest = { version: OVERLAY_MANIFEST_VERSION, paths: all, records }
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       if (!all.includes(OVERLAY_MANIFEST)) all.push(OVERLAY_MANIFEST)
     } catch (err) {
       warnings.push(`failed to write overlay manifest: ${errMsg(err)}`)

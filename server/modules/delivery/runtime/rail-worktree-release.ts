@@ -4,11 +4,18 @@ import { removeWorktree, type GitRunner } from '../../../worktree-manager'
 import type { DbInstance } from '../../../db'
 import * as path from 'path'
 import * as fs from 'fs'
+import { createHash } from 'crypto'
 import {
+  MANAGED_LOCAL_SETTINGS,
+  OVERLAY_MANIFEST,
+  isSpecrailsOnlyLocalSettings,
   matchesOverlayCleanupEvidence,
   matchesOverlayCleanupEvidenceAtPath,
+  matchesOverlayManifestRecord,
   fingerprintOverlayCleanupPath,
+  parseOverlayManifest,
   type OverlayCleanupEvidence,
+  type OverlayManifestRecord,
 } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
 import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
@@ -37,9 +44,11 @@ export interface ReleaseRailWorktreesInput {
   /** Injectable live authenticator for the app-created warm-dependency links
    * (`node_modules` symlinks into the base checkout). Production omits it. */
   authenticateWarmLinks?: typeof authenticateWarmNodeModulesLinks
-  /** Called exactly once for each persistent quarantine batch root before any
-   * overlay is moved beneath it. One durable root discloses every child and
-   * remains valid across crashes or later release failure. */
+  /** Called exactly once for each persistent quarantine batch root, before
+   * anything that must be KEPT is moved beneath it. Never called when release
+   * only removed Specrails's own unchanged kit (no folder survives then). One
+   * durable root discloses every child and remains valid across crashes or
+   * later release failure. */
   onSafetyArchive?: (quarantinePath: string) => void | Promise<void>
   /** Deterministic race-test seams around the atomic source→quarantine rename.
    * Production callers omit them. */
@@ -171,9 +180,28 @@ function coveredBySnapshot(livePath: string, snapshot: readonly string[]): boole
   return snapshot.some((entry) => live === entry || live.startsWith(`${entry}/`))
 }
 
+/** Why one path is provably Specrails's own unchanged kit, re-checked on the
+ * live path and again on the moved copy before it is deleted. */
+type DiscardProof =
+  /** SQLite-persisted allocation fingerprint (source-authenticated at allocation and settlement). */
+  | { via: 'evidence'; evidence: OverlayCleanupEvidence }
+  /** What the overlay recorded writing (manifest v2), or a v1 link into a Specrails source. */
+  | { via: 'record'; record: OverlayManifestRecord }
+  /** v1 managed local settings holding nothing but Specrails-owned entries. */
+  | { via: 'settings' }
+
+function proofHolds(target: string, rel: string, proof: DiscardProof): boolean {
+  if (proof.via === 'evidence') return matchesOverlayCleanupEvidenceAtPath(target, proof.evidence)
+  if (proof.via === 'record') return matchesOverlayManifestRecord(target, rel, proof.record)
+  return isSpecrailsOnlyLocalSettings(target)
+}
+
 interface VerifiedReleaseEvidence {
   failure: string | null
+  /** Roots to clear out of the worktree before Git's non-force removal. */
   overlayEntries: OverlayCleanupEvidence[]
+  /** Paths (roots or descendants) that are provably regenerable kit: removed, not archived. */
+  discardable?: Map<string, DiscardProof>
   /** True when Git could not inspect the worktree AND the path is absent from
    * the filesystem — the mount was removed externally; nothing to preserve. */
   gone?: boolean
@@ -207,6 +235,20 @@ async function verifyReleaseEvidence(
     ...persistedEntries,
     ...warmEntries.filter((entry) => !seenPaths.has(entry.path)),
   ]
+  const discardable = new Map<string, DiscardProof>(overlayEntries.map((entry) => [entry.path, { via: 'evidence', evidence: entry }]))
+  for (const entry of overlayEntries) seenPaths.add(entry.path)
+  // Overlay paths whose allocation proof was revoked (the agent edited
+  // CLAUDE.md, a source changed mid-run, a link was replaced): they never
+  // reach the PR (commit exclusions), so they must not hold the worktree
+  // hostage either. Only an UNCHANGED manifest (its own SQLite fingerprint
+  // still matches) may name them; each is kept in the safety archive unless
+  // the manifest's record proves it is still exactly what the overlay wrote.
+  const revoked = await revokedOverlayPaths(input, worktree, persistedEntries, seenPaths)
+  if (revoked.failure) return { failure: revoked.failure, overlayEntries: [] }
+  for (const entry of revoked.entries) {
+    overlayEntries.push(entry.root)
+    if (entry.proof) discardable.set(entry.root.path, entry.proof)
+  }
   const overlayExcludes = overlayEntries.map((entry) => entry.path)
 
   try {
@@ -281,11 +323,113 @@ async function verifyReleaseEvidence(
     if (headSha !== expected || branchSha !== expected) {
       return { failure: `HEAD/ref moved after settlement (expected ${expected.slice(0, 12)})`, overlayEntries: [] }
     }
-    return { failure: null, overlayEntries }
+    return { failure: null, overlayEntries, discardable }
   } catch (err) {
     if (!pathStillExists(worktree.worktree_path)) return { failure: null, overlayEntries: [], gone: true }
     return { failure: `verification failed: ${err instanceof Error ? err.message : String(err)}`, overlayEntries: [] }
   }
+}
+
+const PROVIDER_DIRS = ['.claude', '.codex', '.gemini', '.kimi-code'] as const
+
+/** The project's Specrails workspace (`<home>/.specrails/projects/<slug>/workspace`)
+ * for a worktree beneath `<…>/projects/<slug>/worktrees/…`. Null otherwise. */
+export function specrailsWorkspaceOf(worktreePath: string): string | null {
+  const parts = path.resolve(worktreePath).split(path.sep)
+  for (let index = parts.length - 2; index >= 3; index--) {
+    if (parts[index] === 'worktrees' && parts[index - 2] === 'projects' && parts[index - 3] === '.specrails') {
+      return [...parts.slice(0, index), 'workspace'].join(path.sep) || null
+    }
+  }
+  return null
+}
+
+/** True when `target` lies inside a provider dir of one of the Specrails
+ * overlay sources (the project workspace or the base checkout). */
+function insideOverlaySource(target: string, sources: readonly string[]): boolean {
+  return sources.some((source) => PROVIDER_DIRS.some((dir) => {
+    const relative = path.relative(path.join(source, dir), target)
+    return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+  }))
+}
+
+/** Every component between the worktree and `rel` is a real directory, so a
+ * rename of `rel` can never act through a link outside the worktree. */
+function reachedWithoutLinks(worktreePath: string, rel: string): boolean {
+  const parts = rel.split('/')
+  let current = worktreePath
+  for (const part of parts.slice(0, -1)) {
+    current = path.join(current, part)
+    try {
+      const stat = fs.lstatSync(current)
+      if (stat.isSymbolicLink() || !stat.isDirectory()) return false
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
+interface RevokedOverlayPath { root: OverlayCleanupEvidence; proof: DiscardProof | null }
+
+async function revokedOverlayPaths(
+  input: ReleaseRailWorktreesInput,
+  worktree: NonNullable<ReturnType<typeof getRailWorktree>>,
+  persistedEntries: readonly OverlayCleanupEvidence[],
+  claimed: ReadonlySet<string>,
+): Promise<{ failure: string | null; entries: RevokedOverlayPath[] }> {
+  const manifestEvidence = persistedEntries.find((entry) => entry.path === OVERLAY_MANIFEST && entry.kind === 'file')
+  if (!manifestEvidence) return { failure: null, entries: [] }
+  let bytes: Buffer
+  try {
+    bytes = fs.readFileSync(path.join(worktree.worktree_path, OVERLAY_MANIFEST))
+  } catch {
+    return { failure: null, entries: [] }
+  }
+  // Trust exactly the bytes being parsed: same digest as the allocation proof.
+  const digest = createHash('sha256').update('file\0').update(bytes).digest('hex')
+  if (digest !== manifestEvidence.digest) return { failure: null, entries: [] }
+  const manifest = parseOverlayManifest(bytes.toString('utf8'))
+  if (!manifest) return { failure: null, entries: [] }
+  const sources = [specrailsWorkspaceOf(worktree.worktree_path), input.repoDir].filter((value): value is string => !!value)
+  const entries: RevokedOverlayPath[] = []
+  for (const candidate of manifest.paths) {
+    const rel = safeRelativeOverlayPath(candidate)
+    if (!rel || rel === OVERLAY_MANIFEST || claimed.has(rel)) continue
+    if (entries.some((entry) => entry.root.path === rel)) continue
+    const target = path.join(worktree.worktree_path, ...rel.split('/'))
+    if (!pathStillExists(target)) continue
+    if (!reachedWithoutLinks(worktree.worktree_path, rel)) {
+      return { failure: `overlay path ${rel} is reached through a link`, entries: [] }
+    }
+    // A tracked path is the checkout's, never overlay: leave it to Git's own
+    // cleanliness check (it is not excluded from status below).
+    const tracked = await input.git.run(['ls-files', '--error-unmatch', '--', rel], worktree.worktree_path)
+    if (tracked.code === 0) continue
+    if (tracked.code !== 1) return { failure: `Git could not verify ownership of overlay path ${rel}`, entries: [] }
+    const fingerprint = fingerprintOverlayCleanupPath(target)
+    if (!fingerprint) return { failure: `could not preserve overlay path ${rel}`, entries: [] }
+    let proof: DiscardProof | null = null
+    const record = manifest.records[rel]
+    if (record && matchesOverlayManifestRecord(target, rel, record)) {
+      proof = { via: 'record', record }
+    } else if (!record) {
+      // v1 manifest (no records). A link into a Specrails source holds no
+      // data of its own; the managed settings are provable when only
+      // Specrails-owned entries remain. Copied files stay unproven.
+      try {
+        const stat = fs.lstatSync(target)
+        if (stat.isSymbolicLink()) {
+          const linkTarget = path.resolve(path.dirname(target), fs.readlinkSync(target))
+          if (insideOverlaySource(linkTarget, sources)) proof = { via: 'record', record: { kind: 'symlink', target: linkTarget } }
+        } else if (rel === MANAGED_LOCAL_SETTINGS && isSpecrailsOnlyLocalSettings(target)) {
+          proof = { via: 'settings' }
+        }
+      } catch { /* unreadable: unproven, archived */ }
+    }
+    entries.push({ root: { path: rel, ...fingerprint }, proof })
+  }
+  return { failure: null, entries }
 }
 
 function pathStillExists(target: string): boolean {
@@ -314,15 +458,82 @@ function quarantineLocationNotes(entries: readonly QuarantinedOverlayEntry[]): s
     .map((entry) => `overlay data is preserved at ${entry.quarantinePath}`)
 }
 
-/** Atomically move fingerprint-matching, untracked overlay roots out of the
- * worktree. Quarantine is a unique sibling on the same filesystem. It is never
- * automatically deleted or restored: writes through an already-open fd after
- * rename remain recoverable, and a concurrently recreated source can never be
- * overwritten by rollback. */
-async function quarantineVerifiedOverlayEntries(
+interface ClearLeaf {
+  rel: string
+  /** Set when the path is provably Specrails's own unchanged kit. */
+  proof: DiscardProof | null
+  /** Fingerprint taken when planning; a kept path must not change while moving. */
+  fingerprint: Omit<OverlayCleanupEvidence, 'path'> | null
+}
+
+/** Split one cleanup root into what can go (proven kit) and what is kept. A
+ * real directory that contains proven kit is descended, so one edited file
+ * never drags Specrails's unchanged links into the archive with it. Links are
+ * never followed. Regenerable dependency installs are left for Git's removal. */
+function planClearLeaves(
+  worktreePath: string,
+  rel: string,
+  discardable: ReadonlyMap<string, DiscardProof>,
+  out: ClearLeaf[],
+): string | null {
+  const target = path.join(worktreePath, ...rel.split('/'))
+  let stat: fs.Stats
+  try { stat = fs.lstatSync(target) } catch { return null }
+  const proof = discardable.get(rel)
+  if (proof) {
+    out.push({ rel, proof, fingerprint: fingerprintOverlayCleanupPath(target) })
+    return null
+  }
+  const prefix = `${rel}/`
+  if (stat.isDirectory() && !stat.isSymbolicLink() && [...discardable.keys()].some((key) => key.startsWith(prefix))) {
+    let names: string[]
+    try { names = fs.readdirSync(target).sort() } catch (err) {
+      return `could not read ${rel}: ${err instanceof Error ? err.message : String(err)}`
+    }
+    for (const name of names) {
+      const failure = planClearLeaves(worktreePath, `${rel}/${name}`, discardable, out)
+      if (failure) return failure
+    }
+    return null
+  }
+  if (isRegenerableIgnoredPath(rel)) return null
+  const fingerprint = fingerprintOverlayCleanupPath(target)
+  if (!fingerprint) return `could not preserve ${rel}`
+  out.push({ rel, proof: null, fingerprint })
+  return null
+}
+
+/** Remove now-empty directories beneath `dir` (and `dir` itself when empty).
+ * Only `rmdir`: anything still holding content stays. Links are not followed. */
+function pruneEmptyDirectories(dir: string): void {
+  let stat: fs.Stats
+  try { stat = fs.lstatSync(dir) } catch { return }
+  if (!stat.isDirectory() || stat.isSymbolicLink()) return
+  let names: string[] = []
+  try { names = fs.readdirSync(dir) } catch { return }
+  for (const name of names) pruneEmptyDirectories(path.join(dir, name))
+  try { fs.rmdirSync(dir) } catch { /* not empty: kept */ }
+}
+
+/**
+ * Clear verified overlay roots and authorized ignored paths out of the
+ * worktree before Git's non-force removal (which deletes ignored content).
+ *
+ * - Provably unchanged Specrails kit (see {@link DiscardProof}) is REMOVED:
+ *   atomically renamed into a unique sibling, re-proven there, then deleted.
+ *   A copy that changed in between is kept there instead and the release stops.
+ * - Everything else is KEPT in that sibling, the safety archive
+ *   `<worktree>.specrails-overlay-quarantine-XXXXXX`, recorded through
+ *   `onSafetyArchive` before the first kept path is moved in. It is never
+ *   deleted or restored automatically; a concurrently recreated source is
+ *   never overwritten.
+ * - When nothing had to be kept, the sibling is removed and nothing is recorded.
+ */
+async function clearVerifiedOverlayEntries(
   input: ReleaseRailWorktreesInput,
   worktree: NonNullable<ReturnType<typeof getRailWorktree>>,
   evidence: readonly OverlayCleanupEvidence[],
+  discardable: ReadonlyMap<string, DiscardProof>,
 ): Promise<OverlayQuarantineResult> {
   const removable: OverlayCleanupEvidence[] = []
   for (const entry of evidence) {
@@ -339,6 +550,9 @@ async function quarantineVerifiedOverlayEntries(
     if (!matchesOverlayCleanupEvidence(worktree.worktree_path, entry)) {
       return { failure: `overlay path ${entry.path} changed after cleanup verification`, entries: [] }
     }
+    if (!reachedWithoutLinks(worktree.worktree_path, entry.path)) {
+      return { failure: `overlay path ${entry.path} is reached through a link`, entries: [] }
+    }
     removable.push(entry)
   }
 
@@ -347,70 +561,101 @@ async function quarantineVerifiedOverlayEntries(
     if (cleanupRoots.some((root) => root.kind === 'directory' && entry.path.startsWith(`${root.path}/`))) continue
     cleanupRoots.push(entry)
   }
-  if (cleanupRoots.length === 0) return { failure: null, entries: [] }
-
-  let quarantineRoot: string
-  try {
-    // mkdtemp creates the batch directory atomically beside the worktree. The
-    // ensuing rename therefore remains within one filesystem.
-    quarantineRoot = fs.mkdtempSync(`${worktree.worktree_path}.specrails-overlay-quarantine-`)
-  } catch (err) {
-    return {
-      failure: `could not create overlay quarantine beside ${worktree.worktree_path}: ${err instanceof Error ? err.message : String(err)}`,
-      entries: [],
-    }
+  const leaves: ClearLeaf[] = []
+  for (const root of cleanupRoots) {
+    const failure = planClearLeaves(worktree.worktree_path, root.path, discardable, leaves)
+    if (failure) return { failure, entries: [] }
   }
+  if (leaves.length === 0) return { failure: null, entries: [] }
 
-  try {
-    await input.onSafetyArchive?.(quarantineRoot)
-  } catch (err) {
-    return {
-      failure: `could not record safety archive ${quarantineRoot}: ${err instanceof Error ? err.message : String(err)}`,
-      entries: [],
-    }
-  }
-
+  let quarantineRoot: string | null = null
+  let recorded = false
   const quarantined: QuarantinedOverlayEntry[] = []
-  for (const entry of cleanupRoots) {
-    const sourcePath = path.join(worktree.worktree_path, ...entry.path.split('/'))
-    if (!pathStillExists(sourcePath)) continue
-    if (!matchesOverlayCleanupEvidenceAtPath(sourcePath, entry)) {
-      return { failure: `overlay path ${entry.path} changed before quarantine`, entries: quarantined }
-    }
-    const quarantinePath = path.join(quarantineRoot, ...entry.path.split('/'))
+  const ensureRoot = (): string => {
+    // mkdtemp creates the batch directory atomically beside the worktree, so
+    // every rename stays within one filesystem.
+    quarantineRoot ??= fs.mkdtempSync(`${worktree.worktree_path}.specrails-overlay-quarantine-`)
+    return quarantineRoot
+  }
+  const record = async (): Promise<string | null> => {
+    if (recorded) return null
+    const root = ensureRoot()
     try {
+      await input.onSafetyArchive?.(root)
+      recorded = true
+      return null
+    } catch (err) {
+      return `could not record safety archive ${root}: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+  const done = (failure: string | null): OverlayQuarantineResult => {
+    if (quarantineRoot && !recorded) pruneEmptyDirectories(quarantineRoot)
+    return { failure, entries: quarantined }
+  }
+
+  for (const leaf of leaves) {
+    const sourcePath = path.join(worktree.worktree_path, ...leaf.rel.split('/'))
+    if (!pathStillExists(sourcePath)) continue
+    // A proof that no longer holds on the live path downgrades it to "keep".
+    const proof = leaf.proof && proofHolds(sourcePath, leaf.rel, leaf.proof) ? leaf.proof : null
+    const fingerprint = proof ? null : (leaf.proof ? fingerprintOverlayCleanupPath(sourcePath) : leaf.fingerprint)
+    if (!proof) {
+      if (!fingerprint || !matchesOverlayCleanupEvidenceAtPath(sourcePath, fingerprint)) {
+        return done(`overlay path ${leaf.rel} changed before quarantine`)
+      }
+      const failure = await record()
+      if (failure) return done(failure)
+    }
+    let quarantinePath: string
+    try {
+      quarantinePath = path.join(ensureRoot(), ...leaf.rel.split('/'))
       fs.mkdirSync(path.dirname(quarantinePath), { recursive: true })
       await input.beforeOverlayQuarantine?.(sourcePath)
       fs.renameSync(sourcePath, quarantinePath)
     } catch (err) {
-      return {
-        failure: `could not quarantine overlay path ${entry.path}: ${err instanceof Error ? err.message : String(err)}`,
-        entries: quarantined,
-      }
+      return done(`could not quarantine overlay path ${leaf.rel}: ${err instanceof Error ? err.message : String(err)}`)
     }
-    const moved = { sourcePath, quarantinePath, evidence: entry }
-    quarantined.push(moved)
+    const moved = { sourcePath, quarantinePath, evidence: { path: leaf.rel, ...(fingerprint ?? { kind: 'file' as const, digest: '' }) } }
     try {
       await input.afterOverlayRename?.(sourcePath, quarantinePath)
     } catch (err) {
-      return {
-        failure: `overlay post-rename hook failed at ${quarantinePath}: ${err instanceof Error ? err.message : String(err)}`,
-        entries: quarantined,
-      }
+      quarantined.push(moved)
+      const failure = await record()
+      return done(failure ?? `overlay post-rename hook failed at ${quarantinePath}: ${err instanceof Error ? err.message : String(err)}`)
     }
-    if (!matchesOverlayCleanupEvidenceAtPath(quarantinePath, entry)) {
-      return {
-        failure: `overlay path ${entry.path} changed during atomic quarantine at ${quarantinePath}`,
-        entries: quarantined,
+    if (proof) {
+      // Re-prove the exact moved bytes, then delete only those.
+      if (proofHolds(quarantinePath, leaf.rel, proof)) {
+        try {
+          fs.rmSync(quarantinePath, { recursive: true })
+          continue
+        } catch (err) {
+          quarantined.push(moved)
+          const failure = await record()
+          return done(failure ?? `could not remove overlay path ${leaf.rel}: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
+      quarantined.push(moved)
+      const failure = await record()
+      return done(failure ?? `overlay path ${leaf.rel} changed during atomic quarantine at ${quarantinePath}`)
+    }
+    quarantined.push(moved)
+    if (!matchesOverlayCleanupEvidenceAtPath(quarantinePath, fingerprint!)) {
+      return done(`overlay path ${leaf.rel} changed during atomic quarantine at ${quarantinePath}`)
     }
     try {
       await input.afterOverlayQuarantine?.(quarantinePath)
     } catch (err) {
-      return {
-        failure: `overlay quarantine hook failed at ${quarantinePath}: ${err instanceof Error ? err.message : String(err)}`,
-        entries: quarantined,
-      }
+      return done(`overlay quarantine hook failed at ${quarantinePath}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+  if (quarantineRoot) {
+    // Parents created only for removed kit leave empty directories behind.
+    pruneEmptyDirectories(quarantineRoot)
+    if (!recorded && pathStillExists(quarantineRoot)) {
+      // Defensive: something unexpected is in the sibling. Disclose it.
+      const failure = await record()
+      if (failure) return { failure, entries: quarantined }
     }
   }
   return { failure: null, entries: quarantined }
@@ -468,7 +713,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       console.warn(`[rail-worktree-release] ${warning}`)
       continue
     }
-    const quarantine = await quarantineVerifiedOverlayEntries(input, wt, evidence.overlayEntries)
+    const quarantine = await clearVerifiedOverlayEntries(input, wt, evidence.overlayEntries, evidence.discardable ?? new Map())
     if (quarantine.failure) {
       markNeedsReview()
       const warning = `worktree ${wt.worktree_path}: preserved because ${[
