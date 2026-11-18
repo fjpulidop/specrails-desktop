@@ -492,8 +492,8 @@
     "jobStuckStopped": "Esecuzione fermata",
     "jobStuckStopFailed": "Impossibile fermare l'esecuzione",
     "providerLimit": "Limite d'uso del provider raggiunto",
-    "providerLimitBody": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto — si azzera {{resetsAt}}. La run si è fermata; rilanciala o usa Recupera e riprova dopo l'azzeramento.",
-    "providerLimitBodyNoReset": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto. La run si è fermata; rilanciala dopo l'azzeramento.",
+    "providerLimitBody": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto — si azzera {{resetsAt}}. La run è in pausa e riprende da sola dopo l'azzeramento; puoi anche continuarla ora con un altro provider.",
+    "providerLimitBodyNoReset": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto. La run è in pausa; riprendila dopo l'azzeramento o continuala ora con un altro provider.",
     "attention": {
       "open": "Apri",
       "openInbox": "Apri la posta in arrivo",

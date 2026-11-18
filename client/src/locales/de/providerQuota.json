@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "Limit erreicht",
+    "rejectedUntil": "Limit · Reset {{time}}"
+  },
+  "window": {
+    "fiveHour": "5 Stunden",
+    "weekly": "Woche",
+    "default": "Nutzung"
+  },
+  "attention": {
+    "warningTitle": "{{provider}}-Nutzung bei {{percent}} %",
+    "warningBody": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. Neue Läufe können am Limit pausieren.",
+    "rejectedTitle": "Nutzungslimit von {{provider}} erreicht",
+    "rejectedBody": "{{provider}} lehnt Anfragen bis {{time}} ab. Am Limit pausierte Läufe setzen dann von selbst fort.",
+    "rejectedBodyNoReset": "{{provider}} lehnt Anfragen ab, bis sein Limit zurückgesetzt wird."
+  },
+  "preflight": {
+    "label": "Prüfungen vor dem Start",
+    "checking": "Wird geprüft…",
+    "recheck": "Erneut prüfen",
+    "disk": {
+      "ok": "{{free}} frei",
+      "warn": "Nur {{free}} frei",
+      "fail": "Nur {{free}} frei – zuerst Speicher freigeben",
+      "unknown": "Speicherplatz unbekannt"
+    },
+    "provider": {
+      "signed-in": "{{provider}} angemeldet",
+      "signed-out": "{{provider}} abgemeldet – zuerst anmelden",
+      "missing": "{{provider}} nicht installiert",
+      "unknown": "Anmeldung bei {{provider}} unbekannt"
+    },
+    "github": {
+      "signed-in": "GitHub angemeldet",
+      "signed-out": "GitHub abgemeldet – Pull Requests werden nicht geöffnet",
+      "missing": "GitHub CLI nicht installiert – Pull Requests werden nicht geöffnet",
+      "unknown": "GitHub-Anmeldung unbekannt"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}} % genutzt",
+      "warning": "{{provider}} {{percent}} % genutzt",
+      "critical": "{{provider}} {{percent}} % genutzt",
+      "rejected": "{{provider}} am Limit",
+      "rejectedUntil": "{{provider}} am Limit – Reset {{time}}",
+      "unknown": "{{provider}}-Nutzung unbekannt"
+    },
+    "blocking": "Behebe die fehlgeschlagene Prüfung vor dem Start.",
+    "quotaWarning_one": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rail kann am Limit pausieren; er setzt nach dem Reset von selbst fort.",
+    "quotaWarning_other": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rails können am Limit pausieren; sie setzen nach dem Reset von selbst fort.",
+    "quotaRejected_one": "{{provider}} lehnt Anfragen bis {{time}} ab. Der Rail wartet und beginnt nach dem Reset.",
+    "quotaRejected_other": "{{provider}} lehnt Anfragen bis {{time}} ab. Die Rails warten und beginnen nach dem Reset.",
+    "quotaRejectedNoReset": "{{provider}} lehnt Anfragen gerade ab und hat nicht gesagt, wann sein Limit zurückgesetzt wird."
+  },
+  "pause": {
+    "title": "Am Nutzungslimit von {{provider}} pausiert",
+    "resumesAt": "Setzt um {{time}} von selbst fort (in {{in}}).",
+    "resumesAtPassed": "Setzt von selbst fort, sobald der Computer wach ist.",
+    "resetsAt": "Das Limit wird um {{time}} zurückgesetzt. Automatisches Fortsetzen ist aus.",
+    "noReset": "{{provider}} hat nicht gesagt, wann das Limit zurückgesetzt wird.",
+    "resumeNow": "Jetzt fortsetzen",
+    "autoOn": "Um {{time}} fortsetzen",
+    "autoOff": "Nicht von selbst fortsetzen",
+    "continueWith": "Jetzt mit {{provider}} fortsetzen",
+    "failed": "Der pausierte Lauf konnte nicht aktualisiert werden: {{detail}}"
+  },
+  "mission": {
+    "title": "Nutzungslimit von {{provider}} erreicht",
+    "body": "{{provider}} lehnt Anfragen bis {{time}} ab.",
+    "bodyNoReset": "{{provider}} lehnt Anfragen ab, bis sein Limit zurückgesetzt wird.",
+    "continueAt": "Um {{time}} fortsetzen",
+    "scheduled": "Setzt um {{time}} von selbst fort.",
+    "cancel": "Abbrechen",
+    "continueWith": "Jetzt mit {{provider}} fortsetzen",
+    "continuePrompt": "Mach dort weiter, wo der vorherige Agent an seinem Nutzungslimit aufgehört hat. Prüfe, was schon erledigt ist, bevor du einen Schritt wiederholst.",
+    "failed": "Die Mission konnte nicht geplant werden: {{detail}}"
+  }
+}

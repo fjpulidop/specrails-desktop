@@ -168,6 +168,7 @@
     ],
     "dependencies": [
       "integrations",
+      "provider-quota",
       "recovery"
     ]
   },
@@ -222,6 +223,7 @@
       "loops",
       "missions",
       "projects",
+      "provider-quota",
       "recovery",
       "settings",
       "specs"
@@ -316,6 +318,7 @@
       "jobs",
       "loops",
       "projects",
+      "provider-quota",
       "providers",
       "rails",
       "recovery",
@@ -361,6 +364,24 @@
       "settings"
     ]
   },
+  "provider-quota": {
+    "publicEntries": [
+      "components/LaunchPreflightChips.tsx",
+      "components/MissionUsageLimitCard.tsx",
+      "components/ProviderQuotaBridge.tsx",
+      "components/RunLimitPause.tsx",
+      "lib/format-reset.ts",
+      "lib/labels.ts",
+      "lib/limit-pause.ts",
+      "lib/types.ts",
+      "lib/usage-limit-row.ts",
+      "lib/useLaunchPreflight.ts",
+      "lib/useProviderQuota.ts"
+    ],
+    "dependencies": [
+      "subscription-usage"
+    ]
+  },
   "providers": {
     "publicEntries": [
       "components/AiEngineSelector.tsx",
@@ -396,6 +417,7 @@
       "loops",
       "missions",
       "projects",
+      "provider-quota",
       "providers",
       "settings",
       "specs"
@@ -408,7 +430,9 @@
       "hooks/useRunDiagnosis.ts",
       "lib/failure-diagnosis.ts"
     ],
-    "dependencies": []
+    "dependencies": [
+      "provider-quota"
+    ]
   },
   "settings": {
     "publicEntries": [
@@ -495,10 +519,12 @@
   "subscription-usage": {
     "publicEntries": [
       "components/SubscriptionUsageFooter.tsx",
-      "components/SubscriptionUsagePanel.tsx"
+      "components/SubscriptionUsagePanel.tsx",
+      "lib/store.ts"
     ],
     "dependencies": [
-      "builder"
+      "builder",
+      "provider-quota"
     ]
   },
   "terminals": {

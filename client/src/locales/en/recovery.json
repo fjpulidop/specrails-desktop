@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "It resets {{resetAt}}. Resume once it has.",
-      "noReset": "Wait for the limit to reset, then resume."
+      "resetsAt": "It resets at {{time}}. Resume then, or run it on another provider.",
+      "reset": "It resets {{resetAt}}. Resume then, or run it on another provider.",
+      "noReset": "Wait for the limit to reset, then resume, or run it on another provider."
     },
     "environment": "The change itself isn't the problem. The machine needs something first.",
     "tests_failed": "The checks still fail after the corrections.",

@@ -30,6 +30,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [loops](../loops/README.md)
 - [missions](../missions/README.md)
 - [projects](../projects/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [settings](../settings/README.md)
 - [specs](../specs/README.md)

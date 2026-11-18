@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "Es wird {{resetAt}} zurückgesetzt. Danach fortsetzen.",
-      "noReset": "Warte, bis das Limit zurückgesetzt ist, und setze dann fort."
+      "resetsAt": "Reset um {{time}}. Dann fortsetzen oder mit einem anderen Anbieter ausführen.",
+      "reset": "Reset {{resetAt}}. Dann fortsetzen oder mit einem anderen Anbieter ausführen.",
+      "noReset": "Warte auf den Reset des Limits und setze dann fort, oder führe es mit einem anderen Anbieter aus."
     },
     "environment": "Die Änderung selbst ist nicht das Problem. Der Rechner braucht zuerst etwas.",
     "tests_failed": "Die Prüfungen schlagen auch nach den Korrekturen fehl.",

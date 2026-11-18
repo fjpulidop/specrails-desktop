@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "已达限额",
+    "rejectedUntil": "限额 · {{time}} 重置"
+  },
+  "window": {
+    "fiveHour": "5 小时",
+    "weekly": "每周",
+    "default": "用量"
+  },
+  "attention": {
+    "warningTitle": "{{provider}} 用量已达 {{percent}}%",
+    "warningBody": "{{provider}} 已用掉其{{window}}限额的 {{percent}}%。新的运行可能会在限额处暂停。",
+    "rejectedTitle": "{{provider}} 已达用量限额",
+    "rejectedBody": "{{provider}} 在 {{time}} 之前拒绝请求。在限额处暂停的运行届时会自动恢复。",
+    "rejectedBodyNoReset": "{{provider}} 在限额重置前拒绝请求。"
+  },
+  "preflight": {
+    "label": "启动检查",
+    "checking": "正在检查…",
+    "recheck": "重新检查",
+    "disk": {
+      "ok": "可用 {{free}}",
+      "warn": "仅剩 {{free}}",
+      "fail": "仅剩 {{free}} — 请先释放空间",
+      "unknown": "磁盘空间未知"
+    },
+    "provider": {
+      "signed-in": "{{provider}} 已登录",
+      "signed-out": "{{provider}} 未登录 — 请先登录",
+      "missing": "{{provider}} 未安装",
+      "unknown": "{{provider}} 登录状态未知"
+    },
+    "github": {
+      "signed-in": "GitHub 已登录",
+      "signed-out": "GitHub 未登录 — 无法创建拉取请求",
+      "missing": "未安装 GitHub CLI — 无法创建拉取请求",
+      "unknown": "GitHub 登录状态未知"
+    },
+    "quota": {
+      "ok": "{{provider}} 已用 {{percent}}%",
+      "warning": "{{provider}} 已用 {{percent}}%",
+      "critical": "{{provider}} 已用 {{percent}}%",
+      "rejected": "{{provider}} 已达限额",
+      "rejectedUntil": "{{provider}} 已达限额 — {{time}} 重置",
+      "unknown": "{{provider}} 用量未知"
+    },
+    "blocking": "请先解决失败的检查再启动。",
+    "quotaWarning_one": "{{provider}} 已用掉其{{window}}限额的 {{percent}}%。启动 {{count}} 条轨道可能会在限额处暂停；重置后会自动恢复。",
+    "quotaWarning_other": "{{provider}} 已用掉其{{window}}限额的 {{percent}}%。启动 {{count}} 条轨道可能会在限额处暂停；重置后会自动恢复。",
+    "quotaRejected_one": "{{provider}} 在 {{time}} 之前拒绝请求。该轨道会等待，并在重置后开始工作。",
+    "quotaRejected_other": "{{provider}} 在 {{time}} 之前拒绝请求。这些轨道会等待，并在重置后开始工作。",
+    "quotaRejectedNoReset": "{{provider}} 当前拒绝请求，且未说明限额何时重置。"
+  },
+  "pause": {
+    "title": "因 {{provider}} 用量限额而暂停",
+    "resumesAt": "将于 {{time}}（{{in}}后）自动恢复。",
+    "resumesAtPassed": "电脑唤醒后立即自动恢复。",
+    "resetsAt": "限额将于 {{time}} 重置。自动恢复已关闭。",
+    "noReset": "{{provider}} 未说明限额何时重置。",
+    "resumeNow": "立即恢复",
+    "autoOn": "在 {{time}} 恢复",
+    "autoOff": "不要自动恢复",
+    "continueWith": "立即改用 {{provider}} 继续",
+    "failed": "无法更新已暂停的运行：{{detail}}"
+  },
+  "mission": {
+    "title": "{{provider}} 已达用量限额",
+    "body": "{{provider}} 在 {{time}} 之前拒绝请求。",
+    "bodyNoReset": "{{provider}} 在限额重置前拒绝请求。",
+    "continueAt": "在 {{time}} 继续",
+    "scheduled": "将于 {{time}} 自动继续。",
+    "cancel": "取消",
+    "continueWith": "立即改用 {{provider}} 继续",
+    "continuePrompt": "从上一个代理因用量限额停下的地方继续。在重复任何步骤之前，先检查已经完成的内容。",
+    "failed": "无法安排任务：{{detail}}"
+  }
+}

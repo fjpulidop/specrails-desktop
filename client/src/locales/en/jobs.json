@@ -288,7 +288,7 @@
     "stalledIdle_one": "No provider output for {{count}} minute — the app stopped this attempt",
     "stalledIdle_other": "No provider output for {{count}} minutes — the app stopped this attempt",
     "providerLimit": "Provider limit",
-    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling.",
+    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app paused the run at the limit instead of cycling.",
     "paused": "Paused",
     "runtimeGraph": "Run graph",
     "graphFullscreen": "Full screen",

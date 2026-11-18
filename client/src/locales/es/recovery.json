@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "Se restablece {{resetAt}}. Reanuda cuando lo haga.",
-      "noReset": "Espera a que se restablezca el límite y reanuda."
+      "resetsAt": "Se restablece a las {{time}}. Reanúdala entonces o ejecútala con otro proveedor.",
+      "reset": "Se restablece {{resetAt}}. Reanúdala entonces o ejecútala con otro proveedor.",
+      "noReset": "Espera a que se restablezca el límite y reanúdala, o ejecútala con otro proveedor."
     },
     "environment": "El problema no está en el cambio. La máquina necesita algo antes.",
     "tests_failed": "Las comprobaciones siguen fallando tras las correcciones.",

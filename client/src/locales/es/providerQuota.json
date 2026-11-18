@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "límite alcanzado",
+    "rejectedUntil": "límite · se restablece {{time}}"
+  },
+  "window": {
+    "fiveHour": "de 5 horas",
+    "weekly": "semanal",
+    "default": "de uso"
+  },
+  "attention": {
+    "warningTitle": "Uso de {{provider}} al {{percent}} %",
+    "warningBody": "{{provider}} ha usado el {{percent}} % de su límite {{window}}. Las nuevas ejecuciones pueden pausarse al llegar al límite.",
+    "rejectedTitle": "Límite de uso de {{provider}} alcanzado",
+    "rejectedBody": "{{provider}} rechaza peticiones hasta las {{time}}. Las ejecuciones pausadas en el límite se reanudan solas entonces.",
+    "rejectedBodyNoReset": "{{provider}} rechaza peticiones hasta que se restablezca su límite."
+  },
+  "preflight": {
+    "label": "Comprobaciones de lanzamiento",
+    "checking": "Comprobando…",
+    "recheck": "Comprobar de nuevo",
+    "disk": {
+      "ok": "{{free}} libres",
+      "warn": "Solo {{free}} libres",
+      "fail": "Solo {{free}} libres: libera espacio antes",
+      "unknown": "Espacio en disco desconocido"
+    },
+    "provider": {
+      "signed-in": "{{provider}} con sesión iniciada",
+      "signed-out": "{{provider}} sin sesión: inicia sesión antes",
+      "missing": "{{provider}} no está instalado",
+      "unknown": "Sesión de {{provider}} desconocida"
+    },
+    "github": {
+      "signed-in": "GitHub con sesión iniciada",
+      "signed-out": "GitHub sin sesión: no se abrirán pull requests",
+      "missing": "GitHub CLI no instalado: no se abrirán pull requests",
+      "unknown": "Sesión de GitHub desconocida"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}} % usado",
+      "warning": "{{provider}} {{percent}} % usado",
+      "critical": "{{provider}} {{percent}} % usado",
+      "rejected": "{{provider}} en el límite",
+      "rejectedUntil": "{{provider}} en el límite: se restablece {{time}}",
+      "unknown": "Uso de {{provider}} desconocido"
+    },
+    "blocking": "Corrige la comprobación fallida antes de lanzar.",
+    "quotaWarning_one": "{{provider}} ha usado el {{percent}} % de su límite {{window}}. Lanzar {{count}} rail puede pausarlo en el límite; después se reanuda solo tras el restablecimiento.",
+    "quotaWarning_other": "{{provider}} ha usado el {{percent}} % de su límite {{window}}. Lanzar {{count}} rails puede pausarlos en el límite; después se reanudan solos tras el restablecimiento.",
+    "quotaRejected_one": "{{provider}} rechaza peticiones hasta las {{time}}. El rail esperará y empezará a trabajar tras el restablecimiento.",
+    "quotaRejected_other": "{{provider}} rechaza peticiones hasta las {{time}}. Los rails esperarán y empezarán a trabajar tras el restablecimiento.",
+    "quotaRejectedNoReset": "{{provider}} rechaza peticiones ahora mismo y no ha dicho cuándo se restablece su límite."
+  },
+  "pause": {
+    "title": "En pausa por el límite de uso de {{provider}}",
+    "resumesAt": "Se reanuda sola a las {{time}} (en {{in}}).",
+    "resumesAtPassed": "Se reanuda sola en cuanto el ordenador esté despierto.",
+    "resetsAt": "El límite se restablece a las {{time}}. La reanudación automática está desactivada.",
+    "noReset": "{{provider}} no ha dicho cuándo se restablece el límite.",
+    "resumeNow": "Reanudar ahora",
+    "autoOn": "Reanudar a las {{time}}",
+    "autoOff": "No reanudar sola",
+    "continueWith": "Continuar ahora con {{provider}}",
+    "failed": "No se pudo actualizar la ejecución pausada: {{detail}}"
+  },
+  "mission": {
+    "title": "Límite de uso de {{provider}} alcanzado",
+    "body": "{{provider}} rechaza peticiones hasta las {{time}}.",
+    "bodyNoReset": "{{provider}} rechaza peticiones hasta que se restablezca su límite.",
+    "continueAt": "Continuar a las {{time}}",
+    "scheduled": "Continúa sola a las {{time}}.",
+    "cancel": "Cancelar",
+    "continueWith": "Continuar ahora con {{provider}}",
+    "continuePrompt": "Continúa donde el agente anterior se detuvo por su límite de uso. Comprueba lo que ya se hizo antes de repetir ningún paso.",
+    "failed": "No se pudo programar la misión: {{detail}}"
+  }
+}

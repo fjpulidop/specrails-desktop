@@ -288,7 +288,7 @@
     "stalledIdle_one": "{{count}} 分間プロバイダーの出力がなく、アプリがこの試行を停止しました",
     "stalledIdle_other": "{{count}} 分間プロバイダーの出力がなく、アプリがこの試行を停止しました",
     "providerLimit": "プロバイダー上限",
-    "providerLimitHint": "プロバイダーが利用上限の通知を返したため、アプリはループを続けずに実行を停止しました。",
+    "providerLimitHint": "プロバイダーが利用上限の通知を返したため、アプリはループを続けずに上限で実行を一時停止しました。",
     "paused": "一時停止中",
     "runtimeGraph": "実行グラフ",
     "graphFullscreen": "全画面表示",

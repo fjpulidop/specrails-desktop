@@ -2,6 +2,8 @@ import { MissionSelectionMenu } from './MissionSelectionMenu'
 import { useMissionSplitViews, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
+import { MissionUsageLimitCard } from '../../provider-quota/components/MissionUsageLimitCard'
+import { parseUsageLimitRow } from '../../provider-quota/lib/usage-limit-row'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
 import { ArrowDown, ExternalLink } from 'lucide-react'
 import { Suspense, lazy, memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -15,7 +17,7 @@ import { useActiveLive, useActiveQueued, useIsStreaming } from '../hooks/useAgen
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { useSmoothStream } from '../../specs/components/explore-spec/useSmoothStream'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
-import { listAgentAttachments, type AgentAttachment } from '../lib/agent-api'
+import { getAvailableProviders, listAgentAttachments, type AgentAttachment } from '../lib/agent-api'
 import type { AgentRefTarget } from '../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
 import { AgentActivityLogModal } from './AgentActivityLogModal'
@@ -197,7 +199,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const reduced = useReducedMotion()
   const { t } = useTranslation('agent')
   const {
-    active, messages: committedMessages, mcpEnabled, enablingMcp, enableMcpServer, providersReady, send,
+    active, messages: committedMessages, mcpEnabled, enablingMcp, enableMcpServer, providersReady, send, setProvider,
   } = useAgentChat()
   // Live turn state is read through its own subscriptions (hooks/useAgentLive):
   // a streamed token re-renders the tail below, never this component.
@@ -210,6 +212,27 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // See latestSettledIntentMessageId: the newest agreed intent card keeps its
   // Explore/Delegate paths across the user's own follow-ups.
   const latestSettledIntentId = useMemo(() => latestSettledIntentMessageId(messages), [messages])
+  // provider-quota: only the newest usage-limit card, with nothing the person sent after it, offers actions.
+  const latestUsageLimitId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role === 'user') return null
+      if (m.role === 'system' && parseUsageLimitRow(m.content)) return m.id
+    }
+    return null
+  }, [messages])
+  const [installedProviders, setInstalledProviders] = useState<string[]>([])
+  useEffect(() => {
+    if (!latestUsageLimitId) return
+    let cancelled = false
+    void getAvailableProviders().then(({ installed }) => { if (!cancelled) setInstalledProviders(installed.filter((id) => !isLocalEngineId(id))) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [latestUsageLimitId])
+  const continueWithProvider = useCallback(async (provider: string, prompt: string) => {
+    // The new provider's fresh session is seeded with the persisted history as data (agent-context-resolver).
+    await setProvider(provider)
+    await send(prompt)
+  }, [setProvider, send])
   const cycleTier = useGuardedTierCycle()
   // Execution-log modal (opened from the activity chip). While streaming it
   // shows the LIVE turn's tools; after settle it keeps showing the finished
@@ -554,6 +577,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Start fresh with a summary: what the new provider session knows.
               const sessionSummary = parseSessionSummaryRow(m.content)
               if (sessionSummary) return <AgentSessionSummaryCard key={m.id} row={sessionSummary} />
+              // provider-quota: the turn stopped at the provider's usage limit.
+              const usageLimit = parseUsageLimitRow(m.content)
+              if (usageLimit) return <MissionUsageLimitCard key={m.id} row={usageLimit} conversationId={m.conversation_id} latest={m.id === latestUsageLimitId} installedProviders={installedProviders} onContinueWith={continueWithProvider} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null

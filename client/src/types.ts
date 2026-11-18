@@ -87,6 +87,10 @@ export interface JobSummary {
   loopPaused?: boolean
   /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */
   loopPauseReason?: string | null
+  /** `budget_paused` | `limit_paused` when the pause is not a human decision. GET /jobs/:id only. */
+  loopPauseKind?: string | null
+  /** `limit_paused`: the provider usage limit the run waits for. GET /jobs/:id only. */
+  loopPauseLimit?: unknown
   pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
   /**
    * Tickets referenced by the job's command, resolved against the project's

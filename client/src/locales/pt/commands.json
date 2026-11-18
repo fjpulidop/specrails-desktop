@@ -492,8 +492,8 @@
     "jobStuckStopped": "Execução parada",
     "jobStuckStopFailed": "Não foi possível parar a execução",
     "providerLimit": "Limite de utilização do fornecedor atingido",
-    "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução parou; volta a lançar ou usa Recuperar e tentar de novo após a reposição.",
-    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução parou; volta a lançar após a reposição.",
+    "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução está em pausa e retoma sozinha após a reposição; também podes continuá-la agora com outro fornecedor.",
+    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução está em pausa; retoma-a após a reposição do limite ou continua-a agora com outro fornecedor.",
     "attention": {
       "open": "Abrir",
       "openInbox": "Abrir caixa de entrada",

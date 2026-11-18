@@ -75,6 +75,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
 - [projects](../projects/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
 - [recovery](../recovery/README.md)

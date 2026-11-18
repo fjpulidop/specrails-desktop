@@ -492,8 +492,8 @@
     "jobStuckStopped": "実行を停止しました",
     "jobStuckStopFailed": "実行を停止できませんでした",
     "providerLimit": "プロバイダーの利用上限に達しました",
-    "providerLimitBody": "{{provider}} がリクエストを拒否しました：利用上限に達しています — {{resetsAt}} にリセット。実行は停止しました。リセット後に再起動するか「復旧して再試行」してください。",
-    "providerLimitBodyNoReset": "{{provider}} がリクエストを拒否しました：利用上限に達しています。実行は停止しました。上限のリセット後に再起動してください。",
+    "providerLimitBody": "{{provider}} がリクエストを拒否しました：利用上限に達しています — {{resetsAt}} にリセット。実行は一時停止中で、リセット後に自動で再開します。今すぐ別のプロバイダーで続けることもできます。",
+    "providerLimitBodyNoReset": "{{provider}} がリクエストを拒否しました：利用上限に達しています。実行は一時停止中です。上限のリセット後に再開するか、今すぐ別のプロバイダーで続けてください。",
     "attention": {
       "open": "開く",
       "openInbox": "受信トレイを開く",

@@ -122,6 +122,7 @@ import { usePlaceParam } from './hooks/usePlaceParam'
 import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
 import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
 import { SPECRAILS_TOAST_CLASS_NAMES } from './lib/toast-class-names'
+import { ProviderQuotaBridge } from './features/provider-quota/components/ProviderQuotaBridge'
 
 const STATUSBAR_HEIGHT_PX = 28
 
@@ -724,6 +725,7 @@ function DesktopApp() {
             statusBarHeight={statusBarHeight}
           />
         )}
+        <ProviderQuotaBridge />
         <StatusBar connectionStatus={connectionStatus} minimal={uiMode === 'agent'} rightSlot={uiMode === 'agent' ? undefined : chevronSlot} />
       </div>
 

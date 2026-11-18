@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "Si azzera {{resetAt}}. Riprendi dopo.",
-      "noReset": "Aspetta che il limite si azzeri, poi riprendi."
+      "resetsAt": "Si azzera alle {{time}}. Riprendi allora o eseguila con un altro provider.",
+      "reset": "Si azzera {{resetAt}}. Riprendi allora o eseguila con un altro provider.",
+      "noReset": "Attendi l'azzeramento del limite e riprendi, oppure eseguila con un altro provider."
     },
     "environment": "Il problema non è la modifica in sé. La macchina ha bisogno di qualcosa prima.",
     "tests_failed": "I controlli continuano a fallire dopo le correzioni.",

@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "limite atteinte",
+    "rejectedUntil": "limite · réinit. {{time}}"
+  },
+  "window": {
+    "fiveHour": "de 5 heures",
+    "weekly": "hebdomadaire",
+    "default": "d'utilisation"
+  },
+  "attention": {
+    "warningTitle": "Utilisation de {{provider}} à {{percent}} %",
+    "warningBody": "{{provider}} a utilisé {{percent}} % de sa limite {{window}}. Les nouvelles exécutions peuvent se mettre en pause à la limite.",
+    "rejectedTitle": "Limite d'utilisation de {{provider}} atteinte",
+    "rejectedBody": "{{provider}} refuse les requêtes jusqu'à {{time}}. Les exécutions en pause à la limite reprennent alors d'elles-mêmes.",
+    "rejectedBodyNoReset": "{{provider}} refuse les requêtes jusqu'à la réinitialisation de sa limite."
+  },
+  "preflight": {
+    "label": "Vérifications avant lancement",
+    "checking": "Vérification…",
+    "recheck": "Vérifier à nouveau",
+    "disk": {
+      "ok": "{{free}} libres",
+      "warn": "Seulement {{free}} libres",
+      "fail": "Seulement {{free}} libres : libérez de l'espace d'abord",
+      "unknown": "Espace disque inconnu"
+    },
+    "provider": {
+      "signed-in": "{{provider}} connecté",
+      "signed-out": "{{provider}} déconnecté : connectez-vous d'abord",
+      "missing": "{{provider}} non installé",
+      "unknown": "Connexion de {{provider}} inconnue"
+    },
+    "github": {
+      "signed-in": "GitHub connecté",
+      "signed-out": "GitHub déconnecté : les pull requests ne s'ouvriront pas",
+      "missing": "GitHub CLI non installé : les pull requests ne s'ouvriront pas",
+      "unknown": "Connexion GitHub inconnue"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}} % utilisé",
+      "warning": "{{provider}} {{percent}} % utilisé",
+      "critical": "{{provider}} {{percent}} % utilisé",
+      "rejected": "{{provider}} à la limite",
+      "rejectedUntil": "{{provider}} à la limite : réinit. {{time}}",
+      "unknown": "Utilisation de {{provider}} inconnue"
+    },
+    "blocking": "Corrigez la vérification en échec avant de lancer.",
+    "quotaWarning_one": "{{provider}} a utilisé {{percent}} % de sa limite {{window}}. Lancer {{count}} rail peut le mettre en pause à la limite ; il reprend ensuite seul après la réinitialisation.",
+    "quotaWarning_other": "{{provider}} a utilisé {{percent}} % de sa limite {{window}}. Lancer {{count}} rails peut les mettre en pause à la limite ; ils reprennent ensuite seuls après la réinitialisation.",
+    "quotaRejected_one": "{{provider}} refuse les requêtes jusqu'à {{time}}. Le rail attendra et commencera à travailler après la réinitialisation.",
+    "quotaRejected_other": "{{provider}} refuse les requêtes jusqu'à {{time}}. Les rails attendront et commenceront à travailler après la réinitialisation.",
+    "quotaRejectedNoReset": "{{provider}} refuse les requêtes en ce moment et n'a pas indiqué quand sa limite se réinitialise."
+  },
+  "pause": {
+    "title": "En pause à la limite d'utilisation de {{provider}}",
+    "resumesAt": "Reprend seule à {{time}} (dans {{in}}).",
+    "resumesAtPassed": "Reprend seule dès que l'ordinateur est réveillé.",
+    "resetsAt": "La limite se réinitialise à {{time}}. La reprise automatique est désactivée.",
+    "noReset": "{{provider}} n'a pas indiqué quand la limite se réinitialise.",
+    "resumeNow": "Reprendre maintenant",
+    "autoOn": "Reprendre à {{time}}",
+    "autoOff": "Ne pas reprendre automatiquement",
+    "continueWith": "Continuer maintenant avec {{provider}}",
+    "failed": "Impossible de mettre à jour l'exécution en pause : {{detail}}"
+  },
+  "mission": {
+    "title": "Limite d'utilisation de {{provider}} atteinte",
+    "body": "{{provider}} refuse les requêtes jusqu'à {{time}}.",
+    "bodyNoReset": "{{provider}} refuse les requêtes jusqu'à la réinitialisation de sa limite.",
+    "continueAt": "Continuer à {{time}}",
+    "scheduled": "Continue seule à {{time}}.",
+    "cancel": "Annuler",
+    "continueWith": "Continuer maintenant avec {{provider}}",
+    "continuePrompt": "Reprenez là où l'agent précédent s'est arrêté à sa limite d'utilisation. Vérifiez ce qui a déjà été fait avant de répéter une étape.",
+    "failed": "Impossible de programmer la mission : {{detail}}"
+  }
+}

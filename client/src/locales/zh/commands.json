@@ -492,8 +492,8 @@
     "jobStuckStopped": "已停止运行",
     "jobStuckStopFailed": "无法停止运行",
     "providerLimit": "已达到提供商用量限额",
-    "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已停止；重置后重新启动或使用“恢复并重试”。",
-    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已停止；限额重置后重新启动。",
+    "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已暂停，重置后会自动恢复；也可以现在改用其他提供商继续。",
+    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已暂停；限额重置后恢复，或现在改用其他提供商继续。",
     "attention": {
       "open": "打开",
       "openInbox": "打开收件箱",

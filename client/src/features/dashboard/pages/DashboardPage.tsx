@@ -238,7 +238,7 @@ export default function DashboardPage() {
       )}
       {bulkActions.dialogs}
 
-      <RailLaunchDialogs launch={launch} rails={rails} reviewWipLimit={reviewWipLimit} pendingReviewCount={pendingReview.length} />
+      <RailLaunchDialogs launch={launch} rails={rails} reviewWipLimit={reviewWipLimit} pendingReviewCount={pendingReview.length} projectId={activeProjectId} />
 
     </DndContext>
     </JiraDiscardProvider>

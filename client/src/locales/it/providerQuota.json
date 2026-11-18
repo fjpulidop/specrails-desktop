@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "limite raggiunto",
+    "rejectedUntil": "limite · si azzera {{time}}"
+  },
+  "window": {
+    "fiveHour": "di 5 ore",
+    "weekly": "settimanale",
+    "default": "d'uso"
+  },
+  "attention": {
+    "warningTitle": "Uso di {{provider}} al {{percent}}%",
+    "warningBody": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Le nuove run potrebbero mettersi in pausa al limite.",
+    "rejectedTitle": "Limite d'uso di {{provider}} raggiunto",
+    "rejectedBody": "{{provider}} rifiuta le richieste fino alle {{time}}. Le run in pausa al limite riprendono allora da sole.",
+    "rejectedBodyNoReset": "{{provider}} rifiuta le richieste finché il suo limite non si azzera."
+  },
+  "preflight": {
+    "label": "Controlli prima del lancio",
+    "checking": "Controllo in corso…",
+    "recheck": "Controlla di nuovo",
+    "disk": {
+      "ok": "{{free}} liberi",
+      "warn": "Solo {{free}} liberi",
+      "fail": "Solo {{free}} liberi: libera spazio prima",
+      "unknown": "Spazio su disco sconosciuto"
+    },
+    "provider": {
+      "signed-in": "{{provider}} con accesso",
+      "signed-out": "{{provider}} senza accesso: accedi prima",
+      "missing": "{{provider}} non installato",
+      "unknown": "Accesso a {{provider}} sconosciuto"
+    },
+    "github": {
+      "signed-in": "GitHub con accesso",
+      "signed-out": "GitHub senza accesso: le pull request non si apriranno",
+      "missing": "GitHub CLI non installata: le pull request non si apriranno",
+      "unknown": "Accesso a GitHub sconosciuto"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}}% usato",
+      "warning": "{{provider}} {{percent}}% usato",
+      "critical": "{{provider}} {{percent}}% usato",
+      "rejected": "{{provider}} al limite",
+      "rejectedUntil": "{{provider}} al limite: si azzera {{time}}",
+      "unknown": "Uso di {{provider}} sconosciuto"
+    },
+    "blocking": "Risolvi il controllo non superato prima del lancio.",
+    "quotaWarning_one": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Lanciare {{count}} rail può metterlo in pausa al limite; poi riprende da solo dopo l'azzeramento.",
+    "quotaWarning_other": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Lanciare {{count}} rail può metterli in pausa al limite; poi riprendono da soli dopo l'azzeramento.",
+    "quotaRejected_one": "{{provider}} rifiuta le richieste fino alle {{time}}. Il rail aspetterà e inizierà a lavorare dopo l'azzeramento.",
+    "quotaRejected_other": "{{provider}} rifiuta le richieste fino alle {{time}}. I rail aspetteranno e inizieranno a lavorare dopo l'azzeramento.",
+    "quotaRejectedNoReset": "{{provider}} rifiuta le richieste in questo momento e non ha detto quando si azzera il limite."
+  },
+  "pause": {
+    "title": "In pausa al limite d'uso di {{provider}}",
+    "resumesAt": "Riprende da sola alle {{time}} (tra {{in}}).",
+    "resumesAtPassed": "Riprende da sola appena il computer è sveglio.",
+    "resetsAt": "Il limite si azzera alle {{time}}. La ripresa automatica è disattivata.",
+    "noReset": "{{provider}} non ha detto quando si azzera il limite.",
+    "resumeNow": "Riprendi ora",
+    "autoOn": "Riprendi alle {{time}}",
+    "autoOff": "Non riprendere da sola",
+    "continueWith": "Continua ora con {{provider}}",
+    "failed": "Impossibile aggiornare la run in pausa: {{detail}}"
+  },
+  "mission": {
+    "title": "Limite d'uso di {{provider}} raggiunto",
+    "body": "{{provider}} rifiuta le richieste fino alle {{time}}.",
+    "bodyNoReset": "{{provider}} rifiuta le richieste finché il suo limite non si azzera.",
+    "continueAt": "Continua alle {{time}}",
+    "scheduled": "Continua da sola alle {{time}}.",
+    "cancel": "Annulla",
+    "continueWith": "Continua ora con {{provider}}",
+    "continuePrompt": "Continua da dove l'agente precedente si è fermato al suo limite d'uso. Verifica cosa è già stato fatto prima di ripetere un passaggio.",
+    "failed": "Impossibile programmare la missione: {{detail}}"
+  }
+}

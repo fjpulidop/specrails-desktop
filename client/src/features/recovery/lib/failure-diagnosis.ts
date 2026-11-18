@@ -29,6 +29,8 @@ export interface FailureDiagnosis {
   phase: string | null
   rounds: number | null
   resetAt: string | null
+  /** `provider_limit`: the exact reset (ISO), when the provider reported it typed. */
+  resetsAt?: string | null
   detail: string | null
   resumablePhase: string | null
   blocker: FailureBlocker | null
@@ -73,6 +75,7 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
     phase: text(v.phase, 200),
     rounds: typeof v.rounds === 'number' && Number.isInteger(v.rounds) && v.rounds > 0 ? v.rounds : null,
     resetAt: text(v.resetAt, 80),
+    resetsAt: typeof v.resetsAt === 'string' && Number.isFinite(Date.parse(v.resetsAt)) ? v.resetsAt : null,
     detail: text(v.detail, 300),
     resumablePhase: text(v.resumablePhase, 200),
     blocker: readBlocker(v.blocker),
@@ -119,7 +122,9 @@ export function headlineKey(diagnosis: FailureDiagnosis, phaseLabel: string | nu
 /** The "why" line key and params, when the kind has one. */
 export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Record<string, string | number> } | null {
   switch (diagnosis.kind) {
-    case 'provider_limit': return diagnosis.resetAt ? { key: 'why.provider_limit.reset', params: { resetAt: diagnosis.resetAt } } : { key: 'why.provider_limit.noReset', params: {} }
+    // The typed reset is a real instant (the card formats it in the person's clock); the words are the fallback.
+    case 'provider_limit': return diagnosis.resetsAt ? { key: 'why.provider_limit.resetsAt', params: { resetsAt: diagnosis.resetsAt } }
+      : diagnosis.resetAt ? { key: 'why.provider_limit.reset', params: { resetAt: diagnosis.resetAt } } : { key: 'why.provider_limit.noReset', params: {} }
     case 'environment': return { key: 'why.environment', params: {} }
     case 'tests_failed': return { key: 'why.tests_failed', params: {} }
     case 'blocked': return { key: 'why.blocked', params: {} }

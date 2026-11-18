@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "Elle se réinitialise {{resetAt}}. Reprenez ensuite.",
-      "noReset": "Attendez la réinitialisation de la limite, puis reprenez."
+      "resetsAt": "Réinitialisation à {{time}}. Reprenez alors, ou exécutez-la avec un autre fournisseur.",
+      "reset": "Réinitialisation {{resetAt}}. Reprenez alors, ou exécutez-la avec un autre fournisseur.",
+      "noReset": "Attendez la réinitialisation de la limite puis reprenez, ou exécutez-la avec un autre fournisseur."
     },
     "environment": "Le problème n'est pas le changement. La machine a besoin de quelque chose d'abord.",
     "tests_failed": "Les vérifications échouent encore après les corrections.",

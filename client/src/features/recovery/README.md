@@ -14,7 +14,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 ## Feature dependencies
 
-No direct feature dependencies.
+- [provider-quota](../provider-quota/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
