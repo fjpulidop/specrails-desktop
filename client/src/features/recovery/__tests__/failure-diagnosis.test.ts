@@ -107,3 +107,12 @@ describe('port_in_use', () => {
     expect(headlineKey(noPort, null).key).toBe('headline.port_in_use.plain')
   })
 })
+
+describe('incomplete tasks on the wire', () => {
+  it('reads the task list and the two new remedies', async () => {
+    const { readFailureDiagnosis } = await import('../lib/failure-diagnosis')
+    const read = readFailureDiagnosis({ kind: 'incomplete_tasks', confidence: 'high', incompleteTasks: ['4.1 Note', 7, ''], remedies: ['continue-to-review', 'retry-with-browser', 'bogus'] })
+    expect(read).toMatchObject({ kind: 'incomplete_tasks', incompleteTasks: ['4.1 Note'], remedies: ['continue-to-review', 'retry-with-browser'] })
+    expect(readFailureDiagnosis({ kind: 'spec_invalid', confidence: 'high', remedies: [] })?.kind).toBe('spec_invalid')
+  })
+})

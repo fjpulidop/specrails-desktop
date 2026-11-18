@@ -1,12 +1,13 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Cable, Check, CircleHelp, Copy, FilePenLine, Gauge, OctagonAlert, Play, RotateCcw, ScrollText, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
+  Cable, Check, CircleHelp, ClipboardCheck, Copy, FilePenLine, Gauge, Globe, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
 import { formatResetTime } from '../../provider-quota/lib/format-reset'
+import type { FailureAnalysisState } from '../hooks/useFailureAnalysis'
 import {
   availableRemedies, headlineKey, humanizePhase, recordedStepError, whyKey,
   type FailureDiagnosis, type RemedyHandlers, type RemedyId,
@@ -24,6 +25,8 @@ const KIND_LOOK: Record<FailureDiagnosis['kind'], { icon: LucideIcon; tone: Tone
   timeout: { icon: TimerOff, tone: 'caution' },
   tool_inactivity: { icon: TimerOff, tone: 'caution' },
   crash: { icon: Unplug, tone: 'failed' },
+  incomplete_tasks: { icon: ListChecks, tone: 'caution' },
+  spec_invalid: { icon: FilePenLine, tone: 'failed' },
   unknown: { icon: CircleHelp, tone: 'neutral' },
 }
 
@@ -39,7 +42,12 @@ const REMEDY_ICON: Record<RemedyId, LucideIcon> = {
   'edit-spec': FilePenLine,
   'fix-environment': Wrench,
   'open-logs': ScrollText,
+  'continue-to-review': ClipboardCheck,
+  'retry-with-browser': Globe,
 }
+
+/** `fix-environment` → `fixEnvironment`: the remedy's i18n key. */
+const remedyKey = (id: RemedyId): string => id.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
 
 /** The headline and the "why" line as plain words, shared by the card and the inbox row. */
 export function useDiagnosisText(diagnosis: FailureDiagnosis): { headline: string; why: string | null; phaseName(id: string): string } {
@@ -139,6 +147,9 @@ export interface FailureDiagnosisCardProps {
   logTail?: readonly string[]
   /** Where and when the run failed, from the run's own records. */
   facts?: FailureFacts
+  /** The AI reading of the same run. When the app's own records name no cause, the card leads
+   *  with the AI's (labelled as such) or offers to ask for one, instead of an unexplained unknown. */
+  ai?: { state: FailureAnalysisState; run(): void }
   className?: string
 }
 
@@ -148,7 +159,7 @@ export interface FailureDiagnosisCardProps {
  * to actions the app already has. An unknown cause says so and shows the raw
  * log tail instead of guessing.
  */
-export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, className }: FailureDiagnosisCardProps) {
+export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, className }: FailureDiagnosisCardProps) {
   const { t } = useTranslation('recovery')
   const headingId = useId()
   const [envOpen, setEnvOpen] = useState(false)
@@ -158,6 +169,8 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
   // a mystery: say which step failed and the runtime's words for why.
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(logTail) : null
   const unknown = diagnosis.kind === 'unknown' && !recorded
+  const aiReady = unknown && ai?.state.status === 'ready' ? ai.state.analysis : null
+  const aiBusy = unknown && !aiReady && (ai?.state.status === 'running' || ai?.state.status === 'loading')
   // A recorded step failure is a failure, whatever the classifier could not name.
   const look = recorded ? { icon: XCircle, tone: 'failed' as Tone } : KIND_LOOK[diagnosis.kind]
   const tone = TONE_CLASS[look.tone]
@@ -165,7 +178,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
   const factStep = recorded ? phaseName(recorded.step) : facts?.step ? phaseName(facts.step) : diagnosis.phase ? phaseName(diagnosis.phase) : null
   const label = (id: RemedyId): string => {
     if (id === 'resume') return diagnosis.resumablePhase ? t('remedy.resumeFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.resume')
-    return t(`remedy.${id === 'edit-spec' ? 'editSpec' : id === 'fix-environment' ? 'fixEnvironment' : id === 'open-logs' ? 'openLogs' : id}`)
+    return t(`remedy.${remedyKey(id)}`)
   }
   return (
     <section
@@ -180,9 +193,16 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
       <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} aria-hidden />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{recorded ? t('headline.stepFailed', { phase: phaseName(recorded.step) }) : headline}</p>
+          {aiReady && (
+            <p className="inline-flex items-center gap-1 text-caption font-medium text-accent-primary" data-testid="failure-ai-label">
+              <Sparkles className="h-3 w-3" aria-hidden />{t('ai.label')}
+            </p>
+          )}
+          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{recorded ? t('headline.stepFailed', { phase: phaseName(recorded.step) }) : aiReady ? aiReady.headline : headline}</p>
           {recorded && <p className="text-body text-foreground break-words" data-testid="failure-recorded-error">{recorded.reason}</p>}
-          {unknown && <p className="text-body text-muted-foreground">{t('why.unknown')}</p>}
+          {aiReady && <p className="text-body text-foreground break-words" data-testid="failure-ai-cause">{aiReady.cause}</p>}
+          {aiBusy && <p role="status" className="text-body text-muted-foreground" data-testid="failure-ai-running">{t('ai.running')}</p>}
+          {unknown && !aiReady && !aiBusy && <p className="text-body text-muted-foreground" data-testid="failure-unknown-why">{t('why.unknown')}</p>}
           {why && <p className="text-body text-muted-foreground" data-testid="failure-why">{why}</p>}
           {diagnosis.detail && diagnosis.kind !== 'unknown' && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
           {facts && <div className="pt-1"><FactsRow facts={facts} step={factStep} /></div>}
@@ -196,13 +216,28 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
         </details>
       )}
 
+      {diagnosis.kind === 'incomplete_tasks' && diagnosis.incompleteTasks && diagnosis.incompleteTasks.length > 0 && (
+        <div data-testid="failure-incomplete-tasks" className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+          <p className="text-caption font-semibold text-muted-foreground">{t('incomplete.title')}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-body text-foreground">
+            {diagnosis.incompleteTasks.map((task) => <li key={task} className="break-words">{task}</li>)}
+          </ul>
+        </div>
+      )}
+
       {envOpen && diagnosis.kind === 'environment' && <EnvironmentPanel diagnosis={diagnosis} />}
 
       {/* A remedy the host can apply itself (a venv for a pinned Python), where the cause can be the interpreter. */}
       {(diagnosis.kind === 'environment' || diagnosis.kind === 'tests_failed') && <EnvironmentPlanOffer />}
 
-      {remedies.length > 0 && (
+      {(remedies.length > 0 || (unknown && !aiReady && ai)) && (
         <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-center gap-1.5">
+          {unknown && !aiReady && ai && (
+            <Button type="button" size="sm" variant="default" data-testid="failure-remedy-analyze" data-primary="" disabled={aiBusy} aria-busy={aiBusy || undefined} onClick={() => ai.run()}>
+              <Sparkles className="mr-1 h-3 w-3" aria-hidden />
+              {t('analysis.run')}
+            </Button>
+          )}
           {remedies.map((id, index) => {
             const handler = handlers[id]
             const RemedyIcon = REMEDY_ICON[id]
@@ -213,9 +248,9 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
                 key={id}
                 type="button"
                 size="sm"
-                variant={index === 0 ? 'default' : 'outline'}
+                variant={index === 0 && !(unknown && !aiReady && ai) ? 'default' : 'outline'}
                 data-testid={`failure-remedy-${id}`}
-                data-primary={index === 0 ? '' : undefined}
+                data-primary={index === 0 && !(unknown && !aiReady && ai) ? '' : undefined}
                 disabled={busy || handler?.disabled}
                 aria-busy={busy || undefined}
                 aria-expanded={isEnv ? envOpen : undefined}

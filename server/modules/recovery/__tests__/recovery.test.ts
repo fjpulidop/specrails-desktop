@@ -82,7 +82,7 @@ describe('rankRemedies', () => {
     expect(rank('crash', { confidence: 'low' })).toEqual(['open-logs', 'retry'])
   })
   it('only ever names existing remedies', () => {
-    for (const kind of FAILURE_KINDS) for (const remedy of rank(kind, { resumablePhase: 'x' })) expect(['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs']).toContain(remedy)
+    for (const kind of FAILURE_KINDS) for (const remedy of rank(kind, { resumablePhase: 'x' })) expect(['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser']).toContain(remedy)
   })
 })
 

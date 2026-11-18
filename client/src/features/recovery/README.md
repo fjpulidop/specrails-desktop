@@ -9,6 +9,8 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
+- [hooks/useFailureAnalysis.ts](hooks/useFailureAnalysis.ts)
+- [hooks/useIncompleteTasksRemedies.ts](hooks/useIncompleteTasksRemedies.ts)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
 
@@ -28,7 +30,7 @@ Failure recovery cockpit: the **diagnosis card** at the top of a failed or block
 A run that failed, stalled or was blocked is explained by ONE typed record, the
 *diagnosis*, produced by the server ([recovery module](../../../../server/modules/recovery/README.md)):
 `kind` (`tests_failed`, `provider_limit`, `environment`, `port_in_use`, `blocked`, `timeout`, `tool_inactivity`,
-`crash`, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
+`crash`, `incomplete_tasks` with its `incompleteTasks` list, `spec_invalid`, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
 `resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, the contested
 `port` (`port_in_use`, when the output named it; amber like the other causes the host can unblock),
 and the server-ranked `remedies`.
@@ -68,3 +70,13 @@ server for an environment plan (`GET /agent-runtime/environment-plan`): a reposi
 pins a Python version gets a venv built from it for setup and checks. **Use a Python X.Y
 venv for checks** saves it to the project settings (`POST …/apply`, read-modify-write with
 the ordinary validation); nothing is offered once the settings carry it.
+
+## Unfinished tasks and unknown causes
+
+- `incomplete_tasks` lists the unticked tasks and ranks **Continue to review** and **Retry with
+  the browser** first. [useIncompleteTasksRemedies](hooks/useIncompleteTasksRemedies.ts) runs them
+  (`POST /loop-runs/:id/remedy`, a fork of the same run); Job Detail and the mission run card wire it.
+- When the app's own records name no cause, the card takes the surface's AI reading (`ai` prop,
+  one [useFailureAnalysis](hooks/useFailureAnalysis.ts) shared with the panel below it): a ready
+  reading leads the card, labelled *From AI analysis*; while it runs the card says so; with none,
+  the card explains how to find the cause and **Analyze with AI** is its primary action.

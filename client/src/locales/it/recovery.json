@@ -30,6 +30,8 @@
       "phase": "L'agente si è fermato all'improvviso nella fase {{phase}}",
       "plain": "L'agente si è fermato all'improvviso"
     },
+    "incomplete_tasks": "Alcune attività approvate sono rimaste incomplete",
+    "spec_invalid": "OpenSpec ha rifiutato la specifica della modifica",
     "unknown": "Causa sconosciuta",
     "stepFailed": "Il passo {{phase}} non è riuscito"
   },
@@ -46,7 +48,9 @@
     "timeout": "Ha raggiunto il limite di tempo prima di finire.",
     "tool_inactivity": "Ha smesso di usare strumenti e di rispondere per troppo tempo.",
     "crash": "Il processo del provider o la sua connessione è morto a metà esecuzione.",
-    "unknown": "L'app non sa perché si è fermata e non tira a indovinare."
+    "incomplete_tasks": "Tutto il resto è fatto. Se ciò che manca è un controllo che solo una persona può fare, prosegui alla revisione con esso come controllo a mano; altrimenti riprova e lascia che l'esecuzione lo completi con il suo browser e i suoi strumenti.",
+    "spec_invalid": "Il piano o la specifica non ha superato OpenSpec e la pianificazione non è riuscita a ripararlo.",
+    "unknown": "I registri dell'esecuzione non indicano la causa. Una lettura del log con l'IA di solito la trova."
   },
   "remedies": {
     "label": "Modi per ripartire"
@@ -57,7 +61,9 @@
     "retry": "Esegui di nuovo",
     "editSpec": "Modifica la spec e rilancia",
     "fixEnvironment": "Sistema l'ambiente",
-    "openLogs": "Apri il log al punto del guasto"
+    "openLogs": "Apri il log al punto del guasto",
+    "continueToReview": "Prosegui alla revisione",
+    "retryWithBrowser": "Riprova con il browser"
   },
   "environment": {
     "command": "Comando",
@@ -103,6 +109,7 @@
       "environment": "Ambiente",
       "agentError": "Errore dell’agente",
       "interrupted": "Interrotta",
+      "incompleteTasks": "Attività incomplete",
       "other": "Altro"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "Tentativo",
     "iteration": "Iterazione",
     "time": "Ora"
+  },
+  "incomplete": {
+    "title": "Attività incomplete"
+  },
+  "ai": {
+    "label": "Dall'analisi IA",
+    "running": "L'IA sta leggendo il log per trovare la causa…"
+  },
+  "remedyResult": {
+    "continued": "Si prosegue alla revisione con il resto come controlli a mano.",
+    "retried": "Nuovo tentativo dallo sviluppatore con il browser e i suoi strumenti.",
+    "notResumed": "L'esecuzione proseguita non è partita: {{detail}}",
+    "failed": "Impossibile proseguire l'esecuzione: {{detail}}"
   }
 }

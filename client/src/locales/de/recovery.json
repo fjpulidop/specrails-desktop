@@ -30,6 +30,8 @@
       "phase": "Der Agent hat in der Phase {{phase}} unerwartet gestoppt",
       "plain": "Der Agent hat unerwartet gestoppt"
     },
+    "incomplete_tasks": "Einige freigegebene Aufgaben blieben unerledigt",
+    "spec_invalid": "OpenSpec hat die Spezifikation der Änderung abgelehnt",
     "unknown": "Unbekannte Ursache",
     "stepFailed": "Der Schritt {{phase}} ist fehlgeschlagen"
   },
@@ -46,7 +48,9 @@
     "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",
     "tool_inactivity": "Er hat zu lange keine Werkzeuge benutzt und nicht geantwortet.",
     "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
-    "unknown": "Die App weiß nicht, warum er gestoppt hat, und rät nicht."
+    "incomplete_tasks": "Alles andere ist erledigt. Ist der Rest eine Prüfung, die nur ein Mensch machen kann, weiter zum Review mit ihr als Prüfung von Hand; sonst erneut ausführen und den Lauf sie mit Browser und Werkzeugen abschließen lassen.",
+    "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
+    "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist."
   },
   "remedies": {
     "label": "Wege zur Wiederherstellung"
@@ -57,7 +61,9 @@
     "retry": "Erneut ausführen",
     "editSpec": "Spec bearbeiten und neu starten",
     "fixEnvironment": "Umgebung reparieren",
-    "openLogs": "Protokoll am Fehler öffnen"
+    "openLogs": "Protokoll am Fehler öffnen",
+    "continueToReview": "Weiter zum Review",
+    "retryWithBrowser": "Mit dem Browser erneut versuchen"
   },
   "environment": {
     "command": "Befehl",
@@ -103,6 +109,7 @@
       "environment": "Umgebung",
       "agentError": "Agentenfehler",
       "interrupted": "Unterbrochen",
+      "incompleteTasks": "Unerledigte Aufgaben",
       "other": "Sonstiges"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "Versuch",
     "iteration": "Iteration",
     "time": "Zeit"
+  },
+  "incomplete": {
+    "title": "Unerledigte Aufgaben"
+  },
+  "ai": {
+    "label": "Laut KI-Analyse",
+    "running": "Die KI liest das Log, um die Ursache zu finden…"
+  },
+  "remedyResult": {
+    "continued": "Weiter zum Review, der Rest als Prüfungen von Hand.",
+    "retried": "Erneuter Versuch ab dem Entwickler mit Browser und Werkzeugen.",
+    "notResumed": "Der fortgesetzte Lauf ist nicht gestartet: {{detail}}",
+    "failed": "Der Lauf konnte nicht fortgesetzt werden: {{detail}}"
   }
 }

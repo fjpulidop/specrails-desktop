@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { configurableImplementGraph, PLAN_REPAIR_LIMIT } from './loop-implement-recipe'
+import { configurableImplementGraph, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
 import { factoryLoopsForCapabilities } from './loop-factory'
 import { compileLoopToDefinition } from './loop-definition'
 
 it('defines agent roles, schemas, decisions and approval as editable loop data without Core phases', () => {
   const graph = configurableImplementGraph()
   const turns = graph.nodes.filter(node => node.data?.kind === 'role-turn')
-  expect(turns.map(node => node.data!.params!.roleId)).toEqual(['plan', 'build', 'assess', 'correct'])
+  expect(turns.map(node => node.data!.params!.roleId)).toEqual(['plan', 'build', 'build', 'assess', 'correct'])
   expect(turns.every(node => !('phase' in node.data!.params!))).toBe(true)
   expect(graph.nodes.some(node => ['implementation', 'implementation-step'].includes(String(node.data?.kind)))).toBe(false)
   expect(graph.config.journal).toBe('ledger-only')
@@ -99,20 +99,62 @@ describe('host blockers', () => {
       // Incomplete tasks never route straight back to the developer.
       expect(definition.nodes.tasks.ends).toMatchObject({ pass: 'verify', fail: 'implementation-budget' })
       expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { implementationAttempts: 0, implementationLimit: 3 } })
-      expect(definition.nodes['implementation-budget'].ends).toEqual({ true: 'implementation-progress', false: 'implementation-exhausted' })
+      expect(definition.nodes['implementation-budget'].ends).toEqual({ true: 'implementation-progress', false: 'unblock-budget' })
       expect(definition.nodes['implementation-progress'].params.expr).toBe('!exists($vars.lastImplementationHash) || $outputs.developer.candidateHash != $vars.lastImplementationHash')
-      expect(definition.nodes['implementation-progress'].ends).toEqual({ true: 'begin-implementation', false: 'implementation-stalled' })
+      expect(definition.nodes['implementation-progress'].ends).toEqual({ true: 'begin-implementation', false: 'unblock-budget' })
       expect(definition.nodes['begin-implementation'].params).toMatchObject({ increment: { implementationAttempts: 1 }, set: { lastImplementationHash: '{{outputs.developer.candidateHash}}' } })
       expect(definition.nodes['begin-implementation'].ends).toMatchObject({ next: 'developer' })
-      for (const end of ['implementation-stalled', 'implementation-exhausted']) expect(definition.nodes[end].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.incomplete}}') })
+      for (const end of ['implementation-stalled', 'implementation-exhausted']) expect(definition.nodes[end].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.unblock.structured.incomplete}}') })
       expect(definition.nodes['developer-blocked'].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.blocker.requiredAction}}') })
     }
     expect(compile(configurableImplementGraph(paired)).nodes['developer-blocked'].params).toMatchObject({ blockerFrom: 'developer' })
   })
+  it('never fails on a resolvable stall: unblock turns with the run tools come first', () => {
+    for (const capabilities of [paired, { ...paired, humanTasks: 1 }, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
+      const definition = compile(configurableImplementGraph(capabilities))
+      const ends = (id: string) => definition.nodes[id].ends
+      expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { unblockAttempts: 0, unblockLimit: UNBLOCK_LIMIT, humanChecks: expect.any(String) } })
+      expect(UNBLOCK_LIMIT).toBe(2)
+      expect(definition.nodes['unblock-budget'].params.expr).toBe('$vars.unblockAttempts < $vars.unblockLimit')
+      expect(ends('unblock-budget')).toEqual({ true: 'count-unblock', false: 'stall-kind' })
+      expect(ends('count-unblock')).toMatchObject({ next: 'unblock' })
+      // The unblock turn is a write turn of the developer role with the developer's own account and the tools.
+      expect(definition.nodes.unblock.params).toMatchObject({ roleId: 'build' })
+      const prompt = String(definition.nodes.unblock.params.prompt)
+      for (const text of ['{{outputs.developer.structured.incomplete}}', '{{outputs.developer.structured.summary}}', '$SPECRAILS_BROWSE', 'install it', '$PORT']) expect(prompt).toContain(text)
+      expect(ends('unblock')).toMatchObject({ next: 'unblock-blocker' })
+      expect(ends('unblock-blocker')).toEqual({ true: 'unblock-blocked', false: 'unblock-tasks' })
+      // Finished (or only human checks left) → host verification → reviewer → delivery; never failed.
+      expect(definition.nodes['unblock-tasks'].params).toMatchObject({ action: 'check', requireCompletedTasks: true })
+      expect(ends('unblock-tasks')).toMatchObject({ pass: 'capture-human-checks', fail: 'unblock-budget' })
+      expect(definition.nodes['capture-human-checks'].params).toEqual({ set: { humanChecks: '{{outputs.unblock.structured.humanChecks}}' } })
+      expect(ends('capture-human-checks')).toMatchObject({ next: 'verify' })
+      expect(ends('stall-kind')).toEqual({ true: 'implementation-exhausted', false: 'implementation-stalled' })
+      // The reviewer hands the remaining checks to the person instead of rejecting for them.
+      const reviewer = definition.nodes.reviewer.params
+      expect(String(reviewer.prompt)).toContain('{{run.humanChecks}}')
+      expect(String(reviewer.prompt)).toContain('brief.humanChecks')
+      expect((reviewer.structuredOutput as { properties: Record<string, unknown> }).properties.brief).toMatchObject({ required: ['humanChecks'] })
+      for (const id of ['developer', 'fixer', 'unblock']) expect(String(definition.nodes[id].params.prompt)).toContain('$SPECRAILS_BROWSE')
+      expect(String(definition.nodes.architect.params.prompt)).toContain('completable AND checkable by the run itself')
+    }
+  })
+  it('asks for [human] tasks only from a Core whose contract understands them', () => {
+    const tagged = compile(configurableImplementGraph({ ...paired, humanTasks: 1 }))
+    expect(String(tagged.nodes.architect.params.prompt)).toContain('[human]')
+    expect(String(tagged.nodes.unblock.params.prompt)).toContain('add the [human] tag')
+    expect(String(tagged.nodes.developer.params.prompt)).toContain('never tick it')
+    // An older Core would count a tagged task as unfinished work: design.md and the run's own list carry them.
+    const older = compile(configurableImplementGraph(paired))
+    expect(String(older.nodes.architect.params.prompt)).not.toContain('[human]')
+    expect(String(older.nodes.architect.params.prompt)).toContain('## Human checks')
+    expect(String(older.nodes.unblock.params.prompt)).toContain('tick it in tasks.md and list it under humanChecks')
+    expect(String(older.nodes.reviewer.params.prompt)).toContain('design.md `## Human checks`')
+  })
   it('ends on a blocker only when it needs the person or the host confirms it', () => {
     for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
       const nodes = compile(configurableImplementGraph(capabilities)).nodes
-      expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, or unexpected browser or tool behaviour is NOT a host blocker')
+      expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, a missing tool or browser, or unexpected browser or tool behaviour is NOT a host blocker')
       // Credentials, network and variables still end the run at once.
       expect(nodes['developer-blocker-kind'].params.expr).toBe('$outputs.developer.structured.blocker.kind == "credential" || $outputs.developer.structured.blocker.kind == "network" || $outputs.developer.structured.blocker.kind == "environment-variable"')
       // Anything else runs the host's own verification: failures go to the fixer, passes to the reviewer.

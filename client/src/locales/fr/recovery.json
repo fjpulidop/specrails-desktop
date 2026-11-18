@@ -30,6 +30,8 @@
       "phase": "L'agent s'est arrêté de façon inattendue en phase {{phase}}",
       "plain": "L'agent s'est arrêté de façon inattendue"
     },
+    "incomplete_tasks": "Des tâches approuvées sont restées inachevées",
+    "spec_invalid": "OpenSpec a rejeté la spécification du changement",
     "unknown": "Cause inconnue",
     "stepFailed": "L’étape {{phase}} a échoué"
   },
@@ -46,7 +48,9 @@
     "timeout": "Elle a atteint sa limite de temps avant de finir.",
     "tool_inactivity": "Elle a cessé d'utiliser des outils et de répondre trop longtemps.",
     "crash": "Le processus du fournisseur ou sa connexion est mort en cours d'exécution.",
-    "unknown": "L'app ne sait pas pourquoi elle s'est arrêtée et ne va pas deviner."
+    "incomplete_tasks": "Tout le reste est fait. Si ce qui reste est une vérification que seule une personne peut faire, passez à la revue avec elle comme vérification à la main ; sinon relancez et laissez l'exécution la terminer avec son navigateur et ses outils.",
+    "spec_invalid": "Le plan ou la spécification n'a pas passé OpenSpec, et la planification n'a pas pu le réparer.",
+    "unknown": "Les enregistrements de l'exécution ne donnent pas la cause. Une lecture du journal par l'IA la trouve généralement."
   },
   "remedies": {
     "label": "Pour reprendre"
@@ -57,7 +61,9 @@
     "retry": "Relancer",
     "editSpec": "Modifier la spec et relancer",
     "fixEnvironment": "Réparer l'environnement",
-    "openLogs": "Ouvrir le journal à l'échec"
+    "openLogs": "Ouvrir le journal à l'échec",
+    "continueToReview": "Continuer vers la revue",
+    "retryWithBrowser": "Réessayer avec le navigateur"
   },
   "environment": {
     "command": "Commande",
@@ -103,6 +109,7 @@
       "environment": "Environnement",
       "agentError": "Erreur de l’agent",
       "interrupted": "Interrompue",
+      "incompleteTasks": "Tâches inachevées",
       "other": "Autre"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "Tentative",
     "iteration": "Itération",
     "time": "Heure"
+  },
+  "incomplete": {
+    "title": "Tâches inachevées"
+  },
+  "ai": {
+    "label": "D'après l'analyse IA",
+    "running": "L'IA lit le journal pour trouver la cause…"
+  },
+  "remedyResult": {
+    "continued": "Passage à la revue, le reste en vérifications à la main.",
+    "retried": "Nouvel essai depuis le développeur avec le navigateur et ses outils.",
+    "notResumed": "L'exécution poursuivie n'a pas démarré : {{detail}}",
+    "failed": "Impossible de poursuivre l'exécution : {{detail}}"
   }
 }

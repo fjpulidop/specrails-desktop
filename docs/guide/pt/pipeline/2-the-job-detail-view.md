@@ -117,9 +117,13 @@ Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com 
 - **Ambiente**: a máquina não consegue executar as verificações (credenciais, uma ferramenta ausente, um comando de preparação que falha). *Corrigir o ambiente* mostra exatamente o que executar ou mudar.
 - **Porta em uso**: a verificação ou o servidor da própria execução não pôde iniciar porque outro processo já ocupava sua porta (`EADDRINUSE`). Não conta como testes falhos. Cada worktree de execução recebe portas próprias por `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; um projeto que lê `PORT` nunca colide. Pare o outro processo, ou faça o projeto ler `PORT`, e depois **Executar novamente**.
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
-- **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.
+- **Tarefas por terminar**: a execução fez o trabalho mas deixou tarefas aprovadas por marcar, por exemplo uma verificação visual. O cartão lista-as. **Continuar para a revisão** mantém o trabalho e envia-o para revisão com o que falta como *verificação manual* no pacote de revisão; **Tentar de novo com o navegador** reinicia o programador, que verifica a interface sozinho com a ferramenta de navegador integrada e instala qualquer ferramenta em falta.
+- **Especificação rejeitada**: o OpenSpec rejeitou o plano ou a especificação e o planeamento não conseguiu corrigi-lo. **Editar a spec e relançar**.
+- **Causa desconhecida**: os registos da execução não indicam a causa e a app não adivinha. Em vez disso, o cartão mostra primeiro a análise de IA, identificada como tal, ou oferece **Analisar com IA** como primeira ação; o fim do log fica a um clique.
 
 Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui: **Retomar a partir de** a fase que parou, **Executar novamente**, **Editar a spec e relançar** (os adendos da spec levam sua mudança para a próxima execução), **Corrigir o ambiente** e **Abrir o registro na falha**. A mesma causa aparece como um rótulo de uma linha na [lista de pendências](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
+
+As execuções de Implement verificam sozinhas a interface e o comportamento visual: cada execução tem uma ferramenta de navegador headless (`$SPECRAILS_BROWSE`) que abre a app na porta própria da execução, ou uma página do repositório, em tamanho de computador e de telemóvel, e devolve capturas que o agente lê. Uma verificação que só uma pessoa pode fazer (gosto, um dispositivo real, credenciais reais) é planeada como *verificação manual*: a execução nunca falha por ela, e chega-lhe no pacote de revisão.
 
 ### Análise de IA {#ai-failure-analysis}
 

@@ -117,9 +117,13 @@ Bei einem fehlgeschlagenen oder abgebrochenen Job mit Diagnose öffnet sich **Fe
 - **Umgebung**: Der Rechner kann die Prüfungen nicht ausführen (Zugangsdaten, fehlendes Werkzeug, fehlschlagender Setup-Befehl). *Umgebung reparieren* zeigt genau, was auszuführen oder zu ändern ist.
 - **Port belegt**: Die Prüfung oder der Server des Laufs konnte nicht starten, weil ein anderer Prozess seinen Port schon belegte (`EADDRINUSE`). Das zählt nicht als fehlgeschlagene Tests. Jedes Lauf-Worktree bekommt eigene Ports über `PORT` und `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; ein Projekt, das `PORT` liest, kollidiert nie. Beende den anderen Prozess oder lass das Projekt `PORT` lesen, dann **Erneut ausführen**.
 - **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
-- **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.
+- **Unerledigte Aufgaben**: Der Lauf hat die Arbeit gemacht, aber freigegebene Aufgaben nicht abgehakt, etwa eine visuelle Prüfung. Die Karte listet sie auf. **Weiter zum Review** behält die Arbeit und schickt sie mit dem Rest als *Prüfung von Hand* im Review-Paket ins Review; **Mit dem Browser erneut versuchen** startet den Entwickler neu, der die Oberfläche mit dem eingebauten Browser-Werkzeug selbst prüft und fehlende Werkzeuge installiert.
+- **Spezifikation abgelehnt**: OpenSpec hat den Plan oder die Spezifikation abgelehnt, und die Planung konnte es nicht reparieren. **Spec bearbeiten und neu starten**.
+- **Unbekannte Ursache**: Die Aufzeichnungen des Laufs nennen keine Ursache, und die App rät nicht. Die Karte zeigt stattdessen zuerst die KI-Analyse, als solche gekennzeichnet, oder bietet **Mit KI analysieren** als erste Aktion an; das Ende des Logs bleibt einen Klick entfernt.
 
 Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren können: **Fortsetzen ab** der angehaltenen Phase, **Erneut ausführen**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Protokoll am Fehler öffnen**. Dieselbe Ursache erscheint als einzeilige Bezeichnung in der [Liste „Offen“](../getting-started/the-dashboard-tour), und die Lauf-Karte der Mission zeigt dieselbe Karte.
+
+Implement-Läufe prüfen Oberfläche und visuelles Verhalten selbst: Jeder Lauf erhält ein Headless-Browser-Werkzeug (`$SPECRAILS_BROWSE`), das die App auf dem eigenen Port des Laufs oder eine Seite des Repositorys in Desktop- und Handygröße öffnet und Screenshots liefert, die der Agent liest. Eine Prüfung, die nur ein Mensch machen kann (Geschmack, ein echtes Gerät, echte Zugangsdaten), wird als *Prüfung von Hand* geplant: Der Lauf scheitert nie daran, und sie erreicht dich im Review-Paket.
 
 ### KI-Analyse {#ai-failure-analysis}
 

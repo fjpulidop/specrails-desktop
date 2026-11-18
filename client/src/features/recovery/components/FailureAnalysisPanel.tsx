@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button'
 import { Skeleton } from '../../../components/ui/skeleton'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { cn } from '../../../lib/utils'
-import { useFailureAnalysis, type AnalysisCategory } from '../hooks/useFailureAnalysis'
+import { useFailureAnalysis, type AnalysisCategory, type FailureAnalysisController } from '../hooks/useFailureAnalysis'
 
 export interface FailureAnalysisPanelProps {
   projectId?: string
@@ -15,6 +15,8 @@ export interface FailureAnalysisPanelProps {
   /** What the deterministic card already says (headline, recorded error):
    *  an AI headline that only repeats it is left out. */
   known?: ReadonlyArray<string | null | undefined>
+  /** A reading the surface already owns (shared with the diagnosis card); the panel then asks nothing itself. */
+  controller?: FailureAnalysisController
 }
 
 const normalise = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -39,9 +41,10 @@ export function repeatsKnown(headline: string, known: ReadonlyArray<string | nul
  * the log lines it rests on (verbatim, checked by the server) stay one click
  * away. Shown beside the app's own diagnosis, labelled as an AI analysis.
  */
-export function FailureAnalysisPanel({ projectId, jobId, auto, known = [] }: FailureAnalysisPanelProps) {
+export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller }: FailureAnalysisPanelProps) {
   const { t, i18n } = useTranslation('recovery')
-  const { state, run } = useFailureAnalysis(projectId, jobId, i18n.language, { auto })
+  const own = useFailureAnalysis(projectId, jobId, i18n.language, { auto, enabled: !controller })
+  const { state, run } = controller ?? own
   if (state.status === 'loading') {
     return (
       <div data-testid="failure-analysis" data-state="loading" className="space-y-2 rounded-card border border-border px-3.5 py-3">

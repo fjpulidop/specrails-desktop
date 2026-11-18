@@ -14,6 +14,7 @@ import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
 import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
+import { INCOMPLETE_TASKS_REMEDIES, IncompleteTasksRemedyError, prepareIncompleteTasksFork, type IncompleteTasksRemedy } from './modules/delivery/runtime/incomplete-tasks-remedy'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent } from './db'
@@ -149,6 +150,31 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
       res.status(detail === 'runtime_status_unavailable' ? 503 : 409).json({ error: 'runtime_fork_rejected', detail })
+    }
+  })
+
+  // A run that stopped with approved tasks unticked continues as a fork: to review with the
+  // remaining items as human checks, or from the developer with the browser and install guidance.
+  router.post('/:projectId/loop-runs/:id/remedy', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    const remedy = (req.body ?? {}).remedy as unknown
+    if (!(INCOMPLETE_TASKS_REMEDIES as readonly unknown[]).includes(remedy)) { res.status(400).json({ error: 'invalid_remedy' }); return }
+    try {
+      assertProcessAdmission(c.project.id)
+      const budgetRejection = c.dailyBudgetRejection?.() ?? null
+      if (budgetRejection) { res.status(409).json(budgetRejection); return }
+      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId, true)
+      if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
+      const input = prepareIncompleteTasksFork(c.db, runId, remedy as IncompleteTasksRemedy, probe)
+      const result = await forkDefinitionRun(c, runId, input)
+      const resumed = await resumeDefinitionRunFromStop(c, result.loopRunId)
+      res.status(201).json({ ...result, remedy, resumed: resumed.ok, ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
+    } catch (error) {
+      if (error instanceof IncompleteTasksRemedyError) { res.status(409).json({ error: error.code, detail: error.message }); return }
+      const detail = error instanceof Error ? error.message : String(error)
+      res.status(409).json({ error: 'runtime_fork_rejected', detail })
     }
   })
 

@@ -117,9 +117,13 @@ Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** s’ou
 - **Environnement** : la machine ne peut pas exécuter les vérifications (identifiants, outil manquant, commande de préparation en échec). *Réparer l'environnement* montre précisément quoi exécuter ou changer.
 - **Port déjà utilisé** : la vérification ou le serveur de l'exécution n'a pas pu démarrer parce qu'un autre processus occupait déjà son port (`EADDRINUSE`). Ce n'est pas compté comme des tests en échec. Chaque worktree d'exécution reçoit ses propres ports via `PORT` et `SPECRAILS_RUN_PORT_RANGE_START`/`_END` ; un projet qui lit `PORT` n'entre jamais en collision. Arrêtez l'autre processus, ou faites lire `PORT` au projet, puis **Relancer**.
 - **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
-- **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.
+- **Tâches inachevées** : l'exécution a fait le travail mais laissé des tâches approuvées non cochées, par exemple une vérification visuelle. La carte les liste. **Continuer vers la revue** garde le travail et l'envoie en revue avec le reste comme *vérification à la main* dans le paquet de revue ; **Réessayer avec le navigateur** relance le développeur, qui vérifie l'interface lui-même avec l'outil de navigateur intégré et installe tout outil manquant.
+- **Spécification rejetée** : OpenSpec a rejeté le plan ou la spécification et la planification n'a pas pu le réparer. **Modifier la spec et relancer**.
+- **Cause inconnue** : les enregistrements de l'exécution ne donnent pas de cause, et l'app ne devine pas. La carte affiche d'abord l'analyse IA, indiquée comme telle, ou propose **Analyser avec l'IA** comme première action ; la fin du journal reste à un clic.
 
 Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici : **Reprendre depuis** la phase arrêtée, **Relancer**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement à l'exécution suivante), **Réparer l'environnement** et **Ouvrir le journal à l'échec**. La même cause apparaît en une ligne dans la [liste À traiter](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
+
+Les exécutions Implement vérifient elles-mêmes l'interface et le comportement visuel : chaque exécution dispose d'un outil de navigateur headless (`$SPECRAILS_BROWSE`) qui ouvre l'app sur le port propre à l'exécution, ou une page du dépôt, en taille bureau et téléphone, et renvoie des captures que l'agent lit. Une vérification que seule une personne peut faire (goût, un vrai appareil, de vrais identifiants) est planifiée comme *vérification à la main* : l'exécution n'échoue jamais à cause d'elle, et elle vous parvient dans le paquet de revue.
 
 ### Analyse IA {#ai-failure-analysis}
 

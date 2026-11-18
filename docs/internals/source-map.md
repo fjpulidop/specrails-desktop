@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1755 source/build files. Nearby tests are linked where names
+Includes 1762 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -978,6 +978,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/recovery/hooks
 
 - [useFailureAnalysis.ts](../../client/src/features/recovery/hooks/useFailureAnalysis.ts)
+- [useIncompleteTasksRemedies.ts](../../client/src/features/recovery/hooks/useIncompleteTasksRemedies.ts)
 - [useRunDiagnosis.ts](../../client/src/features/recovery/hooks/useRunDiagnosis.ts)
 
 ## client/src/features/recovery/lib
@@ -1342,6 +1343,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [audit-client-features.mjs](../../scripts/audit-client-features.mjs) · [test](../../scripts/audit-client-features.test.mjs)
 - [audit-server-modules.mjs](../../scripts/audit-server-modules.mjs)
 - [audit-source.mjs](../../scripts/audit-source.mjs)
+- [build-browse-tool.mjs](../../scripts/build-browse-tool.mjs)
 - [build-local-runner.mjs](../../scripts/build-local-runner.mjs)
 - [build-mcp-bridge.mjs](../../scripts/build-mcp-bridge.mjs)
 - [build-policy-hook.mjs](../../scripts/build-policy-hook.mjs)
@@ -1770,6 +1772,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser-network.ts](../../server/modules/browser/runtime/browser-network.ts) · [test](../../server/modules/browser/runtime/browser-network.test.ts)
 - [browser-playwright.ts](../../server/modules/browser/runtime/browser-playwright.ts) · [test](../../server/modules/browser/runtime/browser-playwright.test.ts)
 - [browser-viewport.ts](../../server/modules/browser/runtime/browser-viewport.ts) · [test](../../server/modules/browser/runtime/browser-viewport.test.ts)
+- [run-browse-tool.ts](../../server/modules/browser/runtime/run-browse-tool.ts) · [test](../../server/modules/browser/runtime/run-browse-tool.test.ts)
+
+## server/modules/browser/tool
+
+- [browse-policy.ts](../../server/modules/browser/tool/browse-policy.ts) · [test](../../server/modules/browser/tool/browse-policy.test.ts)
+- [browse-tool-bundle.generated.ts](../../server/modules/browser/tool/browse-tool-bundle.generated.ts)
+- [main.ts](../../server/modules/browser/tool/main.ts)
 
 ## server/modules/builder/runtime
 
@@ -1881,6 +1890,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)
 - [fork-change-supersession.ts](../../server/modules/delivery/runtime/fork-change-supersession.ts) · [test](../../server/modules/delivery/runtime/fork-change-supersession.test.ts)
 - [ignored-copy-identity.ts](../../server/modules/delivery/runtime/ignored-copy-identity.ts)
+- [incomplete-tasks-remedy.ts](../../server/modules/delivery/runtime/incomplete-tasks-remedy.ts)
 - [intent-materialization.ts](../../server/modules/delivery/runtime/intent-materialization.ts) · [test](../../server/modules/delivery/runtime/intent-materialization.test.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)

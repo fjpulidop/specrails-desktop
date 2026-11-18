@@ -117,9 +117,13 @@ For a failed or canceled job with a diagnosis, **Failure reasons** opens with th
 - **Environment** — the machine cannot run the checks (credentials, a missing toolchain, a failing setup command). *Fix the environment* shows exactly what to run or change.
 - **Port in use** — the run's own check or server could not start because another process already held its port (`EADDRINUSE`). It is not counted as failed tests. Each run worktree gets its own ports through `PORT` and `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; a project that reads `PORT` never collides. Stop the other process, or have the project read `PORT`, then **Run again**.
 - **Blocked**, **ran out of time**, **went quiet** and **stopped unexpectedly** name the limit or the process that stopped the run.
-- **Unknown cause** — the app does not guess. It shows the end of the log so you can read it yourself.
+- **Unfinished tasks** — the run did the work but left approved tasks unticked, for example a visual check. The card lists them. **Continue to review** keeps the work and sends it to review with what is left as a *check by hand* in the review packet; **Retry with the browser** restarts the developer, which checks the UI itself with the built-in browser tool and installs any tool it is missing.
+- **Spec rejected** — OpenSpec rejected the plan or the spec and planning could not repair it. **Edit spec and relaunch**.
+- **Unknown cause** — the run's own records do not name a cause, and the app does not guess. The card leads with the AI analysis instead, labelled as such, or offers **Analyze with AI** as the first action; the end of the log stays one click away.
 
 Under the diagnosis you get up to three ranked remedies, and only the ones that can work here: **Resume from** the phase that stopped, **Run again**, **Edit spec and relaunch** (the spec's addenda carry your change into the next run), **Fix the environment** and **Open logs at the failure**. The same cause appears as a one-line label in the [inbox](../getting-started/the-dashboard-tour), and the mission's run card shows the same card.
+
+Implement runs check UI and visual behaviour themselves: every run gets a headless browser tool (`$SPECRAILS_BROWSE`) that opens the app on the run's own port, or a page of the repository, at desktop and phone sizes, and returns screenshots the agent reads. A check only a person can make (taste, a real device, real credentials) is planned as a *human check*: the run never fails on it, and it reaches you as a check by hand in the review packet.
 
 ### AI analysis {#ai-failure-analysis}
 

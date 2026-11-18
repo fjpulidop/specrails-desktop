@@ -17,6 +17,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { resolveSpecrailsHome } from '../../../util/specrails-home'
+import { runBrowseToolEnv } from '../../browser/runtime/run-browse-tool'
 import {
   blockRange, candidateBlocks, isRunWorktreePath, runPortArea, runPortEnv,
   type RunPortArea, type RunPortLease,
@@ -197,8 +198,9 @@ export type RunPortLeaseTable = ReturnType<typeof createRunPortLeaseTable>
 /** The app-wide table. */
 export const runPortLeases: RunPortLeaseTable = createRunPortLeaseTable()
 
-/** Merge the run's port env into `env` (a copy); non-run paths are returned unchanged. */
+/** Merge the run's port env into `env` (a copy); non-run paths are returned unchanged. A run also
+ *  gets the browser tool (`$SPECRAILS_BROWSE`), which may open loopback only on these ports. */
 export function withRunPortEnv(env: NodeJS.ProcessEnv, worktreePath: string | undefined | null): NodeJS.ProcessEnv {
   const extra = runPortLeases.env(worktreePath, env)
-  return Object.keys(extra).length ? { ...env, ...extra } : env
+  return Object.keys(extra).length ? { ...env, ...runBrowseToolEnv(), ...extra } : env
 }

@@ -9,6 +9,7 @@ import { Loader2, RotateCcw } from 'lucide-react'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../../lib/feature-flags'
 import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
 import { useRunDiagnosis } from '../../../recovery/hooks/useRunDiagnosis'
+import { useIncompleteTasksRemedies } from '../../../recovery/hooks/useIncompleteTasksRemedies'
 import type { RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
 import { useLastFailedStep } from '../../../loops/lib/failed-step'
@@ -51,6 +52,7 @@ export function useRunDiagnosisSection(args: {
     Boolean(runFailure) || decision === 'implementation_failed' || runStatus === 'failed' || runStatus === 'stalled'
   ) && !runStopped
   const diagnosis = useRunDiagnosis(envelope.projectId, diagnosisRunId, failedRunForDiagnosis && runStatus !== 'running' && runStatus !== 'paused', envelope.updatedAt ?? null)
+  const incompleteTasksRemedies = useIncompleteTasksRemedies(envelope.projectId, diagnosisRunId, diagnosis, setLogRunId)
   const diagnosisHandlers: RemedyHandlers = {}
   if (actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
     diagnosisHandlers.resume = { run: () => void runtime.act(actionableRun, 'resume'), busy: runtime.busy !== null, disabled: busy !== null }
@@ -58,6 +60,7 @@ export function useRunDiagnosisSection(args: {
   if (!relaunchBlocked) diagnosisHandlers.retry = { run: () => void relaunch(), busy: relaunching, disabled: runtimeBusy || busy !== null }
   if (envelope.ticketIds.length > 0) diagnosisHandlers['edit-spec'] = { run: () => openTicketDetailInProject(envelope.projectId, envelope.ticketIds[0]) }
   if (diagnosisRunId) diagnosisHandlers['open-logs'] = { run: () => setLogRunId(diagnosisRunId) }
+  Object.assign(diagnosisHandlers, incompleteTasksRemedies)
   // #14: when the diagnosis card renders its remedies, it owns the retry/resume
   // primary; the implementation_failed branch below must not add a second one.
   const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)

@@ -619,7 +619,8 @@
       "runtime/browser-capture-manager.ts",
       "runtime/browser-capture-types.ts",
       "runtime/browser-context-pool.ts",
-      "runtime/browser-playwright.ts"
+      "runtime/browser-playwright.ts",
+      "runtime/run-browse-tool.ts"
     ],
     "dependencies": {
       "runtime/browser-capture-manager.ts": [
@@ -652,7 +653,29 @@
         "./browser-viewport",
         "playwright"
       ],
-      "runtime/browser-viewport.ts": []
+      "runtime/browser-viewport.ts": [],
+      "runtime/run-browse-tool.ts": [
+        "../../../path-resolver",
+        "../../../util/specrails-home",
+        "../tool/browse-tool-bundle.generated",
+        "fs",
+        "path"
+      ],
+      "tool/browse-policy.ts": [
+        "path"
+      ],
+      "tool/browse-tool-bundle.generated.ts": [],
+      "tool/main.ts": [
+        "./browse-policy",
+        "<dynamic dependency>",
+        "child_process",
+        "fs",
+        "http",
+        "https",
+        "os",
+        "path",
+        "playwright"
+      ]
     }
   },
   "builder": {
@@ -1032,6 +1055,7 @@
       "runtime/flow-review-outcome.ts",
       "runtime/flow-worktree-handoff.ts",
       "runtime/flow-worktree-return.ts",
+      "runtime/incomplete-tasks-remedy.ts",
       "runtime/isolated-settlement-reconstruction.ts",
       "runtime/isolated-worktree.ts",
       "runtime/merge-preview.ts",
@@ -1317,6 +1341,16 @@
       "runtime/ignored-copy-identity.ts": [
         "fs",
         "path"
+      ],
+      "runtime/incomplete-tasks-remedy.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-runs-store",
+        "../../recovery",
+        "./definition-fork",
+        "node:crypto",
+        "node:fs",
+        "node:path"
       ],
       "runtime/intent-materialization.ts": [
         "../../../worktree-manager",
@@ -3935,6 +3969,7 @@
       ],
       "runtime/run-port-leases.ts": [
         "../../../util/specrails-home",
+        "../../browser/runtime/run-browse-tool",
         "../domain/run-ports",
         "node:fs",
         "node:net",

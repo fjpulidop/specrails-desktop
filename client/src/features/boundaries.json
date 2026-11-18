@@ -446,6 +446,8 @@
     "publicEntries": [
       "components/FailureAnalysisPanel.tsx",
       "components/FailureDiagnosisCard.tsx",
+      "hooks/useFailureAnalysis.ts",
+      "hooks/useIncompleteTasksRemedies.ts",
       "hooks/useRunDiagnosis.ts",
       "lib/failure-diagnosis.ts"
     ],

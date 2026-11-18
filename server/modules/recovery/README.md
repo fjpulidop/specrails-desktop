@@ -26,7 +26,13 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
   "Port N is in use") printed by the run in the very step that failed. That collision
   is `port_in_use` (with `port` when named) and replaces Core's `tests_failed`/`unknown`
   for the step: the checks did not fail on the change. Collisions inside the agent's own
-  conversation never count. Everything else is `unknown` with `confidence: 'low'`.
+  conversation never count. The Implement recipe's own end reasons (`completion.reasons`) are
+  fixed templates too: unfinished tasks (`incomplete_tasks`, with `incompleteTasks`), a spec
+  OpenSpec rejects (`spec_invalid`), host blockers (`environment`) and exhausted or unchanged
+  corrections (`blocked`). A low-confidence Core record never hides them. Everything else is
+  `unknown` with `confidence: 'low'`.
+- `incomplete_tasks` remedies are `continue-to-review` and `retry-with-browser`, applied by
+  `POST /loop-runs/:id/remedy` as a Core fork ([incomplete-tasks-remedy.ts](../delivery/runtime/incomplete-tasks-remedy.ts)).
 - A low-confidence record is always `unknown`, whatever kind it claimed, and its remedies are only
   `open-logs` and `retry`.
 - Remedies are ids of actions the app already has; the client offers only those its surface can run.

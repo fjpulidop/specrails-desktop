@@ -4,7 +4,7 @@ import { ApiResponseError, requestJson } from '../../../lib/api-response'
 
 type ErrorBody = Partial<ReadyBody> & { detail?: string; error?: string }
 
-export type AnalysisCategory = 'provider_limit' | 'missing_artifact' | 'configuration' | 'tests' | 'environment' | 'agent_error' | 'interrupted' | 'other'
+export type AnalysisCategory = 'provider_limit' | 'missing_artifact' | 'configuration' | 'tests' | 'environment' | 'agent_error' | 'interrupted' | 'incomplete_tasks' | 'other'
 
 export interface FailureAnalysis {
   headline: string
@@ -29,12 +29,13 @@ interface ReadyBody { status: 'ready'; analysis: FailureAnalysis; provider: stri
  * Reads the saved one; with `auto`, asks for one when there is none. The server
  * dedupes and keeps one per job, so reopening the job costs nothing.
  */
-export function useFailureAnalysis(projectId: string | undefined, jobId: string, language: string, { auto }: { auto: boolean }) {
+export function useFailureAnalysis(projectId: string | undefined, jobId: string, language: string, { auto, enabled = true }: { auto: boolean; enabled?: boolean }) {
   const [state, setState] = useState<FailureAnalysisState>({ status: 'idle' })
   const current = useRef(0)
   // No project id: the active project (board surfaces). No project at all: nothing to ask.
   let url: string | null = null
-  try { url = `${getApiBase(projectId)}/jobs/${encodeURIComponent(jobId)}/failure-analysis` } catch { url = null }
+  // `enabled: false`: another owner (a card and its panel sharing one reading) already asks.
+  try { url = enabled ? `${getApiBase(projectId)}/jobs/${encodeURIComponent(jobId)}/failure-analysis` : null } catch { url = null }
 
   const run = useCallback(async (force = false) => {
     if (!url) return
@@ -71,3 +72,5 @@ export function useFailureAnalysis(projectId: string | undefined, jobId: string,
 
   return { state, run }
 }
+
+export type FailureAnalysisController = ReturnType<typeof useFailureAnalysis>

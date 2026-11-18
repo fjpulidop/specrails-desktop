@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import type { EventRow, JobSummary } from '../../../../types'
 import { FailureDiagnosisCard, useDiagnosisText } from '../../../recovery/components/FailureDiagnosisCard'
 import { FailureAnalysisPanel } from '../../../recovery/components/FailureAnalysisPanel'
+import { useFailureAnalysis, type FailureAnalysisController } from '../../../recovery/hooks/useFailureAnalysis'
 import { recordedStepError, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import type { FailureFacts } from '../../../recovery/components/FailureDiagnosisCard'
 import { loadJobRunDetailsOpen, saveJobRunDetailsOpen, loadJobRunLogSection, saveJobRunLogSection, type RunDetailSurface, type RunLogSection } from './job-run-model'
@@ -57,7 +58,7 @@ export function failureFactsFrom(events: readonly EventRow[], job: JobSummary): 
 }
 
 /** The AI analysis, told what the deterministic card already says so it does not repeat it. */
-function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[] }) {
+function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[]; controller?: FailureAnalysisController }) {
   const { t } = useTranslation('recovery')
   const { headline, phaseName } = useDiagnosisText(diagnosis)
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(tail) : null
@@ -68,6 +69,7 @@ function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail }: { projectId?: 
       jobId={jobId}
       auto={diagnosis.kind !== 'provider_limit'}
       known={[shown, recorded?.reason, diagnosis.detail, diagnosis.blocker?.reason]}
+      controller={controller}
     />
   )
 }
@@ -103,9 +105,12 @@ function RunDetailTabsView({
   diagnosisHandlers = {}, diagnosisTail, detailsContent, events, hasDetails = true,
   isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job,
 }: RunDetailTabsProps) {
-  const { t } = useTranslation('jobs')
+  const { t, i18n } = useTranslation('jobs')
   const id = useId()
   const failureAvailable = showDiagnosis || pendingQuestion
+  // One AI reading for the card (which leads with it when the app names no cause) and the panel below it.
+  const analysisShown = !!(showDiagnosis && diagnosis && job.status === 'failed')
+  const analysis = useFailureAnalysis(projectId, job.id, i18n.language, { auto: diagnosis?.kind !== 'provider_limit', enabled: analysisShown })
   const [activeTab, setActiveTab] = useState<RunDetailTab>(showDiagnosis ? 'failure' : 'log')
   const [logSection, setLogSection] = useState<RunLogSection>(() => loadJobRunLogSection(surface))
   const [detailsOpen, setDetailsOpen] = useState(() => loadJobRunDetailsOpen(surface))
@@ -271,10 +276,11 @@ function RunDetailTabsView({
                 handlers={{ ...diagnosisHandlers, 'open-logs': { ...diagnosisHandlers['open-logs'], run: revealLogs } }}
                 logTail={diagnosisTail}
                 facts={failureFactsFrom(events, job)}
+                ai={analysisShown ? analysis : undefined}
               />
             )}
             {showDiagnosis && diagnosis && job.status === 'failed' && (
-              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} />
+              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} controller={analysis} />
             )}
             {details}
           </div>

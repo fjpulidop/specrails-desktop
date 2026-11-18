@@ -30,6 +30,8 @@
       "phase": "The agent stopped unexpectedly in the {{phase}} phase",
       "plain": "The agent stopped unexpectedly"
     },
+    "incomplete_tasks": "Some approved tasks were left unfinished",
+    "spec_invalid": "OpenSpec rejected the change's spec",
     "unknown": "Unknown cause",
     "stepFailed": "The {{phase}} step failed"
   },
@@ -46,7 +48,9 @@
     "timeout": "It reached its time limit before finishing.",
     "tool_inactivity": "It stopped using tools and replying for too long.",
     "crash": "The provider process or its connection died mid-run.",
-    "unknown": "The app can't tell why it stopped, so it won't guess."
+    "incomplete_tasks": "Everything else is done. If what is left is a check only a person can make, continue to review with it listed as a check by hand; otherwise retry and let the run finish it with its browser and tools.",
+    "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
+    "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it."
   },
   "remedies": {
     "label": "Ways to recover"
@@ -57,7 +61,9 @@
     "retry": "Run again",
     "editSpec": "Edit spec and relaunch",
     "fixEnvironment": "Fix the environment",
-    "openLogs": "Open logs at the failure"
+    "openLogs": "Open logs at the failure",
+    "continueToReview": "Continue to review",
+    "retryWithBrowser": "Retry with the browser"
   },
   "environment": {
     "command": "Command",
@@ -103,6 +109,7 @@
       "environment": "Environment",
       "agentError": "Agent error",
       "interrupted": "Interrupted",
+      "incompleteTasks": "Unfinished tasks",
       "other": "Other"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "Attempt",
     "iteration": "Iteration",
     "time": "Time"
+  },
+  "incomplete": {
+    "title": "Unfinished tasks"
+  },
+  "ai": {
+    "label": "From AI analysis",
+    "running": "Reading the log with AI to find the cause…"
+  },
+  "remedyResult": {
+    "continued": "Continuing to review with the remaining items as checks by hand.",
+    "retried": "Retrying from the developer with the browser and its tools.",
+    "notResumed": "The continued run did not start: {{detail}}",
+    "failed": "Could not continue the run: {{detail}}"
   }
 }

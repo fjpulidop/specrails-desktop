@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useIncompleteTasksRemedies } from '../../../recovery/hooks/useIncompleteTasksRemedies'
 import { cn } from '../../../../lib/utils'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
 import type { PhaseMap } from '../../hooks/usePipeline'
@@ -171,6 +172,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
   // ── Failure diagnosis: what stopped the run, why, and the remedies this surface can really run ──
   const diagnosis = useMemo(() => readFailureDiagnosis(job.failureDiagnosis), [job.failureDiagnosis])
+  const incompleteTasksRemedies = useIncompleteTasksRemedies(projectId, run?.engineVersion === 2 ? run.runId : null, diagnosis, onOpenRun)
   const showDiagnosis = !!diagnosis && isTerminal && (job.status === 'failed' || job.status === 'canceled')
   const diagnosisHandlers: RemedyHandlers = {}
   if (run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
@@ -178,6 +180,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   }
   if (onRerun) diagnosisHandlers.retry = { run: onRerun, busy: !!rerunBusy }
   if (onEditSpec) diagnosisHandlers['edit-spec'] = { run: onEditSpec }
+  Object.assign(diagnosisHandlers, incompleteTasksRemedies)
   diagnosisHandlers['open-logs'] = { run: () => { if (onOpenLogs) onOpenLogs(); else if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound')) } }
   const diagnosisOffersRetry = showDiagnosis && !!diagnosis && availableRemedies(diagnosis, diagnosisHandlers).includes('retry')
   const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
