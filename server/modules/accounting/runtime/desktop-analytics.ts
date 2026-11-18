@@ -74,7 +74,6 @@ interface DateBounds {
 
 function resolveBounds(opts: AnalyticsOpts): { current: DateBounds; label: string } {
   const now = new Date()
-  const toISO = (d: Date) => d.toISOString().slice(0, 10)
 
   if (opts.period === 'all') {
     return { current: { from: null, to: null }, label: 'All time' }
@@ -92,9 +91,11 @@ function resolveBounds(opts: AnalyticsOpts): { current: DateBounds; label: strin
     }
   }
 
+  // Local days, the same basis as "today" (localDayWindow) and the spend caps:
+  // from the local midnight `days` days ago to the next local midnight (exclusive).
   const days = opts.period === '7d' ? 7 : opts.period === '30d' ? 30 : 90
-  const from = toISO(new Date(now.getTime() - days * 86400000))
-  const to = toISO(now)
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days).toISOString()
+  const to = localDayWindow(now).to
   const label = opts.period === '7d' ? 'Last 7 days'
     : opts.period === '30d' ? 'Last 30 days'
     : 'Last 90 days'
@@ -220,7 +221,7 @@ function queryAgentLedger(registry: ProjectRegistry, clause: string, params: unk
     if (!ddb || typeof ddb.prepare !== 'function') return []
     return ddb.prepare(`
       SELECT project_id AS projectId, surface,
-        strftime('%Y-%m-%d', started_at) AS date,
+        strftime('%Y-%m-%d', started_at, 'localtime') AS date,
         COALESCE(SUM(total_cost_usd), 0) AS costUsd,
         COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimatedCostUsd,
         COUNT(total_cost_usd) AS pricedRuns,
@@ -273,7 +274,7 @@ interface TimelineRow {
 function queryProjectTimeline(db: DbInstance, clause: string, params: unknown[]): TimelineRow[] {
   return db.prepare(`
     SELECT
-      strftime('%Y-%m-%d', started_at) as date,
+      strftime('%Y-%m-%d', started_at, 'localtime') as date,
       COALESCE(SUM(total_cost_usd), 0) as costUsd,
       COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd,
       SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedCount

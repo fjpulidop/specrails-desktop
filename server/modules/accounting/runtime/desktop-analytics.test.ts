@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest'
 
-// These fixtures date rows `${today}T10:00Z`, where today is the UTC date,
-// while "today" in the code is the person's LOCAL day and the period windows
-// are UTC dates. Around local midnight those cannot all agree (they failed
-// between 00:00 and 01:00 in Madrid), so the clock is pinned to a midday that
-// is the same calendar day in every timezone the suite runs in.
-beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-06-15T12:00:00.000Z') }) })
+// The fixtures date rows on the UTC calendar day (`${today}T10:00Z`, a few at
+// other hours) while the code counts today and the period windows in LOCAL
+// days. A real clock near local midnight made them disagree (twelve tests
+// failed between 00:00 and 01:00 in Madrid), so the clock is pinned to 10:30Z:
+// after the T10:00Z fixtures and on the same local day for the timezones the
+// suite runs in (UTC in CI; Europe, the Americas and East Asia locally).
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-06-15T10:30:00.000Z') }) })
 afterAll(() => { vi.useRealTimers() })
 import { APP_LEDGER_ROW_ID, getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
 import { initDb } from '../../../db'
@@ -192,6 +193,17 @@ describe('getDesktopAnalytics', () => {
 
     expect(result.kpi.jobsToday).toBe(1)
     expect(result.kpi.costToday).toBeCloseTo(0.10, 5)
+  })
+
+  it('a run just after local midnight is today and lands on that local day in the timeline (any timezone)', () => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    const justAfterMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 30).toISOString()
+    const db = makeProjectDb([{ costUsd: 0.25, status: 'completed', startedAt: justAfterMidnight }])
+    const result = getDesktopAnalytics(makeRegistry([{ id: 'p1', name: 'Project', db }]), { period: '7d' })
+    expect(result.kpi.costToday).toBeCloseTo(0.25, 5)
+    expect(result.costTimeline.find((entry) => entry.date === localDate)?.costUsd).toBeCloseTo(0.25, 5)
   })
 
   it('reports unavailable coverage instead of treating Kimi NULL cost as zero', () => {
