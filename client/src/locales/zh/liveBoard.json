@@ -11,7 +11,9 @@
     "inProgress_one": "{{count}} 项进行中",
     "inProgress_other": "{{count}} 项进行中",
     "today": "今日 {{cost}}",
-    "todayEstimated": "今日 ~{{cost}}（含估算）"
+    "todayEstimated": "今日 ~{{cost}}（含估算）",
+    "paused_one": "{{count}} 个已暂停",
+    "paused_other": "{{count}} 个已暂停"
   },
   "layout": {
     "label": "布局",

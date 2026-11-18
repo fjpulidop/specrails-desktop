@@ -11,7 +11,9 @@
     "inProgress_one": "{{count}} en curso",
     "inProgress_other": "{{count}} en curso",
     "today": "hoy {{cost}}",
-    "todayEstimated": "hoy ~{{cost}} (incluye estimaciones)"
+    "todayEstimated": "hoy ~{{cost}} (incluye estimaciones)",
+    "paused_one": "{{count}} en pausa",
+    "paused_other": "{{count}} en pausa"
   },
   "layout": {
     "label": "Disposición",

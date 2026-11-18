@@ -247,8 +247,20 @@ export function lanesOf(snapshot: Pick<LiveBoardSnapshot, 'cards' | 'lanes'>, fi
  * "Needs you" is the inbox's open items, "In progress" every card of its
  * column (a paused run there carries its paused look).
  */
-export function countVisible(columns: Record<LiveColumn, LiveCard[]>): { needsYou: number; inProgress: number } {
-  return { needsYou: columns.needs.length, inProgress: columns.working.length }
+/** A paused loop run or Intent session: open, but nothing moves until it resumes. */
+export function isPausedCard(card: Pick<LiveCard, 'status'>): boolean {
+  const s = card.status
+  return (s.source === 'loop-run' && s.status === 'paused') || (s.source === 'intent' && s.state === 'paused')
+}
+
+/**
+ * The counts for what is shown, read off the rendered columns so the header and
+ * the column headings always agree. A paused run sits in In progress but is
+ * counted apart: it is open, not moving.
+ */
+export function countVisible(columns: Record<LiveColumn, LiveCard[]>): { needsYou: number; inProgress: number; paused: number } {
+  const paused = columns.working.filter(isPausedCard).length
+  return { needsYou: columns.needs.length, inProgress: columns.working.length - paused, paused }
 }
 
 // ── Layout (per viewer) ─────────────────────────────────────────────────────

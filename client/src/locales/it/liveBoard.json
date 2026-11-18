@@ -11,7 +11,9 @@
     "inProgress_one": "{{count}} in corso",
     "inProgress_other": "{{count}} in corso",
     "today": "oggi {{cost}}",
-    "todayEstimated": "oggi ~{{cost}} (stime incluse)"
+    "todayEstimated": "oggi ~{{cost}} (stime incluse)",
+    "paused_one": "{{count}} in pausa",
+    "paused_other": "{{count}} in pausa"
   },
   "layout": {
     "label": "Vista",

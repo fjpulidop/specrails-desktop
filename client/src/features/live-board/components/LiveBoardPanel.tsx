@@ -17,7 +17,7 @@ import { providerLabel } from '../../providers/lib/provider-capabilities'
 import type { LiveBoardActions } from '../context/LiveBoardContext'
 import type { LiveBoardData } from '../hooks/useLiveBoardData'
 import {
-  LIVE_COLUMNS, LIVE_KINDS, NO_FILTERS, columnsOf, countVisible, lanesOf, providersOf, readLayout, writeLayout,
+  LIVE_COLUMNS, LIVE_KINDS, NO_FILTERS, columnsOf, countVisible, isPausedCard, lanesOf, providersOf, readLayout, writeLayout,
   type LiveBoardFilters, type LiveBoardLayout, type LiveColumn, type VisibleLane,
 } from '../lib/live-board-model'
 import { liveCardLook } from '../lib/live-board-run-state'
@@ -83,6 +83,7 @@ function Column({ column, cards, actions, now, showProject }: { column: LiveColu
   const { t } = useTranslation('liveBoard')
   const hint = column === 'done' ? t('columns.doneHint') : null
   const openInbox = column === 'needs' ? actions.openInbox : undefined
+  const pausedCount = column === 'working' ? cards.filter(isPausedCard).length : 0
   return (
     <section
       aria-labelledby={`live-col-${column}`}
@@ -95,7 +96,10 @@ function Column({ column, cards, actions, now, showProject }: { column: LiveColu
           ? <Inbox className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           : <RunStateGlyph state={COLUMN_STATE[column]} quiet />}
         <span>{t(`columns.${column}`)}</span>
-        <span className="tabular-nums text-muted-foreground" data-testid="live-column-count">{cards.length}</span>
+        <span className="tabular-nums text-muted-foreground" data-testid="live-column-count">{column === 'working' ? cards.length - pausedCount : cards.length}</span>
+        {column === 'working' && pausedCount > 0 && (
+          <span className="tabular-nums text-caption text-muted-foreground" data-testid="live-column-paused">{t('summary.paused', { count: pausedCount })}</span>
+        )}
         {hint && <span className="ml-auto truncate text-caption text-muted-foreground">{hint}</span>}
         {openInbox && (
           <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-caption" onClick={openInbox} data-testid="live-board-open-inbox">
@@ -179,6 +183,7 @@ export function LiveBoardPanel({ data, actions, onOpenInWindow }: LiveBoardPanel
     <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums" data-testid="live-board-summary">
       <span>{t('summary.needsYou', { count: visible.needsYou })}</span>
       <span>{t('summary.inProgress', { count: visible.inProgress })}</span>
+      {visible.paused > 0 && <span>{t('summary.paused', { count: visible.paused })}</span>}
       {cost !== null && <span>{t(totals?.costTodayEstimated ? 'summary.todayEstimated' : 'summary.today', { cost: formatUsd(cost) })}</span>}
     </span>
   ) : t('description')

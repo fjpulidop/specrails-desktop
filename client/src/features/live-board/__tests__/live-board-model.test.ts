@@ -70,7 +70,7 @@ describe('live board filters and layouts', () => {
     { conversationId: null, title: null, provider: null, projectIds: [], cardIds: [], todayCostUsd: null, urgency: 3 },
   ])
 
-  it('reads the header counts off the columns on screen (a paused run counts where it sits)', () => {
+  it('reads the header counts off the columns on screen (a paused run is counted apart in In progress)', () => {
     const board = snapshot([
       wire({ id: 'n', column: 'needs', attention: item({ id: 'p1:question:n', subjectId: 'n' }) }),
       wire({ id: 'r', column: 'needs', attention: item({ id: 'p1:review:r', subjectId: 'r', kind: 'review', action: 'open-review' }) }),
@@ -78,8 +78,8 @@ describe('live board filters and layouts', () => {
       wire({ id: 'p', kind: 'intent', status: { source: 'intent', state: 'paused' } }),
     ], [])
     const columns = columnsOf(board.cards, NO_FILTERS)
-    expect(countVisible(columns)).toEqual({ needsYou: 2, inProgress: 2 })
-    expect(countVisible(columns).inProgress).toBe(columns.working.length)
+    expect(countVisible(columns)).toEqual({ needsYou: 2, inProgress: 1, paused: 1 })
+    expect(countVisible(columns).inProgress + countVisible(columns).paused).toBe(columns.working.length)
     // A dismissed inbox item leaves the column and the count together.
     expect(countVisible(columnsOf(board.cards, NO_FILTERS, (i) => i.id === 'p1:review:r')).needsYou).toBe(1)
   })
@@ -87,6 +87,14 @@ describe('live board filters and layouts', () => {
   it('reads an older server\'s "To decide" column as Needs you', () => {
     const board = snapshot([wire({ id: 'd', column: 'decide', attention: item({ kind: 'review', action: 'open-review' }) })], [])
     expect(board.cards.map((c) => c.column)).toEqual(['needs'])
+  })
+
+  it('counts a paused run apart from what is in progress, from the rendered columns', () => {
+    const paused = snapshot([
+      wire({ id: 'w', status: { source: 'job', status: 'running' } }),
+      wire({ id: 'p', kind: 'intent', status: { source: 'intent', state: 'paused' } }),
+    ], [])
+    expect(countVisible(columnsOf(paused.cards, NO_FILTERS))).toEqual({ needsYou: 0, inProgress: 1, paused: 1 })
   })
 
   it('narrows columns by project, kind and engine, and hides inbox items the person dismissed', () => {

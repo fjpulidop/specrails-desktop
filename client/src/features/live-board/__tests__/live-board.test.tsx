@@ -131,11 +131,17 @@ describe('live board (by status)', () => {
     const needs = screen.getAllByTestId('live-column').find((el) => el.dataset.column === 'needs')!
     expect(within(needs).getAllByTestId('live-card').map((el) => el.dataset.runState)).toEqual(['needs-input', 'review'])
     for (const column of screen.getAllByTestId('live-column')) {
-      expect(within(column).getByTestId('live-column-count')).toHaveTextContent(String(within(column).queryAllByTestId('live-card').length))
+      const shown = within(column).queryAllByTestId('live-card').length
+      const paused = within(column).queryAllByTestId('live-card').filter((el) => el.dataset.runState === 'paused').length
+      expect(within(column).getByTestId('live-column-count')).toHaveTextContent(String(column.dataset.column === 'working' ? shown - paused : shown))
     }
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 need you')
-    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('3 in progress')
-    expect(screen.getByTestId('live-board-summary')).not.toHaveTextContent('paused')
+    // The header and the In progress heading agree: running and paused are counted apart.
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 in progress')
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('1 paused')
+    const working = screen.getAllByTestId('live-column').find((el) => el.dataset.column === 'working')!
+    expect(within(working).getByTestId('live-column-count')).toHaveTextContent('2')
+    expect(within(working).getByTestId('live-column-paused')).toHaveTextContent('1 paused')
     // A paused run has the paused look, never the question look.
     expect(cardEl('p1:loop-run:r-p').dataset.runState).toBe('paused')
     // The mixed column wears no state glyph of its own.
