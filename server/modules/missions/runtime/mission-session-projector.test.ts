@@ -172,6 +172,31 @@ describe('MissionSessionProjector', () => {
     ])
   })
 
+  it('a Core tool call denied by the policy hook is audited and handed to the transcript', () => {
+    const pinned = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' }).id
+    ensureSessionCursor(db, pinned, pinned, 'p1')
+    const recorded: Array<Record<string, unknown>> = []
+    const denials: Array<{ conversationId: string; denial: Record<string, unknown> }> = []
+    conversationId = pinned
+    state = initialProjection(pinned)
+    projector = new MissionSessionProjector(pinned, {
+      db, broadcast: () => {}, adapterFor: getAdapter,
+      agentAudit: () => ({ record: (rows) => { recorded.push(...(rows as Array<Record<string, unknown>>)) } }),
+      onPolicyDenial: (id, denial) => { denials.push({ conversationId: id, denial: denial as unknown as Record<string, unknown> }) },
+    })
+    const reason = 'Blocked by Specrails policy: Credentials are off limits to agents. Do not retry it another way; continue without it or explain what you need. [specrails-policy:secret-access]'
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: ['u1'] },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'started', input: { file_path: '/Users/u/.ssh/id_rsa' } },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'completed', output: reason, isError: true },
+      // A failed command that merely prints the marker is not a denial.
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'b', name: 'Bash', phase: 'completed', output: `Exit code 1\n${reason}`, isError: true },
+    ])
+    expect(recorded).toContainEqual(expect.objectContaining({ runId: pinned, kind: 'read', source: 'policy-hook', target: 'denied by policy (secret-access): /Users/u/.ssh/id_rsa' }))
+    expect(denials).toEqual([{ conversationId: pinned, denial: { rule: 'secret-access', reason: 'Credentials are off limits to agents.', tool: 'Read', toolUseId: 'r' } }])
+  })
+
   it('a throwing audit sink never affects the projection', () => {
     conversationId = createAgentConversation(db, { provider: 'claude', pinnedProjectId: 'p1' }).id
     ensureSessionCursor(db, conversationId, conversationId, 'p1')
