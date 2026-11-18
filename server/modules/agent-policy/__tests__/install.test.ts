@@ -88,7 +88,10 @@ describe('denial marker', () => {
 
   it('parses Claude hook errors and ignores look-alikes', () => {
     expect(parsePolicyDenial(`PreToolUse:Bash hook error: ${reason}`)).toEqual({ rule: 'git-force-push', reason: 'Force-pushing rewrites shared history.' })
+    expect(parsePolicyDenial(reason)).toEqual({ rule: 'git-force-push', reason: 'Force-pushing rewrites shared history.' })
+    expect(parsePolicyDenial(`<tool_use_error>${reason}</tool_use_error>`)?.rule).toBe('git-force-push')
     expect(parsePolicyDenial(`Exit code 1\n${reason}`)).toBeNull()
+    expect(parsePolicyDenial('Exit code 1\n[specrails-policy:git-force-push]', { fromHook: false })).toBeNull()
     expect(parsePolicyDenial('PreToolUse:Bash hook error: [specrails-policy:not-a-rule]')).toBeNull()
   })
 
