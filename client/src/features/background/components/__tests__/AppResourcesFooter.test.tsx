@@ -5,6 +5,7 @@ import { getAppResources, type AppResourcesSnapshot } from '../../lib/app-resour
 import { APP_RESOURCES_IDLE_POLL_MS, APP_RESOURCES_POLL_MS } from '../../hooks/useAppResources'
 
 vi.mock('../../lib/app-resources-api', () => ({ getAppResources: vi.fn() }))
+vi.mock('../../lib/run-ports-api', () => ({ getRunPorts: vi.fn(async () => ({ supported: true, scannedAt: 0, ports: [], leases: [] })) }))
 
 const MB = 1024 * 1024
 const snapshot = (patch: Partial<AppResourcesSnapshot> = {}): AppResourcesSnapshot => ({

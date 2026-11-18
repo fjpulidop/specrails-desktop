@@ -940,6 +940,7 @@
       "runtime/rail-pr-decision.ts",
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
+      "runtime/rail-worktrees-store.ts",
       "runtime/rails-router.ts",
       "runtime/rails-store.ts",
       "runtime/review-wip-gate.ts",
@@ -1142,6 +1143,7 @@
         "../../agent-runtime/runtime/agent-runtime-bridge",
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-runs-store",
+        "../../terminals/runtime/run-port-leases",
         "./isolated-settlement-store",
         "./rail-pr-store",
         "./rail-worktrees-store",
@@ -2183,6 +2185,7 @@
         "../../delivery/runtime/rail-isolation",
         "../../loops/runtime/legacy-launch-telemetry",
         "../../specs/runtime/ticket-store",
+        "../../terminals/runtime/run-port-leases",
         "../adapters/usage-reader",
         "./interactive-job-session",
         "./job-output-stream",
@@ -2513,6 +2516,7 @@
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rail-isolation",
         "../../execution/runtime/spawn-lifecycle",
+        "../../terminals/runtime/run-port-leases",
         "./loop-constants",
         "./loop-decider",
         "./loop-definition",
@@ -2662,6 +2666,7 @@
         "../../../db",
         "../../agent-runtime/runtime/agent-runtime-events",
         "../../audit",
+        "../../terminals/domain/run-ports",
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-runs-store"
@@ -3485,14 +3490,17 @@
     "publicEntries": [
       "domain/app-resources.ts",
       "domain/mission-resources.ts",
+      "domain/run-ports.ts",
       "runtime/app-resources.ts",
       "runtime/app-urls.ts",
       "runtime/background-process-control.ts",
       "runtime/background-process-service.ts",
       "runtime/background-process-store.ts",
       "runtime/background-windows-bootstrap.ts",
+      "runtime/listening-ports.ts",
       "runtime/mission-resource-history.ts",
       "runtime/resource-sampler.ts",
+      "runtime/run-port-leases.ts",
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
       "runtime/terminal-settings.ts",
@@ -3504,6 +3512,9 @@
       ],
       "domain/app-urls.ts": [],
       "domain/mission-resources.ts": [],
+      "domain/run-ports.ts": [
+        "./mission-resources"
+      ],
       "domain/worktree-leftovers.ts": [
         "./mission-resources"
       ],
@@ -3515,6 +3526,7 @@
       "runtime/app-urls.ts": [
         "../../../transient-children",
         "../domain/app-urls",
+        "./listening-ports",
         "node:os"
       ],
       "runtime/background-process-control.ts": [
@@ -3551,6 +3563,12 @@
         "node:os",
         "node:path"
       ],
+      "runtime/listening-ports.ts": [
+        "../domain/run-ports",
+        "node:child_process",
+        "node:fs/promises",
+        "node:util"
+      ],
       "runtime/mission-resource-history.ts": [
         "../../../db",
         "../domain/mission-resources"
@@ -3561,6 +3579,13 @@
         "node:fs/promises",
         "node:path",
         "node:util"
+      ],
+      "runtime/run-port-leases.ts": [
+        "../../../util/specrails-home",
+        "../domain/run-ports",
+        "node:fs",
+        "node:net",
+        "node:path"
       ],
       "runtime/terminal-manager.ts": [
         "../../../db",

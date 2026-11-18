@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { createJob, getJob } from '../../../db'
 import type { ProjectContext } from '../../../project-registry'
 import { runAgentRuntimeControl, readFrozenRuntimeHost, assertRetainedForkSupport, type AgentRuntimeForkResult, type AgentRuntimeControlInvocation } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { withRunPortEnv } from '../../terminals/runtime/run-port-leases'
 import { claimDefinitionExecution, createLoopRun, definitionRepositoryMounts, linkDefinitionFork, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor, saveDefinitionRun } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun } from '../../loops/runtime/loop-definition-recovery'
 import { claimPrDeliveryOperation, getPrDelivery, releasePrDeliveryOperation, transitionClaimedDecision, type DeliverBranchRecord } from './rail-pr-store'
@@ -70,7 +71,9 @@ export async function forkDefinitionRun(ctx: ProjectContext, runId: string, inpu
     if (frozen.request.deferTerminalOutcome && !deliveries.length) throw new Error('Original isolated settlement snapshot is unavailable')
     if (frozen.row.status === 'completed' && deliveries.some(row => !readIsolatedSettlementRecords(db, projectId, row.id).find(record => record.snapshot.run.runId === runId)?.result)) throw new Error('runtime_settlement_pending: Finish original settlement before forking')
     if (all.some(row => !row || ['discarded', 'superseded', 'merged', 'completed'].includes(row.decision))) throw new Error('Delivery ownership has already changed')
-    const host = readFrozenRuntimeHost(frozen.metadata.contextPath, process.env, runId)
+    const frozenHost = readFrozenRuntimeHost(frozen.metadata.contextPath, process.env, runId)
+    // The fork continues in the same worktree: it keeps that worktree's port block.
+    const host = { ...frozenHost, env: withRunPortEnv(frozenHost.env, frozenHost.env.SPECRAILS_REPO_DIR ?? frozenHost.cwd) }
     const forkOptions = { ...request, kind: 'fork' as const, runId, childRunId, contextPath: frozen.metadata.contextPath, cwd: host.cwd, env: host.env }
     if (!io.fork) await assertRetainedForkSupport(forkOptions)
     db.transaction(() => {

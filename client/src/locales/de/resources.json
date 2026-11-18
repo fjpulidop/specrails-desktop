@@ -28,5 +28,23 @@
   "items": {
     "server": "Specrails-Server",
     "untitled": "Mission ohne Titel"
+  },
+  "ports": {
+    "title": "Ports der Lauf-Worktrees",
+    "unsupported": "Lauschende Ports können auf diesem System nicht gelesen werden.",
+    "run": "Rail {{rail}} · #{{ticket}} · {{project}}",
+    "unknownRun": "Lauf-Worktree",
+    "squatting": "Ein anderer Prozess lauscht in den diesem Lauf zugewiesenen Ports",
+    "squattingShort": "von anderem Prozess belegt",
+    "confidence": {
+      "cwd": "Ordner",
+      "command": "Befehl",
+      "none": "—"
+    },
+    "confidenceHint": {
+      "cwd": "Sein Arbeitsordner liegt im Lauf-Worktree",
+      "command": "Seine Befehlszeile nennt das Lauf-Worktree",
+      "none": "Nicht aus einem Lauf-Worktree gestartet"
+    }
   }
 }

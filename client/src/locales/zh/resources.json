@@ -28,5 +28,23 @@
   "items": {
     "server": "Specrails 服务器",
     "untitled": "未命名任务"
+  },
+  "ports": {
+    "title": "运行 worktree 的端口",
+    "unsupported": "无法在此系统上读取监听端口。",
+    "run": "Rail {{rail}} · #{{ticket}} · {{project}}",
+    "unknownRun": "运行 worktree",
+    "squatting": "另一个进程正在监听分配给此运行的端口",
+    "squattingShort": "被其他进程占用",
+    "confidence": {
+      "cwd": "文件夹",
+      "command": "命令",
+      "none": "—"
+    },
+    "confidenceHint": {
+      "cwd": "其工作文件夹位于运行 worktree 中",
+      "command": "其命令行指向运行 worktree",
+      "none": "并非从运行 worktree 启动"
+    }
   }
 }

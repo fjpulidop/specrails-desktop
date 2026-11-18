@@ -28,5 +28,23 @@
   "items": {
     "server": "Servidor do Specrails",
     "untitled": "Missão sem título"
+  },
+  "ports": {
+    "title": "Portas dos worktrees de execução",
+    "unsupported": "Não é possível ler as portas em escuta neste sistema.",
+    "run": "Rail {{rail}} · #{{ticket}} · {{project}}",
+    "unknownRun": "Worktree de execução",
+    "squatting": "Outro processo está escutando nas portas atribuídas a esta execução",
+    "squattingShort": "ocupada por outro processo",
+    "confidence": {
+      "cwd": "pasta",
+      "command": "comando",
+      "none": "—"
+    },
+    "confidenceHint": {
+      "cwd": "A pasta de trabalho dele está no worktree da execução",
+      "command": "A linha de comando dele cita o worktree da execução",
+      "none": "Não foi iniciado a partir de um worktree de execução"
+    }
   }
 }

@@ -28,5 +28,23 @@
   "items": {
     "server": "Specrails サーバー",
     "untitled": "無題のミッション"
+  },
+  "ports": {
+    "title": "実行 worktree のポート",
+    "unsupported": "このシステムでは待ち受けポートを読み取れません。",
+    "run": "Rail {{rail}} · #{{ticket}} · {{project}}",
+    "unknownRun": "実行 worktree",
+    "squatting": "この実行に割り当てられたポートで別のプロセスが待ち受けています",
+    "squattingShort": "別のプロセスが使用中",
+    "confidence": {
+      "cwd": "フォルダー",
+      "command": "コマンド",
+      "none": "—"
+    },
+    "confidenceHint": {
+      "cwd": "作業フォルダーが実行 worktree 内にあります",
+      "command": "コマンドラインが実行 worktree を指しています",
+      "none": "実行 worktree から起動されていません"
+    }
   }
 }

@@ -9,6 +9,7 @@ import { treeKillSafe } from '../../../util/win-spawn'
 import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from '../../../types'
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from '../../../types'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
+import { withRunPortEnv } from '../../terminals/runtime/run-port-leases'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { resetPhases, setActivePhases } from '../../../hooks'
@@ -2389,6 +2390,9 @@ export class QueueManager {
     // completed job promotes its tickets to on_review (ask-first) instead of
     // done. A mid-flight env flip can never split one job across the two
     // methodologies.
+    // A job spawned in a run worktree gets that worktree's port block (PORT + SPECRAILS_RUN_PORT*).
+    spawnEnv = withRunPortEnv(spawnEnv, execution.env.SPECRAILS_REPO_DIR ?? execution.cwd)
+
     const prDelivery = isRailPrDeliveryEnabled()
     this._jobPrDelivery.set(jobId, prDelivery)
     if (prDelivery) {

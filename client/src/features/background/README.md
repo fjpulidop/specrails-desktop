@@ -48,3 +48,8 @@ ignores responses from a previously selected project or mission.
 trigger summary (skipped while the window is hidden) and every 3 s while the popover
 is open. The popover shows CPU, memory and process totals, a memory trend from the
 server's in-memory history, memory split by source and expandable rows per source.
+While the popover is open, `useRunPorts` also reads `GET /api/resources/ports` every 5 s
+and `RunPortsSection` lists the ports served from run worktrees: port, rail · ticket ·
+project, process and how it was attributed (working folder or command line). A foreign
+process listening inside a run's assigned block is flagged with the warning lamp
+(AlertTriangle): that run's server would fail with "address already in use".

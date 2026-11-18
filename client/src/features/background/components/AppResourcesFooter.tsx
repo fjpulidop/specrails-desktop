@@ -5,6 +5,9 @@ import { HoverPopover } from '../../../components/ui/hover-popover'
 import { cn } from '../../../lib/utils'
 import { formatBytes } from '../lib/format-bytes'
 import { useAppResources } from '../hooks/useAppResources'
+import { useRunPorts } from '../hooks/useRunPorts'
+import { RunPortsSection } from './RunPortsSection'
+import type { RunPortsSnapshot } from '../lib/run-ports-api'
 import type { AppResourceCategory, AppResourceCategoryId, AppResourceItem, AppResourcesSnapshot } from '../lib/app-resources-api'
 import type { ResourceSample } from '../lib/mission-resources-api'
 
@@ -79,7 +82,7 @@ function CategoryRow({ category }: { category: AppResourceCategory }) {
 }
 
 /** The popover body: totals, memory split by category and expandable per-category rows. */
-export function AppResourcesPanel({ snapshot, error }: { snapshot: AppResourcesSnapshot | null; error: string | null }) {
+export function AppResourcesPanel({ snapshot, error, ports = null }: { snapshot: AppResourcesSnapshot | null; error: string | null; ports?: RunPortsSnapshot | null }) {
   const { t } = useTranslation('resources')
   const totals = snapshot?.totals
   const memory = totals?.memoryBytes ?? 0
@@ -126,6 +129,7 @@ export function AppResourcesPanel({ snapshot, error }: { snapshot: AppResourcesS
         </div>
       </>}
     </>}
+    <RunPortsSection snapshot={ports} />
   </div>
 }
 
@@ -135,6 +139,7 @@ export function AppResourcesFooter() {
   const { t } = useTranslation('resources')
   const [open, setOpen] = useState(false)
   const { snapshot, error } = useAppResources(open)
+  const { snapshot: ports } = useRunPorts(open)
   const supported = snapshot?.supported ?? false
   const memory = supported && snapshot ? formatBytes(snapshot.totals.memoryBytes) : null
   const count = supported && snapshot ? snapshot.totals.processCount : null
@@ -149,6 +154,6 @@ export function AppResourcesFooter() {
         <span className="num">{count}</span>
       </>}
     </button>}>
-    <AppResourcesPanel snapshot={snapshot} error={error} />
+    <AppResourcesPanel snapshot={snapshot} error={error} ports={ports} />
   </HoverPopover>
 }

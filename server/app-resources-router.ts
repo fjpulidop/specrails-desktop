@@ -8,6 +8,11 @@ import type { ProcessSample } from './modules/terminals/domain/mission-resources
 import { createAppResourcesSampler } from './modules/terminals/runtime/app-resources'
 import { cacheProcessTableReader, createProcessTableReader, type ProcessTableReader } from './modules/terminals/runtime/resource-sampler'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
+import { attributeListeners, type AttributedListener, type RunPortLease } from './modules/terminals/domain/run-ports'
+import { listeningPorts, type ListenerReader } from './modules/terminals/runtime/listening-ports'
+import { runPortLeases } from './modules/terminals/runtime/run-port-leases'
+import { listRailWorktrees } from './modules/delivery/runtime/rail-worktrees-store'
+import fs from 'node:fs'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getProjectRow' | 'desktopDb'>
 
@@ -68,9 +73,78 @@ export function listAppResourceRoots(registry: Registry, table: ProcessSample[])
 }
 
 /** `GET /api/resources`: read-only, app-wide view of what everything Specrails launched consumes. */
-export function registerAppResourceRoutes(router: Router, registry: Registry, options: { readProcessTable?: ProcessTableReader; serverPid?: number; listRoots?: (table: ProcessSample[]) => AppResourceRoot[] } = {}): void {
+/** The rail run a worktree belongs to, for labels. */
+export interface RunPortRun {
+  projectId: string
+  projectName: string
+  railIndex: number
+  ticketId: number
+  branch: string
+  runId: string | null
+}
+
+export interface RunPortsSnapshot {
+  /** False when listeners cannot be read on this platform; leases are still listed. */
+  supported: boolean
+  scannedAt: number
+  ports: Array<Omit<AttributedListener, 'owner'> & { worktreePath: string | null; assigned: { start: number; end: number } | null; run: RunPortRun | null }>
+  leases: Array<{ worktreePath: string; start: number; end: number; run: RunPortRun | null }>
+}
+
+function canonicalPath(value: string): string {
+  try { return fs.realpathSync.native(value) } catch { return value }
+}
+
+/** Rail runs by canonical worktree path, across open projects (only the leased paths). */
+function runsByWorktree(registry: Registry, leases: readonly RunPortLease[]): Map<string, RunPortRun> {
+  const wanted = new Set(leases.map((lease) => lease.worktreePath))
+  const out = new Map<string, RunPortRun>()
+  if (wanted.size === 0) return out
+  for (const c of registry.listContexts()) {
+    let rows: ReturnType<typeof listRailWorktrees> = []
+    try { rows = listRailWorktrees(c.db) } catch { continue }
+    for (const row of rows) {
+      const key = wanted.has(row.worktree_path) ? row.worktree_path : canonicalPath(row.worktree_path)
+      if (!wanted.has(key)) continue
+      // Newest row wins: a revision may reuse the mount.
+      out.set(key, { projectId: c.project.id, projectName: c.project.name, railIndex: row.rail_index, ticketId: row.ticket_id, branch: row.branch, runId: row.run_id })
+    }
+  }
+  return out
+}
+
+/** Listening ports of run worktrees: what each run serves, and who squats a run's block. */
+export async function snapshotRunPorts(registry: Registry, readListeners: ListenerReader, readProcessTable: ProcessTableReader): Promise<RunPortsSnapshot> {
+  const leases = runPortLeases.list()
+  const [scan, table] = await Promise.all([readListeners(), readProcessTable()])
+  const runs = runsByWorktree(registry, leases)
+  const owners = leases.map((lease) => ({ worktreePath: lease.worktreePath, lease }))
+  const ports = attributeListeners(scan.listeners, table, owners).map(({ owner, ...listener }) => ({
+    ...listener,
+    worktreePath: owner?.worktreePath ?? null,
+    assigned: owner?.lease ? { start: owner.lease.start, end: owner.lease.end } : null,
+    run: owner ? runs.get(owner.worktreePath) ?? null : null,
+  }))
+  return {
+    supported: scan.supported,
+    scannedAt: scan.scannedAt,
+    ports,
+    leases: leases.map((lease) => ({ worktreePath: lease.worktreePath, start: lease.start, end: lease.end, run: runs.get(lease.worktreePath) ?? null })),
+  }
+}
+
+export function registerAppResourceRoutes(router: Router, registry: Registry, options: { readProcessTable?: ProcessTableReader; serverPid?: number; listRoots?: (table: ProcessSample[]) => AppResourceRoot[]; readListeners?: ListenerReader } = {}): void {
+  const readProcessTable = options.readProcessTable ?? cacheProcessTableReader(createProcessTableReader())
+  const readListeners = options.readListeners ?? (() => listeningPorts.read())
+  router.get('/resources/ports', async (_req, res) => {
+    try {
+      res.json(await snapshotRunPorts(registry, readListeners, readProcessTable))
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'ports unavailable' })
+    }
+  })
   const sampler = createAppResourcesSampler({
-    readProcessTable: options.readProcessTable ?? cacheProcessTableReader(createProcessTableReader()),
+    readProcessTable,
     listRoots: options.listRoots ?? ((table) => listAppResourceRoots(registry, table)),
     serverPid: options.serverPid,
   })

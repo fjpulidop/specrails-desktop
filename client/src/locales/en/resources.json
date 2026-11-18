@@ -28,5 +28,23 @@
   "items": {
     "server": "Specrails server",
     "untitled": "Untitled mission"
+  },
+  "ports": {
+    "title": "Ports of run worktrees",
+    "unsupported": "Listening ports can't be read on this system.",
+    "run": "Rail {{rail}} · #{{ticket}} · {{project}}",
+    "unknownRun": "Run worktree",
+    "squatting": "Another process is listening inside this run's assigned ports",
+    "squattingShort": "taken by another process",
+    "confidence": {
+      "cwd": "folder",
+      "command": "command",
+      "none": "—"
+    },
+    "confidenceHint": {
+      "cwd": "Its working folder is in the run worktree",
+      "command": "Its command line names the run worktree",
+      "none": "Not started from a run worktree"
+    }
   }
 }
