@@ -142,6 +142,8 @@ export interface OfflineAssembleOptions {
   io?: {
     spawnInit?: typeof spawnBundledCoreInit
     materialize?: (providers: string[]) => void
+    /** Waits between retries while Core's lifecycle lock is held elsewhere. */
+    lockRetryDelaysMs?: readonly number[]
   }
 }
 
@@ -191,7 +193,24 @@ function defaultModelForProvider(opts: OfflineAssembleOptions, provider: string)
  * the project. With `continueOnError` it instead reports per-provider results
  * (silent-add mode).
  */
-export async function assembleProjectOffline(opts: OfflineAssembleOptions): Promise<AssembleProviderResult[]> {
+// Core's framework lifecycle lock is machine-wide: two `init`s at once make the
+// second exit 41 ("Another Core installation or update is active") without
+// touching anything. Registering several projects in a row (or a detection
+// change re-assembling every project) used to start one assembly per project
+// concurrently, so all but one failed and stayed half-assembled. Assemblies in
+// this process run one at a time; a lock held by another process (a CLI
+// install, the full installer) is waited out with a bounded retry.
+let assembleQueue: Promise<unknown> = Promise.resolve()
+const CORE_LOCK_BUSY = /Another Core installation or update is active|Could not acquire the Core framework lifecycle lock/
+const LOCK_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000]
+
+export function assembleProjectOffline(opts: OfflineAssembleOptions): Promise<AssembleProviderResult[]> {
+  const run = assembleQueue.then(() => assembleProjectOfflineNow(opts))
+  assembleQueue = run.catch(() => undefined)
+  return run
+}
+
+async function assembleProjectOfflineNow(opts: OfflineAssembleOptions): Promise<AssembleProviderResult[]> {
   const { projectPath, slug, desktopProjectId, providers } = opts
   if (!canAssembleProject() && !opts.io?.spawnInit) {
     throw new Error('specrails-core is not available — reinstall the Specrails app')
@@ -239,21 +258,28 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
       writeFileSync(configPath, buildQuickInstallConfigYaml(provider, defaultModelForProvider(opts, provider)), 'utf-8')
     }
 
-    const child = spawnInit(['--yes', '--from-config', configPath], projectPath)
-    if (!child) {
-      throw new Error('specrails-core is not available — reinstall the Specrails app')
-    }
-    const stderrChunks: string[] = []
-    child.stderr?.on('data', (chunk: Buffer) => {
-      stderrChunks.push(chunk.toString())
-    })
-    child.stdout?.resume() // drain so the child never blocks on a full pipe
-    const code = await new Promise<number | null>((resolve, reject) => {
-      child.once('error', (err) => reject(new Error(`failed to launch ${coreLabel}: ${err.message}`)))
-      child.once('close', (exitCode) => resolve(exitCode))
-    })
-    if (code !== 0) {
-      const tail = stderrChunks.join('').split('\n').filter(Boolean).slice(-5).join(' ').slice(0, 500)
+    const delays = opts.io?.lockRetryDelaysMs ?? LOCK_RETRY_DELAYS_MS
+    for (let attempt = 0; ; attempt++) {
+      const child = spawnInit(['--yes', '--from-config', configPath], projectPath)
+      if (!child) {
+        throw new Error('specrails-core is not available — reinstall the Specrails app')
+      }
+      const stderrChunks: string[] = []
+      child.stderr?.on('data', (chunk: Buffer) => {
+        stderrChunks.push(chunk.toString())
+      })
+      child.stdout?.resume() // drain so the child never blocks on a full pipe
+      const code = await new Promise<number | null>((resolve, reject) => {
+        child.once('error', (err) => reject(new Error(`failed to launch ${coreLabel}: ${err.message}`)))
+        child.once('close', (exitCode) => resolve(exitCode))
+      })
+      if (code === 0) return
+      const stderr = stderrChunks.join('')
+      if (CORE_LOCK_BUSY.test(stderr) && attempt < delays.length) {
+        await new Promise((r) => setTimeout(r, delays[attempt]))
+        continue
+      }
+      const tail = stderr.split('\n').filter(Boolean).slice(-5).join(' ').slice(0, 500)
       throw new Error(`${coreLabel} init failed for ${provider} (exit ${code})${tail ? `: ${tail}` : ''}`)
     }
   }
