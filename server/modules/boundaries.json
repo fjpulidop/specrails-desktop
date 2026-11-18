@@ -305,6 +305,7 @@
         "node:util"
       ],
       "runtime/agent-runtime-verification-suggestions.ts": [
+        "../../../util/git-invocation",
         "node:child_process",
         "node:fs",
         "node:path"
@@ -764,6 +765,7 @@
         "../../../project-repository-provenance",
         "../../../providers",
         "../../../types",
+        "../../../util/git-invocation",
         "./code-activity",
         "./file-provenance",
         "./file-story",
@@ -798,6 +800,7 @@
         "../../../feature-flags",
         "../../../project-repository-provenance",
         "../../../types",
+        "../../../util/diff-prompt-budget",
         "./file-provenance",
         "./file-summary-manager",
         "node:crypto"
@@ -1152,6 +1155,7 @@
         "node:path"
       ],
       "runtime/delivery-changes.ts": [
+        "../../../util/git-invocation",
         "../../code/runtime/file-provenance",
         "./delivery-evidence",
         "./pr-follow-up",
@@ -1446,6 +1450,7 @@
       ],
       "runtime/pr-publisher.ts": [
         "../../../git-guardrails",
+        "../../../util/git-invocation",
         "../../../util/win-spawn",
         "child_process"
       ],
@@ -1801,6 +1806,7 @@
       "runtime/rail-worktree-release.ts": [
         "../../../db",
         "../../../repo-lock",
+        "../../../util/git-index-lock",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
@@ -2292,6 +2298,7 @@
         "../../../providers/runtime",
         "../../../repo-lock",
         "../../../types",
+        "../../../util/diff-prompt-budget",
         "../../../workspace-resolution",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
@@ -2507,6 +2514,7 @@
         "../../../providers/types",
         "../../../repo-map",
         "../../../util/bounded-exec",
+        "../../../util/git-invocation",
         "../../../util/win-spawn",
         "../../../workspace-manager",
         "../../accounting/runtime/result-event",

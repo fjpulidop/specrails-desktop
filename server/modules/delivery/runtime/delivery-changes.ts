@@ -18,6 +18,7 @@
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { gitExecEnv } from '../../code/runtime/file-provenance'
+import { gitInvocationEnv } from '../../../util/git-invocation'
 import { readSettleEvidence, type DeliveryFindingLocation } from './delivery-evidence'
 import { readFollowUp } from './pr-follow-up'
 import type { DeliverBranchRecord, RailPrDeliveryRow } from './rail-pr-store'
@@ -104,8 +105,9 @@ export interface GitResult { code: number; stdout: string; stderr: string }
 export type GitRun = (args: string[], cwd: string, maxBuffer?: number) => Promise<GitResult>
 
 export const defaultGitRun: GitRun = (args, cwd, maxBuffer = LIST_MAX_BUFFER) => new Promise((resolve) => {
-  execFile('git', ['--literal-pathspecs', '-c', 'core.quotepath=off', ...args], {
-    cwd, env: gitExecEnv(), timeout: GIT_TIMEOUT_MS, maxBuffer, windowsHide: true,
+  const argv = ['--literal-pathspecs', '-c', 'core.quotepath=off', ...args]
+  execFile('git', argv, {
+    cwd, env: gitInvocationEnv(gitExecEnv(), argv), timeout: GIT_TIMEOUT_MS, maxBuffer, windowsHide: true,
   }, (err, stdout, stderr) => {
     const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
     resolve({ code, stdout: String(stdout ?? ''), stderr: String(stderr ?? '') || (err ? err.message : '') })

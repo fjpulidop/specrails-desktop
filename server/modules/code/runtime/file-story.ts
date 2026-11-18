@@ -39,6 +39,7 @@ import {
   type DiffEntry,
   type StoredPatch,
 } from './file-provenance'
+import { truncateDiffForPrompt } from '../../../util/diff-prompt-budget'
 
 /** Warn threshold mirroring queue-manager's `provenance.large_job`. */
 const LARGE_RUN_WARN_FILES = 50
@@ -78,10 +79,10 @@ function parseStoryEvidence(raw: string | null | undefined): StoryEvidence | nul
 export function getStoryEvidence(db: DbInstance, provenanceId: number): StoryEvidence & { patch: string | null } {
   try {
     const full = db.prepare('SELECT patch, truncated FROM file_provenance_diffs WHERE provenance_id = ?').get(provenanceId) as { patch: string; truncated: number } | undefined
-    if (full?.patch?.trim()) return { kind: 'diff', patch: full.patch.slice(0, STORY_PATCH_MAX_CHARS), truncated: !!full.truncated || full.patch.length > STORY_PATCH_MAX_CHARS }
+    if (full?.patch?.trim()) return { kind: 'diff', patch: truncateDiffForPrompt(full.patch, STORY_PATCH_MAX_CHARS).text, truncated: !!full.truncated || full.patch.length > STORY_PATCH_MAX_CHARS }
   } catch { /* historical rows may only retain an excerpt */ }
   const excerpt = getContribution(db, provenanceId)?.patch_excerpt
-  return excerpt?.trim() ? { kind: 'excerpt', patch: excerpt.slice(0, STORY_PATCH_MAX_CHARS), truncated: true } : { kind: 'missing', patch: null, truncated: false }
+  return excerpt?.trim() ? { kind: 'excerpt', patch: truncateDiffForPrompt(excerpt, STORY_PATCH_MAX_CHARS).text, truncated: true } : { kind: 'missing', patch: null, truncated: false }
 }
 
 export function storyPromptData(input: { path: string; repositoryId?: string; ticketId: number | null; ticketTitle: string | null; kind: string }, evidence: ReturnType<typeof getStoryEvidence>): string {

@@ -12,6 +12,7 @@ import {
 } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
 import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
+import { inspectIndexLock } from '../../../util/git-index-lock'
 
 export interface ReleaseRailWorktreesInput {
   db: DbInstance
@@ -218,7 +219,14 @@ async function verifyReleaseEvidence(
     // user-parked file) preserves the worktree exactly as before.
     const statusLines = status.stdout.split('\n').map((line) => line.trimEnd()).filter(Boolean)
     const dirtyLines = statusLines.filter((line) => !line.startsWith('!! '))
-    if (dirtyLines.length > 0) return { failure: 'the worktree contains changes made after settlement', overlayEntries: [] }
+    if (dirtyLines.length > 0) {
+      // The injected runner already waited for a live index.lock; one still
+      // present means a writer is stuck or crashed mid-staging, so the dirt
+      // may be a half-written index rather than new work. Say so.
+      const lock = await inspectIndexLock(worktree.worktree_path)
+      const lockNote = lock ? ` (Git's index is locked at ${lock.path}; a Git process may still be writing there, or crashed)` : ''
+      return { failure: `the worktree contains changes made after settlement${lockNote}`, overlayEntries: [] }
+    }
     // Regenerable dependency installs release without authorization and are
     // not quarantined (Git's worktree removal deletes them).
     const ignoredPaths = statusLines.filter((line) => line.startsWith('!! ')).map((line) => line.slice(3))

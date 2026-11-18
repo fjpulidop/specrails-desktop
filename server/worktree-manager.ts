@@ -16,6 +16,8 @@ import { execFile } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { gitInvocationEnv, gitSubcommand } from './util/git-invocation'
+import { annotateIndexLockFailure, waitForIndexLockRelease } from './util/git-index-lock'
 
 export interface GitResult {
   code: number
@@ -31,24 +33,33 @@ export interface GitRunner {
 const GIT_RUNNER_TIMEOUT_MS = 120_000
 
 export const defaultGitRunner: GitRunner = {
-  run(args, cwd) {
-    return new Promise<GitResult>((resolve) => {
-      // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
-      // to start under a pkg-stripped Windows sidecar env. No-op on POSIX.
-      const env = windowsSpawnEnv()
-      execFile('git', args, {
-        cwd,
-        env,
-        timeout: GIT_RUNNER_TIMEOUT_MS,
-        killSignal: 'SIGTERM',
-        maxBuffer: 16 * 1024 * 1024,
-        windowsHide: true,
-      }, (err, stdout, stderr) => {
-        const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
-        resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
-      })
-    })
+  async run(args, cwd) {
+    // A status read waits (bounded) for a live index.lock so it sees the
+    // settled index, not a half-staged commit; a lock failure gets an
+    // actionable explanation. See util/git-index-lock.ts.
+    if (gitSubcommand(args)?.name === 'status') await waitForIndexLockRelease(cwd)
+    return annotateIndexLockFailure(await spawnGit(args, cwd), cwd)
   },
+}
+
+function spawnGit(args: string[], cwd: string): Promise<GitResult> {
+  return new Promise<GitResult>((resolve) => {
+    // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
+    // to start under a pkg-stripped Windows sidecar env. No-op on POSIX. Reads
+    // skip Git's optional index locks (util/git-invocation.ts).
+    const env = gitInvocationEnv(windowsSpawnEnv(), args)
+    execFile('git', args, {
+      cwd,
+      env,
+      timeout: GIT_RUNNER_TIMEOUT_MS,
+      killSignal: 'SIGTERM',
+      maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
+      resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
+    })
+  })
 }
 
 /** True when `dir` is inside a git working tree. Worktree isolation is impossible

@@ -10,6 +10,7 @@
 
 import { spawn } from 'child_process'
 import { treeKillSafe } from './win-spawn'
+import { gitInvocationEnv, isGitCommand } from './git-invocation'
 
 export interface BoundedExecOptions {
   /** Hard ceiling in ms; the process tree is killed when it elapses. */
@@ -84,7 +85,8 @@ export function runBounded(command: string, args: readonly string[], opts: Bound
     try {
       child = spawn(command, [...args], {
         cwd: opts.cwd,
-        env: opts.env,
+        // Read-only git skips optional index locks (see git-invocation.ts).
+        env: isGitCommand(command) ? gitInvocationEnv(opts.env, args) : opts.env,
         shell: opts.shell ?? false,
         windowsHide: true,
         stdio: [opts.input !== undefined ? 'pipe' : 'ignore', 'pipe', 'pipe'],
