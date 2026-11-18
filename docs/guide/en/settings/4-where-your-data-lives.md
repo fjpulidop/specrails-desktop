@@ -64,3 +64,15 @@ Select worktrees and choose **Remove**. The confirmation says how much disk you 
 - With **Also delete branches that hold nothing new**, a branch is deleted only when it has nothing to lose, and only if it still points at the commit Specrails checked.
 
 Worktrees with uncommitted changes or files that exist only there can't be selected. Commit, copy or discard that work first. A worktree that belongs to an Intent session is listed but handled from its session. Right before removal, each worktree is checked again: if anything changed after you confirmed, it is kept and the result says why. Processes left running in a removed worktree (a dev server, for example) are stopped.
+
+## Files kept outside a PR {#safety-archives}
+
+While a run works, Specrails adds a few files of its own to the worktree: the project instructions (`CLAUDE.md`), local settings with its safety hook, and links to its commands and skills. They never go into the PR. When the worktree is removed, Specrails deletes them if they are exactly as it wrote them, so a normal run leaves nothing behind.
+
+If one of them changed (an agent edited `CLAUDE.md`, for example), or Specrails can't prove a file is its own, it doesn't delete it. It moves it to a folder next to the worktree (`<worktree>.specrails-overlay-quarantine-…`) and the PR card says **N files were kept that didn't go into the PR**:
+
+- **Details** shows the folder (with **Copy path** and **Show in Finder**) and each kept file with its size.
+- **Delete** asks first, naming the folder and how many files it holds, then deletes only that folder.
+- **Dismiss** hides the notice. The files stay where they are.
+
+**Settings ▸ Storage ▸ Files kept outside a PR** lists every such folder across projects with its size and age. Select several and delete them in one go. Specrails only deletes a folder with that exact name inside the project's own worktrees area, and never follows links out of it.

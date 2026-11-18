@@ -157,6 +157,11 @@ A mission can offer the same card for any open same-repository PR of a project r
 [`runtime/retained-worktrees.ts`](runtime/retained-worktrees.ts) lists one project's retained mounts, gathers their Git evidence, lazily measures disk use, and removes confirmed ones. Removal always goes through `releaseRailWorktrees`, never a second removal path; it uses the cleanup-only opt-ins `acceptIgnoredBaseCopies` and `reclaimTerminalMounts`, and branches are deleted with compare-and-delete `update-ref -d`.
 [`adapters/retained-worktrees-http.ts`](adapters/retained-worktrees-http.ts) serves `/api/worktrees/retained*` across projects, and [desktop-router.ts](../../desktop-router.ts) registers it.
 
+### Overlay kit and safety archives
+
+Release deletes Specrails's own overlay kit when it is provably unchanged (allocation fingerprint, or the v2 manifest record while the manifest itself is unchanged) and moves only changed, unknown or unprovable paths to a safety archive `<worktree>.specrails-overlay-quarantine-XXXXXX`; no folder and no notice when nothing had to be kept. Rules: [safe PR flow › Overlay kit on release](../../../docs/internals/safe-pr-review-flow.md#overlay-kit-on-release); code: [`runtime/rail-worktree-release.ts`](runtime/rail-worktree-release.ts) (`clearVerifiedOverlayEntries`), records in [`worktree-overlay.ts`](../../worktree-overlay.ts).
+[`runtime/overlay-quarantines.ts`](runtime/overlay-quarantines.ts) lists a project's archives and deletes a confirmed one (a real archive directory inside that project's worktrees root only, links never followed, logged); the same HTTP adapter serves `/api/worktrees/quarantines*`. Tests: [`runtime/overlay-kit-release.test.ts`](runtime/overlay-kit-release.test.ts) (real Git: unchanged kit, edited `CLAUDE.md`, replaced/re-pointed links, v1 manifest, edited manifest, settings with Specrails-owned vs foreign keys, mixed ignored `.claude/`) and [`runtime/overlay-quarantines.test.ts`](runtime/overlay-quarantines.test.ts).
+
 Real-Git tests:
 - [`runtime/retained-worktrees.test.ts`](runtime/retained-worktrees.test.ts): dirty, unique commits, pushed, an identical vs a different `.env`, a moved HEAD, a branch raced between the check and the deletion, and terminal-row reclaim.
 - [`adapters/retained-worktrees-http.test.ts`](adapters/retained-worktrees-http.test.ts).

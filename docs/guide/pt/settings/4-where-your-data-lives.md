@@ -64,3 +64,15 @@ Selecione worktrees e escolha **Remover**. A confirmação indica quanto espaço
 - Com **Eliminar também as branches que não contêm nada de novo**, uma branch só é eliminada se não tiver nada a perder e só se ainda apontar para o commit verificado pelo Specrails.
 
 Os worktrees com alterações sem commit ou ficheiros que só existem lá não podem ser selecionados. Primeiro faça commit desse trabalho, copie-o ou descarte-o. Um worktree que pertence a uma sessão Intent aparece na lista, mas é tratado a partir da sua sessão. Imediatamente antes da remoção, cada worktree é verificado de novo: se algo mudou depois de ter confirmado, é mantido e o resultado explica porquê. Os processos que ainda corriam num worktree removido (um servidor de desenvolvimento, por exemplo) são parados.
+
+## Arquivos guardados fora de um PR {#safety-archives}
+
+Enquanto uma execução trabalha, o Specrails adiciona ao worktree alguns arquivos próprios: as instruções do projeto (`CLAUDE.md`), configurações locais com o seu hook de segurança e links para os seus comandos e skills. Nunca entram no PR. Quando o worktree é removido, o Specrails apaga-os se estiverem exatamente como os escreveu, por isso uma execução normal não deixa nada para trás.
+
+Se algum mudou (por exemplo, um agente editou `CLAUDE.md`) ou o Specrails não consegue provar que um arquivo é seu, não o apaga. Move-o para uma pasta ao lado do worktree (`<worktree>.specrails-overlay-quarantine-…`) e o cartão do PR diz **N arquivos foram guardados fora do PR**:
+
+- **Detalhes** mostra a pasta (com **Copiar caminho** e **Mostrar no Finder**) e cada arquivo guardado com o seu tamanho.
+- **Excluir** pergunta antes, indicando a pasta e quantos arquivos tem, e apaga apenas essa pasta.
+- **Dispensar** oculta o aviso. Os arquivos ficam onde estão.
+
+**Definições ▸ Armazenamento ▸ Arquivos guardados fora de um PR** lista todas essas pastas de todos os projetos com tamanho e idade. Selecione várias e exclua-as de uma vez. O Specrails só apaga uma pasta com esse nome exato dentro da área de worktrees do próprio projeto, e nunca segue links para fora.

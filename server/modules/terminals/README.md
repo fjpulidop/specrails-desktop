@@ -165,7 +165,9 @@ and never throws. It runs:
 - when an isolated rail run's engine settles (`rail-isolated-run-settlement.ts`, fresh
   and reattached runs, before the settlement's own git work), and when a PR CI run settles;
 - before a rail, PR CI or Intent worktree is removed (`releaseRailWorktrees`, Intent
-  `release`);
+  `release`), after release has cleared Specrails's overlay kit (deleted when provably
+  unchanged, otherwise moved to the safety archive) and re-proved the worktree clean, so a
+  release that stops for review never kills the run's processes;
 - at startup, once per project, for the newest 200 rail worktrees whose loop run has
   `finished_at` set and no unfinished run shares the path (restart-paused runs are kept).
 

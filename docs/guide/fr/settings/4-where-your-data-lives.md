@@ -64,3 +64,15 @@ Sélectionnez des worktrees et choisissez **Retirer**. La confirmation indique l
 - Avec **Supprimer aussi les branches qui ne contiennent rien de nouveau**, une branche n'est supprimée que si elle n'a rien à perdre, et seulement si elle pointe encore sur le commit vérifié par Specrails.
 
 Les worktrees avec des modifications non commitées ou des fichiers qui n'existent que là ne peuvent pas être sélectionnés. Commitez, copiez ou abandonnez d'abord ce travail. Un worktree qui appartient à une session Intent apparaît dans la liste mais se gère depuis sa session. Juste avant la suppression, chaque worktree est revérifié : si quelque chose a changé après votre confirmation, il est conservé et le résultat explique pourquoi. Les processus encore actifs dans un worktree retiré (un serveur de développement, par exemple) sont arrêtés.
+
+## Fichiers conservés hors d'une PR {#safety-archives}
+
+Pendant une exécution, Specrails ajoute au worktree quelques fichiers à lui : les instructions du projet (`CLAUDE.md`), des réglages locaux avec son hook de sécurité et des liens vers ses commandes et skills. Ils n'entrent jamais dans la PR. Quand le worktree est retiré, Specrails les supprime s'ils sont exactement tels qu'il les a écrits : une exécution normale ne laisse donc rien derrière elle.
+
+Si l'un d'eux a changé (un agent a modifié `CLAUDE.md`, par exemple), ou si Specrails ne peut pas prouver qu'un fichier vient de lui, il ne le supprime pas. Il le déplace dans un dossier à côté du worktree (`<worktree>.specrails-overlay-quarantine-…`) et la carte de la PR indique **N fichiers ont été conservés hors de la PR** :
+
+- **Détails** affiche le dossier (avec **Copier le chemin** et **Afficher dans le Finder**) et chaque fichier conservé avec sa taille.
+- **Supprimer** demande d'abord confirmation, en nommant le dossier et le nombre de fichiers, puis supprime uniquement ce dossier.
+- **Ignorer** masque l'avis. Les fichiers restent en place.
+
+**Réglages ▸ Stockage ▸ Fichiers conservés hors d'une PR** liste tous ces dossiers, pour tous les projets, avec leur taille et leur ancienneté. Sélectionnez-en plusieurs et supprimez-les d'un coup. Specrails ne supprime qu'un dossier portant exactement ce nom dans la zone des worktrees du projet, et ne suit jamais de lien vers l'extérieur.
