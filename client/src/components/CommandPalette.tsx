@@ -28,6 +28,8 @@ import {
   BookOpen,
   GraduationCap,
   X,
+  ArrowRight,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
@@ -127,7 +129,6 @@ interface ServerHits {
 const EMPTY_HITS: MissionSearchHit[] = []
 const EMPTY_IDS: ReadonlySet<string> = new Set()
 const NO_JUMP_ROWS: JumpEntry[] = []
-const EMPTY_INBOX: NonNullable<ReturnType<typeof useInbox>>['items'] = []
 
 /** The ⌘1…⌘6 chord of a "Jump back in" row (Ctrl+1… off macOS): visible label and `aria-keyshortcuts`. */
 function jumpChord(n: number): { label: string; aria: string } {
@@ -334,10 +335,10 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   }, [parsedQuery.explicit, parsedQuery.text, scope, open])
 
   // ─── Jump back in (empty query) ────────────────────────────────────────────
-  // Built from what the inbox, the missions context and this palette already hold (no fetch of its own).
+  // Built from what the missions context and this palette already hold (no fetch of its own). What needs the
+  // person is not listed here: one row says how many things wait and opens the inbox.
   const showJump = open && scope === null && pages.length === 0 && !search.trim()
   const jumpSources = useMemo<JumpSources>(() => ({
-    inbox: inbox?.items ?? EMPTY_INBOX,
     missions: conversations,
     attention: attentionConversationIds ?? EMPTY_IDS,
     attentionKinds,
@@ -346,9 +347,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     jobs: recentJobs,
     jobsProjectId: activeProjectId,
     activeProjectId,
-  }), [inbox?.items, conversations, attentionConversationIds, attentionKinds, streamingConversationIds, unreadConversationIds, recentJobs, activeProjectId])
+  }), [conversations, attentionConversationIds, attentionKinds, streamingConversationIds, unreadConversationIds, recentJobs, activeProjectId])
   // Every source has answered once for this opening (an error counts: nothing more is coming).
-  const jumpReady = (!inbox || inbox.status !== 'loading') && jobsLoaded && !conversationsLoading
+  const jumpReady = jobsLoaded && !conversationsLoading
   // The order is chosen when the palette opens and once more when the data first becomes ready,
   // then frozen for the rest of the opening (a row must not move under the person's ⌘N).
   const [jumpFrozen, setJumpFrozen] = useState<{ entries: JumpEntry[]; complete: boolean } | null>(null)
@@ -419,14 +420,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
 
   // "Jump back in": each row opens exactly like its own kind does elsewhere.
   const handleSelectJump = useCallback((entry: JumpEntry) => {
-    if (entry.kind === 'mission') { handleSelectMission(entry.id); return }
-    if (entry.kind === 'job') { handleSelectJob(entry.id); return }
+    if (entry.kind === 'mission') handleSelectMission(entry.id)
+    else handleSelectJob(entry.id)
+  }, [handleSelectMission, handleSelectJob])
+  // The one row about what needs the person: it opens the inbox, the list where those things live.
+  const inboxCount = inbox?.count ?? 0
+  const showInboxRow = showJump && !!inbox && inboxCount > 0
+  const handleOpenInbox = useCallback(() => {
     setOpen(false)
-    if (!inbox) return
-    // Resume and Retry act on the run: from here they open the inbox, where the row says what they do.
-    if (entry.item.action === 'resume-run' || entry.item.action === 'retry-jira') inbox.openInbox()
-    else void inbox.runPrimary(entry.item)
-  }, [handleSelectMission, handleSelectJob, inbox])
+    inbox?.openInbox()
+  }, [inbox])
 
   // ⌘1…⌘6 (Ctrl+1… off macOS) open the matching "Jump back in" row. Captured on the window while the
   // palette is open so the app's own digit chords (⌘1–5 pages, ⌥⌘1–9 projects) never fire underneath it.
@@ -702,13 +705,31 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     </Command.Group>
   )
 
-  const jumpGroup = jumpRows.length > 0 && (
+  const inboxRowLabel = t('notifications.attention.away', { count: inboxCount })
+  const jumpGroup = (jumpRows.length > 0 || showInboxRow) && (
     <Command.Group key="jumpBackIn" heading={t('palette.groups.jumpBackIn')} data-testid="palette-group-jump-back-in">
+      {showInboxRow && (
+        <Command.Item
+          key="inbox"
+          value="jump:inbox"
+          onSelect={handleOpenInbox}
+          className={navItemClass}
+          aria-label={`${inboxRowLabel}, ${t('palette.actions.openInbox')}`}
+          data-testid="palette-jump-inbox"
+        >
+          <Inbox className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{inboxRowLabel}</span>
+          <span className="flex shrink-0 items-center gap-1 text-caption text-muted-foreground" aria-hidden>
+            {t('palette.actions.openInbox')}
+            <ArrowRight className="size-3.5" />
+          </span>
+        </Command.Item>
+      )}
       {jumpRows.map((entry, index) => {
         const title = entry.kind === 'mission' ? entry.title?.trim() || untitledMission : entry.title
         const stateLabel = entry.state ? t(runStateLook(entry.state).labelKey) : null
         const projectName = entry.projectId && entry.projectId !== activeProjectId
-          ? (entry.kind === 'inbox' ? entry.item.projectName : null) ?? projectNameById.get(entry.projectId) ?? null
+          ? projectNameById.get(entry.projectId) ?? null
           : null
         const chord = jumpChord(index + 1)
         return (
