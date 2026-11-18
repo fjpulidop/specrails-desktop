@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1772 source/build files. Nearby tests are linked where names
+Includes 1774 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1468,6 +1468,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [path-resolver.ts](../../server/path-resolver.ts) · [test](../../server/path-resolver.test.ts)
 - [plugin-manager.ts](../../server/plugin-manager.ts) · [test](../../server/plugin-manager.test.ts)
 - [plugins-router.ts](../../server/plugins-router.ts) · [test](../../server/plugins-router.test.ts)
+- [pre-assembly-specs.ts](../../server/pre-assembly-specs.ts) · [test](../../server/pre-assembly-specs.test.ts)
 - [process-admission.ts](../../server/process-admission.ts) · [test](../../server/process-admission.test.ts)
 - [process-fault-handlers.ts](../../server/process-fault-handlers.ts) · [test](../../server/process-fault-handlers.test.ts)
 - [provider-detection.ts](../../server/provider-detection.ts) · [test](../../server/provider-detection.test.ts)
@@ -2397,6 +2398,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [clone-copy.ts](../../server/util/clone-copy.ts) · [test](../../server/util/clone-copy.test.ts)
+- [core-child-process.ts](../../server/util/core-child-process.ts) · [test](../../server/util/core-child-process.test.ts)
 - [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
 - [diff-prompt-budget.ts](../../server/util/diff-prompt-budget.ts) · [test](../../server/util/diff-prompt-budget.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)

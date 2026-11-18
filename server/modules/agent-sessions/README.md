@@ -34,6 +34,7 @@ Protocol: Core's `docs/agent-sessions/protocol.md`.
 - **Unknown event types** from a newer Core are skipped. Contract drift is reported by `checkSessionContract`.
 - **Degraded scope:** after repeated failures within the window, new turns in that scope must use the legacy transport until a manual retry.
 - **Intent sessions (additive):** Core contract 5.3 adds `session.send` delivery `interrupt`, per-driver `capabilities.interrupt` and the `flowSessions` capability. `checkSessionContract` reports `flowSessions` without affecting `compatible`; `hostSupportsFlowSessions` reads `initialize`; `resolveFlowAvailability` (runtime: `flowAvailability`) offers Intent only with `flowSessions` and `deriveChange`. Desktop never calls `session.interrupt` before an interrupt delivery.
+- **Own process group:** the host is spawned `detached` (`spawnCoreHostProcess`), so a signal to Desktop's group never reaches it. Desktop stops it with `host.shutdown` and then a tree-kill. It is recorded while it runs, so a host that outlived a crashed server is killed at the next boot (`server/util/core-child-process.ts`).
 - **One host per scope:** a project's sessions live in Core's `~/.specrails/sessions/<scope>/`. Desktop never starts a second host for a scope.
 
 ## Verify

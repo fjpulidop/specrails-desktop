@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { findCoreAgentRuntimeCli } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
+import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-process'
 import { SessionRequestError } from '../domain/errors'
 import { SUPPORTED_PROTOCOL_VERSIONS, type InitializeResult } from '../domain/protocol'
 import type { HostProcessLauncher, SessionHostClient } from '../ports'
@@ -30,6 +31,14 @@ export interface LaunchedHost extends SessionHostClient {
 }
 
 /**
+ * The default session-host spawn: its own process group, so a signal aimed at
+ * Desktop's group never reaches it; Desktop stops it with host.shutdown, then tree-kill.
+ */
+export function spawnCoreHostProcess(command: string, args: string[], options: { env: NodeJS.ProcessEnv }): ChildProcess {
+  return spawn(command, args, { env: options.env, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...coreChildSpawnOptions() })
+}
+
+/**
  * Launches `node <core>/cli.js host --stdio --scope <scope>` through the same
  * Core and Node resolution as implementation runs (bundled Node under pkg,
  * Windows-safe environment), then performs the protocol handshake.
@@ -43,8 +52,9 @@ export class CoreHostLauncher implements HostProcessLauncher {
     const env = windowsSpawnEnv((typeof this.options.env === 'function' ? this.options.env(scope) : this.options.env) ?? process.env)
     const args = [cli, 'host', '--stdio', '--scope', scope]
     const command = (this.options.node ?? resolveCoreNodeRuntime)()
-    const child = (this.options.spawnProcess ?? ((cmd, argv, opts) => spawn(cmd, argv, { env: opts.env, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })))(command, args, { env })
+    const child = (this.options.spawnProcess ?? spawnCoreHostProcess)(command, args, { env })
     if (!child.stdin || !child.stdout) throw new SessionRequestError('Session host has no stdio pipes', { code: 'internal', retryable: true })
+    trackCoreChild(child, 'session-host', `${cli} host`)
     let stderr = ''
     child.stderr?.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf8')

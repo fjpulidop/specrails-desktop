@@ -13,6 +13,7 @@ import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEff
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
+import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-process'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
@@ -360,10 +361,13 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     let stderr = '', summary = '', invalidProtocol = false, timedOut = false
     const stepFailures = new Map<string, string>()
     let timer: ReturnType<typeof setTimeout> | undefined
+    // Own process group: a signal aimed at Desktop's group (Ctrl-C, a dev restart) must not
+    // reach Core, which treats it as "cancel the run". Desktop stops it by tree-kill only.
     const child = spawn(resolveCoreNodeRuntime(), args, {
       cwd: options.cwd, env: windowsSpawnEnv(coreProviderEnv(options.env)), shell: false, windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'], ...coreChildSpawnOptions(),
     })
+    trackCoreChild(child, 'runtime', `${args[0]} ${args[1]}`)
     // Always leave a terminal result, including synchronous observer failures.
     let observerError: string | undefined
     try { options.onSpawn?.(child) } catch (error) {
