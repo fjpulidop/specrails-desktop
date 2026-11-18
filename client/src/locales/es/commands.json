@@ -6,6 +6,7 @@
     "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
+      "jumpBackIn": "Volver a",
       "projects": "Proyectos",
       "missions": "Misiones",
       "spec": "Spec",
@@ -407,6 +408,7 @@
       "navigateProjectPageWithAgents": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Agentes/Ajustes)",
       "navigateProjectPage": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Ajustes)",
       "switchProject": "Cambiar de proyecto por posición",
+      "paletteJumpBackIn": "Abrir una fila de «Volver a» con la paleta ⌘K abierta",
       "goDashboard": "Ir al tablero",
       "goActivity": "Ir a Actividad / Trabajos",
       "goAnalytics": "Ir a Analíticas",

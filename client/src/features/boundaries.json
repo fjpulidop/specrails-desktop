@@ -161,7 +161,8 @@
     "publicEntries": [
       "components/InboxButton.tsx",
       "components/InboxDialog.tsx",
-      "context/InboxContext.tsx"
+      "context/InboxContext.tsx",
+      "lib/inbox-run-state.ts"
     ],
     "dependencies": [
       "integrations",
@@ -280,6 +281,7 @@
       "hooks/useOpenMission.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",
+      "lib/mission-run-state.ts",
       "lib/mission-search.ts",
       "lib/mission-windows.ts"
     ],

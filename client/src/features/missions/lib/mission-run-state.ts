@@ -5,7 +5,7 @@
 import type { RunState } from '../../../components/ui/run-state/run-state'
 import { deliveryLook, deliveryOverrideOf } from '../../delivery/lib/delivery-run-state'
 import type { AgentPrDecisionEnvelope, AgentSubagentPhase } from './agent-api'
-import type { MissionRunCardSummary, MissionRunTone } from '../components/mission-run-strip'
+import type { MissionAttentionKind, MissionRunCardSummary, MissionRunTone } from '../components/mission-run-strip'
 import type { MissionRunStatus } from '../components/pr-decision-card/run-status'
 import type { SpecActivityPhase } from './spec-activity'
 
@@ -95,4 +95,28 @@ export const SUBAGENT_PHASE_RUN_STATE = {
 
 export function subagentRunState(phase: AgentSubagentPhase): RunState {
   return SUBAGENT_PHASE_RUN_STATE[phase]
+}
+
+/** What a mission row knows about the mission without opening it (sidebar marks, live turns). */
+export interface MissionRowSignal {
+  /** A delivery waits for the person (`decision`) or failed (`failed`); null when nothing does. */
+  attention: MissionAttentionKind | null
+  /** A turn is streaming right now. */
+  streaming: boolean
+  /** The agent replied since the person last looked: the next move is theirs. */
+  unread: boolean
+}
+
+/**
+ * A mission row's state (command palette). What waits for the person comes
+ * first: a failed delivery, then a decision (review), then live work; an
+ * unread reply asks for the person's next message (needs-input). An idle,
+ * read mission has no state (null): the row shows the mission itself.
+ */
+export function missionRowRunState(signal: MissionRowSignal): RunState | null {
+  if (signal.attention === 'failed') return 'failed'
+  if (signal.attention === 'decision') return 'review'
+  if (signal.streaming) return 'working'
+  if (signal.unread) return 'needs-input'
+  return null
 }

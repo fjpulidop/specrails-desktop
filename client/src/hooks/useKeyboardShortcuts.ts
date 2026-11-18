@@ -36,6 +36,8 @@ export const SHORTCUTS: Shortcut[] = [
   // Ctrl+Shift+I opens DevTools in WebView2 / Chromium, so Windows and Linux use Ctrl+Alt+I.
   { keys: 'Ctrl+Alt+I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'other' },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
+  // ⌘K palette open, nothing typed: the "Jump back in" rows (components/CommandPalette.tsx).
+  { keys: '⌘1–6', descriptionKey: 'shortcuts.items.paletteJumpBackIn', category: 'general' },
   { keys: '⌘Z', descriptionKey: 'shortcuts.items.undoLast', category: 'general' },
   { keys: '⌘[ ⌘]', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general' },
   { keys: 'Alt+← Alt+→', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general', platform: 'other' },

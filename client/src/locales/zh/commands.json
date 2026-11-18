@@ -6,6 +6,7 @@
     "noResults": "未找到结果。",
     "activeBadge": "当前",
     "groups": {
+      "jumpBackIn": "继续",
       "projects": "项目",
       "missions": "任务",
       "spec": "Spec",
@@ -407,6 +408,7 @@
       "navigateProjectPageWithAgents": "导航到项目页面（仪表盘/任务/分析/Agent/设置）",
       "navigateProjectPage": "导航到项目页面（仪表盘/任务/分析/设置）",
       "switchProject": "按位置切换项目",
+      "paletteJumpBackIn": "在 ⌘K 面板打开时打开“继续”中的一行",
       "goDashboard": "前往仪表盘",
       "goActivity": "前往活动 / 任务",
       "goAnalytics": "前往分析",

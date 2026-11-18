@@ -6,6 +6,7 @@
     "noResults": "結果が見つかりません。",
     "activeBadge": "アクティブ",
     "groups": {
+      "jumpBackIn": "再開する",
       "projects": "プロジェクト",
       "missions": "ミッション",
       "spec": "スペック",
@@ -407,6 +408,7 @@
       "navigateProjectPageWithAgents": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/エージェント/設定)",
       "navigateProjectPage": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/設定)",
       "switchProject": "位置でプロジェクトを切り替え",
+      "paletteJumpBackIn": "⌘K パレットを開いているときに「再開する」の行を開く",
       "goDashboard": "ダッシュボードへ移動",
       "goActivity": "アクティビティ / ジョブへ移動",
       "goAnalytics": "分析へ移動",

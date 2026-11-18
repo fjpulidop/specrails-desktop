@@ -2,6 +2,12 @@
 
 Premi **⌘K** (**Ctrl+K** su Windows e Linux) per cercare quasi tutto in Specrails da un solo posto: missioni, specs, log dei job, file, impostazioni e questa guida. Scrivi una ricerca normale per cercare tra missioni, progetti, specs e job recenti come prima, oppure inizia con un **prefisso** per cercare in una sola fonte.
 
+## Riprendi
+
+Con la casella vuota, il primo gruppo è **Riprendi**: fino a sei righe che ti riportano direttamente al tuo lavoro. Prima ciò che ha bisogno di te, dal più recente: gli elementi della casella «Ti aspetta» (di tutti i progetti) e le missioni che aspettano te (una decisione, una consegna fallita o una risposta non letta). Seguono le missioni e i job attivi più di recente. Ogni riga mostra la spia del suo stato e il nome del progetto quando non è quello aperto.
+
+Premi da **⌘1** a **⌘6** (da **Ctrl+1** a **Ctrl+6** su Windows e Linux) per aprire una riga direttamente, oppure sceglila con le frecce e **Invio**. Una riga si apre esattamente come altrove: un elemento della casella porta alla sua revisione o esecuzione (cambiando progetto se serve; gli elementi Riprendi esecuzione e Riprova aprono la casella), una missione apre la missione, un job apre il job. Finché la palette è aperta questi tasti sono suoi: le scorciatoie di pagina (⌘1–5) e il cambio di progetto (⌥⌘1–9) aspettano che si chiuda. L'ordine resta fisso finché la palette è aperta, così nessuna riga si sposta sotto le dita; gli stati si aggiornano comunque e la lista viene riordinata alla prossima apertura. Le righe di questo gruppo non si ripetono in Missioni o Job.
+
 ## Prefissi
 
 | Scrivi | Cerca | Invio apre |

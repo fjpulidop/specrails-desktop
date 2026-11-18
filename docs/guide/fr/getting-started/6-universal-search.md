@@ -2,6 +2,12 @@
 
 Appuyez sur **⌘K** (**Ctrl+K** sous Windows et Linux) pour chercher presque tout dans Specrails depuis un seul endroit : missions, specs, journaux de jobs, fichiers, réglages et ce guide. Saisissez une requête simple pour chercher parmi les missions, projets, specs et jobs récents comme avant, ou commencez par un **préfixe** pour ne chercher que dans une source.
 
+## Reprendre
+
+Quand la zone est vide, le premier groupe est **Reprendre** : jusqu'à six lignes qui vous ramènent directement à votre travail. Ce qui vous attend vient d'abord, du plus récent au plus ancien : les éléments de la boîte « Vous attend » (de tous les projets) et les missions qui attendent après vous (une décision, une livraison en échec ou une réponse non lue). Viennent ensuite les missions et les jobs les plus récemment actifs. Chaque ligne affiche le voyant de son état, et le nom du projet quand ce n'est pas celui qui est ouvert.
+
+Appuyez sur **⌘1** à **⌘6** (**Ctrl+1** à **Ctrl+6** sous Windows et Linux) pour ouvrir une ligne directement, ou choisissez-la avec les flèches et **Entrée**. Une ligne s'ouvre exactement comme ailleurs : un élément de la boîte mène à sa revue ou à son exécution (en changeant de projet si besoin ; les éléments Reprendre l'exécution et Réessayer ouvrent la boîte), une mission ouvre la mission, un job ouvre le job. Tant que la palette est ouverte, ces touches lui appartiennent : les raccourcis de page (⌘1–5) et le changement de projet (⌥⌘1–9) attendent sa fermeture. L'ordre reste fixe tant que la palette est ouverte, pour qu'aucune ligne ne bouge sous vos doigts ; les états se mettent quand même à jour, et la liste est triée à nouveau à la prochaine ouverture. Les lignes de ce groupe ne sont pas répétées sous Missions ou Jobs.
+
 ## Préfixes
 
 | Saisie | Cherche | Entrée ouvre |

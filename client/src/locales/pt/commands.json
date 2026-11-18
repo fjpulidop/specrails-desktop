@@ -6,6 +6,7 @@
     "noResults": "Nenhum resultado encontrado.",
     "activeBadge": "ativo",
     "groups": {
+      "jumpBackIn": "Retomar",
       "projects": "Projetos",
       "missions": "Missões",
       "spec": "Spec",
@@ -407,6 +408,7 @@
       "navigateProjectPageWithAgents": "Navegar para página do projeto (Dashboard/Jobs/Análises/Agentes/Definições)",
       "navigateProjectPage": "Navegar para página do projeto (Dashboard/Jobs/Análises/Definições)",
       "switchProject": "Mudar de projeto por posição",
+      "paletteJumpBackIn": "Abrir uma linha de “Retomar” com a paleta ⌘K aberta",
       "goDashboard": "Ir para o Dashboard",
       "goActivity": "Ir para Atividade / Jobs",
       "goAnalytics": "Ir para Análises",

@@ -6,6 +6,7 @@
     "noResults": "No results found.",
     "activeBadge": "active",
     "groups": {
+      "jumpBackIn": "Jump back in",
       "projects": "Projects",
       "missions": "Missions",
       "spec": "Spec",
@@ -407,6 +408,7 @@
       "navigateProjectPageWithAgents": "Navigate to project page (Dashboard/Jobs/Analytics/Agents/Settings)",
       "navigateProjectPage": "Navigate to project page (Dashboard/Jobs/Analytics/Settings)",
       "switchProject": "Switch to project by position",
+      "paletteJumpBackIn": "Open a “Jump back in” row while the ⌘K palette is open",
       "goDashboard": "Go to Dashboard",
       "goActivity": "Go to Activity / Jobs",
       "goAnalytics": "Go to Analytics",

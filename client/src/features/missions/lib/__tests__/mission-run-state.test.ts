@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { RUN_STATES } from '../../../../components/ui/run-state/run-state'
 import {
   MISSION_RUN_STATUS_STATE, MISSION_TONE_RUN_STATE, SPEC_ACTIVITY_RUN_STATE, SUBAGENT_PHASE_RUN_STATE,
-  deliveryStripRunState, missionRunStatusState, missionToneRunState, specActivityRunState, subagentRunState,
+  deliveryStripRunState, missionRowRunState, missionRunStatusState, missionToneRunState, specActivityRunState, subagentRunState,
 } from '../mission-run-state'
 import type { AgentPrDecisionEnvelope } from '../agent-api'
 
@@ -53,5 +53,14 @@ describe('mission run states', () => {
     expect(deliveryStripRunState(env({ decision: 'pr_closed' }), 'info', null)).toBe('stopped')
     expect(deliveryStripRunState(env({ decision: 'implementation_failed', statusCode: 'run_stopped' }), 'info', null)).toBe('stopped')
     expect(deliveryStripRunState(env({ decision: 'building' }), 'running', null)).toBe('working')
+  })
+
+  it('maps a mission row: what waits for the person first, then live work, then an unread reply', () => {
+    const quiet = { attention: null, streaming: false, unread: false }
+    expect(missionRowRunState(quiet)).toBeNull()
+    expect(missionRowRunState({ ...quiet, unread: true })).toBe('needs-input')
+    expect(missionRowRunState({ ...quiet, streaming: true, unread: true })).toBe('working')
+    expect(missionRowRunState({ attention: 'decision', streaming: true, unread: true })).toBe('review')
+    expect(missionRowRunState({ attention: 'failed', streaming: true, unread: false })).toBe('failed')
   })
 })

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1625 source/build files. Nearby tests are linked where names
+Includes 1626 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -61,6 +61,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/components/command-palette
 
 - [SnippetText.tsx](../../client/src/components/command-palette/SnippetText.tsx)
+- [jump-back-in.ts](../../client/src/components/command-palette/jump-back-in.ts) · [test](../../client/src/components/command-palette/__tests__/jump-back-in.test.ts)
 - [palette-actions.ts](../../client/src/components/command-palette/palette-actions.ts) · [test](../../client/src/components/command-palette/__tests__/palette-actions.test.ts)
 - [recent-actions.ts](../../client/src/components/command-palette/recent-actions.ts)
 - [search-scopes.ts](../../client/src/components/command-palette/search-scopes.ts)
