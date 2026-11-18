@@ -288,7 +288,7 @@
     "stalledIdle_one": "Sin salida del proveedor durante {{count}} minuto: la app detuvo este intento",
     "stalledIdle_other": "Sin salida del proveedor durante {{count}} minutos: la app detuvo este intento",
     "providerLimit": "Límite del proveedor",
-    "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo la ejecución en vez de seguir iterando.",
+    "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app pausó la ejecución en el límite en vez de seguir iterando.",
     "paused": "En pausa",
     "runtimeGraph": "Grafo de ejecución",
     "graphFullscreen": "Pantalla completa",

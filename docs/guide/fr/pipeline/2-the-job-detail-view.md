@@ -113,7 +113,7 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** s’ouvre sur la **carte de diagnostic**, qui explique la cause et, si on le sait, pourquoi c’est arrivé. Quand l’exécution a enregistré quelle étape a échoué, la carte le dit : l’étape, la tentative, l’itération et l’heure. Les causes :
 
 - **Tests échoués** : les vérifications échouent encore après les tours de correction.
-- **Limite du fournisseur** : la limite d'utilisation du fournisseur d'IA est atteinte. La carte cite le moment de la réinitialisation, avec les mots du fournisseur.
+- **Limite du fournisseur** — la limite d'utilisation du fournisseur d'IA a été atteinte. La carte indique la réinitialisation à votre heure locale quand le fournisseur a donné l'heure exacte, sinon avec ses propres mots. Une exécution encore en pause à la limite affiche sa propre carte : quand elle reprend seule, **Reprendre maintenant** et **Continuer maintenant avec** un autre fournisseur. Voir [Limites d'utilisation](1-rails-and-jobs.md#usage-limits).
 - **Environnement** : la machine ne peut pas exécuter les vérifications (identifiants, outil manquant, commande de préparation en échec). *Réparer l'environnement* montre précisément quoi exécuter ou changer.
 - **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
 - **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.

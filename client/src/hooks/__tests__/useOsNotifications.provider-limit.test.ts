@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 
 // loop.provider_limit: the provider answered a loop step with a usage/rate-
 // limit notice and the run stopped at once. The user gets ONE honest alert
-// with the provider's reset hint — the fact that decides when to relaunch.
+// with the provider's reset hint — when the paused run resumes on its own.
 
 let capturedHandler: ((data: unknown) => void) | null = null
 vi.mock('../useSharedWebSocket', () => ({
@@ -85,10 +85,21 @@ describe('useOsNotifications — loop.provider_limit', () => {
     expect(opened).toHaveBeenCalledOnce()
   })
 
+  it('says the exact reset in the person\'s clock when the server knows it', async () => {
+    renderHook(() => useOsNotifications({ center }), { wrapper })
+    await send({ type: 'loop.provider_limit', projectId: 'p1', runId: 'run-3', provider: 'claude', kind: 'session_limit', message: 'limit', resetsAt: '3am (Europe/Madrid)', resumeAt: '2026-11-19T02:00:00.000Z' })
+    const time = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date('2026-11-19T02:00:00.000Z'))
+    const description = String((toastError.mock.calls[0][1] as { description?: string }).description)
+    expect(description).toContain(time)
+    expect(description).not.toContain('3am (Europe/Madrid)')
+    expect(description).toContain('resumes on its own')
+    vi.clearAllMocks()
+  })
+
   it('falls back to the no-reset copy and respects the spending-limits category', async () => {
     renderHook(() => useOsNotifications({ center }), { wrapper })
     await send({ type: 'loop.provider_limit', projectId: 'p1', runId: 'run-2', provider: 'gemini', kind: 'quota', message: 'RESOURCE_EXHAUSTED', resetsAt: null })
-    expect(toastError.mock.calls[0][1]).toMatchObject({ description: expect.stringContaining('after the limit resets') })
+    expect(toastError.mock.calls[0][1]).toMatchObject({ description: expect.stringContaining('once the limit resets') })
     vi.clearAllMocks()
     prefs.categories.budget = false
     await send({ type: 'loop.provider_limit', projectId: 'p1', runId: 'run-3', provider: 'claude', kind: 'rate_limit', message: 'HTTP 429', resetsAt: null })

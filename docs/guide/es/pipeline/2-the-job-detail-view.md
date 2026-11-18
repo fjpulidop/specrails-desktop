@@ -113,7 +113,7 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre con la **tarjeta de diagnóstico**, que explica la causa y, cuando se conoce, por qué ocurrió. Cuando la ejecución registró qué paso falló, la tarjeta lo indica: el paso, el intento, la iteración y la hora. Las causas:
 
 - **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
-- **Límite del proveedor**: se alcanzó el límite de uso del proveedor de IA. La tarjeta cita cuándo se restablece, con las palabras del propio proveedor.
+- **Límite del proveedor** — se alcanzó el límite de uso del proveedor de IA. La tarjeta dice cuándo se restablece, en tu hora local cuando el proveedor indicó la hora exacta y si no con las palabras del proveedor. Una ejecución que sigue en pausa en el límite muestra su propia tarjeta: cuándo se reanuda sola, **Reanudar ahora** y **Continuar ahora con** otro proveedor. Consulta [Límites de uso](1-rails-and-jobs.md#usage-limits).
 - **Entorno**: la máquina no puede ejecutar las comprobaciones (credenciales, una herramienta que falta, un comando de preparación que falla). *Arreglar el entorno* muestra exactamente qué ejecutar o cambiar.
 - **Bloqueada**, **sin tiempo**, **en silencio** y **detenida inesperadamente** nombran el límite o el proceso que paró la ejecución.
 - **Causa desconocida**: la app no adivina. Muestra el final del registro para que lo leas tú.

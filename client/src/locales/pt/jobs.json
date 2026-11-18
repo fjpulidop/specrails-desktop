@@ -288,7 +288,7 @@
     "stalledIdle_one": "Sem saída do fornecedor durante {{count}} minuto — a app parou esta tentativa",
     "stalledIdle_other": "Sem saída do fornecedor durante {{count}} minutos — a app parou esta tentativa",
     "providerLimit": "Limite do fornecedor",
-    "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app parou a execução em vez de continuar a ciclar.",
+    "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app pôs a execução em pausa no limite em vez de continuar a ciclar.",
     "paused": "Em pausa",
     "runtimeGraph": "Grafo de execução",
     "graphFullscreen": "Tela cheia",

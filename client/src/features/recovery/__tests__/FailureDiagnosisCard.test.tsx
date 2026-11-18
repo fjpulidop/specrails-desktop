@@ -52,12 +52,12 @@ describe('FailureDiagnosisCard', () => {
   it('explains a provider limit with the reset time', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] })} handlers={handlers()} />)
     expect(screen.getByTestId('failure-headline')).toHaveTextContent("The AI provider's usage limit was reached")
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid). Resume once it has.')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid). Resume then, or run it on another provider.')
   })
 
   it('says nothing about a reset it does not know', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, remedies: ['retry'] })} handlers={handlers()} />)
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('Wait for the limit to reset, then resume.')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('Wait for the limit to reset, then resume, or run it on another provider.')
   })
 
   it('shows what the host must do for an environment failure, without running anything', async () => {
@@ -129,5 +129,15 @@ describe('FailureDiagnosisCard: environment plan remedy', () => {
       await new Promise((resolve) => setTimeout(resolve, 20))
       expect(screen.queryByTestId('failure-environment-plan')).toBeNull()
     } finally { vi.unstubAllGlobals(); setActiveProjectId(null) }
+  })
+
+  it('says when a usage limit resets in the person\'s clock, and no longer asks to relaunch', () => {
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', resetsAt: '2026-11-18T14:00:00.000Z', remedies: ['resume', 'retry', 'open-logs'] })} handlers={handlers()} />)
+    const why = screen.getByTestId('failure-why')
+    const time = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date('2026-11-18T14:00:00.000Z'))
+    expect(why).toHaveTextContent(`It resets at`)
+    expect(why.textContent).toContain(time)
+    expect(why).toHaveTextContent('run it on another provider')
+    expect(why.textContent).not.toMatch(/relaunch/i)
   })
 })

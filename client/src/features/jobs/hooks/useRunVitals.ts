@@ -3,6 +3,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { readDailyBudgetInfo, type DailyBudgetInfo } from '../../../lib/daily-budget'
 import { useNow } from '../../../hooks/useNow'
+import { readLimitPause, type LimitPause } from '../../provider-quota/lib/limit-pause'
 
 /**
  * Live vitals for one rail run's backing job row (safe-pr-review-flow run
@@ -24,6 +25,8 @@ export interface RunVitals {
   pausedReason: string | null
   /** Set when the pause is `budget_paused` (daily budget between AI steps). */
   pauseBudget: DailyBudgetInfo | null
+  /** Set when the pause is `limit_paused` (provider usage limit). */
+  pauseLimit: LimitPause | null
   /** True while the backing job is still executing (drives the ticker). */
   running: boolean
   /** REAL wall-clock ms (started_at → finished_at | now). Null until known. */
@@ -45,6 +48,7 @@ interface JobRowSlice {
   loopPauseReason?: string | null
   loopPauseKind?: string | null
   loopPauseBudget?: unknown
+  loopPauseLimit?: unknown
 }
 
 interface WireTotals {
@@ -94,6 +98,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   const [paused, setPaused] = useState(false)
   const [pausedReason, setPausedReason] = useState<string | null>(null)
   const [pauseBudget, setPauseBudget] = useState<DailyBudgetInfo | null>(null)
+  const [pauseLimit, setPauseLimit] = useState<LimitPause | null>(null)
   // A run announced live can reach the card before its jobs row (or its
   // started_at) is written: re-read it a bounded number of times instead of
   // showing "—" until the next reload.
@@ -122,6 +127,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
           setPaused(job.loopPaused === true)
           setPausedReason(typeof job.loopPauseReason === 'string' ? job.loopPauseReason : null)
           setPauseBudget(job.loopPaused === true && job.loopPauseKind === 'budget_paused' ? readDailyBudgetInfo(job.loopPauseBudget) : null)
+          setPauseLimit(job.loopPaused === true && job.loopPauseKind === 'limit_paused' ? readLimitPause(job.loopPauseLimit) : null)
         }
         setLoaded(true)
       })
@@ -142,11 +148,12 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
     if (!ws || !live) return
     const handlerId = `run-vitals-${runId}-${uid}`
     ws.registerHandler(handlerId, (data: unknown) => {
-      const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string; pauseKind?: string; budget?: unknown }
+      const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string; pauseKind?: string; budget?: unknown; limit?: unknown }
       if (msg?.type === 'loop.run_paused' && msg.loopRunId === runId) {
         setPaused(true)
         setPausedReason(typeof msg.reason === 'string' ? msg.reason : null)
         setPauseBudget(msg.pauseKind === 'budget_paused' ? readDailyBudgetInfo(msg.budget) : null)
+        setPauseLimit(msg.pauseKind === 'limit_paused' ? readLimitPause(msg.limit) : null)
         setStatus('running')
         setFinishedAt(null)
         return
@@ -155,6 +162,11 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         setPaused(false)
         setPausedReason(null)
         setPauseBudget(null)
+        setPauseLimit(null)
+        return
+      }
+      if (msg?.type === 'loop.limit_pause' && msg.loopRunId === runId) {
+        setPauseLimit(readLimitPause(msg.limit))
         return
       }
       if (msg?.jobId !== runId) return
@@ -170,6 +182,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         setPaused(false)
         setPausedReason(null)
         setPauseBudget(null)
+        setPauseLimit(null)
         setFinishedAt(ts(msg.timestamp) ?? Date.now())
       }
     })
@@ -181,5 +194,5 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
 
   const elapsedMs = startedAt === null ? null : Math.max(0, (finishedAt ?? now) - startedAt)
 
-  return { status, paused, pausedReason, pauseBudget, running, elapsedMs, costUsd, numTurns, loaded }
+  return { status, paused, pausedReason, pauseBudget, pauseLimit, running, elapsedMs, costUsd, numTurns, loaded }
 }

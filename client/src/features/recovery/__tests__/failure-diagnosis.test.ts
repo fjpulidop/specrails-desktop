@@ -55,6 +55,7 @@ describe('headline and why keys', () => {
   })
   it('says when a provider limit resets only when it knows', () => {
     expect(whyKey({ ...base, kind: 'provider_limit', resetAt: '3am (Europe/Madrid)' })).toEqual({ key: 'why.provider_limit.reset', params: { resetAt: '3am (Europe/Madrid)' } })
+    expect(whyKey({ ...base, kind: 'provider_limit', resetAt: '3am', resetsAt: '2026-11-18T14:00:00.000Z' })).toEqual({ key: 'why.provider_limit.resetsAt', params: { resetsAt: '2026-11-18T14:00:00.000Z' } })
     expect(whyKey({ ...base, kind: 'provider_limit' })?.key).toBe('why.provider_limit.noReset')
     expect(whyKey({ ...base, kind: 'unknown' })).toBeNull()
   })

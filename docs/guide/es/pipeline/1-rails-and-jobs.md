@@ -108,6 +108,17 @@ El rango es la mitad central de tu propio historial: del percentil 25 al 75 de l
 La cifra en dólares solo aparece cuando se sabe que el motor factura por uso (por ejemplo, una clave de API). Con un plan de suscripción, o mientras aún no se conoce el modo de facturación, solo se muestra el tiempo. Si el rail tiene varias specs, el rango es para una spec y lo dice con *(por spec)*. Si el gasto de hoy más el extremo alto del rango pudiera alcanzar tu presupuesto diario, la línea añade *Puede pausarse por presupuesto* con un enlace a los ajustes de presupuesto. Si el presupuesto de hoy ya está agotado, Lanzar te pide confirmar antes, porque la ejecución se pausaría hasta que se restablezca.
 
 
+## Límites de uso {#usage-limits}
+
+Los planes de suscripción limitan cuánto puedes usar en una ventana de 5 horas y en una semanal. La app lee ese límite del proveedor mientras tus ejecuciones trabajan, así que conoce la hora exacta en que se restablece cada ventana en vez de adivinarla a partir del texto del proveedor.
+
+- **Barra de estado.** El medidor de uso se vuelve ámbar al 80 % y rojo al 90 % de una ventana. Cuando el proveedor rechaza peticiones muestra *límite · se restablece 15:00*, y una notificación lo avisa una vez (categoría **Límites de gasto** en Ajustes ▸ Notificaciones).
+- **Comprobaciones de lanzamiento.** **Lanzar todos** comprueba, en uno o dos segundos: el disco libre donde viven los worktrees (no lanza con menos de 1 GB y avisa por debajo de 5 GB), si cada motor y GitHub tienen la sesión iniciada y cuánta cuota queda. Lanzar N rails en una ventana al 80 % o más, o en una rechazada, muestra un aviso con la hora de restablecimiento. Una comprobación fallida bloquea el lanzamiento hasta que la corrijas.
+- **En pausa en el límite.** Cuando una ejecución llega al límite se pausa en vez de fallar. Se reanuda sola al restablecerse y reintenta el paso que el proveedor rechazó. Desactívalo para una ejecución con **No reanudar sola**, reanúdala ya con **Reanudar ahora** o, en un loop cuyos pasos ejecuta la app, **Continuar ahora con** otro proveedor; el nuevo proveedor recibe lo hecho hasta entonces como contexto, nunca como instrucciones. La pausa sobrevive a un reinicio. Una ejecución nunca arranca mientras el ordenador duerme: espera a que lleve dos minutos despierto.
+- **Misiones.** Un turno de misión que llega al límite deja una tarjeta con la hora de restablecimiento. Nunca continúa sola: elige **Continuar a las 15:00** o **Continuar ahora con** otro proveedor.
+
+Tras tres rechazos seguidos, la ejecución se detiene con el mensaje del propio proveedor, como antes.
+
 ## A dónde ir después
 
 - [El Loop Builder](the-loop-builder) — qué ejecuta un rail y cómo construir tus propios loops.

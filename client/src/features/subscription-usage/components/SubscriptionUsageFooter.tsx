@@ -6,10 +6,16 @@ import { UsageProviderIcon } from './UsageProviderIcon'
 import { SubscriptionUsageSection } from './SubscriptionUsageSection'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
 import { formatSpendPercent } from './EnterpriseSpendMeter'
+import { useProviderQuotas } from '../../provider-quota/lib/useProviderQuota'
+import { formatResetTime } from '../../provider-quota/lib/format-reset'
+import { QUOTA_CRITICAL_PERCENT, QUOTA_WARNING_PERCENT } from '../../provider-quota/lib/types'
 
 export function SubscriptionUsageFooter() {
   const { t, i18n } = useTranslation('subscriptionUsage')
   const { snapshot, busy, refresh } = useSubscriptionUsage()
+  const { t: tQuota } = useTranslation('providerQuota')
+  const quotas = useProviderQuotas()
+  const quotaOf = (providerId: string) => quotas.find(quota => quota.providerId === providerId) ?? null
   const refreshing = busy || !!snapshot?.providers.some(provider => provider.refreshState === 'refreshing')
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ right: 16, bottom: 32 })
@@ -40,12 +46,22 @@ export function SubscriptionUsageFooter() {
       <button ref={trigger} type="button" aria-label={t('shortTitle')} className="flex h-6 items-center gap-1.5 rounded px-2 text-xs hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-ring" onPointerEnter={event => { if (event.pointerType === 'mouse') changeOpen(true) }} onPointerLeave={scheduleClose} onFocus={() => changeOpen(true)} onBlur={scheduleClose} onClick={event => { event.preventDefault(); changeOpen(true) }}>
         
         {(!snapshot || snapshot.providers.every(provider => !provider.windows.length && !provider.spend)) && <span className="text-muted-foreground">—</span>}
-        <span className="flex items-center gap-3">{snapshot?.providers.filter(provider => provider.windows.length || provider.spend).map(provider => {
+        <span className="flex items-center gap-3">{snapshot?.providers.filter(provider => provider.windows.length || provider.spend || quotaOf(provider.providerId)?.level === 'rejected').map(provider => {
           const window = provider.windows.find(window => window.scope === 'account' && window.label === 'weekly')
             ?? provider.windows.find(window => window.scope === 'account')
             ?? provider.windows[0]
-          const percent = provider.spend ? provider.spend.usedPercent === null ? '—' : formatSpendPercent(provider.spend.usedPercent, i18n.language) : window.usedPercent === null ? '—' : `${window.usedPercent}%`
-          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-foreground" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="num">{percent}</span>{(() => { const pct = provider.spend ? provider.spend.usedPercent : window.usedPercent; return pct === null || pct === undefined ? null : <span aria-hidden="true" data-testid="usage-meter" className="relative h-[3px] w-6 overflow-hidden rounded-full bg-muted"><span className={`absolute inset-y-0 left-0 rounded-full ${pct >= 90 ? 'bg-destructive' : pct >= 75 ? 'bg-accent-warning' : 'bg-accent-primary'}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span> })()}</span>
+          const quota = quotaOf(provider.providerId)
+          // The fullest window decides the tone (≥80 % warning, ≥90 % critical); a refusal says when it lifts.
+          const pct = provider.spend ? provider.spend.usedPercent : Math.max(window?.usedPercent ?? -1, quota?.level === 'rejected' ? -1 : quota?.usedPercent ?? -1)
+          const shown = pct === null || pct < 0 ? null : pct
+          const percent = shown === null ? '—' : provider.spend ? formatSpendPercent(shown, i18n.language) : `${Math.round(shown)}%`
+          const name = provider.providerId === 'claude' ? 'Claude' : 'Codex'
+          if (quota?.level === 'rejected') {
+            const until = quota.rejectedUntil ? formatResetTime(quota.rejectedUntil, i18n.language) : null
+            return <span key={provider.providerId} data-testid="usage-limit-reached" data-level="rejected" className="flex items-center gap-1.5 text-destructive" title={name}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0" /><span>{name}</span><span>{until ? tQuota('statusBar.rejectedUntil', { time: until }) : tQuota('statusBar.rejected')}</span></span>
+          }
+          const level = shown === null ? 'unknown' : shown >= QUOTA_CRITICAL_PERCENT ? 'critical' : shown >= QUOTA_WARNING_PERCENT ? 'warning' : 'ok'
+          return <span key={provider.providerId} data-level={level} className={`flex items-center gap-1.5 ${level === 'critical' ? 'text-destructive' : level === 'warning' ? 'text-accent-warning' : ''}`} title={name}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-foreground" /><span>{name}</span><span className="num">{percent}</span>{shown === null ? null : <span aria-hidden="true" data-testid="usage-meter" className="relative h-[3px] w-6 overflow-hidden rounded-full bg-muted"><span className={`absolute inset-y-0 left-0 rounded-full ${level === 'critical' ? 'bg-destructive' : level === 'warning' ? 'bg-accent-warning' : 'bg-accent-primary'}`} style={{ width: `${Math.max(0, Math.min(100, shown))}%` }} /></span>}</span>
         })}</span>
       </button>
     </Dialog.Trigger>

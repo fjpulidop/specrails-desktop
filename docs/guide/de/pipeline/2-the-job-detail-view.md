@@ -113,7 +113,7 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 Bei einem fehlgeschlagenen oder abgebrochenen Job mit Diagnose öffnet sich **Fehlerursachen** mit der **Diagnosekarte**, die die Ursache erklärt und, wenn bekannt, warum es dazu kam. Hat die Laufzeit festgehalten, welcher Schritt fehlgeschlagen ist, nennt die Karte ihn: Schritt, Versuch, Iteration und Zeitpunkt. Die Ursachen:
 
 - **Tests fehlgeschlagen**: Die Prüfungen schlagen nach den Korrekturrunden weiter fehl.
-- **Anbieterlimit**: Das Nutzungslimit des KI-Anbieters ist erreicht. Die Karte nennt den Zeitpunkt des Zurücksetzens in den Worten des Anbieters.
+- **Anbieterlimit** — das Nutzungslimit des KI-Anbieters wurde erreicht. Die Karte nennt den Reset in deiner Ortszeit, wenn der Anbieter den genauen Zeitpunkt gemeldet hat, sonst in den Worten des Anbieters. Ein Lauf, der noch am Limit pausiert, zeigt stattdessen seine eigene Karte: wann er von selbst fortsetzt, **Jetzt fortsetzen** und **Jetzt mit** einem anderen Anbieter **fortsetzen**. Siehe [Nutzungslimits](1-rails-and-jobs.md#usage-limits).
 - **Umgebung**: Der Rechner kann die Prüfungen nicht ausführen (Zugangsdaten, fehlendes Werkzeug, fehlschlagender Setup-Befehl). *Umgebung reparieren* zeigt genau, was auszuführen oder zu ändern ist.
 - **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
 - **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.

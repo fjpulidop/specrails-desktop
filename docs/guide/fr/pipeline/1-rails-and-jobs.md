@@ -106,6 +106,17 @@ La fourchette correspond à la moitié centrale de votre propre historique : du 
 Le montant en dollars n’apparaît que lorsque le moteur est connu pour facturer à l’usage (par exemple une clé d’API). Avec un abonnement, ou tant que le mode de facturation n’est pas connu, seule la durée s’affiche. Quand le rail contient plusieurs specs, la fourchette vaut pour une spec et l’indique par *(par spec)*. Si la dépense du jour plus le haut de la fourchette pouvait atteindre votre budget quotidien, la ligne ajoute *Peut se mettre en pause au budget* avec un lien vers les réglages du budget. Si le budget du jour est déjà épuisé, Lancer demande d’abord une confirmation, car l’exécution se mettrait en pause jusqu’à la réinitialisation.
 
 
+## Limites d'utilisation {#usage-limits}
+
+Les abonnements plafonnent ce que vous pouvez utiliser sur une fenêtre de 5 heures et une fenêtre hebdomadaire. L'app lit cette limite auprès du fournisseur pendant que vos exécutions travaillent : elle connaît donc l'heure exacte de réinitialisation d'une fenêtre au lieu de la deviner d'après le texte du fournisseur.
+
+- **Barre d'état.** L'indicateur d'utilisation passe à l'orange à 80 % d'une fenêtre et au rouge à 90 %. Quand le fournisseur refuse les requêtes, il affiche *limite · réinit. 15:00*, et une notification le signale une fois (catégorie **Limites de dépense** dans Réglages ▸ Notifications).
+- **Vérifications avant lancement.** **Tout lancer** vérifie en une ou deux secondes : l'espace disque libre là où vivent les worktrees (refus sous 1 Go, avertissement sous 5 Go), si chaque moteur et GitHub sont connectés, et le quota restant. Lancer N rails dans une fenêtre à 80 % ou plus, ou dans une fenêtre refusée, affiche un avertissement avec l'heure de réinitialisation. Une vérification en échec bloque le lancement jusqu'à ce que vous la corrigiez.
+- **En pause à la limite.** Quand une exécution atteint la limite, elle se met en pause au lieu d'échouer. Elle reprend seule à la réinitialisation et relance l'étape refusée par le fournisseur. Désactivez-le pour une exécution avec **Ne pas reprendre automatiquement**, reprenez-la tout de suite avec **Reprendre maintenant** ou, pour une boucle dont l'app exécute les étapes, **Continuer maintenant avec** un autre fournisseur ; le nouveau fournisseur reçoit ce qui a été fait comme contexte, jamais comme instructions. La pause survit à un redémarrage. Une exécution ne démarre jamais pendant que l'ordinateur dort : elle attend qu'il soit réveillé depuis deux minutes.
+- **Missions.** Un tour de mission qui atteint la limite laisse une carte avec l'heure de réinitialisation. Il ne continue jamais seul : choisissez **Continuer à 15:00** ou **Continuer maintenant avec** un autre fournisseur.
+
+Après trois refus d'affilée, l'exécution s'arrête avec le message du fournisseur, comme avant.
+
 ## Où aller ensuite
 
 - [Le Loop Builder](the-loop-builder) — ce qu'un rail exécute, et comment construire vos propres loops.

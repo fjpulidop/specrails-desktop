@@ -36,6 +36,8 @@ export interface FailureDiagnosis {
   rounds: number | null
   /** `provider_limit`: the provider's own wording of the reset time. */
   resetAt: string | null
+  /** `provider_limit`: the exact reset (ISO) when the provider reported it typed (Core 5.14) or the words pin it. */
+  resetsAt?: string | null
   /** One short sentence from the run's own error; never a log tail. */
   detail: string | null
   /** Step a resume continues from, when resuming can help. */
@@ -93,6 +95,7 @@ export function parseCoreFailure(raw: unknown): FailureDiagnosis | null {
     phase: optionalText(value.phase, 200),
     rounds,
     resetAt: kind === 'provider_limit' ? optionalText(value.resetAt, 80) : null,
+    ...(kind === 'provider_limit' ? { resetsAt: typeof value.resetsAt === 'string' && Number.isFinite(Date.parse(value.resetsAt)) ? new Date(value.resetsAt).toISOString() : null } : {}),
     detail: oneSentence(value.detail),
     resumablePhase: optionalText(value.resumablePhase, 200),
     blocker: parseBlocker(value.blocker),

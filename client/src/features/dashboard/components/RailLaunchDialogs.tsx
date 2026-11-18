@@ -7,11 +7,13 @@ import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDi
 import type { RailState } from '../../rails/components/RailsBoard'
 import type { useRailLaunch } from '../hooks/useRailLaunch'
 
-export function RailLaunchDialogs({ launch, rails, reviewWipLimit, pendingReviewCount }: {
+export function RailLaunchDialogs({ launch, rails, reviewWipLimit, pendingReviewCount, projectId = null }: {
   launch: ReturnType<typeof useRailLaunch>
   rails: RailState[]
   reviewWipLimit: number | null
   pendingReviewCount: number
+  /** Enables the launch preflight (disk, sign-in, quota). */
+  projectId?: string | null
 }) {
   const { launchAllPlan, launchAllConfirm, targetPrConfirm } = launch
   const r = targetPrConfirm ? rails.find((x) => x.id === targetPrConfirm.railId) : undefined
@@ -24,6 +26,8 @@ export function RailLaunchDialogs({ launch, rails, reviewWipLimit, pendingReview
         reviewLimit={reviewWipLimit !== null && launchAllPlan.skipped.some((s) => s.reason === 'reviewLimit')
           ? { limit: reviewWipLimit, pending: pendingReviewCount, held: launchAllPlan.skipped.filter((s) => s.reason === 'reviewLimit').length }
           : null}
+        projectId={projectId}
+        providers={launchAllPlan.eligible.map((rail) => rail.aiEngine ?? '')}
         onCancel={launch.cancelLaunchAll}
         onConfirm={() => { void launch.runLaunchAll() }}
       />

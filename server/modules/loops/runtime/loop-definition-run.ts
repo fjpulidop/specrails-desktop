@@ -106,6 +106,10 @@ export interface DefinitionLoopExecutionPorts {
   /** Host-requested pause (`state.pause`, no interrupt), e.g. the daily budget.
    *  'continue' resumes the retained run as is; 'stop' settles it cancelled. */
   awaitHostPause?(pause: DefinitionHostPause): Promise<'continue' | 'stop'>
+  /** provider-quota: Core failed on a provider usage limit. 'continue' resumes the
+   *  retained run (Core re-runs the refused step), 'stop' settles it cancelled,
+   *  'settle' keeps the failure. */
+  awaitProviderLimit?(result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle'>
 }
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
@@ -117,6 +121,11 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       onPrepared: ports.onPrepared, onLine: ports.onLine, onRuntimeEvent: ports.onRuntimeEvent, onSpawn: ports.onSpawn, timeoutMs: ports.remainingMs() })
     ports.onInvocationEnd(result)
     if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+    if (result.runtimeStatus === 'failed' && ports.awaitProviderLimit) {
+      const limit = await ports.awaitProviderLimit(result)
+      if (limit === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      if (limit === 'continue') { continuation = { resume: true }; continue }
+    }
     if (result.runtimeStatus !== 'paused') return result
     const pending = result.pendingInterrupts ?? []
     if (!pending.length && result.pause && ports.awaitHostPause) {

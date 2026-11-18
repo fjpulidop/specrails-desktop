@@ -45,6 +45,8 @@ export type ProjectionOp =
   /** A generated image of a turn, saved by the provider at `path` (local, absolute). */
   | { kind: 'turn.image'; turnId: string; imageId: string; path: string; mimeType: string; prompt: string | null }
   | { kind: 'notice'; level: 'info' | 'warning'; code: string; message: string }
+  /** The account's usage-limit state reported by the session's driver (opaque; see provider-quota). */
+  | { kind: 'rate-limit'; driver: string | null; rateLimit: Record<string, unknown>; at: string }
 
 export interface ProjectionState {
   sessionId: string
@@ -54,6 +56,8 @@ export interface ProjectionState {
   openTurn: { turnId: string; origin: TurnOrigin; startedAt: string } | null
   liveSubagents: number
   subagents: Record<string, SubagentView>
+  /** The session's driver, once `session.opened` was applied. */
+  driver?: string
 }
 
 export function initialProjection(sessionId: string, lastSeq = 0): ProjectionState {
@@ -189,7 +193,12 @@ export function reduceEnvelope(state: ProjectionState, envelope: SessionEventEnv
     case 'provider.diagnostic':
       if (event.level === 'warning') ops.push({ kind: 'notice', level: 'warning', code: event.code, message: event.message })
       break
+    case 'provider.rate-limit':
+      ops.push({ kind: 'rate-limit', driver: next.driver ?? null, rateLimit: event.rateLimit, at: event.at })
+      break
     case 'session.opened':
+      next.driver = event.driver
+      break
     case 'notice.interruption':
       break
   }

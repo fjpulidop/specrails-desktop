@@ -52,6 +52,7 @@ import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 
 import { notifyError } from '../../../lib/notify-error'
+import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
 /** Short, human-readable job id for the title ("#1a2b3c4d"). */
 function shortJobId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id
@@ -519,6 +520,10 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
             {/* Interactive in-job agent composer — the SAME control the board's Job
                 Detail page mounts, so a mission-mode user steers the running job
                 without leaving the workspace. */}
+            {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+            {job && projectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
+              <RunLimitPause projectId={projectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
+            )}
             {!!job?.interactive && job.status === 'running' && (
               <InteractiveJobComposer
                 jobId={jobId}

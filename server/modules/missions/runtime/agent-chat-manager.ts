@@ -60,6 +60,10 @@ import {
 import { claudeContextUsage, claudeContextUsageFromTranscript, coreContextUsage, codexContextUsageFromRollout, type ContextUsageSnapshot } from './mission-context-usage'
 import { readCodexRolloutTail } from './codex-rollout-reader'
 import { readClaudeTranscriptTail } from './claude-transcript-reader'
+import { classifyProviderLimit } from '../../../provider-limit'
+import { resolveResetText } from '../../provider-quota/domain'
+import { quotaResumeAt, quotaView, reportProviderRefusal, scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
+import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
 import type { PrDecisionCardEnvelope } from '../../../types'
 import { generateAutoTitle } from '../../conversations/runtime/explore-draft-title'
 import {
@@ -83,6 +87,7 @@ import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
 import { buildSessionSeedBlock, SESSION_SUMMARY_KIND, SessionRenewalError, type SessionSummaryResult, type SessionSummaryRow } from './mission-session-summary'
 import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -192,6 +197,8 @@ export class AgentChatManager {
   /** Permanent lifecycle gate: the app DB may be closed immediately after
    * shutdown, so no delayed turn/title/card callback may touch it afterwards. */
   private _disposed = false
+  /** provider-quota: missions the person asked to continue at a usage-limit reset. */
+  private readonly _limitContinues = new Map<string, { cancel(): void }>()
   private _resolveDisposed!: () => void
   private readonly _disposedSignal = new Promise<void>((resolve) => {
     this._resolveDisposed = resolve
@@ -1599,7 +1606,13 @@ export class AgentChatManager {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
           this._broadcast({ type: 'agent_partial', conversationId, fullText: r.text, messageId: message.id, error: reason, timestamp: timestamp() })
         }
-        this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
+        // provider-quota: a usage-limit refusal is not a broken turn. Say when the
+        // provider accepts requests again and offer to continue then or elsewhere.
+        const limit = classifyProviderLimit(reason) ?? classifyProviderLimit(r.text)
+        if (limit || quotaView(adapter.id)?.level === 'rejected') {
+          this._postUsageLimit(conversationId, adapter.id, limit?.message ?? reason, limit?.resetsAt ?? null)
+          this._emitError(conversationId, reason, { code: 'provider_limit', provider: adapter.id })
+        } else this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
         record(r, 'failed')
         return
       }
@@ -1775,6 +1788,7 @@ export class AgentChatManager {
       this._auxReaders.set(child, reader)
       reader.on('line', (line) => {
         if (this._disposed) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           events.push(ev)
           if (ev.kind === 'text-delta') raw += ev.text
@@ -2206,6 +2220,8 @@ export class AgentChatManager {
     this._steeringCapabilities.clear()
     this._nativeInputNotifiers.clear()
     this._disposed = true
+    for (const timer of this._limitContinues.values()) timer.cancel()
+    this._limitContinues.clear()
     this._resolveDisposed()
     for (const controller of this._summaryAborts.values()) controller.abort()
     this._summaryAborts.clear()
@@ -2232,11 +2248,70 @@ export class AgentChatManager {
   }
 
   /** `detail.code` lets clients explain known failures (e.g. `policy_unenforceable`) in the user's language. */
+  /**
+   * provider-quota: persist the usage-limit row of a mission turn (the card that
+   * offers "continue at the reset" and "continue now on another provider") and
+   * broadcast it. Missions never continue on their own: the person chooses.
+   */
+  private _postUsageLimit(conversationId: string, providerId: string, message: string, resetWords: string | null): void {
+    if (this._disposed) return
+    try {
+      reportProviderRefusal(providerId, resetWords)
+      const resumeAt = quotaResumeAt(providerId) ?? resolveResetText(resetWords, Date.now())
+      const row = { kind: 'usage-limit' as const, provider: providerId, resumeAt, message: message.slice(0, 400), at: new Date().toISOString() }
+      const stored = addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(row) })
+      this._broadcast({ type: 'agent_system_row', conversationId, messageId: stored.id, dedupeKey: `usage-limit:${stored.id}`, ...row, timestamp: row.at })
+    } catch (err) {
+      console.error(`[agent-chat] usage-limit row failed (${conversationId}):`, err)
+    }
+  }
+
+  /**
+   * The person asked a limit-stopped mission to continue by itself at the
+   * reset (or cancelled that, `at` null). Persisted so a restart keeps it;
+   * fires on the wake-aware clock (never during sleep or a dark wake) and
+   * sends one ordinary "continue" turn.
+   */
+  scheduleLimitContinue(conversationId: string, at: string | null): { at: string | null } {
+    this._limitContinues.get(conversationId)?.cancel()
+    this._limitContinues.delete(conversationId)
+    const key = `mission_limit_continue:${conversationId}`
+    if (!at || !Number.isFinite(Date.parse(at))) {
+      this._db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      this._broadcast({ type: 'agent_limit_continue', conversationId, at: null, timestamp: new Date().toISOString() })
+      return { at: null }
+    }
+    const when = new Date(at).toISOString()
+    setDesktopSetting(this._db, key, when)
+    this._limitContinues.set(conversationId, scheduleLimitResume(when, () => {
+      this._limitContinues.delete(conversationId)
+      this._db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      if (this._disposed || !getAgentConversation(this._db, conversationId)) return
+      void Promise.resolve(this.sendMessage(conversationId, LIMIT_CONTINUE_PROMPT)).catch((err: unknown) => console.error(`[agent-chat] limit continue failed (${conversationId}):`, err))
+    }))
+    this._broadcast({ type: 'agent_limit_continue', conversationId, at: when, timestamp: new Date().toISOString() })
+    return { at: when }
+  }
+
+  /** The scheduled continue of a mission, if any. */
+  limitContinueAt(conversationId: string): string | null {
+    return getDesktopSetting(this._db, `mission_limit_continue:${conversationId}`) ?? null
+  }
+
+  /** Re-arm the continues the person scheduled before a restart. */
+  restoreLimitContinues(): void {
+    const rows = this._db.prepare("SELECT key, value FROM desktop_settings WHERE key LIKE 'mission_limit_continue:%'").all() as Array<{ key: string; value: string }>
+    for (const row of rows) this.scheduleLimitContinue(row.key.slice('mission_limit_continue:'.length), row.value)
+  }
+
   private _emitError(conversationId: string, error: string, detail?: { code: string; provider: string }): void {
     if (this._disposed) return
     this._broadcast({ type: 'agent_error', conversationId, error, ...(detail ?? {}), timestamp: new Date().toISOString() })
   }
 }
+
+/** The one turn a scheduled limit continue sends (an ordinary user-visible message). */
+export const LIMIT_CONTINUE_PROMPT = 'Your usage limit has reset. Continue where you left off: check what the last turn completed before repeating any step.'
 
 const MAX_AI_TITLE_LEN = 80
 

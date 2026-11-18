@@ -10,6 +10,8 @@ import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { useRunVitals, formatRunElapsed } from '../../../jobs/hooks/useRunVitals'
 import { dailyBudgetPausedMessage } from '../../../../lib/daily-budget'
 import { formatUsd } from '../../../analytics/lib/format'
+import { providerLabel } from '../../../provider-quota/lib/labels'
+import { formatResetTime } from '../../../provider-quota/lib/format-reset'
 import type { MissionRunVitalsSnapshot } from '../mission-run-strip'
 
 /**
@@ -35,7 +37,12 @@ export function RunLogChip({
   const { t } = useTranslation('agent')
   const vitals = useRunVitals(projectId, runId, { live })
   // budget_paused: localized amounts instead of the server's English reason.
-  const pausedReason = vitals.pauseBudget ? dailyBudgetPausedMessage(t, vitals.pauseBudget) : vitals.pausedReason
+  const { t: tQuota, i18n } = useTranslation('providerQuota')
+  // limit_paused: the provider and when it resumes, in the person's clock.
+  const limitReason = vitals.pauseLimit
+    ? [tQuota('pause.title', { provider: providerLabel(vitals.pauseLimit.providerId) }), vitals.pauseLimit.resumeAt && vitals.pauseLimit.autoResume ? tQuota('mission.scheduled', { time: formatResetTime(vitals.pauseLimit.resumeAt, i18n.language) }) : null].filter(Boolean).join(' — ')
+    : null
+  const pausedReason = vitals.pauseBudget ? dailyBudgetPausedMessage(t, vitals.pauseBudget) : limitReason ?? vitals.pausedReason
   const budgetPaused = vitals.pauseBudget !== null
   const label = ticketLabel ?? runId.slice(0, 8)
   const elapsed = vitals.elapsedMs != null ? formatRunElapsed(vitals.elapsedMs) : null

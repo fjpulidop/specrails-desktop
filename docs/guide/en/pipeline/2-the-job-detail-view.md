@@ -113,7 +113,7 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 For a failed or canceled job with a diagnosis, **Failure reasons** opens with the **diagnosis card** explaining the cause and why it happened when known. When the runtime recorded which step failed, the card says so: the step, the attempt, the iteration and the time. The causes:
 
 - **Tests failed** — the checks still fail after the correction rounds.
-- **Provider limit** — the AI provider's usage limit was reached. The card quotes when it resets, in the provider's own words.
+- **Provider limit** — the AI provider's usage limit was reached. The card says when it resets, in your own clock when the provider reported the exact time, otherwise in the provider's words. A run that is still paused at the limit shows its own card instead: when it resumes on its own, **Resume now**, and **Continue now with** another provider. See [Usage limits](1-rails-and-jobs.md#usage-limits).
 - **Environment** — the machine cannot run the checks (credentials, a missing toolchain, a failing setup command). *Fix the environment* shows exactly what to run or change.
 - **Blocked**, **ran out of time**, **went quiet** and **stopped unexpectedly** name the limit or the process that stopped the run.
 - **Unknown cause** — the app does not guess. It shows the end of the log so you can read it yourself.

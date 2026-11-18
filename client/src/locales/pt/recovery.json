@@ -31,8 +31,9 @@
   },
   "why": {
     "provider_limit": {
-      "reset": "Ele é redefinido {{resetAt}}. Retome depois.",
-      "noReset": "Espere o limite ser redefinido e depois retome."
+      "resetsAt": "Repõe às {{time}}. Retoma então ou executa-a com outro fornecedor.",
+      "reset": "Repõe {{resetAt}}. Retoma então ou executa-a com outro fornecedor.",
+      "noReset": "Espera pela reposição do limite e retoma, ou executa-a com outro fornecedor."
     },
     "environment": "O problema não é a mudança em si. A máquina precisa de algo antes.",
     "tests_failed": "As verificações continuam falhando após as correções.",

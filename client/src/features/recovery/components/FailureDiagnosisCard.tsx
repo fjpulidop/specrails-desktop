@@ -6,6 +6,7 @@ import {
 import { Button } from '../../../components/ui/button'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
+import { formatResetTime } from '../../provider-quota/lib/format-reset'
 import {
   availableRemedies, headlineKey, humanizePhase, recordedStepError, whyKey,
   type FailureDiagnosis, type RemedyHandlers, type RemedyId,
@@ -41,13 +42,14 @@ const REMEDY_ICON: Record<RemedyId, LucideIcon> = {
 
 /** The headline and the "why" line as plain words, shared by the card and the inbox row. */
 export function useDiagnosisText(diagnosis: FailureDiagnosis): { headline: string; why: string | null; phaseName(id: string): string } {
-  const { t } = useTranslation('recovery')
+  const { t, i18n } = useTranslation('recovery')
   const { t: tRuntime } = useTranslation('agentRuntime')
   // Core's step ids are role names (`reviewer`, `fixer`); anything else is made readable.
   const phaseName = (id: string): string => tRuntime(`roles.${id}`, { defaultValue: humanizePhase(id) ?? id })
   const head = headlineKey(diagnosis, diagnosis.phase ? phaseName(diagnosis.phase) : null)
   const why = whyKey(diagnosis)
-  return { headline: t(head.key, head.params), why: why ? t(why.key, why.params) : null, phaseName }
+  const whyParams = why && typeof why.params.resetsAt === 'string' ? { ...why.params, time: formatResetTime(why.params.resetsAt, i18n.language) } : why?.params
+  return { headline: t(head.key, head.params), why: why ? t(why.key, whyParams) : null, phaseName }
 }
 
 function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {

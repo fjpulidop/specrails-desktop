@@ -375,7 +375,24 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       pendingMessages: manager.pendingMessages(conversation.id),
       live: manager.conversationLive(conversation.id),
       session: manager.sessionState(conversation.id),
+      // provider-quota: a continue the person scheduled at a usage-limit reset (optional manager capability).
+      limitContinueAt: typeof manager.limitContinueAt === 'function' ? manager.limitContinueAt(conversation.id) : null,
     })
+  })
+
+  // provider-quota: continue a limit-stopped mission by itself at the reset
+  // (`{ at: ISO }`), or cancel that (`{ at: null }`). Offered, never automatic.
+  router.get('/conversations/:id/limit-continue', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ at: manager.limitContinueAt(conversation.id) })
+  })
+  router.post('/conversations/:id/limit-continue', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    const at = (req.body ?? {}).at
+    if (at !== null && (typeof at !== 'string' || !Number.isFinite(Date.parse(at)))) { res.status(400).json({ error: 'at must be an ISO time or null' }); return }
+    res.json(manager.scheduleLimitContinue(conversation.id, at))
   })
 
   // ── Sub-agents of a mission's Core agent session (core-agent-sessions-host) ──

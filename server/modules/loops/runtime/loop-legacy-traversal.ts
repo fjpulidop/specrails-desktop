@@ -50,9 +50,10 @@ function frameFor(ctx: LoopRunContext, node: LoopNode): LoopNodeFrame {
     label: String(node.data?.label ?? '').trim(),
     // The RAIL governs provider/model/effort for the whole run — nodes do
     // NOT override (decided in design: "lo que pongamos en el rail manda").
-    provider: req.provider,
-    model: req.model,
-    effort: req.effort,
+    // …except after a usage-limit pause the person continued on another provider.
+    provider: ctx.state.engineOverride?.provider ?? req.provider,
+    model: ctx.state.engineOverride?.model ?? req.model,
+    effort: ctx.state.engineOverride ? undefined : req.effort,
   }
 }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { initialUsage, providerBilling, USAGE_PROVIDERS, type ProviderBilling, type UsageProvider, type UsageSnapshot } from '../domain'
+import { initialUsage, providerBilling, USAGE_PROVIDERS, windowLabel, type ProviderBilling, type UsageProvider, type UsageSnapshot } from '../domain'
 import { backoff, withFreshness } from '../application'
 import type { UsageDependencies } from '../ports'
 import { UsageError } from '../adapters/errors'
@@ -72,6 +72,40 @@ export function createUsageService(deps: UsageDependencies) {
     const view = snapshot()
     return { snapshot: view, scheduled, retryAt: view.providers.filter(p => !providerId || p.providerId === providerId).map(p => p.retryAt).filter((s): s is string => !!s).sort()[0] ?? null }
   }
+  /**
+   * Windows a running turn just reported (provider-quota: typed usage-limit
+   * reports). Merged into an AVAILABLE row only — a report never signs an
+   * account in — and only when fresher than what the reader saw. No probe:
+   * the subscription UI updates without another poll of the provider.
+   */
+  function observe(providerId: string, windows: Array<{ id: string; usedPercent: number | null; resetsAt: string | null; windowMinutes: number | null }>, observedAt: string) {
+    if (disposed || !(USAGE_PROVIDERS as readonly string[]).includes(providerId)) return
+    const id = providerId as UsageProvider
+    const row = rows.get(id)!
+    if (row.availability !== 'available' || row.spend || !Number.isFinite(Date.parse(observedAt))) return
+    if (row.observedAt && Date.parse(row.observedAt) > Date.parse(observedAt)) return
+    let changed = false
+    const merged = row.windows.map(window => {
+      const seen = windows.find(candidate => candidate.id === window.id)
+      if (!seen || (seen.usedPercent === null && seen.resetsAt === null)) return window
+      const usedPercent = seen.usedPercent === null ? window.usedPercent : Math.min(100, Math.max(0, seen.usedPercent))
+      const resetsAt = seen.resetsAt ?? window.resetsAt
+      if (usedPercent === window.usedPercent && resetsAt === window.resetsAt) return window
+      changed = true
+      return { ...window, usedPercent, resetsAt }
+    })
+    for (const seen of windows) {
+      if (merged.some(window => window.id === seen.id) || seen.usedPercent === null || merged.length >= 64) continue
+      const minutes = seen.windowMinutes
+      const model = seen.id.startsWith('seven_day_') ? seen.id.slice(10) : null
+      merged.push({ id: seen.id, label: windowLabel(minutes), scope: model ? 'model' : 'account', model, usedPercent: Math.min(100, Math.max(0, seen.usedPercent)), durationMinutes: minutes, resetsAt: seen.resetsAt })
+      changed = true
+    }
+    if (!changed) return
+    rows.set(id, { ...row, windows: merged, observedAt, freshness: 'fresh' })
+    revision++
+    try { deps.onChange?.() } catch { /* advisory */ }
+  }
   async function dispose() { disposed = true; controllers.forEach(c => c.abort()); await Promise.allSettled(running.values()) }
   /** How `providerId`'s turns are paid, from the last observation (never probes). */
   function billing(providerId: string, env: Record<string, string | undefined> = process.env): ProviderBilling {
@@ -91,6 +125,6 @@ export function createUsageService(deps: UsageDependencies) {
     if (timer) clearTimeout(timer)
     return providerBilling(snapshot(), providerId, env)
   }
-  return { snapshot, refresh, dispose, billing, resolveBilling, settled: () => Promise.allSettled(running.values()) }
+  return { snapshot, refresh, observe, dispose, billing, resolveBilling, settled: () => Promise.allSettled(running.values()) }
 }
 export type UsageService = ReturnType<typeof createUsageService>

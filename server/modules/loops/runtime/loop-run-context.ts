@@ -4,6 +4,7 @@
  * limits, its mutable traversal/accounting state, and the step result every
  * node executor returns to the traversal. Built once by `LoopRunManager._run`.
  */
+import type { PausedHumanDecision } from './loop-run-contract'
 import type { ChildProcess } from 'node:child_process'
 import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
@@ -42,6 +43,8 @@ export interface LoopRunHost {
   setActiveStepRecovery(runId: string, stepKey: string): void
   clearActiveStepRecovery(runId: string): void
   parkPause(runId: string, pause: PausedRun): void
+  /** Resolve the run's parked pause if it is still parked (a scheduled limit resume). */
+  resolvePause(runId: string, decision: PausedHumanDecision): boolean
   budgetBreach(runId: string): LoopBudgetBreach | null
   trackRunCap(runId: string, cap: { capUsd: number | null; cost: () => number }): void
   untrackRunCap(runId: string): void
@@ -88,6 +91,8 @@ export interface LoopRunState {
   outcome: LoopRunOutcome
   stallReason: LoopStallReason | undefined
   providerLimitHit: ProviderLimit | undefined
+  /** Set when the person continued a limit-paused run on another provider: later steps use it. */
+  engineOverride: { provider: string; model: string } | undefined
   // Failure diagnosis inputs (recovery module): the last failing step, its error text, Core's own record.
   failedStepId: string | undefined
   failureText: string | undefined

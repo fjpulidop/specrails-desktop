@@ -35,6 +35,7 @@ import { formatCommandForProvider } from '../../../lib/format-command'
 import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 import { notifyError } from '../../../lib/notify-error'
+import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
@@ -629,6 +630,10 @@ export default function JobDetailPage() {
       {/* Interactive in-job agent composer — send more prompts to the resident
           agent (queued server-side), see live turn totals, and settle per the
           session's mode (Finalize for freestyle, quiet wrap-up for auto). */}
+      {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+      {job && activeProjectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
+        <RunLimitPause projectId={activeProjectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
+      )}
       {isInteractiveRunning && (
         <InteractiveJobComposer
           jobId={job.id}

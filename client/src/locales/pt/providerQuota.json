@@ -1,0 +1,78 @@
+{
+  "statusBar": {
+    "rejected": "limite atingido",
+    "rejectedUntil": "limite · repõe {{time}}"
+  },
+  "window": {
+    "fiveHour": "de 5 horas",
+    "weekly": "semanal",
+    "default": "de utilização"
+  },
+  "attention": {
+    "warningTitle": "Utilização de {{provider}} a {{percent}}%",
+    "warningBody": "{{provider}} usou {{percent}}% do seu limite {{window}}. As novas execuções podem entrar em pausa no limite.",
+    "rejectedTitle": "Limite de utilização de {{provider}} atingido",
+    "rejectedBody": "{{provider}} recusa pedidos até às {{time}}. As execuções em pausa no limite retomam então sozinhas.",
+    "rejectedBodyNoReset": "{{provider}} recusa pedidos até o seu limite ser reposto."
+  },
+  "preflight": {
+    "label": "Verificações de lançamento",
+    "checking": "A verificar…",
+    "recheck": "Verificar de novo",
+    "disk": {
+      "ok": "{{free}} livres",
+      "warn": "Só {{free}} livres",
+      "fail": "Só {{free}} livres: liberta espaço primeiro",
+      "unknown": "Espaço em disco desconhecido"
+    },
+    "provider": {
+      "signed-in": "{{provider}} com sessão iniciada",
+      "signed-out": "{{provider}} sem sessão: inicia sessão primeiro",
+      "missing": "{{provider}} não instalado",
+      "unknown": "Sessão de {{provider}} desconhecida"
+    },
+    "github": {
+      "signed-in": "GitHub com sessão iniciada",
+      "signed-out": "GitHub sem sessão: os pull requests não vão abrir",
+      "missing": "GitHub CLI não instalado: os pull requests não vão abrir",
+      "unknown": "Sessão do GitHub desconhecida"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}}% usado",
+      "warning": "{{provider}} {{percent}}% usado",
+      "critical": "{{provider}} {{percent}}% usado",
+      "rejected": "{{provider}} no limite",
+      "rejectedUntil": "{{provider}} no limite: repõe {{time}}",
+      "unknown": "Utilização de {{provider}} desconhecida"
+    },
+    "blocking": "Corrige a verificação falhada antes de lançar.",
+    "quotaWarning_one": "{{provider}} usou {{percent}}% do seu limite {{window}}. Lançar {{count}} rail pode pô-lo em pausa no limite; depois retoma sozinho após a reposição.",
+    "quotaWarning_other": "{{provider}} usou {{percent}}% do seu limite {{window}}. Lançar {{count}} rails pode pô-los em pausa no limite; depois retomam sozinhos após a reposição.",
+    "quotaRejected_one": "{{provider}} recusa pedidos até às {{time}}. O rail vai esperar e começar a trabalhar após a reposição.",
+    "quotaRejected_other": "{{provider}} recusa pedidos até às {{time}}. Os rails vão esperar e começar a trabalhar após a reposição.",
+    "quotaRejectedNoReset": "{{provider}} recusa pedidos neste momento e não disse quando o seu limite é reposto."
+  },
+  "pause": {
+    "title": "Em pausa no limite de utilização de {{provider}}",
+    "resumesAt": "Retoma sozinha às {{time}} (daqui a {{in}}).",
+    "resumesAtPassed": "Retoma sozinha assim que o computador estiver acordado.",
+    "resetsAt": "O limite é reposto às {{time}}. A retoma automática está desligada.",
+    "noReset": "{{provider}} não disse quando o limite é reposto.",
+    "resumeNow": "Retomar agora",
+    "autoOn": "Retomar às {{time}}",
+    "autoOff": "Não retomar sozinha",
+    "continueWith": "Continuar agora com {{provider}}",
+    "failed": "Não foi possível atualizar a execução em pausa: {{detail}}"
+  },
+  "mission": {
+    "title": "Limite de utilização de {{provider}} atingido",
+    "body": "{{provider}} recusa pedidos até às {{time}}.",
+    "bodyNoReset": "{{provider}} recusa pedidos até o seu limite ser reposto.",
+    "continueAt": "Continuar às {{time}}",
+    "scheduled": "Continua sozinha às {{time}}.",
+    "cancel": "Cancelar",
+    "continueWith": "Continuar agora com {{provider}}",
+    "continuePrompt": "Continua onde o agente anterior parou no seu limite de utilização. Verifica o que já foi feito antes de repetir algum passo.",
+    "failed": "Não foi possível agendar a missão: {{detail}}"
+  }
+}

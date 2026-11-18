@@ -19,6 +19,7 @@ import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, De
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { coreDefaultMaxTurns, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
+import { observeQuotaFrame } from '../../provider-quota/runtime/stream-observer'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -418,6 +419,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           ? payload.reason.trim().slice(0, 4_000).split('\n').map(line => '  ' + line.trimEnd()).join('\n') + '\n' : ''
         if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n${failReason}`))
       } else if (event.type === 'agent-event') {
+        // Contract 5.14: the account's usage-limit state, reported by the role's CLI.
+        observe(() => observeQuotaFrame(options.providerOverride?.provider ?? options.defaultProvider ?? 'claude', event))
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
         const role = typeof event.role === 'string' ? event.role : 'agent'
         if (payload?.kind === 'text' && typeof payload.text === 'string') {

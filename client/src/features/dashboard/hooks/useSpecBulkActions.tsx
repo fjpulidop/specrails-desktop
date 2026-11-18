@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
+import { useDesktop } from '../../../hooks/useDesktop'
 import type { RailState } from '../../rails/components/RailsBoard'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import { useBulkLaunchForecast } from '../../../hooks/useLaunchForecast'
@@ -52,6 +53,7 @@ export function useSpecBulkActions(deps: Deps): { handlers: SpecBulkHandlers; di
   const { t: tJira } = useTranslation('jira')
   const { rails, jiraConnected, allLabels, store, moveToRail, launchRail, gates, forecastQueryOf } = deps
   const [pending, setPending] = useState<BulkLaunchPlan | null>(null)
+  const { activeProjectId } = useDesktop()
 
   const firstRail = pending ? rails.find((r) => r.id === pending.assignments[0]?.railId) : undefined
   const guard = useLaunchBudgetGuard(firstRail ? forecastQueryOf(firstRail) : null)
@@ -163,6 +165,8 @@ export function useSpecBulkActions(deps: Deps): { handlers: SpecBulkHandlers; di
         railCount={pending?.assignments.length ?? 0}
         specCount={pending?.assignments.length ?? 0}
         forecast={forecast}
+        projectId={activeProjectId}
+        providers={pending ? pending.assignments.map((a) => rails.find((r) => r.id === a.railId)?.aiEngine ?? '') : []}
         onCancel={() => setPending(null)}
         onConfirm={() => {
           const plan = pending

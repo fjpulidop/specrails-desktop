@@ -14,6 +14,7 @@ import { decideAttention } from '../lib/attention/attention-policy'
 import { isMainFocused, type WindowFocus } from '../lib/attention/window-focus'
 import { notifyError } from '../lib/notify-error'
 import { API_ORIGIN } from '../lib/origin'
+import { formatResetTime } from '../features/provider-quota/lib/format-reset'
 
 interface WsJob {
   id: string
@@ -95,7 +96,7 @@ export function useOsNotifications({
     const msg = data as {
       type?: string; projectId?: string; jobs?: WsJob[]
       jobId?: string; staleMs?: number; actions?: unknown
-      runId?: unknown; provider?: unknown; resetsAt?: unknown; message?: unknown
+      runId?: unknown; provider?: unknown; resetsAt?: unknown; resumeAt?: unknown; message?: unknown
     }
     if (!msg) return
     // A commissioned run that stopped moving. The server fires this at most once
@@ -113,7 +114,9 @@ export function useOsNotifications({
         msg.runId,
         msg.projectId ?? null,
         typeof msg.provider === 'string' ? msg.provider : '',
-        typeof msg.resetsAt === 'string' && msg.resetsAt ? msg.resetsAt : null,
+        // The exact instant (provider-quota) reads in the person's clock; the provider's words are the fallback.
+        typeof msg.resumeAt === 'string' && Number.isFinite(Date.parse(msg.resumeAt)) ? formatResetTime(msg.resumeAt, i18n.language)
+          : typeof msg.resetsAt === 'string' && msg.resetsAt ? msg.resetsAt : null,
         typeof msg.message === 'string' ? msg.message : '',
       )
       return

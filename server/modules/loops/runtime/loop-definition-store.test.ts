@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createJob, getJob, initDb, type DbInstance } from '../../../db'
 import { applyMigrations } from '../../../db/migrations'
 import type { LoopRunRequest } from './loop-run-manager'
+import { clearLimitPause, listLimitPauses, readLimitPause, saveLimitPause } from './loop-limit-pauses'
 import { claimDefinitionExecution, releaseDefinitionExecution, readDefinitionExecutionClaim, createLoopRun, getLoopRun, listPendingLoopTerminalRecoveries, markDefinitionRestart, readDefinitionRun, reconcileOrphanLoopRuns, recordDefinitionCheckpoint, saveDefinitionRun, listActiveLoopRuns, listRunningLoopRuns, countRunningForLoop, listLoopRuns } from './loop-runs-store'
 
 let db: DbInstance
@@ -35,6 +36,22 @@ describe('frozen definition launch storage', () => {
     expect(getLoopRun(db, 'run')?.status).toBe('paused')
     expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
     expect(claimDefinitionExecution(db, 'run', { owner: 'new', repositoryMounts: ['/repo'] }).ok).toBe(true)
+  })
+
+  it('retains a run paused on a usage limit over a restart even though Core recorded the refused step failed', () => {
+    saveDefinitionRun(db, 'run', { request: launch() })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='limit_paused' WHERE id='run'").run()
+    saveLimitPause(db, 'run', { providerId: 'claude', resumeAt: '2026-09-27T03:00:00.000Z', autoResume: true, message: 'limit', pausedAt: '2026-09-26T11:00:00.000Z', switchable: false })
+    reconcileOrphanLoopRuns(db, '2026-09-26T12:00:00Z', undefined, new Map([['run', { status: 'failed' }]]))
+    expect(getLoopRun(db, 'run')).toMatchObject({ status: 'paused', restart_reason: 'restart' })
+    expect(readLimitPause(db, 'run')).toMatchObject({ resumeAt: '2026-09-27T03:00:00.000Z', autoResume: true })
+    // Without the record, a failed Core run settles as before.
+    saveDefinitionRun(db, 'other', { request: launch('other') })
+    reconcileOrphanLoopRuns(db, '2026-09-26T12:00:00Z', undefined, new Map([['other', { status: 'failed' }]]))
+    expect(getLoopRun(db, 'other')).toMatchObject({ status: 'completed', final_outcome: 'failed' })
+    expect(listLimitPauses(db).map((row) => row.runId)).toEqual(['run'])
+    clearLimitPause(db, 'run')
+    expect(readLimitPause(db, 'run')).toBeNull()
   })
 
   it.each(['paused', 'unavailable'])('preserves an adopted fork parent during restart even when its Core status is %s', coreStatus => {

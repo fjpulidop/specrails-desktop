@@ -511,8 +511,8 @@
     "jobStuckStopped": "Run stopped",
     "jobStuckStopFailed": "Could not stop the run",
     "providerLimit": "Provider usage limit reached",
-    "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run stopped; relaunch or Recover & retry after the reset.",
-    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run stopped; relaunch after the limit resets.",
+    "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run is paused and resumes on its own after the reset; you can also continue it now on another provider.",
+    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run is paused; resume it once the limit resets, or continue it now on another provider.",
     "attention": {
       "open": "Open",
       "openInbox": "Open inbox",

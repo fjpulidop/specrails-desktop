@@ -15,6 +15,7 @@ import { parseStreamEvents } from '../../../providers/runtime'
 import { extractDisplayText } from '../../../util/stream-display'
 import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { createCodexOtelBridge, type CodexOtelBridge } from '../../accounting/runtime/codex-otel-bridge'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 export type EmitLine = (source: 'stdout' | 'stderr', line: string) => void
 
@@ -164,6 +165,7 @@ export function attachJobOutputStream(host: JobOutputStreamHost, input: JobOutpu
     // alongside the raw event persistence below, NOT in place of it: the
     // raw event log is what feeds the live Job Detail UI and the
     // telemetry export ZIP for non-bridge providers.
+    observeQuotaLine(adapter.id, line)
     const adapterEventsForLine = parseStreamEvents(adapter, line)
     for (const adapterEv of adapterEventsForLine) {
       adapterEvents.push(adapterEv)

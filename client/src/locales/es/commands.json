@@ -511,8 +511,8 @@
     "jobStuckStopped": "Ejecución detenida",
     "jobStuckStopFailed": "No se pudo detener la ejecución",
     "providerLimit": "Límite de uso del proveedor alcanzado",
-    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución se ha detenido; vuelve a lanzarla o usa Recuperar y reintentar tras el reinicio.",
-    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución se ha detenido; vuelve a lanzarla cuando se restablezca el límite.",
+    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución está en pausa y se reanuda sola tras el restablecimiento; también puedes continuarla ahora con otro proveedor.",
+    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución está en pausa; reanúdala cuando se restablezca el límite o continúala ahora con otro proveedor.",
     "attention": {
       "open": "Abrir",
       "openInbox": "Abrir bandeja",
