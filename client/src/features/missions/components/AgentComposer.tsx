@@ -989,7 +989,7 @@ export function AgentComposer({
         )}
 
           <div className="ml-auto flex min-w-0 max-w-[60%] items-center gap-1">
-            {active && <AgentContextUsageRing usage={active.contextUsage} />}
+            {active && <AgentContextUsageRing usage={active.contextUsage} conversationId={active.id} busy={isStreaming} modeBlocked={!!conversationMode} />}
             <AgentRuntimeSelector provider={provider} providers={selectableProviders.map(value => ({ value, label: providerOptionLabel(value) }))}
               models={models} model={effectiveModel} efforts={efforts} effort={effort}
               defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}

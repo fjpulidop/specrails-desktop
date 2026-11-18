@@ -1148,7 +1148,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         // and broadcast it; append it to the ACTIVE thread so the failure
         // marker appears live (background threads rehydrate on select).
         // pr-ci-loop: the CI offer is informational — never an unread/attention mark.
-        if ((msg as { kind?: unknown }).kind !== 'pr-ci-offer') markUnread(convId)
+        // A session renewal marker is the person's own action — never an unread mark either.
+        const rowKind = (msg as { kind?: unknown }).kind
+        if (rowKind !== 'pr-ci-offer' && rowKind !== 'session-summary') markUnread(convId)
         if (isActive) {
           const { type: _t, conversationId: _c, messageId, timestamp, ...row } = msg as unknown as { type: string; conversationId: string; messageId: string; timestamp: string } & Record<string, unknown>
           if (typeof messageId === 'string') {

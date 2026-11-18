@@ -1631,7 +1631,37 @@
     "sourceResponse": "Measured from the last response",
     "sourceSessionFile": "Read from the {{provider}} session",
     "compacted": "The provider compacted the context during the last turn.",
-    "highNote": "The provider compacts the context automatically when it fills up. Starting a new session with a summary can also help."
+    "highNote": "The provider compacts the context automatically when it fills up. Starting a new session with a summary can also help.",
+    "openUnknown": "Context: share of the window unknown",
+    "tokensUsedOnly": "{{used}} tokens used",
+    "windowUnknown": "The provider did not report the context window, so the share used is unknown.",
+    "usageUnknown": "The context usage is unknown right after the provider compacted it."
+  },
+  "sessionRenew": {
+    "action": "Start fresh with a summary",
+    "hint": "Writes a summary of this mission; your next message starts a new session that knows only that summary.",
+    "confirmBody": "Specrails will write a summary of this mission (goal, decisions, current state, next steps). Your next message then starts a new provider session that knows only that summary. The conversation stays in the history.",
+    "confirm": "Start fresh",
+    "cancel": "Cancel",
+    "running": "Writing the summary…",
+    "retry": "Try again",
+    "blockedBusy": "Available when the current turn finishes.",
+    "blockedMode": "Not available in this mode: it runs in its own session.",
+    "marker": "Session renewed · summary",
+    "markerDetail": "What the new session knows",
+    "showSummary": "Show the summary",
+    "hideSummary": "Hide the summary",
+    "basedOn": "Based on the whole conversation",
+    "basedOnPartial": "Based on the latest {{included}} of {{total}} messages",
+    "errors": {
+      "MISSION_BUSY": "Wait for the current turn to finish, then try again.",
+      "MISSION_IN_INTENT": "This mission is in Intent, which runs in its own session. Leave Intent to start a new session.",
+      "MISSION_ARCHIVED": "Restore this archived mission before starting a new session.",
+      "NOTHING_TO_SUMMARIZE": "There is no conversation to summarize yet.",
+      "RENEWAL_CANCELLED": "The new session was cancelled.",
+      "generic": "The summary could not be written.",
+      "SHUTTING_DOWN": "Specrails restarted while writing the summary. Nothing changed; try again."
+    }
   },
   "ask": {
     "menu": "Ask about this",

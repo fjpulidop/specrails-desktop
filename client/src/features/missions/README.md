@@ -320,3 +320,20 @@ A fork shows its source title and renders inherited assistant/system cards in
 disabled fieldsets. Inherited proposals and deliveries never join the new
 mission's active run strip, and inherited option shortcuts cannot send replies.
 Uploaded files and text drafts from the original composer are never adopted.
+
+## Start fresh with a summary
+
+The composer's context ring ([`AgentContextUsageRing`](components/AgentContextUsageRing.tsx))
+offers **Start fresh with a summary** in its popover once a snapshot exists,
+as the primary button from 75%. A snapshot without a reported window (or right
+after a compaction) shows a neutral, empty ring whose popover says what is
+unknown and still offers the action. It asks for confirmation inline, shows a running
+state, explains known refusals (`MISSION_BUSY`, `MISSION_IN_INTENT`, …) in the
+person's language and shows provider errors as sent, with Try again. It is
+disabled while a turn runs and while an extension mode (Intent) owns the session.
+The ring holds that state, so closing the popover mid-renewal keeps it. The
+server's `session-summary` row arrives as `agent_system_row` (never an unread
+mark) and renders as [`AgentSessionSummaryCard`](components/AgentSessionSummaryCard.tsx):
+a collapsed "Session renewed · summary" event line that expands to the summary
+the new session knows. The cleared snapshot hides the ring until the new
+session reports its context.

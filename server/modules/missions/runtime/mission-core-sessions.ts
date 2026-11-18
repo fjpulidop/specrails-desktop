@@ -273,6 +273,17 @@ export class MissionCoreSessions {
     return next
   }
 
+  /**
+   * "Start fresh with a summary": a mission that ran in Core continues in its
+   * next generation (the current one is closed), so the next turn opens a new
+   * Core session seeded by the caller. A mission that never opened a Core
+   * session has nothing to renew (null). Called between turns only.
+   */
+  async renewMissionSessionIfOpened(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id' | 'provider'>, reason: string): Promise<string | null> {
+    if (!getMissionCoreSession(this.deps.db, conversation.id).provider) return null
+    return this.renewMissionSession(conversation, conversation.provider, reason)
+  }
+
   /** Close an Intent session's Core session (pause, discard, hand-off, renewal). Core keeps
    * its journal for the projection; the session never takes another turn. Never throws. */
   async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {

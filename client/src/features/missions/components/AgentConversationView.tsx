@@ -33,6 +33,7 @@ import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
 import { openRunStrip, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
 import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowReturnCard'
 import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from './AgentFlowDeliveredCard'
+import { AgentSessionSummaryCard, parseSessionSummaryRow } from './AgentSessionSummaryCard'
 import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { AgentPrCiOfferCard, parsePrCiOfferRow } from './AgentPrCiOfferCard'
@@ -550,6 +551,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
+              // Start fresh with a summary: what the new provider session knows.
+              const sessionSummary = parseSessionSummaryRow(m.content)
+              if (sessionSummary) return <AgentSessionSummaryCard key={m.id} row={sessionSummary} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null

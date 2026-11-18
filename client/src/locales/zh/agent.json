@@ -1631,7 +1631,37 @@
     "sourceResponse": "根据上一次响应测得",
     "sourceSessionFile": "从 {{provider}} 会话读取",
     "compacted": "提供方在上一轮中压缩了上下文。",
-    "highNote": "上下文填满时，提供方会自动压缩。带着摘要开始新会话也会有帮助。"
+    "highNote": "上下文填满时，提供方会自动压缩。带着摘要开始新会话也会有帮助。",
+    "openUnknown": "上下文：窗口占用比例未知",
+    "tokensUsedOnly": "已使用 {{used}} 个 token",
+    "windowUnknown": "提供方未报告上下文窗口，因此占用比例未知。",
+    "usageUnknown": "提供方刚压缩了上下文，当前用量未知。"
+  },
+  "sessionRenew": {
+    "action": "用摘要重新开始",
+    "hint": "为此任务撰写摘要；你的下一条消息将开启一个只了解该摘要的新会话。",
+    "confirmBody": "Specrails 将为此任务撰写摘要（目标、决定、当前状态、后续步骤）。你的下一条消息将开启一个只了解该摘要的新提供方会话。对话会保留在历史记录中。",
+    "confirm": "重新开始",
+    "cancel": "取消",
+    "running": "正在撰写摘要…",
+    "retry": "重试",
+    "blockedBusy": "当前轮次结束后可用。",
+    "blockedMode": "此模式下不可用：它使用自己的会话。",
+    "marker": "会话已更新 · 摘要",
+    "markerDetail": "新会话了解的内容",
+    "showSummary": "显示摘要",
+    "hideSummary": "隐藏摘要",
+    "basedOn": "基于完整对话",
+    "basedOnPartial": "基于 {{total}} 条消息中最新的 {{included}} 条",
+    "errors": {
+      "MISSION_BUSY": "请等待当前轮次结束后重试。",
+      "MISSION_IN_INTENT": "此任务处于 Intent 中，使用自己的会话。退出 Intent 后才能开启新会话。",
+      "MISSION_ARCHIVED": "开启新会话前，请先恢复此已归档的任务。",
+      "NOTHING_TO_SUMMARIZE": "还没有可以摘要的对话。",
+      "RENEWAL_CANCELLED": "新会话已取消。",
+      "generic": "无法撰写摘要。",
+      "SHUTTING_DOWN": "撰写摘要时 Specrails 重新启动了。没有任何更改，请重试。"
+    }
   },
   "ask": {
     "menu": "询问这段内容",

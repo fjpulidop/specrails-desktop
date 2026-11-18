@@ -38,6 +38,7 @@ import {
 import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroundProcessHistory } from '../../../transient-children'
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
 import { askSideQuestion, SideQuestionError, validateSideQuestionRequest, type SideQuestionDeps } from './mission-side-question'
+import { SessionRenewalError, summaryLanguage, writeSessionSummary, type SessionSummaryDeps } from './mission-session-summary'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -52,6 +53,8 @@ export interface AgentRouterDeps {
   onPermanentlyDeleted?: (conversationId: string) => void
   /** Test seam for "Ask about this" (defaults to the shared one-shot generator). */
   sideQuestion?: Pick<SideQuestionDeps, 'createGenerator' | 'cwd'>
+  /** Test seam for "Start fresh with a summary" (defaults to the shared one-shot generator). */
+  sessionSummary?: Pick<SessionSummaryDeps, 'createGenerator' | 'cwd'>
 }
 
 export function isAgentChatEnabled(): boolean {
@@ -325,6 +328,25 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       // The provider's own message (unsupported model, usage limit) is the useful one.
       const message = error instanceof Error && error.message ? error.message.slice(0, 1000) : 'Side question failed'
       res.status(502).json({ error: message, code: 'SIDE_QUESTION_FAILED' })
+    }
+  })
+
+  // "Start fresh with a summary": write a summary of the mission so far, store
+  // it as the transcript marker, and let the next turn open a new provider
+  // session seeded with it. Refused while a turn runs and while in Intent.
+  router.post('/conversations/:id/session/renew', async (req: Request, res: Response) => {
+    try {
+      const { messageId, row } = await manager.renewSessionWithSummary(String(req.params.id), (conversation, signal) => writeSessionSummary({
+        desktopDb,
+        ...deps.sessionSummary,
+        onRecorded: (projectId) => { if (projectId) manager.notifySpendingInvalidated?.(projectId) },
+      }, conversation, signal, summaryLanguage(req.body?.language)))
+      res.json({ messageId, summary: row })
+    } catch (error) {
+      if (error instanceof SessionRenewalError) { res.status(error.status).json({ error: error.message, code: error.code }); return }
+      // The provider's own message (unsupported model, usage limit) is the useful one.
+      const message = error instanceof Error && error.message ? error.message.slice(0, 1000) : 'The summary could not be written'
+      res.status(502).json({ error: message, code: 'SESSION_SUMMARY_FAILED' })
     }
   })
 

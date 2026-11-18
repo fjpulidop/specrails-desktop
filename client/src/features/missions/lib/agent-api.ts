@@ -326,6 +326,45 @@ export async function askAboutSelection(conversationId: string, body: {
   }))
 }
 
+/** The `session-summary` marker a renewal stores (role `system`). */
+export interface SessionSummaryRow {
+  kind: 'session-summary'
+  summary: string
+  provider: string
+  model: string
+  includedMessages: number
+  totalMessages: number
+  at: string
+}
+
+/** A refused or failed renewal; `code` is the server's (MISSION_BUSY, MISSION_IN_INTENT, …). */
+export class SessionRenewError extends Error {
+  constructor(message: string, readonly code: string | null, readonly status: number) {
+    super(message)
+    this.name = 'SessionRenewError'
+  }
+}
+
+/** "Start fresh with a summary": the server writes a summary of the mission,
+ * stores it as the transcript marker and the next turn opens a new provider
+ * session seeded with it. The marker also arrives as `agent_system_row`. */
+export async function renewAgentSessionWithSummary(conversationId: string): Promise<{ messageId: string; summary: SessionSummaryRow }> {
+  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/session/renew`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: i18n.language }),
+  })
+  let data: unknown = null
+  try { data = await res.json() } catch { /* empty or non-JSON body */ }
+  const body = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
+  if (!res.ok) {
+    throw new SessionRenewError(
+      typeof body.error === 'string' && body.error ? body.error : i18n.t('network.httpError', { ns: 'common', status: res.status }),
+      typeof body.code === 'string' ? body.code : null,
+      res.status,
+    )
+  }
+  return body as unknown as { messageId: string; summary: SessionSummaryRow }
+}
+
 export async function branchAgentConversation(sourceId: string, throughMessageId: string, mode: 'empty' | 'fork'): Promise<AgentConversation> {
   // A fresh mission needs no history-copy operation. Use the established API
   // so a frontend preview also works against a server without fork support.

@@ -206,7 +206,12 @@ returned as `contextUsage` on the conversation, and announced with
 reset (failure, stale resume, new Core generation, provider switch) clears it.
 Intent turns never touch it. The composer ring
 ([`AgentContextUsageRing`](../../client/src/features/missions/components/AgentContextUsageRing.tsx))
-is hidden without a window and turns warning at 75% and destructive at 90%.
+is hidden without a window (except as the neutral entry point of "Start fresh with a summary", below) and turns warning at 75% and destructive at 90%.
+Its popover offers "Start fresh with a summary" (highlighted from 75%): the
+server writes a summary of the mission, stores it as a transcript marker,
+clears the provider session and the snapshot and, for Core missions, opens the
+next generation. The next turn is seeded with the summary instead of the raw
+history. See the [missions module](../../server/modules/missions/README.md#start-fresh-with-a-summary).
 
 Core session turns map provider frames to normalised events, and Core's
 `Usage` is a per-turn delta with no context window. For a Claude mission on the

@@ -1631,7 +1631,37 @@
     "sourceResponse": "Medido a partir de la última respuesta",
     "sourceSessionFile": "Leído de la sesión de {{provider}}",
     "compacted": "El proveedor compactó el contexto durante el último turno.",
-    "highNote": "El proveedor compacta el contexto automáticamente cuando se llena. Empezar una sesión nueva con un resumen también puede ayudar."
+    "highNote": "El proveedor compacta el contexto automáticamente cuando se llena. Empezar una sesión nueva con un resumen también puede ayudar.",
+    "openUnknown": "Contexto: proporción de la ventana desconocida",
+    "tokensUsedOnly": "{{used}} tokens usados",
+    "windowUnknown": "El proveedor no informó de la ventana de contexto, así que no se sabe qué proporción se usa.",
+    "usageUnknown": "El uso del contexto es desconocido justo después de que el proveedor lo compactara."
+  },
+  "sessionRenew": {
+    "action": "Empezar de cero con un resumen",
+    "hint": "Escribe un resumen de esta misión; tu siguiente mensaje empieza una sesión nueva que solo conoce ese resumen.",
+    "confirmBody": "Specrails escribirá un resumen de esta misión (objetivo, decisiones, estado actual, próximos pasos). Tu siguiente mensaje empezará una sesión nueva del proveedor que solo conoce ese resumen. La conversación se queda en el historial.",
+    "confirm": "Empezar de cero",
+    "cancel": "Cancelar",
+    "running": "Escribiendo el resumen…",
+    "retry": "Reintentar",
+    "blockedBusy": "Disponible cuando termine el turno actual.",
+    "blockedMode": "No disponible en este modo: usa su propia sesión.",
+    "marker": "Sesión renovada · resumen",
+    "markerDetail": "Lo que sabe la nueva sesión",
+    "showSummary": "Mostrar el resumen",
+    "hideSummary": "Ocultar el resumen",
+    "basedOn": "Basado en toda la conversación",
+    "basedOnPartial": "Basado en los últimos {{included}} de {{total}} mensajes",
+    "errors": {
+      "MISSION_BUSY": "Espera a que termine el turno actual y vuelve a intentarlo.",
+      "MISSION_IN_INTENT": "Esta misión está en Intent, que usa su propia sesión. Sal de Intent para empezar una sesión nueva.",
+      "MISSION_ARCHIVED": "Restaura esta misión archivada antes de empezar una sesión nueva.",
+      "NOTHING_TO_SUMMARIZE": "Todavía no hay conversación que resumir.",
+      "RENEWAL_CANCELLED": "Se canceló la sesión nueva.",
+      "generic": "No se pudo escribir el resumen.",
+      "SHUTTING_DOWN": "Specrails se reinició mientras escribía el resumen. No ha cambiado nada; vuelve a intentarlo."
+    }
   },
   "ask": {
     "menu": "Preguntar sobre esto",

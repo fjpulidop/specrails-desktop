@@ -1631,7 +1631,37 @@
     "sourceResponse": "Mesuré à partir de la dernière réponse",
     "sourceSessionFile": "Lu depuis la session {{provider}}",
     "compacted": "Le fournisseur a compacté le contexte pendant le dernier tour.",
-    "highNote": "Le fournisseur compacte le contexte automatiquement lorsqu'il est plein. Démarrer une nouvelle session avec un résumé peut aussi aider."
+    "highNote": "Le fournisseur compacte le contexte automatiquement lorsqu'il est plein. Démarrer une nouvelle session avec un résumé peut aussi aider.",
+    "openUnknown": "Contexte : part de la fenêtre inconnue",
+    "tokensUsedOnly": "{{used}} tokens utilisés",
+    "windowUnknown": "Le fournisseur n’a pas indiqué la fenêtre de contexte : la part utilisée est inconnue.",
+    "usageUnknown": "L’utilisation du contexte est inconnue juste après sa compaction par le fournisseur."
+  },
+  "sessionRenew": {
+    "action": "Repartir de zéro avec un résumé",
+    "hint": "Rédige un résumé de cette mission ; votre prochain message démarre une nouvelle session qui ne connaît que ce résumé.",
+    "confirmBody": "Specrails va rédiger un résumé de cette mission (objectif, décisions, état actuel, prochaines étapes). Votre prochain message démarrera une nouvelle session du fournisseur qui ne connaît que ce résumé. La conversation reste dans l’historique.",
+    "confirm": "Repartir de zéro",
+    "cancel": "Annuler",
+    "running": "Rédaction du résumé…",
+    "retry": "Réessayer",
+    "blockedBusy": "Disponible à la fin du tour en cours.",
+    "blockedMode": "Indisponible dans ce mode : il utilise sa propre session.",
+    "marker": "Session renouvelée · résumé",
+    "markerDetail": "Ce que sait la nouvelle session",
+    "showSummary": "Afficher le résumé",
+    "hideSummary": "Masquer le résumé",
+    "basedOn": "Basé sur toute la conversation",
+    "basedOnPartial": "Basé sur les {{included}} derniers messages sur {{total}}",
+    "errors": {
+      "MISSION_BUSY": "Attendez la fin du tour en cours, puis réessayez.",
+      "MISSION_IN_INTENT": "Cette mission est en Intent, qui utilise sa propre session. Quittez Intent pour démarrer une nouvelle session.",
+      "MISSION_ARCHIVED": "Restaurez cette mission archivée avant de démarrer une nouvelle session.",
+      "NOTHING_TO_SUMMARIZE": "Il n’y a pas encore de conversation à résumer.",
+      "RENEWAL_CANCELLED": "La nouvelle session a été annulée.",
+      "generic": "Le résumé n’a pas pu être rédigé.",
+      "SHUTTING_DOWN": "Specrails a redémarré pendant la rédaction du résumé. Rien n’a changé ; réessayez."
+    }
   },
   "ask": {
     "menu": "Poser une question",

@@ -36,7 +36,6 @@ import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from '../../../mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
 import {
-  buildAgentHistoryBlock,
   buildAgentProjectContextBlock,
   buildResolvedAgentContextBlock,
   type AgentContextReference,
@@ -77,6 +76,7 @@ import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
+import { buildSessionSeedBlock, SESSION_SUMMARY_KIND, SessionRenewalError, type SessionSummaryResult, type SessionSummaryRow } from './mission-session-summary'
 import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
@@ -166,6 +166,8 @@ export class AgentChatManager {
   private readonly _auxReaders = new Map<ChildProcess, ReturnType<typeof createInterface>>()
   private readonly _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
   private readonly _turnStartedAt = new Map<string, string>()
+  /** Session summaries being written ("Start fresh with a summary"); Stop and shutdown abort them. */
+  private readonly _summaryAborts = new Map<string, AbortController>()
   private _turnSnapshotVersion = 0
   /** Per-mission measurement generation: a late Codex rollout read never overwrites a newer snapshot or a reset. */
   private readonly _contextUsageVersion = new Map<string, number>()
@@ -613,49 +615,118 @@ export class AgentChatManager {
     try {
       await this._runTurnSafely(conversation, userText, options)
       this._abortedTurns.delete(conversationId)
-      // Drain messages queued while we were running. Each drained turn re-reads
-      // the conversation row so a mid-flight tier/provider/model change applies.
-      for (;;) {
-        if (this._disposed) break
-        const pending = this._queue.get(conversationId)
-        const next = pending?.shift()
-        if (!next) break
-        if (pending && pending.length === 0) this._queue.delete(conversationId)
-        const conv = getAgentConversation(this._db, conversationId)
-        if (!conv) break // deleted mid-drain (abort() already cleared the queue)
-        if (this._disposed) break
-        // Receipt/persistence failure after a native write is not a license to
-        // execute the same correction a second time in another turn.
-        if (next.nativeSubmitted) {
-          const interrupted = interruptAgentInput(this._db, conversationId, next.queueId)
-          if (interrupted) this._broadcast({
-            type: 'agent_steered', conversationId, queueId: next.queueId,
-            messageId: interrupted.id, text: interrupted.content,
-            contextRefs: next.options.contextRefs, attachmentIds: interrupted.attachment_ids,
-            deliveryStatus: 'interrupted', timestamp: interrupted.created_at,
-          })
-          continue
-        }
-        const message = deliverAgentInput(this._db, conversationId, next.queueId, 'sent')
-        if (!message) continue
-        this._broadcast({
-          type: 'agent_dequeued',
-          conversationId,
-          queueId: next.queueId,
-          text: next.text,
-          contextRefs: next.options.contextRefs ?? [],
-          attachmentIds: next.options.attachmentIds ?? [],
-          messageId: message.id,
-          deliveryReceipt: message.delivery_receipt,
-          timestamp: new Date().toISOString(),
-        })
-        await this._runTurnSafely(conv, next.text, next.options)
-        this._abortedTurns.delete(conversationId)
-      }
+      await this._drainQueuedTurns(conversationId)
     } finally {
       this._reserved.delete(conversationId)
       this._abortedTurns.delete(conversationId)
       this._streamingText.delete(conversationId)
+    }
+  }
+
+  /** Drain messages queued while the conversation was reserved (a turn, a session renewal).
+   *  Each drained turn re-reads the conversation row so a mid-flight tier/provider/model change applies. */
+  private async _drainQueuedTurns(conversationId: string): Promise<void> {
+    for (;;) {
+      if (this._disposed) break
+      const pending = this._queue.get(conversationId)
+      const next = pending?.shift()
+      if (!next) break
+      if (pending && pending.length === 0) this._queue.delete(conversationId)
+      const conv = getAgentConversation(this._db, conversationId)
+      if (!conv) break // deleted mid-drain (abort() already cleared the queue)
+      if (this._disposed) break
+      // Receipt/persistence failure after a native write is not a license to
+      // execute the same correction a second time in another turn.
+      if (next.nativeSubmitted) {
+        const interrupted = interruptAgentInput(this._db, conversationId, next.queueId)
+        if (interrupted) this._broadcast({
+          type: 'agent_steered', conversationId, queueId: next.queueId,
+          messageId: interrupted.id, text: interrupted.content,
+          contextRefs: next.options.contextRefs, attachmentIds: interrupted.attachment_ids,
+          deliveryStatus: 'interrupted', timestamp: interrupted.created_at,
+        })
+        continue
+      }
+      const message = deliverAgentInput(this._db, conversationId, next.queueId, 'sent')
+      if (!message) continue
+      this._broadcast({
+        type: 'agent_dequeued',
+        conversationId,
+        queueId: next.queueId,
+        text: next.text,
+        contextRefs: next.options.contextRefs ?? [],
+        attachmentIds: next.options.attachmentIds ?? [],
+        messageId: message.id,
+        deliveryReceipt: message.delivery_receipt,
+        timestamp: new Date().toISOString(),
+      })
+      await this._runTurnSafely(conv, next.text, next.options)
+      this._abortedTurns.delete(conversationId)
+    }
+  }
+
+  /**
+   * "Start fresh with a summary": write a summary of the mission so far, store
+   * it as a `session-summary` system row (the marker in the transcript), clear
+   * the provider session and its context snapshot, and move a Core mission to
+   * its next generation. The next turn opens a new provider session seeded with
+   * the summary (buildSessionSeedBlock). The conversation is reserved while the
+   * summary is written: input sent meanwhile queues and runs afterwards in the
+   * new session. Nothing changes when the summary fails.
+   */
+  async renewSessionWithSummary(
+    conversationId: string,
+    summarize: (conversation: AgentConversation, signal: AbortSignal) => Promise<SessionSummaryResult>,
+  ): Promise<{ messageId: string; row: SessionSummaryRow }> {
+    if (this._disposed) throw new SessionRenewalError(503, 'SHUTTING_DOWN', 'Specrails is shutting down.')
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || conversation.deleted_at) throw new SessionRenewalError(404, 'NOT_FOUND', 'Unknown conversation')
+    if (conversation.archivedAt) throw new SessionRenewalError(409, 'MISSION_ARCHIVED', 'Restore this archived mission before starting a new session.')
+    if (this.isBusy(conversationId)) throw new SessionRenewalError(409, 'MISSION_BUSY', 'Wait for the current turn to finish before starting a new session.')
+    // An Intent owns its own Core session in the worktree; its context is not the mission's.
+    if (this._flowTurn(conversationId)) throw new SessionRenewalError(409, 'MISSION_IN_INTENT', 'This mission is in Intent, which runs in its own session. Leave Intent before starting a new session.')
+    this._reserved.add(conversationId)
+    const controller = new AbortController()
+    this._summaryAborts.set(conversationId, controller)
+    try {
+      const outcome = await this._awaitWhileLive(summarize(conversation, controller.signal))
+      if (outcome.disposed) throw new SessionRenewalError(503, 'SHUTTING_DOWN', 'Specrails is shutting down.')
+      if (controller.signal.aborted || this._abortedTurns.has(conversationId)) throw new SessionRenewalError(409, 'RENEWAL_CANCELLED', 'The new session was cancelled.')
+      const fresh = getAgentConversation(this._db, conversationId)
+      if (!fresh || fresh.deleted_at) throw new SessionRenewalError(404, 'NOT_FOUND', 'Unknown conversation')
+      const result = outcome.value
+      const row: SessionSummaryRow = {
+        kind: SESSION_SUMMARY_KIND,
+        summary: result.summary,
+        provider: result.provider,
+        model: result.model,
+        includedMessages: result.includedMessages,
+        totalMessages: result.totalMessages,
+        at: new Date().toISOString(),
+      }
+      const messageId = this.postSystemRow(conversationId, { ...row }, `${SESSION_SUMMARY_KIND}:${randomUUID()}`)
+      if (!messageId) throw new SessionRenewalError(500, 'NOT_SAVED', 'The summary could not be saved; the session was not renewed.')
+      // Same reset as a failed or stale session: the next turn starts fresh.
+      updateAgentConversation(this._db, conversationId, { session_id: null })
+      this._clearContextUsage(conversationId)
+      if (this._coreSessions) {
+        try { await this._coreSessions.renewMissionSessionIfOpened(fresh, 'session_summary') }
+        catch (error) { console.warn(`[agent-chat] Core session renewal failed (${conversationId}):`, error) }
+      }
+      console.log(`[agent-chat] mission ${conversationId} renewed its provider session with a summary (${row.summary.length} chars)`)
+      return { messageId, row }
+    } finally {
+      this._summaryAborts.delete(conversationId)
+      this._abortedTurns.delete(conversationId)
+      if (!this._disposed && this._queue.get(conversationId)?.length) {
+        void this._drainQueuedTurns(conversationId).finally(() => {
+          this._reserved.delete(conversationId)
+          this._abortedTurns.delete(conversationId)
+          this._streamingText.delete(conversationId)
+        })
+      } else {
+        this._reserved.delete(conversationId)
+      }
     }
   }
 
@@ -765,7 +836,9 @@ export class AgentChatManager {
     // (DELETE aborts the child and drops the row) — inserting would violate the FK.
     if (!getAgentConversation(this._db, conversationId)) return
     const currentMessageId = options.queueId ? getAgentInput(this._db, conversationId, options.queueId)?.messageId : null
-    const historyBlock = buildAgentHistoryBlock(decorateAgentInputMessages(this._db, listAgentMessages(this._db, conversationId))
+    // A fresh session is seeded with the bounded history, or after "Start fresh
+    // with a summary" with that summary plus the messages that followed it.
+    const historyBlock = buildSessionSeedBlock(decorateAgentInputMessages(this._db, listAgentMessages(this._db, conversationId))
       .filter((message) => message.id !== currentMessageId && message.delivery_status !== 'cancelled' && message.delivery_status !== 'interrupted'))
     const message = options.queueId
       ? deliverAgentInput(this._db, conversationId, options.queueId, 'sent')
@@ -1951,6 +2024,7 @@ export class AgentChatManager {
     if (this._disposed) return false
     this._clearQueue(conversationId)
     if (this.isBusy(conversationId)) this._abortedTurns.add(conversationId)
+    this._summaryAborts.get(conversationId)?.abort()
     const capability = this._steeringCapabilities.get(conversationId)
     if (capability) revokeAgentCapability(capability)
     this._steeringCapabilities.delete(conversationId)
@@ -2012,6 +2086,8 @@ export class AgentChatManager {
     this._nativeInputNotifiers.clear()
     this._disposed = true
     this._resolveDisposed()
+    for (const controller of this._summaryAborts.values()) controller.abort()
+    this._summaryAborts.clear()
     this._queue.clear()
     this._reserved.clear()
     this._abortedTurns.clear()

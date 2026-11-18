@@ -1631,7 +1631,37 @@
     "sourceResponse": "Misurato dall'ultima risposta",
     "sourceSessionFile": "Letto dalla sessione {{provider}}",
     "compacted": "Il provider ha compattato il contesto durante l'ultimo turno.",
-    "highNote": "Il provider compatta il contesto automaticamente quando si riempie. Anche avviare una nuova sessione con un riepilogo può aiutare."
+    "highNote": "Il provider compatta il contesto automaticamente quando si riempie. Anche avviare una nuova sessione con un riepilogo può aiutare.",
+    "openUnknown": "Contesto: quota della finestra sconosciuta",
+    "tokensUsedOnly": "{{used}} token usati",
+    "windowUnknown": "Il provider non ha indicato la finestra di contesto, quindi la quota usata è sconosciuta.",
+    "usageUnknown": "L’uso del contesto è sconosciuto subito dopo che il provider lo ha compattato."
+  },
+  "sessionRenew": {
+    "action": "Ricomincia con un riepilogo",
+    "hint": "Scrive un riepilogo di questa missione; il tuo prossimo messaggio avvia una nuova sessione che conosce solo quel riepilogo.",
+    "confirmBody": "Specrails scriverà un riepilogo di questa missione (obiettivo, decisioni, stato attuale, prossimi passi). Il tuo prossimo messaggio avvierà una nuova sessione del provider che conosce solo quel riepilogo. La conversazione resta nella cronologia.",
+    "confirm": "Ricomincia",
+    "cancel": "Annulla",
+    "running": "Scrittura del riepilogo…",
+    "retry": "Riprova",
+    "blockedBusy": "Disponibile al termine del turno corrente.",
+    "blockedMode": "Non disponibile in questa modalità: usa una sessione propria.",
+    "marker": "Sessione rinnovata · riepilogo",
+    "markerDetail": "Cosa sa la nuova sessione",
+    "showSummary": "Mostra il riepilogo",
+    "hideSummary": "Nascondi il riepilogo",
+    "basedOn": "Basato sull’intera conversazione",
+    "basedOnPartial": "Basato sugli ultimi {{included}} di {{total}} messaggi",
+    "errors": {
+      "MISSION_BUSY": "Attendi la fine del turno corrente e riprova.",
+      "MISSION_IN_INTENT": "Questa missione è in Intent, che usa una sessione propria. Esci da Intent per avviare una nuova sessione.",
+      "MISSION_ARCHIVED": "Ripristina questa missione archiviata prima di avviare una nuova sessione.",
+      "NOTHING_TO_SUMMARIZE": "Non c’è ancora una conversazione da riepilogare.",
+      "RENEWAL_CANCELLED": "La nuova sessione è stata annullata.",
+      "generic": "Impossibile scrivere il riepilogo.",
+      "SHUTTING_DOWN": "Specrails si è riavviato durante la scrittura del riepilogo. Non è cambiato nulla; riprova."
+    }
   },
   "ask": {
     "menu": "Chiedi su questo",

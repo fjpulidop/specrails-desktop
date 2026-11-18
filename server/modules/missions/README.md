@@ -49,7 +49,7 @@ keeping the last measured window. `AgentChatManager` stores the snapshot on the
 conversation when `persistSession` keeps a session, clears it when the session
 resets, and broadcasts `agent_context_usage`. Codex reads are async and
 versioned per mission, so a late read never overwrites a newer value or a reset.
-Values are reported, never estimated; a missing window hides the ring.
+Values are reported, never estimated; a missing window hides the percentage (the composer then shows a neutral ring only to offer "Start fresh with a summary").
 See [agent sessions](../../../docs/internals/agent-sessions.md#context-used-indicator).
 
 ## Read-only boundary
@@ -177,6 +177,33 @@ about the side thread. Each call records one `agent_invocations` row with
 `surface: 'side-question'`, which analytics maps to Missions (only `flow` is
 Intent). The answer is not streamed: the adapters emit whole assistant messages
 for a one-shot call, so the modal shows a running state until it arrives.
+
+## Start fresh with a summary
+
+`POST /api/agent/conversations/:id/session/renew` replaces a long provider
+session with a summary ([mission-session-summary.ts](runtime/mission-session-summary.ts),
+lifecycle in `AgentChatManager.renewSessionWithSummary`). The summary is one
+turn with no tools on the mission's provider, model and effort (provider default
+when the account rejects the model), from the side-question's empty app-owned
+cwd. Its input is the whole persisted transcript, newest first, trimmed to 80k
+characters (6k per message, app cards 1.2k, an earlier summary ends the walk);
+its output is capped at 12k. It must keep the goal, decisions and constraints,
+current state, open questions, important references, and say what it leaves
+out. Each call records one `agent_invocations` row with
+`surface: 'session-summary'` (Missions in analytics).
+
+The conversation is reserved while the summary is written; input sent meanwhile
+queues and runs afterwards in the new session. On success the summary is stored
+as a `session-summary` system row (`postSystemRow`, broadcast as
+`agent_system_row`; no migration), `session_id` is cleared, the context
+snapshot is cleared (`agent_context_usage` null) and a mission that ran in Core
+moves to its next generation (`renewMissionSessionIfOpened`). The next turn is
+therefore fresh on every path, and `buildSessionSeedBlock` seeds it with the
+newest summary (marked as data) plus the bounded history of the messages after
+it, never the raw messages before it. Refused with 409 while a turn runs
+(`MISSION_BUSY`), in Intent (`MISSION_IN_INTENT`: the Intent owns its own
+session), archived, or with nothing to summarize. A failed summary changes
+nothing (502 with the provider's message). Stop aborts a summary in progress.
 
 ## Resource history cleanup
 

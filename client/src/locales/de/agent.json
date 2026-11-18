@@ -1631,7 +1631,37 @@
     "sourceResponse": "Aus der letzten Antwort gemessen",
     "sourceSessionFile": "Aus der {{provider}}-Sitzung gelesen",
     "compacted": "Der Anbieter hat den Kontext im letzten Durchgang komprimiert.",
-    "highNote": "Der Anbieter komprimiert den Kontext automatisch, wenn er voll ist. Eine neue Sitzung mit einer Zusammenfassung kann ebenfalls helfen."
+    "highNote": "Der Anbieter komprimiert den Kontext automatisch, wenn er voll ist. Eine neue Sitzung mit einer Zusammenfassung kann ebenfalls helfen.",
+    "openUnknown": "Kontext: Anteil am Fenster unbekannt",
+    "tokensUsedOnly": "{{used}} Tokens verwendet",
+    "windowUnknown": "Der Anbieter hat das Kontextfenster nicht gemeldet, daher ist der genutzte Anteil unbekannt.",
+    "usageUnknown": "Die Kontextnutzung ist direkt nach einer Komprimierung durch den Anbieter unbekannt."
+  },
+  "sessionRenew": {
+    "action": "Neu beginnen mit Zusammenfassung",
+    "hint": "Schreibt eine Zusammenfassung dieser Mission; deine nächste Nachricht startet eine neue Sitzung, die nur diese Zusammenfassung kennt.",
+    "confirmBody": "Specrails schreibt eine Zusammenfassung dieser Mission (Ziel, Entscheidungen, aktueller Stand, nächste Schritte). Deine nächste Nachricht startet dann eine neue Anbietersitzung, die nur diese Zusammenfassung kennt. Die Unterhaltung bleibt im Verlauf.",
+    "confirm": "Neu beginnen",
+    "cancel": "Abbrechen",
+    "running": "Zusammenfassung wird geschrieben…",
+    "retry": "Erneut versuchen",
+    "blockedBusy": "Verfügbar, sobald der aktuelle Durchlauf endet.",
+    "blockedMode": "In diesem Modus nicht verfügbar: Er nutzt eine eigene Sitzung.",
+    "marker": "Sitzung erneuert · Zusammenfassung",
+    "markerDetail": "Was die neue Sitzung weiß",
+    "showSummary": "Zusammenfassung anzeigen",
+    "hideSummary": "Zusammenfassung ausblenden",
+    "basedOn": "Basiert auf der gesamten Unterhaltung",
+    "basedOnPartial": "Basiert auf den letzten {{included}} von {{total}} Nachrichten",
+    "errors": {
+      "MISSION_BUSY": "Warte, bis der aktuelle Durchlauf endet, und versuche es erneut.",
+      "MISSION_IN_INTENT": "Diese Mission ist in Intent, das eine eigene Sitzung nutzt. Verlasse Intent, um eine neue Sitzung zu starten.",
+      "MISSION_ARCHIVED": "Stelle diese archivierte Mission wieder her, bevor du eine neue Sitzung startest.",
+      "NOTHING_TO_SUMMARIZE": "Es gibt noch keine Unterhaltung zum Zusammenfassen.",
+      "RENEWAL_CANCELLED": "Die neue Sitzung wurde abgebrochen.",
+      "generic": "Die Zusammenfassung konnte nicht geschrieben werden.",
+      "SHUTTING_DOWN": "Specrails wurde beim Schreiben der Zusammenfassung neu gestartet. Nichts wurde geändert; versuche es erneut."
+    }
   },
   "ask": {
     "menu": "Dazu fragen",

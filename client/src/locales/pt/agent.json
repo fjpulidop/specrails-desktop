@@ -1631,7 +1631,37 @@
     "sourceResponse": "Medido a partir da última resposta",
     "sourceSessionFile": "Lido da sessão do {{provider}}",
     "compacted": "O provedor compactou o contexto durante o último turno.",
-    "highNote": "O provedor compacta o contexto automaticamente quando ele enche. Iniciar uma nova sessão com um resumo também pode ajudar."
+    "highNote": "O provedor compacta o contexto automaticamente quando ele enche. Iniciar uma nova sessão com um resumo também pode ajudar.",
+    "openUnknown": "Contexto: proporção da janela desconhecida",
+    "tokensUsedOnly": "{{used}} tokens usados",
+    "windowUnknown": "O provedor não informou a janela de contexto, então a proporção usada é desconhecida.",
+    "usageUnknown": "O uso do contexto é desconhecido logo após o provedor compactá-lo."
+  },
+  "sessionRenew": {
+    "action": "Recomeçar com um resumo",
+    "hint": "Escreve um resumo desta missão; sua próxima mensagem inicia uma nova sessão que conhece apenas esse resumo.",
+    "confirmBody": "O Specrails vai escrever um resumo desta missão (objetivo, decisões, estado atual, próximos passos). Sua próxima mensagem iniciará uma nova sessão do provedor que conhece apenas esse resumo. A conversa permanece no histórico.",
+    "confirm": "Recomeçar",
+    "cancel": "Cancelar",
+    "running": "Escrevendo o resumo…",
+    "retry": "Tentar novamente",
+    "blockedBusy": "Disponível quando o turno atual terminar.",
+    "blockedMode": "Indisponível neste modo: ele usa a própria sessão.",
+    "marker": "Sessão renovada · resumo",
+    "markerDetail": "O que a nova sessão sabe",
+    "showSummary": "Mostrar o resumo",
+    "hideSummary": "Ocultar o resumo",
+    "basedOn": "Com base em toda a conversa",
+    "basedOnPartial": "Com base nas últimas {{included}} de {{total}} mensagens",
+    "errors": {
+      "MISSION_BUSY": "Aguarde o turno atual terminar e tente novamente.",
+      "MISSION_IN_INTENT": "Esta missão está em Intent, que usa a própria sessão. Saia do Intent para iniciar uma nova sessão.",
+      "MISSION_ARCHIVED": "Restaure esta missão arquivada antes de iniciar uma nova sessão.",
+      "NOTHING_TO_SUMMARIZE": "Ainda não há conversa para resumir.",
+      "RENEWAL_CANCELLED": "A nova sessão foi cancelada.",
+      "generic": "Não foi possível escrever o resumo.",
+      "SHUTTING_DOWN": "O Specrails reiniciou enquanto escrevia o resumo. Nada mudou; tente novamente."
+    }
   },
   "ask": {
     "menu": "Perguntar sobre isto",
