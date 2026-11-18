@@ -1455,6 +1455,20 @@ export class QueueManager {
     return [...this._logBuffer]
   }
 
+  /** Live job children (active spawn, resident interactive sessions, force-failed survivors) with the job
+   *  command as label. Read-only, for app-wide resource metering. */
+  listProcessRoots(): Array<{ jobId: string; pid: number; label: string }> {
+    const roots: Array<{ jobId: string; pid: number; label: string }> = []
+    const add = (jobId: string | null, pid: number | null | undefined) => {
+      if (!jobId || typeof pid !== 'number' || pid <= 0 || roots.some(r => r.pid === pid)) return
+      roots.push({ jobId, pid, label: this._jobs.get(jobId)?.command ?? jobId })
+    }
+    add(this._activeJobId, this._activeProcess?.pid)
+    for (const [jobId, session] of this._interactiveSessions) add(jobId, session.processPid())
+    for (const [jobId, proc] of this._forceFailedProcesses) add(jobId, proc.pid)
+    return roots
+  }
+
   /** True while an interactive session is resident for this job. */
   isInteractiveJob(jobId: string): boolean {
     return this._interactiveSessions.has(jobId)

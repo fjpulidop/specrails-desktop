@@ -77,6 +77,24 @@ moving a mission to another project preserves its earlier history. The recorder
 rechecks existence after measuring so an in-flight sample cannot recreate deleted
 history. If an existence lookup fails, the sweep leaves all samples untouched.
 
+## App resources
+
+`GET /api/resources` (composed in `server/app-resources-router.ts`) is the app-wide
+counterpart behind the status-bar Resources control. `domain/app-resources.ts`
+attributes one process-table snapshot with a claimed set, so each process is counted
+once, under the first owner that reaches it: agent sessions (desktop missions and
+project chats, labelled with the conversation title and project), rails
+(`LoopRunManager.listProcessRoots`: each run's step spawn, Core definition runtime
+process or resident interactive step; `QueueManager.listProcessRoots`: active,
+interactive and force-failed job children), live background
+processes, terminal shells (`TerminalManager.listProcessRoots`), then the server's
+remaining children classified by command line (agent CLIs, MCP bridge/local runner/MCP
+servers, git, other), and finally the server process itself. The `ps`/CIM query is
+excluded. `runtime/app-resources.ts` reads the table through
+`cacheProcessTableReader` (500 ms, shared in-flight read) and keeps up to 100 totals
+points in memory only while a client polls; the history restarts after 30 s without
+requests. Nothing is persisted or sampled in the background.
+
 ## Reviewed public entry points
 
 - [runtime/app-urls.ts](runtime/app-urls.ts)

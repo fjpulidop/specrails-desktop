@@ -10,6 +10,7 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
+- [components/AppResourcesFooter.tsx](components/AppResourcesFooter.tsx)
 - [components/BackgroundProcessChip.tsx](components/BackgroundProcessChip.tsx)
 - [components/BackgroundProcessHistoryModal.tsx](components/BackgroundProcessHistoryModal.tsx)
 - [components/BackgroundProcessLogsModal.tsx](components/BackgroundProcessLogsModal.tsx)
@@ -39,3 +40,11 @@ project-scoped resources endpoint while the popover is open. Sampling and SQLite
 retention belong to the server recorder, so closing the popover or reloading the
 client does not interrupt collection during an active mission turn. The hook
 ignores responses from a previously selected project or mission.
+
+## App-wide resources
+
+`AppResourcesFooter` (status bar, after the provider quota footer) reads
+`GET /api/resources` through `useAppResources`: once on mount, every 30 s for the
+trigger summary (skipped while the window is hidden) and every 3 s while the popover
+is open. The popover shows CPU, memory and process totals, a memory trend from the
+server's in-memory history, memory split by source and expandable rows per source.

@@ -1,0 +1,32 @@
+{
+  "button": "资源",
+  "open": "显示 Specrails 使用的资源",
+  "openWithSummary": "资源：内存 {{memory}}，{{count}} 个进程",
+  "title": "资源",
+  "subtitle": "Specrails 启动的所有内容",
+  "cpu": "CPU",
+  "memory": "内存",
+  "processes": "进程",
+  "memoryByCategory": "按来源划分的内存",
+  "source": "来源",
+  "loading": "正在测量…",
+  "error": "无法读取资源：{{error}}",
+  "unsupported": "此系统不支持资源使用情况。",
+  "empty": "没有正在运行的内容",
+  "toggleCategory": "显示或隐藏{{category}}",
+  "categories": {
+    "missions": "任务和聊天",
+    "rails": "轨道、循环和作业",
+    "background": "后台进程",
+    "terminals": "终端",
+    "agent-cli": "代理 CLI",
+    "mcp": "MCP 和运行器",
+    "git": "Git",
+    "other": "其他",
+    "server": "Specrails 服务器"
+  },
+  "items": {
+    "server": "Specrails 服务器",
+    "untitled": "未命名任务"
+  }
+}

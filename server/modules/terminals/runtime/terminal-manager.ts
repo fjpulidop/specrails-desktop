@@ -263,6 +263,16 @@ export class TerminalManager {
     return out.sort((a, b) => a.createdAt - b.createdAt)
   }
 
+  /** Shell pids of live sessions across projects (read-only, for app-wide resource metering). */
+  listProcessRoots(): Array<{ id: string; projectId: string; name: string; pid: number }> {
+    const out: Array<{ id: string; projectId: string; name: string; pid: number }> = []
+    for (const s of this.sessions.values()) {
+      const pid = s.pty.pid
+      if (!s.exited && Number.isInteger(pid) && pid > 0) out.push({ id: s.id, projectId: s.projectId, name: s.name, pid })
+    }
+    return out
+  }
+
   /** Scoped lookup: returns session only if both id AND projectId match. */
   get(projectId: string, sessionId: string): TerminalSession | undefined {
     const s = this.sessions.get(sessionId)

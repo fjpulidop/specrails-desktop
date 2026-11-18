@@ -1017,6 +1017,24 @@ export class LoopRunManager {
   }
 
   /** The budget a run is paused on (`budget_paused`), else null. */
+  /** Live loop/rail children per run (a step's spawn, a Core definition runtime process, or a resident
+   *  interactive step), labelled with the loop name, rail and ticket. Read-only, for resource metering. */
+  listProcessRoots(): Array<{ runId: string; pid: number; label: string }> {
+    const roots: Array<{ runId: string; pid: number; label: string }> = []
+    const add = (runId: string, pid: number | null | undefined) => {
+      if (typeof pid !== 'number' || pid <= 0 || roots.some(r => r.pid === pid)) return
+      let label = runId
+      try {
+        const row = getLoopRun(this.db, runId)
+        if (row) label = [row.rail_index != null ? `Rail ${row.rail_index + 1}` : null, row.loop_name ?? row.loop_id, row.ticket_id != null ? `#${row.ticket_id}` : null].filter(Boolean).join(' · ')
+      } catch { /* label stays the run id */ }
+      roots.push({ runId, pid, label })
+    }
+    for (const [runId, child] of this._activeChild) add(runId, child.pid)
+    for (const [runId, session] of this._interactiveSteps) add(runId, session.processPid())
+    return roots
+  }
+
   budgetPause(runId: string): LoopBudgetBreach | null {
     const budget = this._pausedHumanDecisions.get(runId)?.budget
     return budget ? structuredClone(budget) : null

@@ -1,0 +1,32 @@
+{
+  "button": "リソース",
+  "open": "Specrails が使用しているリソースを表示",
+  "openWithSummary": "リソース: メモリ {{memory}}、プロセス {{count}} 個",
+  "title": "リソース",
+  "subtitle": "Specrails が起動したすべてのもの",
+  "cpu": "CPU",
+  "memory": "メモリ",
+  "processes": "プロセス",
+  "memoryByCategory": "ソース別メモリ",
+  "source": "ソース",
+  "loading": "計測中…",
+  "error": "リソースを読み取れませんでした: {{error}}",
+  "unsupported": "このシステムではリソース使用量を取得できません。",
+  "empty": "実行中のものはありません",
+  "toggleCategory": "{{category}} を表示/非表示",
+  "categories": {
+    "missions": "ミッションとチャット",
+    "rails": "レール・ループ・ジョブ",
+    "background": "バックグラウンドプロセス",
+    "terminals": "ターミナル",
+    "agent-cli": "エージェント CLI",
+    "mcp": "MCP とランナー",
+    "git": "Git",
+    "other": "その他",
+    "server": "Specrails サーバー"
+  },
+  "items": {
+    "server": "Specrails サーバー",
+    "untitled": "無題のミッション"
+  }
+}

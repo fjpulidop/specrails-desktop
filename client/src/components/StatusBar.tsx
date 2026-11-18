@@ -1,5 +1,6 @@
 import { KeepAwakeControl } from './KeepAwakeControl'
 import { SubscriptionUsageFooter } from '../features/subscription-usage/components/SubscriptionUsageFooter'
+import { AppResourcesFooter } from '../features/background/components/AppResourcesFooter'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -147,6 +148,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
         })()}
         <KeepAwakeControl />
         <SubscriptionUsageFooter />
+        <AppResourcesFooter />
         {rightSlot}
       </div>
     </footer>

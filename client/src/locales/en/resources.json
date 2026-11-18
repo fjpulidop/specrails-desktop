@@ -1,0 +1,32 @@
+{
+  "button": "Resources",
+  "open": "Show resources used by Specrails",
+  "openWithSummary": "Resources: {{memory}} memory, {{count}} processes",
+  "title": "Resources",
+  "subtitle": "Everything Specrails launched",
+  "cpu": "CPU",
+  "memory": "Memory",
+  "processes": "Processes",
+  "memoryByCategory": "Memory by source",
+  "source": "Source",
+  "loading": "Measuring…",
+  "error": "Could not read resources: {{error}}",
+  "unsupported": "Resource usage is not available on this system.",
+  "empty": "Nothing running",
+  "toggleCategory": "Show or hide {{category}}",
+  "categories": {
+    "missions": "Missions & chats",
+    "rails": "Rails, loops & jobs",
+    "background": "Background processes",
+    "terminals": "Terminals",
+    "agent-cli": "Agent CLIs",
+    "mcp": "MCP & runners",
+    "git": "Git",
+    "other": "Other",
+    "server": "Specrails server"
+  },
+  "items": {
+    "server": "Specrails server",
+    "untitled": "Untitled mission"
+  }
+}

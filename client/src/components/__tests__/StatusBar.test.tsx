@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '../../test-utils'
 import { StatusBar } from '../StatusBar'
 
 vi.mock('../../features/subscription-usage/components/SubscriptionUsageFooter', () => ({ SubscriptionUsageFooter: () => <span>Usage</span> }))
+vi.mock('../../features/background/components/AppResourcesFooter', () => ({ AppResourcesFooter: () => <span>Resources</span> }))
 
 vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',

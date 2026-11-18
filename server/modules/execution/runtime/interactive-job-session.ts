@@ -507,6 +507,12 @@ export class InteractiveJobSession {
     return true
   }
 
+  /** OS pid of the resident child while it lives (read-only, for resource metering). */
+  processPid(): number | null {
+    const pid = this._child?.pid
+    return !this._childClosed && typeof pid === 'number' && pid > 0 ? pid : null
+  }
+
   isStreaming(): boolean {
     return this._streaming
   }
