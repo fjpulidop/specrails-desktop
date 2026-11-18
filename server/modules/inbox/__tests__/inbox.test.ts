@@ -107,6 +107,22 @@ describe('inbox projection: runs', () => {
   })
 })
 
+describe('inbox projection: rail runs waiting on the person', () => {
+  it('lists a paused rail run even though its building delivery represents it', () => {
+    run('r-question', 0); pauseLoopRun(db, 'r-question')
+    delivery('d-q', 0, 'building')
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-question"]' WHERE id = 'd-q'`).run()
+    run('r-limit', 1); pauseLoopRun(db, 'r-limit', undefined, 'limit_paused')
+    saveLimitPause(db, 'r-limit', { providerId: 'claude', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: true, message: 'limit', pausedAt: iso(-60_000), switchable: false })
+    delivery('d-l', 1, 'building')
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-limit"]' WHERE id = 'd-l'`).run()
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-question']).toMatchObject({ kind: 'question', action: 'open-run', railIndex: 0 })
+    expect(byId['r-limit']).toMatchObject({ kind: 'budget', action: 'resume-run', detail: 'usage_limit:claude:2026-11-19T02:00:00.000Z' })
+    expect(byId['d-q']).toBeUndefined()
+  })
+})
+
 describe('inbox projection: failure diagnosis', () => {
   const diagnose = (input: Parameters<typeof deriveFailureDiagnosis>[0]) => serializeDiagnosis(deriveFailureDiagnosis(input))
 

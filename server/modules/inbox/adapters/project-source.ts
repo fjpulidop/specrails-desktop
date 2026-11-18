@@ -128,7 +128,9 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
   `).all(handle.project.id, since) as RunRow[]
   const out: InboxItem[] = []
   for (const run of rows) {
-    if (representedRunIds.has(run.id)) continue
+    // A paused run waits on the person (a question, a usage limit, a budget, a restart) while its
+    // delivery is still building, and the inbox lists no building delivery: never hide it behind one.
+    if (run.status !== 'paused' && representedRunIds.has(run.id)) continue
     const title = `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
     const version = `${run.status}:${run.final_outcome ?? ''}:${run.restart_reason ?? ''}`
     const base = {
