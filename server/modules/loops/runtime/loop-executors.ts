@@ -7,6 +7,7 @@
  * fake executors in `loop-run-manager.test.ts`.
  */
 import { compileLoopToDefinition } from './loop-definition'
+import { gitInvocationEnv } from '../../../util/git-invocation'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { readCoreCompletion } from '../../../core-completion'
@@ -184,7 +185,8 @@ export function flowChangeHolder(cwd: string, baseSha: string | null, id: string
     if (!existsSync(join(changes, id))) return 'free'
     if (!baseSha) return 'taken'
     // Present at the Intent base: someone else's change. Absent there: this Intent's own earlier derivation.
-    execFileSync('git', ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`], { cwd, stdio: 'ignore', timeout: 5_000, windowsHide: true })
+    const catFile = ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`]
+    execFileSync('git', catFile, { cwd, env: gitInvocationEnv(undefined, catFile), stdio: 'ignore', timeout: 5_000, windowsHide: true })
     return 'taken'
   } catch {
     return existsSync(join(changes, id)) ? 'own' : 'free'

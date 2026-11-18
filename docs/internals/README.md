@@ -15,6 +15,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [source-architecture.md](source-architecture.md) | Persistence boundaries, queue collaborators and unused-source audit |
 | [api-reference.md](api-reference.md) | REST endpoint catalogue under `/api/*` and `/api/projects/:projectId/*` |
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
+| [git-invocations.md](git-invocations.md) | Read-only git without optional locks (`GIT_OPTIONAL_LOCKS=0`), live/stale `index.lock` handling, fair per-file diff budgets for prompts |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |
 | [mission-read-only-policy.md](mission-read-only-policy.md) | Read-only mission agents: per-provider native boundary that keeps MCP tools callable, Core session policy, kill switch, limitations and live evidence |
