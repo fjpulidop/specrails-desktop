@@ -427,8 +427,6 @@
     "retryPushNote": "La implementación terminó correctamente y los cambios están seguros en local. Reintenta solo el push.",
     "cleanupIncomplete_one": "La limpieza está incompleta ({{count}} aviso)",
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
-    "safetyArchiveTitle": "Archivo de seguridad ({{count}})",
-    "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
     "implementationFailedNote": "La ejecución de implementación falló antes de generar algo entregable. Abre el log de la ejecución para revisar el fallo y descarta esta card antes de relanzar.",
     "degraded": {
       "pushed": "La rama se subió pero no se pudo crear la PR. Reintenta para terminar.",

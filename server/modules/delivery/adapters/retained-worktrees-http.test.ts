@@ -98,3 +98,50 @@ describe('retained worktree routes', () => {
     expect(fs.existsSync(wt)).toBe(false)
   })
 })
+
+describe('safety archive routes', () => {
+  let home: string
+  let previousHome: string | undefined
+  let archivePath: string
+
+  beforeEach(() => {
+    previousHome = process.env.SPECRAILS_REGISTRY_HOME
+    home = path.join(root, 'home')
+    process.env.SPECRAILS_REGISTRY_HOME = home
+    archivePath = path.join(home, '.specrails', 'projects', 'p1', 'worktrees', 'run-1', 'ticket-7.specrails-overlay-quarantine-Ab12Cd')
+    fs.mkdirSync(path.join(archivePath, '.claude'), { recursive: true })
+    fs.writeFileSync(path.join(archivePath, 'CLAUDE.md'), 'edited\n')
+  })
+
+  afterEach(() => {
+    if (previousHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+    else process.env.SPECRAILS_REGISTRY_HOME = previousHome
+  })
+
+  it('lists archives per project and inspects one', async () => {
+    const list = await request(app).get('/api/worktrees/quarantines').expect(200)
+    expect(list.body.items).toEqual([expect.objectContaining({ projectId: 'p1', projectName: 'One', path: archivePath, fileCount: 1, worktreeName: 'ticket-7' })])
+    expect(list.body.projects.map((project: { projectId: string }) => project.projectId)).toEqual(['p1', 'p2'])
+
+    const inspect = await request(app).post('/api/worktrees/quarantines/inspect')
+      .send({ items: [{ projectId: 'p1', path: archivePath }, { projectId: 'p2', path: archivePath }, { projectId: 'p1', path: `${archivePath}-gone` }] })
+      .expect(200)
+    expect(inspect.body.items.map((item: { status: string }) => item.status)).toEqual(['present', 'refused', 'refused'])
+    expect(inspect.body.items[0].quarantine.files).toEqual([{ path: 'CLAUDE.md', kind: 'file', bytes: 7 }])
+  })
+
+  it('deletes only within the named project', async () => {
+    const wrongProject = await request(app).post('/api/worktrees/quarantines/remove').send({ items: [{ projectId: 'p2', path: archivePath }] }).expect(200)
+    expect(wrongProject.body.results[0]).toMatchObject({ status: 'refused', reason: 'outside-project' })
+    expect(fs.existsSync(archivePath)).toBe(true)
+
+    const ok = await request(app).post('/api/worktrees/quarantines/remove').send({ items: [{ projectId: 'p1', path: archivePath }] }).expect(200)
+    expect(ok.body.results[0]).toMatchObject({ projectId: 'p1', status: 'deleted', fileCount: 1 })
+    expect(fs.existsSync(archivePath)).toBe(false)
+
+    const again = await request(app).post('/api/worktrees/quarantines/inspect').send({ items: [{ projectId: 'p1', path: archivePath }] }).expect(200)
+    expect(again.body.items[0].status).toBe('missing')
+    await request(app).post('/api/worktrees/quarantines/remove').send({ items: [] }).expect(400)
+    await request(app).post('/api/worktrees/quarantines/remove').send({ items: [{ projectId: 'p1' }] }).expect(400)
+  })
+})

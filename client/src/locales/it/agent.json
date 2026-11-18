@@ -428,8 +428,6 @@
     "retryPushNote": "L’implementazione è riuscita e le modifiche sono al sicuro in locale. Riprova solo il push.",
     "cleanupIncomplete_one": "Pulizia incompleta ({{count}} avviso)",
     "cleanupIncomplete_other": "Pulizia incompleta ({{count}} avvisi)",
-    "safetyArchiveTitle": "Archivio di sicurezza ({{count}})",
-    "safetyArchiveHint": "I file temporanei dell’area di lavoro sono stati conservati fuori dalla PR per precauzione. Puoi controllarli o rimuoverli manualmente.",
     "confirm": {
       "recoverAndRetryTitle": "Creare il commit e inviare il risultato preservato?",
       "recoverAndRetryBody": "Specrails userà esclusivamente il worktree isolato o il branch registrato compatibile con il fast-forward per {{branch}}. Se necessario, creerà un commit con i file consegnabili e invierà quel commit esatto solo se la PR è ancora aperta sui branch di origine e destinazione previsti. La cartella principale del progetto e le sue modifiche senza commit non verranno toccate.",

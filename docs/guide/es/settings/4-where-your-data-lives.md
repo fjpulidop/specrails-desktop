@@ -64,3 +64,15 @@ Selecciona worktrees y elige **Quitar**. La confirmación indica cuánto disco r
 - Con **Borrar también las ramas que no contienen nada nuevo**, una rama solo se borra si no tiene nada que perder y solo si sigue apuntando al commit que comprobó Specrails.
 
 Los worktrees con cambios sin commit o con archivos que solo existen ahí no se pueden seleccionar. Antes, haz commit de ese trabajo, cópialo o descártalo. Un worktree que pertenece a una sesión de Intent aparece en la lista, pero se gestiona desde su sesión. Justo antes de quitarlo, cada worktree se vuelve a comprobar: si algo cambió después de que confirmaras, se conserva y el resultado explica por qué. Los procesos que siguieran en marcha en un worktree quitado (un servidor de desarrollo, por ejemplo) se detienen.
+
+## Archivos guardados fuera de una PR {#safety-archives}
+
+Mientras trabaja una ejecución, Specrails añade al worktree algunos archivos propios: las instrucciones del proyecto (`CLAUDE.md`), unos ajustes locales con su gancho de seguridad y enlaces a sus comandos y skills. Nunca entran en la PR. Al quitar el worktree, Specrails los borra si siguen exactamente como los escribió, así que una ejecución normal no deja nada atrás.
+
+Si alguno cambió (por ejemplo, un agente editó `CLAUDE.md`) o Specrails no puede demostrar que un archivo es suyo, no lo borra. Lo mueve a una carpeta junto al worktree (`<worktree>.specrails-overlay-quarantine-…`) y la tarjeta de la PR dice **Se guardaron N archivos que no entraron en la PR**:
+
+- **Detalles** muestra la carpeta (con **Copiar ruta** y **Mostrar en Finder**) y cada archivo guardado con su tamaño.
+- **Eliminar** pregunta antes, nombrando la carpeta y cuántos archivos tiene, y borra solo esa carpeta.
+- **Descartar** oculta el aviso. Los archivos se quedan donde están.
+
+**Ajustes ▸ Almacenamiento ▸ Archivos guardados fuera de una PR** lista todas esas carpetas de todos los proyectos con su tamaño y antigüedad. Selecciona varias y elimínalas de una vez. Specrails solo borra una carpeta con ese nombre exacto dentro de la zona de worktrees del propio proyecto, y nunca sigue enlaces hacia fuera.

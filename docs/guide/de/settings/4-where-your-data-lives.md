@@ -64,3 +64,15 @@ Wähle Worktrees aus und klicke auf **Entfernen**. Die Bestätigung zeigt, wie v
 - Mit **Auch Branches löschen, die nichts Neues enthalten** wird ein Branch nur gelöscht, wenn er nichts zu verlieren hat, und nur, wenn er noch auf den von Specrails geprüften Commit zeigt.
 
 Worktrees mit nicht committeten Änderungen oder Dateien, die es nur dort gibt, lassen sich nicht auswählen. Committe, kopiere oder verwirf diese Arbeit zuerst. Ein Worktree, der zu einer Intent-Sitzung gehört, wird angezeigt, aber in seiner Sitzung behandelt. Direkt vor dem Entfernen wird jeder Worktree erneut geprüft: Hat sich nach deiner Bestätigung etwas geändert, bleibt er erhalten, und das Ergebnis sagt warum. Prozesse, die in einem entfernten Worktree noch liefen (zum Beispiel ein Dev-Server), werden beendet.
+
+## Außerhalb eines PR aufbewahrte Dateien {#safety-archives}
+
+Während ein Run arbeitet, legt Specrails einige eigene Dateien in den Worktree: die Projektanweisungen (`CLAUDE.md`), lokale Einstellungen mit seinem Sicherheits-Hook und Links auf seine Befehle und Skills. Sie kommen nie in den PR. Wenn der Worktree entfernt wird, löscht Specrails sie, sofern sie genau so sind, wie es sie geschrieben hat. Ein normaler Run hinterlässt also nichts.
+
+Hat sich eine davon geändert (ein Agent hat zum Beispiel `CLAUDE.md` bearbeitet) oder kann Specrails nicht belegen, dass eine Datei von ihm stammt, löscht es sie nicht. Es verschiebt sie in einen Ordner neben dem Worktree (`<worktree>.specrails-overlay-quarantine-…`), und die PR-Karte meldet **N Dateien wurden aufbewahrt, die nicht in den PR kamen**:
+
+- **Details** zeigt den Ordner (mit **Pfad kopieren** und **Im Finder zeigen**) und jede aufbewahrte Datei mit ihrer Größe.
+- **Löschen** fragt vorher nach, nennt den Ordner und die Anzahl der Dateien und löscht nur diesen Ordner.
+- **Ausblenden** blendet den Hinweis aus. Die Dateien bleiben, wo sie sind.
+
+**Einstellungen ▸ Speicher ▸ Außerhalb eines PR aufbewahrte Dateien** listet alle diese Ordner aller Projekte mit Größe und Alter. Wähle mehrere aus und lösche sie in einem Schritt. Specrails löscht nur einen Ordner mit genau diesem Namen im Worktree-Bereich des jeweiligen Projekts und folgt nie Links nach außen.

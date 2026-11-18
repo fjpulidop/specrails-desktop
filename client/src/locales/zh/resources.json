@@ -132,5 +132,31 @@
     "confirmBranchesKept": "所有分支都会保留，因此其提交仍然可用。",
     "confirmBranchesDeleted": "没有新内容的 {{count}} 个分支也会被删除，前提是它们仍指向已检查的提交。保留 {{kept}} 个。",
     "confirmRecheck": "每个工作树在移除前都会再次检查；此后发生变化的都会被保留。"
+  },
+  "safetyArchives": {
+    "title": "保留在 PR 之外的文件",
+    "description": "运行结束后,Specrails 会删除自己的临时文件。无法确认属于自己的文件会放在这里,而不会被删除。",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} 个文件夹",
+    "folderCount_other": "{{count}} 个文件夹",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
+    "refresh": "刷新",
+    "error": "无法列出:{{error}}",
+    "projectError": "{{project}}:{{error}}",
+    "loading": "正在查找保留的文件…",
+    "empty": "没有保留任何文件。每次运行都已清理干净。",
+    "select": "选择 {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} 个文件",
+    "rowTitle_other": "{{name}} · {{count}} 个文件",
+    "today": "今天保留",
+    "age_one": "{{count}} 天前保留",
+    "age_other": "{{count}} 天前保留",
+    "details": "详情",
+    "delete": "删除",
+    "selectAll": "全选",
+    "deleteSelected_one": "删除 {{count}} 个文件夹",
+    "deleteSelected_other": "删除 {{count}} 个文件夹",
+    "result": "已删除 {{deleted}} 个,{{kept}} 个未删除。"
   }
 }

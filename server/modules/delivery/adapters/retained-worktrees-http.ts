@@ -5,6 +5,11 @@ import {
   createRetainedSizeScanner, listRetainedWorktreeCandidates, listRetainedWorktrees, removeRetainedWorktree,
   type RetainedRemovalResult, type RetainedSizeState, type RetainedWorktreeItem, type RetainedWorktreeProject,
 } from '../runtime/retained-worktrees'
+import { isolatedWorktreesRoot } from '../runtime/isolated-worktree'
+import {
+  checkOverlayQuarantineTarget, deleteOverlayQuarantine, describeOverlayQuarantine, listOverlayQuarantines,
+  type OverlayQuarantine, type QuarantineDeletion,
+} from '../runtime/overlay-quarantines'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getContext'>
 
@@ -26,6 +31,24 @@ function projectOf(ctx: ProjectContext): RetainedWorktreeProject {
 }
 
 interface ItemRef { projectId: string; id: string }
+interface QuarantineRef { projectId: string; path: string }
+
+/** One project's own Specrails worktrees root (never derived from client input). */
+function quarantineRootOf(ctx: ProjectContext): string {
+  return isolatedWorktreesRoot(ctx.project.slug)
+}
+
+function readQuarantineRefs(value: unknown, max: number): QuarantineRef[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > max) return null
+  const refs: QuarantineRef[] = []
+  for (const entry of value) {
+    const projectId = (entry as { projectId?: unknown })?.projectId
+    const target = (entry as { path?: unknown })?.path
+    if (typeof projectId !== 'string' || typeof target !== 'string' || !projectId || !target || target.length > 4096) return null
+    refs.push({ projectId, path: target })
+  }
+  return refs
+}
 
 function readRefs(value: unknown, max: number): ItemRef[] | null {
   if (!Array.isArray(value) || value.length > max) return null
@@ -53,6 +76,54 @@ function readRefs(value: unknown, max: number): ItemRef[] | null {
  */
 export function registerRetainedWorktreeRoutes(router: Router, registry: Registry, git: GitRunner = defaultGitRunner): void {
   const sizes = createRetainedSizeScanner()
+
+  /*
+   * Safety archives (`<worktree>.specrails-overlay-quarantine-XXXXXX`): what
+   * release kept outside the PR because it could not prove it was Specrails's
+   * own unchanged kit. Every path is validated against the named project's
+   * own worktrees root; deletions are logged.
+   */
+  router.get('/worktrees/quarantines', (_req, res) => {
+    const projects: Array<{ projectId: string; projectName: string; error?: string }> = []
+    const items: Array<OverlayQuarantine & { projectId: string; projectName: string }> = []
+    for (const ctx of registry.listContexts()) {
+      try {
+        for (const quarantine of listOverlayQuarantines(quarantineRootOf(ctx))) {
+          items.push({ projectId: ctx.project.id, projectName: ctx.project.name, ...quarantine })
+        }
+        projects.push({ projectId: ctx.project.id, projectName: ctx.project.name })
+      } catch (err) {
+        projects.push({ projectId: ctx.project.id, projectName: ctx.project.name, error: err instanceof Error ? err.message : String(err) })
+      }
+    }
+    res.json({ generatedAt: new Date().toISOString(), projects, items })
+  })
+
+  router.post('/worktrees/quarantines/inspect', (req, res) => {
+    const refs = readQuarantineRefs((req.body as { items?: unknown } | undefined)?.items, MAX_SIZE_KEYS)
+    if (!refs) { res.status(400).json({ error: 'items must be a list of { projectId, path }' }); return }
+    const items = refs.map((ref) => {
+      const ctx = registry.getContext(ref.projectId)
+      if (!ctx) return { ...ref, status: 'refused' as const, reason: 'unknown-project' }
+      const check = checkOverlayQuarantineTarget(quarantineRootOf(ctx), ref.path)
+      if (!check.ok) return { ...ref, status: check.reason === 'missing' ? 'missing' as const : 'refused' as const, reason: check.reason }
+      const quarantine = describeOverlayQuarantine(check.path)
+      return quarantine ? { ...ref, status: 'present' as const, quarantine } : { ...ref, status: 'missing' as const, reason: 'missing' }
+    })
+    res.json({ items })
+  })
+
+  router.post('/worktrees/quarantines/remove', (req, res) => {
+    const refs = readQuarantineRefs((req.body as { items?: unknown } | undefined)?.items, MAX_REMOVALS)
+    if (!refs) { res.status(400).json({ error: 'items must be a list of { projectId, path }' }); return }
+    const results: Array<QuarantineDeletion & { projectId: string }> = []
+    for (const ref of refs) {
+      const ctx = registry.getContext(ref.projectId)
+      if (!ctx) { results.push({ projectId: ref.projectId, status: 'refused', path: ref.path, reason: 'outside-project' }); continue }
+      results.push({ projectId: ref.projectId, ...deleteOverlayQuarantine(quarantineRootOf(ctx), ref.path, { projectId: ref.projectId }) })
+    }
+    res.json({ results })
+  })
 
   router.get('/worktrees/retained', async (_req, res) => {
     const now = Date.now()

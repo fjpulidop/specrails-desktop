@@ -83,9 +83,6 @@
     "cleanupIncomplete_other": "清理未完成（{{count}} 条警告）",
     "cleanupIncompleteHint": "本地恢复数据已保留。手动删除任何内容前，请先检查以下详情。",
     "copyCleanupDetails": "复制恢复详情",
-    "safetyArchiveTitle": "安全存档（{{count}}）",
-    "safetyArchiveHint": "为安全起见，临时工作区文件已保存在 PR 之外。你可以检查或手动删除它们。",
-    "copySafetyArchive": "复制路径",
     "unit": {
       "failed": "实现失败",
       "blocked": "交付受阻",
@@ -346,5 +343,33 @@
     "baseMoved_other": "自创建此分支以来，{{base}} 已前进 {{count}} 个提交",
     "moreFiles": "另有 {{count}} 个",
     "title": "合并预览"
+  },
+  "safetyArchive": {
+    "title_one": "已保留 {{count}} 个未进入 PR 的文件",
+    "title_other": "已保留 {{count}} 个未进入 PR 的文件",
+    "hint": "Specrails 无法确认这些文件是它自己的,所以把它们放到一旁,而没有删除。",
+    "toastHint": "可在“详情”中查看或删除。",
+    "delete": "删除",
+    "dismiss": "忽略",
+    "details": "详情",
+    "close": "关闭",
+    "copyPath": "复制路径",
+    "copied": "已复制",
+    "revealFinder": "在 Finder 中显示",
+    "revealFolder": "在文件夹中显示",
+    "filesLabel": "已保留的文件",
+    "link": "链接",
+    "moreFiles_one": "另有 {{count}} 个文件",
+    "moreFiles_other": "另有 {{count}} 个文件",
+    "confirmTitle_one": "删除 {{count}} 个已保留的文件?",
+    "confirmTitle_other": "删除 {{count}} 个已保留的文件?",
+    "confirmDescription_one": "将删除文件夹 {{folder}}(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescription_other": "将删除文件夹 {{folder}}(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescriptionMany_one": "将删除 {{folders}} 个文件夹(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescriptionMany_other": "将删除 {{folders}} 个文件夹(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "deleteFailed_one": "有 {{count}} 个文件夹无法删除。",
+    "deleteFailed_other": "有 {{count}} 个文件夹无法删除。",
+    "goneTitle": "没有需要查看的内容",
+    "gone": "这些文件已被删除,或提示已被忽略。"
   }
 }

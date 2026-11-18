@@ -538,13 +538,15 @@ describe('create-pr', () => {
     ])
   })
 
-  it('persists a successful safety archive without marking cleanup incomplete, including later fd writes', async () => {
+  it('removes unchanged kit, persists a safety archive for kept paths without marking cleanup incomplete, including later fd writes', async () => {
     const worktree = path.join(tmpDir, 'archive-wt')
     const overlayDirectory = path.join(worktree, '.claude', 'rules')
     const overlayFile = path.join(overlayDirectory, 'owned.md')
     fs.mkdirSync(overlayDirectory, { recursive: true })
     fs.writeFileSync(overlayFile, 'allocator copy')
-    const fingerprint = fingerprintOverlayCleanupPath(overlayDirectory)!
+    const kitFile = path.join(worktree, '.claude', 'kit.md')
+    fs.writeFileSync(kitFile, 'specrails kit')
+    const kitFingerprint = fingerprintOverlayCleanupPath(kitFile)!
     const fd = fs.openSync(overlayFile, 'r+')
     createRailWorktree(db, {
       id: 'archive-wt', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
@@ -554,15 +556,20 @@ describe('create-pr', () => {
       decision: 'on_review', worktreeIds: ['archive-wt'],
       branches: [{
         ...branchRecords([1])[0],
-        overlayExcludes: ['.claude/rules'],
-        overlayCleanupEvidence: [{ path: '.claude/rules', ...fingerprint }],
+        overlayExcludes: ['.claude/kit.md'],
+        overlayCleanupEvidence: [{ path: '.claude/kit.md', ...kitFingerprint }],
+        // An ignored directory the settlement snapshot authorized: its bytes are
+        // not provably Specrails's own, so release keeps them in the archive.
+        settlementIgnoredPaths: ['.claude/rules'],
       }],
     })
     transitionDecision(db, row.id, 'on_review', 'on_review', { safetyArchives: ['/previous/archive'] })
     const base = fakeGit()
     const git: GitRunner = {
       async run(args, cwd) {
-        if (cwd === worktree && args[0] === 'status') return ok
+        if (cwd === worktree && args[0] === 'status') {
+          return fs.existsSync(overlayDirectory) ? { code: 0, stdout: '!! .claude/rules/\n', stderr: '' } : ok
+        }
         if (cwd === worktree && args[0] === 'ls-files') return { code: 1, stdout: '', stderr: 'not tracked' }
         if (cwd === worktree && args.join(' ') === 'rev-parse --verify HEAD') {
           return { code: 0, stdout: `${'1'.repeat(40)}\n`, stderr: '' }
@@ -589,6 +596,8 @@ describe('create-pr', () => {
       const archive = snapshot.safetyArchives[1]
       expect(archive).toContain('.specrails-overlay-quarantine-')
 
+      expect(fs.existsSync(path.join(archive, '.claude', 'kit.md'))).toBe(false)
+      expect(fs.existsSync(kitFile)).toBe(false)
       fs.writeSync(fd, 'post-rename write', 0, 'utf8')
       expect(fs.readFileSync(path.join(archive, '.claude', 'rules', 'owned.md'), 'utf8')).toContain('post-rename write')
     } finally {

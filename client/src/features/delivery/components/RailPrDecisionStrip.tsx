@@ -27,6 +27,7 @@ import { TopRiskLine } from './TopRiskLine'
 import { MergePreviewLine } from './MergePreviewLine'
 import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
+import { SafetyArchiveNotice } from './SafetyArchiveNotice'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -1062,20 +1063,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       )}
 
       {presentation.safetyArchives.length > 0 && (
-        <details
-          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-muted-foreground ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`}
-          data-testid="rail-pr-safety-archives"
-        >
-          <summary className="cursor-pointer font-medium text-accent-info">
-            {t('railPr.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
-          </summary>
-          <p className="mt-1">{t('railPr.safetyArchiveHint')}</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-[0.9em] text-muted-foreground">
-            {presentation.safetyArchives.map((archive) => (
-              <li key={archive} className="break-all">{archive}</li>
-            ))}
-          </ul>
-        </details>
+        <SafetyArchiveNotice projectId={stripProjectId} paths={presentation.safetyArchives} compact={compact} testId="rail-pr-safety-archives" />
       )}
 
       {/* Merge-local confirmation — it writes merge commits into the user's

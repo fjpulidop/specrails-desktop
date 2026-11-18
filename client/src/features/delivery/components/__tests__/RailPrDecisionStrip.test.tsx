@@ -95,6 +95,16 @@ beforeEach(() => {
   })
 })
 
+function inspectFetch(archive: string, fileCount = 1) {
+  const original = global.fetch
+  global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/worktrees/quarantines/inspect')
+    ? new Response(JSON.stringify({ items: [{ projectId: 'p1', path: archive, status: 'present', quarantine: {
+      path: archive, worktreeName: 'ticket-1', createdAt: 0, fileCount, bytes: 9, files: [{ path: 'CLAUDE.md', kind: 'file', bytes: 9 }], truncated: false,
+    } }] }), { status: 200 })
+    : original(input)) as unknown as typeof fetch
+  return () => { global.fetch = original }
+}
+
 describe('grouped RailPrDecisionStrip actions', () => {
   const repositories: RepositoryDeliverySnapshot[] = ['web', 'api'].map((repositoryId) => ({
     repositoryId, name: repositoryId, path: `/repos/${repositoryId}`, deliveryId: `child-${repositoryId}`,
@@ -1103,17 +1113,20 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
   })
 
-  it('discloses durable safety archives without mislabeling cleanup as incomplete', () => {
-    renderStrip(snapshot({
-      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
-      safetyArchives: ['/worktrees/ticket-1.specrails-overlay-quarantine-a1/.mcp.json'],
-      cleanupWarnings: [],
-    }))
-
-    const archives = screen.getByTestId('rail-pr-safety-archives')
-    expect(archives).toHaveTextContent('Safety archive (1)')
-    expect(archives).toHaveTextContent('ticket-1.specrails-overlay-quarantine-a1/.mcp.json')
-    expect(screen.queryByText(/Cleanup is incomplete/)).toBeNull()
+  it('discloses really kept files without mislabeling cleanup as incomplete', async () => {
+    const archive = '/worktrees/run/ticket-1.specrails-overlay-quarantine-a1B2c3'
+    const restore = inspectFetch(archive)
+    try {
+      renderStrip(snapshot({
+        decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
+        safetyArchives: [archive],
+        cleanupWarnings: [],
+      }))
+      const archives = await screen.findByTestId('rail-pr-safety-archives')
+      expect(archives).toHaveTextContent("1 file was kept that didn't go into the PR")
+      expect(archives).not.toHaveTextContent(archive)
+      expect(screen.queryByText(/Cleanup is incomplete/)).toBeNull()
+    } finally { restore() }
   })
 
   it('distinguishes local-only delivery from a pushed branch', () => {

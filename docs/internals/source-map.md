@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1768 source/build files. Nearby tests are linked where names
+Includes 1772 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -217,6 +217,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionResourcesPanel.tsx](../../client/src/features/background/components/MissionResourcesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/MissionResourcesPanel.test.tsx)
 - [RetainedWorktreesSection.tsx](../../client/src/features/background/components/RetainedWorktreesSection.tsx) · [test](../../client/src/features/background/components/__tests__/RetainedWorktreesSection.test.tsx)
 - [RunPortsSection.tsx](../../client/src/features/background/components/RunPortsSection.tsx) · [test](../../client/src/features/background/components/__tests__/RunPortsSection.test.tsx)
+- [SafetyArchivesSection.tsx](../../client/src/features/background/components/SafetyArchivesSection.tsx) · [test](../../client/src/features/background/components/__tests__/SafetyArchivesSection.test.tsx)
 
 ## client/src/features/background/context
 
@@ -402,6 +403,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MergePreviewLine.tsx](../../client/src/features/delivery/components/MergePreviewLine.tsx) · [test](../../client/src/features/delivery/components/__tests__/MergePreviewLine.test.tsx)
 - [RailPrDecisionStrip.tsx](../../client/src/features/delivery/components/RailPrDecisionStrip.tsx) · [test](../../client/src/features/delivery/components/__tests__/RailPrDecisionStrip.test.tsx)
 - [RepositoryDeliveries.tsx](../../client/src/features/delivery/components/RepositoryDeliveries.tsx) · [test](../../client/src/features/delivery/components/__tests__/RepositoryDeliveries.test.tsx)
+- [SafetyArchiveNotice.tsx](../../client/src/features/delivery/components/SafetyArchiveNotice.tsx) · [test](../../client/src/features/delivery/components/__tests__/SafetyArchiveNotice.test.tsx)
 - [TargetPrLaunchDialog.tsx](../../client/src/features/delivery/components/TargetPrLaunchDialog.tsx)
 - [TopRiskLine.tsx](../../client/src/features/delivery/components/TopRiskLine.tsx) · [test](../../client/src/features/delivery/components/__tests__/TopRiskLine.test.tsx)
 
@@ -443,6 +445,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-ci.ts](../../client/src/features/delivery/lib/pr-ci.ts)
 - [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
 - [pr-follow-up-scope.ts](../../client/src/features/delivery/lib/pr-follow-up-scope.ts)
+- [safety-archives-api.ts](../../client/src/features/delivery/lib/safety-archives-api.ts)
 - [viewed-files.ts](../../client/src/features/delivery/lib/viewed-files.ts) · [test](../../client/src/features/delivery/lib/__tests__/viewed-files.test.ts)
 
 ## client/src/features/delivery/pages
@@ -1912,6 +1915,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [multi-repo-delivery.ts](../../server/modules/delivery/runtime/multi-repo-delivery.ts)
 - [multi-repo-execution-store.ts](../../server/modules/delivery/runtime/multi-repo-execution-store.ts)
 - [multi-repo-execution.ts](../../server/modules/delivery/runtime/multi-repo-execution.ts) · [test](../../server/modules/delivery/runtime/multi-repo-execution.test.ts)
+- [overlay-quarantines.ts](../../server/modules/delivery/runtime/overlay-quarantines.ts) · [test](../../server/modules/delivery/runtime/overlay-quarantines.test.ts)
 - [phase3-harvest.ts](../../server/modules/delivery/runtime/phase3-harvest.ts) · [test](../../server/modules/delivery/runtime/phase3-harvest.test.ts)
 - [pr-body.ts](../../server/modules/delivery/runtime/pr-body.ts) · [test](../../server/modules/delivery/runtime/pr-body.test.ts)
 - [pr-follow-up-scope.ts](../../server/modules/delivery/runtime/pr-follow-up-scope.ts)

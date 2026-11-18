@@ -132,5 +132,31 @@
     "confirmBranchesKept": "Every branch is kept, so its commits stay available.",
     "confirmBranchesDeleted": "{{count}} branches that hold nothing new are deleted too, only if they still point at the checked commit. {{kept}} are kept.",
     "confirmRecheck": "Each worktree is checked again just before it goes; anything that changed since is kept."
+  },
+  "safetyArchives": {
+    "title": "Files kept outside a PR",
+    "description": "When a run finishes, Specrails removes its own temporary files. Anything it can't confirm as its own is set aside here instead of being deleted.",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} folder",
+    "folderCount_other": "{{count}} folders",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "refresh": "Refresh",
+    "error": "Couldn't list them: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "Looking for kept files…",
+    "empty": "Nothing kept. Every run cleaned up after itself.",
+    "select": "Select {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} file",
+    "rowTitle_other": "{{name}} · {{count}} files",
+    "today": "Kept today",
+    "age_one": "Kept {{count}} day ago",
+    "age_other": "Kept {{count}} days ago",
+    "details": "Details",
+    "delete": "Delete",
+    "selectAll": "Select all",
+    "deleteSelected_one": "Delete {{count}} folder",
+    "deleteSelected_other": "Delete {{count}} folders",
+    "result": "{{deleted}} deleted, {{kept}} not deleted."
   }
 }

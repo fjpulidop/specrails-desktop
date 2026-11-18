@@ -132,5 +132,31 @@
     "confirmBranchesKept": "Se conservan todas las ramas, así que sus commits siguen disponibles.",
     "confirmBranchesDeleted": "También se borran {{count}} ramas que no contienen nada nuevo, solo si siguen apuntando al commit comprobado. Se conservan {{kept}}.",
     "confirmRecheck": "Cada worktree se vuelve a comprobar justo antes de quitarlo; lo que haya cambiado desde entonces se conserva."
+  },
+  "safetyArchives": {
+    "title": "Archivos guardados fuera de una PR",
+    "description": "Al terminar una ejecución, Specrails elimina sus propios archivos temporales. Lo que no puede confirmar como suyo lo aparta aquí en vez de borrarlo.",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} carpeta",
+    "folderCount_other": "{{count}} carpetas",
+    "fileCount_one": "{{count}} archivo",
+    "fileCount_other": "{{count}} archivos",
+    "refresh": "Actualizar",
+    "error": "No se pudieron listar: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "Buscando archivos guardados…",
+    "empty": "No hay nada guardado. Cada ejecución limpió lo suyo.",
+    "select": "Seleccionar {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} archivo",
+    "rowTitle_other": "{{name}} · {{count}} archivos",
+    "today": "Guardado hoy",
+    "age_one": "Guardado hace {{count}} día",
+    "age_other": "Guardado hace {{count}} días",
+    "details": "Detalles",
+    "delete": "Eliminar",
+    "selectAll": "Seleccionar todo",
+    "deleteSelected_one": "Eliminar {{count}} carpeta",
+    "deleteSelected_other": "Eliminar {{count}} carpetas",
+    "result": "{{deleted}} eliminadas, {{kept}} sin eliminar."
   }
 }

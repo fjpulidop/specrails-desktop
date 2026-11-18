@@ -172,23 +172,42 @@ describe('RailPrDecisionProvider', () => {
     expect(mockToast.info).not.toHaveBeenCalled()
   })
 
-  it('keeps terminal safety archives visible in a persistent dashboard toast', () => {
+  function mockArchiveInspection(status: 'present' | 'missing', fileCount = 2) {
+    const archive = '/home/.specrails/projects/p/worktrees/run/ticket-1.specrails-overlay-quarantine-AbC123'
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/worktrees/quarantines/inspect')) {
+        return new Response(JSON.stringify({ items: [status === 'present'
+          ? { projectId: 'proj', path: archive, status, quarantine: { path: archive, worktreeName: 'ticket-1', createdAt: 0, fileCount, bytes: 10, files: [], truncated: false } }
+          : { projectId: 'proj', path: archive, status }] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ prDeliveries: {} }), { status: 200 })
+    }) as unknown as typeof fetch
+    return archive
+  }
+
+  it('announces really kept files with a short toast: count only, no path, Details and Dismiss', async () => {
+    const archive = mockArchiveInspection('present', 2)
     renderProvider()
     send(wsState({ decision: 'pr_ready' }))
-    send(wsState({
-      decision: 'merged',
-      safetyArchives: [
-        '/repo/worktrees/ticket-1.specrails-overlay-quarantine-a/.mcp.json',
-        '/repo/worktrees/ticket-1.specrails-overlay-quarantine-a/.claude/settings.json',
-      ],
-    }))
+    send(wsState({ decision: 'merged', safetyArchives: [archive] }))
 
     expect(latest!.decisions.has(0)).toBe(false)
-    expect(mockToast.warning).toHaveBeenCalledWith('Safety archive (2)', expect.objectContaining({
-      description: expect.stringContaining('.mcp.json'),
-      duration: Infinity,
-      action: expect.objectContaining({ label: 'Copy paths' }),
-    }))
+    await waitFor(() => expect(mockToast.warning).toHaveBeenCalled())
+    const [title, options] = mockToast.warning.mock.calls[0]
+    expect(title).toBe("2 files were kept that didn't go into the PR")
+    expect(String(options.description)).not.toContain('/')
+    expect(options.action).toMatchObject({ label: 'Details' })
+    expect(options.cancel).toMatchObject({ label: 'Dismiss' })
+  })
+
+  it('stays silent when the recorded safety archive is already gone', async () => {
+    const archive = mockArchiveInspection('missing')
+    renderProvider()
+    send(wsState({ decision: 'pr_ready' }))
+    send(wsState({ decision: 'merged', safetyArchives: [archive] }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/worktrees/quarantines/inspect'), expect.anything()))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockToast.warning).not.toHaveBeenCalled()
   })
 
   it('ignores a late terminal event from an older delivery generation on the same rail', () => {
@@ -535,7 +554,6 @@ describe('long delivery warning toasts in the real Toaster', () => {
 
   const variants = [
     { name: 'cleanup warnings', field: 'cleanupWarnings', copyLabel: 'Copy recovery details' },
-    { name: 'safety archives', field: 'safetyArchives', copyLabel: 'Copy paths' },
   ] as const
 
   beforeEach(() => {

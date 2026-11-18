@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "Run worktrees kept on disk",
           "keywords": "storage, disk, worktrees, cleanup, clean up, space, retained, branches, remove"
+        },
+        "safetyArchives": {
+          "label": "Files kept outside a PR",
+          "keywords": "storage, disk, safety archive, kept files, quarantine, cleanup, delete"
         }
       }
     }

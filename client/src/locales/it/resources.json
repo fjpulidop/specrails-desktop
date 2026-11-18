@@ -132,5 +132,31 @@
     "confirmBranchesKept": "Tutti i branch vengono conservati, quindi i loro commit restano disponibili.",
     "confirmBranchesDeleted": "Vengono eliminati anche {{count}} branch che non contengono nulla di nuovo, solo se puntano ancora al commit verificato. {{kept}} vengono conservati.",
     "confirmRecheck": "Ogni worktree viene ricontrollato subito prima della rimozione; ciò che è cambiato nel frattempo viene conservato."
+  },
+  "safetyArchives": {
+    "title": "File conservati fuori da una PR",
+    "description": "Al termine di un'esecuzione, Specrails rimuove i propri file temporanei. Ciò che non può confermare come proprio viene messo da parte qui invece di essere eliminato.",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} cartella",
+    "folderCount_other": "{{count}} cartelle",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} file",
+    "refresh": "Aggiorna",
+    "error": "Impossibile elencarli: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "Ricerca dei file conservati…",
+    "empty": "Niente di conservato. Ogni esecuzione ha fatto pulizia.",
+    "select": "Seleziona {{name}}",
+    "rowTitle_one": "{{name}} · {{count}} file",
+    "rowTitle_other": "{{name}} · {{count}} file",
+    "today": "Conservato oggi",
+    "age_one": "Conservato {{count}} giorno fa",
+    "age_other": "Conservato {{count}} giorni fa",
+    "details": "Dettagli",
+    "delete": "Elimina",
+    "selectAll": "Seleziona tutto",
+    "deleteSelected_one": "Elimina {{count}} cartella",
+    "deleteSelected_other": "Elimina {{count}} cartelle",
+    "result": "{{deleted}} eliminate, {{kept}} non eliminate."
   }
 }

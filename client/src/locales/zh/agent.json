@@ -428,8 +428,6 @@
     "retryPushNote": "实现已成功，更改安全保存在本地。请仅重试推送。",
     "cleanupIncomplete_one": "清理未完成（{{count}} 条警告）",
     "cleanupIncomplete_other": "清理未完成（{{count}} 条警告）",
-    "safetyArchiveTitle": "安全存档（{{count}}）",
-    "safetyArchiveHint": "为安全起见，临时工作区文件已保存在 PR 之外。你可以检查或手动删除它们。",
     "confirm": {
       "recoverAndRetryTitle": "提交并推送已保留的结果？",
       "recoverAndRetryBody": "Specrails 只会使用 {{branch}} 对应的隔离 worktree 或已记录且可快进的分支。必要时，它会提交可交付文件；仅当 PR 仍以预期的源分支和目标分支保持打开状态时，才会推送这个精确提交。不会触碰项目主目录及其中尚未提交的更改。",

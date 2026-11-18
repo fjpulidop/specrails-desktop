@@ -83,9 +83,6 @@
     "cleanupIncomplete_other": "Pulizia incompleta ({{count}} avvisi)",
     "cleanupIncompleteHint": "I dati di recupero locali sono stati conservati. Controlla questi dettagli prima di rimuovere qualcosa manualmente.",
     "copyCleanupDetails": "Copia dettagli di recupero",
-    "safetyArchiveTitle": "Archivio di sicurezza ({{count}})",
-    "safetyArchiveHint": "I file temporanei dell’area di lavoro sono stati conservati fuori dalla PR per precauzione. Puoi controllarli o rimuoverli manualmente.",
-    "copySafetyArchive": "Copia percorsi",
     "unit": {
       "failed": "implementazione non riuscita",
       "blocked": "consegna bloccata",
@@ -346,5 +343,33 @@
     "baseMoved_other": "{{base}} è avanzato di {{count}} commit da quando è stato creato questo branch",
     "moreFiles": "+{{count}} altri",
     "title": "Anteprima del merge"
+  },
+  "safetyArchive": {
+    "title_one": "È stato conservato {{count}} file rimasto fuori dalla PR",
+    "title_other": "Sono stati conservati {{count}} file rimasti fuori dalla PR",
+    "hint": "Specrails non ha potuto confermare che fossero suoi, quindi li ha messi da parte invece di eliminarli.",
+    "toastHint": "Controllali o eliminali da Dettagli.",
+    "delete": "Elimina",
+    "dismiss": "Ignora",
+    "details": "Dettagli",
+    "close": "Chiudi",
+    "copyPath": "Copia percorso",
+    "copied": "Copiato",
+    "revealFinder": "Mostra nel Finder",
+    "revealFolder": "Mostra nella cartella",
+    "filesLabel": "File conservati",
+    "link": "link",
+    "moreFiles_one": "e {{count}} altro file",
+    "moreFiles_other": "e altri {{count}} file",
+    "confirmTitle_one": "Eliminare {{count}} file conservato?",
+    "confirmTitle_other": "Eliminare {{count}} file conservati?",
+    "confirmDescription_one": "Verrà eliminata la cartella {{folder}} con {{count}} file ({{size}}). Non si può annullare.",
+    "confirmDescription_other": "Verrà eliminata la cartella {{folder}} con {{count}} file ({{size}}). Non si può annullare.",
+    "confirmDescriptionMany_one": "Verranno eliminate {{folders}} cartelle con {{count}} file ({{size}}). Non si può annullare.",
+    "confirmDescriptionMany_other": "Verranno eliminate {{folders}} cartelle con {{count}} file ({{size}}). Non si può annullare.",
+    "deleteFailed_one": "Non è stato possibile eliminare {{count}} cartella.",
+    "deleteFailed_other": "Non è stato possibile eliminare {{count}} cartelle.",
+    "goneTitle": "Niente da controllare",
+    "gone": "Questi file sono già stati eliminati o ignorati."
   }
 }

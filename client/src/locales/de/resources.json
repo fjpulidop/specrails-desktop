@@ -132,5 +132,31 @@
     "confirmBranchesKept": "Alle Branches bleiben erhalten, ihre Commits also auch.",
     "confirmBranchesDeleted": "{{count}} Branches ohne neue Inhalte werden ebenfalls gelöscht, nur wenn sie noch auf den geprüften Commit zeigen. {{kept}} bleiben erhalten.",
     "confirmRecheck": "Jeder Worktree wird direkt vor dem Entfernen erneut geprüft; was sich seitdem geändert hat, bleibt erhalten."
+  },
+  "safetyArchives": {
+    "title": "Außerhalb eines PR aufbewahrte Dateien",
+    "description": "Nach einem Run entfernt Specrails seine eigenen temporären Dateien. Was es nicht sicher als eigenes erkennt, legt es hier beiseite statt es zu löschen.",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} Ordner",
+    "folderCount_other": "{{count}} Ordner",
+    "fileCount_one": "{{count}} Datei",
+    "fileCount_other": "{{count}} Dateien",
+    "refresh": "Aktualisieren",
+    "error": "Auflisten fehlgeschlagen: {{error}}",
+    "projectError": "{{project}}: {{error}}",
+    "loading": "Suche aufbewahrte Dateien…",
+    "empty": "Nichts aufbewahrt. Jeder Run hat hinter sich aufgeräumt.",
+    "select": "{{name}} auswählen",
+    "rowTitle_one": "{{name}} · {{count}} Datei",
+    "rowTitle_other": "{{name}} · {{count}} Dateien",
+    "today": "Heute aufbewahrt",
+    "age_one": "Vor {{count}} Tag aufbewahrt",
+    "age_other": "Vor {{count}} Tagen aufbewahrt",
+    "details": "Details",
+    "delete": "Löschen",
+    "selectAll": "Alle auswählen",
+    "deleteSelected_one": "{{count}} Ordner löschen",
+    "deleteSelected_other": "{{count}} Ordner löschen",
+    "result": "{{deleted}} gelöscht, {{kept}} nicht gelöscht."
   }
 }

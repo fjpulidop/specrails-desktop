@@ -367,6 +367,10 @@
         "retainedWorktrees": {
           "label": "磁盘上保留的运行工作树",
           "keywords": "存储, 磁盘, 工作树, worktree, 清理, 空间, 分支, 移除"
+        },
+        "safetyArchives": {
+          "label": "保留在 PR 之外的文件",
+          "keywords": "存储, 磁盘, 安全存档, 保留的文件, 隔离, 清理, 删除"
         }
       }
     }

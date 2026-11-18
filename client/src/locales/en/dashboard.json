@@ -160,9 +160,6 @@
     "cleanupIncomplete_other": "Cleanup is incomplete ({{count}} warnings)",
     "cleanupIncompleteHint": "Local recovery data was preserved. Inspect these details before removing anything manually.",
     "copyCleanupDetails": "Copy recovery details",
-    "safetyArchiveTitle": "Safety archive ({{count}})",
-    "safetyArchiveHint": "Temporary workspace files were preserved outside the PR as a precaution. You can inspect or remove them manually.",
-    "copySafetyArchive": "Copy paths",
     "unit": {
       "failed": "implementation failed",
       "blocked": "delivery blocked",
@@ -346,5 +343,33 @@
     "baseMoved_other": "{{base}} moved {{count}} commits since this branch was cut",
     "moreFiles": "+{{count}} more",
     "title": "Merge preview"
+  },
+  "safetyArchive": {
+    "title_one": "{{count}} file was kept that didn't go into the PR",
+    "title_other": "{{count}} files were kept that didn't go into the PR",
+    "hint": "Specrails couldn't confirm they were its own, so it set them aside instead of deleting them.",
+    "toastHint": "Review or delete them from Details.",
+    "delete": "Delete",
+    "dismiss": "Dismiss",
+    "details": "Details",
+    "close": "Close",
+    "copyPath": "Copy path",
+    "copied": "Copied",
+    "revealFinder": "Show in Finder",
+    "revealFolder": "Show in folder",
+    "filesLabel": "Kept files",
+    "link": "link",
+    "moreFiles_one": "and {{count}} more file",
+    "moreFiles_other": "and {{count}} more files",
+    "confirmTitle_one": "Delete {{count}} kept file?",
+    "confirmTitle_other": "Delete {{count}} kept files?",
+    "confirmDescription_one": "This deletes the folder {{folder}} with {{count}} file ({{size}}). It can't be undone.",
+    "confirmDescription_other": "This deletes the folder {{folder}} with {{count}} files ({{size}}). It can't be undone.",
+    "confirmDescriptionMany_one": "This deletes {{folders}} folders with {{count}} file ({{size}}). It can't be undone.",
+    "confirmDescriptionMany_other": "This deletes {{folders}} folders with {{count}} files ({{size}}). It can't be undone.",
+    "deleteFailed_one": "{{count}} folder could not be deleted.",
+    "deleteFailed_other": "{{count}} folders could not be deleted.",
+    "goneTitle": "Nothing left to review",
+    "gone": "These files were already deleted or dismissed."
   }
 }
