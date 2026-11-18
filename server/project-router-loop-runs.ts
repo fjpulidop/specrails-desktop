@@ -82,8 +82,15 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // A run a Desktop restart interrupted is resumed from the inbox or the restart dialog
     // with an empty body. That click is the person's explicit recovery: re-run the step
     // the restart cut off instead of failing on "An interrupted write requires explicit recovery".
-    if (run && run.project_id === c.project.id && run.engine_version === 2 && isRestartResume(run, controls)) {
-      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    // Over budget, the retained-run path answers 409 before Core is probed at all.
+    if (run && run.project_id === c.project.id && run.engine_version === 2 && isRestartResume(run, controls) && !c.dailyBudgetRejection?.()) {
+      const probeRun = () => probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      let probe = await probeRun()
+      // The Core child the restart killed still holds its lease (up to a minute): the
+      // restart dialog offers Resume at boot, so wait it out here instead of answering
+      // runtime_run_active. Nothing in this process runs it.
+      const wait = staleLeaseWaitMs(probe.lease, Date.now(), c.loopRunManager.isDefinitionRunActive?.(runId) ?? false)
+      if (wait > 0) { await new Promise((resolve) => setTimeout(resolve, wait)); probe = await probeRun() }
       controls = restartRecoveryControls(controls, probe.recoverableSteps)
     }
     const outcome = await resumeRetainedDefinitionRun(c, runId, controls)
@@ -586,4 +593,14 @@ export function restartRecoveryControls(controls: unknown, recoverable: Readonly
   if (recoverable.length === 0) return controls
   const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>
   return { ...body, recover: recoverable.map((step) => step.attemptId) }
+}
+
+/** Longest wait for the lease of a Core child that died with the previous Desktop process. */
+export const STALE_LEASE_MAX_WAIT_MS = 75_000
+
+/** How long to wait before a restart resume: until the dead owner's lease expires (bounded), never for a run alive here. */
+export function staleLeaseWaitMs(lease: { active: boolean; expiresAt?: number | null } | null, nowMs: number, runningHere: boolean): number {
+  if (runningHere || !lease?.active || typeof lease.expiresAt !== 'number') return 0
+  const remaining = lease.expiresAt - nowMs + 250
+  return remaining > 0 && remaining <= STALE_LEASE_MAX_WAIT_MS ? remaining : 0
 }

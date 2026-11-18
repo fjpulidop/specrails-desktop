@@ -479,3 +479,14 @@ describe('resuming a run a Desktop restart interrupted', () => {
     expect(isRestartResume({ status: 'completed', restart_reason: null }, {})).toBe(false)
   })
 })
+
+describe('resuming right after a restart', () => {
+  it('waits for the killed Core child lease to expire, bounded, and never for a run alive in this process', async () => {
+    const { staleLeaseWaitMs, STALE_LEASE_MAX_WAIT_MS } = await import('./project-router-loop-runs')
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, false)).toBe(6_250)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, true)).toBe(0)
+    expect(staleLeaseWaitMs({ active: false, expiresAt: 10_000 }, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs(null, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 4_000 + STALE_LEASE_MAX_WAIT_MS + 10_000 }, 4_000, false)).toBe(0)
+  })
+})
