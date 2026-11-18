@@ -52,6 +52,7 @@
 import fs from 'fs'
 import path from 'path'
 import { createHash } from 'crypto'
+import { hasAnyPolicyHook, mergePolicyHook, stripPolicyHook } from './modules/agent-policy'
 
 const OPENSPEC_CONFIG_FILES = ['openspec/config.yaml', 'openspec/config.yml'] as const
 
@@ -70,6 +71,14 @@ export interface WorktreeOverlayInput {
   providerDir: string
   /** Provider instruction filename (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`). */
   instructionsFilename: string
+  /**
+   * Claude only: manage `.claude/settings.local.json` as an overlay-owned COPY
+   * of the sources' file with the agent policy hook merged in (see
+   * server/modules/agent-policy). A string installs that hook command; null
+   * manages the file without the hook (policy switched off). Undefined keeps
+   * the historical behaviour (the file is linked like any other entry).
+   */
+  policyHookCommand?: string | null
 }
 
 export interface WorktreeOverlayResult {
@@ -94,6 +103,35 @@ export interface OverlayCleanupEvidence {
 
 /** Overlay manifest filename (worktree root). Overlay-owned + git-excluded. */
 export const OVERLAY_MANIFEST = '.sr-rail-overlay.json'
+
+/** Claude's local settings: an overlay-managed copy when the policy hook is managed. */
+export const MANAGED_LOCAL_SETTINGS = '.claude/settings.local.json'
+
+function readJsonObject(file: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+/** The base a managed local-settings copy is rendered from: the first source that has one, else empty. */
+function managedSettingsBase(sources: readonly string[]): { base: Record<string, unknown>; invalid: string | null } {
+  const source = sources.find((candidate) => fs.existsSync(candidate))
+  if (!source) return { base: {}, invalid: null }
+  const parsed = readJsonObject(source)
+  return parsed ? { base: parsed, invalid: null } : { base: {}, invalid: source }
+}
+
+/** Is `destination` exactly a managed copy: the source settings plus only our hook entries? */
+function isManagedSettingsCopy(destination: string, sources: readonly string[]): boolean {
+  const stat = lstatSafe(destination)
+  if (!stat?.isFile() || stat.isSymbolicLink()) return false
+  const live = readJsonObject(destination)
+  if (!live || !hasAnyPolicyHook(live)) return false
+  return JSON.stringify(stripPolicyHook(live)) === JSON.stringify(managedSettingsBase(sources).base)
+}
 
 /** providerDir children that must NEVER be linked into a worktree: nested
  *  pipeline worktrees must stay local to THIS worktree (linking would share
@@ -250,6 +288,14 @@ export function captureOverlayCleanupEvidence(
       continue
     }
     const sources = sourceCandidatesForOverlayEntry(input, rel)
+    if (rel === MANAGED_LOCAL_SETTINGS && input.providerDir === '.claude' && isManagedSettingsCopy(destination, sources)) {
+      const fingerprint = fingerprintOverlayCleanupPath(destination)
+      if (fingerprint) {
+        evidence.push({ path: rel, ...fingerprint })
+        seen.add(rel)
+      }
+      continue
+    }
     if (sources.length === 0) continue
     const destinationStat = lstatSafe(destination)
     if (!destinationStat) continue
@@ -571,6 +617,43 @@ function copyIfAbsent(src: string, dest: string, rel: string, created: string[],
   }
 }
 
+function applyManagedLocalSettings(
+  input: WorktreeOverlayInput,
+  worktreePath: string,
+  roots: readonly string[],
+  priorOwned: ReadonlySet<string>,
+  created: string[],
+  warnings: string[],
+): void {
+  const rel = MANAGED_LOCAL_SETTINGS
+  const dest = path.join(worktreePath, ...rel.split('/'))
+  const stat = lstatSafe(dest)
+  if (stat && !priorOwned.has(rel)) {
+    warnings.push(`${rel} belongs to the checkout; the agent policy hook is not installed in this worktree`)
+    return
+  }
+  try {
+    const { base, invalid } = managedSettingsBase(roots.map((root) => path.join(root, ...rel.split('/'))))
+    if (invalid) warnings.push(`${invalid} is not valid JSON; the worktree's local settings carry only the policy hook`)
+    const next = input.policyHookCommand ? mergePolicyHook(base, input.policyHookCommand) : stripPolicyHook(base)
+    if (stat && (stat.isSymbolicLink() || !stat.isFile())) fs.rmSync(dest, { recursive: true, force: true })
+    if (Object.keys(next).length === 0) {
+      if (stat?.isFile() && !stat.isSymbolicLink()) fs.unlinkSync(dest)
+      return
+    }
+    const body = `${JSON.stringify(next, null, 2)}\n`
+    let current: string | null = null
+    try { current = fs.readFileSync(dest, 'utf8') } catch { /* absent */ }
+    if (current !== body) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true })
+      fs.writeFileSync(dest, body, { mode: 0o600 })
+    }
+    created.push(rel)
+  } catch (err) {
+    warnings.push(`failed to write ${rel}: ${errMsg(err)}`)
+  }
+}
+
 /**
  * Apply the overlay. Never throws; see the module header for semantics.
  */
@@ -593,6 +676,7 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
       return { createdPaths: [], cleanupEvidence: [], warnings }
     }
     const roots = overlayRootsOf(input)
+    const managesLocalSettings = providerDir === '.claude' && input.policyHookCommand !== undefined
 
     // 1. providerDir merge-overlay (commands/agents/skills/rules/settings/…),
     //    over the UNION of entries across the configured roots (earlier wins).
@@ -632,6 +716,7 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
           // follow the spawn-local COPY semantics in step 3, not become a link
           // merely because it also lives directly under providerDir.
           if (SKIP_PROVIDER_ENTRIES.has(name) || name === nestedInstructionsEntry) continue
+          if (managesLocalSettings && name === 'settings.local.json') continue
           const childSrcs = srcProviders.map((srcProvider) => path.join(srcProvider, name)).filter((p) => lstatSafe(p) !== null)
           mergeLink(
             childSrcs,
@@ -644,6 +729,14 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
           )
         }
       }
+    }
+
+    // 1b. `.claude/settings.local.json` — a managed COPY: the sources' local
+    //     settings with the agent policy hook merged in. A checkout that brings
+    //     its own file keeps it (tracked content always wins) and the run goes
+    //     without the hook, said in a warning.
+    if (managesLocalSettings) {
+      applyManagedLocalSettings(input, worktreePath, roots, priorOwned, created, warnings)
     }
 
     // 2. `.mcp.json` — COPY (spawn-local), only when the checkout lacks one.

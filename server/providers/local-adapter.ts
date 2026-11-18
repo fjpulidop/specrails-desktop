@@ -15,6 +15,7 @@
 //
 // Spec: openspec/changes/local-ai-engines/specs/local-ai-engines/spec.md
 
+import { safeProviderSessionId } from './session-id'
 import fs from 'fs'
 import path from 'path'
 import { resolveBundledNodeExe } from '../path-resolver'
@@ -195,14 +196,14 @@ function buildLocalArgs(connection: LocalConnection, action: SpawnAction, opts: 
       if (!opts.sessionId) throw new Error('chat-resume requires sessionId')
       args.push(...common())
       if (opts.systemPrompt) args.push('--system-prompt', opts.systemPrompt)
-      args.push('--resume', opts.sessionId, ...maxTurns, '-p', opts.prompt, ...extras)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'local'), ...maxTurns, '-p', opts.prompt, ...extras)
       return args
     case 'chat-stream':
       // Persistent multi-turn: the prompt arrives over stdin, one line per turn.
       // `--max-turns` omitted on purpose (it would end the whole session).
       args.push(...common())
       if (opts.systemPrompt) args.push('--system-prompt', opts.systemPrompt)
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'local'))
       args.push('--input-format', 'stream-json', ...extras)
       return args
     case 'rail-job':
@@ -218,7 +219,7 @@ function buildLocalArgs(connection: LocalConnection, action: SpawnAction, opts: 
       return args
     case 'agent-refine':
       args.push(...common())
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'local'))
       args.push('-p', opts.prompt, ...extras)
       return args
     case 'setup-enrich':
@@ -226,7 +227,7 @@ function buildLocalArgs(connection: LocalConnection, action: SpawnAction, opts: 
       return args
     case 'setup-enrich-resume':
       if (!opts.sessionId) throw new Error('setup-enrich-resume requires sessionId')
-      args.push('--resume', opts.sessionId, ...common(), '-p', opts.prompt, ...extras)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'local'), ...common(), '-p', opts.prompt, ...extras)
       return args
     case 'auto-title':
       args.push(...common(), '-p', opts.prompt)

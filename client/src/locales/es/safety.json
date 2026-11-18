@@ -1,0 +1,17 @@
+{
+  "policy": {
+    "blocked": "Bloqueado por la política de Specrails",
+    "rules": {
+      "git-force-push": "Push forzado",
+      "git-push-protected": "Push a la rama de integración",
+      "git-push-delete": "Borrado de rama remota",
+      "git-reset-hard": "git reset --hard fuera de la rama del run",
+      "git-branch-delete": "Borrado de rama",
+      "gh-pr-merge": "Merge de una pull request",
+      "rm-outside-run": "Borrado fuera del run",
+      "secret-access": "Acceso a credenciales",
+      "policy-tamper": "Cambio en los ficheros de la política",
+      "policy-error": "Comando de riesgo no verificable"
+    }
+  }
+}

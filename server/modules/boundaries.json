@@ -92,6 +92,72 @@
       ]
     }
   },
+  "agent-policy": {
+    "publicEntries": [
+      "domain/denial.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/ingest.ts": [
+        "../../../db/types",
+        "../../audit",
+        "../domain/report",
+        "./spool",
+        "path"
+      ],
+      "adapters/install.ts": [
+        "../../../feature-flags",
+        "../../../path-resolver",
+        "../../../util/specrails-home",
+        "../domain/settings",
+        "../hook/policy-hook-bundle.generated",
+        "fs",
+        "path"
+      ],
+      "adapters/spool.ts": [
+        "../../../util/specrails-home",
+        "../domain/report",
+        "./install",
+        "fs",
+        "path"
+      ],
+      "domain/denial.ts": [
+        "./rules"
+      ],
+      "domain/report.ts": [
+        "./rules"
+      ],
+      "domain/rules.ts": [
+        "../../../git-guardrails",
+        "./shell"
+      ],
+      "domain/settings.ts": [],
+      "domain/shell.ts": [],
+      "hook/main.ts": [
+        "../domain/report",
+        "./policy-hook",
+        "crypto",
+        "fs",
+        "os",
+        "path"
+      ],
+      "hook/policy-hook-bundle.generated.ts": [],
+      "hook/policy-hook.ts": [
+        "../domain/denial",
+        "../domain/report",
+        "../domain/rules"
+      ],
+      "index.ts": [
+        "./adapters/ingest",
+        "./adapters/install",
+        "./adapters/spool",
+        "./domain/denial",
+        "./domain/report",
+        "./domain/rules",
+        "./domain/settings"
+      ]
+    }
+  },
   "agent-runtime": {
     "publicEntries": [
       "runtime/agent-runtime-accounting.ts",
@@ -530,6 +596,7 @@
         "../ports"
       ],
       "application.ts": [
+        "../agent-policy/domain/denial",
         "./domain",
         "./ports"
       ],
@@ -1228,6 +1295,7 @@
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
+        "../../agent-policy",
         "../../code/runtime/file-provenance",
         "./pr-naming",
         "path"
@@ -2803,6 +2871,7 @@
       "runtime/agent-chat-manager.ts",
       "runtime/agent-chat-registry.ts",
       "runtime/agent-chat-router.ts",
+      "runtime/agent-cwd-manager.ts",
       "runtime/agent-failure-briefing.ts",
       "runtime/agent-flow-prompt.ts",
       "runtime/agent-spec-framing.ts",
@@ -2837,6 +2906,7 @@
         "../../../util/win-spawn",
         "../../../workspace-resolution",
         "../../accounting/runtime/result-event",
+        "../../agent-policy",
         "../../agents/runtime/agent-store",
         "../../audit",
         "../../conversations/runtime/explore-draft-title",
@@ -2952,6 +3022,7 @@
       ],
       "runtime/core-session-runner.ts": [
         "../../../providers/live-session-types",
+        "../../../providers/session-id",
         "../../../providers/types",
         "../../agent-sessions",
         "../../execution/runtime/spawn-lifecycle",
@@ -2964,6 +3035,7 @@
         "../../../db",
         "../../../desktop-db",
         "../../../util/win-spawn",
+        "../../agent-policy",
         "./mission-connectors",
         "fs",
         "os",
@@ -3004,6 +3076,7 @@
         "../../../desktop-db",
         "../../../providers/types",
         "../../accounting/runtime/result-event",
+        "../../agent-policy",
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
         "../../audit",

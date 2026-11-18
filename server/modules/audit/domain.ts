@@ -23,6 +23,7 @@ export const AGENT_ACTION_SOURCES = [
   'core-session',
   'file-provenance',
   'mcp-wrapper',
+  'policy-hook',
 ] as const
 export type AgentActionSource = typeof AGENT_ACTION_SOURCES[number]
 
@@ -257,10 +258,42 @@ export function classifyToolCall(name: string, input: unknown, source: string, r
 export interface StreamAuditState {
   subagentRoles: Map<string, string>
   seenItems: Set<string>
+  /** Claude tool_use id → the drafts it produced (bounded), so a later policy denial names its target. */
+  toolDrafts: Map<string, AgentActionDraft[]>
 }
 
 export function createStreamAuditState(): StreamAuditState {
-  return { subagentRoles: new Map(), seenItems: new Set() }
+  return { subagentRoles: new Map(), seenItems: new Set(), toolDrafts: new Map() }
+}
+
+const MAX_REMEMBERED_TOOLS = 512
+
+function rememberTool(state: StreamAuditState, id: unknown, drafts: AgentActionDraft[]): void {
+  if (typeof id !== 'string' || !state.toolDrafts) return
+  state.toolDrafts.set(id, drafts)
+  if (state.toolDrafts.size > MAX_REMEMBERED_TOOLS) {
+    const oldest = state.toolDrafts.keys().next().value
+    if (oldest !== undefined) state.toolDrafts.delete(oldest)
+  }
+}
+
+/**
+ * Audit rows for a tool call the in-turn policy hook denied. Each row keeps the
+ * attempted action's kind and target, prefixed with the rule, and has source
+ * `policy-hook`; `attempted` are the drafts of the call (from the stream, or
+ * re-classified by the caller). The attempt itself was already recorded when
+ * the tool call streamed: the denial row is the decision about it.
+ */
+export function policyDenialDrafts(rule: string, reason: string, attempted: readonly AgentActionDraft[], role?: string): AgentActionDraft[] {
+  const prefix = `denied by policy (${rule})`
+  const base = { source: 'policy-hook', ...(role ? { role } : {}) }
+  if (attempted.length === 0) return [{ ...base, kind: 'exec', target: normaliseTarget(`${prefix}: ${redactCommand(reason)}`) }]
+  return attempted.map((draft) => ({ ...base, role: draft.role ?? role, kind: draft.kind, target: normaliseTarget(`${prefix}: ${draft.target}`) }))
+}
+
+/** Drafts remembered for a Claude tool_use id (empty when unknown). */
+export function rememberedToolDrafts(state: StreamAuditState, toolUseId: string): AgentActionDraft[] {
+  return state.toolDrafts?.get(toolUseId) ?? []
 }
 
 const SUBAGENT_TOOLS = new Set(['task', 'agent'])
@@ -279,7 +312,9 @@ function claudeBlocks(event: Record<string, unknown>, state: StreamAuditState, r
       if (typeof block.id === 'string') state.subagentRoles.set(block.id, normaliseRole(input.subagent_type ?? input.description, 'subagent'))
       continue
     }
-    out.push(...classifyToolCall(block.name, input, 'claude-stream', blockRole))
+    const drafts = classifyToolCall(block.name, input, 'claude-stream', blockRole)
+    rememberTool(state, block.id, drafts)
+    out.push(...drafts)
   }
   return out
 }

@@ -1,0 +1,17 @@
+{
+  "policy": {
+    "blocked": "已被 Specrails 策略阻止",
+    "rules": {
+      "git-force-push": "强制推送",
+      "git-push-protected": "推送到集成分支",
+      "git-push-delete": "删除远程分支",
+      "git-reset-hard": "在运行分支之外执行 git reset --hard",
+      "git-branch-delete": "删除分支",
+      "gh-pr-merge": "合并拉取请求",
+      "rm-outside-run": "在运行目录之外删除",
+      "secret-access": "访问凭据",
+      "policy-tamper": "修改策略文件",
+      "policy-error": "无法验证的高风险命令"
+    }
+  }
+}

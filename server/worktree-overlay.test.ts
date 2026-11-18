@@ -624,3 +624,62 @@ describe('applyWorktreeOverlay — degradation (never throws)', () => {
     expect(res).toEqual({ createdPaths: [], cleanupEvidence: [], warnings: [] })
   })
 })
+
+describe('applyWorktreeOverlay — managed Claude local settings (agent policy hook)', () => {
+  const HOOK = "'node' '/h/.specrails/agent-policy/specrails-policy-hook-abc.cjs' --specrails-home '/h'"
+  const input = (command: string | null = HOOK) => ({ worktreePath: wt, sourceRoot: source, providerDir: '.claude', instructionsFilename: 'CLAUDE.md', policyHookCommand: command })
+  const local = () => path.join(wt, '.claude', 'settings.local.json')
+
+  it('writes a managed copy of the source local settings with the hook merged, owned and authenticated', () => {
+    seedWorkspaceSource()
+    write(source, '.claude/settings.local.json', JSON.stringify({ permissions: { allow: ['Bash(npm test)'] } }))
+    const result = applyWorktreeOverlay(input())
+    expect(fs.lstatSync(local()).isSymbolicLink()).toBe(false)
+    const written = JSON.parse(fs.readFileSync(local(), 'utf8'))
+    expect(written.permissions).toEqual({ allow: ['Bash(npm test)'] })
+    expect(JSON.stringify(written.hooks)).toContain('specrails-policy-hook')
+    // The source file is untouched (never written through a link).
+    expect(JSON.parse(fs.readFileSync(path.join(source, '.claude/settings.local.json'), 'utf8')).hooks).toBeUndefined()
+    expect(result.createdPaths).toContain('.claude/settings.local.json')
+    expect(result.cleanupEvidence.map((entry) => entry.path)).toContain('.claude/settings.local.json')
+    // Resume: idempotent, still owned.
+    expect(applyWorktreeOverlay(input()).createdPaths).toContain('.claude/settings.local.json')
+    // An agent edit revokes the cleanup authority.
+    fs.writeFileSync(local(), JSON.stringify({ hooks: {} }))
+    expect(revalidateOverlayCleanupEvidence(input(), result.cleanupEvidence).map((entry) => entry.path)).not.toContain('.claude/settings.local.json')
+  })
+
+  it('creates the file when no source has one, and replaces an older pass link', () => {
+    seedWorkspaceSource()
+    const first = applyWorktreeOverlay(input())
+    expect(JSON.parse(fs.readFileSync(local(), 'utf8')).hooks.PreToolUse).toHaveLength(1)
+    expect(first.createdPaths).toContain('.claude/settings.local.json')
+
+    // An older build linked the source file: upgraded to a managed copy.
+    fs.rmSync(path.join(wt, '.claude'), { recursive: true, force: true })
+    fs.rmSync(path.join(wt, OVERLAY_MANIFEST), { force: true })
+    write(source, '.claude/settings.local.json', '{"env":{"A":"1"}}')
+    applyWorktreeOverlay({ worktreePath: wt, sourceRoot: source, providerDir: '.claude', instructionsFilename: 'CLAUDE.md' })
+    expect(fs.lstatSync(local()).isSymbolicLink()).toBe(true)
+    applyWorktreeOverlay(input())
+    expect(fs.lstatSync(local()).isSymbolicLink()).toBe(false)
+    expect(JSON.parse(fs.readFileSync(local(), 'utf8')).env).toEqual({ A: '1' })
+    expect(fs.readFileSync(path.join(source, '.claude/settings.local.json'), 'utf8')).toBe('{"env":{"A":"1"}}')
+  })
+
+  it('never touches a checkout-owned local settings file', () => {
+    seedWorkspaceSource()
+    write(wt, '.claude/settings.local.json', '{"mine":true}')
+    const result = applyWorktreeOverlay(input())
+    expect(fs.readFileSync(local(), 'utf8')).toBe('{"mine":true}')
+    expect(result.createdPaths).not.toContain('.claude/settings.local.json')
+    expect(result.warnings.join('\n')).toContain('agent policy hook is not installed')
+  })
+
+  it('removes only the hook when the policy is switched off', () => {
+    seedWorkspaceSource()
+    applyWorktreeOverlay(input())
+    applyWorktreeOverlay(input(null))
+    expect(fs.existsSync(local())).toBe(false)
+  })
+})

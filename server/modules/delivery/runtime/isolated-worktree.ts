@@ -31,6 +31,7 @@ import {
   type GitRunner, type WorktreeHandle,
 } from '../../../worktree-manager'
 import { applyWorktreeOverlay, type OverlayCleanupEvidence } from '../../../worktree-overlay'
+import { currentPolicyHookCommand } from '../../agent-policy'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { resolveCollisionFreeName, ticketBranchName, type TicketNamingInput } from './pr-naming'
@@ -98,6 +99,9 @@ export interface OverlaySources {
   fallbackSourceRoots?: string[]
   providerDir: string
   instructionsFilename: string
+  /** Claude worktrees: the agent policy hook command the overlay merges into
+   *  the managed `.claude/settings.local.json` (null: policy off). */
+  policyHookCommand?: string | null
 }
 
 /**
@@ -175,7 +179,10 @@ export function resolveOverlaySources(
     providerDir = adapter.projectDirName
     instructionsFilename = adapter.instructionsFilename
   } catch { /* unknown provider — claude-shaped defaults */ }
-  return { sourceRoot, fallbackSourceRoots, providerDir, instructionsFilename }
+  // The in-turn policy hook rides in the worktree's managed local settings
+  // (Claude reads them through `--setting-sources project,local`).
+  const policyHookCommand = providerDir === '.claude' ? currentPolicyHookCommand() : undefined
+  return { sourceRoot, fallbackSourceRoots, providerDir, instructionsFilename, ...(policyHookCommand !== undefined ? { policyHookCommand } : {}) }
 }
 
 export interface MaterializeIsolatedWorktreeInput {
@@ -274,6 +281,7 @@ export async function materializeIsolatedWorktree(
       fallbackSourceRoots: input.overlay.fallbackSourceRoots,
       providerDir: input.overlay.providerDir,
       instructionsFilename: input.overlay.instructionsFilename,
+      ...(input.overlay.policyHookCommand !== undefined ? { policyHookCommand: input.overlay.policyHookCommand } : {}),
     })
     overlayExcludes = res.createdPaths
     overlayCleanupEvidence = res.cleanupEvidence ?? []

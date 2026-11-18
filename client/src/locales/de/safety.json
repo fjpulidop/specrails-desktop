@@ -1,0 +1,17 @@
+{
+  "policy": {
+    "blocked": "Von der Specrails-Richtlinie blockiert",
+    "rules": {
+      "git-force-push": "Force-Push",
+      "git-push-protected": "Push auf den Integrationsbranch",
+      "git-push-delete": "Löschen eines Remote-Branches",
+      "git-reset-hard": "git reset --hard außerhalb des Run-Branches",
+      "git-branch-delete": "Löschen eines Branches",
+      "gh-pr-merge": "Merge eines Pull Requests",
+      "rm-outside-run": "Löschen außerhalb des Runs",
+      "secret-access": "Zugriff auf Zugangsdaten",
+      "policy-tamper": "Änderung der Richtliniendateien",
+      "policy-error": "Nicht prüfbarer riskanter Befehl"
+    }
+  }
+}

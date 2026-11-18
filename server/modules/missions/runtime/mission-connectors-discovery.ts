@@ -12,6 +12,7 @@ import path from 'path'
 import type { DbInstance } from '../../../db'
 import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
 import { spawnCli, treeKillSafe } from '../../../util/win-spawn'
+import { updateClaudeLocalSettings } from '../../agent-policy'
 import {
   MISSION_CONNECTORS_SETTING_KEY,
   applyConnectorToggle,
@@ -388,25 +389,22 @@ export class MissionConnectors {
 }
 
 /**
- * Write the Claude deny file in an app-owned mission cwd
- * (`.claude/settings.local.json`, read through `--setting-sources project,local`).
- * An empty list removes it. Atomic; never touches a project directory.
+ * Write the Claude connector deny-list into an app-owned mission cwd's
+ * `.claude/settings.local.json` (read through `--setting-sources project,local`).
+ * Owns only the `deniedMcpServers` key: every other key (the agent policy
+ * hook, see server/modules/agent-policy) is kept. An empty list removes the
+ * key, and the file only when nothing else is left. Atomic; never touches a
+ * project directory.
  */
 export function writeClaudeConnectorDenyFile(cwd: string, denied: readonly string[]): void {
   // Synchronous on purpose: it runs on a mission turn's start, where no async
   // gap may precede the spawn. It is one tiny file, written only on change.
-  const dir = path.join(cwd, '.claude')
-  const file = path.join(dir, 'settings.local.json')
-  if (denied.length === 0) {
-    try { fs.unlinkSync(file) } catch { /* absent */ }
-    return
-  }
-  const body = `${JSON.stringify(claudeDenySettings(denied), null, 2)}\n`
-  try { if (fs.readFileSync(file, 'utf-8') === body) return } catch { /* absent */ }
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
-  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`
-  fs.writeFileSync(tmp, body, { mode: 0o600 })
-  fs.renameSync(tmp, file)
+  updateClaudeLocalSettings(cwd, (settings) => {
+    const next = { ...settings }
+    if (denied.length === 0) delete next.deniedMcpServers
+    else next.deniedMcpServers = claudeDenySettings(denied).deniedMcpServers
+    return next
+  })
 }
 
 /**

@@ -16,6 +16,7 @@ import { useLogTicketActions } from '../hooks/useLogTicketActions'
 import { notifyError } from '../../../lib/notify-error'
 
 import { parseEvent, applyDiffDetection, mergeAssistantLines, type FormattedLine } from '../lib/log-lines'
+import { PolicyDeniedNotice } from '../../../components/agent-policy/PolicyDeniedNotice'
 
 export { parseEvent, applyDiffDetection, mergeAssistantLines }
 export type { FormattedLine, FormattedLineType } from '../lib/log-lines'
@@ -369,7 +370,9 @@ export const LogLine = memo(function LogLine({
         </span>
       )}
 
-      {isMarkdown ? (
+      {line.type === 'policy' && line.denial ? (
+        <PolicyDeniedNotice denial={line.denial} compact className="flex-1 min-w-0" />
+      ) : isMarkdown ? (
         <div
           className="flex-1 min-w-0 prose prose-invert prose-xs max-w-none
             prose-p:my-1 prose-p:leading-relaxed

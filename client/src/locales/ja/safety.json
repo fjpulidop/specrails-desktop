@@ -1,0 +1,17 @@
+{
+  "policy": {
+    "blocked": "Specrails のポリシーによりブロックされました",
+    "rules": {
+      "git-force-push": "強制プッシュ",
+      "git-push-protected": "統合ブランチへのプッシュ",
+      "git-push-delete": "リモートブランチの削除",
+      "git-reset-hard": "実行ブランチ外での git reset --hard",
+      "git-branch-delete": "ブランチの削除",
+      "gh-pr-merge": "プルリクエストのマージ",
+      "rm-outside-run": "実行ディレクトリ外の削除",
+      "secret-access": "認証情報へのアクセス",
+      "policy-tamper": "ポリシーファイルの変更",
+      "policy-error": "検証できない危険なコマンド"
+    }
+  }
+}

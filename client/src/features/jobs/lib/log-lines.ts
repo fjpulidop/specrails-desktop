@@ -2,6 +2,7 @@ import i18n from '../../../lib/i18n'
 import type { EventRow } from '../../../types'
 import { hasMarkdownSyntax } from '../../../lib/markdown-detect'
 import { formatUsd } from '../../analytics/lib/format'
+import { parsePolicyLogLine, type PolicyDenial } from '../../../components/agent-policy/policy-denial'
 
 /**
  * The job log's line model: event rows parsed into display lines. Kept apart
@@ -26,12 +27,15 @@ export type FormattedLineType =
   | 'diff-remove'
   | 'diff-meta'
   | 'diff-hunk'
+  | 'policy'
 
 export interface FormattedLine {
   id: string
   content: string
   type: FormattedLineType
   timestamp?: string
+  /** `policy` lines: the tool call the in-turn agent policy blocked. */
+  denial?: PolicyDenial
 }
 
 
@@ -46,6 +50,10 @@ export function parseEvent(event: EventRow, idx: number): FormattedLine | null {
       const payload = JSON.parse(event.payload) as { line?: string }
       const line = payload.line ?? ''
       if (!line.trim()) return null
+
+      // A tool call the in-turn agent policy blocked (server stream-display).
+      const denial = parsePolicyLogLine(line)
+      if (denial) return { id, content: line, type: 'policy', denial, timestamp }
 
       // Phase header detection
       if (line.startsWith('▸') || line.match(/^(architect|developer|reviewer|ship|analyst)\s*:/i)) {

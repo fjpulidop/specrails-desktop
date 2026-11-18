@@ -45,6 +45,8 @@ import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } f
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
 import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
+import { agentCwdPath } from './modules/missions/runtime/agent-cwd-manager'
+import { createDenialIngest, ensurePolicyHookScript, startDenialSpool } from './modules/agent-policy'
 import { createFlowTurnContext } from './modules/intent/adapters/bindings'
 import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
@@ -373,6 +375,7 @@ let _getProjectCount: () => number = () => 0
  *  project's spawners (rail/chat children) instead of orphaning them. */
 let _usageService: ReturnType<typeof createDesktopUsageService> | null = null
 let _registry: ProjectRegistry | null = null
+let _policyDenialSpool: { stop(): void } | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
@@ -803,10 +806,22 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     },
     // Agent actions audit: mission tool calls land in the pinned project's log.
     agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
+    onPolicyDenial: (conversationId, denial) => agentChatManager.postPolicyDenialRow(conversationId, denial),
     connectors: (providerId, options) => missionConnectors.planFor(providerId, options),
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
+  // In-turn agent policy: write the hook script now (worktrees and the mission
+  // cwd reference it), then drain the hook's denial spool into the audit for
+  // runs whose transport does not carry tool results.
+  ensurePolicyHookScript()
+  _policyDenialSpool = startDenialSpool({
+    ingest: createDenialIngest({
+      missionCwd: agentCwdPath,
+      projects: () => registry.listContexts().map((context) => ({ db: context.db, audit: context.agentAudit })),
+      realpath: (p) => { try { return fs.realpathSync(p) } catch { return p } },
+    }),
+  })
   // Intent mode: an active Intent turns a mission turn into an Intent session turn. Missions
   // see only this port; the Intent state lives in each project's database.
   agentChatManager.setFlowTurnContext(createFlowTurnContext({
@@ -983,6 +998,7 @@ async function shutdown(exitCode = 0): Promise<void> {
   // children have received their termination signal.
   await Promise.allSettled([
     Promise.resolve().then(() => _usageService?.dispose()),
+    Promise.resolve().then(() => _policyDenialSpool?.stop()),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),
