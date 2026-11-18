@@ -1356,6 +1356,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [worktree-manager.ts](../../server/worktree-manager.ts) · [test](../../server/worktree-manager.test.ts)
 - [worktree-node-modules.ts](../../server/worktree-node-modules.ts) · [test](../../server/worktree-node-modules.test.ts)
 - [worktree-overlay.ts](../../server/worktree-overlay.ts) · [test](../../server/worktree-overlay.test.ts)
+- [worktree-process-reaper.ts](../../server/worktree-process-reaper.ts)
 - [ws-routing.ts](../../server/ws-routing.ts) · [test](../../server/ws-routing.test.ts)
 
 ## server / project
@@ -2051,6 +2052,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-resources.ts](../../server/modules/terminals/domain/app-resources.ts) · [test](../../server/modules/terminals/domain/app-resources.test.ts)
 - [app-urls.ts](../../server/modules/terminals/domain/app-urls.ts) · [test](../../server/modules/terminals/domain/app-urls.test.ts)
 - [mission-resources.ts](../../server/modules/terminals/domain/mission-resources.ts) · [test](../../server/modules/terminals/domain/mission-resources.test.ts)
+- [worktree-leftovers.ts](../../server/modules/terminals/domain/worktree-leftovers.ts) · [test](../../server/modules/terminals/domain/worktree-leftovers.test.ts)
 
 ## server/modules/terminals/runtime
 
@@ -2066,6 +2068,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [terminal-marks-store.ts](../../server/modules/terminals/runtime/terminal-marks-store.ts) · [test](../../server/modules/terminals/runtime/terminal-marks-store.test.ts)
 - [terminal-osc-parser.ts](../../server/modules/terminals/runtime/terminal-osc-parser.ts) · [test](../../server/modules/terminals/runtime/terminal-osc-parser.test.ts)
 - [terminal-settings.ts](../../server/modules/terminals/runtime/terminal-settings.ts) · [test](../../server/modules/terminals/runtime/terminal-settings.test.ts)
+- [worktree-process-reaper.ts](../../server/modules/terminals/runtime/worktree-process-reaper.ts) · [test](../../server/modules/terminals/runtime/worktree-process-reaper.test.ts)
 
 ## server/plugins
 

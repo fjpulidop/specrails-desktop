@@ -18,6 +18,7 @@ import {
 } from '../../../worktree-manager'
 import { OVERLAY_MANIFEST, applyWorktreeOverlay } from '../../../worktree-overlay'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 import type { WsMessage } from '../../../types'
 import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -446,6 +447,7 @@ export function createFlowWorktrees(
           branch = head.code === 0 && head.stdout.trim() !== 'HEAD' ? head.stdout.trim() : null
         }
         if (mounted) {
+          await reapWorktreeLeftovers({ worktreePaths: [target], reason: 'intent-worktree-removed' })
           await removeWorktree(git, { repoDir: repo, worktreePath: target, branch: branch ?? '', deleteBranch: Boolean(branch), force: true })
         } else if (branch) {
           // The mount is gone but the Intent-created branch may remain.

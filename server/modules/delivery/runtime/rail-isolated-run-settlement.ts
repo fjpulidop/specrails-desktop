@@ -13,6 +13,7 @@ import {
 import { readHeadSha } from './isolated-worktree'
 import { revalidateOverlayCleanupEvidence } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
+import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 import type { AllocatedRun, SettledRun } from './rail-isolated-launch-contracts'
 import { RUN_STOPPED_DETAIL } from './rail-isolated-launch-contracts'
 import {
@@ -60,6 +61,10 @@ export function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
       console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
     }
     if (ports.ownsRun && !ports.ownsRun(a.runId)) throw new Error('Fork owns the original settlement')
+    // The engine settled: processes its tools started in their own process group
+    // (test/preview servers) were re-parented away from the run's tree. Awaited so
+    // the reaper's process-table read precedes this settlement's own git work.
+    await reapWorktreeLeftovers({ worktreePaths: [a.handle.worktreePath], reason: 'rail-run-settled', runId: a.runId })
 
     if (isAborted?.()) {
       // The coordinator never started. Do not commit incidental edits or

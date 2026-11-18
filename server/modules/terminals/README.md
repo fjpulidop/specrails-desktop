@@ -95,6 +95,44 @@ excluded. `runtime/app-resources.ts` reads the table through
 points in memory only while a client polls; the history restarts after 30 s without
 requests. Nothing is persisted or sampled in the background.
 
+## Leftover processes in run worktrees
+
+Provider CLIs and the tools they drive start test and preview servers in their own
+process group (Playwright `webServer` spawns `detached`; Bash-tool commands outlive the
+CLI). When the CLI exits, or is tree-killed, those processes are re-parented to
+init/launchd: no ppid walk from the run's root reaches them, so they used to keep ports
+and memory long after the run settled, invisible to Resources.
+
+`domain/worktree-leftovers.ts` selects a settled run's leftovers from one process-table
+snapshot: every top-most process whose command line references the worktree path (the
+`findWorktreeRoots` boundary rules: `ticket-4` never matches `ticket-40`; Windows
+separators and case are normalized), with its descendants. It never selects, nor descends
+into, the trees of live owned roots (`listAppResourceRoots`: agent sessions, loop runs,
+queue jobs, registered background processes, terminal shells), the server, its ancestors
+or its own `git`/`ps` children. `isReapableWorktreePath` refuses relative or shallow
+paths and any path equal to or above the home directory, the Specrails home, the server
+cwd or a registered project checkout. The working directory is not read (`lsof` is too
+expensive): a process that never names the path is not matched.
+
+`runtime/worktree-process-reaper.ts` sends SIGTERM to each selected pid (Windows:
+`taskkill /T` to the top-most ones), logs one `[worktree-reaper]` line per process (pid,
+worktree, reason, run, command head), then after 3 s sends SIGKILL (`taskkill /T /F`)
+only to pids still present with the same command line. The call resolves after the
+first signal; escalation runs on an unreferenced timer. `server/worktree-process-reaper.ts`
+installs the app-wide reaper at startup; `reapWorktreeLeftovers` is a no-op without one
+and never throws. It runs:
+
+- when an isolated rail run's engine settles (`rail-isolated-run-settlement.ts`, fresh
+  and reattached runs, before the settlement's own git work), and when a PR CI run settles;
+- before a rail, PR CI or Intent worktree is removed (`releaseRailWorktrees`, Intent
+  `release`);
+- at startup, once per project, for the newest 200 rail worktrees whose loop run has
+  `finished_at` set and no unfinished run shares the path (restart-paused runs are kept).
+
+Runs in the project checkout (non-isolated loops, board jobs) are not reaped: the user's
+own processes there carry the same path. No activity event is emitted; the log lines
+are the audit trail.
+
 ## Reviewed public entry points
 
 - [runtime/app-urls.ts](runtime/app-urls.ts)
@@ -105,6 +143,7 @@ requests. Nothing is persisted or sampled in the background.
 - [runtime/terminal-manager.ts](runtime/terminal-manager.ts)
 - [runtime/terminal-marks-store.ts](runtime/terminal-marks-store.ts)
 - [runtime/terminal-settings.ts](runtime/terminal-settings.ts)
+- [runtime/worktree-process-reaper.ts](runtime/worktree-process-reaper.ts)
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

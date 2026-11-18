@@ -11,6 +11,7 @@ import {
   type OverlayCleanupEvidence,
 } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
+import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 
 export interface ReleaseRailWorktreesInput {
   db: DbInstance
@@ -467,6 +468,8 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       console.warn(`[rail-worktree-release] ${warning}`)
       continue
     }
+    // A dev/preview server left by the run would keep serving a deleted checkout.
+    await reapWorktreeLeftovers({ worktreePaths: [wt.worktree_path], reason: 'worktree-removed', runId: wt.run_id ?? undefined })
     try {
       await remove(input.git, {
         repoDir: input.repoDir,

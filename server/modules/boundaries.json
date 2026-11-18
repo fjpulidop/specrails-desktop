@@ -1397,6 +1397,7 @@
       "runtime/pr-ci/pr-ci-settlement.ts": [
         "../../../../db",
         "../../../../worktree-manager",
+        "../../../terminals/runtime/worktree-process-reaper",
         "../../domain/state",
         "../pr-lifecycle",
         "../pr-publisher",
@@ -1643,6 +1644,7 @@
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
         "../../specs/domain/intent",
+        "../../terminals/runtime/worktree-process-reaper",
         "./fork-change-supersession",
         "./intent-materialization",
         "./isolated-worktree",
@@ -1800,6 +1802,7 @@
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
+        "../../terminals/runtime/worktree-process-reaper",
         "./rail-worktrees-store",
         "fs",
         "path"
@@ -2305,6 +2308,7 @@
         "../../specs/runtime/spec-generation",
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
+        "../../terminals/runtime/worktree-process-reaper",
         "../application",
         "../domain",
         "../ports",
@@ -3431,7 +3435,8 @@
       "runtime/resource-sampler.ts",
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
-      "runtime/terminal-settings.ts"
+      "runtime/terminal-settings.ts",
+      "runtime/worktree-process-reaper.ts"
     ],
     "dependencies": {
       "domain/app-resources.ts": [
@@ -3439,6 +3444,9 @@
       ],
       "domain/app-urls.ts": [],
       "domain/mission-resources.ts": [],
+      "domain/worktree-leftovers.ts": [
+        "./mission-resources"
+      ],
       "runtime/app-resources.ts": [
         "../domain/app-resources",
         "../domain/mission-resources",
@@ -3515,6 +3523,12 @@
       "runtime/terminal-settings.ts": [
         "../../../db",
         "os"
+      ],
+      "runtime/worktree-process-reaper.ts": [
+        "../domain/mission-resources",
+        "../domain/worktree-leftovers",
+        "./resource-sampler",
+        "node:child_process"
       ]
     }
   }

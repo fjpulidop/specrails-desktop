@@ -1,3 +1,4 @@
+import { installAppWorktreeProcessReaper, sweepSettledRunWorktrees } from './worktree-process-reaper'
 import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
 // Note: the pkg-binary native-addon hijacks (better_sqlite3.node, node-pty, pty.node)
 // used to live here but had to move to an esbuild `banner.js` in scripts/build-sidecar.mjs
@@ -611,6 +612,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   }
   registry.loadAll()
   _registry = registry
+  // Leftover test/preview servers of settled runs are reaped by worktree path.
+  installAppWorktreeProcessReaper(registry)
   _getProjectCount = () => registry.listProjects().length
 
   // ─── Bundled framework update channel (Phase 6) ─────────────────────────────
@@ -927,6 +930,12 @@ server.listen(port, '127.0.0.1', () => {
     void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
       console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
     })
+  }
+  // Startup recovery: processes left in the worktrees of runs that settled before the restart.
+  if (_registry) {
+    void sweepSettledRunWorktrees(_registry).then((reaped) => {
+      if (reaped > 0) console.log(`[worktree-reaper] startup sweep terminated ${reaped} leftover processes`)
+    }).catch(logRejection('worktree leftover sweep'))
   }
   // Sweep stale shell-integration shim directories left behind by previous runs.
   try {

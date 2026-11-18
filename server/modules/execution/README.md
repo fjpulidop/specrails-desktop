@@ -52,6 +52,14 @@ The queue suite covers settlement failure, crash replay, cancellation and budget
 [port tests](__tests__/accounting.test.ts) cover attribution and error propagation.
 [Architecture guards](../architecture.test.ts) prevent infrastructure imports.
 
+## Leftover processes
+
+Tree-kill (`treeKillSafe`) on timeout, cancel or finalize walks parent links only, and a
+normal exit kills nothing: test/preview servers a CLI started in their own process group
+are re-parented to init/launchd and escape it. Isolated runs reap them by worktree path
+at settlement and before worktree removal; see
+[terminals › Leftover processes](../terminals/README.md#leftover-processes-in-run-worktrees).
+
 ## Daily budget admission
 
 [enforce-budget](application/enforce-budget.ts) has two parts. `enforceDailyBudgets` pauses the queue. `evaluateDailyBudgets` is a read-only check that uses the same predicate. [daily-budget](domain/daily-budget.ts) defines the shared `daily_budget_exceeded` 409 body: scope, amounts, `resetsAt`, detail and action. [daily-budget-gate](runtime/daily-budget-gate.ts) binds one project's connection and the app-wide snapshot. It fails open when the budget can't be read. The composition root exposes it as `ProjectContext.dailyBudgetRejection` for rail and loop launch and resume. It also passes it to `LoopRunManager`, which pauses `budget_paused` between AI steps. For a running Core workflow the manager re-checks the gate whenever recorded spend grows and, when the retained Core announces `pauseRuns`, requests Core's cooperative pause (`runtime pause --reason budget`, request id `desktop-budget-pause:<runId>:<n>`): the current step finishes, Core exits 2 with `state.pause` and no interrupt, and the run parks on the same resumable `budget_paused` pause (resume re-invokes Core with a plain `resume`). Without the capability the check stays between invocations.

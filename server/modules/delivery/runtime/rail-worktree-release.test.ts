@@ -9,6 +9,7 @@ import { releaseRailWorktrees, durableSettlementIgnoredPaths } from './rail-work
 import type { GitRunner } from '../../../worktree-manager'
 import { applyWorktreeOverlay, fingerprintOverlayCleanupPath } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { installWorktreeProcessReaper } from '../../terminals/runtime/worktree-process-reaper'
 
 function overlayQuarantineRoots(worktreePath: string): string[] {
   const parent = path.dirname(worktreePath)
@@ -167,6 +168,29 @@ describe('releaseRailWorktrees', () => {
     expect(calls.some((call) => call.args[0] === 'worktree')).toBe(false)
     expect(getRailWorktree(db, 'changed')?.merge_state).toBe('needs-review')
     db.close()
+  })
+
+  it('reaps the run\'s leftover processes in a worktree before removing it', async () => {
+    const db = initDb(':memory:')
+    const wtPath = realWt('reap')
+    createRailWorktree(db, { id: 'reap', railIndex: 0, ticketId: 1, branch: 'feat/reap', worktreePath: wtPath, mergeState: 'built' })
+    const order: string[] = []
+    installWorktreeProcessReaper(async (request) => {
+      order.push(`reap:${request.reason}:${request.worktreePaths.join(',')}`)
+      return { worktreePaths: [...request.worktreePaths], reaped: [], unavailable: false }
+    })
+    try {
+      const remove = vi.fn(async () => { order.push('remove') })
+      await releaseRailWorktrees({
+        db, git: verifiedGit().git, repoDir: '/repo', worktreeIds: ['reap'], remove,
+        expectedHeadByBranch: new Map([['feat/reap', sha]]),
+        overlayEvidenceByBranch: new Map(),
+      })
+      expect(order).toEqual([`reap:worktree-removed:${wtPath}`, 'remove'])
+    } finally {
+      installWorktreeProcessReaper(null)
+      db.close()
+    }
   })
 
   it('uses non-force removal so a write racing after verification is still preserved', async () => {
