@@ -601,5 +601,17 @@
     "projectsHeading": "项目",
     "projectsDescription": "关闭某个项目即可将其通知静音。它的项目仍会显示在收件箱中。",
     "saveFailed": "无法保存通知设置"
+  },
+  "autoContinue": {
+    "title": "继续失败的运行",
+    "description": "当运行因 Specrails 知道如何修复的原因失败时，它会自动继续一次，并在运行历史中注明。",
+    "toggleLabel": "自动继续一次",
+    "stateOn": "开启：Specrails 会对可修复的失败自动继续一次。",
+    "stateOff": "关闭：失败的运行会等你手动继续。",
+    "explainWhen": "未完成的任务、缺少的工具、提供方的临时错误或停滞：下一次尝试会保留全部工作，并获得所需的指引。",
+    "explainNever": "凭据或密钥、策略拒绝、支出上限、用量限制、你主动停止或同一失败重复出现时，绝不会自动继续。",
+    "enabled": "Specrails 将对可修复的失败自动继续一次",
+    "disabled": "失败的运行将等你处理",
+    "saveFailed": "无法保存该设置"
   }
 }

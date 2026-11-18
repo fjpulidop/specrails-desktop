@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "File conservati fuori da una PR",
           "keywords": "archiviazione, disco, archivio di sicurezza, file conservati, quarantena, pulizia, elimina"
+        },
+        "autoContinue": {
+          "label": "Continua automaticamente le esecuzioni fallite",
+          "keywords": "continua, riprova, esecuzione fallita, automatico, ripristino"
         }
       }
-    }
+    },
+    "jumpAttempt": "Tentativo {{number}}"
   },
   "toasts": {
     "queued": "{{name}} in coda",

@@ -601,5 +601,17 @@
     "projectsHeading": "Progetti",
     "projectsDescription": "Disattiva un progetto per silenziarne le notifiche. I suoi elementi restano nella posta in arrivo.",
     "saveFailed": "Impossibile salvare le impostazioni delle notifiche"
+  },
+  "autoContinue": {
+    "title": "Continua le esecuzioni fallite",
+    "description": "Quando un'esecuzione fallisce per una causa che Specrails sa correggere, la continua una volta da solo e lo indica nella sua cronologia.",
+    "toggleLabel": "Continua automaticamente, una volta",
+    "stateOn": "Attivo: Specrails continua una volta un errore risolvibile.",
+    "stateOff": "Disattivo: un'esecuzione fallita aspetta che tu la continui.",
+    "explainWhen": "Attività non finite, uno strumento mancante, un errore momentaneo del provider o uno stallo: il tentativo successivo mantiene tutto il lavoro e riceve le istruzioni necessarie.",
+    "explainNever": "Mai per credenziali o segreti, rifiuti di policy, tetti di spesa, limiti di utilizzo, uno stop scelto da te o lo stesso errore due volte.",
+    "enabled": "Specrails continuerà una volta gli errori risolvibili",
+    "disabled": "Le esecuzioni fallite ti aspetteranno",
+    "saveFailed": "Impossibile salvare l'impostazione"
   }
 }

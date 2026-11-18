@@ -37,9 +37,9 @@
   },
   "why": {
     "provider_limit": {
-      "resetsAt": "Reset um {{time}}. Dann fortsetzen oder mit einem anderen Anbieter ausführen.",
-      "reset": "Reset {{resetAt}}. Dann fortsetzen oder mit einem anderen Anbieter ausführen.",
-      "noReset": "Warte auf den Reset des Limits und setze dann fort, oder führe es mit einem anderen Anbieter aus."
+      "resetsAt": "Es wird um {{time}} zurückgesetzt. Setze dann fort oder nutze einen anderen Anbieter.",
+      "reset": "Es wird {{resetAt}} zurückgesetzt. Setze dann fort oder nutze einen anderen Anbieter.",
+      "noReset": "Warte, bis das Limit zurückgesetzt ist, und setze dann fort, oder nutze einen anderen Anbieter."
     },
     "environment": "Die Änderung selbst ist nicht das Problem. Der Rechner braucht zuerst etwas.",
     "port_in_use": "Nicht die Änderung ist das Problem: Etwas anderes belegte den Port. Beende es oder lass das Projekt PORT lesen (jeder Lauf bekommt einen eigenen) und starte erneut.",
@@ -48,22 +48,22 @@
     "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",
     "tool_inactivity": "Er hat zu lange keine Werkzeuge benutzt und nicht geantwortet.",
     "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
-    "incomplete_tasks": "Alles andere ist erledigt. Ist der Rest eine Prüfung, die nur ein Mensch machen kann, weiter zum Review mit ihr als Prüfung von Hand; sonst erneut ausführen und den Lauf sie mit Browser und Werkzeugen abschließen lassen.",
+    "incomplete_tasks": "Alles andere ist erledigt. Fortsetzen erledigt den Rest mit dem Browser und seinen Werkzeugen; eine Prüfung, die nur ein Mensch machen kann, kann stattdessen zur Prüfung gehen.",
     "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
     "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist."
   },
   "remedies": {
-    "label": "Wege zur Wiederherstellung"
+    "label": "Wege zur Wiederherstellung",
+    "more": "Weitere Wege"
   },
   "remedy": {
-    "resume": "Fortsetzen",
-    "resumeFrom": "Ab {{phase}} fortsetzen",
-    "retry": "Erneut ausführen",
+    "retry": "Neu beginnen",
     "editSpec": "Spec bearbeiten und neu starten",
     "fixEnvironment": "Umgebung reparieren",
     "openLogs": "Protokoll am Fehler öffnen",
     "continueToReview": "Weiter zum Review",
-    "retryWithBrowser": "Mit dem Browser erneut versuchen"
+    "continue": "Fortsetzen",
+    "continueFrom": "Ab {{phase}} fortsetzen"
   },
   "environment": {
     "command": "Befehl",
@@ -112,7 +112,11 @@
       "incompleteTasks": "Unerledigte Aufgaben",
       "other": "Sonstiges"
     },
-    "interrupted": "Die Analyse wurde unterbrochen (die App wurde währenddessen neu gestartet). Versuche es erneut."
+    "interrupted": "Die Analyse wurde unterbrochen (die App wurde währenddessen neu gestartet). Versuche es erneut.",
+    "action": {
+      "changeModel": "Modell ändern",
+      "changeModelFor": "Modell für {{role}} ändern"
+    }
   },
   "facts": {
     "label": "Wo es fehlschlug",
@@ -130,8 +134,45 @@
   },
   "remedyResult": {
     "continued": "Weiter zum Review, der Rest als Prüfungen von Hand.",
-    "retried": "Erneuter Versuch ab dem Entwickler mit Browser und Werkzeugen.",
     "notResumed": "Der fortgesetzte Lauf ist nicht gestartet",
-    "failed": "Der Lauf konnte nicht fortgesetzt werden"
+    "failed": "Der Lauf konnte nicht fortgesetzt werden",
+    "continuing": "Der Lauf wird fortgesetzt.",
+    "continuingFrom": "Fortsetzung ab dem Schritt {{step}}."
+  },
+  "consequence": {
+    "continue": "Behält alles und macht beim fehlgeschlagenen Schritt weiter.",
+    "continueTasks": "Behält alles und erledigt nur das Fehlende, mit dem Browser und Installationshinweisen.",
+    "continueEnvironment": "Behält alles; der Agent erfährt, was fehlt, installiert es und macht weiter.",
+    "continueLimit": "Behält alles und macht weiter, sobald der Anbieter wieder Anfragen annimmt.",
+    "continueTransient": "Behält alles und führt denselben Schritt erneut aus.",
+    "continueStopped": "Macht dort weiter, wo er angehalten wurde, im selben Worktree, mit allem bisher Erledigten.",
+    "continueToReview": "Schickt ihn jetzt zur Prüfung, das Übrige als Prüfungen von Hand.",
+    "editSpec": "Öffnet die Spec; eine Änderung daran startet einen neuen Lauf.",
+    "fixEnvironment": "Zeigt, was die Maschine braucht, und den auszuführenden Befehl.",
+    "openLogs": "Springt im Log zum fehlgeschlagenen Schritt.",
+    "retry": "Ein neuer Lauf ab der Basis. Die Arbeit dieses Versuchs wird nicht übernommen; sie bleibt im alten Worktree.",
+    "analyze": "Die KI liest das Log und erklärt, warum er stoppte."
+  },
+  "stopped": {
+    "headline": "Du hast diesen Lauf angehalten",
+    "why": "Nichts geht verloren. Fortsetzen macht dort weiter, wo er angehalten wurde, im selben Worktree.",
+    "whyNoContinue": "Seine Arbeit bleibt in seinem Worktree. Neu beginnen startet ihn erneut ab der Basis."
+  },
+  "lineage": {
+    "title": "Versuche",
+    "explain": "Jeder Versuch hat den vorigen fortgesetzt und seine Arbeit behalten. Der neueste steht für alle.",
+    "attempt": "Versuch {{attempt}} von {{total}}",
+    "attemptShort": "Versuch {{attempt}}",
+    "continuedFromStep": "fortgesetzt ab dem Schritt {{step}} von Versuch {{attempt}}",
+    "continuedFrom": "fortgesetzt von Versuch {{attempt}}",
+    "supersededBy": "Versuch {{attempt}} hat übernommen",
+    "automatic": "Specrails hat automatisch fortgesetzt",
+    "this": "dieser",
+    "open": "Öffnen",
+    "fromStep": "Ab dem Schritt {{step}}",
+    "byAutomatic": "Specrails hat automatisch fortgesetzt",
+    "byPerson": "Von dir fortgesetzt",
+    "byReview": "Mit Prüfungen von Hand zur Prüfung geschickt",
+    "guidance": "An den Agenten gesendete Hinweise"
   }
 }

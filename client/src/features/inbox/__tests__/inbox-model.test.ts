@@ -25,7 +25,7 @@ describe('readInboxSnapshot: failure diagnosis', () => {
   it('reads the diagnosis of a failed run and never trusts an uncertain one as a cause', () => {
     const wire = { ...item({ id: 'p1:blocked:r1', kind: 'blocked', action: 'open-run', subjectId: 'r1' }), diagnosis: { kind: 'provider_limit', confidence: 'high', phase: null, rounds: null, resetAt: '3am', detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['resume', 'retry', 'open-logs'] } }
     const [read] = readInboxSnapshot({ items: [wire] }).items
-    expect(read.diagnosis).toMatchObject({ kind: 'provider_limit', resetAt: '3am', remedies: ['resume', 'retry', 'open-logs'] })
+    expect(read.diagnosis).toMatchObject({ kind: 'provider_limit', resetAt: '3am', remedies: ['continue', 'retry', 'open-logs'] })
     const [uncertain] = readInboxSnapshot({ items: [{ ...wire, diagnosis: { ...wire.diagnosis, confidence: 'low' } }] }).items
     expect(uncertain.diagnosis).toMatchObject({ kind: 'unknown', confidence: 'low' })
     expect(readInboxSnapshot({ items: [{ ...wire, diagnosis: 'nope' }] }).items[0].diagnosis).toBeNull()

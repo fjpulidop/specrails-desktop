@@ -727,6 +727,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       )}
       {jumpRows.map((entry, index) => {
         const title = entry.kind === 'mission' ? entry.title?.trim() || untitledMission : entry.title
+        const attemptLabel = entry.kind === 'job' && entry.attempt ? t('palette.jumpAttempt', { number: entry.attempt }) : null
         const stateLabel = entry.state ? t(runStateLook(entry.state).labelKey) : null
         const projectName = entry.projectId && entry.projectId !== activeProjectId
           ? projectNameById.get(entry.projectId) ?? null
@@ -738,7 +739,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             value={`jump:${entry.key}`}
             onSelect={() => handleSelectJump(entry)}
             className={navItemClass}
-            aria-label={[title, stateLabel, projectName, chord.label].filter(Boolean).join(', ')}
+            aria-label={[title, attemptLabel, stateLabel, projectName, chord.label].filter(Boolean).join(', ')}
             aria-keyshortcuts={chord.aria}
             data-testid={`palette-jump-${entry.kind}-${entry.id}`}
             data-run-state={entry.state ?? undefined}
@@ -747,9 +748,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
               ? <RunStateGlyph state={entry.state} size="md" />
               : <MessagesSquare className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />}
             <span className="min-w-0 flex-1 truncate">{title}</span>
-            {(stateLabel || projectName) && (
+            {(attemptLabel || stateLabel || projectName) && (
               <span className="min-w-0 shrink truncate text-caption text-muted-foreground" aria-hidden>
-                {[stateLabel, projectName].filter(Boolean).join(' · ')}
+                {[attemptLabel, stateLabel, projectName].filter(Boolean).join(' · ')}
               </span>
             )}
             <Kbd className="shrink-0" aria-hidden>{chord.label}</Kbd>

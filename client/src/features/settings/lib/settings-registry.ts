@@ -36,6 +36,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('terminalApp', 'terminal'),
   app('providers', 'specrailsAgents'),
   app('subagentsApp', 'specrailsAgents'),
+  app('autoContinue', 'specrailsAgents'),
   app('missionConnectors', 'specrailsAgents'),
   app('mobileCompanion', 'mobile'),
   app('registeredProjects', 'projects'),

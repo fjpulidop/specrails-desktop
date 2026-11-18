@@ -100,7 +100,7 @@
     "implementationFailed": "Implementazione non riuscita",
     "implementationFailedHint": "Il run di implementazione non è riuscito. Apri il log del run, poi scarta questa scheda prima di rilanciare.",
     "runStopped": "Interrotta",
-    "runStoppedHint": "Hai interrotto questa esecuzione prima che consegnasse qualcosa. Rilanciala quando vuoi continuare, oppure scarta questa scheda.",
+    "runStoppedHint": "Hai fermato questa esecuzione prima della consegna. Continua la riprende da dove si è fermata, oppure scarta questa scheda.",
     "prFailed": "PR non riuscita",
     "prFailedDetail": "PR non riuscita",
     "createDegraded": "Impossibile pubblicare la PR — {{detail}}. Riprova una volta risolto.",
@@ -184,7 +184,9 @@
     "fixCi": "Correggi CI / conflitti",
     "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
     "fixCiStarted": "Monitoraggio della CI avviato",
-    "fixCiFailed": "Impossibile avviare il loop di CI"
+    "fixCiFailed": "Impossibile avviare il loop di CI",
+    "continue": "Continua",
+    "continueHint": "Mantiene tutto e riprende da dove l'esecuzione è fallita o si è fermata, nello stesso worktree."
   },
   "railsBoard": {
     "title": "Rails",

@@ -32,6 +32,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [jobs](../jobs/README.md)
 - [projects](../projects/README.md)
 - [rails](../rails/README.md)
+- [recovery](../recovery/README.md)
 - [specs](../specs/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is

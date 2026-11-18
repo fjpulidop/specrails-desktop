@@ -601,5 +601,17 @@
     "projectsHeading": "Projets",
     "projectsDescription": "Désactivez un projet pour couper ses notifications. Ses éléments restent dans la boîte de réception.",
     "saveFailed": "Impossible d'enregistrer les réglages de notification"
+  },
+  "autoContinue": {
+    "title": "Continuer les exécutions en échec",
+    "description": "Quand une exécution échoue pour une cause que Specrails sait corriger, il la continue une fois de lui-même et l'indique dans son historique.",
+    "toggleLabel": "Continuer automatiquement, une fois",
+    "stateOn": "Activé : Specrails continue une fois un échec réparable.",
+    "stateOff": "Désactivé : une exécution en échec attend que vous la continuiez.",
+    "explainWhen": "Tâches inachevées, outil manquant, erreur passagère du fournisseur ou blocage : la tentative suivante garde tout le travail et reçoit les consignes nécessaires.",
+    "explainNever": "Jamais pour des identifiants ou des secrets, des refus de politique, des plafonds de dépense, des limites d’usage, un arrêt que vous avez choisi ou le même échec deux fois.",
+    "enabled": "Specrails continuera une fois les échecs réparables",
+    "disabled": "Les exécutions en échec vous attendront",
+    "saveFailed": "Impossible d'enregistrer le réglage"
   }
 }

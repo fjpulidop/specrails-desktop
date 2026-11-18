@@ -33,10 +33,10 @@ interface JumpBase {
 
 export type JumpEntry =
   | (JumpBase & { kind: 'mission'; title: string | null })
-  | (JumpBase & { kind: 'job'; title: string })
+  | (JumpBase & { kind: 'job'; title: string; attempt?: number })
 
 export type JumpMission = Pick<AgentConversation, 'id' | 'title' | 'pinned_project_id' | 'updated_at'> & { archivedAt?: string | null }
-export type JumpJob = Pick<JobSummary, 'id' | 'command' | 'status' | 'started_at' | 'enqueued_at' | 'finished_at'> & Partial<Pick<JobSummary, 'ticketId' | 'ticketTitle'>>
+export type JumpJob = Pick<JobSummary, 'id' | 'command' | 'status' | 'started_at' | 'enqueued_at' | 'finished_at'> & Partial<Pick<JobSummary, 'ticketId' | 'ticketTitle' | 'attempt'>>
 
 export interface JumpSources {
   missions: readonly JumpMission[]
@@ -93,6 +93,8 @@ function jobEntry(job: JumpJob, projectId: string | null): JumpEntry {
   return {
     kind: 'job', key: `job:${job.id}`, id: job.id,
     at: ms(job.finished_at ?? job.started_at ?? job.enqueued_at), state: jobStatusLook(job.status).state, projectId, title: jobLabel(job),
+    // A continued run is its chain's one row (the server folds earlier attempts); it says which attempt.
+    ...(job.attempt && job.attempt.number > 1 ? { attempt: job.attempt.number } : {}),
   }
 }
 

@@ -3,7 +3,7 @@
  * state (no changes, blocked, retryable push / PR, closed, partial, review,
  * draft, ready, failed, implementation failed) and the settled notes.
  */
-import { AlertTriangle, CheckCircle2, GitPullRequest, RotateCcw, Square, Wrench, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, GitPullRequest, Play, RotateCcw, Square, Wrench, XCircle } from 'lucide-react'
 import { motion } from 'motion/react'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../../lib/feature-flags'
 import { PR_CI_LOOP_ID } from '../../../delivery/lib/pr-ci'
@@ -15,7 +15,7 @@ export function SettledActionRows({ model, el }: { model: PrDecisionCardModel; e
   const { t, envelope, decision, prUrl, presentation, terminal, degradedDraft, partialCreatePending, flowOutcome } = model
   const { relaunch, relaunching, relaunchAccepted, relaunchError, settlementRunId, retryDelivery, retryingDelivery } = model.controls
   const { canResumeRun, resumeButton, relaunchButton, resumeAction, flowSpecRun, flowRunActions } = model.buttons
-  const { runStopped, diagnosisCard, diagnosisOwnsPrimary } = model.section
+  const { runStopped, stoppedContinue, diagnosisCard, diagnosisOwnsPrimary } = model.section
   const { canFixCi, ciError } = model.ci
   const {
     primaryBtn, anyBusy, spinner, primaryAction, reviewPacketAction, inspectLocalResultAction,
@@ -142,7 +142,7 @@ export function SettledActionRows({ model, el }: { model: PrDecisionCardModel; e
             {runStopped ? (
               <p className="flex items-start gap-1.5 text-label leading-4 text-muted-foreground" data-testid="agent-pr-run-stopped">
                 <Square className="mt-px h-3 w-3 shrink-0" aria-hidden />
-                {t('prCard.runStoppedNote')}
+                {t(stoppedContinue ? 'prCard.runStoppedNote' : 'prCard.runStoppedNoteNoContinue')}
               </p>
             ) : !diagnosisCard && (
               <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
@@ -153,10 +153,17 @@ export function SettledActionRows({ model, el }: { model: PrDecisionCardModel; e
             <div className="flex flex-wrap items-center gap-1.5">
               {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu.
                   When the diagnosis card above already offers Run again / Resume, it is the single primary. */}
-              {!diagnosisOwnsPrimary && (canResumeRun ? resumeButton(true) : relaunchButton(true))}
+              {stoppedContinue ? (
+                <RunPrimaryButton primary={{ id: 'continue', label: t('prCard.continue'), kind: 'outward', rank: 1 }} data-agent-interactive data-testid="mission-run-continue"
+                  disabled={anyBusy || stoppedContinue.busy || stoppedContinue.disabled} onClick={() => stoppedContinue.run()} className={primaryBtn}>
+                  {stoppedContinue.busy ? spinner : <Play className="h-3 w-3" aria-hidden />}
+                  {t('prCard.continue')}
+                </RunPrimaryButton>
+              ) : !diagnosisOwnsPrimary && (canResumeRun ? resumeButton(true) : relaunchButton(true))}
               {/* A resumable Intent → Spec run keeps its Intent actions (Back to Intent, relaunch from the Intent) beside Resume. */}
               {canResumeRun && flowSpecRun && flowRunActions}
-              {moreActions({ lead: implementationFailedLead })}
+              {/* Continuing a stopped run is primary; starting over from the base waits in the menu, with what it costs. */}
+              {moreActions({ lead: stoppedContinue ? [{ id: 'start-over', testId: 'mission-run-start-over', label: t('prCard.startOver'), hint: t('prCard.startOverHint'), onSelect: () => void relaunch(), disabled: anyBusy || relaunching || relaunchAccepted }, ...implementationFailedLead.filter((item) => item.id !== 'relaunch')] : implementationFailedLead })}
             </div>
             {resumeAction && !flowSpecRun && relaunchError && <p role="alert" className="text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
           </div>

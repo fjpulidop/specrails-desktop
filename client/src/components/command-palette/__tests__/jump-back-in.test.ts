@@ -20,6 +20,12 @@ function sources(over: Partial<JumpSources> = {}): JumpSources {
 const keys = (src: JumpSources, max?: number) => buildJumpBackIn(src, max).map((e) => e.key)
 
 describe('buildJumpBackIn', () => {
+  it('names the attempt of a continued run, the one row of its chain', () => {
+    const entries = buildJumpBackIn(sources({ jobs: [job('fork-c', 1, { attempt: { number: 4, of: 4 } }), job('lone', 2, { attempt: { number: 1, of: 1 } })] }))
+    expect(entries.find((e) => e.id === 'fork-c')).toMatchObject({ kind: 'job', attempt: 4 })
+    expect(entries.find((e) => e.id === 'lone')).not.toHaveProperty('attempt')
+  })
+
   it('is empty without data', () => {
     expect(buildJumpBackIn(sources())).toEqual([])
   })

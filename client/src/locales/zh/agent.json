@@ -542,7 +542,11 @@
       "failing_pr": "{{pr}}：失败的检查：{{checks}}"
     },
     "ciBuildingHint": "等待检查结果，修复代码导致的失败并推送到同一个 PR。非代码原因的失败只报告，不重试。",
-    "runStoppedNote": "你在交付之前停止了此运行。想继续时可以重新启动。"
+    "runStoppedNote": "你在交付前停止了此次运行。继续会在同一个 worktree 中从停止处接着运行。",
+    "runStoppedNoteNoContinue": "你在交付前停止了此次运行。其工作保留在 worktree 中。",
+    "continue": "继续",
+    "startOver": "从头开始",
+    "startOverHint": "从基线重新运行；此次尝试的工作保留在旧的 worktree 中。"
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -813,7 +817,8 @@
       "feature_unavailable": "Intent 不可用",
       "daily_budget_exceeded": "已达到每日预算，未启动任何任务。",
       "review_wip_limit_reached": "已达到评审上限，未启动任何任务。",
-      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
+      "launch_preflight_blocked": "启动前请先修复未通过的检查。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",

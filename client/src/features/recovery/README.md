@@ -9,8 +9,11 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
+- [components/RunLineage.tsx](components/RunLineage.tsx)
+- [components/StoppedRunCard.tsx](components/StoppedRunCard.tsx)
+- [hooks/useAttemptChain.ts](hooks/useAttemptChain.ts)
+- [hooks/useContinueRemedies.ts](hooks/useContinueRemedies.ts)
 - [hooks/useFailureAnalysis.ts](hooks/useFailureAnalysis.ts)
-- [hooks/useIncompleteTasksRemedies.ts](hooks/useIncompleteTasksRemedies.ts)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
 

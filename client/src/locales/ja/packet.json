@@ -95,7 +95,10 @@
     "acceptanceCheckPassed": "レビュアーのチェックに合格: {{name}}",
     "acceptanceCheckFailed": "レビュアーのチェックに失敗: {{name}}",
     "reviewerSummary": "AI レビュアーの要約:",
-    "reviewerFinding": "AI レビュアーの指摘:"
+    "reviewerFinding": "AI レビュアーの指摘:",
+    "earlierAttempts_one": "このチェックの以前の実行 {{count}} 件",
+    "earlierAttempts_other": "このチェックの以前の実行 {{count}} 件",
+    "earlierAttempt": "終了コード {{exitCode}}（{{seconds}} 秒）で失敗。その後の修正で成功しました"
   },
   "watch": {
     "humanReviewRecommended": "AI レビュアーは {{overall}}/100 と評価し、人による確認を推奨しています。",

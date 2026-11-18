@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "Fichiers conservés hors d'une PR",
           "keywords": "stockage, disque, archive de sécurité, fichiers conservés, quarantaine, nettoyer, supprimer"
+        },
+        "autoContinue": {
+          "label": "Continuer automatiquement les exécutions en échec",
+          "keywords": "continuer, réessayer, exécution en échec, automatique, reprise"
         }
       }
-    }
+    },
+    "jumpAttempt": "Tentative {{number}}"
   },
   "toasts": {
     "queued": "{{name}} ajouté à la file",

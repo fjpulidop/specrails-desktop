@@ -89,7 +89,8 @@
       "siblings_one": "Recoupe {{count}} run",
       "siblings_other": "Recoupe {{count}} runs",
       "baseMoved": "Base avancée"
-    }
+    },
+    "attempt": "tentative {{number}}"
   },
   "empty": {
     "title": "Rien n'est en cours",

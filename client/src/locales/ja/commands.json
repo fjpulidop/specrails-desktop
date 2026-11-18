@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "PR の外に保管されたファイル",
           "keywords": "ストレージ, ディスク, セーフティアーカイブ, 保管, 隔離, クリーンアップ, 削除"
+        },
+        "autoContinue": {
+          "label": "失敗した実行を自動で続行",
+          "keywords": "続行, 再試行, 失敗した実行, 自動, 復旧"
         }
       }
-    }
+    },
+    "jumpAttempt": "試行 {{number}}"
   },
   "toasts": {
     "queued": "{{name}} をキューに追加しました",

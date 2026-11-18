@@ -89,7 +89,8 @@
       "siblings_one": "与 {{count}} 个运行重叠",
       "siblings_other": "与 {{count}} 个运行重叠",
       "baseMoved": "基线已前进"
-    }
+    },
+    "attempt": "第 {{number}} 次尝试"
   },
   "empty": {
     "title": "没有正在运行的内容",

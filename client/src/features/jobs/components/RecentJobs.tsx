@@ -453,6 +453,12 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
                     ? <span className="text-xs text-foreground truncate" title={raw}>{friendly}</span>
                     : <code className="text-xs text-foreground truncate">{raw}</code>
                 })()}
+                {job.attempt && job.attempt.number > 1 && (
+                  // The chain's one row: earlier attempts are its history (in the run window), not rows of their own.
+                  <span className="shrink-0 text-caption text-muted-foreground num" data-testid="recent-job-attempt">
+                    {t('recent.attempt', { number: job.attempt.number })}
+                  </span>
+                )}
               </div>
 
               {/* Meta */}

@@ -73,6 +73,20 @@ function ProofRow({ item }: { item: PacketProofItem }) {
           {item.rawExcerpt}
         </pre>
       ) : null}
+      {item.earlier?.length ? (
+        // The final run is the proof; the runs it superseded stay readable, folded away.
+        <details className="text-xs" data-testid="packet-proof-earlier">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">{t('proof.earlierAttempts', { count: item.earlier.length })}</summary>
+          <ul className="mt-1 space-y-1.5 border-l border-border/60 pl-3">
+            {item.earlier.map((attempt, index) => (
+              <li key={index} className="space-y-1">
+                <span className="text-muted-foreground">{t('proof.earlierAttempt', { exitCode: attempt.exitCode, seconds: attempt.seconds })}</span>
+                {attempt.rawExcerpt ? <pre className="max-h-24 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 leading-relaxed text-muted-foreground whitespace-pre-wrap">{attempt.rawExcerpt}</pre> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </li>
   )
 }

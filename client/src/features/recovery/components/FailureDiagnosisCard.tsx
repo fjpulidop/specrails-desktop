@@ -1,16 +1,17 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Cable, Check, CircleHelp, ClipboardCheck, Copy, FilePenLine, Gauge, Globe, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
+  Cable, Check, CircleHelp, ClipboardCheck, Copy, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { OverflowActions } from '../../../components/ui/overflow-actions'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
 import { formatResetTime } from '../../provider-quota/lib/format-reset'
 import type { FailureAnalysisState } from '../hooks/useFailureAnalysis'
 import {
-  availableRemedies, headlineKey, humanizePhase, recordedStepError, whyKey,
-  type FailureDiagnosis, type RemedyHandlers, type RemedyId,
+  availableRemedies, consequenceKey, headlineKey, humanizePhase, offersStartOver, recordedStepError, whyKey,
+  type FailureDiagnosis, type RemedyHandler, type RemedyHandlers, type RemedyId,
 } from '../lib/failure-diagnosis'
 
 type Tone = 'failed' | 'caution' | 'neutral'
@@ -37,13 +38,72 @@ const TONE_CLASS: Record<Tone, { box: string; icon: string }> = {
 }
 
 const REMEDY_ICON: Record<RemedyId, LucideIcon> = {
-  resume: Play,
+  continue: Play,
   retry: RotateCcw,
   'edit-spec': FilePenLine,
   'fix-environment': Wrench,
   'open-logs': ScrollText,
   'continue-to-review': ClipboardCheck,
-  'retry-with-browser': Globe,
+}
+
+/** One remedy as the person sees it: a button and, under it, what it does to their work. */
+export interface RemedyView {
+  id: string
+  label: string
+  icon: LucideIcon
+  consequence: string
+  handler: RemedyHandler
+  primary: boolean
+  expanded?: boolean
+  onClick?: () => void
+}
+
+/**
+ * The remedies of a failed or stopped run: each button with its one-line
+ * consequence under it, and "Start over" apart in a menu with its warning
+ * (it does not carry this attempt's work over).
+ */
+export function RemedyActions({ remedies, startOver, lead }: { remedies: readonly RemedyView[]; startOver?: RemedyHandler | null; lead?: ReactNode }) {
+  const { t } = useTranslation('recovery')
+  if (remedies.length === 0 && !startOver && !lead) return null
+  return (
+    <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-start gap-x-3 gap-y-2" data-testid="failure-remedies">
+      {lead}
+      {remedies.map((remedy) => {
+        const Icon = remedy.icon
+        const busy = !!remedy.handler.busy
+        const consequenceId = `remedy-consequence-${remedy.id}`
+        return (
+          <div key={remedy.id} className="flex max-w-[17rem] flex-col items-start gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={remedy.primary ? 'default' : 'outline'}
+              data-testid={`failure-remedy-${remedy.id}`}
+              data-primary={remedy.primary ? '' : undefined}
+              disabled={busy || remedy.handler.disabled}
+              aria-busy={busy || undefined}
+              aria-expanded={remedy.expanded}
+              aria-describedby={consequenceId}
+              onClick={() => (remedy.onClick ? remedy.onClick() : remedy.handler.run())}
+            >
+              <Icon className="mr-1 h-3 w-3" aria-hidden />
+              {remedy.label}
+            </Button>
+            <span id={consequenceId} className="text-caption text-muted-foreground" data-testid={`failure-remedy-consequence-${remedy.id}`}>{remedy.consequence}</span>
+          </div>
+        )
+      })}
+      {startOver && (
+        <OverflowActions
+          label={t('remedies.more')}
+          testId="failure-remedy-more"
+          className="mt-0.5"
+          items={[{ id: 'start-over', testId: 'failure-remedy-retry', label: t('remedy.retry'), hint: t('consequence.retry'), icon: <RotateCcw className="h-3 w-3" />, onSelect: () => startOver.run(), disabled: startOver.busy || startOver.disabled }]}
+        />
+      )}
+    </div>
+  )
 }
 
 /** `fix-environment` → `fixEnvironment`: the remedy's i18n key. */
@@ -177,9 +237,19 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
   const Icon = look.icon
   const factStep = recorded ? phaseName(recorded.step) : facts?.step ? phaseName(facts.step) : diagnosis.phase ? phaseName(diagnosis.phase) : null
   const label = (id: RemedyId): string => {
-    if (id === 'resume') return diagnosis.resumablePhase ? t('remedy.resumeFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.resume')
+    if (id === 'continue') return diagnosis.resumablePhase ? t('remedy.continueFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.continue')
     return t(`remedy.${remedyKey(id)}`)
   }
+  const analyzeLeads = unknown && !aiReady && !!ai
+  const views: RemedyView[] = remedies.map((id, index) => {
+    const handler = handlers[id] ?? { run: () => {} }
+    return {
+      id, label: label(id), icon: REMEDY_ICON[id], consequence: t(consequenceKey(id, diagnosis)), handler,
+      primary: index === 0 && !analyzeLeads,
+      ...(id === 'fix-environment' ? { expanded: envOpen, onClick: () => setEnvOpen((open) => !open) } : {}),
+    }
+  })
+  const startOver = offersStartOver(diagnosis, handlers) ? handlers.retry! : null
   return (
     <section
       role="region"
@@ -230,39 +300,19 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
       {/* A remedy the host can apply itself (a venv for a pinned Python), where the cause can be the interpreter. */}
       {(diagnosis.kind === 'environment' || diagnosis.kind === 'tests_failed') && <EnvironmentPlanOffer />}
 
-      {(remedies.length > 0 || (unknown && !aiReady && ai)) && (
-        <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-center gap-1.5">
-          {unknown && !aiReady && ai && (
-            <Button type="button" size="sm" variant="default" data-testid="failure-remedy-analyze" data-primary="" disabled={aiBusy} aria-busy={aiBusy || undefined} onClick={() => ai.run()}>
+      <RemedyActions
+        remedies={views}
+        startOver={startOver}
+        lead={analyzeLeads ? (
+          <div className="flex max-w-[17rem] flex-col items-start gap-1">
+            <Button type="button" size="sm" variant="default" data-testid="failure-remedy-analyze" data-primary="" disabled={aiBusy} aria-busy={aiBusy || undefined} onClick={() => ai!.run()}>
               <Sparkles className="mr-1 h-3 w-3" aria-hidden />
               {t('analysis.run')}
             </Button>
-          )}
-          {remedies.map((id, index) => {
-            const handler = handlers[id]
-            const RemedyIcon = REMEDY_ICON[id]
-            const busy = !!handler?.busy
-            const isEnv = id === 'fix-environment'
-            return (
-              <Button
-                key={id}
-                type="button"
-                size="sm"
-                variant={index === 0 && !(unknown && !aiReady && ai) ? 'default' : 'outline'}
-                data-testid={`failure-remedy-${id}`}
-                data-primary={index === 0 && !(unknown && !aiReady && ai) ? '' : undefined}
-                disabled={busy || handler?.disabled}
-                aria-busy={busy || undefined}
-                aria-expanded={isEnv ? envOpen : undefined}
-                onClick={() => (isEnv ? setEnvOpen((open) => !open) : handler?.run())}
-              >
-                <RemedyIcon className="mr-1 h-3 w-3" aria-hidden />
-                {label(id)}
-              </Button>
-            )
-          })}
-        </div>
-      )}
+            <span className="text-caption text-muted-foreground">{t('consequence.analyze')}</span>
+          </div>
+        ) : null}
+      />
     </section>
   )
 }

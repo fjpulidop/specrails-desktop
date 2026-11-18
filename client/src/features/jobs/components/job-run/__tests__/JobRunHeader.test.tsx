@@ -396,7 +396,9 @@ describe('JobRunHeader failure diagnosis', () => {
     await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
     await waitFor(() => expect(onOpenLogs).toHaveBeenCalledTimes(1))
     await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
-    await user.click(within(card).getByRole('button', { name: 'Run again' }))
+    // Start over waits in the card's menu, with its warning.
+    await user.click(within(card).getByTestId('failure-remedy-more'))
+    await user.click(await screen.findByTestId('failure-remedy-retry'))
     expect(onEditSpec).toHaveBeenCalledTimes(1)
     expect(onOpenLogs).toHaveBeenCalledTimes(1)
     expect(onRerun).toHaveBeenCalledTimes(1)
@@ -418,13 +420,35 @@ describe('JobRunHeader failure diagnosis', () => {
     expect(seen[seen.length - 1]).toBe(false)
   })
 
-  it('resumes through the runtime route only when the run can resume', async () => {
+  it('continues a run that is not a definition run through its in-place resume', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', nextStep: 'fixer' })] }))
     renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
     const card = await screen.findByTestId('failure-diagnosis-card')
-    await user.click(await within(card).findByRole('button', { name: 'Resume from Fixer' }))
+    await user.click(await within(card).findByRole('button', { name: 'Continue from Fixer' }))
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
+  it('continues a definition run through the Continue remedy, which keeps its work', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, status: 'failed', nextStep: 'fixer', canResume: false })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await user.click(await within(card).findByRole('button', { name: 'Continue from Fixer' }))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/p1/loop-runs/job-1/remedy'), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
+  })
+
+  it('offers Continue for a run the person stopped, with Start over apart', async () => {
+    const user = userEvent.setup()
+    const onRerun = vi.fn()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, status: 'cancelled', canResume: false })] }))
+    renderHeader({ ...failedJob, status: 'canceled', failureDiagnosis: null }, [], { projectId: 'p1', onOpenLogs: vi.fn(), onRerun })
+    const card = await screen.findByTestId('stopped-run-card')
+    expect(card).toHaveTextContent('You stopped this run')
+    expect(within(card).getByTestId('failure-remedy-consequence-continue')).toHaveTextContent('Picks it up where it stopped, in the same worktree')
+    await user.click(within(card).getByTestId('failure-remedy-continue'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/loop-runs/job-1/remedy'), expect.objectContaining({ body: JSON.stringify({ remedy: 'continue' }) })))
+    expect(onRerun).not.toHaveBeenCalled()
   })
 
   it('offers no resume when the run cannot resume', async () => {
@@ -432,7 +456,7 @@ describe('JobRunHeader failure diagnosis', () => {
     renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
     const card = await screen.findByTestId('failure-diagnosis-card')
     await waitFor(() => expect(fetch).toHaveBeenCalled())
-    expect(within(card).queryByRole('button', { name: /Resume/ })).toBeNull()
+    expect(within(card).queryByRole('button', { name: /Continue/ })).toBeNull()
   })
 
   it('says "Unknown cause" with the raw tail of the log instead of inventing a diagnosis', () => {

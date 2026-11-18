@@ -252,7 +252,8 @@
       "networkError": "Erreur réseau"
     },
     "emptyCta": "Ouvrir le tableau des specs",
-    "loading": "Chargement des jobs…"
+    "loading": "Chargement des jobs…",
+    "attempt": "Tentative {{number}}"
   },
   "activeJob": {
     "none": "Aucun job actif",
@@ -389,6 +390,7 @@
     "graph": "Graphe d’exécution",
     "detail": "Détail du journal",
     "navigation": "Détail de l’exécution",
-    "sections": "Sections du journal"
+    "sections": "Sections du journal",
+    "stopped": "Continuer"
   }
 }

@@ -95,7 +95,10 @@
     "acceptanceCheckPassed": "Vérification du relecteur réussie : {{name}}",
     "acceptanceCheckFailed": "Vérification du relecteur ÉCHOUÉE : {{name}}",
     "reviewerSummary": "Résumé du relecteur IA :",
-    "reviewerFinding": "Le relecteur IA a noté :"
+    "reviewerFinding": "Le relecteur IA a noté :",
+    "earlierAttempts_one": "{{count}} exécution précédente de cette vérification",
+    "earlierAttempts_other": "{{count}} exécutions précédentes de cette vérification",
+    "earlierAttempt": "Échec avec le code de sortie {{exitCode}} ({{seconds}} s), avant la correction qui l’a fait réussir"
   },
   "watch": {
     "humanReviewRecommended": "Le relecteur IA a noté {{overall}}/100 et recommande une relecture humaine.",

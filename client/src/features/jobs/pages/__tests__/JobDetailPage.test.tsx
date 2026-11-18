@@ -417,14 +417,15 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('offers "Run again" once, in the diagnosis card, when a failed job has a diagnosis with the retry remedy', async () => {
+  it('offers a fresh run once, as the diagnosis card\'s Start over, when a failed job has a diagnosis with the retry remedy', async () => {
     const diagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['retry', 'open-logs'] }
     const failedJob = { ...mockJob, status: 'failed' as const, failureDiagnosis: diagnosis }
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: failedJob, events: [] }) })
     render(<JobDetailPage />)
     const card = await screen.findByTestId('failure-diagnosis-card')
-    expect(screen.getAllByRole('button', { name: /Run again/i })).toHaveLength(1)
-    expect(card).toContainElement(screen.getByRole('button', { name: /Run again/i }))
+    // The header's own Run again steps aside; the card keeps it in its menu, as Start over.
+    expect(screen.queryByRole('button', { name: /Run again/i })).toBeNull()
+    expect(card).toContainElement(screen.getByTestId('failure-remedy-more'))
   })
 
   it('keeps the header "Run again" when the diagnosis does not offer the retry', async () => {

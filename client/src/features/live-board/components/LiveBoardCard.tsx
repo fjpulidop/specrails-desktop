@@ -190,6 +190,12 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
         ) : (
           <p className={cn('min-w-0 truncate text-strong', settledStopped ? 'text-muted-foreground' : 'text-foreground')} title={title} data-testid="live-card-title">{title}</p>
         )}
+        {card.attempt && (
+          // Earlier attempts are this card's history, never cards of their own.
+          <span className="shrink-0 text-caption text-muted-foreground num" data-testid="live-card-attempt">
+            {t('liveBoard:card.attempt', { number: card.attempt.number })}
+          </span>
+        )}
       </div>
       {question && (
         <blockquote className="line-clamp-3 rounded-control bg-muted px-2 py-1 text-caption text-foreground" data-testid="live-card-question">

@@ -11,8 +11,14 @@ import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 
-export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
+/**
+ * `continue` is the one primary remedy of a run that can go on (it keeps the work and sends the
+ * cause's guidance). `retry` is "Start over" from the base, offered apart with its warning.
+ * `resume` and `retry-with-browser` are older wire ids of `continue`: read as `continue`.
+ */
+export const REMEDY_IDS = ['continue', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
+const LEGACY_REMEDIES: Readonly<Record<string, RemedyId>> = { resume: 'continue', 'retry-with-browser': 'continue' }
 
 export interface FailureBlocker {
   kind: string
@@ -71,7 +77,7 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
   if (typeof v.kind !== 'string') return null
   const known = (FAILURE_KINDS as readonly string[]).includes(v.kind)
   const confident = known && v.confidence === 'high'
-  const remedies = (Array.isArray(v.remedies) ? v.remedies : []).filter((r): r is RemedyId => (REMEDY_IDS as readonly string[]).includes(String(r)))
+  const remedies = normalizedRemedies((Array.isArray(v.remedies) ? v.remedies : []).map(String))
   return {
     // A low-confidence record is never presented as a cause.
     kind: confident ? (v.kind as FailureKind) : 'unknown',
@@ -102,13 +108,43 @@ export type RemedyHandlers = Partial<Record<RemedyId, RemedyHandler>>
 /**
  * The remedies to show: the server's ranking, filtered to what this surface can
  * run, at most three. Fixing the environment needs no handler (the card shows
- * what the host must do); the others need the surface's real action.
+ * what the host must do); the others need the surface's real action. "Start
+ * over" (`retry`) is not among them: it sits apart, behind its warning
+ * (`offersStartOver`).
  */
 export function availableRemedies(diagnosis: FailureDiagnosis, handlers: RemedyHandlers): RemedyId[] {
-  return diagnosis.remedies
-    .filter((id, index, all) => all.indexOf(id) === index)
+  return normalizedRemedies(diagnosis.remedies)
+    .filter((id) => id !== 'retry')
     .filter((id) => (id === 'fix-environment' ? diagnosis.kind === 'environment' : !!handlers[id]))
     .slice(0, MAX_REMEDIES)
+}
+
+/** Known remedy ids in rank order, older ids read as `continue`, each once. */
+function normalizedRemedies(remedies: readonly string[]): RemedyId[] {
+  return remedies.map((id) => LEGACY_REMEDIES[id] ?? id)
+    .filter((id, index, all): id is RemedyId => (REMEDY_IDS as readonly string[]).includes(id) && all.indexOf(id) === index)
+}
+
+/** Whether the card offers "Start over" (in its secondary menu). */
+export function offersStartOver(diagnosis: FailureDiagnosis, handlers: RemedyHandlers): boolean {
+  return diagnosis.remedies.includes('retry') && !!handlers.retry
+}
+
+/** The one-line consequence key under each remedy (recovery namespace). */
+export function consequenceKey(id: RemedyId, diagnosis: Pick<FailureDiagnosis, 'kind'> | null): string {
+  if (id === 'continue') {
+    switch (diagnosis?.kind) {
+      case 'incomplete_tasks': return 'consequence.continueTasks'
+      case 'environment': return 'consequence.continueEnvironment'
+      case 'provider_limit': return 'consequence.continueLimit'
+      case 'crash':
+      case 'timeout':
+      case 'tool_inactivity': return 'consequence.continueTransient'
+      case undefined: return 'consequence.continueStopped'
+      default: return 'consequence.continue'
+    }
+  }
+  return `consequence.${id.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())}`
 }
 
 /** Plain-language headline: the i18n key (recovery namespace) and its params. */

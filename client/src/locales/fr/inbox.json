@@ -86,5 +86,6 @@
   "mute": {
     "mute": "Couper les notifications de {{project}}",
     "unmute": "Réactiver les notifications de {{project}}"
-  }
+  },
+  "attempt": "tentative {{number}}"
 }

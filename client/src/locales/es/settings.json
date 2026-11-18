@@ -601,5 +601,17 @@
     "projectsHeading": "Proyectos",
     "projectsDescription": "Desactiva un proyecto para silenciar sus notificaciones. Sus elementos siguen en la bandeja.",
     "saveFailed": "No se pudieron guardar los ajustes de notificaciones"
+  },
+  "autoContinue": {
+    "title": "Continuar ejecuciones fallidas",
+    "description": "Cuando una ejecución falla por una causa que Specrails sabe arreglar, la continúa una vez por sí mismo y lo indica en su historial.",
+    "toggleLabel": "Continuar automáticamente, una vez",
+    "stateOn": "Activado: Specrails continúa una vez un fallo que puede arreglar.",
+    "stateOff": "Desactivado: una ejecución fallida espera a que la continúes tú.",
+    "explainWhen": "Tareas sin terminar, una herramienta que falta, un error momentáneo del proveedor o un atasco: el siguiente intento conserva todo el trabajo y recibe la guía que necesita.",
+    "explainNever": "Nunca por credenciales o secretos, denegaciones de políticas, topes de gasto, límites de uso, una parada que elegiste o el mismo fallo dos veces.",
+    "enabled": "Specrails continuará una vez los fallos que pueda arreglar",
+    "disabled": "Las ejecuciones fallidas te esperarán",
+    "saveFailed": "No se pudo guardar el ajuste"
   }
 }

@@ -37,9 +37,9 @@
   },
   "why": {
     "provider_limit": {
-      "resetsAt": "Repõe às {{time}}. Retoma então ou executa-a com outro fornecedor.",
-      "reset": "Repõe {{resetAt}}. Retoma então ou executa-a com outro fornecedor.",
-      "noReset": "Espera pela reposição do limite e retoma, ou executa-a com outro fornecedor."
+      "resetsAt": "É reposto às {{time}}. Continue nessa altura ou execute noutro fornecedor.",
+      "reset": "É reposto {{resetAt}}. Continue nessa altura ou execute noutro fornecedor.",
+      "noReset": "Espere que o limite seja reposto e continue, ou execute noutro fornecedor."
     },
     "environment": "O problema não é a mudança em si. A máquina precisa de algo antes.",
     "port_in_use": "O problema não é a mudança: outra coisa ocupava a porta. Pare-a ou faça o projeto ler PORT (cada execução tem a sua) e execute novamente.",
@@ -48,22 +48,22 @@
     "timeout": "Atingiu o limite de tempo antes de terminar.",
     "tool_inactivity": "Parou de usar ferramentas e de responder por tempo demais.",
     "crash": "O processo do provedor ou sua conexão morreu no meio da execução.",
-    "incomplete_tasks": "Todo o resto está feito. Se o que falta é uma verificação que só uma pessoa pode fazer, continue para a revisão com ela listada como verificação manual; caso contrário, tente de novo e deixe a execução terminá-la com o navegador e as ferramentas.",
+    "incomplete_tasks": "Tudo o resto está feito. Continuar termina o que falta com o navegador e as suas ferramentas; uma verificação que só uma pessoa pode fazer pode ir para revisão.",
     "spec_invalid": "O plano ou a especificação não passou no OpenSpec, e o planeamento não conseguiu corrigi-lo.",
     "unknown": "Os registos da execução não indicam a causa. Uma leitura do log com IA costuma encontrá-la."
   },
   "remedies": {
-    "label": "Formas de recuperar"
+    "label": "Formas de recuperar",
+    "more": "Outras formas de recuperar"
   },
   "remedy": {
-    "resume": "Retomar",
-    "resumeFrom": "Retomar a partir de {{phase}}",
-    "retry": "Executar novamente",
+    "retry": "Começar de novo",
     "editSpec": "Editar a spec e relançar",
     "fixEnvironment": "Corrigir o ambiente",
     "openLogs": "Abrir o registro na falha",
     "continueToReview": "Continuar para a revisão",
-    "retryWithBrowser": "Tentar de novo com o navegador"
+    "continue": "Continuar",
+    "continueFrom": "Continuar a partir de {{phase}}"
   },
   "environment": {
     "command": "Comando",
@@ -72,7 +72,7 @@
     "inDirectory": "em {{cwd}}",
     "requiredAction": "Ação necessária",
     "generic": "O ambiente precisa de atenção antes de a execução continuar.",
-    "then": "Quando isso estiver feito, retome a execução."
+    "then": "Quando estiver feito, continue a execução."
   },
   "logTail": {
     "title": "Fim do registro"
@@ -112,7 +112,11 @@
       "incompleteTasks": "Tarefas por terminar",
       "other": "Outro"
     },
-    "interrupted": "A análise foi interrompida (o app reiniciou enquanto ela rodava). Tente de novo."
+    "interrupted": "A análise foi interrompida (o app reiniciou enquanto ela rodava). Tente de novo.",
+    "action": {
+      "changeModel": "Mudar o modelo",
+      "changeModelFor": "Mudar o modelo de {{role}}"
+    }
   },
   "facts": {
     "label": "Onde falhou",
@@ -130,8 +134,45 @@
   },
   "remedyResult": {
     "continued": "A continuar para a revisão com o restante como verificações manuais.",
-    "retried": "A tentar de novo a partir do programador com o navegador e as ferramentas.",
     "notResumed": "A execução continuada não arrancou",
-    "failed": "Não foi possível continuar a execução"
+    "failed": "Não foi possível continuar a execução",
+    "continuing": "A continuar a execução.",
+    "continuingFrom": "A continuar a partir do passo {{step}}."
+  },
+  "consequence": {
+    "continue": "Mantém tudo e continua a partir do passo que falhou.",
+    "continueTasks": "Mantém tudo e refaz apenas o que faltava, com o navegador e as instruções de instalação.",
+    "continueEnvironment": "Mantém tudo; o agente fica a saber o que falta, instala-o e continua.",
+    "continueLimit": "Mantém tudo e continua assim que o fornecedor voltar a aceitar pedidos.",
+    "continueTransient": "Mantém tudo e executa de novo o mesmo passo.",
+    "continueStopped": "Retoma onde parou, no mesmo worktree, com tudo o que fez até agora.",
+    "continueToReview": "Envia já para revisão, com o que falta como verificações manuais.",
+    "editSpec": "Abre a spec; alterá-la inicia uma nova execução.",
+    "fixEnvironment": "Mostra o que a máquina precisa e o comando a executar.",
+    "openLogs": "Leva ao passo que falhou no registo.",
+    "retry": "Uma execução nova a partir da base. O trabalho desta tentativa não é aproveitado; fica no worktree antigo.",
+    "analyze": "A IA lê o registo e explica porque parou."
+  },
+  "stopped": {
+    "headline": "Parou esta execução",
+    "why": "Nada se perde. Continuar retoma onde parou, no mesmo worktree.",
+    "whyNoContinue": "O seu trabalho fica no worktree. Começar de novo executa-a outra vez a partir da base."
+  },
+  "lineage": {
+    "title": "Tentativas",
+    "explain": "Cada tentativa continuou a anterior e manteve o seu trabalho. A mais recente representa todas.",
+    "attempt": "Tentativa {{attempt}} de {{total}}",
+    "attemptShort": "Tentativa {{attempt}}",
+    "continuedFromStep": "continuada a partir do passo {{step}} da tentativa {{attempt}}",
+    "continuedFrom": "continuada a partir da tentativa {{attempt}}",
+    "supersededBy": "a tentativa {{attempt}} assumiu",
+    "automatic": "O Specrails continuou automaticamente",
+    "this": "esta",
+    "open": "Abrir",
+    "fromStep": "A partir do passo {{step}}",
+    "byAutomatic": "O Specrails continuou automaticamente",
+    "byPerson": "Continuada por si",
+    "byReview": "Enviada para revisão com verificações manuais",
+    "guidance": "Orientações enviadas ao agente"
   }
 }

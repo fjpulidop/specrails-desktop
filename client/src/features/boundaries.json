@@ -133,6 +133,7 @@
       "delivery",
       "integrations",
       "loops",
+      "provider-quota",
       "providers",
       "rails",
       "settings",
@@ -162,6 +163,7 @@
       "jobs",
       "projects",
       "rails",
+      "recovery",
       "specs"
     ]
   },
@@ -450,8 +452,11 @@
     "publicEntries": [
       "components/FailureAnalysisPanel.tsx",
       "components/FailureDiagnosisCard.tsx",
+      "components/RunLineage.tsx",
+      "components/StoppedRunCard.tsx",
+      "hooks/useAttemptChain.ts",
+      "hooks/useContinueRemedies.ts",
       "hooks/useFailureAnalysis.ts",
-      "hooks/useIncompleteTasksRemedies.ts",
       "hooks/useRunDiagnosis.ts",
       "lib/failure-diagnosis.ts"
     ],

@@ -4,7 +4,8 @@ import { Button } from '../../../components/ui/button'
 import { Skeleton } from '../../../components/ui/skeleton'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { cn } from '../../../lib/utils'
-import { useFailureAnalysis, type AnalysisCategory, type FailureAnalysisController } from '../hooks/useFailureAnalysis'
+import { stepAction, useFailureAnalysis, type AnalysisAction, type AnalysisActionKind, type AnalysisCategory, type FailureAnalysisController } from '../hooks/useFailureAnalysis'
+import type { RemedyHandler } from '../lib/failure-diagnosis'
 
 export interface FailureAnalysisPanelProps {
   projectId?: string
@@ -17,6 +18,8 @@ export interface FailureAnalysisPanelProps {
   known?: ReadonlyArray<string | null | undefined>
   /** A reading the surface already owns (shared with the diagnosis card); the panel then asks nothing itself. */
   controller?: FailureAnalysisController
+  /** What this surface can really run; a next step that names one becomes its button, anything else stays advice. */
+  actions?: Partial<Record<AnalysisActionKind, RemedyHandler>>
 }
 
 const normalise = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -41,7 +44,7 @@ export function repeatsKnown(headline: string, known: ReadonlyArray<string | nul
  * the log lines it rests on (verbatim, checked by the server) stay one click
  * away. Shown beside the app's own diagnosis, labelled as an AI analysis.
  */
-export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller }: FailureAnalysisPanelProps) {
+export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller, actions = {} }: FailureAnalysisPanelProps) {
   const { t, i18n } = useTranslation('recovery')
   const own = useFailureAnalysis(projectId, jobId, i18n.language, { auto, enabled: !controller })
   const { state, run } = controller ?? own
@@ -104,7 +107,21 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
         <div className="pl-6.5">
           <p className="mb-1 text-label text-foreground">{t('analysis.nextSteps')}</p>
           <ol className="list-decimal space-y-0.5 pl-5 text-body text-foreground">
-            {analysis.nextSteps.map((step, index) => <li key={index}>{step}</li>)}
+            {analysis.nextSteps.map((step, index) => {
+              const action = stepAction(analysis, index)
+              const handler = action ? actions[action.kind] : undefined
+              return (
+                <li key={index}>
+                  <span>{step}</span>
+                  {action && handler && (
+                    <Button type="button" size="sm" variant="outline" className="ml-2 h-6 px-2 align-middle" data-testid={`failure-analysis-action-${action.kind}`}
+                      disabled={handler.busy || handler.disabled} aria-busy={handler.busy || undefined} onClick={() => handler.run()}>
+                      {actionLabel(t, action)}
+                    </Button>
+                  )}
+                </li>
+              )
+            })}
           </ol>
         </div>
       )}
@@ -123,6 +140,15 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
       </div>
     </section>
   )
+}
+
+function actionLabel(t: (key: string, params?: Record<string, string>) => string, action: AnalysisAction): string {
+  switch (action.kind) {
+    case 'continue': return t('remedy.continue')
+    case 'continue-to-review': return t('remedy.continueToReview')
+    case 'edit-spec': return t('remedy.editSpec')
+    case 'change-model': return action.role ? t('analysis.action.changeModelFor', { role: action.role }) : t('analysis.action.changeModel')
+  }
 }
 
 function categoryKey(category: AnalysisCategory): string {

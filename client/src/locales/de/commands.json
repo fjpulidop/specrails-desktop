@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "Außerhalb eines PR aufbewahrte Dateien",
           "keywords": "speicher, festplatte, sicherheitsarchiv, aufbewahrte dateien, quarantäne, aufräumen, löschen"
+        },
+        "autoContinue": {
+          "label": "Fehlgeschlagene Läufe automatisch fortsetzen",
+          "keywords": "fortsetzen, wiederholen, fehlgeschlagener Lauf, automatisch, Wiederherstellung"
         }
       }
-    }
+    },
+    "jumpAttempt": "Versuch {{number}}"
   },
   "toasts": {
     "queued": "{{name}} eingereiht",

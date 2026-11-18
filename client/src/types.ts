@@ -101,6 +101,8 @@ export interface JobSummary {
   /** First spec the job refers to and its title (list endpoint only; absent when the spec is gone). */
   ticketId?: number
   ticketTitle?: string
+  /** A continued run's place in its attempt chain (list endpoint only); earlier attempts are folded into it. */
+  attempt?: { number: number; of: number; firstRunId?: string }
 }
 
 export interface EventRow {
@@ -563,6 +565,8 @@ export interface PacketProofItem {
   values?: Record<string, string | number>
   /** Verbatim agent output — only ever rendered inside a labelled block. */
   rawExcerpt?: string
+  /** Earlier runs of this same verification, superseded by this final one: history, never proof. */
+  earlier?: Array<{ passed: boolean; exitCode: number | string; seconds: number | string; rawExcerpt?: string }>
 }
 
 export interface PacketTicketSection {

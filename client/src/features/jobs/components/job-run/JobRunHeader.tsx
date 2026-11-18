@@ -4,7 +4,10 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useIncompleteTasksRemedies } from '../../../recovery/hooks/useIncompleteTasksRemedies'
+import { useContinueRemedies } from '../../../recovery/hooks/useContinueRemedies'
+import { useAttemptChain } from '../../../recovery/hooks/useAttemptChain'
+import { RunLineage } from '../../../recovery/components/RunLineage'
+import { StoppedRunCard } from '../../../recovery/components/StoppedRunCard'
 import { cn } from '../../../../lib/utils'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
 import type { PhaseMap } from '../../hooks/usePipeline'
@@ -18,7 +21,7 @@ import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeEvidenceChip } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering, RuntimeSteeringChip, steeringAcceptsInstructions } from '../../../settings/components/RuntimeSteering'
-import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
+import { offersStartOver, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
 import { useNow } from '../../../../hooks/useNow'
 import {
@@ -42,6 +45,8 @@ export interface JobRunDetailsContext {
   pendingQuestion: boolean
   diagnosisHandlers: RemedyHandlers
   diagnosisTail: readonly string[]
+  /** A run the person stopped: how to continue it (Continue / Start over). Null otherwise. */
+  continuityContent: ReactNode
   hasDetails: boolean
   /** Recorded figures and runtime notes, opened from the Details button. */
   detailsContent: ReactNode
@@ -172,7 +177,6 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {run.canSettle && (
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'settle')}>{tRuntime('runs.prepareDelivery')}</Button>
       )}
-      {run.forkSuccessor && onOpenRun && <Button size="sm" variant="outline" onClick={() => onOpenRun(run.forkSuccessor!)}>{t('loopExplorer.openFork')}</Button>}
       {run.canCancel && (
         <Button size="sm" variant="secondary" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'cancel')}>{tRuntime('runs.cancel')}</Button>
       )}
@@ -181,17 +185,26 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
   // ── Failure diagnosis: what stopped the run, why, and the remedies this surface can really run ──
   const diagnosis = useMemo(() => readFailureDiagnosis(job.failureDiagnosis), [job.failureDiagnosis])
-  const incompleteTasksRemedies = useIncompleteTasksRemedies(projectId, run?.engineVersion === 2 ? run.runId : null, diagnosis, onOpenRun)
   const showDiagnosis = !!diagnosis && isTerminal && (job.status === 'failed' || job.status === 'canceled')
-  const diagnosisHandlers: RemedyHandlers = {}
-  if (run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
-    diagnosisHandlers.resume = { run: () => void runtime.act(run, run.pendingApproval ? 'approve' : 'resume'), busy }
+  // Continue: a settled definition run that no later attempt took over yet.
+  const definitionRunId = run?.engineVersion === 2 && !run.forkSuccessor ? run.runId : null
+  const stopped = isTerminal && job.status === 'canceled' && !diagnosis
+  const continueRemedies = useContinueRemedies(projectId, definitionRunId, diagnosis, { enabled: isTerminal && (stopped || showDiagnosis), onContinued: onOpenRun })
+  const diagnosisHandlers: RemedyHandlers = { ...continueRemedies }
+  // A run this surface can only resume in place (no definition run) still continues that way.
+  if (!diagnosisHandlers.continue && run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
+    diagnosisHandlers.continue = { run: () => void runtime.act(run, run.pendingApproval ? 'approve' : 'resume'), busy }
   }
   if (onRerun) diagnosisHandlers.retry = { run: onRerun, busy: !!rerunBusy }
   if (onEditSpec) diagnosisHandlers['edit-spec'] = { run: onEditSpec }
-  Object.assign(diagnosisHandlers, incompleteTasksRemedies)
   diagnosisHandlers['open-logs'] = { run: () => { if (onOpenLogs) onOpenLogs(); else if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound')) } }
-  const diagnosisOffersRetry = showDiagnosis && !!diagnosis && availableRemedies(diagnosis, diagnosisHandlers).includes('retry')
+  const continuityContent = stopped && (diagnosisHandlers.continue || diagnosisHandlers.retry)
+    ? <StoppedRunCard onContinue={diagnosisHandlers.continue} onStartOver={diagnosisHandlers.retry} />
+    : null
+  // The chain this run belongs to: "Attempt 3 · continued from the developer step of attempt 2".
+  const chain = useAttemptChain(projectId, job.command.startsWith('loop:') ? job.id : null, job.status)
+  // The card (or the stopped card) offers Start over itself, so the surface's own Run again steps aside.
+  const diagnosisOffersRetry = (showDiagnosis && !!diagnosis && offersStartOver(diagnosis, diagnosisHandlers)) || (!!continuityContent && !!diagnosisHandlers.retry)
   const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
 
   // Details show only what the run actually recorded: no empty metric tiles,
@@ -344,6 +357,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         )}
   </>)
   const statusTrail = (<>
+        <RunLineage chain={chain} onOpenRun={onOpenRun} />
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
@@ -369,7 +383,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
     </div>}
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, questionContent: answerable ? question : null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, continuityContent, hasDetails, detailsContent, questionContent: answerable ? question : null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }

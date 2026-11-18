@@ -63,7 +63,8 @@ export function inboxItemText(item: InboxItem, t: Translate, language: string): 
   const cap = item.cap
   const capDetail = cap ? String(t('inbox:cap.detail', { spent: formatUsd(cap.spentUsd), budget: formatUsd(cap.budgetUsd) })) : null
   return {
-    title: cap ? String(t(`inbox:cap.title.${cap.scope}.${cap.period}`)) : item.title,
+    title: cap ? String(t(`inbox:cap.title.${cap.scope}.${cap.period}`))
+      : item.attempt ? `${item.title} · ${String(t('inbox:attempt', { number: item.attempt.number }))}` : item.title,
     kindLabel: limit?.kindLabel ?? String(t(item.action === 'raise-cap' ? 'inbox:kinds.capReached' : `inbox:kinds.${item.kind}`)),
     detail: limit ? limit.detail : capDetail ?? cause ?? (rawNoCause ? String(t('inbox:kinds.failedNoCause')) : item.detail),
     rawDetail: rawNoCause ? item.detail : null,
