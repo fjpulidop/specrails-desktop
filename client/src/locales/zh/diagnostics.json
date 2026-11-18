@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "报告问题…",
+    "title": "报告问题",
+    "description": "在这台电脑上保存一个包含最近日志和设置的 ZIP。不会上传任何内容：是否分享由你决定。",
+    "building": "正在收集日志…",
+    "buildFailed": "无法生成报告：{{error}}",
+    "retry": "重试",
+    "fileListLabel": "报告中的文件",
+    "redactionNote": "令牌、密钥、密码和凭据会被替换为 [REDACTED]，你的主文件夹显示为 ~。分享前请检查这些文件。",
+    "save": "保存 ZIP…",
+    "saving": "正在保存…",
+    "saved": "报告已保存",
+    "savedBody": "{{name}} 已保存在你的电脑上。请只与正在帮助你的人分享。",
+    "saveFailed": "无法保存报告。",
+    "expired": "此预览已过期。请重新生成。",
+    "rebuild": "重新生成",
+    "aboutDescription": "保存一个已脱敏日志的 ZIP，可与帮助你的人分享。不会上传任何内容。"
+  },
+  "banner": {
+    "label": "本地服务器恢复",
+    "restarted": "本地服务器于 {{time}} 意外停止（{{cause}}），Specrails 已将其重启。正在运行的工作可能已被中断。",
+    "restartedMany_one": "自 {{time}} 起本地服务器意外停止了 {{count}} 次，Specrails 已将其重启。正在运行的工作可能已被中断。",
+    "restartedMany_other": "自 {{time}} 起本地服务器意外停止了 {{count}} 次，Specrails 已将其重启。正在运行的工作可能已被中断。",
+    "stopped": "本地服务器于 {{time}} 意外停止（{{cause}}）。在一分钟内尝试 {{count}} 次后，Specrails 已停止重启它。",
+    "exitCode": "退出代码 {{code}}",
+    "signal": "信号 {{signal}}",
+    "unknownCause": "原因未知",
+    "report": "报告问题",
+    "dismiss": "关闭"
+  },
+  "restarting": "本地服务器已停止，正在重启…",
+  "responsiveness": {
+    "title": "响应性",
+    "none": "自 {{time}} 起无卡顿",
+    "summary_one": "{{count}} 次卡顿 · 最长 {{duration}}",
+    "summary_other": "{{count}} 次卡顿 · 最长 {{duration}}",
+    "last": "最近一次在 {{time}}：{{operation}} 期间 {{duration}}",
+    "background": "后台工作",
+    "hint": "卡顿是指本地服务器有 {{threshold}} 或更长时间无法响应。"
+  }
+}

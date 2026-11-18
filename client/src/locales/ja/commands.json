@@ -290,6 +290,10 @@
           "label": "Desktop の情報",
           "keywords": "情報, について, ポート, データベース, バージョン, about"
         },
+        "reportProblem": {
+          "label": "問題を報告",
+          "keywords": "報告, 問題, バグ, クラッシュ, ログ, 診断, zip, サポート"
+        },
         "repositories": {
           "label": "リポジトリ",
           "keywords": "リポジトリ, repo, ワークスペース, フォルダ, git, マルチリポジトリ, プライマリ"

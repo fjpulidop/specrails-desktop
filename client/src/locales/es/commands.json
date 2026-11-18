@@ -290,6 +290,10 @@
           "label": "Información de Desktop",
           "keywords": "acerca de, info, puerto, base de datos, versión, about"
         },
+        "reportProblem": {
+          "label": "Informar de un problema",
+          "keywords": "informe, problema, error, fallo, registros, diagnóstico, zip, soporte"
+        },
         "repositories": {
           "label": "Repositorios",
           "keywords": "repositorio, repo, espacio de trabajo, carpeta, git, multi-repo, principal"

@@ -46,6 +46,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('appUpdate', 'updates'),
   app('coreUpdate', 'updates'),
   app('about', 'about'),
+  app('reportProblem', 'about'),
 
   project('repositories', 'general'),
   project('prePrompt', 'general'),

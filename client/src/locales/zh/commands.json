@@ -290,6 +290,10 @@
           "label": "Desktop 信息",
           "keywords": "关于, 信息, 端口, 数据库, 版本, about"
         },
+        "reportProblem": {
+          "label": "报告问题",
+          "keywords": "报告, 问题, 错误, 崩溃, 日志, 诊断, zip, 支持"
+        },
         "repositories": {
           "label": "仓库",
           "keywords": "仓库, repo, 工作区, 文件夹, git, 多仓库, 主仓库"

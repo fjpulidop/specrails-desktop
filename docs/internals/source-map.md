@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1645 source/build files. Nearby tests are linked where names
+Includes 1664 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -421,6 +421,21 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/delivery/pages
 
 - [ReviewPacketPage.tsx](../../client/src/features/delivery/pages/ReviewPacketPage.tsx) · [test](../../client/src/features/delivery/pages/__tests__/ReviewPacketPage.test.tsx)
+
+## client/src/features/diagnostics/components
+
+- [ReportProblemDialog.tsx](../../client/src/features/diagnostics/components/ReportProblemDialog.tsx) · [test](../../client/src/features/diagnostics/components/__tests__/ReportProblemDialog.test.tsx)
+- [ServerRecoveryBanner.tsx](../../client/src/features/diagnostics/components/ServerRecoveryBanner.tsx) · [test](../../client/src/features/diagnostics/components/__tests__/ServerRecoveryBanner.test.tsx)
+- [ServerResponsiveness.tsx](../../client/src/features/diagnostics/components/ServerResponsiveness.tsx) · [test](../../client/src/features/diagnostics/components/__tests__/ServerResponsiveness.test.tsx)
+
+## client/src/features/diagnostics/hooks
+
+- [useServerCrashNotices.ts](../../client/src/features/diagnostics/hooks/useServerCrashNotices.ts)
+
+## client/src/features/diagnostics/lib
+
+- [diagnostics-api.ts](../../client/src/features/diagnostics/lib/diagnostics-api.ts)
+- [format.ts](../../client/src/features/diagnostics/lib/format.ts)
 
 ## client/src/features/docs/components
 
@@ -1844,6 +1859,26 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-ci-status.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.test.ts)
 - [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.test.ts)
 
+## server/modules/diagnostics
+
+- [application.ts](../../server/modules/diagnostics/application.ts) · [test](../../server/modules/diagnostics/application.test.ts)
+- [domain.ts](../../server/modules/diagnostics/domain.ts) · [test](../../server/modules/diagnostics/domain.test.ts)
+- [index.ts](../../server/modules/diagnostics/index.ts)
+- [ports.ts](../../server/modules/diagnostics/ports.ts)
+
+## server/modules/diagnostics/adapters
+
+- [host-files.ts](../../server/modules/diagnostics/adapters/host-files.ts) · [test](../../server/modules/diagnostics/adapters/host-files.test.ts)
+- [http.ts](../../server/modules/diagnostics/adapters/http.ts) · [test](../../server/modules/diagnostics/adapters/http.test.ts)
+- [redaction.ts](../../server/modules/diagnostics/adapters/redaction.ts) · [test](../../server/modules/diagnostics/adapters/redaction.test.ts)
+- [runtime.ts](../../server/modules/diagnostics/adapters/runtime.ts)
+- [sqlite.ts](../../server/modules/diagnostics/adapters/sqlite.ts)
+
+## server/modules/diagnostics/runtime
+
+- [event-loop-probe.ts](../../server/modules/diagnostics/runtime/event-loop-probe.ts) · [test](../../server/modules/diagnostics/runtime/event-loop-probe.test.ts)
+- [log-ring.ts](../../server/modules/diagnostics/runtime/log-ring.ts) · [test](../../server/modules/diagnostics/runtime/log-ring.test.ts)
+
 ## server/modules/execution
 
 - [index.ts](../../server/modules/execution/index.ts)
@@ -2216,6 +2251,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [stream-display.ts](../../server/util/stream-display.ts) · [test](../../server/util/stream-display.test.ts)
 - [win-spawn.ts](../../server/util/win-spawn.ts) · [test](../../server/util/win-spawn.test.ts)
 - [windows-provider-shell.ts](../../server/util/windows-provider-shell.ts) · [test](../../server/util/windows-provider-shell.test.ts)
+- [zip.ts](../../server/util/zip.ts)
 
 ## src-tauri/src
 
@@ -2236,4 +2272,5 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop_windows.rs](../../src-tauri/src/loop_windows.rs)
 - [main.rs](../../src-tauri/src/main.rs)
 - [mission_windows.rs](../../src-tauri/src/mission_windows.rs)
+- [sidecar_supervisor.rs](../../src-tauri/src/sidecar_supervisor.rs)
 - [surface_windows.rs](../../src-tauri/src/surface_windows.rs)

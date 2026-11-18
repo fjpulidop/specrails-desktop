@@ -5,7 +5,7 @@ vi.mock('../tauri-shell', () => ({ isTauri }))
 const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
-import { saveTextFile } from '../save-text-file'
+import { saveBinaryFile, saveTextFile } from '../save-text-file'
 
 afterEach(() => { vi.clearAllMocks(); isTauri.mockReturnValue(false) })
 
@@ -33,3 +33,29 @@ describe('saveTextFile', () => {
     click.mockRestore()
   })
 })
+
+describe('saveBinaryFile', () => {
+  it('sends the bytes as the raw IPC body with an encoded file name', async () => {
+    isTauri.mockReturnValue(true)
+    invoke.mockResolvedValueOnce(true)
+    const bytes = new Uint8Array([0x50, 0x4b, 3, 4])
+    expect(await saveBinaryFile('informe ñ.zip', bytes)).toBe('saved')
+    expect(invoke).toHaveBeenCalledWith('desktop_save_bytes', bytes, { headers: { 'x-specrails-suggested-name': 'informe%20%C3%B1.zip' } })
+    invoke.mockResolvedValueOnce(false)
+    expect(await saveBinaryFile('a.zip', bytes)).toBe('cancelled')
+    invoke.mockRejectedValueOnce(new Error('denied'))
+    expect(await saveBinaryFile('a.zip', bytes)).toBe('failed')
+  })
+
+  it('downloads a Blob in a browser', async () => {
+    const create = vi.fn((_blob: Blob) => 'blob:zip')
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    expect(await saveBinaryFile('r.zip', new Uint8Array([1, 2, 3]), 'application/zip')).toBe('saved')
+    const blob = create.mock.calls[0][0]
+    expect(blob.type).toBe('application/zip')
+    expect(blob.size).toBe(3)
+    click.mockRestore()
+  })
+})
+

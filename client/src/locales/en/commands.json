@@ -290,6 +290,10 @@
           "label": "Desktop information",
           "keywords": "about, info, port, database, version"
         },
+        "reportProblem": {
+          "label": "Report a problem",
+          "keywords": "report, problem, bug, crash, logs, diagnostics, zip, support"
+        },
         "repositories": {
           "label": "Repositories",
           "keywords": "repository, repo, workspace, folder, git, multi-repo, primary"

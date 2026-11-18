@@ -401,6 +401,14 @@ For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server 
 
 ---
 
+### Host log folder
+
+The desktop host sets `SPECRAILS_HOST_LOG_DIR` (an absolute path) for the server
+it launches. The server reads crash markers and the host logs from it for crash
+notices and "Report a problem", and writes only `crashes/acknowledged.json`.
+Unset (browser build, `npm run dev`), the report has no host files and no crash
+notices are shown. See [server recovery and problem reports](server-recovery-and-diagnostics.md).
+
 ### Development build next to the installed app
 
 `npm run dev:desktop` (`scripts/dev-desktop.mjs`) runs the Tauri development
@@ -413,7 +421,7 @@ build as a separate app, so it can stay open while the installed Specrails runs:
 | Server port | `4200` | `4300` (`SPECRAILS_DEV_SERVER_PORT`) |
 | Vite dev client | — | `4301` (`SPECRAILS_DEV_CLIENT_PORT`) |
 | Data home (contains `.specrails/`) | `~` | `~`, shared with the installed app; `~/.specrails-dev` with `--isolated` (`SPECRAILS_REGISTRY_HOME` overrides both) |
-| Sidecar log | `~/Library/Logs/Specrails/` | `~/Library/Logs/Specrails Dev/` |
+| Host log folder (`sidecar.log`, `desktop.log`, `crashes/`; exported to the server as `SPECRAILS_HOST_LOG_DIR`) | `~/Library/Logs/Specrails/` | `~/Library/Logs/Specrails Dev/` |
 
 Without a flag, the development app opens your projects: it uses the installed
 app's `~/.specrails`, with the same registry, history and worktrees. Only one

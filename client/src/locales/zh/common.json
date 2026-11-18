@@ -283,7 +283,8 @@
       "accessibility": "无障碍与个性化",
       "prDecision": "交付选项",
       "attention": "通知",
-      "liveBoard": "实时看板"
+      "liveBoard": "实时看板",
+      "serverRecovery": "如果本地服务器停止运行"
     }
   },
   "forecast": {

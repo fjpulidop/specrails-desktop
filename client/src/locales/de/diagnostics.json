@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "Problem melden…",
+    "title": "Problem melden",
+    "description": "Speichert auf diesem Computer ein ZIP mit aktuellen Protokollen und Einstellungen. Es wird nichts hochgeladen: Sie entscheiden, ob Sie es teilen.",
+    "building": "Protokolle werden gesammelt…",
+    "buildFailed": "Der Bericht konnte nicht erstellt werden: {{error}}",
+    "retry": "Erneut versuchen",
+    "fileListLabel": "Dateien im Bericht",
+    "redactionNote": "Tokens, Schlüssel, Passwörter und Zugangsdaten werden durch [REDACTED] ersetzt, Ihr Benutzerordner erscheint als ~. Prüfen Sie die Dateien, bevor Sie sie teilen.",
+    "save": "ZIP speichern…",
+    "saving": "Wird gespeichert…",
+    "saved": "Bericht gespeichert",
+    "savedBody": "{{name}} liegt auf Ihrem Computer. Teilen Sie ihn nur mit jemandem, der Ihnen hilft.",
+    "saveFailed": "Der Bericht konnte nicht gespeichert werden.",
+    "expired": "Diese Vorschau ist abgelaufen. Erstellen Sie sie neu.",
+    "rebuild": "Neu erstellen",
+    "aboutDescription": "Speichert ein ZIP mit bereinigten Protokollen, das Sie mit Helfenden teilen können. Es wird nichts hochgeladen."
+  },
+  "banner": {
+    "label": "Wiederherstellung des lokalen Servers",
+    "restarted": "Der lokale Server wurde um {{time}} unerwartet beendet ({{cause}}) und Specrails hat ihn neu gestartet. Laufende Arbeit wurde möglicherweise unterbrochen.",
+    "restartedMany_one": "Der lokale Server wurde seit {{time}} {{count}}-mal unerwartet beendet und Specrails hat ihn neu gestartet. Laufende Arbeit wurde möglicherweise unterbrochen.",
+    "restartedMany_other": "Der lokale Server wurde seit {{time}} {{count}}-mal unerwartet beendet und Specrails hat ihn neu gestartet. Laufende Arbeit wurde möglicherweise unterbrochen.",
+    "stopped": "Der lokale Server wurde um {{time}} unerwartet beendet ({{cause}}). Specrails hat nach {{count}} Versuchen in einer Minute aufgehört, ihn neu zu starten.",
+    "exitCode": "Exit-Code {{code}}",
+    "signal": "Signal {{signal}}",
+    "unknownCause": "unbekannte Ursache",
+    "report": "Problem melden",
+    "dismiss": "Schließen"
+  },
+  "restarting": "Der lokale Server wurde beendet. Er wird neu gestartet…",
+  "responsiveness": {
+    "title": "Reaktionsfähigkeit",
+    "none": "Keine Hänger seit {{time}}",
+    "summary_one": "{{count}} Hänger · längster {{duration}}",
+    "summary_other": "{{count}} Hänger · längster {{duration}}",
+    "last": "Zuletzt um {{time}}: {{duration}} während {{operation}}",
+    "background": "Hintergrundarbeit",
+    "hint": "Ein Hänger ist ein Moment von {{threshold}} oder mehr, in dem der lokale Server nicht antworten konnte."
+  }
+}

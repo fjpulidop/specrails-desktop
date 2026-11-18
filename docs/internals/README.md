@@ -16,6 +16,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [api-reference.md](api-reference.md) | REST endpoint catalogue under `/api/*` and `/api/projects/:projectId/*` |
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
+| [server-recovery-and-diagnostics.md](server-recovery-and-diagnostics.md) | Desktop relaunch of the local server (circuit breaker, same port/token), crash markers, event-loop stall probe and the local "Report a problem" ZIP with its redaction |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |
 | [mission-read-only-policy.md](mission-read-only-policy.md) | Read-only mission agents: per-provider native boundary that keeps MCP tools callable, Core session policy, kill switch, limitations and live evidence |
 | [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |

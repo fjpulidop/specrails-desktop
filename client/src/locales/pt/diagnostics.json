@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "Reportar um problema…",
+    "title": "Reportar um problema",
+    "description": "Guarda neste computador um ZIP com os registos recentes e as definições. Nada é enviado: decide você se o partilha.",
+    "building": "A recolher registos…",
+    "buildFailed": "Não foi possível criar o relatório: {{error}}",
+    "retry": "Tentar novamente",
+    "fileListLabel": "Ficheiros do relatório",
+    "redactionNote": "Tokens, chaves, palavras-passe e credenciais são substituídos por [REDACTED] e a sua pasta pessoal aparece como ~. Reveja os ficheiros antes de os partilhar.",
+    "save": "Guardar ZIP…",
+    "saving": "A guardar…",
+    "saved": "Relatório guardado",
+    "savedBody": "{{name}} está no seu computador. Partilhe-o apenas com quem o está a ajudar.",
+    "saveFailed": "Não foi possível guardar o relatório.",
+    "expired": "Esta pré-visualização expirou. Crie-a novamente.",
+    "rebuild": "Criar novamente",
+    "aboutDescription": "Guarda um ZIP com registos anonimizados para partilhar com quem o ajuda. Nada é enviado."
+  },
+  "banner": {
+    "label": "Recuperação do servidor local",
+    "restarted": "O servidor local parou inesperadamente às {{time}} ({{cause}}) e o Specrails reiniciou-o. O trabalho em curso pode ter sido interrompido.",
+    "restartedMany_one": "O servidor local parou inesperadamente {{count}} vez desde as {{time}} e o Specrails reiniciou-o. O trabalho em curso pode ter sido interrompido.",
+    "restartedMany_other": "O servidor local parou inesperadamente {{count}} vezes desde as {{time}} e o Specrails reiniciou-o. O trabalho em curso pode ter sido interrompido.",
+    "stopped": "O servidor local parou inesperadamente às {{time}} ({{cause}}). O Specrails deixou de o reiniciar após {{count}} tentativas num minuto.",
+    "exitCode": "código de saída {{code}}",
+    "signal": "sinal {{signal}}",
+    "unknownCause": "causa desconhecida",
+    "report": "Reportar um problema",
+    "dismiss": "Dispensar"
+  },
+  "restarting": "O servidor local parou. A reiniciar…",
+  "responsiveness": {
+    "title": "Capacidade de resposta",
+    "none": "Sem bloqueios desde as {{time}}",
+    "summary_one": "{{count}} bloqueio · o mais longo {{duration}}",
+    "summary_other": "{{count}} bloqueios · o mais longo {{duration}}",
+    "last": "Último às {{time}}: {{duration}} durante {{operation}}",
+    "background": "trabalho em segundo plano",
+    "hint": "Um bloqueio é um momento de {{threshold}} ou mais em que o servidor local não conseguiu responder."
+  }
+}

@@ -151,6 +151,15 @@ Subprocess probes on request and background paths (provider detection, CLI statu
 runner [`server/util/bounded-exec.ts`](../../server/util/bounded-exec.ts). On timeout it kills the whole
 process tree. Do not add `execSync`/`spawnSync` to those paths.
 
+### The server stops while the desktop app is open
+
+The desktop app relaunches the server on its own (at most 3 times a minute) and
+the interface explains each stop in a banner. After repeated stops it shows a
+dialog with **Try again**. Evidence lives in `~/Library/Logs/Specrails/`
+(`sidecar.log`, `desktop.log`, `crashes/`); **Settings ▸ About ▸ Report a
+problem** packages it, redacted, as a local ZIP. Details:
+[server recovery and problem reports](server-recovery-and-diagnostics.md).
+
 ### Server won't start after a crash
 
 A clean `stop` already clears a stale PID file. If a crash left one behind and `start` still refuses:

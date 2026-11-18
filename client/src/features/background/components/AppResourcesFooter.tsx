@@ -7,6 +7,7 @@ import { formatBytes } from '../lib/format-bytes'
 import { useAppResources } from '../hooks/useAppResources'
 import type { AppResourceCategory, AppResourceCategoryId, AppResourceItem, AppResourcesSnapshot } from '../lib/app-resources-api'
 import type { ResourceSample } from '../lib/mission-resources-api'
+import { ServerResponsiveness } from '../../diagnostics/components/ServerResponsiveness'
 
 const CATEGORY_STYLE: Record<AppResourceCategoryId, { icon: ComponentType<{ className?: string }>; bar: string }> = {
   missions: { icon: Bot, bar: 'bg-accent-primary' },
@@ -79,7 +80,7 @@ function CategoryRow({ category }: { category: AppResourceCategory }) {
 }
 
 /** The popover body: totals, memory split by category and expandable per-category rows. */
-export function AppResourcesPanel({ snapshot, error }: { snapshot: AppResourcesSnapshot | null; error: string | null }) {
+export function AppResourcesPanel({ snapshot, error, open = false }: { snapshot: AppResourcesSnapshot | null; error: string | null; open?: boolean }) {
   const { t } = useTranslation('resources')
   const totals = snapshot?.totals
   const memory = totals?.memoryBytes ?? 0
@@ -126,6 +127,7 @@ export function AppResourcesPanel({ snapshot, error }: { snapshot: AppResourcesS
         </div>
       </>}
     </>}
+    <ServerResponsiveness active={open} />
   </div>
 }
 
@@ -149,6 +151,6 @@ export function AppResourcesFooter() {
         <span className="num">{count}</span>
       </>}
     </button>}>
-    <AppResourcesPanel snapshot={snapshot} error={error} />
+    <AppResourcesPanel snapshot={snapshot} error={error} open={open} />
   </HoverPopover>
 }

@@ -1,7 +1,7 @@
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
-import { useEffect, useState, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
 import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
@@ -44,6 +44,8 @@ import { APP_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
 import { AttentionSettingsSection } from '../components/AttentionSettingsSection'
 
 import { notifyError } from '../../../lib/notify-error'
+import { useMountOnOpen } from '../../../hooks/useMountOnOpen'
+const ReportProblemDialog = lazy(() => import('../../diagnostics/components/ReportProblemDialog'))
 type WebhookEvent = 'job.completed' | 'job.failed' | 'daily_budget_exceeded'
 
 const WEBHOOK_EVENTS: { value: WebhookEvent; labelKey: string }[] = [
@@ -170,6 +172,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
   // Destructive-action confirmations
   const [pendingRemoveProject, setPendingRemoveProject] = useState<DesktopProject | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportMounted = useMountOnOpen(reportOpen)
   const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<WebhookRow | null>(null)
 
   // Webhook state
@@ -656,9 +660,16 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                   <span className="font-mono text-muted-foreground">~/.specrails/desktop.sqlite</span>
                 </div>
               </SettingsCard>
+              <SettingsCard title={t('diagnostics:report.title')} description={t('diagnostics:report.aboutDescription')} data-setting-id="reportProblem"
+                action={<Button type="button" size="sm" variant="outline" data-testid="settings-report-problem" onClick={() => setReportOpen(true)}>{t('diagnostics:report.open')}</Button>} />
             </div>
           </div>{/* /section content */}
         </DialogBody>
+        {reportMounted && (
+          <Suspense fallback={null}>
+            <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} />
+          </Suspense>
+        )}
         <ConfirmDialog
           open={pendingRemoveProject !== null}
           onOpenChange={(next) => { if (!next) setPendingRemoveProject(null) }}

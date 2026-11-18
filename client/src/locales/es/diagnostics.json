@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "Informar de un problema…",
+    "title": "Informar de un problema",
+    "description": "Guarda en este ordenador un ZIP con los registros recientes y los ajustes. No se sube nada: tú decides si lo compartes.",
+    "building": "Recopilando registros…",
+    "buildFailed": "No se pudo crear el informe: {{error}}",
+    "retry": "Reintentar",
+    "fileListLabel": "Archivos del informe",
+    "redactionNote": "Los tokens, claves, contraseñas y credenciales se sustituyen por [REDACTED] y tu carpeta personal aparece como ~. Revisa los archivos antes de compartirlos.",
+    "save": "Guardar ZIP…",
+    "saving": "Guardando…",
+    "saved": "Informe guardado",
+    "savedBody": "{{name}} está en tu ordenador. Compártelo solo con quien te esté ayudando.",
+    "saveFailed": "No se pudo guardar el informe.",
+    "expired": "Esta vista previa ha caducado. Vuelve a crearla.",
+    "rebuild": "Volver a crear",
+    "aboutDescription": "Guarda un ZIP con registros anonimizados para compartirlo con quien te ayude. No se sube nada."
+  },
+  "banner": {
+    "label": "Recuperación del servidor local",
+    "restarted": "El servidor local se detuvo de forma inesperada a las {{time}} ({{cause}}) y Specrails lo reinició. El trabajo en curso puede haberse interrumpido.",
+    "restartedMany_one": "El servidor local se detuvo de forma inesperada {{count}} vez desde las {{time}} y Specrails lo reinició. El trabajo en curso puede haberse interrumpido.",
+    "restartedMany_other": "El servidor local se detuvo de forma inesperada {{count}} veces desde las {{time}} y Specrails lo reinició. El trabajo en curso puede haberse interrumpido.",
+    "stopped": "El servidor local se detuvo de forma inesperada a las {{time}} ({{cause}}). Specrails dejó de reiniciarlo tras {{count}} intentos en un minuto.",
+    "exitCode": "código de salida {{code}}",
+    "signal": "señal {{signal}}",
+    "unknownCause": "causa desconocida",
+    "report": "Informar de un problema",
+    "dismiss": "Descartar"
+  },
+  "restarting": "El servidor local se detuvo. Reiniciándolo…",
+  "responsiveness": {
+    "title": "Capacidad de respuesta",
+    "none": "Sin bloqueos desde las {{time}}",
+    "summary_one": "{{count}} bloqueo · el más largo {{duration}}",
+    "summary_other": "{{count}} bloqueos · el más largo {{duration}}",
+    "last": "Último a las {{time}}: {{duration}} durante {{operation}}",
+    "background": "trabajo en segundo plano",
+    "hint": "Un bloqueo es un momento de {{threshold}} o más en el que el servidor local no pudo responder."
+  }
+}

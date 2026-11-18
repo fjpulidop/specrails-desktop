@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "Signaler un problème…",
+    "title": "Signaler un problème",
+    "description": "Enregistre sur cet ordinateur un ZIP avec les journaux récents et les réglages. Rien n’est envoyé : vous décidez de le partager ou non.",
+    "building": "Collecte des journaux…",
+    "buildFailed": "Impossible de créer le rapport : {{error}}",
+    "retry": "Réessayer",
+    "fileListLabel": "Fichiers du rapport",
+    "redactionNote": "Les jetons, clés, mots de passe et identifiants sont remplacés par [REDACTED], et votre dossier personnel apparaît comme ~. Vérifiez les fichiers avant de les partager.",
+    "save": "Enregistrer le ZIP…",
+    "saving": "Enregistrement…",
+    "saved": "Rapport enregistré",
+    "savedBody": "{{name}} est sur votre ordinateur. Partagez-le uniquement avec une personne qui vous aide.",
+    "saveFailed": "Impossible d’enregistrer le rapport.",
+    "expired": "Cet aperçu a expiré. Créez-le à nouveau.",
+    "rebuild": "Recréer",
+    "aboutDescription": "Enregistre un ZIP de journaux expurgés à partager avec une personne qui vous aide. Rien n’est envoyé."
+  },
+  "banner": {
+    "label": "Récupération du serveur local",
+    "restarted": "Le serveur local s’est arrêté de façon inattendue à {{time}} ({{cause}}) et Specrails l’a redémarré. Le travail en cours a pu être interrompu.",
+    "restartedMany_one": "Le serveur local s’est arrêté de façon inattendue {{count}} fois depuis {{time}} et Specrails l’a redémarré. Le travail en cours a pu être interrompu.",
+    "restartedMany_other": "Le serveur local s’est arrêté de façon inattendue {{count}} fois depuis {{time}} et Specrails l’a redémarré. Le travail en cours a pu être interrompu.",
+    "stopped": "Le serveur local s’est arrêté de façon inattendue à {{time}} ({{cause}}). Specrails a cessé de le redémarrer après {{count}} tentatives en une minute.",
+    "exitCode": "code de sortie {{code}}",
+    "signal": "signal {{signal}}",
+    "unknownCause": "cause inconnue",
+    "report": "Signaler un problème",
+    "dismiss": "Ignorer"
+  },
+  "restarting": "Le serveur local s’est arrêté. Redémarrage…",
+  "responsiveness": {
+    "title": "Réactivité",
+    "none": "Aucun blocage depuis {{time}}",
+    "summary_one": "{{count}} blocage · le plus long {{duration}}",
+    "summary_other": "{{count}} blocages · le plus long {{duration}}",
+    "last": "Dernier à {{time}} : {{duration}} pendant {{operation}}",
+    "background": "travail en arrière-plan",
+    "hint": "Un blocage est un moment de {{threshold}} ou plus pendant lequel le serveur local n’a pas pu répondre."
+  }
+}

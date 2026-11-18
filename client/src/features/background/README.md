@@ -22,6 +22,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 ## Feature dependencies
 
+- [diagnostics](../diagnostics/README.md)
 - [missions](../missions/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is

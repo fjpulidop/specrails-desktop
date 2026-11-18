@@ -283,7 +283,8 @@
       "accessibility": "accessibilità e personalizzazione",
       "prDecision": "le opzioni di consegna",
       "attention": "Notifiche",
-      "liveBoard": "la bacheca live"
+      "liveBoard": "la bacheca live",
+      "serverRecovery": "Se il server locale si arresta"
     }
   },
   "forecast": {

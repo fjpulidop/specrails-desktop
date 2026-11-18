@@ -40,6 +40,7 @@ export const HELP_TOPICS = {
   inbox: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
   attention: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'attention' },
   liveBoard: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'live-board' },
+  serverRecovery: { category: 'settings', slug: 'server-recovery-and-problem-reports', anchor: 'server-recovery' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>
 
 export type HelpTopicId = keyof typeof HELP_TOPICS
@@ -62,6 +63,7 @@ export const APP_SETTINGS_HELP = {
   mobile: 'mobileCompanion',
   projects: 'existingProjects',
   updates: 'updates',
+  about: 'serverRecovery',
 } as const satisfies Record<string, HelpTopicId>
 
 /** Project settings section → its guide topic. */

@@ -283,7 +283,8 @@
       "accessibility": "Barrierefreiheit und Anpassung",
       "prDecision": "die Lieferoptionen",
       "attention": "Benachrichtigungen",
-      "liveBoard": "das Live-Board"
+      "liveBoard": "das Live-Board",
+      "serverRecovery": "Wenn der lokale Server stoppt"
     }
   },
   "forecast": {

@@ -59,6 +59,7 @@ const LoopWindowSurface = lazy(() => import('./features/loops/components/LoopWin
 const LoopsPage = lazy(() => import('./features/loops/pages/LoopsPage'))
 const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPage'))
 const LiveBoardDialog = lazy(() => import('./features/live-board/components/LiveBoardDialog'))
+const ReportProblemDialog = lazy(() => import('./features/diagnostics/components/ReportProblemDialog'))
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -66,6 +67,7 @@ import { hasSeenOnboarding } from './features/projects/lib/onboarding-state'
 import { useMountOnOpen } from './hooks/useMountOnOpen'
 import { SampleGuide } from './features/onboarding/components/SampleGuide'
 import { ArcSidebar } from './components/ArcSidebar'
+import { ServerRecoveryBanner } from './features/diagnostics/components/ServerRecoveryBanner'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
 import { SidebarPinProvider, useSidebarPin } from './context/SidebarPinContext'
@@ -292,6 +294,8 @@ function DesktopApp() {
   const [settingsSettingId, setSettingsSettingId] = useState<string | undefined>()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsMounted = useMountOnOpen(settingsOpen)
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportMounted = useMountOnOpen(reportOpen)
   // Pages inside features (e.g. the Agents upgrade banner) open a specific
   // app-settings section through a window event (see lib/app-settings-events).
   useEffect(() => {
@@ -660,6 +664,9 @@ function DesktopApp() {
           />
         )}
 
+        {/* Why the app just reconnected: the local server crashed and was relaunched. */}
+        <ServerRecoveryBanner connectionStatus={connectionStatus} onReportProblem={() => setReportOpen(true)} />
+
         {/* Content */}
         <main
           id="main-content"
@@ -754,6 +761,12 @@ function DesktopApp() {
           </Suspense>
         )}
       </Surface>
+
+      {reportMounted && (
+        <Suspense fallback={null}>
+          <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} />
+        </Suspense>
+      )}
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent size="workspace" data-testid="analytics-modal">

@@ -47,6 +47,7 @@
       "lib/background-processes-api.ts"
     ],
     "dependencies": [
+      "diagnostics",
       "missions"
     ]
   },
@@ -149,6 +150,14 @@
       "rails",
       "specs"
     ]
+  },
+  "diagnostics": {
+    "publicEntries": [
+      "components/ReportProblemDialog.tsx",
+      "components/ServerRecoveryBanner.tsx",
+      "components/ServerResponsiveness.tsx"
+    ],
+    "dependencies": []
   },
   "docs": {
     "publicEntries": [
@@ -439,6 +448,7 @@
     ],
     "dependencies": [
       "builder",
+      "diagnostics",
       "integrations",
       "jobs",
       "loops",

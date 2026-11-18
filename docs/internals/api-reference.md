@@ -188,6 +188,18 @@ The call reads the last 400 log lines (24k characters) plus the job metadata and
 |--------|------|-------|
 | `GET` | `/resources` | Read-only CPU/memory of everything the server launched, from one process-table read (cached 500 ms): `{ measuredAt, supported, totals: { cpuPercent, memoryBytes, processCount }, categories, history }`. `categories` (non-empty ones only, in this order): `missions` (agent sessions of desktop missions and project chats), `rails` (loop/rail runs, labelled `Rail N · <loop> · #ticket`, including a Core definition run's runtime process and its provider CLIs, and queued jobs labelled with their command), `background`, `terminals`, then the server's remaining children by command line: `agent-cli` (claude/codex/gemini/kimi without a known owner), `mcp` (MCP bridge, local runner, MCP servers), `git`, `other`, and `server` (the server process itself). Each is `{ id, cpuPercent, memoryBytes, processCount, items: [{ label, projectId?, projectName?, chatId?, runId?, cpuPercent, memoryBytes, processCount }] }`; every process is counted once, under the first owner that reaches it. `history` holds up to 100 totals points kept in memory only while a client polls (reset after 30 s without requests). `supported: false` when the process table cannot be read. Shown by the status-bar Resources control; see [terminals › App resources](../../server/modules/terminals/README.md#app-resources). |
 
+### Diagnostics (app-wide)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `POST` | `/diagnostics/report` | Builds a redacted problem report and keeps it in memory for 15 min: `{ id, createdAtMs, fileName, files: [{ name, description, content, bytes }] }`. Nothing is uploaded. |
+| `GET` | `/diagnostics/report/:id/zip` | `application/zip` with exactly the files of that preview; `404 report_expired` once it expired. |
+| `GET` | `/diagnostics/crashes` | Crashes of the server the interface has not explained: `{ available, acknowledgedThroughMs, notices: [{ id, atMs, outcome, exitCode, signal, uptimeMs, wasReady, recentRestarts, maxRestarts }] }`. `available: false` outside the desktop app. |
+| `POST` | `/diagnostics/crashes/ack` | `{ throughMs }` marks crashes up to that time as seen (never moves backwards or past the newest marker). |
+| `GET` | `/diagnostics/stalls` | Event-loop stall snapshot: `{ thresholdMs, sampling, sinceMs, total, longestMs, recent: [{ atMs, durationMs, operation, utilization }] }`. |
+
+See [server recovery and problem reports](server-recovery-and-diagnostics.md).
+
 ### Sample project (first run)
 
 | Method | Path | Notes |

@@ -1,0 +1,42 @@
+{
+  "report": {
+    "open": "問題を報告…",
+    "title": "問題を報告",
+    "description": "最近のログと設定をまとめた ZIP をこのコンピューターに保存します。アップロードは行われず、共有するかどうかはあなたが決めます。",
+    "building": "ログを収集しています…",
+    "buildFailed": "レポートを作成できませんでした: {{error}}",
+    "retry": "再試行",
+    "fileListLabel": "レポートのファイル",
+    "redactionNote": "トークン、キー、パスワード、認証情報は [REDACTED] に置き換えられ、ホームフォルダーは ~ と表示されます。共有する前にファイルを確認してください。",
+    "save": "ZIP を保存…",
+    "saving": "保存しています…",
+    "saved": "レポートを保存しました",
+    "savedBody": "{{name}} はこのコンピューターにあります。手助けしてくれる人とだけ共有してください。",
+    "saveFailed": "レポートを保存できませんでした。",
+    "expired": "このプレビューは期限切れです。もう一度作成してください。",
+    "rebuild": "作り直す",
+    "aboutDescription": "秘匿化したログの ZIP を保存し、手助けしてくれる人と共有できます。アップロードは行われません。"
+  },
+  "banner": {
+    "label": "ローカルサーバーの復旧",
+    "restarted": "ローカルサーバーが {{time}} に予期せず停止し（{{cause}}）、Specrails が再起動しました。実行中の作業が中断された可能性があります。",
+    "restartedMany_one": "ローカルサーバーが {{time}} 以降に {{count}} 回予期せず停止し、Specrails が再起動しました。実行中の作業が中断された可能性があります。",
+    "restartedMany_other": "ローカルサーバーが {{time}} 以降に {{count}} 回予期せず停止し、Specrails が再起動しました。実行中の作業が中断された可能性があります。",
+    "stopped": "ローカルサーバーが {{time}} に予期せず停止しました（{{cause}}）。1 分間に {{count}} 回試みた後、Specrails は再起動を停止しました。",
+    "exitCode": "終了コード {{code}}",
+    "signal": "シグナル {{signal}}",
+    "unknownCause": "原因不明",
+    "report": "問題を報告",
+    "dismiss": "閉じる"
+  },
+  "restarting": "ローカルサーバーが停止しました。再起動しています…",
+  "responsiveness": {
+    "title": "応答性",
+    "none": "{{time}} 以降、停止なし",
+    "summary_one": "停止 {{count}} 回 · 最長 {{duration}}",
+    "summary_other": "停止 {{count}} 回 · 最長 {{duration}}",
+    "last": "最後は {{time}}: {{operation}} の間に {{duration}}",
+    "background": "バックグラウンド処理",
+    "hint": "停止とは、ローカルサーバーが {{threshold}} 以上応答できなかった時間のことです。"
+  }
+}

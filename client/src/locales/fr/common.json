@@ -283,7 +283,8 @@
       "accessibility": "l'accessibilité et la personnalisation",
       "prDecision": "les options de livraison",
       "attention": "Notifications",
-      "liveBoard": "le tableau en direct"
+      "liveBoard": "le tableau en direct",
+      "serverRecovery": "Si le serveur local s’arrête"
     }
   },
   "forecast": {
