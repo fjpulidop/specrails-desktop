@@ -12,6 +12,7 @@ import {
 } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
 import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
+import { ignoredPathIsSafeCopy } from './ignored-copy-identity'
 import { inspectIndexLock } from '../../../util/git-index-lock'
 
 export interface ReleaseRailWorktreesInput {
@@ -45,6 +46,14 @@ export interface ReleaseRailWorktreesInput {
   beforeOverlayQuarantine?: (sourcePath: string) => void | Promise<void>
   afterOverlayRename?: (sourcePath: string, quarantinePath: string) => void | Promise<void>
   afterOverlayQuarantine?: (quarantinePath: string) => void | Promise<void>
+  /** Retained-worktree cleanup (a person confirmed it) only: an ignored path
+   * that is a link, or byte-identical to the same path in `repoDir`, loses
+   * nothing and needs no snapshot authorization. Re-proven live here. */
+  acceptIgnoredBaseCopies?: boolean
+  /** Retained-worktree cleanup only: also remove a row already in a terminal
+   * state whose mount is still on disk (an earlier removal failed). Such a row
+   * keeps its recorded state; only the mount goes. */
+  reclaimTerminalMounts?: boolean
 }
 
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
@@ -229,8 +238,12 @@ async function verifyReleaseEvidence(
     }
     // Regenerable dependency installs release without authorization and are
     // not quarantined (Git's worktree removal deletes them).
-    const ignoredPaths = statusLines.filter((line) => line.startsWith('!! ')).map((line) => line.slice(3))
+    let ignoredPaths = statusLines.filter((line) => line.startsWith('!! ')).map((line) => line.slice(3))
       .filter((livePath) => !isRegenerableIgnoredPath(livePath))
+    if (input.acceptIgnoredBaseCopies && ignoredPaths.length > 0) {
+      const safe = await Promise.all(ignoredPaths.map((livePath) => ignoredPathIsSafeCopy(worktree.worktree_path, input.repoDir, livePath)))
+      ignoredPaths = ignoredPaths.filter((_livePath, index) => !safe[index])
+    }
     if (ignoredPaths.length > 0) {
       const snapshot = input.settlementIgnoredByBranch?.get(worktree.branch)
       if (!snapshot) {
@@ -418,9 +431,12 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       warnings.push(`worktree ${wtId} belongs to a different repository; preserved`)
       continue
     }
+    // A reclaimed terminal row keeps its recorded state whatever happens to the mount.
+    const reclaimed = input.reclaimTerminalMounts === true && wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state)
+    const markNeedsReview = (): void => { if (!reclaimed) updateRailWorktreeState(input.db, wt.id, 'needs-review') }
     const recordRemoved = (): void => {
       input.db.transaction(() => {
-        updateRailWorktreeState(input.db, wt.id, state)
+        if (!reclaimed) updateRailWorktreeState(input.db, wt.id, state)
         // Revisions can borrow the same mount under a new ledger id. Once Git
         // proves that mount removed, older records must not pin membership forever.
         input.db.prepare(`UPDATE rail_worktrees SET merge_state = 'released', updated_at = datetime('now')
@@ -431,7 +447,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     // Successful removal already terminalized these rows. Re-running `git
     // worktree remove` against their now-missing paths turns ordinary Publish /
     // Poll / Discard follow-ups into false cleanup_incomplete warnings.
-    if (wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state)) continue
+    if (wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state) && !(reclaimed && pathStillExists(wt.worktree_path))) continue
     const evidence = await verifyReleaseEvidence(input, wt)
     // The mount is already GONE (the user ran `git worktree remove` manually,
     // or an external prune cleaned it): Git could not even inspect the path
@@ -446,7 +462,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       continue
     }
     if (evidence.failure) {
-      updateRailWorktreeState(input.db, wt.id, 'needs-review')
+      markNeedsReview()
       const warning = `worktree ${wt.worktree_path}: preserved because ${evidence.failure}`
       warnings.push(warning)
       console.warn(`[rail-worktree-release] ${warning}`)
@@ -454,7 +470,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     }
     const quarantine = await quarantineVerifiedOverlayEntries(input, wt, evidence.overlayEntries)
     if (quarantine.failure) {
-      updateRailWorktreeState(input.db, wt.id, 'needs-review')
+      markNeedsReview()
       const warning = `worktree ${wt.worktree_path}: preserved because ${[
         quarantine.failure,
         ...quarantineLocationNotes(quarantine.entries),
@@ -467,7 +483,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     // identity immediately before asking Git for its final non-force guard.
     const finalEvidence = await verifyReleaseEvidence(input, wt)
     if (finalEvidence.failure) {
-      updateRailWorktreeState(input.db, wt.id, 'needs-review')
+      markNeedsReview()
       const warning = `worktree ${wt.worktree_path}: preserved because ${[
         finalEvidence.failure,
         ...quarantineLocationNotes(quarantine.entries),
@@ -488,10 +504,10 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       })
     } catch (err) {
       const current = getRailWorktree(input.db, wt.id)
-      if (current && current.merge_state !== 'needs-review' && isTerminalMergeState(current.merge_state)) {
+      if (!reclaimed && current && current.merge_state !== 'needs-review' && isTerminalMergeState(current.merge_state)) {
         continue
       }
-      updateRailWorktreeState(input.db, wt.id, 'needs-review')
+      markNeedsReview()
       const warning = `worktree ${wt.worktree_path}: ${[
         err instanceof Error ? err.message : String(err),
         ...quarantineLocationNotes(quarantine.entries),
@@ -500,7 +516,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       console.warn(`[rail-worktree-release] failed to remove ${warning}`)
       continue
     }
-    if (wt.merge_state === 'needs-review' || !isTerminalMergeState(wt.merge_state)) {
+    if (reclaimed || wt.merge_state === 'needs-review' || !isTerminalMergeState(wt.merge_state)) {
       recordRemoved()
     }
   }

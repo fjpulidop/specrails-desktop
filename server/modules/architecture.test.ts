@@ -28,6 +28,7 @@ const coreDependencies: Record<string, string[]> = {
   'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/spend-caps', './domain/agent-env'],
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
+  'delivery/domain/retained-worktrees.ts': [],
   'delivery/domain/review-wip.ts': ['./state'],
   'delivery/index.ts': ['./domain/decision-policy', './domain/state', './domain/review-wip'],
   'agent-sessions/domain/protocol.ts': [],

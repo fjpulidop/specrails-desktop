@@ -13,6 +13,7 @@ import { Router } from 'express'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
 import { registerLiveBoardRoutes } from './modules/live-board/adapters/http'
 import { registerAppResourceRoutes } from './app-resources-router'
+import { registerRetainedWorktreeRoutes } from './modules/delivery/adapters/retained-worktrees-http'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
@@ -47,6 +48,8 @@ export function createDesktopRouter(
   registerLiveBoardRoutes(router, registry)
   // App-wide Resources (status bar): CPU/memory of everything the server launched.
   registerAppResourceRoutes(router, registry)
+  // Settings ▸ Storage: retained run worktrees across projects, removed through the release path.
+  registerRetainedWorktreeRoutes(router, registry)
   // Sample-project first run (modules/onboarding). Registered before the
   // `/projects` routes below; it shares their registration side effects.
   registerSampleProjectRoutes(router, { registry, broadcast })
