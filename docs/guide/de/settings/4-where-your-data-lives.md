@@ -46,3 +46,19 @@ Was das für dich bedeutet: Du kannst ein Projekt hinzufügen, Pipelines laufen 
 ## Ein Projekt entfernen
 
 Wenn du ein Projekt aus Specrails entfernst, räumt die App ihren eigenen projektspezifischen Zustand unter `~/.specrails/` auf. Die Specs, die bereits in dein Repository committet wurden, bleiben dort, wo sie hingehören – in deinem Repository –, denn sie gehören dir.
+
+## Auf der Festplatte behaltene Run-Worktrees {#retained-worktrees}
+
+Jeder Rail-Run arbeitet in einem eigenen Git-Worktree unter `~/.specrails/projects/<Projekt>/worktrees/`. Wenn ein Run abgeschlossen ist, entfernt Specrails diesen Worktree, aber nur, wenn es beweisen kann, dass nichts verloren geht. Kann es das nicht (nicht committete Änderungen, Dateien, die es nur dort gibt, oder ein fehlgeschlagenes Entfernen), behält es den Worktree. Mit der Zeit sammeln sie sich an.
+
+**Einstellungen ▸ Speicher** listet sie für alle Projekte auf. Du erreichst die Liste auch über das Popover **Ressourcen** in der Statusleiste. Jeder Worktree zeigt seine Größe (im Hintergrund gemessen), wie lange er ungenutzt ist, seinen PR und was beim Entfernen verloren ginge:
+
+- **Nichts zu verlieren**: keine nicht committeten Änderungen, und jede ignorierte Datei ist wiederherstellbar (`node_modules`), ein Link oder identisch mit derselben Datei in deinem Haupt-Checkout (zum Beispiel eine kopierte `.env`). Jeder Commit seines Branches liegt auf einem Remote oder einem anderen Branch, oder seine Lieferung wurde gemergt.
+- **Wartet auf dich**: Etwas braucht noch dich. Jeder Grund wird genannt: nicht committete Änderungen, ignorierte Dateien, die es nur dort gibt, Commits nur auf diesem Branch, eine Lieferung, die noch auf deine Entscheidung wartet, kürzliche Aktivität (die letzte Stunde) oder dass Git ihn nicht prüfen konnte. Kann Git einen Worktree nicht prüfen, gilt er nie als sauber.
+
+Wähle Worktrees aus und klicke auf **Entfernen**. Die Bestätigung zeigt, wie viel Speicher du zurückbekommst und was mit den Branches passiert:
+
+- Branches werden standardmäßig **behalten**, ihre Commits bleiben also verfügbar.
+- Mit **Auch Branches löschen, die nichts Neues enthalten** wird ein Branch nur gelöscht, wenn er nichts zu verlieren hat, und nur, wenn er noch auf den von Specrails geprüften Commit zeigt.
+
+Worktrees mit nicht committeten Änderungen oder Dateien, die es nur dort gibt, lassen sich nicht auswählen. Committe, kopiere oder verwirf diese Arbeit zuerst. Ein Worktree, der zu einer Intent-Sitzung gehört, wird angezeigt, aber in seiner Sitzung behandelt. Direkt vor dem Entfernen wird jeder Worktree erneut geprüft: Hat sich nach deiner Bestätigung etwas geändert, bleibt er erhalten, und das Ergebnis sagt warum. Prozesse, die in einem entfernten Worktree noch liefen (zum Beispiel ein Dev-Server), werden beendet.

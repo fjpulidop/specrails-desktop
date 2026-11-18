@@ -94,6 +94,18 @@ A mission can offer the same card for any open same-repository PR of a project r
 
 **Fork PRs are rejected.** Specrails pushes with the project repository's own rights; a fork head is not writable by that mechanism, so the request is refused before any work starts (same rule as `explicit-pr-target`).
 
+## Retained run worktrees (Settings ▸ Storage)
+
+[`domain/retained-worktrees.ts`](domain/retained-worktrees.ts) is the pure "Nothing to lose / Waiting for you" decision.
+[`runtime/retained-worktrees.ts`](runtime/retained-worktrees.ts) lists one project's retained mounts, gathers their Git evidence, lazily measures disk use, and removes confirmed ones. Removal always goes through `releaseRailWorktrees`, never a second removal path; it uses the cleanup-only opt-ins `acceptIgnoredBaseCopies` and `reclaimTerminalMounts`, and branches are deleted with compare-and-delete `update-ref -d`.
+[`adapters/retained-worktrees-http.ts`](adapters/retained-worktrees-http.ts) serves `/api/worktrees/retained*` across projects, and [desktop-router.ts](../../desktop-router.ts) registers it.
+
+Real-Git tests:
+- [`runtime/retained-worktrees.test.ts`](runtime/retained-worktrees.test.ts): dirty, unique commits, pushed, an identical vs a different `.env`, a moved HEAD, a branch raced between the check and the deletion, and terminal-row reclaim.
+- [`adapters/retained-worktrees-http.test.ts`](adapters/retained-worktrees-http.test.ts).
+
+See the [safe PR guide](../../../docs/internals/safe-pr-review-flow.md#retained-run-worktrees).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
