@@ -1,5 +1,6 @@
 import type { ProjectRegistry } from '../../../project-registry'
 import type { AnalyticsOpts } from '../../../types'
+import { localDayWindow } from '../../../util/local-day'
 import type { DbInstance } from '../../../db'
 import { agentLedgerSurface } from './spending'
 import { buildCategoryBreakdown, type CategoryBreakdownEntry, type SurfaceSpendAggregate } from './spend-categories'
@@ -118,12 +119,8 @@ function buildWhere(bounds: DateBounds): { clause: string; params: unknown[] } {
   return { clause: 'WHERE started_at < ?', params: [upperBound(bounds.to!)] }
 }
 
-/** Today on this machine (the person's clock): local midnight to the next one, as UTC instants. */
-export function localDayWindow(now: Date = new Date()): { from: string; to: string } {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  return { from: start.toISOString(), to: end.toISOString() }
-}
+/** Today on this machine (the person's clock); shared with db/stats.ts. */
+export { localDayWindow }
 
 // ─── Per-project query ────────────────────────────────────────────────────────
 
@@ -495,11 +492,12 @@ export interface DesktopTodayStats {
 // quick-spec / ai-edit / file-summary / agent-chat dollars are no longer
 // invisible. The estimated portion is split out so the consumer can flag the
 // figure. jobsToday stays a jobs-table count.
-export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodayStats {
-  const today = new Date().toISOString().slice(0, 10)
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+export function getDesktopTodayStats(registry: ProjectRegistry, now: Date = new Date()): DesktopTodayStats {
+  // The local day — same basis as the spend caps and getDesktopAnalytics'
+  // "today" KPI (it used to be the UTC calendar day).
+  const day = localDayWindow(now)
   const clause = 'WHERE started_at >= ? AND started_at < ?'
-  const params = [today, tomorrow]
+  const params = [day.from, day.to]
 
   let costToday = 0
   let estimatedCostToday = 0

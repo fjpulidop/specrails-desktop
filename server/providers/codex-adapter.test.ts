@@ -2,16 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
-vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process')
-  return { ...actual, execSync: vi.fn() }
+// detectInstalled runs through the shared async probe (binary-probe.ts →
+// util/bounded-exec.ts); stub the process runner, keyed by the shell command.
+vi.mock('../util/bounded-exec', async () => {
+  const actual = await vi.importActual<typeof import('../util/bounded-exec')>('../util/bounded-exec')
+  return { ...actual, execBounded: vi.fn() }
 })
 
-import { execSync } from 'child_process'
+import { execBounded } from '../util/bounded-exec'
 import { codexAdapter, codexModelMinCliVersion, _CODEX_MIN_VERSION, _compareSemver } from './codex-adapter'
 import type { AdapterEvent } from './types'
 
-const mockExec = vi.mocked(execSync)
+const mockExec = vi.mocked(execBounded)
 
 const FIXTURES_BASE = join(__dirname, '__fixtures__', 'codex')
 const FIXTURES_DIR = join(FIXTURES_BASE, _CODEX_MIN_VERSION)

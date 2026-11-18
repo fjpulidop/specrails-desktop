@@ -484,7 +484,7 @@ fails the write that triggered it.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/tickets` | Filters: `?status=`, `?label=`, `?q=` |
+| `GET` | `/tickets` | Filters: `?status=`, `?label=`, `?q=`. Optional paging: `?limit=` (0–200) with `?cursor=` (the previous `nextCursor`) or `?offset=` adds `matched`, `statusCounts`, `offset`, `limit`, `nextOffset`, `nextCursor` (`cursorStale` when the cursor predates the store revision; `400 invalid_cursor` when malformed). `?groupBy=status&perGroup=N` (0–50, default 5) answers `{ groups: [{ status, count, tickets }], revision, total, matched, perGroup }`. Without these the answer is unchanged |
 | `GET` | `/tickets/:id` | One ticket |
 | `POST` | `/tickets` | Create. Optional `nonGoals: string[]` ("Out of scope"; `400 nonGoals must be an array of strings` otherwise) and `intent` (`{ problem, outcome, hypothesis?, successSignals?, affects?, constraints?, openQuestions? }`, intent-mode; `400 intent.problem is required` / `intent.outcome is required` / `intent.<list> must be an array`) |
 | `PATCH` | `/tickets/:id` | Update any subset of fields. `metadata` merges keys; `metadata.regressionOf` (delivery id string ≤ 200 chars, escaped-defect link) is validated on create/update/commit-draft (400 otherwise) and `null` removes it. `nonGoals` (string array; `[]` or `null` removes the field) is cleaned (list markers, blanks, duplicates; at most 20 items of 300 characters) and never written back to Jira. `intent` (object, `null` removes it) is validated and normalized the same way as on create, and is local-only too |
@@ -695,7 +695,7 @@ delivery's review packet carries `derivation` and `flowSettlement`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/` | List rails. Also returns `reviewWip { limit, pending: [{ deliveryId, railIndex, ticketIds, decision, since }], reached }` (the review WIP limit and the deliveries that count against it) |
+| `GET` | `/` | List rails. Also returns `reviewWip { limit, pending: [{ deliveryId, railIndex, ticketIds, decision, since }], reached }` (the review WIP limit and the deliveries that count against it). Optional paging: `?limit=` (≤ 100) with `?cursor=` or `?offset=` returns that page of rails, only their entries in `activeJobs` / `activeLoopRuns` / `prDeliveries`, plus `total`, `offset`, `limit`, `nextOffset`, `nextCursor`; `400 invalid_cursor` when malformed |
 | `PUT` | `/:railIndex/tickets` | Assign tickets to a rail. Body `{ ticketIds: number[], mode?, profileName?, aiEngine? }`. An omitted `mode` keeps the rail's stored mode; `mode` must be `implement` / `loop` (400 otherwise), with `batch-implement` / `batch` / `freestyle` / `ultracode` normalized to `implement`. |
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |

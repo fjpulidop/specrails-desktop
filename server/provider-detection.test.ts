@@ -150,6 +150,23 @@ describe('getDetectionSnapshot', () => {
     expect(adapter.detectInstalled).toHaveBeenCalledTimes(2)
   })
 
+  it('probes adapters concurrently and coalesces callers onto the in-flight cycle', async () => {
+    const slow = (ms: number) => async () => {
+      await new Promise((r) => setTimeout(r, ms))
+      return { installed: true, executable: true, version: '1.0.0' }
+    }
+    const a = mocks.makeAdapter('claude', slow(150))
+    const b = mocks.makeAdapter('codex', slow(150))
+    mocks.adapters.push(a, b)
+    const started = Date.now()
+    const [first, second] = await Promise.all([refreshDetection(), getDetectionSnapshot()])
+    // Serial probes would take >= 300 ms.
+    expect(Date.now() - started).toBeLessThan(290)
+    expect(first.snapshot).toBe(second)
+    expect(a.detectInstalled).toHaveBeenCalledTimes(1)
+    expect(b.detectInstalled).toHaveBeenCalledTimes(1)
+  })
+
   it('a throwing probe degrades to not-installed instead of failing detection', async () => {
     mocks.adapters.push(
       mocks.makeAdapter('claude', installed),

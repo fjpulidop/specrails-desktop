@@ -2,10 +2,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'child_process'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { execBounded } from './util/bounded-exec'
 
 // Windows has no `which`; probe via `where` instead. Both exit non-zero
 // when the command is missing, which the try/catch relies on.
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
+// Resolved per call so a platform override (tests) is honoured.
+const whichCmd = (): 'where' | 'which' => (process.platform === 'win32' ? 'where' : 'which')
 
 // H19: the `which <binary>` probe is a synchronous subprocess that blocks the
 // single event loop, and it ran on every job enqueue (QueueManager) and every
@@ -31,12 +33,91 @@ export function binaryOnPath(binary: string): boolean {
     // `where` runs via cmd.exe; pass a SystemRoot-backfilled env so the probe
     // (a HARD gate before job/chat spawns) can't be falsely cached as missing
     // when a packaged sidecar inherited a stripped env.
-    execSync(`${WHICH_CMD} ${binary}`, { stdio: 'ignore', env: windowsSpawnEnv() })
+    execSync(`${whichCmd()} ${binary}`, { stdio: 'ignore', env: windowsSpawnEnv(), timeout: WHICH_TIMEOUT_MS })
     onPath = true
   } catch {
     onPath = false
   }
   _cache.set(binary, { at: now, onPath })
+  return onPath
+}
+
+// ─── Async probes (event-loop safe) ─────────────────────────────────────────
+// Provider detection, CLI status and /available-providers used to run
+// `which <cli>` + `<cli> --version` through execSync: ~1 s per Node-based CLI,
+// serially, with the whole server frozen. These run the SAME shell commands
+// (so Windows `where` + npm `.cmd` shims resolve exactly as before) without
+// blocking, bounded by a timeout that kills the process tree.
+
+/** `which`/`where` lookups are local and fast; never let a hung PATH entry stall a probe. */
+export const WHICH_TIMEOUT_MS = 3_000
+
+export interface ProbeCommandOptions {
+  /** Hard ceiling in ms. */
+  timeout: number
+  env?: NodeJS.ProcessEnv
+}
+
+/** Run a constant probe command through the platform shell; resolves trimmed stdout. */
+export async function runProbeCommand(command: string, opts: ProbeCommandOptions): Promise<string> {
+  const stdout = await execBounded(command, [], {
+    shell: true,
+    timeoutMs: opts.timeout,
+    env: opts.env ?? process.env,
+    killGraceMs: 500,
+  })
+  return stdout.trim()
+}
+
+export type CliProbeResult =
+  | { installed: false; executable: false }
+  | { installed: true; executable: false }
+  | { installed: true; executable: true; versionOutput: string }
+
+export interface CliProbeOptions {
+  /** Budget for `<binary> --version` (Node CLIs cold-start slowly on Windows). */
+  versionTimeoutMs: number
+  env?: NodeJS.ProcessEnv
+}
+
+/**
+ * The shared provider CLI readiness probe: PATH lookup, then `--version`.
+ * Always probes fresh (detection is explicit) and refreshes the
+ * `binaryOnPath` memo so spawn-time gates reuse the answer.
+ */
+export async function probeCliBinary(binary: string, opts: CliProbeOptions): Promise<CliProbeResult> {
+  try {
+    await runProbeCommand(`${whichCmd()} ${binary}`, { timeout: WHICH_TIMEOUT_MS, env: opts.env })
+  } catch {
+    _cache.set(binary, { at: Date.now(), onPath: false })
+    return { installed: false, executable: false }
+  }
+  _cache.set(binary, { at: Date.now(), onPath: true })
+  try {
+    const versionOutput = await runProbeCommand(`${binary} --version`, { timeout: opts.versionTimeoutMs, env: opts.env })
+    return { installed: true, executable: true, versionOutput }
+  } catch {
+    return { installed: true, executable: false }
+  }
+}
+
+/** Non-blocking `binaryOnPath`, sharing its memo and TTL. */
+export async function binaryOnPathAsync(binary: string): Promise<boolean> {
+  const now = Date.now()
+  const hit = _cache.get(binary)
+  if (hit && now - hit.at < PROBE_TTL_MS) return hit.onPath
+  let onPath: boolean
+  if (path.isAbsolute(binary)) {
+    onPath = fs.existsSync(binary)
+  } else {
+    try {
+      await runProbeCommand(`${whichCmd()} ${binary}`, { timeout: WHICH_TIMEOUT_MS, env: windowsSpawnEnv() })
+      onPath = true
+    } catch {
+      onPath = false
+    }
+  }
+  _cache.set(binary, { at: Date.now(), onPath })
   return onPath
 }
 

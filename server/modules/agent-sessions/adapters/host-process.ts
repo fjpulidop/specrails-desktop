@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import { spawn, type ChildProcess } from 'node:child_process'
 
 import { findCoreAgentRuntimeCli } from '../../agent-runtime/runtime/agent-runtime-loader'
@@ -65,7 +66,7 @@ export class CoreHostLauncher implements HostProcessLauncher {
         clearTimeout(forced)
       },
     })
-    void exited.then((code) => client.markClosed(`Session host exited (code ${code ?? 'none'})${stderr ? `: ${stderr.trim().split('\n').at(-1)}` : ''}`))
+    void exited.then((code) => client.markClosed(`Session host exited (code ${code ?? 'none'})${stderr ? `: ${stderr.trim().split('\n').at(-1)}` : ''}`)).catch(logRejection('session host exit handling'))
 
     let initialize: InitializeResult
     try {

@@ -25,7 +25,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
-import { execSync } from 'child_process'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import type {
   AdapterEvent,
@@ -36,8 +36,6 @@ import type {
   SpawnAction,
   SpawnOptions,
 } from './types'
-
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CODEX_MIN_VERSION = '0.128.0'
 
@@ -333,18 +331,11 @@ function compareSemver(a: string, b: string): number {
 }
 
 async function detectCodexInstalled(): Promise<DetectionResult> {
-  try {
-    execSync(`${WHICH_CMD} codex`, { stdio: 'ignore' })
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  try {
-    const raw = execSync('codex --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
-    }).trim()
+  // Shared non-blocking PATH + `--version` probe (binary-probe.ts).
+  const probe = await probeCliBinary('codex', { versionTimeoutMs: 3000 })
+  if (!probe.executable) return probe
+  {
+    const raw = probe.versionOutput
     const match = raw.match(/\d+\.\d+\.\d+/)
     const version = match ? match[0] : raw
     const meetsMinimum = match ? compareSemver(version, CODEX_MIN_VERSION) >= 0 : false
@@ -358,8 +349,6 @@ async function detectCodexInstalled(): Promise<DetectionResult> {
       result.error = `codex ${version} is older than required ${CODEX_MIN_VERSION}. Upgrade with: brew upgrade codex (or follow https://developers.openai.com/codex).`
     }
     return result
-  } catch {
-    return { installed: true, executable: false }
   }
 }
 

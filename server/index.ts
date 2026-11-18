@@ -15,6 +15,7 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { API_VERSION, API_VERSION_HEADER, apiVersionHeader } from './api-version'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
+import { installProcessFaultHandlers } from './process-fault-handlers'
 import { setDetectedProvidersSupplier } from './provider-selection'
 import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
 import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
@@ -81,6 +82,7 @@ import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
 import { resolveSpecrailsHome } from './util/specrails-home'
 import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
+import { logRejection } from './util/log-rejection'
 // Local AI engines: every OpenAI-compatible connection in
 // ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
 // first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
@@ -267,7 +269,10 @@ app.use(
   requireMcpAuth,
   (req, res) => {
     if (_mcpManager) {
-      void _mcpManager.handleHttp(req, res)
+      void _mcpManager.handleHttp(req, res).catch((err: unknown) => {
+        console.error('[mcp] HTTP transport request failed:', err)
+        if (!res.headersSent) res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null })
+      })
       return
     }
     res.status(503).json({ jsonrpc: '2.0', error: { code: -32000, message: 'MCP transport not ready' }, id: null })
@@ -476,7 +481,7 @@ server.on('upgrade', (request, socket, head) => {
           // explicitly instead of leaving a silent, frame-less socket open.
           try { ws.close(1000, 'session_closed') } catch { /* ignore */ }
         }
-      })
+      }).catch(logRejection('browser session attach'))
       ws.on('message', (data, isBinary) => {
         if (isBinary) return // browser inbound is JSON control only
         try {
@@ -485,21 +490,21 @@ server.on('upgrade', (request, socket, head) => {
             | { type: 'navigate'; action?: 'goto' | 'back' | 'forward' | 'reload'; url?: string }
             | { type: 'probe'; x: number; y: number }
           if (msg.type === 'input' && msg.event) {
-            void mgr.handleInput(sessionId, msg.event)
+            void mgr.handleInput(sessionId, msg.event).catch(logRejection('browser input'))
           } else if (msg.type === 'navigate') {
             // BUG-BROWSER-01: scheme-allowlist + SSRF guard for the WS navigate
             // path (mirrors REST /navigate). Only `goto` carries a user URL; the
             // history actions (back/forward/reload) replay already-vetted state.
             const action = msg.action ?? 'goto'
             if (action !== 'goto' || (typeof msg.url === 'string' && isNavigableUrl(msg.url))) {
-              void mgr.navigate(sessionId, action, msg.url)
+              void mgr.navigate(sessionId, action, msg.url).catch(logRejection('browser navigate'))
             }
           } else if (msg.type === 'probe' && Number.isFinite(msg.x) && Number.isFinite(msg.y) && msg.x >= 0 && msg.y >= 0) {
             // Hover-to-select: resolve the element under the cursor and reply with
             // its rect so the client can draw a highlight box.
             void mgr.probeElement(sessionId, { x: msg.x, y: msg.y }).then((probe) => {
               try { ws.send(JSON.stringify({ type: 'hover', rect: probe?.rect ?? null, selector: probe?.selector ?? null, path: probe?.path ?? null })) } catch { /* drop */ }
-            })
+            }).catch(logRejection('browser element probe'))
           }
         } catch { /* ignore malformed control */ }
       })
@@ -641,7 +646,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
         slug: c.project.slug,
         path: c.project.path,
       }))
-      void reseedStaleWorkspaces(reseedProjects, check.version)
+      void reseedStaleWorkspaces(reseedProjects, check.version).catch(logRejection('framework workspace reseed'))
     }
   } catch (err) {
     console.error('[framework-manager] startup versionCheck failed (non-fatal):', err)
@@ -668,7 +673,10 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // trigger; window-focus and project-add refreshes ride the REST route.
   setDetectedProvidersSupplier(getDetectedIdsSync)
   setProjectProvidersMirror(getDetectedIdsSync)
-  refreshDetection()
+  // Deferred past module evaluation so the CLI probes (now async child
+  // processes) start after `listen` is queued; requests that arrive first
+  // await the same in-flight cycle via getDetectionSnapshot's coalescing.
+  setImmediate(() => { void refreshDetection()
     .then(({ snapshot }) => {
       // ─── Forced legacy migration (global-core-zero-friction) ────────────────
       // After the first detection lands, migrate repo-resident core installs to
@@ -679,11 +687,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
         slug: c.project.slug,
         path: c.project.path,
       }))
-      void runLegacyMigrationSweep(projects, { providers: snapshot.detected })
+      void runLegacyMigrationSweep(projects, { providers: snapshot.detected }).catch(logRejection('legacy migration sweep'))
     })
     .catch((err) => {
       console.error('[provider-detection] startup detection failed (non-fatal):', err)
-    })
+    }) })
 
   // ─── Mobile companion gateway (off by default; boot if previously enabled) ──
   // Second HTTPS+WSS listener in THIS process; the main server stays loopback.
@@ -796,8 +804,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     flowServiceFor: (projectId) => registry.getContext(projectId)?.flow ?? null,
     availability: () => flowAvailability(),
   }))
-  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
-  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
+  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope).catch(logRejection('mission subagent policy refresh')) })
+  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug).catch(logRejection('session host stop')) })
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
   // disabled — the rails callers are null-safe and simply skip the card.
@@ -930,18 +938,18 @@ server.listen(port, '127.0.0.1', () => {
     const augmented = diag.pathSegments.length - inheritedPathBeforeResolve
     const source = process.stdin.isTTY ? 'terminal' : 'gui'
     console.log(`[path-resolver] inherited=${inheritedPathBeforeResolve} augmented=${Math.max(0, augmented)} loginShell=${diag.loginShellStatus} source=${source}`)
-  })
+  }).catch(logRejection('login-shell PATH augmentation'))
   // Recover provider auth env (e.g. GEMINI_API_KEY) from the user's login shell
   // so a GUI-launched server doesn't force gemini onto its macOS-Keychain OAuth
   // path. Independent of the PATH probe above (which is skipped when the bundle
   // is active). Fire-and-forget; never logs secret values.
-  void augmentAuthEnvFromLoginShell()
+  void augmentAuthEnvFromLoginShell().catch(logRejection('login-shell auth env augmentation'))
 })
 
 // ─── Clean shutdown ───────────────────────────────────────────────────────────
 
 let shuttingDown = false
-async function shutdown(): Promise<void> {
+async function shutdown(exitCode = 0): Promise<void> {
   // Idempotent: the watchdog, SIGTERM and SIGINT can all race into here.
   if (shuttingDown) return
   shuttingDown = true
@@ -989,16 +997,19 @@ async function shutdown(): Promise<void> {
     ;(server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.()
   } catch { /* ignore */ }
   // Hard-exit fallback in case server.close() still hangs.
-  const forceExit = setTimeout(() => process.exit(0), 3000)
+  const forceExit = setTimeout(() => process.exit(exitCode), 3000)
   forceExit.unref?.()
   server.close(() => {
     clearTimeout(forceExit)
-    process.exit(0)
+    process.exit(exitCode)
   })
 }
 
 process.on('SIGTERM', () => { void shutdown() })
 process.on('SIGINT', () => { void shutdown() })
+// unhandledRejection: log with context and keep serving; uncaughtException:
+// log, then graceful shutdown with exit code 1 (policy: process-fault-handlers.ts).
+installProcessFaultHandlers({ shutdown })
 // Last-resort PID-file cleanup for paths that bypass shutdown() (hard crash,
 // uncaught exception). 'exit' handlers must be synchronous.
 process.on('exit', () => {

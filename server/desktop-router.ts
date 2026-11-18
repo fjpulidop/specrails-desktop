@@ -76,6 +76,7 @@ import {
 import type { AnalyticsOpts, AnalyticsPeriod } from './types'
 import { registerLoopsRoutes } from './modules/loops/runtime/loops-router'
 import { countRunningForLoop } from './modules/loops/runtime/loop-runs-store'
+import { logRejection } from './util/log-rejection'
 
 /** Per-connection status block on GET/PUT /runtime-providers. */
 export type RuntimeProviderStatus =
@@ -1146,8 +1147,13 @@ export function createDesktopRouter(
   })
 
   // GET /api/cli-status — detected AI CLI provider and version
-  router.get('/cli-status', (_req, res) => {
-    res.json(getCLIStatus())
+  router.get('/cli-status', async (_req, res) => {
+    try {
+      res.json(await getCLIStatus())
+    } catch (err) {
+      console.error('[cli-status] probe failed:', err)
+      res.json({ provider: null, version: null })
+    }
   })
 
 
@@ -1656,7 +1662,7 @@ export function createDesktopRouter(
     const target = typeof version === 'string' ? version : undefined
     res.status(202).json({ accepted: true })
     // Fire-and-forget; outcome is delivered over WS (`core_update.progress`).
-    void coreUpdate.update(target)
+    void coreUpdate.update(target).catch(logRejection('core update'))
   })
 
   return router

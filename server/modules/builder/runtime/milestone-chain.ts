@@ -11,6 +11,7 @@
 // pauses with a typed reason on any failure (never skips ahead), and is
 // visible/controllable (resume / cancel) from every surface.
 
+import { logRejection } from '../../../util/log-rejection'
 import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
 import type { Blueprint } from './blueprint-types'
@@ -398,7 +399,7 @@ export class MilestoneChainManager {
     if (!row) return
     const remaining = parseChunks(row).length - row.next_chunk
     if (row.auto_advance !== 0 || remaining <= 0) {
-      void this.advance(chainId, head)
+      void this.advance(chainId, head).catch(logRejection('milestone chain advance'))
       return
     }
     if (updateChain(this.db, row.id, row.status, { status: 'awaiting_approval', headBranch: head, pauseReason: null }, this.now())) {
@@ -456,7 +457,7 @@ export class MilestoneChainManager {
       if (row.current_delivery_id !== snap.id) continue
       if (snap.decision === 'building') continue
       if (this.io.integrateDelivery && SUCCESS_DECISIONS.has(snap.decision)) {
-        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === 'integration_pending') void this.integrateChunk(row.id)
+        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === 'integration_pending') void this.integrateChunk(row.id).catch(logRejection('milestone chain integration'))
         else if (row.pause_reason?.startsWith('integration_') && ['merged', 'completed'].includes(snap.decision)) this.completeIntegrated(row)
         continue
       }

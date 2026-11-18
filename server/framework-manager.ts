@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process'
+import { runBounded } from './util/bounded-exec'
 import fs from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
@@ -105,6 +106,9 @@ function requiredFrameworkProviders(fwDir: string, requested: string[], home?: s
   return [...required]
 }
 
+/** Per-child ceiling for `install-framework` (materialize). */
+const MATERIALIZE_TIMEOUT_MS = 120_000
+
 export class FrameworkManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
@@ -155,38 +159,12 @@ export class FrameworkManager {
    * (ran:false) when no bundled core is present.
    */
   materialize(version?: string, providers: string[] = ['claude']): MaterializeResult {
-    const cli = this.resolveCli()
-    if (!cli) {
-      return { ran: false, version: null, providers: [], errors: [] }
-    }
-    const ver = version ?? this.bundledVersion()
-    if (!ver) {
-      return { ran: false, version: null, providers: [], errors: [] }
-    }
-
-    const fwDir = frameworkRoot(this.home)
-    fs.mkdirSync(fwDir, { recursive: true })
-
+    const plan = this.materializePlan(version, providers)
+    if (!plan.ran) return plan.result
     const errors: MaterializeResult['errors'] = []
     const done: string[] = []
-    for (const provider of requiredFrameworkProviders(fwDir, providers, this.home)) {
-      const res = spawnSync(
-        nodeInterpreter(),
-        [
-          cli,
-          'install-framework',
-          '--framework-dir',
-          fwDir,
-          '--provider',
-          provider,
-          '--version',
-          ver,
-          // Materialize-all-then-swap-once: each provider is installed WITHOUT
-          // moving `current`; the finalising swap happens in versionCheck.
-          '--no-swap',
-        ],
-        { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
-      )
+    for (const provider of plan.providers) {
+      const res = spawnSync(nodeInterpreter(), plan.args(provider), { env: this.childEnv(), encoding: 'utf-8', timeout: MATERIALIZE_TIMEOUT_MS })
       if (res.error || (res.status ?? 1) !== 0) {
         const msg = res.error?.message ?? (res.stderr || `exit ${res.status ?? 'unknown'}`)
         errors.push({ provider, message: `${msg}`.trim() })
@@ -194,7 +172,60 @@ export class FrameworkManager {
         done.push(provider)
       }
     }
-    return { ran: true, version: ver, providers: done, errors }
+    return { ran: true, version: plan.version, providers: done, errors }
+  }
+
+  /**
+   * Non-blocking `materialize` (same children, same `--no-swap` contract and
+   * result shape) for request-path callers such as the Core update channel:
+   * the sync variant froze the whole server for up to 120 s per provider. A
+   * child that exceeds the timeout is tree-killed and reported as an error.
+   */
+  async materializeAsync(version?: string, providers: string[] = ['claude']): Promise<MaterializeResult> {
+    const plan = this.materializePlan(version, providers)
+    if (!plan.ran) return plan.result
+    const errors: MaterializeResult['errors'] = []
+    const done: string[] = []
+    for (const provider of plan.providers) {
+      const res = await runBounded(nodeInterpreter(), plan.args(provider), { env: this.childEnv(), timeoutMs: MATERIALIZE_TIMEOUT_MS })
+      if (res.error || res.timedOut || res.code !== 0) {
+        const msg = res.error?.message
+          ?? (res.timedOut ? `install-framework timed out after ${MATERIALIZE_TIMEOUT_MS} ms` : (res.stderr || `exit ${res.code ?? res.signal ?? 'unknown'}`))
+        errors.push({ provider, message: `${msg}`.trim() })
+      } else {
+        done.push(provider)
+      }
+    }
+    return { ran: true, version: plan.version, providers: done, errors }
+  }
+
+  private materializePlan(version: string | undefined, providers: string[]):
+    | { ran: false; result: MaterializeResult }
+    | { ran: true; version: string; providers: string[]; args: (provider: string) => string[] } {
+    const cli = this.resolveCli()
+    if (!cli) return { ran: false, result: { ran: false, version: null, providers: [], errors: [] } }
+    const ver = version ?? this.bundledVersion()
+    if (!ver) return { ran: false, result: { ran: false, version: null, providers: [], errors: [] } }
+    const fwDir = frameworkRoot(this.home)
+    fs.mkdirSync(fwDir, { recursive: true })
+    return {
+      ran: true,
+      version: ver,
+      providers: requiredFrameworkProviders(fwDir, providers, this.home),
+      args: (provider) => [
+        cli,
+        'install-framework',
+        '--framework-dir',
+        fwDir,
+        '--provider',
+        provider,
+        '--version',
+        ver,
+        // Materialize-all-then-swap-once: each provider is installed WITHOUT
+        // moving `current`; the finalising swap happens in versionCheck.
+        '--no-swap',
+      ],
+    }
   }
 
   /**

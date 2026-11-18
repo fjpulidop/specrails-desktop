@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import fs from 'fs'
 import path from 'path'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
@@ -687,7 +688,7 @@ export function getTerminalManager(): TerminalManager {
 export function _resetTerminalManagerForTest(): void {
   if (_instance) {
     // Best-effort sync cleanup — tests call this in beforeEach
-    void _instance.shutdown()
+    void _instance.shutdown().catch(logRejection('terminal manager shutdown'))
   }
   _instance = null
 }

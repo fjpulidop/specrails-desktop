@@ -113,7 +113,7 @@ import {
   type ProjectRow,
   type CliProvider,
 } from './desktop-db'
-import { getConfig } from './config'
+import { getProjectCommands } from './config'
 import { createFlowService, type IntentService } from './modules/intent'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/intent/adapters/sqlite'
 import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/intent/adapters/bindings'
@@ -129,6 +129,7 @@ import {
   openProjectProcessAdmission,
 } from './process-admission'
 import { resolveSpecrailsHome } from './util/specrails-home'
+import { logRejection } from './util/log-rejection'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1162,7 +1163,7 @@ export class ProjectRegistry {
         void rulesInventoryRuns.runAfterSetup(
           { id: target.id, slug: target.slug, path: target.path },
           async () => (await corePhase3Capabilities()).rulesInventory,
-        )
+        ).catch(logRejection('rules inventory after setup'))
       },
     )
     const proposalManager = new ProposalManager(
@@ -1231,8 +1232,8 @@ export class ProjectRegistry {
     try {
       const cmdExec = resolveProjectExecution({ slug: project.slug, path: project.path })
       const commandsRoot = cmdExec.relocated && cmdExec.workspaceDir ? cmdExec.workspaceDir : project.path
-      const config = getConfig(project.path, db, project.name, commandsRoot)
-      queueManager.setCommands(config.commands)
+      // Commands only: no tracker/git subprocess probes on the load path.
+      queueManager.setCommands(getProjectCommands(project.path, commandsRoot))
     } catch {
       // Non-fatal: project may not have commands yet
     }
@@ -1827,7 +1828,7 @@ export class ProjectRegistry {
               }).then((ids) => {
                 if (this._contexts.get(project.id) !== ctx) return
                 for (const deliveryId of ids) emitRecoveredPrDelivery(ctx, deliveryId)
-              })
+              }).catch(logRejection('legacy flow review heal'))
             }
           })
           .catch((err) => {

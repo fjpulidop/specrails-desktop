@@ -39,15 +39,15 @@ describe('getProjectMetrics', () => {
   })
 
   describe('coverage reading', () => {
-    it('returns null coverage when no coverage file exists', () => {
+    it('returns null coverage when no coverage file exists', async () => {
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.coverage.pct).toBeNull()
       expect(result.coverage.lines).toBeNull()
       expect(result.coverage.source).toBeNull()
     })
 
-    it('reads coverage from coverage-summary.json', () => {
+    it('reads coverage from coverage-summary.json', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -63,7 +63,7 @@ describe('getProjectMetrics', () => {
       )
 
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.coverage.pct).toBe(85)
       expect(result.coverage.lines).toBe(85)
       expect(result.coverage.statements).toBe(82)
@@ -72,7 +72,7 @@ describe('getProjectMetrics', () => {
       expect(result.coverage.source).toBe('coverage/coverage-summary.json')
     })
 
-    it('falls back to coverage-final.json when summary is missing', () => {
+    it('falls back to coverage-final.json when summary is missing', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -88,22 +88,22 @@ describe('getProjectMetrics', () => {
       )
 
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.coverage.pct).toBe(72)
       expect(result.coverage.source).toBe('coverage/coverage-final.json')
     })
 
-    it('returns null coverage for malformed JSON', () => {
+    it('returns null coverage for malformed JSON', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(path.join(coverageDir, 'coverage-summary.json'), 'not-json{{{')
 
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.coverage.pct).toBeNull()
     })
 
-    it('returns null coverage when total key is missing', () => {
+    it('returns null coverage when total key is missing', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -112,48 +112,48 @@ describe('getProjectMetrics', () => {
       )
 
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.coverage.pct).toBeNull()
     })
   })
 
   describe('pipeline status', () => {
-    it('returns null pipeline when no completed jobs exist', () => {
+    it('returns null pipeline when no completed jobs exist', async () => {
       const db = makeDb([{ status: 'running' }])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.pipeline.lastJobId).toBeNull()
       expect(result.pipeline.lastJobStatus).toBeNull()
     })
 
-    it('returns last completed job', () => {
+    it('returns last completed job', async () => {
       const db = makeDb([
         { status: 'completed', command: 'implement' },
         { status: 'failed', command: 'review' },
       ])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.pipeline.lastJobStatus).not.toBeNull()
       expect(['completed', 'failed']).toContain(result.pipeline.lastJobStatus)
     })
 
-    it('recognizes completed status as healthy pipeline', () => {
+    it('recognizes completed status as healthy pipeline', async () => {
       const finishedAt = new Date().toISOString()
       const db = makeDb([{ status: 'completed', finishedAt }])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.pipeline.lastJobStatus).toBe('completed')
       expect(result.healthFactors.pipelineHealthy).toBe(true)
     })
 
-    it('recognizes failed status as unhealthy pipeline', () => {
+    it('recognizes failed status as unhealthy pipeline', async () => {
       const db = makeDb([{ status: 'failed' }])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.healthFactors.pipelineHealthy).toBe(false)
     })
   })
 
   describe('health score computation', () => {
-    it('returns 0 score for empty project with no coverage or pipeline', () => {
+    it('returns 0 score for empty project with no coverage or pipeline', async () => {
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       // No coverage (0pts), no pipeline (0pts), no recent activity (0pts)
       expect(result.healthScore).toBe(0)
       expect(result.healthFactors.hasCoverage).toBe(false)
@@ -161,14 +161,14 @@ describe('getProjectMetrics', () => {
       expect(result.healthFactors.pipelineHealthy).toBe(false)
     })
 
-    it('adds 35pts for healthy pipeline', () => {
+    it('adds 35pts for healthy pipeline', async () => {
       const db = makeDb([{ status: 'completed' }])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.healthScore).toBeGreaterThanOrEqual(35)
       expect(result.healthFactors.pipelineHealthy).toBe(true)
     })
 
-    it('adds 15pts for any coverage and 25pts more for coverage >= 70%', () => {
+    it('adds 15pts for any coverage and 25pts more for coverage >= 70%', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -176,14 +176,14 @@ describe('getProjectMetrics', () => {
         JSON.stringify({ total: { lines: { pct: 80 }, statements: { pct: 80 }, functions: { pct: 80 }, branches: { pct: 80 } } })
       )
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       // hasCoverage=15pts + coverageGood=25pts = 40pts (no pipeline, no recent activity)
       expect(result.healthScore).toBe(40)
       expect(result.healthFactors.hasCoverage).toBe(true)
       expect(result.healthFactors.coverageGood).toBe(true)
     })
 
-    it('adds only 15pts for coverage below 70%', () => {
+    it('adds only 15pts for coverage below 70%', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -191,13 +191,13 @@ describe('getProjectMetrics', () => {
         JSON.stringify({ total: { lines: { pct: 50 }, statements: { pct: 50 }, functions: { pct: 50 }, branches: { pct: 50 } } })
       )
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.healthScore).toBe(15)
       expect(result.healthFactors.hasCoverage).toBe(true)
       expect(result.healthFactors.coverageGood).toBe(false)
     })
 
-    it('caps score at 100', () => {
+    it('caps score at 100', async () => {
       const coverageDir = path.join(tmpDir, 'coverage')
       fs.mkdirSync(coverageDir)
       fs.writeFileSync(
@@ -206,30 +206,41 @@ describe('getProjectMetrics', () => {
       )
       const db = makeDb([{ status: 'completed' }])
       // Full score: 15+25+35+25=100 (if recent activity also counted)
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.healthScore).toBeLessThanOrEqual(100)
     })
   })
 
   describe('git commits', () => {
-    it('returns empty commits array for non-git directory', () => {
+    it('returns empty commits array for non-git directory', async () => {
       const db = makeDb([])
-      const result = getProjectMetrics('/tmp/definitely-not-a-git-repo-xyz', db)
+      const result = await getProjectMetrics('/tmp/definitely-not-a-git-repo-xyz', db)
       expect(result.recentCommits).toEqual([])
     })
 
-    it('returns empty array and hasRecentActivity false with no commits', () => {
+    it('reads recent commits with the async bounded git log', async () => {
+      const { execFileSync } = await import('child_process')
+      const env = { ...process.env, GIT_AUTHOR_NAME: 'Ada', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'Ada', GIT_COMMITTER_EMAIL: 'a@x' }
+      execFileSync('git', ['init', '-q'], { cwd: tmpDir, env })
+      execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'first commit'], { cwd: tmpDir, env })
+      const result = await getProjectMetrics(tmpDir, makeDb([]))
+      expect(result.recentCommits).toHaveLength(1)
+      expect(result.recentCommits[0]).toMatchObject({ message: 'first commit', author: 'Ada' })
+      expect(result.recentCommits[0].hash).toMatch(/^[0-9a-f]{7}$/)
+    })
+
+    it('returns empty array and hasRecentActivity false with no commits', async () => {
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.recentCommits).toEqual([])
       expect(result.healthFactors.hasRecentActivity).toBe(false)
     })
   })
 
   describe('return shape', () => {
-    it('returns all required fields', () => {
+    it('returns all required fields', async () => {
       const db = makeDb([])
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result).toHaveProperty('coverage')
       expect(result).toHaveProperty('healthScore')
       expect(result).toHaveProperty('healthFactors')
@@ -256,70 +267,70 @@ describe('getProjectMetrics', () => {
       )
     }
 
-    it('returns empty array when no failures exist', () => {
+    it('returns empty array when no failures exist', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:health-check', status: 'completed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toEqual([])
     })
 
-    it('returns empty array when failures are below threshold (< 3)', () => {
+    it('returns empty array when failures are below threshold (< 3)', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toEqual([])
     })
 
-    it('detects pattern when same command fails 3 times this week', () => {
+    it('detects pattern when same command fails 3 times this week', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toHaveLength(1)
       expect(result.failurePatterns[0].command).toBe('/specrails:health-check')
       expect(result.failurePatterns[0].count).toBe(3)
     })
 
-    it('groups commands by base command, ignoring arguments', () => {
+    it('groups commands by base command, ignoring arguments', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:implement #5', status: 'failed' })
       insertJob(db, { command: '/specrails:implement #6', status: 'failed' })
       insertJob(db, { command: '/specrails:implement #7', status: 'failed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toHaveLength(1)
       expect(result.failurePatterns[0].command).toBe('/specrails:implement')
       expect(result.failurePatterns[0].count).toBe(3)
     })
 
-    it('ignores failures older than 7 days', () => {
+    it('ignores failures older than 7 days', async () => {
       const db = initDb(':memory:')
       const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
       insertJob(db, { command: '/specrails:health-check', status: 'failed', startedAt: oldDate })
       insertJob(db, { command: '/specrails:health-check', status: 'failed', startedAt: oldDate })
       insertJob(db, { command: '/specrails:health-check', status: 'failed', startedAt: oldDate })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toEqual([])
     })
 
-    it('counts only failed jobs, not completed or canceled', () => {
+    it('counts only failed jobs, not completed or canceled', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'completed' })
       insertJob(db, { command: '/specrails:health-check', status: 'canceled' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toEqual([])
     })
 
-    it('returns multiple patterns sorted by failure count descending', () => {
+    it('returns multiple patterns sorted by failure count descending', async () => {
       const db = initDb(':memory:')
       // 4 failures for health-check
       for (let i = 0; i < 4; i++) insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       // 3 failures for typecheck
       for (let i = 0; i < 3; i++) insertJob(db, { command: '/specrails:typecheck', status: 'failed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns).toHaveLength(2)
       expect(result.failurePatterns[0].command).toBe('/specrails:health-check')
       expect(result.failurePatterns[0].count).toBe(4)
@@ -327,12 +338,12 @@ describe('getProjectMetrics', () => {
       expect(result.failurePatterns[1].count).toBe(3)
     })
 
-    it('includes lastFailedAt timestamp in result', () => {
+    it('includes lastFailedAt timestamp in result', async () => {
       const db = initDb(':memory:')
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
       insertJob(db, { command: '/specrails:health-check', status: 'failed' })
-      const result = getProjectMetrics(tmpDir, db)
+      const result = await getProjectMetrics(tmpDir, db)
       expect(result.failurePatterns[0].lastFailedAt).toBeTruthy()
     })
   })

@@ -1133,6 +1133,27 @@ describe('db', () => {
   })
 
   describe('getStats', () => {
+    it('counts "today" on the local day (local midnight → next), not the UTC calendar day', () => {
+      const previousTz = process.env.TZ
+      process.env.TZ = 'Pacific/Auckland' // UTC+13 in November: the UTC date lags the local one
+      try {
+        const db = makeDb()
+        const now = new Date('2026-11-17T19:00:00.000Z') // 2026-11-18 08:00 local
+        // 2026-11-17 23:00 local — same UTC calendar day as `now`, but local YESTERDAY.
+        createJob(db, { id: 'late-yesterday', command: '/a', started_at: '2026-11-17T10:00:00.000Z' })
+        seedInvocation(db, { id: 'inv-yesterday', surface: 'job', total_cost_usd: 0.5, started_at: '2026-11-17T10:00:00.000Z' })
+        // 2026-11-18 00:00 local (inclusive lower bound) and 07:59 local.
+        createJob(db, { id: 'midnight', command: '/b', started_at: '2026-11-17T11:00:00.000Z' })
+        seedInvocation(db, { id: 'inv-today', surface: 'job', total_cost_usd: 0.25, started_at: '2026-11-17T18:59:00.000Z' })
+        const stats = getStats(db, now)
+        expect(stats.jobsToday).toBe(1)
+        expect(stats.costToday).toBeCloseTo(0.25, 5)
+      } finally {
+        if (previousTz === undefined) delete process.env.TZ
+        else process.env.TZ = previousTz
+      }
+    })
+
     it('computes job counts from jobs and cost from the ai_invocations ledger (MED-8)', () => {
       const db = makeDb()
       const today = new Date().toISOString()

@@ -11,7 +11,7 @@ vi.mock('./core-compat', async (importActual) => {
   return {
     ...actual,
     checkCoreCompat: vi.fn().mockResolvedValue({ compatible: true, contractFound: false }),
-    getCLIStatus: vi.fn().mockReturnValue({ provider: 'claude', version: '1.2.3' }),
+    getCLIStatus: vi.fn().mockResolvedValue({ provider: 'claude', version: '1.2.3' }),
     detectAvailableCLIs: vi.fn().mockReturnValue({ claude: true, codex: false, gemini: false }),
     detectAvailableCLIsAsync: vi.fn().mockResolvedValue({ claude: true, codex: false, gemini: false }),
   }

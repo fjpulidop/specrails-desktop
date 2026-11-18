@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const testOriginalPath = process.env.PATH
-beforeEach(() => { process.env.PATH = '' })
+beforeEach(() => {
+  process.env.PATH = ''
+  _resetGlobalNpmRootForTests()
+  __resetBinaryProbeCacheForTest()
+})
 afterEach(() => { process.env.PATH = testOriginalPath })
 import path from 'path'
 import os from 'os'
@@ -9,6 +13,12 @@ import fs from 'fs'
 
 // Mock child_process before importing the module under test
 vi.mock('child_process', () => ({ execSync: vi.fn(), execFile: vi.fn() }))
+// The async probes (binary-probe → util/bounded-exec) route through the same
+// execSync stub, keyed by the shell command, so one mock drives both paths.
+vi.mock('./util/bounded-exec', () => ({
+  // Plain function, resolved at call time against the mocked execSync below.
+  execBounded: async (cmd: string) => String((execSync as unknown as (c: string) => unknown)(cmd) ?? ''),
+}))
 
 import {
   checkCoreCompat,
@@ -19,7 +29,9 @@ import {
   detectAvailableCLIsAsync,
   getCLIStatus,
   EXPECTED_CORE_CONTRACT_SCHEMA_VERSION,
+  _resetGlobalNpmRootForTests,
 } from './core-compat'
+import { __resetBinaryProbeCacheForTest } from './binary-probe'
 import { execFile, execSync } from 'child_process'
 
 // Minimal valid contract matching app constants
@@ -366,43 +378,43 @@ describe('getCLIStatus', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns provider and parsed semver version when claude is found', () => {
+  it('returns provider and parsed semver version when claude is found', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
       if (c.includes('which claude') || c.includes('where claude')) return '' as any
       if (c.includes('claude --version')) return 'Claude Code 1.2.3\n' as any
       throw new Error('not found')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('claude')
     expect(result.version).toBe('1.2.3')
   })
 
-  it('returns provider and version null when version command fails', () => {
+  it('returns provider and version null when version command fails', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       if (String(cmd).includes('which claude') || String(cmd).includes('where claude')) return '' as any
       throw new Error('version cmd failed')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('claude')
     expect(result.version).toBeNull()
   })
 
-  it('returns null provider and null version when no CLI found', () => {
+  it('returns null provider and null version when no CLI found', async () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('not found') })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBeNull()
     expect(result.version).toBeNull()
   })
 
-  it('returns codex provider when only codex is found', () => {
+  it('returns codex provider when only codex is found', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
       if (c.includes('which codex') || c.includes('where codex')) return '' as any
       if (c.includes('codex --version')) return '0.1.5\n' as any
       throw new Error('not found')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('codex')
     expect(result.version).toBe('0.1.5')
   })

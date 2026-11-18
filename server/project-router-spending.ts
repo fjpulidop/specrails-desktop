@@ -383,14 +383,14 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       : s
   }
 
-  router.get('/:projectId/config', (req: Request, res: Response) => {
+  router.get('/:projectId/config', async (req: Request, res: Response) => {
     const { project, db } = ctx(req)
     try {
       // Relocate-artifacts: commands are materialized into the workspace when
       // relocated; resolve the gate so the /config commands list is non-empty.
       const cfgExec = resolveProjectExecution({ slug: project.slug, path: project.path })
       const commandsRoot = cfgExec.relocated && cfgExec.workspaceDir ? cfgExec.workspaceDir : project.path
-      const config = getConfig(project.path, db, project.name, commandsRoot)
+      const config = await getConfig(project.path, db, project.name, commandsRoot)
       const dailyBudgetRaw = (db.prepare(`SELECT value FROM queue_state WHERE key = 'config.daily_budget_usd'`).get() as { value: string } | undefined)?.value
       const dailyBudgetUsd = dailyBudgetRaw != null ? parseFloat(dailyBudgetRaw) : null
       const zombieTimeoutRaw = (db.prepare(`SELECT value FROM queue_state WHERE key = 'config.zombie_timeout_ms'`).get() as { value: string } | undefined)?.value
@@ -564,10 +564,10 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
-  router.get('/:projectId/issues', (req: Request, res: Response) => {
+  router.get('/:projectId/issues', async (req: Request, res: Response) => {
     const { project, db } = ctx(req)
     try {
-      const config = getConfig(project.path, db, project.name)
+      const config = await getConfig(project.path, db, project.name)
       const tracker = config.issueTracker.active
       if (!tracker) {
         res.status(503).json({ error: 'No issue tracker configured', trackers: config.issueTracker })
@@ -575,7 +575,7 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       }
       const search = req.query.search as string | undefined
       const label = req.query.label as string | undefined
-      const issues = fetchIssues(tracker, { search, label, repo: config.project.repo, cwd: project.path })
+      const issues = await fetchIssues(tracker, { search, label, repo: config.project.repo, cwd: project.path })
       res.json(issues)
     } catch (err) {
       console.error('[project-router] issues error:', err)

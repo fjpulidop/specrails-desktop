@@ -25,7 +25,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
-import { execSync } from 'child_process'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { windowsSpawnEnv } from '../util/win-spawn'
 import { acknowledgeGeminiProjectAgents } from './gemini-agent-ack'
@@ -37,8 +37,6 @@ import type {
   SpawnAction,
   SpawnOptions,
 } from './types'
-
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 // Floor where `--output-format stream-json` + headless `--resume` are available.
 const GEMINI_MIN_VERSION = '0.11.0'
@@ -204,22 +202,17 @@ function compareSemver(a: string, b: string): number {
 }
 
 async function detectGeminiInstalled(): Promise<DetectionResult> {
-  try {
-    execSync(`${WHICH_CMD} gemini`, { stdio: 'ignore', env: windowsSpawnEnv() })
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  try {
-    // gemini is a Node CLI; its cold `--version` (cmd.exe → node → load bundle,
-    // Defender scanning) can exceed a few seconds on Windows. Give it a generous
-    // budget + SystemRoot env so it isn't wrongly reported not-executable.
-    const raw = execSync('gemini --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: process.platform === 'win32' ? 20_000 : 8_000,
-      env: windowsSpawnEnv(),
-    }).trim()
+  // gemini is a Node CLI; its cold `--version` (cmd.exe → node → load bundle,
+  // Defender scanning) can exceed a few seconds on Windows. Give it a generous
+  // budget + SystemRoot env so it isn't wrongly reported not-executable. The
+  // shared probe (binary-probe.ts) runs it without blocking the event loop.
+  const probe = await probeCliBinary('gemini', {
+    versionTimeoutMs: process.platform === 'win32' ? 20_000 : 8_000,
+    env: windowsSpawnEnv(),
+  })
+  if (!probe.executable) return probe
+  {
+    const raw = probe.versionOutput
     const match = raw.match(/\d+\.\d+\.\d+/)
     const version = match ? match[0] : raw
     const meetsMinimum = match ? compareSemver(version, GEMINI_MIN_VERSION) >= 0 : false
@@ -233,8 +226,6 @@ async function detectGeminiInstalled(): Promise<DetectionResult> {
       result.error = `gemini ${version} is older than required ${GEMINI_MIN_VERSION}. Upgrade with: npm i -g @google/gemini-cli (or see https://github.com/google-gemini/gemini-cli).`
     }
     return result
-  } catch {
-    return { installed: true, executable: false }
   }
 }
 

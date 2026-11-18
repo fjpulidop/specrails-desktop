@@ -280,12 +280,17 @@ export function createCodexOtelBridge(opts: BridgeOptions): CodexOtelBridge {
 
 // ─── Default poster (uses globalThis.fetch) ─────────────────────────────────
 
-const defaultPoster: PosterFn = async (url, body) => {
+/** Loopback OTLP post ceiling: finalize() awaits the posters, so a wedged
+ *  receiver must not hold a codex job's settlement open indefinitely. */
+export const CODEX_OTEL_POST_TIMEOUT_MS = 10_000
+
+export const defaultPoster: PosterFn = async (url, body) => {
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body,
+      signal: AbortSignal.timeout(CODEX_OTEL_POST_TIMEOUT_MS),
     })
     return { ok: res.ok, status: res.status }
   } catch (err) {

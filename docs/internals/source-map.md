@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1442 source/build files. Nearby tests are linked where names
+Includes 1455 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1250,6 +1250,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [plugin-manager.ts](../../server/plugin-manager.ts) · [test](../../server/plugin-manager.test.ts)
 - [plugins-router.ts](../../server/plugins-router.ts) · [test](../../server/plugins-router.test.ts)
 - [process-admission.ts](../../server/process-admission.ts) · [test](../../server/process-admission.test.ts)
+- [process-fault-handlers.ts](../../server/process-fault-handlers.ts) · [test](../../server/process-fault-handlers.test.ts)
 - [provider-detection.ts](../../server/provider-detection.ts) · [test](../../server/provider-detection.test.ts)
 - [provider-limit.ts](../../server/provider-limit.ts) · [test](../../server/provider-limit.test.ts)
 - [provider-selection.ts](../../server/provider-selection.ts) · [test](../../server/provider-selection.test.ts)
@@ -1339,13 +1340,17 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mcp-server.ts](../../server/mcp/mcp-server.ts) · [test](../../server/mcp/mcp-server.test.ts)
 - [mcp-tiers.ts](../../server/mcp/mcp-tiers.ts)
 - [mcp-token.ts](../../server/mcp/mcp-token.ts)
+- [prompts.ts](../../server/mcp/prompts.ts)
 - [resources.ts](../../server/mcp/resources.ts)
 
 ## server/mcp/tools
 
+- [actions.ts](../../server/mcp/tools/actions.ts)
 - [agents.ts](../../server/mcp/tools/agents.ts) · [test](../../server/mcp/tools/agents.test.ts)
 - [analytics.ts](../../server/mcp/tools/analytics.ts) · [test](../../server/mcp/tools/analytics.test.ts)
 - [app-settings.ts](../../server/mcp/tools/app-settings.ts)
+- [background.ts](../../server/mcp/tools/background.ts)
+- [board.ts](../../server/mcp/tools/board.ts)
 - [catalog.ts](../../server/mcp/tools/catalog.ts) · [test](../../server/mcp/tools/catalog.test.ts)
 - [chat.ts](../../server/mcp/tools/chat.ts)
 - [code.ts](../../server/mcp/tools/code.ts) · [test](../../server/mcp/tools/code.test.ts)
@@ -1365,9 +1370,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [projects.ts](../../server/mcp/tools/projects.ts)
 - [rails.ts](../../server/mcp/tools/rails.ts)
 - [recovery.ts](../../server/mcp/tools/recovery.ts) · [test](../../server/mcp/tools/recovery.test.ts)
+- [resources.ts](../../server/mcp/tools/resources.ts)
+- [runs.ts](../../server/mcp/tools/runs.ts)
 - [setup.ts](../../server/mcp/tools/setup.ts) · [test](../../server/mcp/tools/setup.test.ts)
 - [specs.ts](../../server/mcp/tools/specs.ts) · [test](../../server/mcp/tools/specs.test.ts)
+- [spend.ts](../../server/mcp/tools/spend.ts)
 - [status.ts](../../server/mcp/tools/status.ts) · [test](../../server/mcp/tools/status.test.ts)
+- [summaries-catalog.ts](../../server/mcp/tools/summaries-catalog.ts) · [test](../../server/mcp/tools/summaries-catalog.test.ts)
 - [summaries.ts](../../server/mcp/tools/summaries.ts) · [test](../../server/mcp/tools/summaries.test.ts)
 - [support.ts](../../server/mcp/tools/support.ts)
 - [types.ts](../../server/mcp/tools/types.ts)
@@ -1968,10 +1977,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/util
 
 - [async-memo.ts](../../server/util/async-memo.ts) · [test](../../server/util/async-memo.test.ts)
+- [bounded-exec.ts](../../server/util/bounded-exec.ts) · [test](../../server/util/bounded-exec.test.ts)
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
+- [local-day.ts](../../server/util/local-day.ts)
+- [log-rejection.ts](../../server/util/log-rejection.ts)
+- [page-cursor.ts](../../server/util/page-cursor.ts) · [test](../../server/util/page-cursor.test.ts)
 - [search-snippet.ts](../../server/util/search-snippet.ts) · [test](../../server/util/search-snippet.test.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)
 - [secure-token-file.ts](../../server/util/secure-token-file.ts) · [test](../../server/util/secure-token-file.test.ts)

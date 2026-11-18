@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { createCodexOtelBridge, type PosterFn } from './codex-otel-bridge'
+import { CODEX_OTEL_POST_TIMEOUT_MS, createCodexOtelBridge, defaultPoster, type PosterFn } from './codex-otel-bridge'
 import '../../../providers'
 import { getAdapter } from '../../../providers/registry'
 import type { AdapterEvent } from '../../../providers/types'
@@ -214,5 +214,21 @@ describe('createCodexOtelBridge — fixture-driven end-to-end', () => {
     expect(spanAttrs['codex.tokens.input']).toBe('11923')
     expect(spanAttrs['codex.tokens.output']).toBe(String(45 + 42))
     expect(spanAttrs['codex.tokens.cache_read']).toBe('2432')
+  })
+})
+
+describe('defaultPoster', () => {
+  it('bounds the loopback POST with an abort timeout and reports it as a failed post', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      const signal = (init as RequestInit).signal as AbortSignal
+      expect(signal).toBeInstanceOf(AbortSignal)
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    })
+    try {
+      await expect(defaultPoster('http://127.0.0.1:1/otlp/v1/logs', '{}')).resolves.toMatchObject({ ok: false, status: 0 })
+      expect(CODEX_OTEL_POST_TIMEOUT_MS).toBeGreaterThan(0)
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })

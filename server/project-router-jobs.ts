@@ -783,10 +783,10 @@ const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status
     res.json(getStats(ctx(req).db))
   })
 
-  router.get('/:projectId/metrics', (req: Request, res: Response) => {
+  router.get('/:projectId/metrics', async (req: Request, res: Response) => {
     const { project, db } = ctx(req)
     try {
-      res.json(getProjectMetrics(project.path, db))
+      res.json(await getProjectMetrics(project.path, db))
     } catch (err) {
       console.error('[project-router] metrics error:', err)
       res.status(500).json({ error: 'Failed to compute metrics' })

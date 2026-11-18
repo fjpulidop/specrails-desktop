@@ -1,3 +1,4 @@
+import { logRejection } from '../util/log-rejection'
 import type { SocketLike } from './mobile-ws'
 
 // WebRTC DataChannel transport for the web companion (serverless double-QR
@@ -204,7 +205,7 @@ export class DataChannelPeer {
     _ch.onMessage((data) => {
       const full = this._reasm.push(data)
       if (full === null) return
-      void this._onMessage(full)
+      void this._onMessage(full).catch(logRejection('mobile datachannel message'))
     })
     _ch.onClose(() => this._sock.closed())
   }

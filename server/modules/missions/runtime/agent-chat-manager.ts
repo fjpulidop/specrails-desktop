@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import type { ChildProcess, SpawnOptions as NodeSpawnOptions } from 'child_process'
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
@@ -723,7 +724,7 @@ export class AgentChatManager {
           this._reserved.delete(conversationId)
           this._abortedTurns.delete(conversationId)
           this._streamingText.delete(conversationId)
-        })
+        }).catch(logRejection('mission queued turn drain'))
       } else {
         this._reserved.delete(conversationId)
       }
@@ -2032,7 +2033,7 @@ export class AgentChatManager {
     const coreTurn = this._coreSessions?.handle(conversationId)
     if (coreTurn) {
       // Stop the turn inside the resident session; never kill a process by PID.
-      void coreTurn.interrupt()
+      void coreTurn.interrupt().catch(logRejection('mission core turn interrupt'))
       return true
     }
     const child = this._active.get(conversationId)

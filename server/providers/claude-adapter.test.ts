@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process')
-  return { ...actual, execSync: vi.fn() }
+// detectInstalled runs through the shared async probe (binary-probe.ts →
+// util/bounded-exec.ts); stub the process runner, keyed by the shell command.
+vi.mock('../util/bounded-exec', async () => {
+  const actual = await vi.importActual<typeof import('../util/bounded-exec')>('../util/bounded-exec')
+  return { ...actual, execBounded: vi.fn() }
 })
 
-import { execSync } from 'child_process'
+import { execBounded } from '../util/bounded-exec'
 import { claudeAdapter, _normaliseClaudeModel, _resolveClaudeSpawnModel, isClaudeNotificationResultFrame } from './claude-adapter'
 import type { AdapterEvent } from './types'
 import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 
-const mockExec = vi.mocked(execSync)
+const mockExec = vi.mocked(execBounded)
 
 const FIXTURES = join(__dirname, '__fixtures__', 'claude')
 

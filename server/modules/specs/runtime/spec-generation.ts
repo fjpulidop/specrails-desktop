@@ -15,6 +15,7 @@
  * is scheduled on the same provider after the ticket is persisted and the
  * `onPersisted` hook has run, exactly as Quick Add Spec does.
  */
+import { logRejection } from '../../../util/log-rejection'
 import { mergeIntentAnswers, renderIntentForAgents, type SpecIntent } from '../domain/intent'
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
@@ -467,7 +468,7 @@ export function startSpecGeneration(
             if (admission.isCurrent()) await scheduleContractLayer(deps, provider, refineTicketId, refineTitle, refineDescription, refineModel)
           } else process.nextTick(() => {
             if (!admission.isCurrent()) return
-            void scheduleContractLayer(deps, provider, refineTicketId, refineTitle, refineDescription, refineModel)
+            void scheduleContractLayer(deps, provider, refineTicketId, refineTitle, refineDescription, refineModel).catch(logRejection('spec contract layer'))
           })
         }
       } catch (err) {

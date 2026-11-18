@@ -6,7 +6,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
-import { execSync } from 'child_process'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 import type {
@@ -17,8 +17,6 @@ import type {
   SpawnAction,
   SpawnOptions,
 } from './types'
-
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
@@ -511,30 +509,16 @@ function extractClaudeResult(events: readonly AdapterEvent[]): NormalisedResult 
 }
 
 async function detectClaudeInstalled(): Promise<DetectionResult> {
-  let installed = false
-  try {
-    execSync(`${WHICH_CMD} claude`, { stdio: 'ignore' })
-    installed = true
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  // Probe version for executability + reporting.
-  try {
-    const raw = execSync('claude --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
-    }).trim()
-    const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)
-    return {
-      installed,
-      executable: true,
-      version: match ? match[0] : raw,
-      meetsMinimum: true, // claude has no pinned minimum in this adapter
-    }
-  } catch {
-    return { installed, executable: false }
+  // Shared non-blocking PATH + `--version` probe (binary-probe.ts).
+  const probe = await probeCliBinary('claude', { versionTimeoutMs: 3000 })
+  if (!probe.executable) return probe
+  const raw = probe.versionOutput
+  const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)
+  return {
+    installed: true,
+    executable: true,
+    version: match ? match[0] : raw,
+    meetsMinimum: true, // claude has no pinned minimum in this adapter
   }
 }
 

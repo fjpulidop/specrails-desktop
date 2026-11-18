@@ -136,6 +136,21 @@ kill "$(cat ~/.specrails/manager.pid)"
 
 If you run the app on a custom port, point `lsof` and `status` at that port (`--port <n>`).
 
+### Process fault policy
+
+[`server/process-fault-handlers.ts`](../../server/process-fault-handlers.ts) installs the process-level handlers.
+An `unhandledRejection` is logged as `[process] unhandled promise rejection …` with the error name,
+message, code and stack. The server keeps running. Fire-and-forget work attaches
+`logRejection('<scope>')` ([`server/util/log-rejection.ts`](../../server/util/log-rejection.ts)), so its
+failures log as `[background] <scope> failed:`. An `uncaughtException` is logged and then runs the
+normal graceful shutdown with exit code 1, so children are tree-killed and the PID file and lock are
+released. If shutdown does not finish within 10 s, the process is forced to exit with code 1.
+
+Subprocess probes on request and background paths (provider detection, CLI status, `gh`/`git`,
+`npm root -g`, Core `npm install` and framework materialize) go through the async, time-bounded
+runner [`server/util/bounded-exec.ts`](../../server/util/bounded-exec.ts). On timeout it kills the whole
+process tree. Do not add `execSync`/`spawnSync` to those paths.
+
 ### Server won't start after a crash
 
 A clean `stop` already clears a stale PID file. If a crash left one behind and `start` still refuses:

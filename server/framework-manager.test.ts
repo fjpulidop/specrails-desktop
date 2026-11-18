@@ -222,6 +222,44 @@ describe('FrameworkManager', () => {
     })
   })
 
+  describe('materializeAsync (non-blocking)', () => {
+    it('materializes with --no-swap and the same result shape as materialize', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      const res = await fm.materializeAsync(undefined, ['claude'])
+      expect(res).toEqual({ ran: true, version: '5.0.0', providers: ['claude'], errors: [] })
+      expect(existsSync(path.join(frameworkRoot(home), '5.0.0', '.claude', 'agents', 'sr-architect.md'))).toBe(true)
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+
+    it('keeps the event loop responsive while the child runs', async () => {
+      installFakeCore('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'setTimeout(() => process.exit(0), 300)')
+      const fm = new FrameworkManager({ home })
+      let ticks = 0
+      const timer = setInterval(() => { ticks += 1 }, 10)
+      try {
+        const res = await fm.materializeAsync('5.0.0', ['claude'])
+        expect(res.errors).toEqual([])
+      } finally { clearInterval(timer) }
+      expect(ticks).toBeGreaterThan(5)
+    })
+
+    it('records a per-provider error when the CLI exits non-zero', async () => {
+      installFakeCore('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.stderr.write("boom"); process.exit(3)')
+      const res = await new FrameworkManager({ home }).materializeAsync('5.0.0', ['claude'])
+      expect(res.ran).toBe(true)
+      expect(res.providers).toEqual([])
+      expect(res.errors).toEqual([{ provider: 'claude', message: 'boom' }])
+    })
+
+    it('no-ops without a bundled core', async () => {
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      await expect(new FrameworkManager({ home }).materializeAsync()).resolves.toEqual({ ran: false, version: null, providers: [], errors: [] })
+    })
+  })
+
   describe('swapCurrent', () => {
     it('is a no-op when current already points at the version', () => {
       installFakeCore('5.0.0')

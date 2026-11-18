@@ -356,6 +356,24 @@ describe('getDesktopAnalytics — estimated cost split', () => {
 })
 
 describe('getDesktopTodayStats', () => {
+  it('uses the local day, matching the spend caps and the analytics "today" KPI', () => {
+    const previousTz = process.env.TZ
+    process.env.TZ = 'Pacific/Auckland' // UTC+13: the UTC date lags the local one
+    try {
+      const now = new Date('2026-11-17T19:00:00.000Z') // 2026-11-18 08:00 local
+      const db = makeProjectDb([
+        { costUsd: 0.5, status: 'completed', startedAt: '2026-11-17T10:00:00.000Z' }, // local yesterday 23:00
+        { costUsd: 0.25, status: 'completed', startedAt: '2026-11-17T11:00:00.000Z' }, // local today 00:00
+      ])
+      const stats = getDesktopTodayStats(makeRegistry([{ id: 'p1', name: 'A', db }]), now)
+      expect(stats.jobsToday).toBe(1)
+      expect(stats.costToday).toBeCloseTo(0.25, 5)
+    } finally {
+      if (previousTz === undefined) delete process.env.TZ
+      else process.env.TZ = previousTz
+    }
+  })
+
   it('returns zeros when no projects', () => {
     const registry = makeRegistry([])
     const stats = getDesktopTodayStats(registry)
