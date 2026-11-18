@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}: bacheca",
     "pageTitleBare": "Bacheca"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "In conflitto con {{base}} in {{files}}",
+    "conflictsWithBase_other": "In conflitto con {{base}} in {{count}} file: {{files}}",
+    "collidesWithRail": "Collide con il Rail {{rail}} in {{files}}",
+    "alreadyMerged": "Già in {{base}}",
+    "clean": "Si unisce senza conflitti in {{base}} così com’è ora",
+    "unknown": "Anteprima del merge non disponibile (serve Git 2.38 o successivo, oppure un riferimento non esiste più)",
+    "baseMoved_one": "{{base}} è avanzato di {{count}} commit da quando è stato creato questo branch",
+    "baseMoved_other": "{{base}} è avanzato di {{count}} commit da quando è stato creato questo branch",
+    "moreFiles": "+{{count}} altri",
+    "title": "Anteprima del merge"
   }
 }

@@ -47,6 +47,15 @@ export interface LiveCard {
   deliveryId: string | null
   /** The inbox item that speaks for this card, read with the inbox's own reader. */
   attention: InboxItem | null
+  /** A delivery card's last merge preview (server: delivery merge preview); null/absent when none yet. */
+  mergePreview?: LiveMergePreview | null
+}
+
+export interface LiveMergePreview {
+  status: 'clean' | 'conflicts' | 'already_merged' | 'unknown'
+  conflictFileCount: number
+  siblingConflictCount: number
+  baseAdvancedBy: number | null
 }
 
 export interface LiveLane {

@@ -78,7 +78,13 @@
     "question": "Domanda",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Stima dal listino, non costo fatturato"
+    "costEstimatedHint": "Stima dal listino, non costo fatturato",
+    "mergeConflicts_one": "In conflitto con la base in {{count}} file",
+    "mergeConflicts_other": "In conflitto con la base in {{count}} file",
+    "mergeSiblings_one": "Collide con {{count}} altro run",
+    "mergeSiblings_other": "Collide con altri {{count}} run",
+    "baseMoved_one": "La base è avanzata di {{count}} commit",
+    "baseMoved_other": "La base è avanzata di {{count}} commit"
   },
   "empty": {
     "title": "Niente in esecuzione",

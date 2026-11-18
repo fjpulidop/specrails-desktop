@@ -78,7 +78,13 @@
     "question": "Question",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Estimate from the rate card, not billed cost"
+    "costEstimatedHint": "Estimate from the rate card, not billed cost",
+    "mergeConflicts_one": "Conflicts with the base in {{count}} file",
+    "mergeConflicts_other": "Conflicts with the base in {{count}} files",
+    "mergeSiblings_one": "Collides with {{count}} other run",
+    "mergeSiblings_other": "Collides with {{count}} other runs",
+    "baseMoved_one": "Base moved {{count}} commit",
+    "baseMoved_other": "Base moved {{count}} commits"
   },
   "empty": {
     "title": "Nothing is running",

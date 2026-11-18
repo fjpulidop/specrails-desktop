@@ -42,7 +42,7 @@ export function registerLiveBoardRoutes(router: Router, registry: ProjectRegistr
     }
     for (const ctx of contexts) {
       warmMergePreviews({ project: ctx.project, db: ctx.db }, () => {
-        try { ctx.broadcast({ type: 'rail.merge_preview', projectId: ctx.project.id } as never) } catch { /* best-effort */ }
+        try { ctx.broadcast({ type: 'rail.merge_preview', projectId: ctx.project.id }) } catch { /* best-effort */ }
       })
     }
     res.json(snapshot)

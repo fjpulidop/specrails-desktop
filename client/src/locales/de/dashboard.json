@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}: Board",
     "pageTitleBare": "Board"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Konflikt mit {{base}} in {{files}}",
+    "conflictsWithBase_other": "Konflikt mit {{base}} in {{count}} Dateien: {{files}}",
+    "collidesWithRail": "Kollidiert mit Rail {{rail}} in {{files}}",
+    "alreadyMerged": "Bereits in {{base}}",
+    "clean": "Lässt sich in {{base}} im aktuellen Stand sauber mergen",
+    "unknown": "Merge-Vorschau nicht verfügbar (Git 2.38 oder neuer nötig, oder eine Referenz existiert nicht mehr)",
+    "baseMoved_one": "{{base}} ist seit dem Abzweigen dieses Branches um {{count}} Commit weitergegangen",
+    "baseMoved_other": "{{base}} ist seit dem Abzweigen dieses Branches um {{count}} Commits weitergegangen",
+    "moreFiles": "+{{count}} weitere",
+    "title": "Merge-Vorschau"
   }
 }

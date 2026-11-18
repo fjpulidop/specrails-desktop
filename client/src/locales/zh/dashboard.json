@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}：看板",
     "pageTitleBare": "看板"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "与 {{base}} 在 {{files}} 中冲突",
+    "conflictsWithBase_other": "与 {{base}} 在 {{count}} 个文件中冲突：{{files}}",
+    "collidesWithRail": "与 Rail {{rail}} 在 {{files}} 中冲突",
+    "alreadyMerged": "已在 {{base}} 中",
+    "clean": "可无冲突地合并到当前的 {{base}}",
+    "unknown": "无法预览合并（需要 Git 2.38 或更高版本，或某个引用已不存在）",
+    "baseMoved_one": "自创建此分支以来，{{base}} 已前进 {{count}} 个提交",
+    "baseMoved_other": "自创建此分支以来，{{base}} 已前进 {{count}} 个提交",
+    "moreFiles": "另有 {{count}} 个",
+    "title": "合并预览"
   }
 }

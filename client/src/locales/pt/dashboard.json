@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}: quadro",
     "pageTitleBare": "Quadro"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Conflita com {{base}} em {{files}}",
+    "conflictsWithBase_other": "Conflita com {{base}} em {{count}} arquivos: {{files}}",
+    "collidesWithRail": "Colide com o Rail {{rail}} em {{files}}",
+    "alreadyMerged": "Já está em {{base}}",
+    "clean": "Entra sem conflitos em {{base}} como está agora",
+    "unknown": "Prévia do merge indisponível (é preciso Git 2.38 ou posterior, ou uma referência não existe mais)",
+    "baseMoved_one": "{{base}} avançou {{count}} commit desde que esta branch foi criada",
+    "baseMoved_other": "{{base}} avançou {{count}} commits desde que esta branch foi criada",
+    "moreFiles": "+{{count}} outros",
+    "title": "Prévia do merge"
   }
 }

@@ -78,7 +78,13 @@
     "question": "Pergunta",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Estimativa pela tabela de preços, não custo cobrado"
+    "costEstimatedHint": "Estimativa pela tabela de preços, não custo cobrado",
+    "mergeConflicts_one": "Conflita com a base em {{count}} arquivo",
+    "mergeConflicts_other": "Conflita com a base em {{count}} arquivos",
+    "mergeSiblings_one": "Colide com {{count}} outro run",
+    "mergeSiblings_other": "Colide com {{count}} outros runs",
+    "baseMoved_one": "A base avançou {{count}} commit",
+    "baseMoved_other": "A base avançou {{count}} commits"
   },
   "empty": {
     "title": "Nada em execução",
