@@ -6,11 +6,15 @@ Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de
 
 O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. Logo abaixo, **uma única linha de navegação** reúne tudo o que pode consultar:
 
-- **Motivos da falha** — presente numa execução falhada ou cancelada com diagnóstico, e selecionado primeiro. Uma pergunta pendente que possa ser respondida também o disponibiliza: clique no botão da pergunta no cabeçalho para abrir Detalhes e responder, mesmo sem diagnóstico.
+- **Motivos da falha** — presente numa execução falhada ou cancelada com diagnóstico, e selecionado primeiro. Uma pergunta pendente que admita resposta também o disponibiliza: clique no botão de pergunta do cabeçalho para ir até lá e responder, mesmo sem diagnóstico.
 - **Grafo de execução** e **Detalhe do registo** — nas execuções de loop, o grafo do workflow e o registo passo a passo.
 - **Registo** — nos jobs simples, o log em streaming.
 
-O painel limitado **Detalhes** (valores reais e controlos de execução) fica junto de Motivos da falha quando esse separador existe, e junto do log caso contrário. A secção do log que escolheu por último e se Detalhes está expandido são memorizados separadamente para a página e para a janela da missão; o separador selecionado reinicia em cada visita. O compositor permanece abaixo das evidências.
+Ao lado dos separadores aparecem apenas os chips que a execução mereceu: **Verificação** (com o número de verificações, na cor do seu estado) quando a execução registou evidência de verificação — clique para ver as verificações e a sua saída — e um botão **Detalhes** (ícone de gráfico de barras) quando há valores reais a mostrar. Ambos abrem como popover, por isso o registo mantém sempre toda a altura. A última secção do registo escolhida é lembrada separadamente para a página e para a janela da missão; o separador selecionado é reposto em cada visita.
+
+### Instruções de execução
+
+Enquanto a execução ainda as puder ler, um compositor de uma linha fica ancorado no fundo do registo: escreva o que o agente deve ter em conta e prima o botão de enviar ou **⌘↵** (**Ctrl+Enter**). **Enter** acrescenta uma linha. O **ⓘ** explica a regra: as instruções são aplicadas no próximo turno compatível do agente; não respondem a perguntas nem concedem aprovações. O que enviou aparece como um chip junto ao compositor — *1 na fila*, *2 aplicadas* — que lista cada mensagem e o seu estado. Quando a execução termina, o compositor desaparece; uma execução passada que recebeu instruções mantém o chip, só de leitura, ao lado dos separadores.
 
 Na app de desktop, um job aberto a partir de uma missão aparece **na sua própria janela**, uma janela por job. Carregue em **Escape** ou feche a janela para voltar; a versão de browser mostra o mesmo conteúdo num modal.
 
@@ -35,7 +39,7 @@ Que agente trata de cada fase é decidido pelo **perfil de agentes** do projeto.
 
 ## Métricas ao vivo — honestas por princípio
 
-O cabeçalho compacto mostra estado, duração, atividade, passos e ações. Os valores reais e os controlos de continuação estão em **Detalhes**, num painel limitado:
+O cabeçalho compacto mostra estado, duração, atividade, passos e ações. Os valores reais e as notas de continuação abrem-se a partir do botão **Detalhes** ao lado dos separadores:
 
 | Métrica | Quando vê o valor real |
 |--------|------------------------------|

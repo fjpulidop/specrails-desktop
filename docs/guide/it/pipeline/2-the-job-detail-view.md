@@ -6,11 +6,15 @@ Clicca su una qualsiasi scheda job nella pagina **Job** e arrivi qui: la cabina 
 
 L’intestazione compatta mantiene stato, durata, fase, azioni e chip della pipeline. Subito sotto, **una sola riga di navigazione** raccoglie tutto ciò che puoi guardare:
 
-- **Cause dell’errore**: presente per un’esecuzione fallita o annullata con diagnosi, ed è selezionata per prima. Anche una domanda in attesa di risposta la rende disponibile: fai clic sul pulsante della domanda nell’intestazione per aprire Dettagli e rispondere, anche senza diagnosi.
+- **Cause dell’errore**: presente per un’esecuzione fallita o annullata con diagnosi, e selezionata per prima. Anche una domanda in sospeso a cui si può rispondere la rende disponibile: fai clic sul pulsante della domanda nell’intestazione per arrivarci e rispondere, anche senza diagnosi.
 - **Grafo di esecuzione** e **Dettaglio del log**: per le esecuzioni di loop, il grafo del workflow e il log passo per passo.
 - **Log**: per i job semplici, il log in streaming.
 
-Il pannello limitato **Dettagli** (valori reali e controlli di esecuzione) sta con Cause dell’errore quando quella scheda esiste, e con il log altrimenti. La sezione del log scelta per ultima e l’apertura di Dettagli sono ricordate separatamente per la pagina e per la finestra della missione; la scheda selezionata si reimposta a ogni visita. Il compositore resta sotto le evidenze.
+Accanto alle schede compaiono solo i chip che l’esecuzione ha meritato: **Verifica** (con il numero di controlli, nel colore del suo stato) quando l’esecuzione ha registrato prove di verifica — fai clic per vedere i controlli e il loro output — e un pulsante **Dettagli** (icona a barre) quando ci sono valori reali da mostrare. Entrambi si aprono come popover, così il registro mantiene sempre tutta l’altezza. L’ultima sezione del registro scelta viene ricordata separatamente per la pagina e per la finestra della missione; la scheda selezionata si reimposta a ogni visita.
+
+### Istruzioni di esecuzione
+
+Finché un’esecuzione può ancora leggerle, un compositore di una riga è ancorato in fondo al registro: scrivi ciò che l’agente deve tenere presente e premi il pulsante di invio o **⌘↵** (**Ctrl+Invio**). **Invio** aggiunge una riga. La **ⓘ** spiega la regola: le istruzioni vengono applicate al prossimo turno compatibile dell’agente; non rispondono a domande né concedono approvazioni. Ciò che hai inviato compare come chip accanto al compositore — *1 in coda*, *2 applicate* — che elenca ogni messaggio e il suo stato. Quando l’esecuzione si conclude il compositore scompare; un’esecuzione passata che ha ricevuto istruzioni mantiene il chip, in sola lettura, accanto alle schede.
 
 Nell’app desktop, un job aperto da una missione compare nella **sua finestra**, una finestra per job. Premi **Escape** o chiudi la finestra per tornare; la versione browser mostra lo stesso contenuto in una modale.
 
@@ -35,7 +39,7 @@ Quale agente gestisce ogni fase lo decide il **profilo agente** del progetto. Il
 
 ## Metriche live — oneste per scelta
 
-L’intestazione compatta mostra stato, durata, attività, passaggi e azioni. I valori reali e i controlli di continuazione sono in **Dettagli**, in un pannello limitato:
+L’intestazione compatta mostra stato, durata, attività, passaggi e azioni. I valori reali e le note di ripresa si aprono dal pulsante **Dettagli** accanto alle schede:
 
 | Metrica | Quando vedi il valore reale |
 |--------|------------------------------|

@@ -6,11 +6,15 @@ Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ic
 
 L’en-tête compact conserve statut, durée, phase, actions et puces du pipeline. Juste en dessous, **une seule ligne de navigation** réunit tout ce que vous pouvez consulter :
 
-- **Causes de l’échec** — présent pour une exécution échouée ou annulée avec diagnostic, et sélectionné en premier. Une question en attente de réponse le rend aussi disponible : cliquez sur le bouton de question de l’en-tête pour ouvrir Détails et répondre, même sans diagnostic.
+- **Causes de l’échec** — présent pour une exécution échouée ou annulée avec diagnostic, et sélectionné en premier. Une question en attente à laquelle on peut répondre le rend aussi disponible : cliquez sur le bouton de question de l’en-tête pour y aller et répondre, même sans diagnostic.
 - **Graphe d’exécution** et **Détail du journal** — pour les exécutions de loop, le graphe du workflow et le journal étape par étape.
 - **Journal** — pour les jobs simples, le log en streaming.
 
-Le panneau borné **Détails** (chiffres réels et commandes d’exécution) se trouve avec Causes de l’échec quand cet onglet existe, et avec le journal sinon. La section du journal choisie en dernier et l’ouverture de Détails sont mémorisées séparément pour la page et la fenêtre de mission ; l’onglet sélectionné se réinitialise à chaque visite. Le composeur reste sous les éléments de preuve.
+À côté des onglets n’apparaissent que les puces que l’exécution a méritées : **Vérification** (avec le nombre de contrôles, dans la couleur de son état) quand l’exécution a enregistré des preuves de vérification — cliquez pour voir les contrôles et leur sortie — et un bouton **Détails** (icône d’histogramme) quand il y a des chiffres réels à montrer. Les deux s’ouvrent en popover, le journal garde donc toujours toute la hauteur. La dernière section du journal choisie est mémorisée séparément pour la page et la fenêtre de mission ; l’onglet sélectionné est réinitialisé à chaque visite.
+
+### Instructions d’exécution
+
+Tant qu’une exécution peut encore les lire, un compositeur d’une ligne est ancré en bas du journal : écrivez ce dont l’agent doit tenir compte et appuyez sur le bouton d’envoi ou **⌘↵** (**Ctrl+Entrée**). **Entrée** ajoute une ligne. Le **ⓘ** explique la règle : les instructions sont appliquées au prochain tour compatible de l’agent ; elles ne répondent pas à une question et n’accordent pas d’approbation. Ce que vous avez envoyé apparaît en puce à côté du compositeur — *1 en attente*, *2 appliquées* — qui liste chaque message et son statut. Une fois l’exécution terminée, le compositeur disparaît ; une exécution passée qui a reçu des instructions garde la puce, en lecture seule, à côté des onglets.
 
 Dans l’application de bureau, un job ouvert depuis une mission s’affiche dans **sa propre fenêtre**, une fenêtre par job. Appuyez sur **Échap** ou fermez la fenêtre pour revenir ; la version navigateur affiche le même contenu dans une modale.
 
@@ -35,7 +39,7 @@ Quel agent gère chaque phase est décidé par le **profil d'agent** du projet. 
 
 ## Métriques en direct — honnêtes par conception
 
-L’en-tête compact affiche statut, durée, activité, étapes et actions. Les chiffres réels et les commandes de continuation sont dans **Détails**, dans un panneau borné :
+L’en-tête compact affiche statut, durée, activité, étapes et actions. Les chiffres réels et les notes de reprise s’ouvrent depuis le bouton **Détails** à côté des onglets :
 
 | Métrique | Quand vous voyez la vraie valeur |
 |--------|------------------------------|

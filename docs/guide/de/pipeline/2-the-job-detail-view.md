@@ -6,11 +6,15 @@ Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: 
 
 Der kompakte Header enthält Status, Laufzeit, Phase, Aktionen und Pipeline-Chips. Direkt darunter bündelt **eine Navigationszeile** alles, was du dir ansehen kannst:
 
-- **Fehlerursachen** – vorhanden bei einem fehlgeschlagenen oder abgebrochenen Lauf mit Diagnose und dann zuerst ausgewählt. Auch eine beantwortbare offene Frage macht den Bereich verfügbar: Klicke auf die Frageschaltfläche im Header, um Details zu öffnen und zu antworten, auch ohne Diagnose.
+- **Fehlerursachen** – vorhanden bei einem fehlgeschlagenen oder abgebrochenen Lauf mit Diagnose und dann zuerst ausgewählt. Eine beantwortbare offene Frage macht den Tab ebenfalls verfügbar: Ein Klick auf die Frage-Schaltfläche im Header führt dorthin, auch ohne Diagnose.
 - **Ausführungsgraph** und **Protokolldetails** – bei Loop-Läufen der Graph des Workflows und das Protokoll Schritt für Schritt.
 - **Protokoll** – bei einfachen Jobs das Streaming-Log.
 
-Der begrenzte Bereich **Details** (echte Messwerte und Laufzeitsteuerung) steht bei den Fehlerursachen, wenn es diesen Tab gibt, und sonst beim Protokoll. Der zuletzt gewählte Protokollbereich und ob Details aufgeklappt ist, werden für die Seite und das Missionsfenster getrennt gespeichert; der ausgewählte Tab wird bei jedem Besuch zurückgesetzt. Der Composer bleibt unter den Belegen.
+Neben den Tabs stehen nur die Chips, die der Lauf tatsächlich hat: **Verifizierung** (mit der Anzahl der Prüfungen, in der Farbe seines Zustands), wenn der Lauf Verifizierungsnachweise aufgezeichnet hat – ein Klick zeigt die Prüfungen und ihre Ausgabe –, und eine Schaltfläche **Details** (Balkendiagramm-Symbol), wenn es echte Messwerte gibt. Beide öffnen sich als Popover, sodass das Log immer die volle Höhe behält. Der zuletzt gewählte Log-Bereich wird für die Seite und das Missionsfenster getrennt gespeichert; der ausgewählte Tab wird bei jedem Besuch zurückgesetzt.
+
+### Ausführungsanweisungen
+
+Solange ein Lauf sie noch lesen kann, ist unten am Log ein einzeiliger Composer angedockt: Schreibe, was der Agent berücksichtigen soll, und drücke die Senden-Schaltfläche oder **⌘↵** (**Strg+Enter**). **Enter** fügt eine Zeile hinzu. Das **ⓘ** erklärt die Regel: Anweisungen werden beim nächsten passenden Zug des Agenten angewendet; sie beantworten keine Frage und erteilen keine Freigabe. Was du gesendet hast, erscheint als Chip neben dem Composer – *1 wartend*, *2 angewendet* –, der jede Nachricht mit ihrem Status auflistet. Sobald der Lauf abgeschlossen ist, verschwindet der Composer; ein vergangener Lauf mit Anweisungen behält den Chip schreibgeschützt neben den Tabs.
 
 In der Desktop-App erscheint ein aus einer Mission geöffneter Job in **einem eigenen Fenster**, ein Fenster pro Job. Drücke **Escape** oder schließe das Fenster, um zurückzukehren; die Browser-Version zeigt denselben Inhalt in einem Modal.
 
@@ -35,7 +39,7 @@ Welcher Agent welche Phase übernimmt, entscheidet das **Agent-Profil** des Proj
 
 ## Live-Metriken — ehrlich von Grund auf
 
-Der kompakte Header zeigt Status, Laufzeit, Aktivität, Schritte und Aktionen. Echte Messwerte und Fortsetzungsaktionen stehen im begrenzten Bereich **Details**:
+Der kompakte Header zeigt Status, Laufzeit, Aktivität, Schritte und Aktionen. Echte Messwerte und Hinweise zur Fortsetzung öffnen sich über die Schaltfläche **Details** neben den Tabs:
 
 | Metrik | Wann du den echten Wert siehst |
 |--------|------------------------------|
