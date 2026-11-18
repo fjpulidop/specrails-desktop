@@ -17,22 +17,30 @@ import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
 import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, openBudgetPanel, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
-import DashboardPage from './features/dashboard/pages/DashboardPage'
-import SettingsPage from './features/settings/pages/SettingsPage'
-import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
 import { useForwardSurfaceToasts, useShowSurfaceToasts } from './lib/surface-toasts'
 import { useToastsUsableOverModals } from './lib/toasts-over-modals'
-// Not lazy: a surface window's first paint should not wait for another chunk.
-import { isAppSettingsSurfaceResult, SurfaceWindowContent } from './SurfaceWindowContent'
+// The shell is static; its content chunk starts loading as soon as the route is known.
+import { isAppSettingsSurfaceResult, preloadSurfaceWindowContent, SurfaceWindowContent } from './SurfaceWindowContent'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
 import { RailMark } from './components/brand/RailMark'
 import { ThemeEffectLayer } from './features/settings/components/theme-effects/ThemeEffectLayer'
+
+// The Board (Kanban mode's landing route) is lazy because Mission mode, the
+// default, never renders it. When Kanban is the stored mode its chunk starts
+// loading while the shell boots, so the first paint does not wait for it.
+const loadDashboardPage = () => import('./features/dashboard/pages/DashboardPage')
+if (readStoredUiMode() === 'kanban') void loadDashboardPage().catch(() => {})
+const DashboardPage = lazy(loadDashboardPage)
+// Settings (project route and app modal) and the platform tour load on first use.
+const SettingsPage = lazy(() => import('./features/settings/pages/SettingsPage'))
+const SettingsDialog = lazy(() => import('./features/settings/pages/GlobalSettingsPage'))
+const OnboardingWizard = lazy(() => import('./features/projects/components/OnboardingWizard').then(module => ({ default: module.OnboardingWizard })))
 
 // Lazy-loaded pages — never visible at initial render
 const JobDetailPage = lazy(() => import('./features/jobs/pages/JobDetailPage'))
@@ -53,13 +61,15 @@ const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPag
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { OnboardingWizard, hasSeenOnboarding } from './features/projects/components/OnboardingWizard'
+import { hasSeenOnboarding } from './features/projects/lib/onboarding-state'
+import { useMountOnOpen } from './hooks/useMountOnOpen'
 import { SampleGuide } from './features/onboarding/components/SampleGuide'
 import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
 import { SidebarPinProvider, useSidebarPin } from './context/SidebarPinContext'
 import { UiModeProvider } from './context/UiModeContext'
+import { readStoredUiMode } from './lib/ui-mode-storage'
 import { CommandPalette } from './components/CommandPalette'
 import { SharedWebSocketProvider } from './hooks/useSharedWebSocket'
 import { DesktopProvider, useDesktop, projectProviders } from './hooks/useDesktop'
@@ -275,6 +285,7 @@ function DesktopApp() {
   const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
   const [settingsSettingId, setSettingsSettingId] = useState<string | undefined>()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsMounted = useMountOnOpen(settingsOpen)
   // Pages inside features (e.g. the Agents upgrade banner) open a specific
   // app-settings section through a window event (see lib/app-settings-events).
   useEffect(() => {
@@ -424,6 +435,7 @@ function DesktopApp() {
   // Selected mission ⇄ ?mission=<id>.
   useMissionPlaceSync()
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
+  const onboardingMounted = useMountOnOpen(onboardingOpen)
   // Help ▸ Replay tour (Docs dialog, ⌘K) reopens the platform tour without importing the shell.
   useEffect(() => {
     const onReplay = () => setOnboardingOpen(true)
@@ -724,7 +736,11 @@ function DesktopApp() {
           else openBudgetPanel()
         }}
       >
-        <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+        {settingsMounted && (
+          <Suspense fallback={null}>
+            <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+          </Suspense>
+        )}
       </Surface>
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
@@ -796,11 +812,15 @@ function DesktopApp() {
         onOpenDocs={() => openOverlay('docs')}
       />
       <KeyboardShortcutsCheatsheet open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
-      <OnboardingWizard
-        open={onboardingOpen}
-        onClose={() => setOnboardingOpen(false)}
-        onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
-      />
+      {onboardingMounted && (
+        <Suspense fallback={null}>
+          <OnboardingWizard
+            open={onboardingOpen}
+            onClose={() => setOnboardingOpen(false)}
+            onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -939,7 +959,10 @@ function AppRoutes() {
   useSuppressNativeContextMenu()
   useSurfaceStorageReplay()
   useShowSurfaceToasts()
-  if (surface) return <SurfaceWindowRoutes route={surface} />
+  if (surface) {
+    preloadSurfaceWindowContent(surface.id)
+    return <SurfaceWindowRoutes route={surface} />
+  }
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>

@@ -1,5 +1,5 @@
 import { modalDialogStyle, modalOverlayStyle } from '../../../lib/modal-safe-area'
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useId, useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from './job-run/RunDetailTabs'
 import { LoopRunDetail } from './job-run/LoopRunDetail'
@@ -46,8 +46,7 @@ import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventB
 import { InteractiveJobComposer } from './InteractiveJobComposer'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
-import { useWebSocket } from '../../../hooks/useWebSocket'
-import { WS_URL } from '../../../lib/ws-url'
+import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
@@ -262,7 +261,13 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
     }
   }, [jobId, job, enqueuePending, refetchJob])
 
-  useWebSocket(WS_URL, handleMessage)
+  // The app's one shared socket; this modal only reacts to its job's frames.
+  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const handlerKey = `job-detail-modal-${useId()}`
+  useEffect(() => {
+    registerHandler(handlerKey, handleMessage)
+    return () => unregisterHandler(handlerKey)
+  }, [handlerKey, handleMessage, registerHandler, unregisterHandler])
 
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds

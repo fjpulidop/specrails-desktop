@@ -1,4 +1,5 @@
 import { API_ORIGIN } from '../../../lib/origin'
+import { requestJson } from '../../../lib/api-response'
 
 export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity'
 
@@ -35,19 +36,13 @@ export interface MissionResourcesSnapshot {
 const base = (projectId: string, chatId: string) =>
   `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(chatId)}/resources`
 
-async function json<T>(response: Response): Promise<T> {
-  const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${response.status}`)
-  return body as T
-}
-
 export async function getMissionResources(projectId: string, chatId: string, signal?: AbortSignal): Promise<MissionResourcesSnapshot> {
-  const data = await json<MissionResourcesSnapshot>(await fetch(base(projectId, chatId), { signal }))
+  const data = await requestJson<MissionResourcesSnapshot>(base(projectId, chatId), { signal })
   if (!data || !Array.isArray(data.entries) || !data.totals) throw new Error('Invalid mission resources snapshot')
   return data
 }
 
 export async function startWorktreeScan(projectId: string, chatId: string, signal?: AbortSignal): Promise<WorktreeDiskState> {
-  const data = await json<{ disk: WorktreeDiskState }>(await fetch(`${base(projectId, chatId)}/worktree-scan`, { method: 'POST', signal }))
+  const data = await requestJson<{ disk: WorktreeDiskState }>(`${base(projectId, chatId)}/worktree-scan`, { method: 'POST', signal })
   return data.disk
 }

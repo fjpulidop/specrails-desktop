@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getApiBase } from '../../../lib/api'
+import { ApiResponseError, requestJson } from '../../../lib/api-response'
+
+type ErrorBody = Partial<ReadyBody> & { detail?: string; error?: string }
 
 export type AnalysisCategory = 'provider_limit' | 'missing_artifact' | 'configuration' | 'tests' | 'environment' | 'agent_error' | 'interrupted' | 'other'
 
@@ -38,13 +41,17 @@ export function useFailureAnalysis(projectId: string | undefined, jobId: string,
     const request = ++current.current
     setState({ status: 'running' })
     try {
-      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language, ...(force ? { force: true } : {}) }) })
-      const body = await response.json().catch(() => ({})) as Partial<ReadyBody> & { detail?: string; error?: string }
+      const body = (await requestJson<ErrorBody | null>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language, ...(force ? { force: true } : {}) }) })) ?? {}
       if (request !== current.current) return
-      if (!response.ok || body.status !== 'ready' || !body.analysis) setState({ status: 'error', detail: body.detail ?? body.error ?? null })
+      if (body.status !== 'ready' || !body.analysis) setState({ status: 'error', detail: body.detail ?? body.error ?? null })
       else setState(body as ReadyBody)
     } catch (error) {
-      if (request === current.current) setState({ status: 'error', detail: error instanceof Error ? error.message : null })
+      if (request !== current.current) return
+      // The server's refusal explains itself in its body; a transport failure in its message.
+      if (error instanceof ApiResponseError) {
+        const body = (error.body ?? {}) as ErrorBody
+        setState({ status: 'error', detail: body.detail ?? body.error ?? null })
+      } else setState({ status: 'error', detail: error instanceof Error ? error.message : null })
     }
   }, [url, language])
 
@@ -52,11 +59,10 @@ export function useFailureAnalysis(projectId: string | undefined, jobId: string,
     if (!url) return
     const request = ++current.current
     setState({ status: 'loading' })
-    void fetch(`${url}?language=${encodeURIComponent(language)}`).then(async response => {
-      const body = await response.json().catch(() => ({})) as Partial<ReadyBody>
+    void requestJson<Partial<ReadyBody> | null>(`${url}?language=${encodeURIComponent(language)}`).then(body => {
       if (request !== current.current) return
-      if (response.ok && body.status === 'ready' && body.analysis) setState(body as ReadyBody)
-      else if (auto && response.ok) void run()
+      if (body?.status === 'ready' && body.analysis) setState(body as ReadyBody)
+      else if (auto) void run()
       else setState({ status: 'idle' })
     }).catch(() => { if (request === current.current) setState({ status: 'idle' }) })
     return () => { current.current++ }

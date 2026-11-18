@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import { SurfaceWindowFrame } from './components/ui/dialog'
-import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
-import { JobDetailModal } from './features/jobs/components/JobDetailModal'
 import { useDesktop } from './hooks/useDesktop'
 import { APP_SETTINGS_SECTIONS, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection } from './lib/app-settings-events'
 import {
@@ -13,6 +11,18 @@ import {
   type NativeSurfaceId,
   type SurfaceParams,
 } from './lib/native-surfaces'
+
+// The window's content loads in its own chunk so the main window does not ship
+// it. `preloadSurfaceWindowContent` starts that load as soon as the route is
+// known; the window stays hidden until the content has painted (see below).
+const loadSettingsDialog = () => import('./features/settings/pages/GlobalSettingsPage')
+const loadJobDetailModal = () => import('./features/jobs/components/JobDetailModal')
+const SettingsDialog = lazy(loadSettingsDialog)
+const JobDetailModal = lazy(() => loadJobDetailModal().then(module => ({ default: module.JobDetailModal })))
+
+export function preloadSurfaceWindowContent(id: NativeSurfaceId): void {
+  void (id === 'app-settings' ? loadSettingsDialog() : loadJobDetailModal()).catch(() => {})
+}
 
 /** Results a surface window reports to its opener (`onResult` of `<Surface>`). */
 export type AppSettingsSurfaceResult = { action: 'openOnboarding' } | { action: 'openBudget' }
@@ -100,12 +110,18 @@ function RevealWhenPainted() {
   return null
 }
 
-/** The content of a native surface window (`index.html?surfaceWindow=<id>`). */
+/**
+ * The content of a native surface window (`index.html?surfaceWindow=<id>`).
+ * The frame (and so `[data-surface-window]`) only enters the DOM with the
+ * loaded content, so the reveal still shows real content on its first frame.
+ */
 export function SurfaceWindowContent({ id, params }: { id: NativeSurfaceId; params: SurfaceParams }) {
   return (
-    <SurfaceWindowFrame>
-      {id === 'app-settings' ? <AppSettingsWindow params={params} /> : <JobDetailWindow params={params} />}
-      <RevealWhenPainted />
-    </SurfaceWindowFrame>
+    <Suspense fallback={null}>
+      <SurfaceWindowFrame>
+        {id === 'app-settings' ? <AppSettingsWindow params={params} /> : <JobDetailWindow params={params} />}
+        <RevealWhenPainted />
+      </SurfaceWindowFrame>
+    </Suspense>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
@@ -15,9 +15,14 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { jobActivityTimestamp, parseJobTimestamp } from '../../jobs/lib/job-time'
 import { Badge } from '../../../components/ui/badge'
-import { JobDetailModal } from '../../jobs/components/JobDetailModal'
 import type { JobSummary } from '../../../types'
 import { LiveDot } from '../../../components/ui/live-dot'
+
+// Loads with the first opened job, like the mission cards' run-log chips:
+// the log explorer stack (highlighting, runtime graph) stays out of the shell.
+const JobDetailModal = lazy(() =>
+  import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
+)
 
 const MIN_PANE = 360
 const DEFAULT_PANE = 480
@@ -220,7 +225,9 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       </div>
 
       {detailJobId && (
-        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
+        <Suspense fallback={null}>
+          <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
+        </Suspense>
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { readDailyBudgetInfo, type DailyBudgetInfo } from '../../../lib/daily-budget'
+import { useNow } from '../../../hooks/useNow'
 
 /**
  * Live vitals for one rail run's backing job row (safe-pr-review-flow run
@@ -93,7 +94,6 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   const [paused, setPaused] = useState(false)
   const [pausedReason, setPausedReason] = useState<string | null>(null)
   const [pauseBudget, setPauseBudget] = useState<DailyBudgetInfo | null>(null)
-  const [now, setNow] = useState(() => Date.now())
   // A run announced live can reach the card before its jobs row (or its
   // started_at) is written: re-read it a bounded number of times instead of
   // showing "—" until the next reload.
@@ -177,11 +177,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   }, [ws, live, runId, uid])
 
   // 1s elapsed ticker — only while genuinely running (and the caller wants live).
-  useEffect(() => {
-    if (!live || !running || startedAt === null) return
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [live, running, startedAt])
+  const now = useNow(1000, live && running && startedAt !== null)
 
   const elapsedMs = startedAt === null ? null : Math.max(0, (finishedAt ?? now) - startedAt)
 

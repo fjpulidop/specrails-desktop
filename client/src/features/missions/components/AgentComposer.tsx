@@ -1,5 +1,5 @@
 import { SPEC_DRAG_TYPE, readSpecDrag, insertDroppedSpec } from '../lib/agent-spec-drag'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Activity, Zap, Paperclip } from 'lucide-react'
@@ -62,7 +62,6 @@ import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineRe
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
 import { BackgroundProcessLogsModal } from '../../background/components/BackgroundProcessLogsModal'
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
-import { MissionResourcesPanel } from '../../background/components/MissionResourcesPanel'
 import { useMissionResourceHistory } from '../../background/hooks/useMissionResourceHistory'
 import { BackgroundProcessesPanel } from '../../background/components/BackgroundProcessesPanel'
 import { HoverPopover } from '../../../components/ui/hover-popover'
@@ -71,6 +70,10 @@ import { useAvailableProviders } from '../../providers/hooks/useAvailableProvide
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
 import { notifyError } from '../../../lib/notify-error'
+
+// The resource charts (recharts) load when the popover first opens.
+const MissionResourcesPanel = lazy(() => import('../../background/components/MissionResourcesPanel').then(m => ({ default: m.MissionResourcesPanel })))
+
 function replaceInlineRange(
   text: string,
   references: AgentInlineReference[],
@@ -978,7 +981,9 @@ export function AgentComposer({
                 </button>
               }
             >
-              <MissionResourcesPanel projectId={backgroundProjectId} chatId={activeId} snapshot={missionResources.latest} samples={missionResources.samples} error={missionResources.error} onScanned={() => void missionResources.refresh()} />
+              <Suspense fallback={null}>
+                <MissionResourcesPanel projectId={backgroundProjectId} chatId={activeId} snapshot={missionResources.latest} samples={missionResources.samples} error={missionResources.error} onScanned={() => void missionResources.refresh()} />
+              </Suspense>
             </HoverPopover>
           )}
           {active === null && !hideProjectSelector && (

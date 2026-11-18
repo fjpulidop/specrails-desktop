@@ -129,12 +129,12 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
-  it('opens the near-fullscreen execution modal on job click and closes it', () => {
+  it('opens the near-fullscreen execution modal on job click and closes it', async () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
     renderPane('mission-project')
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('/specrails:implement #7'))
-    expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(await screen.findByTestId('job-modal')).toBeInTheDocument()
     expect(screen.getByTestId('job-modal')).toHaveAttribute('data-project-id', 'mission-project')
     expect(screen.getByText('j-42')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close-modal'))
@@ -174,10 +174,10 @@ describe('AgentModeJobsPane', () => {
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
   })
 
-  it('opens the job named by the URL (deep link / Forward)', () => {
+  it('opens the job named by the URL (deep link / Forward)', async () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
     renderPane('p1', '/?job=j-42')
-    expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(await screen.findByTestId('job-modal')).toBeInTheDocument()
     expect(screen.getByText('j-42')).toBeInTheDocument()
   })
 })

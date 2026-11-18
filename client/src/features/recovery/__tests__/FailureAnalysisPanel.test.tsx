@@ -8,7 +8,7 @@ const ready = {
   status: 'ready', provider: 'codex', model: 'gpt-6.1-sol', createdAt: '', stale: false,
   analysis: { headline: 'Usage limit reached', cause: 'Codex hit the session limit.', category: 'provider_limit', failedStep: 'developer', evidence: ['You have hit your usage limit'], nextSteps: ['Wait for the reset'] },
 }
-const reply = (body: unknown, ok = true) => Promise.resolve({ ok, json: async () => body } as Response)
+const reply = (body: unknown, ok = true) => Promise.resolve(new Response(JSON.stringify(body), { status: ok ? 200 : 500 }))
 
 afterEach(() => { vi.restoreAllMocks() })
 
@@ -78,7 +78,7 @@ describe('FailureAnalysisPanel leads with the cause', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>(r => { resolve = r }))
     render(<FailureAnalysisPanel projectId="p1" jobId="j1" auto={false} known={['OpenSpec change metadata is missing']} />)
     expect(screen.getByTestId('failure-analysis')).toHaveAttribute('data-state', 'loading')
-    resolve({ ok: true, json: async () => same } as Response)
+    resolve(new Response(JSON.stringify(same)))
     expect(await screen.findByTestId('failure-analysis-cause')).toHaveTextContent('The architect never created the change.')
     expect(screen.queryByTestId('failure-analysis-headline')).not.toBeInTheDocument()
     expect(screen.getByText('What to do')).toBeInTheDocument()

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { getApiBase } from '../../../lib/api'
+import { requestJson } from '../../../lib/api-response'
 
 const kinds = ['legacy_loop_traversal', 'queue_manager_slash', 'merge_back'] as const
 interface Summary { total: number; byKind: Record<typeof kinds[number], number>; lastAt: string | null }
@@ -25,9 +26,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
     setState({ projectId, loading: true, error: false })
     void (async () => {
       try {
-        const response = await fetch(`${getApiBase()}/analytics/legacy-launches`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Telemetry unavailable')
-        const summary = parseSummary(await response.json())
+        const summary = parseSummary(await requestJson<unknown>(`${getApiBase()}/analytics/legacy-launches`, { signal: controller.signal }))
         if (!current) return
         cache.current.set(projectId, summary)
         setState({ projectId, loading: false, error: false })

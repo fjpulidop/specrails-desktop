@@ -46,12 +46,12 @@ export function LoopCompletionSummary({ result, compact = false }: { result: Loo
   const core = result.core
   const status = (value: string) => t(`completion.status.${value}`, { defaultValue: value })
   return <section aria-label={t('completion.title')} className={compact ? 'min-w-0 text-xs space-y-1' : 'border-b border-border/40 px-3 py-2 text-xs space-y-2'} data-testid="loop-completion">
-    {result.completion && compact ? <p className="flex flex-wrap items-center gap-1.5">
+    {result.completion && compact ? <div className="flex flex-wrap items-center gap-1.5">
       {/* The status badge already says how the run ended: only the verdicts. */}
       <Badge variant={result.completion.ok ? 'success' : 'warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</Badge>
       <Badge variant={result.completion.verified ? 'success' : 'queued'}>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</Badge>
       {result.completion.blocker && <Badge variant="warning" title={result.completion.blocker.reason || undefined}>{tl('core.hostBlocked')}: {tl(`core.blockerKind.${result.completion.blocker.kind}`, { defaultValue: result.completion.blocker.kind })}</Badge>}
-    </p> : result.completion ? <div className="space-y-1.5">
+    </div> : result.completion ? <div className="space-y-1.5">
       {/* One line: what happened, whether it was accepted, whether it was verified. */}
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{t('completion.execution')}: {status(result.execution)}</span>

@@ -23,6 +23,37 @@ subpaths and feature dependencies, [scripts/client-feature-readme.mjs](../../../
 hand-written sections outside it are kept. `--check` also fails when a block is
 stale. Run client coverage after changes spanning capabilities.
 
+## API calls: `requestJson`
+
+New JSON calls go through `requestJson<T>(url, init?)` from
+[`lib/api-response.ts`](../lib/api-response.ts) instead of `fetch` plus a hand-written
+`if (!res.ok)` check. It returns the parsed body (`null` for an empty one) and throws an
+`ApiResponseError` with `status`, `code` (the body's `code`, else `httpError`;
+`htmlResponse` / `invalidResponse` for an unreadable answer) and the body's `error`/`message`
+as its message (else a localized "HTTP <status>" line); `body` keeps the parsed error body
+and `fromHttpStatus` tells a server refusal from an unreadable answer. Pass `signal` to cancel
+(rejects with the usual `AbortError`) and `timeoutMs` to give up (`code: 'timeout'`).
+`readApiJson(res)` is the same decoding for a `Response` you already hold. The URL rules do not
+change: project calls still start from `getApiBase()`. Adopted so far in analytics cards,
+recovery, background processes/resources and `missions/lib/agent-api.ts`; migrate other call
+sites when you touch them. Test fixtures must return a real `Response`
+(`new Response(JSON.stringify(body), { status })`), not `{ ok, json }`.
+
+## Lazy surfaces and shared clocks
+
+Anything not in the first paint loads on demand: routes and dialogs through `React.lazy` with
+the existing fallbacks, dialogs mounted on first open with `hooks/useMountOnOpen`, xterm through
+`terminals/lib/xterm-runtime.ts` (loaded with the first terminal session), `JobDetailModal`
+lazily at every call site, the QR libraries with the pairing dialog and the resource charts with
+their popover. Do not add a static import from the shell (`App.tsx`, contexts, sidebars) to a
+heavy view; `features/jobs/lib/log-lines.ts` shows the pattern of moving a pure helper out of a
+component so its consumer does not pull the component's dependencies.
+
+Live elapsed labels read `hooks/useNow(intervalMs, active)`: one shared timer per interval size
+instead of a `setInterval` per component. The app keeps one WebSocket per window
+(`SharedWebSocketProvider`); register a handler and filter the frames you need, never open a
+second socket to the same URL. Its reconnect backoff is jittered (`lib/reconnect-backoff.ts`).
+
 ## Shared GETs on mount
 
 Surfaces that mount once per rail (rail header selectors, the contextual

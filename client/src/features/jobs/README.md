@@ -20,6 +20,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useRunVitals.ts](hooks/useRunVitals.ts)
 - [lib/cancel-job.ts](lib/cancel-job.ts)
 - [lib/job-time.ts](lib/job-time.ts)
+- [lib/log-lines.ts](lib/log-lines.ts)
 - [pages/JobDetailPage.tsx](pages/JobDetailPage.tsx)
 - [pages/JobsPage.tsx](pages/JobsPage.tsx)
 

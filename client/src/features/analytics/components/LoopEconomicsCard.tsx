@@ -5,6 +5,7 @@ import { getApiBase } from '../../../lib/api'
 import type { Period } from '../types/spending'
 import { durationParts, type DecisionTimeGroup } from './DecisionTimesCard'
 import { CostValue } from './CostValue'
+import { requestJson } from '../../../lib/api-response'
 
 export interface LoopEconomicsGroup {
   hasData: boolean
@@ -96,9 +97,7 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     setState({ key, loading: true, error: false })
     void (async () => {
       try {
-        const response = await fetch(`${getApiBase()}/analytics/loop-economics?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Loop economics unavailable')
-        const parsed = parseLoopEconomics(await response.json())
+        const parsed = parseLoopEconomics(await requestJson<unknown>(`${getApiBase()}/analytics/loop-economics?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal }))
         if (!current) return
         cache.current.set(key, parsed)
         setState({ key, loading: false, error: false })

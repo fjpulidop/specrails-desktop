@@ -1,4 +1,5 @@
 import { API_ORIGIN } from '../../../lib/origin'
+import { ApiResponseError, requestJson } from '../../../lib/api-response'
 import type { BackgroundProcess, BackgroundProcessStatus } from '../../../types'
 
 export const BACKGROUND_PROCESS_REQUEST_TIMEOUT_MS = 10_000
@@ -33,40 +34,26 @@ const target = (process: BackgroundProcess) => {
   return { url: `${base(process.projectId)}/${encodeURIComponent(String(process.pid))}`, query }
 }
 
-async function responseJson<T>(response: Response): Promise<T> {
-  const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${response.status}`)
-  return body as T
-}
-
-async function requestJson<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const controller = new AbortController()
-  let timedOut = false
-  const abort = () => controller.abort()
-  if (init.signal?.aborted) abort()
-  else init.signal?.addEventListener('abort', abort, { once: true })
-  const timer = window.setTimeout(() => { timedOut = true; abort() }, BACKGROUND_PROCESS_REQUEST_TIMEOUT_MS)
+/** `requestJson` with this API's 10 s timeout and its own timeout wording. */
+async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   try {
-    return await responseJson<T>(await fetch(url, { ...init, signal: controller.signal }))
+    return await requestJson<T>(url, { ...init, timeoutMs: BACKGROUND_PROCESS_REQUEST_TIMEOUT_MS })
   } catch (error) {
-    if (timedOut) throw new Error('The background process request timed out. Check its status and retry.')
+    if (error instanceof ApiResponseError && error.code === 'timeout') throw new Error('The background process request timed out. Check its status and retry.')
     throw error
-  } finally {
-    window.clearTimeout(timer)
-    init.signal?.removeEventListener('abort', abort)
   }
 }
 
 export async function listBackgroundProcesses(projectId: string, chatId: string, signal?: AbortSignal): Promise<BackgroundProcess[]> {
   const query = new URLSearchParams({ chatId, includeFinished: 'true' })
-  const data = await requestJson<{ processes: BackgroundProcess[] }>(`${base(projectId)}?${query}`, { signal })
+  const data = await request<{ processes: BackgroundProcess[] }>(`${base(projectId)}?${query}`, { signal })
   if (!Array.isArray(data?.processes)) throw new Error('Invalid background process snapshot')
   return data.processes
 }
 
 export async function stopBackgroundProcess(process: BackgroundProcess, signal?: AbortSignal): Promise<{ ok: boolean; process?: BackgroundProcess; status?: BackgroundProcessStatus }> {
   const { url, query } = target(process)
-  const result = await requestJson<{ ok: boolean; process?: BackgroundProcess; status?: BackgroundProcessStatus }>(`${url}?${query}`, { method: 'DELETE', signal })
+  const result = await request<{ ok: boolean; process?: BackgroundProcess; status?: BackgroundProcessStatus }>(`${url}?${query}`, { method: 'DELETE', signal })
   if (!result?.ok) throw new Error('The server did not confirm the stop request')
   if (result.process && backgroundProcessKey(result.process) !== backgroundProcessKey(process)) throw new Error('The stop response belongs to another process')
   return result
@@ -76,7 +63,7 @@ export async function getBackgroundProcessLogs(process: BackgroundProcess, optio
   const { url, query } = target(process)
   const limit = Number.isFinite(options.limit) ? options.limit! : 2000
   query.set('limit', String(Math.max(1, Math.min(2000, Math.trunc(limit)))))
-  const result = await requestJson<BackgroundProcessLogsSnapshot>(`${url}/logs?${query}`, { signal: options.signal })
+  const result = await request<BackgroundProcessLogsSnapshot>(`${url}/logs?${query}`, { signal: options.signal })
   if (!result?.process || !Array.isArray(result.lines) || backgroundProcessKey(result.process) !== backgroundProcessKey(process)) throw new Error('Invalid background process log snapshot')
   return result
 }

@@ -207,6 +207,7 @@
       "hooks/useRunVitals.ts",
       "lib/cancel-job.ts",
       "lib/job-time.ts",
+      "lib/log-lines.ts",
       "pages/JobDetailPage.tsx",
       "pages/JobsPage.tsx"
     ],
@@ -326,6 +327,7 @@
       "components/ProjectErrorBoundary.tsx",
       "components/RepositoryScopeSelector.tsx",
       "hooks/usePrerequisites.ts",
+      "lib/onboarding-state.ts",
       "lib/project-repositories.ts",
       "types/multi-repo.ts"
     ],

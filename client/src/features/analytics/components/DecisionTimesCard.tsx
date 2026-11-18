@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Timer } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { Period } from '../types/spending'
+import { requestJson } from '../../../lib/api-response'
 
 export interface DurationStats {
   measured: number
@@ -83,9 +84,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
     setState({ key, loading: true, error: false })
     void (async () => {
       try {
-        const response = await fetch(`${getApiBase()}/analytics/decision-times?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Decision times unavailable')
-        const parsed = parseDecisionTimes(await response.json())
+        const parsed = parseDecisionTimes(await requestJson<unknown>(`${getApiBase()}/analytics/decision-times?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal }))
         if (!current) return
         cache.current.set(key, parsed)
         setState({ key, loading: false, error: false })

@@ -1,4 +1,5 @@
 import { API_ORIGIN } from '../../../lib/origin'
+import { requestJson } from '../../../lib/api-response'
 import type { ResourceSample } from './mission-resources-api'
 
 export type AppResourceCategoryId = 'missions' | 'rails' | 'background' | 'terminals' | 'agent-cli' | 'mcp' | 'git' | 'other' | 'server'
@@ -30,9 +31,7 @@ export interface AppResourcesSnapshot {
 }
 
 export async function getAppResources(signal?: AbortSignal): Promise<AppResourcesSnapshot> {
-  const response = await fetch(`${API_ORIGIN}/api/resources`, { signal })
-  const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${response.status}`)
+  const body = await requestJson<AppResourcesSnapshot | null>(`${API_ORIGIN}/api/resources`, { signal })
   if (!body || !body.totals || !Array.isArray(body.categories)) throw new Error('Invalid resources snapshot')
   return body as AppResourcesSnapshot
 }

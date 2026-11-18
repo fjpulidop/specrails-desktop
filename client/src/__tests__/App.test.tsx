@@ -14,6 +14,7 @@ vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div da
 vi.mock('../features/loops/pages/LoopsPage', () => ({ default: () => <div data-testid="loops-library" /> }))
 
 vi.mock('../features/projects/components/OnboardingWizard', () => ({ OnboardingWizard: ({ open }: { open: boolean }) => (open ? <div data-testid="platform-tour" /> : null), hasSeenOnboarding: () => true }))
+vi.mock('../features/projects/lib/onboarding-state', () => ({ hasSeenOnboarding: () => true, resetOnboarding: () => {}, dismissOnboarding: () => {} }))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -151,8 +152,9 @@ it.each([['Loops', 'loops-modal'], ['Plugins', 'plugins-modal']])('opens %s insi
 it('opens the app settings modal on the section a feature page requests', async () => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
   render(<App />)
-  const dialog = await screen.findByTestId('settings-dialog')
-  expect(dialog).toHaveAttribute('data-open', 'false')
+  await waitFor(() => expect(screen.getByTestId('desktop-provider')).toBeInTheDocument())
+  // The modal's chunk loads on first open: nothing is mounted before.
+  expect(screen.queryByTestId('settings-dialog')).not.toBeInTheDocument()
   act(() => openAppSettings('updates'))
   await waitFor(() => expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-open', 'true'))
   expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-section', 'updates')
@@ -171,7 +173,7 @@ it('a Learn more hint opens the guide over the current screen at the hinted sect
     return { ok: true, status: 200, json: async () => ({ projects: [] }) }
   })
   render(<App />)
-  await screen.findByTestId('settings-dialog')
+  await waitFor(() => expect(screen.getByTestId('desktop-provider')).toBeInTheDocument())
   expect(screen.queryByTestId('docs-modal')).not.toBeInTheDocument()
   act(() => openDocs(helpTarget('dailyBudget')))
   expect(await screen.findByTestId('docs-modal')).toBeInTheDocument()

@@ -37,6 +37,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { dismissOnboarding } from '../lib/onboarding-state'
 import { cn } from '../../../lib/utils'
 import { RailMark } from '../../../components/brand/RailMark'
 import { Button } from '../../../components/ui/button'
@@ -48,31 +49,7 @@ import { ThemePickerGrid } from '../../settings/components/pickers/ThemePickerGr
 import { COMPANION_WEB_URL } from '../../integrations/lib/companion'
 import { FEATURE_JIRA, FEATURE_AGENT_CHAT, FEATURE_PROJECT_BUILDER } from '../../../lib/feature-flags'
 
-const ONBOARDING_KEY = 'specrails-desktop:onboarding-dismissed'
-
-export function hasSeenOnboarding(): boolean {
-  try {
-    return localStorage.getItem(ONBOARDING_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-export function resetOnboarding(): void {
-  try {
-    localStorage.removeItem(ONBOARDING_KEY)
-  } catch {
-    // ignore
-  }
-}
-
-function dismissOnboarding(): void {
-  try {
-    localStorage.setItem(ONBOARDING_KEY, 'true')
-  } catch {
-    // ignore
-  }
-}
+export { hasSeenOnboarding, resetOnboarding } from '../lib/onboarding-state'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
 const MOD = isMac ? '⌘' : 'Ctrl'

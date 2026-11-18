@@ -22,6 +22,10 @@ export function HoverPopover({ trigger, label, description, children, className,
 }) {
   const panelId = useId()
   const [open, setOpen] = useState(false)
+  // The latest open state, read outside render: the parent's onOpenChange must
+  // run as an event effect, never inside a state updater (which React may run
+  // during render and twice under StrictMode).
+  const openRef = useRef(false)
   const [position, setPosition] = useState({ left: 12, bottom: 32 })
   const trigger$ = useRef<HTMLButtonElement>(null)
   const panel$ = useRef<HTMLDivElement>(null)
@@ -35,7 +39,10 @@ export function HoverPopover({ trigger, label, description, children, className,
       const bounds = trigger$.current?.getBoundingClientRect()
       if (bounds) setPosition({ left: Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12)), bottom: window.innerHeight - bounds.top + 6 })
     }
-    setOpen(prev => { if (prev !== value) onOpenChange?.(value); return value })
+    if (openRef.current === value) return
+    openRef.current = value
+    setOpen(value)
+    onOpenChange?.(value)
   }
   const scheduleClose = () => {
     cancelClose()

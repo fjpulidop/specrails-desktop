@@ -28,10 +28,11 @@ vi.mock('../../../../lib/feature-flags', async importOriginal => ({ ...await imp
 
 // Capture the modal's WS handler so tests can feed live frames through it.
 let wsHandler: ((data: unknown) => void) | null = null
-vi.mock('../../../../hooks/useWebSocket', () => ({
-  useWebSocket: vi.fn((_url: string, handler: (d: unknown) => void) => {
-    wsHandler = handler
-    return { connectionStatus: 'connected' }
+vi.mock('../../../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: (_id: string, handler: (d: unknown) => void) => { wsHandler = handler },
+    unregisterHandler: () => {},
+    connectionStatus: 'connected',
   }),
 }))
 

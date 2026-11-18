@@ -1,6 +1,6 @@
 import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { RailTrack } from '../../../../components/brand/RailTrack'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -19,6 +19,7 @@ import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeEx
 import { RuntimeSteering, steeringVisible } from '../../../settings/components/RuntimeSteering'
 import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
+import { useNow } from '../../../../hooks/useNow'
 import {
   answerableRun,
   extractModifiedFiles,
@@ -108,13 +109,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
 
   // Live wall-clock tick (1 s) while running — the only genuinely live number.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!isRunning) return
-    setNow(Date.now())
-    const id = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(id)
-  }, [isRunning])
+  const now = useNow(1000, isRunning)
   const elapsed = job.finished_at
     ? formatWallClock(job.started_at, job.finished_at)
     : isRunning

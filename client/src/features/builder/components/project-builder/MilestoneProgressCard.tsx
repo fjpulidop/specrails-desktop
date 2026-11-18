@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu'
@@ -8,6 +8,7 @@ import { formatElapsed } from '../../../../lib/format-duration'
 import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
 import type { AgentPrDecisionValue } from '../../../missions/lib/agent-api'
 import { LiveDot } from '../../../../components/ui/live-dot'
+import { useNow } from '../../../../hooks/useNow'
 import {
   chainAtCheckpoint,
   chainIsLive,
@@ -82,17 +83,7 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
   )
 }
 
-/** 1-second clock while any rail is live (the elapsed label is real wall time). */
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [active])
-  return now
-}
+
 
 export interface MilestoneRailRowProps {
   rail: MilestoneRail
@@ -379,7 +370,7 @@ export interface MilestoneCardProps {
 export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRail, onResume, onCancel, onSetAutoAdvance, className }: MilestoneCardProps) {
   const { t } = useTranslation('builder')
   const anyActive = progress.rails.some((r) => r.active)
-  const now = useNow(anyActive)
+  const now = useNow(1000, anyActive)
   const { counts } = progress
   const showChain = progress.chain !== null && progress.chain.status !== 'completed' && progress.chain.status !== 'cancelled'
     ? progress.chain

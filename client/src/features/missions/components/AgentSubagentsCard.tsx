@@ -15,16 +15,12 @@ import { resultPreview } from '../lib/subagent-result'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { formatUsd } from '../../analytics/lib/format'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { useNow } from '../../../hooks/useNow'
 
 /** Live elapsed time while running; the final duration once it ended. */
 export function useElapsed(node: AgentSubagent): string {
-  const [now, setNow] = useState(() => Date.now())
   const live = isLiveSubagent(node)
-  useEffect(() => {
-    if (!live) return
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [live])
+  const now = useNow(1000, live)
   const end = node.endedAt ? Date.parse(node.endedAt) : now
   return formatElapsed(Math.max(0, end - Date.parse(node.startedAt)))
 }
@@ -262,13 +258,8 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
   const reduced = useReducedMotion()
   const [stopError, setStopError] = useState(false)
   const [chosen, setChosen] = useState<boolean | null>(null)
-  const [now, setNow] = useState(() => Date.now())
   const working = subagents.filter(isLiveSubagent).length
-  useEffect(() => {
-    if (working === 0) return
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [working])
+  const now = useNow(1000, working > 0)
   if (subagents.length === 0) return null
   const done = subagents.filter((node) => node.phase === 'idle').length
   const ended = subagents.length - working - done
