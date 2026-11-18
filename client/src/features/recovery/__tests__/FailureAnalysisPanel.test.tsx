@@ -52,4 +52,35 @@ describe('recorded step error', () => {
     expect(screen.getByTestId('failure-recorded-error')).toHaveTextContent('OpenSpec change metadata is missing')
     expect(screen.queryByText(/won't guess/)).not.toBeInTheDocument()
   })
+
+  it('treats a recorded step failure as a failure: destructive tone, open log tail and a facts row', () => {
+    render(<FailureDiagnosisCard
+      diagnosis={{ kind: 'unknown', confidence: 'low', source: 'exit', phase: null, rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, remedies: ['open-logs'] }}
+      handlers={{}}
+      logTail={['[runtime] step_failed: developer — OpenSpec change metadata is missing']}
+      facts={{ step: 'developer', attempt: 2, iteration: null, at: '2026-11-18T10:00:00Z' }}
+    />)
+    expect(screen.getByTestId('failure-diagnosis-card')).toHaveAttribute('data-tone', 'failed')
+    expect(screen.getByTestId('failure-log-tail').closest('details')).toHaveAttribute('open')
+    const facts = screen.getByTestId('failure-facts')
+    expect(facts.tagName).toBe('DL')
+    expect(facts).toHaveTextContent('StepDeveloper')
+    expect(facts).toHaveTextContent('Attempt2')
+    expect(facts).not.toHaveTextContent('Iteration')
+    expect(facts).toHaveTextContent('Time')
+  })
+})
+
+describe('FailureAnalysisPanel leads with the cause', () => {
+  it('drops an AI headline that only repeats the recorded error and shows a skeleton while loading', async () => {
+    const same = { ...ready, analysis: { ...ready.analysis, headline: 'OpenSpec change metadata is missing', cause: 'The architect never created the change.', category: 'missing_artifact' } }
+    let resolve!: (value: Response) => void
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>(r => { resolve = r }))
+    render(<FailureAnalysisPanel projectId="p1" jobId="j1" auto={false} known={['OpenSpec change metadata is missing']} />)
+    expect(screen.getByTestId('failure-analysis')).toHaveAttribute('data-state', 'loading')
+    resolve({ ok: true, json: async () => same } as Response)
+    expect(await screen.findByTestId('failure-analysis-cause')).toHaveTextContent('The architect never created the change.')
+    expect(screen.queryByTestId('failure-analysis-headline')).not.toBeInTheDocument()
+    expect(screen.getByText('What to do')).toBeInTheDocument()
+  })
 })

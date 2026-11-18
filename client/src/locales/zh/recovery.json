@@ -99,5 +99,12 @@
       "interrupted": "已中断",
       "other": "其他"
     }
+  },
+  "facts": {
+    "label": "失败位置",
+    "step": "步骤",
+    "attempt": "尝试",
+    "iteration": "迭代",
+    "time": "时间"
   }
 }

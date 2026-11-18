@@ -52,6 +52,13 @@ describe('host blocker completion', () => {
     await screen.findByText('Copied')
     expect(writeText).toHaveBeenCalledWith('npx playwright install chromium')
   })
+  it('compact mode drops the run line and shows the verdicts as lamps', () => {
+    render(<LoopCompletionSummary result={blocked} compact />)
+    expect(screen.queryByText(/^Run:/)).not.toBeInTheDocument()
+    expect(screen.getByText('Acceptance: Blocked')).toBeInTheDocument()
+    expect(screen.getByText('Verified: Not verified')).toBeInTheDocument()
+    expect(screen.getByText(/Blocked by the host environment: Network/)).toBeInTheDocument()
+  })
   it('keeps historical completions without a blocker exactly as before and drops a malformed blocker', () => {
     render(<LoopCompletionSummary result={{ ...blocked, completion: { ok: false, verified: false, reasons: ['Automatic correction made no candidate changes.'] } }} />)
     expect(screen.queryByTestId('loop-completion-blocker')).not.toBeInTheDocument()

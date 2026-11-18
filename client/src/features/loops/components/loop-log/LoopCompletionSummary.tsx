@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Copy, ShieldAlert } from 'lucide-react'
+import { Badge } from '../../../../components/ui/badge'
 import { blockerCommandLine, type LoopCompletion, type LoopHostBlocker } from './completion-model'
 
 /** Premium blocked state: the host could not satisfy a precondition, so the run stopped before any correction round. */
@@ -45,7 +46,12 @@ export function LoopCompletionSummary({ result, compact = false }: { result: Loo
   const core = result.core
   const status = (value: string) => t(`completion.status.${value}`, { defaultValue: value })
   return <section aria-label={t('completion.title')} className={compact ? 'min-w-0 text-xs space-y-1' : 'border-b border-border/40 px-3 py-2 text-xs space-y-2'} data-testid="loop-completion">
-    {result.completion ? <div className="space-y-1.5">
+    {result.completion && compact ? <p className="flex flex-wrap items-center gap-1.5">
+      {/* The status badge already says how the run ended: only the verdicts. */}
+      <Badge variant={result.completion.ok ? 'success' : 'warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</Badge>
+      <Badge variant={result.completion.verified ? 'success' : 'queued'}>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</Badge>
+      {result.completion.blocker && <Badge variant="warning" title={result.completion.blocker.reason || undefined}>{tl('core.hostBlocked')}: {tl(`core.blockerKind.${result.completion.blocker.kind}`, { defaultValue: result.completion.blocker.kind })}</Badge>}
+    </p> : result.completion ? <div className="space-y-1.5">
       {/* One line: what happened, whether it was accepted, whether it was verified. */}
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{t('completion.execution')}: {status(result.execution)}</span>
@@ -58,7 +64,7 @@ export function LoopCompletionSummary({ result, compact = false }: { result: Loo
         // A reason that only repeats the verification state says nothing new.
         .filter(reason => !['verified', 'unverified'].includes(reason.trim()))
         .map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
-    </div> : <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>}
+    </div> : compact ? null : <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>}
     {result.completion ? null : core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>

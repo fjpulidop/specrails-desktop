@@ -114,9 +114,18 @@ export function LoopStepExplorer({
   }, [model])
 
   // Follow mode keeps exactly the latest section open (the running step, or the
-  // final step once settled; setup when no step has started yet).
+  // final step once settled; setup when no step has started yet). A settled
+  // failed run follows the last step that failed: that is where the evidence
+  // is, not the terminal node the run reached afterwards.
+  const failedKey = useMemo(() => {
+    if (!settled || jobStatus !== 'failed') return null
+    for (let i = model.segments.length - 1; i >= 0; i--) {
+      if (segStatuses[i] === 'failed') return model.segments[i].key
+    }
+    return null
+  }, [settled, jobStatus, model, segStatuses])
   const followKey =
-    model.segments.length > 0 ? model.segments[model.segments.length - 1].key : SETUP_KEY
+    failedKey ?? (model.segments.length > 0 ? model.segments[model.segments.length - 1].key : SETUP_KEY)
 
   const effectiveExpanded = useMemo(() => {
     if (filter) return new Set(allKeys) // filtering searches EVERY section
@@ -184,15 +193,25 @@ export function LoopStepExplorer({
     setMode('manual')
   }, [])
 
-  // Autoscroll while following.
+  // Autoscroll while following: to the bottom, or to the failed step.
+  const programmaticScroll = useRef(false)
   useEffect(() => {
-    if (mode === 'follow' && !filter) scrollToBottom()
-  }, [model.totalLines, model.segments.length, mode, filter, scrollToBottom])
+    if (mode !== 'follow' || filter) return
+    if (failedKey) {
+      const section = sectionElsRef.current.get(failedKey)
+      if (!section) return
+      programmaticScroll.current = true
+      section.scrollIntoView?.({ block: 'start' })
+      return
+    }
+    scrollToBottom()
+  }, [model.totalLines, model.segments.length, mode, filter, scrollToBottom, failedKey])
 
   // Scrolling away from the bottom pauses follow (programmatic scrolls land AT
   // the bottom, so they never trip this — same idiom as LogViewer's autoScroll).
   const handleScroll = useCallback(() => {
     const el = containerRef.current
+    if (programmaticScroll.current) { programmaticScroll.current = false; return }
     if (!el || mode !== 'follow') return
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distance > 80) toManual()
@@ -280,7 +299,7 @@ export function LoopStepExplorer({
 
   if (view === 'graph') {
     return (
-      <div data-testid="loop-step-explorer" data-view="graph" className="flex h-full min-h-[480px] flex-col">
+      <div data-testid="loop-step-explorer" data-view="graph" className="flex h-full min-h-0 flex-1 flex-col">
       {/* With a graph, the outcome shares the graph's toolbar row. */}
       {model.completion && !model.graphMeta?.runtimeTopology && <div data-testid="loop-completion-scroll" className="shrink-0"><LoopCompletionSummary result={model.completion} /></div>}
       {model.graphMeta?.runtimeTopology && <>
@@ -370,6 +389,7 @@ export function LoopStepExplorer({
         iteration={iterationInfo}
         onChipClick={focusSegment}
         variant={variant}
+        reachedOnly={view === 'detail'}
       />
 
       {/* Step-grouped log */}

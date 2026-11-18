@@ -99,5 +99,12 @@
       "interrupted": "Unterbrochen",
       "other": "Sonstiges"
     }
+  },
+  "facts": {
+    "label": "Wo es fehlschlug",
+    "step": "Schritt",
+    "attempt": "Versuch",
+    "iteration": "Iteration",
+    "time": "Zeit"
   }
 }

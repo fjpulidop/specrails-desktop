@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { SegmentedControl } from '../../../components/ui/segmented-control'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobRunHeader } from '../components/job-run/JobRunHeader'
 import { useRuntimeRuns } from '../components/job-run/useRuntimeRuns'
@@ -387,7 +388,7 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="w-full px-4 py-6">
         <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3">
           <div className="h-4 w-48 bg-muted/30 rounded motion-safe:animate-pulse" />
           <div className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
@@ -399,7 +400,7 @@ export default function JobDetailPage() {
 
   if (notFound || !job) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col items-center gap-3 mt-12">
+      <div className="w-full px-4 py-6 flex flex-col items-center gap-3 mt-12">
         <p className="text-lg font-semibold">{t('detail.notFound')}</p>
         <p className="text-sm text-muted-foreground">{t('detail.notFoundDescription', { id })}</p>
         <Button asChild variant="outline" size="sm">
@@ -424,6 +425,7 @@ export default function JobDetailPage() {
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
   const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets), { omitTitle: hasTicketHeader })
   const crumbLabel = humaniseJobCrumb(job.command)
+  const commandRepeatsCrumb = !!crumbLabel && !!friendlyCommand && friendlyCommand.trim() === crumbLabel.trim()
   // Loop runs get the step-grouped explorer; every other job keeps the legacy
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
@@ -431,24 +433,42 @@ export default function JobDetailPage() {
   const pipelineTotals = computePipelineTotals(pipelineJobs)
 
   return (
-    <div ref={evidenceRoot} data-job-detail-surface className="flex min-h-0 flex-col h-full overflow-hidden max-w-5xl mx-auto w-full">
-      {/* Header */}
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        {/* Breadcrumb */}
-        <nav aria-label={t('detail.breadcrumbAria')} className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
-            <Home className="w-3 h-3" aria-hidden />
-            {t('detail.breadcrumbJobs')}
-          </Link>
-          <ChevronRight className="w-3 h-3" aria-hidden />
-          <span
-            aria-current="page"
-            className={cn('text-foreground', !crumbLabel && 'font-mono')}
-            title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
-          >
-            {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+    <div ref={evidenceRoot} data-job-detail-surface className="flex min-h-0 flex-col h-full overflow-hidden w-full">
+      {/* Header: one row — breadcrumb · what ran · when · model. The ticket
+          card follows only when the job references tickets. */}
+      <div className="px-4 pt-2.5 pb-2 space-y-2">
+        <div className="flex min-w-0 items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
+          <nav aria-label={t('detail.breadcrumbAria')} className="flex shrink-0 items-center gap-1">
+            <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
+              <Home className="w-3 h-3" aria-hidden />
+              {t('detail.breadcrumbJobs')}
+            </Link>
+            <ChevronRight className="w-3 h-3" aria-hidden />
+            <span
+              aria-current="page"
+              className={cn('text-foreground', !crumbLabel && 'font-mono')}
+              title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+            >
+              {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+            </span>
+          </nav>
+          {/* The command only when it says more than the crumb. */}
+          <h1 className={cn('min-w-0 truncate', commandRepeatsCrumb && 'sr-only')}>
+            {friendlyCommand ? (
+              <span title={rawCommand} data-testid="job-detail-command" className="font-medium text-foreground">
+                {friendlyCommand}
+              </span>
+            ) : (
+              <code className="font-mono text-foreground">{rawCommand}</code>
+            )}
+          </h1>
+          <span className="shrink-0 num">
+            {job.started_at
+              ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
+              : t('detail.queuedWaiting')}
           </span>
-        </nav>
+          {job.model && <span className="min-w-0 truncate">{job.model}</span>}
+        </div>
 
         {/* Ticket identity card — premium header when the job references tickets */}
         {hasTicketHeader && (
@@ -457,36 +477,6 @@ export default function JobDetailPage() {
             onTicketClick={openTicketDetail}
           />
         )}
-
-        {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
-          <h1 className="contents">
-            {friendlyCommand ? (
-              <span
-                title={rawCommand}
-                data-testid="job-detail-command"
-                className={cn('truncate font-medium', hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm text-foreground')}
-              >
-                {friendlyCommand}
-              </span>
-            ) : (
-              <code
-                className={cn(
-                  'font-mono text-foreground truncate',
-                  hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
-                )}
-              >
-                {rawCommand}
-              </code>
-            )}
-          </h1>
-          <span>
-            {job.started_at
-              ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
-              : t('detail.queuedWaiting')}
-          </span>
-          {job.model && <span className="text-muted-foreground">{job.model}</span>}
-        </div>
       </div>
 
       {/* The ONE run header shared with the mission-mode modal: status · elapsed ·
@@ -541,23 +531,17 @@ export default function JobDetailPage() {
               <div className="min-h-0 flex-1 overflow-hidden relative">
                 {FEATURE_NARRATED_PROGRESS ? (
                   <div className="flex min-h-0 h-full flex-col">
-                    <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
-                      {(['narrated', 'log'] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setNarrationMode(mode)}
-                          aria-pressed={narrationMode === mode}
-                          data-testid={`job-narration-mode-${mode}`}
-                          className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
-                            narrationMode === mode
-                              ? 'bg-accent-primary/15 text-accent-primary'
-                              : 'text-muted-foreground hover:bg-surface'
-                          }`}
-                        >
-                          {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                        </button>
-                      ))}
+                    <div className="flex items-center border-b border-border/50 px-3 py-1">
+                      <SegmentedControl
+                        value={narrationMode}
+                        onChange={setNarrationMode}
+                        label={tNarration('modeLabel')}
+                        options={(['narrated', 'log'] as const).map(mode => ({
+                          value: mode,
+                          label: tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog'),
+                          testId: `job-narration-mode-${mode}`,
+                        }))}
+                      />
                     </div>
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {narrationMode === 'narrated' ? (

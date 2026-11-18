@@ -6,6 +6,7 @@ import { NarratedProgress } from '../../../loops/components/loop-log/NarratedPro
 import { FEATURE_NARRATED_PROGRESS } from '../../../../lib/feature-flags'
 import { LogViewer } from '../LogViewer'
 import type { RunDetailNavigation } from './RunDetailTabs'
+import { SegmentedControl } from '../../../../components/ui/segmented-control'
 
 type Mode = 'steps' | 'narrated' | 'log'
 
@@ -33,22 +34,12 @@ export function LoopRunDetail({ events, jobStatus, isLoading, projectId, variant
   const label = (value: Mode) => t(value === 'steps' ? 'modeSteps' : value === 'narrated' ? 'modeNarrated' : 'modeLog')
 
   const switcher = (
-    <div className="flex shrink-0 items-center gap-1" role="group">
-      {modes.map(value => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => setMode(value)}
-          aria-pressed={mode === value}
-          data-testid={`loop-detail-mode-${value}`}
-          className={`inline-flex h-6 items-center rounded-md px-2 text-caption font-medium transition-colors ${
-            mode === value ? 'bg-accent-primary/15 text-accent-primary' : 'text-muted-foreground hover:bg-surface/60'
-          }`}
-        >
-          {label(value)}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl<Mode>
+      value={mode}
+      onChange={setMode}
+      label={t('modeLabel')}
+      options={modes.map(value => ({ value, label: label(value), testId: `loop-detail-mode-${value}` }))}
+    />
   )
 
   // Steps: the switcher shares the filter bar. The other views keep a slim row.

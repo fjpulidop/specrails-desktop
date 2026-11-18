@@ -119,5 +119,6 @@
   "round": "修复轮次 {{round}}/{{total}}",
   "checks_one": "+1 项检查",
   "checks_other": "+{{count}} 项检查",
-  "modeSteps": "步骤"
+  "modeSteps": "步骤",
+  "modeLabel": "视图"
 }

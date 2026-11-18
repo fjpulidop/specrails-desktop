@@ -95,12 +95,47 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
   )
 }
 
+/** What is known about where the run failed; anything unknown stays out. */
+export interface FailureFacts {
+  step?: string | null
+  attempt?: number | null
+  iteration?: number | null
+  /** ISO timestamp of the failure. */
+  at?: string | null
+}
+
+function FactsRow({ facts, step }: { facts: FailureFacts; step: string | null }) {
+  const { t, i18n } = useTranslation('recovery')
+  const at = facts.at ? new Date(facts.at) : null
+  const time = at && !Number.isNaN(at.getTime())
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'medium' }).format(at)
+    : null
+  const items: Array<[string, string]> = []
+  if (step) items.push([t('facts.step'), step])
+  if (facts.attempt != null) items.push([t('facts.attempt'), String(facts.attempt)])
+  if (facts.iteration != null) items.push([t('facts.iteration'), String(facts.iteration)])
+  if (time) items.push([t('facts.time'), time])
+  if (items.length === 0) return null
+  return (
+    <dl data-testid="failure-facts" aria-label={t('facts.label')} className="flex flex-wrap gap-x-4 gap-y-1 text-caption">
+      {items.map(([term, value]) => (
+        <div key={term} className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="text-foreground num">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 export interface FailureDiagnosisCardProps {
   diagnosis: FailureDiagnosis
   /** What this surface can really run. A remedy without a handler is not offered. */
   handlers: RemedyHandlers
   /** Raw tail of the log, shown only when the cause is unknown. */
   logTail?: readonly string[]
+  /** Where and when the run failed, from the run's own records. */
+  facts?: FailureFacts
   className?: string
 }
 
@@ -110,19 +145,21 @@ export interface FailureDiagnosisCardProps {
  * to actions the app already has. An unknown cause says so and shows the raw
  * log tail instead of guessing.
  */
-export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], className }: FailureDiagnosisCardProps) {
+export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, className }: FailureDiagnosisCardProps) {
   const { t } = useTranslation('recovery')
   const headingId = useId()
   const [envOpen, setEnvOpen] = useState(false)
   const { headline, why, phaseName } = useDiagnosisText(diagnosis)
-  const look = KIND_LOOK[diagnosis.kind]
-  const tone = TONE_CLASS[look.tone]
-  const Icon = look.icon
   const remedies = availableRemedies(diagnosis, handlers)
   // An unknown cause with the runtime's own record of the failed step is not
   // a mystery: say which step failed and the runtime's words for why.
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(logTail) : null
   const unknown = diagnosis.kind === 'unknown' && !recorded
+  // A recorded step failure is a failure, whatever the classifier could not name.
+  const look = recorded ? { icon: XCircle, tone: 'failed' as Tone } : KIND_LOOK[diagnosis.kind]
+  const tone = TONE_CLASS[look.tone]
+  const Icon = look.icon
+  const factStep = recorded ? phaseName(recorded.step) : facts?.step ? phaseName(facts.step) : diagnosis.phase ? phaseName(diagnosis.phase) : null
   const label = (id: RemedyId): string => {
     if (id === 'resume') return diagnosis.resumablePhase ? t('remedy.resumeFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.resume')
     return t(`remedy.${id === 'edit-spec' ? 'editSpec' : id === 'fix-environment' ? 'fixEnvironment' : id === 'open-logs' ? 'openLogs' : id}`)
@@ -134,6 +171,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       data-testid="failure-diagnosis-card"
       data-kind={diagnosis.kind}
       data-confidence={diagnosis.confidence}
+      data-tone={look.tone}
       className={cn('space-y-2.5 rounded-card border px-3.5 py-3', tone.box, className)}
     >
       <div className="flex items-start gap-2.5">
@@ -144,11 +182,12 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
           {unknown && <p className="text-body text-muted-foreground">{t('why.unknown')}</p>}
           {why && <p className="text-body text-muted-foreground" data-testid="failure-why">{why}</p>}
           {diagnosis.detail && diagnosis.kind !== 'unknown' && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
+          {facts && <div className="pt-1"><FactsRow facts={facts} step={factStep} /></div>}
         </div>
       </div>
 
       {diagnosis.kind === 'unknown' && logTail.length > 0 && (
-        <details open={unknown} className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+        <details open={unknown || !!recorded} className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
           <summary className="cursor-pointer text-caption font-medium text-muted-foreground">{t('logTail.title')}</summary>
           <pre data-testid="failure-log-tail" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{logTail.join('\n')}</pre>
         </details>

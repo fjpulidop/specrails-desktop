@@ -315,7 +315,13 @@
     "openFork": "Abrir execução vinculada",
     "graphFollow": "Acompanhar execução",
     "graphFitAll": "Ver tudo",
-    "graphLegend": "Legenda do grafo"
+    "graphLegend": "Legenda do grafo",
+    "graphAttempt": "Tentativa {{n}}",
+    "graphAttempts_one": "{{count}} tentativa",
+    "graphAttempts_other": "{{count}} tentativas",
+    "graphTrace": "Rastreio",
+    "graphPathOnly": "Só o caminho percorrido",
+    "notReached": "{{count}} não alcançados"
   },
   "logViewer": {
     "loading": "A carregar logs...",

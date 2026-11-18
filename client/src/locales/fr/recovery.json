@@ -99,5 +99,12 @@
       "interrupted": "Interrompue",
       "other": "Autre"
     }
+  },
+  "facts": {
+    "label": "Où l'échec s'est produit",
+    "step": "Étape",
+    "attempt": "Tentative",
+    "iteration": "Itération",
+    "time": "Heure"
   }
 }

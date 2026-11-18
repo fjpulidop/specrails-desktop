@@ -99,5 +99,12 @@
       "interrupted": "Interrupted",
       "other": "Other"
     }
+  },
+  "facts": {
+    "label": "Where it failed",
+    "step": "Step",
+    "attempt": "Attempt",
+    "iteration": "Iteration",
+    "time": "Time"
   }
 }

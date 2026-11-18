@@ -99,5 +99,12 @@
       "interrupted": "中断",
       "other": "その他"
     }
+  },
+  "facts": {
+    "label": "失敗した箇所",
+    "step": "ステップ",
+    "attempt": "試行",
+    "iteration": "反復",
+    "time": "時刻"
   }
 }

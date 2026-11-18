@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, CircleHelp, Crosshair, Loader2, Maximize2, Minimize2, PauseCircle, Scan, XCircle } from 'lucide-react'
+import { CheckCircle2, Circle, CircleHelp, Crosshair, Maximize2, Minimize2, PauseCircle, Route, Scan, XCircle } from 'lucide-react'
 import { ReactFlow, Background, Controls, MarkerType, type Edge, type Node, type ReactFlowInstance } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '../../../../components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../../components/ui/dialog'
 import { cn } from '../../../../lib/utils'
+import { LiveDot, type LiveDotTone } from '../../../../components/ui/live-dot'
 import { useActiveTheme } from '../../../settings/context/ThemeContext'
 import { layoutLoop } from '../../lib/loop-layout'
 import type { LoopNodeData } from '../../lib/loop-graph-rf'
@@ -14,18 +15,47 @@ import type { RuntimeTopology, RuntimeTopologyBody } from './runtime-topology'
 
 type GraphState = 'running' | 'paused' | 'failed' | 'stalled' | 'interrupted' | 'ok' | 'pending' | 'unknown'
 const ATTENTION: GraphState[] = ['running', 'paused', 'failed', 'stalled', 'interrupted']
-const LEGEND: GraphState[] = ['running', 'ok', 'failed', 'paused', 'pending']
+// Pending is what an unvisited node looks like; the legend names lamps only.
+const LEGEND: GraphState[] = ['running', 'ok', 'failed', 'paused']
 const NODE_WIDTH = 210
+export const RUNTIME_GRAPH_PATH_ONLY_KEY = 'specrails-desktop:runtime-graph-path-only'
+
+function loadPathOnly(): boolean {
+  try { return localStorage.getItem(RUNTIME_GRAPH_PATH_ONLY_KEY) === 'true' } catch { return false }
+}
+function savePathOnly(value: boolean) {
+  try { localStorage.setItem(RUNTIME_GRAPH_PATH_ONLY_KEY, String(value)) } catch { /* session-local choice still applies */ }
+}
+
+function stateTone(state: GraphState): LiveDotTone {
+  if (state === 'running') return 'info'
+  if (state === 'ok') return 'success'
+  if (state === 'failed') return 'destructive'
+  if (state === 'paused' || state === 'stalled' || state === 'interrupted') return 'warning'
+  return 'muted'
+}
+/** A state lamp: live (soft ring) only while the step runs. */
+function StateLamp({ state }: { state: GraphState }) {
+  return <LiveDot tone={stateTone(state)} pulsing={state === 'running'} size="sm" aria-hidden />
+}
+
+function formatDuration(ms: number | null | undefined): string | null {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return null
+  const secs = Math.round(ms / 1000)
+  if (secs < 60) return `${secs}s`
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins}m ${secs % 60}s`
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`
+}
 
 function stateColor(state: GraphState): string {
-  if (state === 'running') return 'var(--color-accent-primary)'
+  if (state === 'running') return 'var(--color-accent-info)'
   if (state === 'ok') return 'var(--color-accent-success)'
   if (state === 'failed') return 'var(--color-destructive)'
   if (state === 'paused' || state === 'stalled' || state === 'interrupted') return 'var(--color-accent-warning)'
   return 'var(--color-border)'
 }
 function stateIcon(state: GraphState) {
-  if (state === 'running') return Loader2
   if (state === 'ok') return CheckCircle2
   if (state === 'failed') return XCircle
   if (state === 'paused' || state === 'stalled' || state === 'interrupted') return PauseCircle
@@ -52,6 +82,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
   const [trail, setTrail] = useState<Array<{ path: string; body: RuntimeTopologyBody }>>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [follow, setFollow] = useState(true)
+  const [pathOnly, setPathOnly] = useState(loadPathOnly)
   const view = trail[trail.length - 1] ?? { path: '', body: topology }
   const pathFor = (id: string) => view.path ? `${view.path}/${id}` : id
   const attempts = segments.filter(segment => (segment.meta.nodePath ?? segment.meta.nodeId) === selected)
@@ -79,47 +110,65 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
 
   const flow = useMemo(() => {
     const visited = (id: string) => !quiet(states.get(id)?.state ?? 'pending')
+    // "Only the path taken": the visited nodes plus one hop either way, so the
+    // next decision stays readable. Nothing visited yet → the whole graph.
+    let kept: Set<string> | null = null
+    if (pathOnly && view.body.nodes.some(node => visited(node.id))) {
+      kept = new Set(view.body.nodes.filter(node => visited(node.id)).map(node => node.id))
+      for (const node of view.body.nodes) {
+        for (const target of Object.values(node.ends)) {
+          if (target === null) continue
+          if (visited(node.id)) kept.add(target)
+          if (visited(target)) kept.add(node.id)
+        }
+      }
+    }
+    const shown = (id: string) => !kept || kept.has(id)
     const edges: Edge[] = view.body.nodes.flatMap(node => Object.entries(node.ends).flatMap(([outcome, target]) => {
-      if (target === null) return []
+      if (target === null || !shown(node.id) || !shown(target)) return []
       const walked = visited(node.id) && visited(target)
       const live = walked && states.get(target)?.state === 'running'
-      const stroke = live ? 'var(--color-accent-primary)' : walked ? 'var(--color-accent-success)' : 'var(--color-muted-foreground)'
+      const stroke = live ? 'var(--color-accent-info)' : walked ? 'var(--color-accent-success)' : 'var(--color-border)'
       return [{
         id: `${node.id}:${outcome}`, source: node.id, target, label: outcome, animated: live,
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
-        style: { stroke, strokeWidth: walked ? 2 : 1, opacity: walked ? 1 : 0.45, ...(walked ? {} : { strokeDasharray: '4 4' }) },
-        labelStyle: { fontSize: 10, fill: 'var(--color-muted-foreground)' },
+        style: { stroke, strokeWidth: walked ? 2 : 1, ...(walked ? {} : { strokeDasharray: '4 4' }) },
+        // Caption size; walked labels read at full contrast.
+        labelStyle: { fontSize: 11, fill: walked ? 'var(--color-foreground)' : 'var(--color-muted-foreground)' },
         labelBgStyle: { fill: 'var(--color-background)' },
       }]
     }))
-    const nodes = view.body.nodes.map(node => {
+    const nodes = view.body.nodes.filter(node => shown(node.id)).map(node => {
       const { state, attempts: count } = states.get(node.id) ?? { state: 'pending' as GraphState, attempts: 0 }
       const color = stateColor(state)
       const Icon = stateIcon(state)
+      const unvisited = quiet(state)
       return { id: node.id, type: 'default', position: { x: 0, y: 0 }, data: { kind: 'core', label: (
         <span className="block text-left" data-state={state}>
-          <strong className="flex items-center gap-2 text-body leading-tight">
-            <Icon aria-hidden className={cn('h-4 w-4 shrink-0', state === 'running' && 'motion-safe:animate-spin')} style={{ color: quiet(state) ? 'var(--color-muted-foreground)' : color }} />
+          <strong className={cn('flex items-center gap-2 text-body leading-tight', unvisited ? 'font-medium text-muted-foreground' : 'text-foreground')}>
+            {state === 'running'
+              ? <LiveDot tone="info" size="sm" className="mx-0.5" aria-hidden />
+              : <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color: unvisited ? 'var(--color-muted-foreground)' : color }} />}
             <span className="min-w-0 break-words">{node.label}</span>
           </strong>
           <span className="mt-1 flex items-center gap-1.5 text-caption text-muted-foreground">
-            <span>{node.kind}</span><span aria-hidden>·</span><span style={quiet(state) ? undefined : { color }}>{t(`loopExplorer.graphState.${state}`)}</span>
+            <span>{node.kind}</span><span aria-hidden>·</span><span style={unvisited ? undefined : { color }}>{t(`loopExplorer.graphState.${state}`)}</span>
             {count > 1 && <span className="ml-auto rounded-full bg-muted px-1.5 num">×{count}</span>}
           </span>
         </span>
       ) } as LoopNodeData,
       style: {
         width: NODE_WIDTH, borderRadius: 10, padding: '8px 10px',
-        background: quiet(state) ? 'var(--color-background)' : `color-mix(in srgb, ${color} 12%, var(--color-background))`,
-        color: 'var(--color-foreground)', borderColor: color, borderWidth: quiet(state) ? 1 : 2,
-        opacity: quiet(state) ? 0.75 : 1,
-        boxShadow: state === 'running' ? `0 0 0 2px color-mix(in srgb, ${color} 30%, transparent), 0 0 22px color-mix(in srgb, ${color} 35%, transparent)` : undefined,
+        background: unvisited ? 'var(--color-background)' : `color-mix(in srgb, ${color} 12%, var(--color-background))`,
+        // Unvisited: a dashed hairline and muted text, never a faded node.
+        color: unvisited ? 'var(--color-muted-foreground)' : 'var(--color-foreground)',
+        borderColor: color, borderWidth: unvisited ? 1 : 2, borderStyle: unvisited ? 'dashed' : 'solid',
       } }
     })
     // Entry first gives the existing deterministic layout the real Core root.
     nodes.sort((a, b) => a.id === view.body.entry ? -1 : b.id === view.body.entry ? 1 : 0)
     return { nodes: layoutLoop(nodes, edges, 'vertical'), edges }
-  }, [view.body, states, t])
+  }, [view.body, states, t, pathOnly])
 
   // The step to keep in view: running first, then one that needs attention,
   // then the last one that ran.
@@ -158,17 +207,42 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
   }, [activeId, follow, view.path])
 
   const selectedNode = view.body.nodes.find(node => pathFor(node.id) === selected)
+  const selectedState = selectedNode ? states.get(selectedNode.id)?.state ?? 'pending' : 'pending'
   const component = selectedNode?.component ? topology.components[selectedNode.component] : undefined
+  const scopes = new Set(attempts.map(attempt => attempt.meta.scopeId ?? ''))
+  // "Repeat from here" forks the exact attempt the person picks: on a branched
+  // run each branch (scope) has its own attempts, so it lives on each row.
+  const canFork = (attempt: LoopStepSegment) => !!onFork && !!attempt.end && !!attempt.meta.nodePath && !!attempt.meta.scopeId && attempt.meta.iteration != null
   const nodePanel = (path: string, className: string) => <div className={className} data-testid="runtime-graph-node-panel">
-    <code className="break-all font-medium">{path}</code>
+    <div className="flex items-center gap-2">
+      <StateLamp state={selectedState} />
+      <span className="min-w-0 flex-1 truncate text-strong text-foreground">{selectedNode?.label ?? path}</span>
+      {attempts.length > 0 && <span className="shrink-0 text-caption text-muted-foreground num">{t('loopExplorer.graphAttempts', { count: attempts.length })}</span>}
+    </div>
     {component && trail.length < 16 && <Button size="sm" variant="outline" onClick={() => { setTrail(value => [...value, { path, body: component }]); setSelected(null) }}>{t('loopExplorer.graphOpenComponent')}</Button>}
-    {attempts.length === 0 ? <p className="text-muted-foreground">{t('loopExplorer.graphNoAttempts')}</p> : <ul className="space-y-2">
-      {attempts.map(attempt => <li key={attempt.key} className="space-y-1">
-        <button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>
-        {onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}
-        {attempt.meta.traceId && <code className="block break-all text-xs text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}
-      </li>)}
+    {attempts.length === 0 ? <p className="text-muted-foreground">{t('loopExplorer.graphNoAttempts')}</p> : <ul className="-mx-1">
+      {attempts.map((attempt, index) => {
+        const state = segmentStatus(attempt, { isLast: true, jobSettled: settled }) as GraphState
+        const duration = formatDuration(attempt.end?.durationMs)
+        const label = [t('loopExplorer.graphAttempt', { n: attempt.meta.attempt ?? index + 1 }), t(`loopExplorer.graphState.${state}`), duration, scopes.size > 1 ? attempt.meta.scopeId : null].filter(Boolean).join(' · ')
+        return <li key={attempt.key} className="flex items-center gap-1">
+          <button type="button" data-testid="runtime-graph-attempt" className="flex min-w-0 flex-1 items-center gap-2 rounded-control px-1 py-1 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onFocus(attempt.key)}>
+            <StateLamp state={state} />
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+          </button>
+          {canFork(attempt) && <Button size="sm" variant="ghost" className="h-7 shrink-0 px-2" disabled={forkBusy} aria-label={`${t('loopExplorer.repeatFromHere')}: ${label}`} title={t('loopExplorer.repeatFromHere')} onClick={() => onFork?.(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}
+        </li>
+      })}
     </ul>}
+    <details className="text-caption text-muted-foreground">
+      <summary className="cursor-pointer select-none hover:text-foreground">{t('loopExplorer.graphTrace')}</summary>
+      <div className="mt-1 space-y-1 break-all font-mono">
+        <p>{path}</p>
+        {attempts.filter(attempt => attempt.meta.traceId).map(attempt => <p key={attempt.key} data-testid="runtime-graph-trace">
+          {attempt.meta.attemptId ?? attempt.meta.index}: traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}
+        </p>)}
+      </div>
+    </details>
   </div>
 
   const content = (expanded: boolean) => <>
@@ -176,7 +250,13 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
       {trail.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setTrail(value => value.slice(0, -1)); setSelected(null) }}>{t('loopExplorer.graphBack')}</Button>}
       {trail.length > 0 && <code>{view.path}</code>}
       {!expanded && leading}
-      <span className="ml-auto flex items-center gap-1">
+      <ul className="ml-auto flex flex-wrap items-center gap-3 text-caption text-muted-foreground" aria-label={t('loopExplorer.graphLegend')}>
+        {LEGEND.map(state => <li key={state} className="flex items-center gap-1.5"><LiveDot tone={stateTone(state)} pulsing={false} size="xs" aria-hidden />{t(`loopExplorer.graphState.${state}`)}</li>)}
+      </ul>
+      <span className="flex items-center gap-1">
+        <Button size="sm" variant={pathOnly ? 'secondary' : 'ghost'} aria-pressed={pathOnly} data-testid="runtime-graph-path-only" onClick={() => { setPathOnly(!pathOnly); savePathOnly(!pathOnly) }}>
+          <Route className="mr-1.5 h-3.5 w-3.5" aria-hidden />{t('loopExplorer.graphPathOnly')}
+        </Button>
         <Button size="sm" variant={follow ? 'secondary' : 'ghost'} aria-pressed={follow} onClick={() => { setFollow(true); focusActive(instances.current.get(expanded), true) }}>
           <Crosshair className="mr-1.5 h-3.5 w-3.5" aria-hidden />{t('loopExplorer.graphFollow')}
         </Button>
@@ -188,7 +268,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
       </span>
     </div>
     <div className={cn('flex min-h-0 flex-1 gap-3', !expanded && 'flex-col lg:flex-row')}>
-      <div className={cn('relative min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background/40', expanded ? 'min-h-0' : 'min-h-[420px]')} aria-label={t('loopExplorer.runtimeGraph')}>
+      <div className="relative min-h-[240px] min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background/40" aria-label={t('loopExplorer.runtimeGraph')}>
         <ReactFlow key={`${view.path}:${expanded}`} colorMode={theme.scheme === 'dark' ? 'dark' : 'light'} nodes={flow.nodes} edges={flow.edges}
           nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} minZoom={0.1} maxZoom={2}
           onInit={instance => { instances.current.set(expanded, instance); requestAnimationFrame(() => focusActive(instance, false)) }}
@@ -197,11 +277,8 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
           proOptions={{ hideAttribution: true }}>
           <Background gap={20} size={1} /><Controls showInteractive={false} />
         </ReactFlow>
-        <ul className="pointer-events-none absolute left-2 top-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-caption text-muted-foreground backdrop-blur-sm" aria-label={t('loopExplorer.graphLegend')}>
-          {LEGEND.map(state => <li key={state} className="flex items-center gap-1.5"><span aria-hidden className="h-2 w-2 rounded-full border" style={{ borderColor: stateColor(state), background: quiet(state) ? 'transparent' : stateColor(state) }} />{t(`loopExplorer.graphState.${state}`)}</li>)}
-        </ul>
       </div>
-      {selected && nodePanel(selected, cn('shrink-0 space-y-2 rounded-lg border border-border bg-popover/60 p-3 text-xs', expanded ? 'w-80 overflow-y-auto' : 'lg:w-80 lg:overflow-y-auto'))}
+      {selected && nodePanel(selected, cn('shrink-0 space-y-2 rounded-lg border border-border bg-popover p-3 text-label', expanded ? 'w-80 overflow-y-auto' : 'lg:w-80 lg:overflow-y-auto'))}
     </div>
   </>
 

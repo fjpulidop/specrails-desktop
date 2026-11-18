@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { Button } from '../../../components/ui/button'
+import { SegmentedControl } from '../../../components/ui/segmented-control'
 import {
   DIALOG_PANEL_CLASS,
   DIALOG_SCRIM_CLASS,
@@ -381,24 +382,27 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
               className={framed ? surfaceWindowHeaderProps(framed).className : isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
               actions={framed ? undefined : <DialogCloseButton className="-mr-1.5 -mt-1" />}
             >
-              <DialogTitle className="truncate">{title}</DialogTitle>
-              {job ? (
-                <DialogDescription className="flex min-w-0 items-baseline gap-2">
-                  {(() => {
-                    const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
-                    return friendly
-                      ? <span className="min-w-0 truncate text-xs text-foreground" title={job.command}>{friendly}</span>
-                      : <code className="min-w-0 truncate font-mono text-xs text-foreground">{job.command}</code>
-                  })()}
-                  <span className="shrink-0 text-xs">
-                    {activityTime
-                      ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
-                      : '—'}
-                  </span>
-                </DialogDescription>
-              ) : isLoading ? (
-                <DialogDescription>{t('common:states.loading')}</DialogDescription>
-              ) : null}
+              {/* One line: title · what ran · when. The command truncates first. */}
+              <div className="flex min-w-0 items-baseline gap-2">
+                <DialogTitle className="shrink-0 truncate">{title}</DialogTitle>
+                {job ? (
+                  <DialogDescription className="flex min-w-0 flex-1 items-baseline gap-2 text-label">
+                    {(() => {
+                      const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
+                      return friendly
+                        ? <span className="min-w-0 truncate text-foreground" title={job.command}>{friendly}</span>
+                        : <code className="min-w-0 truncate font-mono text-foreground" title={job.command}>{job.command}</code>
+                    })()}
+                    <span className="shrink-0 num">
+                      {activityTime
+                        ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
+                        : '—'}
+                    </span>
+                  </DialogDescription>
+                ) : isLoading ? (
+                  <DialogDescription className="text-label">{t('common:states.loading')}</DialogDescription>
+                ) : null}
+              </div>
             </DialogHeader>
 
             {/* The ONE run header shared with the board's Job Detail page. */}
@@ -448,24 +452,17 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                       <div className="min-h-0 flex-1 overflow-hidden relative">
                         {FEATURE_NARRATED_PROGRESS ? (
                           <div className="flex h-full min-h-0 flex-col">
-                            <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
-                              {(['narrated', 'log'] as const).map((mode) => (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  data-chip=""
-                                  onClick={() => setNarrationMode(mode)}
-                                  aria-pressed={narrationMode === mode}
-                                  data-testid={`modal-narration-mode-${mode}`}
-                                  className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
-                                    narrationMode === mode
-                                      ? 'bg-accent-primary/15 text-accent-primary'
-                                      : 'text-muted-foreground hover:bg-surface/60'
-                                  }`}
-                                >
-                                  {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                                </button>
-                              ))}
+                            <div className="flex items-center border-b border-border/40 px-3 py-1">
+                              <SegmentedControl
+                                value={narrationMode}
+                                onChange={setNarrationMode}
+                                label={tNarration('modeLabel')}
+                                options={(['narrated', 'log'] as const).map(mode => ({
+                                  value: mode,
+                                  label: tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog'),
+                                  testId: `modal-narration-mode-${mode}`,
+                                }))}
+                              />
                             </div>
                             <div className="min-h-0 flex-1 overflow-hidden">
                               {narrationMode === 'narrated' ? (

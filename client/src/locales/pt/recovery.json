@@ -99,5 +99,12 @@
       "interrupted": "Interrompida",
       "other": "Outro"
     }
+  },
+  "facts": {
+    "label": "Onde falhou",
+    "step": "Passo",
+    "attempt": "Tentativa",
+    "iteration": "Iteração",
+    "time": "Hora"
   }
 }

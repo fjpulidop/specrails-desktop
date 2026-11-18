@@ -315,7 +315,13 @@
     "openFork": "Open linked run",
     "graphFollow": "Follow run",
     "graphFitAll": "Fit all",
-    "graphLegend": "Graph legend"
+    "graphLegend": "Graph legend",
+    "graphAttempt": "Attempt {{n}}",
+    "graphAttempts_one": "{{count}} attempt",
+    "graphAttempts_other": "{{count}} attempts",
+    "graphTrace": "Trace",
+    "graphPathOnly": "Only the path taken",
+    "notReached": "{{count}} not reached"
   },
   "logViewer": {
     "loading": "Loading logs...",

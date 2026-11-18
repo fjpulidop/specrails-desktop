@@ -119,5 +119,6 @@
   "round": "Ciclo di correzione {{round}} di {{total}}",
   "checks_one": "+1 controllo",
   "checks_other": "+{{count}} controlli",
-  "modeSteps": "Passi"
+  "modeSteps": "Passi",
+  "modeLabel": "Vista"
 }

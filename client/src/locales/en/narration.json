@@ -119,5 +119,6 @@
   "round": "Fix round {{round}} of {{total}}",
   "checks_one": "+1 check",
   "checks_other": "+{{count}} checks",
-  "modeSteps": "Steps"
+  "modeSteps": "Steps",
+  "modeLabel": "View"
 }

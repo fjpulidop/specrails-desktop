@@ -119,5 +119,6 @@
   "round": "Rodada de correção {{round}} de {{total}}",
   "checks_one": "+1 verificação",
   "checks_other": "+{{count}} verificações",
-  "modeSteps": "Passos"
+  "modeSteps": "Passos",
+  "modeLabel": "Vista"
 }

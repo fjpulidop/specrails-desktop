@@ -2,12 +2,15 @@ import { Activity, useId, useState, useEffect, useRef, type KeyboardEvent, type 
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 import type { EventRow, JobSummary } from '../../../../types'
-import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
+import { FailureDiagnosisCard, useDiagnosisText } from '../../../recovery/components/FailureDiagnosisCard'
 import { FailureAnalysisPanel } from '../../../recovery/components/FailureAnalysisPanel'
-import type { FailureDiagnosis, RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
+import { recordedStepError, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
+import type { FailureFacts } from '../../../recovery/components/FailureDiagnosisCard'
 import { loadJobRunDetailsOpen, saveJobRunDetailsOpen, loadJobRunLogSection, saveJobRunLogSection, type RunDetailSurface, type RunLogSection } from './job-run-model'
 
 export type RunDetailTab = 'failure' | 'log'
+/** The tabs shown: loops expose their two evidence sections directly. */
+type RunDetailView = RunDetailTab | RunLogSection
 export type { RunLogSection } from './job-run-model'
 
 /** Lets the graph tab open a step's log in the detail tab. */
@@ -19,6 +22,55 @@ export interface RunDetailNavigation {
 type RunDetailContent = ReactNode | ((navigation: RunDetailNavigation) => ReactNode)
 const renderContent = (content: RunDetailContent | undefined, navigation: RunDetailNavigation) =>
   typeof content === 'function' ? content(navigation) : content
+
+function payloadOf(event: EventRow): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(event.payload)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch { return null }
+}
+const numberOr = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : null
+
+/** Where and when the run failed, read from its own step records only. */
+export function failureFactsFrom(events: readonly EventRow[], job: JobSummary): FailureFacts {
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index]
+    if (event.event_type !== 'loop_step_end') continue
+    const end = payloadOf(event)
+    if (end?.status !== 'failed') continue
+    let start: Record<string, unknown> | null = null
+    for (let j = index - 1; j >= 0; j--) {
+      if (events[j].event_type !== 'loop_step') continue
+      const candidate = payloadOf(events[j])
+      if (candidate?.index === end.index) { start = candidate; break }
+    }
+    const title = typeof start?.title === 'string' ? start.title : null
+    const node = typeof end.nodeId === 'string' ? end.nodeId : typeof start?.nodeId === 'string' ? start.nodeId : null
+    return {
+      step: node ?? title,
+      attempt: numberOr(start?.attempt),
+      iteration: numberOr(start?.iteration),
+      at: event.timestamp || job.finished_at || null,
+    }
+  }
+  return { at: job.finished_at ?? null }
+}
+
+/** The AI analysis, told what the deterministic card already says so it does not repeat it. */
+function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[] }) {
+  const { t } = useTranslation('recovery')
+  const { headline, phaseName } = useDiagnosisText(diagnosis)
+  const recorded = diagnosis.kind === 'unknown' ? recordedStepError(tail) : null
+  const shown = recorded ? t('headline.stepFailed', { phase: phaseName(recorded.step) }) : headline
+  return (
+    <FailureAnalysisPanel
+      projectId={projectId}
+      jobId={jobId}
+      auto={diagnosis.kind !== 'provider_limit'}
+      known={[shown, recorded?.reason, diagnosis.detail, diagnosis.blocker?.reason]}
+    />
+  )
+}
 
 export interface RunDetailTabsProps {
   job: JobSummary
@@ -48,7 +100,7 @@ export function RunDetailTabs(props: RunDetailTabsProps) {
 
 function RunDetailTabsView({
   surface, showDiagnosis, diagnosis, pendingQuestion = false,
-  diagnosisHandlers = {}, diagnosisTail, detailsContent, hasDetails = true,
+  diagnosisHandlers = {}, diagnosisTail, detailsContent, events, hasDetails = true,
   isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job,
 }: RunDetailTabsProps) {
   const { t } = useTranslation('jobs')
@@ -137,6 +189,14 @@ function RunDetailTabsView({
     saveJobRunLogSection(surface, value)
     setVisited(previous => ({ ...previous, [value]: true }))
   }
+  /** One navigation level: a loop's evidence sections are top-level tabs. */
+  function selectView(value: RunDetailView) {
+    if (value === 'failure' || value === 'log') { selectTab(value); return }
+    explicitLogChoice.current = true
+    setNavigationPending(false)
+    setActiveTab('log')
+    selectSection(value)
+  }
   function navigate<T extends string>(event: KeyboardEvent<HTMLButtonElement>, values: T[], current: T, select: (value: T) => void) {
     const index = values.indexOf(current)
     let next: number
@@ -185,25 +245,21 @@ function RunDetailTabsView({
       {detailsOpen && detailsContent}
     </div>
   )
-  const topTabs: RunDetailTab[] = failureAvailable ? ['failure', 'log'] : ['log']
-  const sections: RunLogSection[] = ['graph', 'detail']
+  const evidenceTabs: RunDetailView[] = isLoop ? ['graph', 'detail'] : ['log']
+  const views: RunDetailView[] = failureAvailable ? ['failure', ...evidenceTabs] : evidenceTabs
+  const selectedView: RunDetailView = selectedTab === 'failure' ? 'failure' : isLoop ? selectedSection : 'log'
   const graphVisible = selectedTab === 'log' && selectedSection === 'graph'
   const detailVisible = selectedTab === 'log' && selectedSection === 'detail'
 
   return (
     <div className="min-h-0 flex-1 flex flex-col overflow-hidden" data-testid="run-detail-tabs">
-      {/* One row for both levels: the log sections sit beside "Log", so the
-          evidence below starts as high as possible. */}
+      {/* One row, one navigation level: a loop's graph and log detail are
+          top-level tabs, so the evidence below starts as high as possible. */}
       <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-1 min-w-0" data-testid="run-detail-bar">
         {statusLead && <div className="flex items-center gap-2 shrink-0">{statusLead}</div>}
         <div role="tablist" aria-label={t('runDetail.navigation')} className="flex gap-1">
-          {topTabs.map(value => renderTab(value, t(`runDetail.${value}`), selectedTab, topTabs, selectTab))}
+          {views.map(value => renderTab(value, t(`runDetail.${value}`), selectedView, views, selectView))}
         </div>
-        {isLoop && selectedTab === 'log' && (
-          <div role="tablist" aria-label={t('runDetail.sections')} className="flex gap-1 border-l border-border pl-3">
-            {sections.map(value => renderTab(value, t(`runDetail.${value}`), selectedSection, sections, selectSection))}
-          </div>
-        )}
         {statusTrail && <div className="flex min-w-0 flex-1 items-center gap-2">{statusTrail}</div>}
       </div>
       {failureAvailable && (
@@ -214,17 +270,23 @@ function RunDetailTabsView({
                 diagnosis={diagnosis}
                 handlers={{ ...diagnosisHandlers, 'open-logs': { ...diagnosisHandlers['open-logs'], run: revealLogs } }}
                 logTail={diagnosisTail}
+                facts={failureFactsFrom(events, job)}
               />
             )}
             {showDiagnosis && diagnosis && job.status === 'failed' && (
-              <FailureAnalysisPanel projectId={projectId} jobId={job.id} auto={diagnosis.kind !== 'provider_limit'} />
+              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} />
             )}
             {details}
           </div>
         </Activity>
       )}
       <Activity mode={selectedTab === 'log' ? 'visible' : 'hidden'}>
-        <div role="tabpanel" id={`${id}-panel-log`} aria-labelledby={`${id}-tab-log`} className="min-h-0 flex-1 flex flex-col overflow-hidden">
+        <div
+          role={isLoop ? undefined : 'tabpanel'}
+          id={isLoop ? undefined : `${id}-panel-log`}
+          aria-labelledby={isLoop ? undefined : `${id}-tab-log`}
+          className="min-h-0 flex-1 flex flex-col overflow-hidden"
+        >
           {!failureAvailable && details}
           {isLoop && (visited.graph || graphVisible) && (
             <Activity mode={graphVisible ? 'visible' : 'hidden'}>

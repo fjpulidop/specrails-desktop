@@ -12,11 +12,15 @@ export interface LoopOverviewStripProps {
   iteration: { current: number; limit: number | null } | null
   onChipClick: (segmentKey: string) => void
   variant: 'page' | 'glass'
+  /** Detail view: show only the steps the run reached and count the rest. */
+  reachedOnly?: boolean
 }
 
-function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: LoopOverviewStripProps) {
+function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, variant, reachedOnly = false }: LoopOverviewStripProps) {
   const { t } = useTranslation('jobs')
-  if (chips.length === 0 && !iteration) return null
+  const chips = reachedOnly ? allChips.filter(chip => chip.state !== 'pending') : allChips
+  const notReached = allChips.length - chips.length
+  if (chips.length === 0 && !iteration && notReached === 0) return null
 
   return (
     <div
@@ -51,18 +55,19 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               className={cn(
                 'relative flex items-center gap-1.5 shrink-0 rounded-full border bg-surface/40 px-2.5 py-1 text-caption transition-colors',
                 borderAccent,
-                chip.state === 'pending' && 'opacity-45 border-border/40',
+                chip.state === 'pending' && 'border-dashed border-border bg-transparent',
                 (chip.state === 'interrupted' || chip.state === 'paused') && 'border-dashed border-accent-warning/50',
                 clickable ? 'cursor-pointer hover:bg-surface/70' : 'cursor-default',
               )}
             >
               {chip.state === 'running' && (
-                <LiveDot tone="primary" size="xs" className="absolute -right-0.5 -top-0.5" aria-hidden />
+                <LiveDot tone="info" size="xs" className="absolute -right-0.5 -top-0.5" aria-hidden />
               )}
               <Icon className={cn('w-3 h-3 shrink-0', textAccent)} />
               <span
                 className={cn(
-                  'max-w-[120px] truncate font-medium text-foreground',
+                  'max-w-[120px] truncate font-medium',
+                  chip.state === 'pending' ? 'text-muted-foreground' : 'text-foreground',
                   chip.state === 'running' && 'title-shimmer',
                 )}
               >
@@ -81,6 +86,12 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
           </Fragment>
         )
       })}
+
+      {notReached > 0 && (
+        <span data-testid="loop-not-reached" className="shrink-0 pl-1 text-caption text-muted-foreground num">
+          {t('loopExplorer.notReached', { count: notReached })}
+        </span>
+      )}
 
       {iteration && (
         <span

@@ -315,7 +315,13 @@
     "openFork": "リンクされた実行を開く",
     "graphFollow": "実行を追跡",
     "graphFitAll": "全体を表示",
-    "graphLegend": "グラフの凡例"
+    "graphLegend": "グラフの凡例",
+    "graphAttempt": "試行 {{n}}",
+    "graphAttempts_one": "{{count}} 回の試行",
+    "graphAttempts_other": "{{count}} 回の試行",
+    "graphTrace": "トレース",
+    "graphPathOnly": "通過した経路のみ",
+    "notReached": "未到達 {{count}} 件"
   },
   "logViewer": {
     "loading": "ログを読み込み中...",

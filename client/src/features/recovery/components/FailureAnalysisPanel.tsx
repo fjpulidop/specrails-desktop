@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react'
+import { Gauge, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { Skeleton } from '../../../components/ui/skeleton'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { cn } from '../../../lib/utils'
 import { useFailureAnalysis, type AnalysisCategory } from '../hooks/useFailureAnalysis'
 
@@ -10,20 +12,48 @@ export interface FailureAnalysisPanelProps {
   /** Ask for an analysis on open when none is saved. Off when the provider is
    *  known to be out of quota: the call would hit the same limit. */
   auto: boolean
+  /** What the deterministic card already says (headline, recorded error):
+   *  an AI headline that only repeats it is left out. */
+  known?: ReadonlyArray<string | null | undefined>
+}
+
+const normalise = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+
+const significant = (value: string) => normalise(value).split(' ').filter(word => word.length > 3)
+
+/** True when the AI headline adds nothing to what the card already says:
+ *  the same sentence, one inside the other, or mostly the same words. */
+export function repeatsKnown(headline: string, known: ReadonlyArray<string | null | undefined>): boolean {
+  const head = normalise(headline)
+  if (!head) return true
+  const texts = known.filter((text): text is string => !!text && !!normalise(text))
+  if (texts.some(text => { const other = normalise(text); return other === head || other.includes(head) || head.includes(other) })) return true
+  const words = significant(headline)
+  if (words.length === 0) return false
+  const pool = new Set(texts.flatMap(significant))
+  return words.filter(word => pool.has(word)).length / words.length >= 0.7
 }
 
 /**
- * The AI reading of why a failed run stopped: one line, a short explanation,
- * the log lines it rests on (verbatim, checked by the server) and what to do
- * next. Shown beside the app's own diagnosis, labelled as an AI analysis.
+ * The AI reading of why a failed run stopped, led by the cause and what to do;
+ * the log lines it rests on (verbatim, checked by the server) stay one click
+ * away. Shown beside the app's own diagnosis, labelled as an AI analysis.
  */
-export function FailureAnalysisPanel({ projectId, jobId, auto }: FailureAnalysisPanelProps) {
+export function FailureAnalysisPanel({ projectId, jobId, auto, known = [] }: FailureAnalysisPanelProps) {
   const { t, i18n } = useTranslation('recovery')
   const { state, run } = useFailureAnalysis(projectId, jobId, i18n.language, { auto })
-  if (state.status === 'loading') return null
+  if (state.status === 'loading') {
+    return (
+      <div data-testid="failure-analysis" data-state="loading" className="space-y-2 rounded-card border border-border px-3.5 py-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    )
+  }
   if (state.status === 'idle' || state.status === 'error') {
     return (
-      <section data-testid="failure-analysis" data-state={state.status} className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border/60 px-3.5 py-2.5 text-body">
+      <section data-testid="failure-analysis" data-state={state.status} className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border px-3.5 py-2.5 text-body">
         <Sparkles className="h-4 w-4 shrink-0 text-accent-primary" aria-hidden />
         <p className="min-w-0 flex-1 text-muted-foreground">
           {state.status === 'error' ? t('analysis.failed', { detail: state.detail ?? t('analysis.noDetail') }) : t('analysis.offer')}
@@ -37,48 +67,49 @@ export function FailureAnalysisPanel({ projectId, jobId, auto }: FailureAnalysis
   }
   if (state.status === 'running') {
     return (
-      <section data-testid="failure-analysis" data-state="running" role="status" className="flex items-center gap-2 rounded-card border border-border/60 bg-card/40 px-3.5 py-3 text-body text-muted-foreground">
-        <Loader2 className="h-4 w-4 shrink-0 motion-safe:animate-spin text-accent-primary" aria-hidden />
-        {t('analysis.running')}
+      <section data-testid="failure-analysis" data-state="running" role="status" className="space-y-2 rounded-card border border-border px-3.5 py-3 text-body text-muted-foreground">
+        <span aria-hidden className="block w-24"><RailTrack running /></span>
+        <p>{t('analysis.running')}</p>
       </section>
     )
   }
 
   const { analysis, provider, model, stale } = state
   const quota = analysis.category === 'provider_limit'
+  const showHeadline = !repeatsKnown(analysis.headline, [...known, analysis.cause])
   return (
     <section
       data-testid="failure-analysis"
       data-state="ready"
       data-category={analysis.category}
       aria-label={t('analysis.title')}
-      className={cn('space-y-2.5 rounded-card border px-3.5 py-3', quota ? 'border-accent-warning/40 bg-accent-warning/5' : 'border-accent-primary/30 bg-accent-primary/5')}
+      className={cn('space-y-2.5 rounded-card border px-3.5 py-3', quota ? 'border-accent-warning/40 bg-accent-warning/5' : 'border-border bg-card')}
     >
       <div className="flex items-start gap-2.5">
         {quota ? <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" aria-hidden /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" aria-hidden />}
         <div className="min-w-0 flex-1 space-y-1">
           <p className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
-            <span className="font-medium uppercase tracking-wide">{t('analysis.title')}</span>
-            <span className="rounded-full border border-border/60 px-1.5">{t(`analysis.category.${categoryKey(analysis.category)}`)}</span>
+            <span className="font-medium">{t('analysis.title')}</span>
+            <span className="rounded-full border border-border px-1.5">{t(`analysis.category.${categoryKey(analysis.category)}`)}</span>
             {analysis.failedStep && <span>{t('analysis.failedStep', { step: analysis.failedStep })}</span>}
           </p>
-          <p className="text-strong text-foreground" data-testid="failure-analysis-headline">{analysis.headline}</p>
-          <p className="text-body text-foreground">{analysis.cause}</p>
+          {showHeadline && <p className="text-strong text-foreground" data-testid="failure-analysis-headline">{analysis.headline}</p>}
+          <p className="text-body text-foreground" data-testid="failure-analysis-cause">{analysis.cause}</p>
         </div>
       </div>
-      {analysis.evidence.length > 0 && (
-        <div>
-          <p className="mb-1 text-caption font-medium text-muted-foreground">{t('analysis.evidence')}</p>
-          <pre data-testid="failure-analysis-evidence" className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control border border-border/50 bg-background/40 px-3 py-2 font-mono text-caption leading-relaxed text-foreground">{analysis.evidence.join('\n')}</pre>
-        </div>
-      )}
       {analysis.nextSteps.length > 0 && (
-        <div>
-          <p className="mb-1 text-caption font-medium text-muted-foreground">{t('analysis.nextSteps')}</p>
+        <div className="pl-6.5">
+          <p className="mb-1 text-label text-foreground">{t('analysis.nextSteps')}</p>
           <ol className="list-decimal space-y-0.5 pl-5 text-body text-foreground">
             {analysis.nextSteps.map((step, index) => <li key={index}>{step}</li>)}
           </ol>
         </div>
+      )}
+      {analysis.evidence.length > 0 && (
+        <details className="pl-6.5">
+          <summary className="cursor-pointer text-caption font-medium text-muted-foreground hover:text-foreground">{t('analysis.evidence')}</summary>
+          <pre data-testid="failure-analysis-evidence" className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control border border-border bg-background px-3 py-2 font-mono text-caption leading-relaxed text-foreground">{analysis.evidence.join('\n')}</pre>
+        </details>
       )}
       <div className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
         <span>{t('analysis.by', { model: model ? `${provider}/${model}` : provider })}</span>

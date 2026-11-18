@@ -315,7 +315,13 @@
     "openFork": "打开关联运行",
     "graphFollow": "跟随执行",
     "graphFitAll": "查看全部",
-    "graphLegend": "图例"
+    "graphLegend": "图例",
+    "graphAttempt": "第 {{n}} 次尝试",
+    "graphAttempts_one": "{{count}} 次尝试",
+    "graphAttempts_other": "{{count}} 次尝试",
+    "graphTrace": "追踪",
+    "graphPathOnly": "仅显示已走路径",
+    "notReached": "{{count}} 个未到达"
   },
   "logViewer": {
     "loading": "正在加载日志…",
