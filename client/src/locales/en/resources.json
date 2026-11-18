@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "Files kept outside a PR",
     "description": "When a run finishes, Specrails removes its own temporary files. Anything it can't confirm as its own is set aside here instead of being deleted.",
-    "summary_one": "{{count}} folder · {{files}} files · {{size}}",
-    "summary_other": "{{count}} folders · {{files}} files · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} folder",
+    "folderCount_other": "{{count}} folders",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
     "refresh": "Refresh",
     "error": "Couldn't list them: {{error}}",
     "projectError": "{{project}}: {{error}}",

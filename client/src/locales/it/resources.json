@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "File conservati fuori da una PR",
     "description": "Al termine di un'esecuzione, Specrails rimuove i propri file temporanei. Ciò che non può confermare come proprio viene messo da parte qui invece di essere eliminato.",
-    "summary_one": "{{count}} cartella · {{files}} file · {{size}}",
-    "summary_other": "{{count}} cartelle · {{files}} file · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} cartella",
+    "folderCount_other": "{{count}} cartelle",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} file",
     "refresh": "Aggiorna",
     "error": "Impossibile elencarli: {{error}}",
     "projectError": "{{project}}: {{error}}",

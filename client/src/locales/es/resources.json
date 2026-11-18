@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "Archivos guardados fuera de una PR",
     "description": "Al terminar una ejecución, Specrails elimina sus propios archivos temporales. Lo que no puede confirmar como suyo lo aparta aquí en vez de borrarlo.",
-    "summary_one": "{{count}} carpeta · {{files}} archivos · {{size}}",
-    "summary_other": "{{count}} carpetas · {{files}} archivos · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} carpeta",
+    "folderCount_other": "{{count}} carpetas",
+    "fileCount_one": "{{count}} archivo",
+    "fileCount_other": "{{count}} archivos",
     "refresh": "Actualizar",
     "error": "No se pudieron listar: {{error}}",
     "projectError": "{{project}}: {{error}}",

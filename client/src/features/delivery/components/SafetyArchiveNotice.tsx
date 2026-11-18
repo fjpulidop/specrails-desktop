@@ -77,8 +77,8 @@ export function SafetyArchiveDetails({ archive }: { archive: SafetyArchive }) {
   const { t } = useTranslation('dashboard')
   const hidden = archive.fileCount - archive.files.length
   return <div className="space-y-1.5" data-testid="safety-archive-details">
+    <code className="block break-all rounded bg-muted px-1.5 py-0.5 font-mono text-caption text-foreground">{archive.path}</code>
     <div className="flex flex-wrap items-center gap-1">
-      <code className="min-w-0 flex-1 break-all rounded bg-muted px-1.5 py-0.5 font-mono text-caption text-foreground">{archive.path}</code>
       <CopyPathButton value={archive.path} label={t('safetyArchive.copyPath')} />
       {isTauri() && <Button
         type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-caption"
@@ -137,10 +137,12 @@ export function SafetyArchiveDeleteDialog({ archives, open, onOpenChange, onDele
     testId="safety-archive-confirm"
     confirmTestId="safety-archive-confirm-button"
   >
-    {archives.length > 1 && <ul className="space-y-0.5 font-mono text-caption text-muted-foreground">
-      {archives.map((archive) => <li key={archive.path} className="break-all">{safetyArchiveFolderName(archive.path)}</li>)}
-    </ul>}
-    {error && <p role="alert" className="text-caption text-destructive">{error}</p>}
+    {archives.length > 1 || error ? <>
+      {archives.length > 1 && <ul className="space-y-0.5 font-mono text-caption text-muted-foreground">
+        {archives.map((archive) => <li key={archive.path} className="break-all">{safetyArchiveFolderName(archive.path)}</li>)}
+      </ul>}
+      {error && <p role="alert" className="text-caption text-destructive">{error}</p>}
+    </> : null}
   </ConfirmDialog>
 }
 
@@ -167,25 +169,23 @@ export function SafetyArchiveNotice({ projectId, paths, compact = false, classNa
     data-testid={testId}
     role="status"
   >
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <p className="min-w-0 flex-1 font-medium text-foreground">{t('safetyArchive.title', { count: files })}</p>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" size="sm" variant="destructive" className="h-6 gap-1 px-2 text-caption" onClick={() => setConfirming(true)} data-testid="safety-archive-delete">
-          <Trash2 className="h-3 w-3" aria-hidden />{t('safetyArchive.delete')}
-        </Button>
-        <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-caption" onClick={dismiss} data-testid="safety-archive-dismiss">
-          {t('safetyArchive.dismiss')}
-        </Button>
-        <Button
-          type="button" size="sm" variant="ghost" className="h-6 gap-0.5 px-1.5 text-caption"
-          aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} data-testid="safety-archive-details-toggle"
-        >
-          {expanded ? <ChevronDown className="h-3 w-3" aria-hidden /> : <ChevronRight className="h-3 w-3" aria-hidden />}
-          {t('safetyArchive.details')}
-        </Button>
-      </div>
-    </div>
+    <p className="font-medium text-foreground">{t('safetyArchive.title', { count: files })}</p>
     <p className="mt-0.5 text-caption">{t('safetyArchive.hint')}</p>
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <Button type="button" size="sm" variant="destructive" className="h-6 gap-1 px-2 text-caption" onClick={() => setConfirming(true)} data-testid="safety-archive-delete">
+        <Trash2 className="h-3 w-3" aria-hidden />{t('safetyArchive.delete')}
+      </Button>
+      <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-caption" onClick={dismiss} data-testid="safety-archive-dismiss">
+        {t('safetyArchive.dismiss')}
+      </Button>
+      <Button
+        type="button" size="sm" variant="ghost" className="h-6 gap-0.5 px-1.5 text-caption"
+        aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} data-testid="safety-archive-details-toggle"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3" aria-hidden /> : <ChevronRight className="h-3 w-3" aria-hidden />}
+        {t('safetyArchive.details')}
+      </Button>
+    </div>
     {expanded && <div className="mt-1.5 space-y-2">
       {archives.map((archive) => <SafetyArchiveDetails key={archive.path} archive={archive} />)}
     </div>}

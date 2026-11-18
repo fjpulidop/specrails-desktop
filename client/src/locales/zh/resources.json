@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "保留在 PR 之外的文件",
     "description": "运行结束后,Specrails 会删除自己的临时文件。无法确认属于自己的文件会放在这里,而不会被删除。",
-    "summary_one": "{{count}} 个文件夹 · {{files}} 个文件 · {{size}}",
-    "summary_other": "{{count}} 个文件夹 · {{files}} 个文件 · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} 个文件夹",
+    "folderCount_other": "{{count}} 个文件夹",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
     "refresh": "刷新",
     "error": "无法列出:{{error}}",
     "projectError": "{{project}}:{{error}}",

@@ -113,7 +113,7 @@ export function SafetyArchivesSection({ active }: { active: boolean }) {
   return <div data-testid="safety-archives" className="space-y-3">
     <div className="flex flex-wrap items-center gap-2">
       {snapshot && items.length > 0 && <p className="text-caption text-muted-foreground">
-        {t('safetyArchives.summary', { count: items.length, files: totalFiles, size: formatArchiveBytes(totalBytes) })}
+        {t('safetyArchives.summary', { folders: t('safetyArchives.folderCount', { count: items.length }), files: t('safetyArchives.fileCount', { count: totalFiles }), size: formatArchiveBytes(totalBytes) })}
       </p>}
       <Button size="sm" variant="ghost" className="ml-auto h-7 gap-1.5" onClick={() => void refresh()} disabled={loading} aria-label={t('safetyArchives.refresh')}>
         <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} aria-hidden />

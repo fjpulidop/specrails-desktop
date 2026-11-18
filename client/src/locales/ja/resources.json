@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "PR の外に保管されたファイル",
     "description": "実行が終わると、Specrails は自分の一時ファイルを削除します。自分のものだと確認できなかったものは、削除せずにここへ保管します。",
-    "summary_one": "{{count}} 個のフォルダ · {{files}} 件のファイル · {{size}}",
-    "summary_other": "{{count}} 個のフォルダ · {{files}} 件のファイル · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} 個のフォルダ",
+    "folderCount_other": "{{count}} 個のフォルダ",
+    "fileCount_one": "{{count}} 件のファイル",
+    "fileCount_other": "{{count}} 件のファイル",
     "refresh": "更新",
     "error": "一覧を取得できませんでした: {{error}}",
     "projectError": "{{project}}: {{error}}",

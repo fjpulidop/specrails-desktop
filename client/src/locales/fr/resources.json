@@ -136,8 +136,11 @@
   "safetyArchives": {
     "title": "Fichiers conservés hors d'une PR",
     "description": "À la fin d'une exécution, Specrails supprime ses propres fichiers temporaires. Ce qu'il ne peut pas confirmer comme sien est mis de côté ici au lieu d'être supprimé.",
-    "summary_one": "{{count}} dossier · {{files}} fichiers · {{size}}",
-    "summary_other": "{{count}} dossiers · {{files}} fichiers · {{size}}",
+    "summary": "{{folders}} · {{files}} · {{size}}",
+    "folderCount_one": "{{count}} dossier",
+    "folderCount_other": "{{count}} dossiers",
+    "fileCount_one": "{{count}} fichier",
+    "fileCount_other": "{{count}} fichiers",
     "refresh": "Actualiser",
     "error": "Impossible de les lister : {{error}}",
     "projectError": "{{project}} : {{error}}",
