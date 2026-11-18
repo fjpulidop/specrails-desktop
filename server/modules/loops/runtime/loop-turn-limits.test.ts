@@ -8,6 +8,7 @@ describe('loop turn limits', () => {
     expect(limits.map(({ stepId, role, maxTurns, source }) => ({ stepId, role, maxTurns, source }))).toEqual([
       { stepId: 'architect', role: 'plan', maxTurns: CORE_DEFAULT_MAX_TURNS, source: 'core-default' },
       { stepId: 'developer', role: 'build', maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, source: 'role' },
+      { stepId: 'unblock', role: 'build', maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, source: 'role' },
       { stepId: 'reviewer', role: 'assess', maxTurns: CORE_DEFAULT_MAX_TURNS, source: 'core-default' },
       { stepId: 'fixer', role: 'correct', maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, source: 'role' },
     ])
@@ -23,6 +24,7 @@ describe('loop turn limits', () => {
     expect(loopTurnLimits(graph, capabilities).map(({ stepId, maxTurns, source }) => ({ stepId, maxTurns, source }))).toEqual([
       { stepId: 'architect', maxTurns: null, source: 'core-default' },
       { stepId: 'developer', maxTurns: null, source: 'core-default' },
+      { stepId: 'unblock', maxTurns: null, source: 'core-default' },
       { stepId: 'reviewer', maxTurns: null, source: 'core-default' },
       { stepId: 'fixer', maxTurns: null, source: 'core-default' },
     ])

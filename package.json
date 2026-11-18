@@ -36,6 +36,7 @@
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "build:mcp-bridge": "node scripts/build-mcp-bridge.mjs",
     "build:policy-hook": "node scripts/build-policy-hook.mjs",
+    "build:browse-tool": "node scripts/build-browse-tool.mjs",
     "build:local-runner": "node scripts/build-local-runner.mjs",
     "build:desktop": "npm run build:server && cd client && npm run build && cd .. && npm run build:sidecar && npm run build:mcp-bridge && npm run build:local-runner && tauri build",
     "build:desktop:verified": "npm run build:server && npm run build:sidecar && npm run build:mcp-bridge && npm run build:local-runner && tauri build",

@@ -2,8 +2,9 @@ import fs from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRunPortLeaseTable } from './run-port-leases'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createRunPortLeaseTable, withRunPortEnv } from './run-port-leases'
+import { resetBrowseToolForTests } from '../../browser/runtime/run-browse-tool'
 import { blockRange, candidateBlocks, runPortArea } from '../domain/run-ports'
 
 let home: string
@@ -81,5 +82,17 @@ describe('run port leases', () => {
     const [a, b] = await Promise.all([leases.ensure(wt), leases.ensure(wt)])
     expect(a).toEqual(b)
     expect(probes).toBe(1)
+  })
+})
+
+describe('run process environment', () => {
+  afterEach(() => { vi.unstubAllEnvs(); resetBrowseToolForTests() })
+  it('gives a run its ports and the browser tool, and other processes neither', () => {
+    vi.stubEnv('SPECRAILS_REGISTRY_HOME', home)
+    resetBrowseToolForTests('/tools/specrails-browse')
+    const env = withRunPortEnv({ PATH: '/bin' }, worktree('r9'))
+    expect(env).toMatchObject({ PATH: '/bin', SPECRAILS_BROWSE: '/tools/specrails-browse', PORT: expect.any(String) })
+    expect(env.PLAYWRIGHT_BROWSERS_PATH).toBeUndefined()
+    expect(withRunPortEnv({ PATH: '/bin' }, home)).toEqual({ PATH: '/bin' })
   })
 })

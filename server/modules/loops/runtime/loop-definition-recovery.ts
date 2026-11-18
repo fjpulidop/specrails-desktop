@@ -22,7 +22,7 @@ export interface DefinitionRunProbe {
   pendingInterrupts: DefinitionInterrupt[]
   completion: DefinitionCompletion | null
   /** Full inspection only; exact scope/attempt identities prevent branch conflation. */
-  scopes?: Array<{ nodePath: string; scopeId: string; kind: string; status: string; attemptId: string | null; output?: unknown }>
+  scopes?: Array<{ nodePath: string; scopeId: string; kind: string; status: string; attemptId: string | null; visits?: number; output?: unknown }>
   coreRevision: number | null
   eventCursor: number | null
   probedAt: string

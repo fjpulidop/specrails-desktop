@@ -30,6 +30,8 @@
       "phase": "El agente se detuvo inesperadamente en la fase {{phase}}",
       "plain": "El agente se detuvo inesperadamente"
     },
+    "incomplete_tasks": "Quedaron tareas aprobadas sin terminar",
+    "spec_invalid": "OpenSpec rechazó la spec del cambio",
     "unknown": "Causa desconocida",
     "stepFailed": "Falló el paso {{phase}}"
   },
@@ -46,7 +48,9 @@
     "timeout": "Llegó a su límite de tiempo antes de terminar.",
     "tool_inactivity": "Dejó de usar herramientas y de responder durante demasiado tiempo.",
     "crash": "El proceso del proveedor o su conexión murió a mitad de la ejecución.",
-    "unknown": "La app no sabe por qué se detuvo y no va a adivinarlo."
+    "incomplete_tasks": "Todo lo demás está hecho. Si lo que falta es una comprobación que solo puede hacer una persona, continúa a revisión con ella como comprobación manual; si no, reintenta y deja que la ejecución la termine con su navegador y herramientas.",
+    "spec_invalid": "El plan o la spec no pasó OpenSpec y la planificación no pudo repararlo.",
+    "unknown": "Los registros de la ejecución no indican la causa. Una lectura del log con IA suele encontrarla."
   },
   "remedies": {
     "label": "Formas de recuperarse"
@@ -57,7 +61,9 @@
     "retry": "Ejecutar de nuevo",
     "editSpec": "Editar la spec y relanzar",
     "fixEnvironment": "Arreglar el entorno",
-    "openLogs": "Abrir el registro en el fallo"
+    "openLogs": "Abrir el registro en el fallo",
+    "continueToReview": "Continuar a revisión",
+    "retryWithBrowser": "Reintentar con el navegador"
   },
   "environment": {
     "command": "Comando",
@@ -103,6 +109,7 @@
       "environment": "Entorno",
       "agentError": "Error del agente",
       "interrupted": "Interrumpida",
+      "incompleteTasks": "Tareas sin terminar",
       "other": "Otra"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "Intento",
     "iteration": "Iteración",
     "time": "Hora"
+  },
+  "incomplete": {
+    "title": "Tareas sin terminar"
+  },
+  "ai": {
+    "label": "Según el análisis con IA",
+    "running": "Leyendo el log con IA para encontrar la causa…"
+  },
+  "remedyResult": {
+    "continued": "Continuando a revisión con lo que falta como comprobaciones manuales.",
+    "retried": "Reintentando desde el desarrollador con el navegador y sus herramientas.",
+    "notResumed": "La ejecución continuada no arrancó",
+    "failed": "No se pudo continuar la ejecución"
   }
 }

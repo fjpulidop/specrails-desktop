@@ -49,6 +49,8 @@ import { MissionCoreSessions } from './modules/missions/runtime/mission-core-ses
 import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { agentCwdPath } from './modules/missions/runtime/agent-cwd-manager'
 import { createDenialIngest, ensurePolicyHookScript, startDenialSpool } from './modules/agent-policy'
+import { ensureBrowseTool } from './modules/browser/runtime/run-browse-tool'
+import { resolveBundledChromiumExecutable } from './chromium-resolver'
 import { createTurnContinuity, type TurnContinuity } from './modules/continuity'
 import { createFileContinuityStore } from './modules/continuity/adapters/file-store'
 import { registerContinuityRoutes } from './modules/continuity/adapters/http'
@@ -888,6 +890,10 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // cwd reference it), then drain the hook's denial spool into the audit for
   // runs whose transport does not carry tool results.
   ensurePolicyHookScript()
+  // Run browser tool ($SPECRAILS_BROWSE): install now with Playwright's own Chromium, then again
+  // with the app's bundled Chromium once it is extracted (desktop mode only).
+  ensureBrowseTool()
+  void resolveBundledChromiumExecutable().then((chromium) => { if (chromium) ensureBrowseTool({ chromium }) }).catch(() => undefined)
   _policyDenialSpool = startDenialSpool({
     ingest: createDenialIngest({
       missionCwd: agentCwdPath,

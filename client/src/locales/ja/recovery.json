@@ -30,6 +30,8 @@
       "phase": "{{phase}}フェーズでエージェントが予期せず停止しました",
       "plain": "エージェントが予期せず停止しました"
     },
+    "incomplete_tasks": "承認済みのタスクが未完了のまま残りました",
+    "spec_invalid": "OpenSpec が変更の仕様を拒否しました",
     "unknown": "原因は不明です",
     "stepFailed": "{{phase}} ステップが失敗しました"
   },
@@ -46,7 +48,9 @@
     "timeout": "終了する前に制限時間に達しました。",
     "tool_inactivity": "ツールの使用も返信も長時間ありませんでした。",
     "crash": "実行中にプロバイダーのプロセスまたは接続が切れました。",
-    "unknown": "止まった理由がわからないため、推測はしません。"
+    "incomplete_tasks": "ほかの作業は完了しています。残りが人にしかできない確認なら、手動確認として一覧にしてレビューへ進めます。そうでなければ再実行し、ブラウザーとツールで実行に仕上げさせます。",
+    "spec_invalid": "計画または仕様が OpenSpec を通らず、計画の修正でも直せませんでした。",
+    "unknown": "実行の記録には原因が残っていません。AI でログを読むと、たいてい原因が見つかります。"
   },
   "remedies": {
     "label": "復旧の方法"
@@ -57,7 +61,9 @@
     "retry": "もう一度実行",
     "editSpec": "スペックを編集して再起動",
     "fixEnvironment": "環境を修復",
-    "openLogs": "失敗箇所のログを開く"
+    "openLogs": "失敗箇所のログを開く",
+    "continueToReview": "レビューへ進む",
+    "retryWithBrowser": "ブラウザーで再試行"
   },
   "environment": {
     "command": "コマンド",
@@ -103,6 +109,7 @@
       "environment": "環境",
       "agentError": "エージェントのエラー",
       "interrupted": "中断",
+      "incompleteTasks": "未完了のタスク",
       "other": "その他"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "試行",
     "iteration": "反復",
     "time": "時刻"
+  },
+  "incomplete": {
+    "title": "未完了のタスク"
+  },
+  "ai": {
+    "label": "AI 分析による",
+    "running": "AI がログを読んで原因を探しています…"
+  },
+  "remedyResult": {
+    "continued": "残りを手動確認としてレビューへ進めています。",
+    "retried": "ブラウザーとツールを使って開発者から再試行しています。",
+    "notResumed": "続行した実行が開始しませんでした",
+    "failed": "実行を続行できませんでした"
   }
 }

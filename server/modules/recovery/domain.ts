@@ -8,13 +8,13 @@
  */
 import { classifyProviderLimit } from '../../provider-limit'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 export type FailureConfidence = 'high' | 'low'
 export type FailureSource = 'core' | 'desktop'
 
 /** Remedies that map to ACTIONS THAT ALREADY EXIST; the client shows only those its surface can run. */
-export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs'] as const
+export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
 
 /** The structured host precondition behind an `environment` failure (Core's HostBlocker, bounded). */
@@ -46,6 +46,8 @@ export interface FailureDiagnosis {
   blocker: FailureBlocker | null
   /** `port_in_use`: the contested port, when the message named it. */
   port?: number | null
+  /** `incomplete_tasks`: the approved tasks still unticked, as the run named them. */
+  incompleteTasks?: string[] | null
   source: FailureSource
 }
 
@@ -69,6 +71,26 @@ function validPort(value: unknown): number | null {
 
 function optionalText(value: unknown, max: number): string | null {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null
+}
+
+const TASK_LIMIT = 20, TASK_TEXT_LIMIT = 300
+function taskList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  const tasks = value.filter((item): item is string => typeof item === 'string' && !!item.trim()).slice(0, TASK_LIMIT).map((item) => item.trim().slice(0, TASK_TEXT_LIMIT))
+  return tasks.length ? tasks : null
+}
+
+/** The `Incomplete: [...]` JSON list an Implement end reason carries (a task text may itself contain "]"). */
+export function incompleteTasksOf(message: string): string[] | null {
+  const start = message.indexOf('Incomplete: [')
+  if (start < 0) return null
+  const from = start + 'Incomplete: '.length
+  for (let end = message.indexOf(']', from); end >= 0; end = message.indexOf(']', end + 1)) {
+    let value: unknown
+    try { value = JSON.parse(message.slice(from, end + 1)) } catch { continue }
+    return taskList(value)
+  }
+  return null
 }
 
 /** Bounded copy of a host blocker; anything malformed is dropped. */
@@ -106,6 +128,7 @@ export function parseCoreFailure(raw: unknown): FailureDiagnosis | null {
     resumablePhase: optionalText(value.resumablePhase, 200),
     blocker: parseBlocker(value.blocker),
     ...(kind === 'port_in_use' ? { port: validPort(value.port) } : {}),
+    ...(kind === 'incomplete_tasks' ? { incompleteTasks: taskList(value.incompleteTasks) } : {}),
     source: 'core',
   }
 }
@@ -132,6 +155,12 @@ export interface DeriveInput {
 }
 
 const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
+// The Implement recipe's own end reasons (Desktop data, fixed templates): known causes even when
+// an older Core sends no classification, or a low-confidence one.
+const INCOMPLETE_TASKS = /approved tasks (?:are )?still incomplete/i
+const SPEC_INVALID = /still fails OpenSpec validation|OpenSpec could not archive change/i
+const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host blocker\b|^Host blocker \(/im
+const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
 // Core's own sentence for a host precondition (a fixed template, not a guess).
 const HOST_PRECONDITION = /Verification cannot run in this environment/i
 
@@ -150,7 +179,8 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   // A check whose own step could not bind its port did not fail on the change: the collision is
   // the certain cause, whatever the checks' exit code made Core call it. Core's other causes win.
   if (core && conflict && (core.kind === 'tests_failed' || core.kind === 'unknown')) return portInUse(core)
-  if (core) return { ...core, phase: core.phase ?? input.stepId ?? null }
+  // A low-confidence Core record is not a cause: Desktop's own certain signals may still name one.
+  if (core && core.confidence === 'high') return { ...core, phase: core.phase ?? input.stepId ?? null }
   const make = (kind: FailureKind, confidence: FailureConfidence, extra: Partial<FailureDiagnosis> = {}): FailureDiagnosis => ({
     kind, confidence, phase: input.stepId ?? null, rounds: null, resetAt: null, detail: oneSentence(input.errorText), resumablePhase: null, blocker: null, source: 'desktop', ...extra,
   })
@@ -164,6 +194,11 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (input.stallReason === 'no_progress') return make('blocked', 'high', { detail: oneSentence(input.errorText) ?? 'no_progress' })
   const blocker = parseBlocker(input.hostBlocker)
   if (blocker) return make('environment', 'high', { blocker, detail: oneSentence(blocker.reason) })
+  const ended = input.blockedReason ?? ''
+  if (INCOMPLETE_TASKS.test(ended)) return make('incomplete_tasks', 'high', { detail: oneSentence(ended), incompleteTasks: incompleteTasksOf(ended), ...(core?.phase ? { phase: core.phase } : {}) })
+  if (SPEC_INVALID.test(ended)) return make('spec_invalid', 'high', { detail: oneSentence(ended) })
+  if (RECIPE_HOST_BLOCKER.test(ended)) return make('environment', 'high', { detail: oneSentence(ended) })
+  if (RECIPE_STALLED.test(ended)) return make('blocked', 'high', { detail: oneSentence(ended) })
   if (input.outcome === 'blocked' && input.blockedReason) return make('blocked', 'high', { detail: oneSentence(input.blockedReason) })
   if (conflict) return portInUse(null)
   const text = input.errorText ?? ''
@@ -171,7 +206,7 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (limit) return make('provider_limit', 'high', { resetAt: limit.resetsAt, detail: oneSentence(limit.message) })
   if (BASELINE_CODE.test(text)) return make('blocked', 'high')
   if (HOST_PRECONDITION.test(text)) return make('environment', 'high')
-  return make('unknown', 'low')
+  return core ? { ...core, phase: core.phase ?? input.stepId ?? null } : make('unknown', 'low')
 }
 
 /** The conflict counts only for a run that failed in the very step that printed it. */
@@ -201,6 +236,10 @@ export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confide
     case 'timeout':
     case 'tool_inactivity':
     case 'crash': return [...resume, 'retry', 'open-logs']
+    // What is left is either a person's check (continue to review with it listed) or work the
+    // run can finish with its tools (retry from the developer with the unblock guidance).
+    case 'incomplete_tasks': return ['continue-to-review', 'retry-with-browser', 'open-logs', 'retry']
+    case 'spec_invalid': return ['edit-spec', 'open-logs', 'retry']
     default: return ['open-logs', 'retry']
   }
 }

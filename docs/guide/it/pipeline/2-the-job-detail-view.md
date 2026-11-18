@@ -121,9 +121,13 @@ Per un job fallito o annullato con diagnosi, **Cause dell’errore** si apre con
 - **Ambiente**: la macchina non riesce a eseguire i controlli (credenziali, uno strumento mancante, un comando di preparazione che fallisce). *Sistema l'ambiente* mostra esattamente cosa eseguire o cambiare.
 - **Porta in uso**: il controllo o il server dell'esecuzione non è partito perché un altro processo occupava già la sua porta (`EADDRINUSE`). Non conta come test falliti. Ogni worktree di esecuzione riceve porte proprie tramite `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; un progetto che legge `PORT` non va mai in conflitto. Ferma l'altro processo, o fai leggere `PORT` al progetto, poi **Esegui di nuovo**.
 - **Bloccata**, **senza tempo**, **in silenzio** e **fermata all'improvviso** indicano il limite o il processo che ha fermato l'esecuzione.
-- **Causa sconosciuta**: l'app non tira a indovinare. Mostra la fine del log perché lo legga tu.
+- **Attività incomplete**: l'esecuzione ha fatto il lavoro ma ha lasciato attività approvate non spuntate, per esempio un controllo visivo. La scheda le elenca. **Prosegui alla revisione** mantiene il lavoro e lo manda in revisione con il resto come *controllo a mano* nel pacchetto di revisione; **Riprova con il browser** riavvia lo sviluppatore, che controlla l'interfaccia da solo con lo strumento browser integrato e installa gli strumenti mancanti.
+- **Specifica rifiutata**: OpenSpec ha rifiutato il piano o la specifica e la pianificazione non è riuscita a ripararlo. **Modifica la spec e rilancia**.
+- **Causa sconosciuta**: i registri dell'esecuzione non indicano una causa e l'app non tira a indovinare. La scheda mostra invece per prima l'analisi IA, indicata come tale, oppure offre **Analizza con l'IA** come prima azione; la fine del log resta a un clic.
 
 Sotto la diagnosi ci sono fino a tre rimedi in ordine, e solo quelli che qui possono funzionare: **Riprendi da** la fase che si è fermata, **Esegui di nuovo**, **Modifica la spec e rilancia** (gli addendum della spec portano la tua modifica all'esecuzione successiva), **Sistema l'ambiente** e **Apri il log al punto del guasto**. La stessa causa compare come etichetta di una riga nell'[elenco Da gestire](../getting-started/the-dashboard-tour), e la scheda di esecuzione della missione mostra la stessa scheda.
+
+Le esecuzioni di Implement controllano da sole l'interfaccia e il comportamento visivo: ogni esecuzione ha uno strumento browser headless (`$SPECRAILS_BROWSE`) che apre l'app sulla porta propria dell'esecuzione, o una pagina del repository, in formato desktop e telefono, e restituisce screenshot che l'agente legge. Un controllo che solo una persona può fare (gusto, un dispositivo reale, credenziali reali) viene pianificato come *controllo a mano*: l'esecuzione non fallisce mai per esso, e ti arriva nel pacchetto di revisione.
 
 ### Analisi IA {#ai-failure-analysis}
 

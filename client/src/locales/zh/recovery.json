@@ -30,6 +30,8 @@
       "phase": "代理在{{phase}}阶段意外停止",
       "plain": "代理意外停止"
     },
+    "incomplete_tasks": "有已批准的任务未完成",
+    "spec_invalid": "OpenSpec 拒绝了该变更的规范",
     "unknown": "原因未知",
     "stepFailed": "{{phase}} 步骤失败"
   },
@@ -46,7 +48,9 @@
     "timeout": "在完成之前达到了时间上限。",
     "tool_inactivity": "它太久没有使用工具，也没有回复。",
     "crash": "提供商进程或其连接在运行中断开了。",
-    "unknown": "应用无法确定它为什么停止，也不会猜测。"
+    "incomplete_tasks": "其余工作都已完成。如果剩下的是只有人才能做的检查，就继续进入评审，并把它列为人工检查；否则重试，让运行用浏览器和工具完成它。",
+    "spec_invalid": "计划或规范未通过 OpenSpec，规划也无法修复。",
+    "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。"
   },
   "remedies": {
     "label": "恢复方式"
@@ -57,7 +61,9 @@
     "retry": "再次运行",
     "editSpec": "编辑规格并重新启动",
     "fixEnvironment": "修复环境",
-    "openLogs": "在失败处打开日志"
+    "openLogs": "在失败处打开日志",
+    "continueToReview": "继续进入评审",
+    "retryWithBrowser": "使用浏览器重试"
   },
   "environment": {
     "command": "命令",
@@ -103,6 +109,7 @@
       "environment": "环境",
       "agentError": "代理错误",
       "interrupted": "已中断",
+      "incompleteTasks": "未完成的任务",
       "other": "其他"
     }
   },
@@ -112,5 +119,18 @@
     "attempt": "尝试",
     "iteration": "迭代",
     "time": "时间"
+  },
+  "incomplete": {
+    "title": "未完成的任务"
+  },
+  "ai": {
+    "label": "来自 AI 分析",
+    "running": "AI 正在读取日志以查找原因…"
+  },
+  "remedyResult": {
+    "continued": "正在进入评审，剩余项作为人工检查。",
+    "retried": "正在从开发者步骤使用浏览器和工具重试。",
+    "notResumed": "继续的运行未能启动",
+    "failed": "无法继续运行"
   }
 }

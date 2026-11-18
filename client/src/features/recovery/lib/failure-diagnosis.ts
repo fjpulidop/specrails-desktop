@@ -8,10 +8,10 @@
 import type { EventRow } from '../../../types'
 import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 
-export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs'] as const
+export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
 
 export interface FailureBlocker {
@@ -36,6 +36,8 @@ export interface FailureDiagnosis {
   blocker: FailureBlocker | null
   /** `port_in_use`: the contested port, when the run's output named it. */
   port?: number | null
+  /** `incomplete_tasks`: the approved tasks still unticked, as the run named them. */
+  incompleteTasks?: string[] | null
   source: 'core' | 'desktop'
   /** Ranked by the server; a surface shows the first ones it can run. */
   remedies: RemedyId[]
@@ -82,6 +84,7 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
     resumablePhase: text(v.resumablePhase, 200),
     blocker: readBlocker(v.blocker),
     port: typeof v.port === 'number' && Number.isInteger(v.port) && v.port >= 1 && v.port <= 65535 ? v.port : null,
+    incompleteTasks: Array.isArray(v.incompleteTasks) ? v.incompleteTasks.filter((task): task is string => typeof task === 'string' && !!task.trim()).slice(0, 20).map((task) => task.slice(0, 300)) : null,
     source: v.source === 'core' ? 'core' : 'desktop',
     // An uncertain record is offered the same two safe remedies whatever the wire said.
     remedies: confident ? remedies : ['open-logs', 'retry'],
@@ -136,6 +139,8 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'timeout': return { key: 'why.timeout', params: {} }
     case 'tool_inactivity': return { key: 'why.tool_inactivity', params: {} }
     case 'crash': return { key: 'why.crash', params: {} }
+    case 'incomplete_tasks': return { key: 'why.incomplete_tasks', params: {} }
+    case 'spec_invalid': return { key: 'why.spec_invalid', params: {} }
     default: return null
   }
 }

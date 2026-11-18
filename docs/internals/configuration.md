@@ -336,6 +336,22 @@ The Resources panel lists ports served from run worktrees (`GET /api/resources/p
 and a check that fails because its port was taken is diagnosed as `port_in_use`,
 not as failed tests. Module: [terminals › Run worktree ports](../../server/modules/terminals/README.md#run-worktree-ports).
 
+### Run browser tool
+
+Every process of a run worktree also receives `SPECRAILS_BROWSE`: the launcher of Desktop's
+headless browser tool, written to `~/.specrails/browser-tool/` at startup. Agents use it to
+look at the UI they build (screenshots at chosen viewports, console errors, page text). It may
+open files inside the run's repositories, public sites, and loopback only on the run's own
+ports above. Chromium is the app's bundled one when present, otherwise Playwright's in
+`~/.specrails/browsers`, downloaded on first use; the launcher sets `PLAYWRIGHT_BROWSERS_PATH`
+for itself only, so the project's own Playwright setup is untouched.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SPECRAILS_PLAYWRIGHT_DIR` | the app's own `playwright` package | Playwright package directory the tool loads. Without one, runs get no `SPECRAILS_BROWSE`. |
+
+Module: [browser › Run browser tool](../../server/modules/browser/README.md#run-browser-tool).
+
 ### Provider rollback gates
 
 Both extra providers are **enabled by default** and only need these levers if you want to turn one off app-wide (an emergency rollback — no redeploy needed):

@@ -78,7 +78,7 @@ describe('FailureDiagnosisCard', () => {
   it('claims no cause when it is unknown: says so and shows the raw log tail', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'unknown', confidence: 'low', phase: null, rounds: null, resumablePhase: null, remedies: ['open-logs', 'retry'] })} handlers={handlers()} logTail={['npm ERR! something', 'exit 1']} />)
     expect(screen.getByTestId('failure-headline')).toHaveTextContent('Unknown cause')
-    expect(screen.getByText("The app can't tell why it stopped, so it won't guess.")).toBeInTheDocument()
+    expect(screen.getByText("The run's own records don't name the cause. An AI reading of the log usually finds it.")).toBeInTheDocument()
     expect(screen.getByTestId('failure-log-tail')).toHaveTextContent('npm ERR! something exit 1')
     expect(screen.queryByTestId('failure-detail')).toBeNull()
     expect(screen.getByTestId('failure-diagnosis-card')).toHaveAttribute('data-confidence', 'low')
@@ -139,5 +139,49 @@ describe('FailureDiagnosisCard: environment plan remedy', () => {
     expect(why.textContent).toContain(time)
     expect(why).toHaveTextContent('run it on another provider')
     expect(why.textContent).not.toMatch(/relaunch/i)
+  })
+})
+
+describe('FailureDiagnosisCard: unfinished tasks and causes only an AI reading names', () => {
+  const unknown = () => diagnosis({ kind: 'unknown', confidence: 'low', phase: 'implementation-stalled', rounds: null, resumablePhase: null, source: 'desktop', remedies: ['open-logs', 'retry'] })
+  const ready = { status: 'ready' as const, provider: 'claude', model: 'sonnet', createdAt: '2026-11-18T18:10:00Z', stale: false,
+    analysis: { headline: 'Task 4.1 needed a browser check the developer could not run', cause: 'The developer left the README task unticked.', category: 'incomplete_tasks' as const, failedStep: 'tasks', evidence: [], nextSteps: [] } }
+
+  it('names unfinished tasks, lists them and offers the two ways forward first', async () => {
+    const run = { 'continue-to-review': { run: vi.fn() }, 'retry-with-browser': { run: vi.fn() }, 'open-logs': { run: vi.fn() } } satisfies RemedyHandlers
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'incomplete_tasks', phase: 'implementation-stalled', rounds: null, incompleteTasks: ['4.1 README: visual-review note'], remedies: ['continue-to-review', 'retry-with-browser', 'open-logs', 'retry'] })} handlers={run} />)
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Some approved tasks were left unfinished')
+    expect(screen.getByTestId('failure-incomplete-tasks')).toHaveTextContent('4.1 README: visual-review note')
+    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button')
+    expect(buttons.map((b) => b.textContent)).toEqual(['Continue to review', 'Retry with the browser', 'Open logs at the failure'])
+    expect(buttons[0]).toHaveAttribute('data-primary')
+    await userEvent.click(buttons[0])
+    expect(run['continue-to-review'].run).toHaveBeenCalledTimes(1)
+  })
+
+  it('leads with the AI cause, labelled as such, instead of an unknown cause', () => {
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={{ state: ready, run: vi.fn() }} />)
+    expect(screen.getByTestId('failure-ai-label')).toHaveTextContent('From AI analysis')
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Task 4.1 needed a browser check the developer could not run')
+    expect(screen.getByTestId('failure-ai-cause')).toHaveTextContent('The developer left the README task unticked.')
+    expect(screen.queryByText('Unknown cause')).toBeNull()
+  })
+
+  it('when nothing names the cause, says how to find it and makes the AI reading the primary action', async () => {
+    const ai = { state: { status: 'idle' as const }, run: vi.fn() }
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={ai} />)
+    expect(screen.getByTestId('failure-unknown-why')).toHaveTextContent("The run's own records don't name the cause")
+    expect(screen.queryByText(/won't guess/)).toBeNull()
+    const analyze = screen.getByTestId('failure-remedy-analyze')
+    expect(analyze).toHaveAttribute('data-primary')
+    expect(screen.getByTestId('failure-remedy-open-logs')).not.toHaveAttribute('data-primary')
+    await userEvent.click(analyze)
+    expect(ai.run).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the reading in progress without a second button', () => {
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={{ state: { status: 'running' }, run: vi.fn() }} />)
+    expect(screen.getByTestId('failure-ai-running')).toBeInTheDocument()
+    expect(screen.getByTestId('failure-remedy-analyze')).toBeDisabled()
   })
 })
