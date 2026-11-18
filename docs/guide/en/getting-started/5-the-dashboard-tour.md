@@ -65,7 +65,7 @@ Choose how to read it with the selector in its header (your choice is remembered
 
 Each card shows the run's state, project, rail or kind, title, what it is doing now, its steps when it has them, the engine, how long it has run or waited, and its cost when known. A question shows its text. The button on the card is the same action as everywhere else: **Answer**, **Open review**, **Resume**, **Retry**, **Raise limit**, or **Open**, which opens the mission that launched the run, or the run itself. Filter by project, by kind (Rails, Loops, Intent, Jobs) or by engine; the header sums up how many need you, how many are in progress and what you spent today.
 
-In the desktop app, **Open in window** moves the board to a window of its own, for a second screen. Its buttons act in the main window, which comes to the front.
+In the desktop app the board always opens as a window of its own, so you can keep it on a second screen: every way in brings that window forward, and **Cmd+Shift+B** shows or hides it. Its buttons act in the main window, which comes to the front.
 
 ## A few handy shortcuts {#shortcuts}
 

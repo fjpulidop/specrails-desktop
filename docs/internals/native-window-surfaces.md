@@ -2,7 +2,7 @@
 
 In the desktop app, a modal surface can open as a real OS window instead of an
 in-page Radix modal. The browser build keeps the modal. App Settings, Job
-detail and the live board (`live-board`, "Open in window": a second-screen board
+detail and the live board (`live-board`: in the desktop app every way in opens or focuses this window, never the in-page dialog; a second-screen board
 whose card actions are reported to the main window, which the host brings
 forward through `focus_opener_on_result`) are the surfaces. Loops and Plugins, which already had their
 own windows (`loop_windows.rs`), now open there instead of in their Mission-mode

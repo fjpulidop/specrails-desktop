@@ -263,19 +263,31 @@ describe('live board in its own window', () => {
     expect(screen.queryByTestId('live-board-open-window')).not.toBeInTheDocument()
   })
 
-  it('opens the native surface, closes the board here and runs the window\'s actions in this window', async () => {
+  it('in the desktop app, opens as its own window from a ?live=1 entry and runs the window\'s actions here', async () => {
     h.native = true
     mount()
-    await screen.findByText('Records top-5')
-    fireEvent.click(screen.getByTestId('live-board-open-window'))
     await waitFor(() => expect(h.openSurfaceWindow).toHaveBeenCalledWith('live-board', {}, expect.any(String)))
+    // The main window keeps its page; the board is never drawn in-page.
     await waitFor(() => expect(url()).toBe('/'))
+    expect(screen.queryByTestId('live-card')).not.toBeInTheDocument()
     const requestId = h.openSurfaceWindow.mock.calls[0][2]
     const forwarded = board().cards[0]
     act(() => h.surfaceListener?.({ kind: 'result', requestId, result: { action: 'primary', card: forwarded } }))
     expect(h.inbox.runPrimary).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1:question:r-ask' }))
     act(() => h.surfaceListener?.({ kind: 'result', requestId, result: { action: 'open', card: board().cards[1] } }))
     expect(h.openMission).toHaveBeenCalledWith('m1')
+  })
+
+  it('in the desktop app, opening it again focuses the window instead of drawing it in-page', async () => {
+    h.native = true
+    mount('/')
+    fireEvent.click(screen.getByText('open-board'))
+    await waitFor(() => expect(h.openSurfaceWindow).toHaveBeenCalledTimes(1))
+    expect(url()).toBe('/')
+    fireEvent.click(screen.getByText('open-board'))
+    // The singleton is asked for again, which focuses it (surface_windows.rs reuses the window).
+    await waitFor(() => expect(h.openSurfaceWindow).toHaveBeenCalledTimes(2))
+    expect(screen.queryByTestId('live-card')).not.toBeInTheDocument()
   })
 
   it('in the window, forwards card actions as results instead of running them', async () => {

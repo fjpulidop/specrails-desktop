@@ -65,7 +65,7 @@ Wähle über den Umschalter in der Kopfzeile, wie du es liest (deine Wahl wird g
 
 Jede Karte zeigt den Zustand des Laufs, das Projekt, die Rail oder die Art, den Titel, was er gerade tut, seine Schritte, wenn es welche gibt, die Engine, wie lange er läuft oder wartet, und seine Kosten, wenn sie bekannt sind. Eine Frage zeigt ihren Text. Der Button auf der Karte ist dieselbe Aktion wie überall sonst: **Antworten**, **Review öffnen**, **Fortsetzen**, **Wiederholen**, **Limit erhöhen** oder **Öffnen**, das die Mission öffnet, die den Lauf gestartet hat, oder den Lauf selbst. Filtere nach Projekt, nach Art (Rails, Loops, Intent, Jobs) oder nach Engine; die Kopfzeile fasst zusammen, wie viele dich brauchen, wie viele laufen und was du heute ausgegeben hast.
 
-In der Desktop-App verschiebt **In Fenster öffnen** das Board in ein eigenes Fenster, etwa für einen zweiten Bildschirm. Seine Buttons wirken im Hauptfenster, das nach vorne kommt.
+In der Desktop-App öffnet sich das Board immer in einem eigenen Fenster, etwa für einen zweiten Bildschirm: Jeder Weg dorthin holt dieses Fenster nach vorne, und **Cmd+Shift+B** zeigt oder verbirgt es. Seine Buttons wirken im Hauptfenster, das nach vorne kommt.
 
 ## Ein paar praktische Tastenkürzel {#shortcuts}
 

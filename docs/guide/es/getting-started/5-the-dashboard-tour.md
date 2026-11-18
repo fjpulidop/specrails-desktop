@@ -65,7 +65,7 @@ Elige cómo leerlo con el selector de su cabecera (se recuerda tu elección):
 
 Cada tarjeta muestra el estado de la ejecución, el proyecto, el rail o el tipo, el título, lo que está haciendo ahora, sus pasos cuando los tiene, el motor, cuánto lleva en marcha o esperando y su coste cuando se conoce. Una pregunta muestra su texto. El botón de la tarjeta es la misma acción que en el resto de la app: **Responder**, **Abrir revisión**, **Reanudar**, **Reintentar**, **Subir límite** o **Abrir**, que abre la misión que lanzó la ejecución o la propia ejecución. Filtra por proyecto, por tipo (Rails, Loops, Intent, Trabajos) o por motor; la cabecera resume cuántas te necesitan, cuántas están en curso y lo que gastaste hoy.
 
-En la app de escritorio, **Abrir en ventana** lleva el tablero a una ventana propia, para una segunda pantalla. Sus botones actúan en la ventana principal, que pasa al frente.
+En la app de escritorio el tablero se abre siempre en una ventana propia, para que puedas tenerlo en una segunda pantalla: cualquier forma de abrirlo trae esa ventana al frente, y **Cmd+Shift+B** la muestra u oculta. Sus botones actúan en la ventana principal, que pasa al frente.
 
 ## Algunos atajos prácticos {#shortcuts}
 

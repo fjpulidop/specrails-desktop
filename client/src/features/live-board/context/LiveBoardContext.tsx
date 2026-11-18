@@ -4,7 +4,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { usePlaceParam } from '../../../hooks/usePlaceParam'
 import { useUiMode } from '../../../context/UiModeContext'
 import { useNativeSurface } from '../../../components/ui/surface'
-import { nativeSurfaceEnabled } from '../../../lib/native-surfaces'
+import { nativeSurfaceEnabled, newSurfaceRequestId, openSurfaceWindow } from '../../../lib/native-surfaces'
 import { OPEN_LIVE_BOARD_EVENT } from '../../../lib/live-board-events'
 import { LIVE_BOARD_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
 import { useInbox } from '../../inbox/context/InboxContext'
@@ -40,6 +40,10 @@ export function useLiveBoard(): LiveBoardValue | null {
 
 /**
  * The live board's place (`?live=1`) and its card actions, in the main window.
+ * In the desktop app the board is always its own native window (like Settings
+ * and job detail): every way in (sidebar, palette, ⌘⇧B, a `?live=1` entry)
+ * opens or focuses that window, and ⌘⇧B shows or hides it. The in-page dialog
+ * is the browser's, and the fallback when the window cannot open.
  * Every action is an existing handler: the inbox's primary for an inbox item,
  * the review / job places the inbox opens, and the mission opener the command
  * palette uses. Opening something leaves the board the way the inbox does: the
@@ -50,9 +54,23 @@ export function LiveBoardProvider({ children }: { children: ReactNode }) {
   const place = usePlaceParam(LIVE_BOARD_PARAM)
   const isOpen = place.value === '1'
   const { open: openPlace, close: closePlace } = place
-  const openBoard = useCallback(() => openPlace('1'), [openPlace])
-  const closeBoard = useCallback(() => closePlace(), [closePlace])
-  const toggleBoard = useCallback(() => { if (isOpen) closePlace(); else openPlace('1') }, [isOpen, openPlace, closePlace])
+  // The native window (desktop app). `nativeRef` follows useNativeSurface below: false in
+  // the browser, and once a window failed to open (the board then stays in-page).
+  const [windowOpen, setWindowOpen] = useState(false)
+  const windowOpenRef = useRef(windowOpen)
+  windowOpenRef.current = windowOpen
+  const nativeRef = useRef(nativeSurfaceEnabled('live-board'))
+  const showWindow = useCallback(() => {
+    // Already open: asking for the singleton again focuses it (surface_windows.rs reuses it).
+    if (windowOpenRef.current) { void openSurfaceWindow('live-board', {}, newSurfaceRequestId()).catch(() => {}); return }
+    setWindowOpen(true)
+  }, [])
+  const openBoard = useCallback(() => { if (nativeRef.current) showWindow(); else openPlace('1') }, [showWindow, openPlace])
+  const closeBoard = useCallback(() => { if (windowOpenRef.current) setWindowOpen(false); closePlace() }, [closePlace])
+  const toggleBoard = useCallback(() => {
+    if (nativeRef.current) { if (windowOpenRef.current) setWindowOpen(false); else setWindowOpen(true); return }
+    if (isOpen) closePlace(); else openPlace('1')
+  }, [isOpen, openPlace, closePlace])
   useEffect(() => {
     window.addEventListener(OPEN_LIVE_BOARD_EVENT, openBoard)
     return () => window.removeEventListener(OPEN_LIVE_BOARD_EVENT, openBoard)
@@ -138,7 +156,6 @@ export function LiveBoardProvider({ children }: { children: ReactNode }) {
   const actions = useMemo<LiveBoardActions>(() => ({ primary, open, busy }), [primary, open, busy])
 
   // ── Its own native window (desktop app): the window forwards card actions here.
-  const [windowOpen, setWindowOpen] = useState(false)
   const actionsRef = useRef(actions)
   actionsRef.current = actions
   const native = useNativeSurface({
@@ -152,12 +169,19 @@ export function LiveBoardProvider({ children }: { children: ReactNode }) {
       else actionsRef.current.open(result.card)
     },
   })
+  nativeRef.current = native
   // The window could not open (an older host): bring the board back here.
   useEffect(() => {
     if (windowOpen && !native) { setWindowOpen(false); openPlace('1') }
   }, [windowOpen, native, openPlace])
-  const [windowsAvailable] = useState(() => nativeSurfaceEnabled('live-board'))
-  const openInWindow = useMemo(() => (windowsAvailable ? () => { closePlace(); setWindowOpen(true) } : null), [windowsAvailable, closePlace])
+  // A `?live=1` entry (a deep link, Back, another caller of the place) in the desktop app:
+  // the window shows the board, the main window keeps the page it was on.
+  useEffect(() => {
+    if (isOpen && native) { closePlace(); showWindow() }
+  }, [isOpen, native, closePlace, showWindow])
+  // The in-page board shows in the desktop app only when its window cannot open, so the
+  // "open in window" button has nothing to offer there; it stays for hosts that can.
+  const openInWindow = useMemo(() => (native ? () => { closePlace(); showWindow() } : null), [native, closePlace, showWindow])
 
   const value = useMemo<LiveBoardValue>(() => ({ isOpen, openBoard, closeBoard, toggleBoard, openInWindow, actions }), [isOpen, openBoard, closeBoard, toggleBoard, openInWindow, actions])
   return <LiveBoardContext.Provider value={value}>{children}</LiveBoardContext.Provider>

@@ -65,7 +65,7 @@ Escolha como lê-lo com o seletor no cabeçalho (sua escolha fica salva):
 
 Cada cartão mostra o estado da execução, o projeto, o rail ou o tipo, o título, o que ela está fazendo agora, suas etapas quando existem, o motor, há quanto tempo roda ou espera e o custo quando conhecido. Uma pergunta mostra seu texto. O botão do cartão é a mesma ação do resto do app: **Responder**, **Abrir revisão**, **Retomar**, **Tentar novamente**, **Aumentar limite** ou **Abrir**, que abre a missão que iniciou a execução ou a própria execução. Filtre por projeto, por tipo (Rails, Loops, Intent, Jobs) ou por motor; o cabeçalho resume quantas precisam de você, quantas estão em andamento e quanto você gastou hoje.
 
-No app para desktop, **Abrir em janela** leva o quadro para uma janela própria, para uma segunda tela. Os botões dele agem na janela principal, que vem para a frente.
+No app para desktop, o quadro sempre abre numa janela própria, para uma segunda tela: qualquer forma de abri-lo traz essa janela para a frente, e **Cmd+Shift+B** a mostra ou oculta. Os botões dele agem na janela principal, que vem para a frente.
 
 ## Alguns atalhos úteis {#shortcuts}
 

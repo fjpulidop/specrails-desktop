@@ -65,7 +65,7 @@ Choisissez comment le lire avec le sélecteur de son en-tête (votre choix est m
 
 Chaque carte indique l'état de l'exécution, le projet, le rail ou le type, le titre, ce qu'elle fait en ce moment, ses étapes quand elle en a, le moteur, depuis combien de temps elle tourne ou attend, et son coût quand il est connu. Une question affiche son texte. Le bouton de la carte est la même action que partout ailleurs : **Répondre**, **Ouvrir la revue**, **Reprendre**, **Réessayer**, **Relever le plafond** ou **Ouvrir**, qui ouvre la mission qui a lancé l'exécution, ou l'exécution elle-même. Filtrez par projet, par type (Rails, Boucles, Intent, Jobs) ou par moteur ; l'en-tête résume combien vous attendent, combien sont en cours et ce que vous avez dépensé aujourd'hui.
 
-Dans l'application de bureau, **Ouvrir dans une fenêtre** place le tableau dans sa propre fenêtre, pour un second écran. Ses boutons agissent dans la fenêtre principale, qui passe au premier plan.
+Dans l'application de bureau, le tableau s'ouvre toujours dans sa propre fenêtre, pour un second écran : chaque façon de l'ouvrir ramène cette fenêtre au premier plan, et **Cmd+Shift+B** l'affiche ou la masque. Ses boutons agissent dans la fenêtre principale, qui passe au premier plan.
 
 ## Quelques raccourcis bien pratiques {#shortcuts}
 

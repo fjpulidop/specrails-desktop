@@ -65,7 +65,7 @@ Scegli come leggerla con il selettore nell'intestazione (la scelta viene ricorda
 
 Ogni scheda mostra lo stato dell'esecuzione, il progetto, il rail o il tipo, il titolo, cosa sta facendo ora, i passaggi quando ci sono, il motore, da quanto è in esecuzione o in attesa e il costo quando è noto. Una domanda mostra il suo testo. Il pulsante della scheda è la stessa azione del resto dell'app: **Rispondi**, **Apri revisione**, **Riprendi**, **Riprova**, **Aumenta limite** o **Apri**, che apre la missione che ha avviato l'esecuzione o l'esecuzione stessa. Filtra per progetto, per tipo (Rail, Loop, Intent, Job) o per motore; l'intestazione riassume quante hanno bisogno di te, quante sono in corso e quanto hai speso oggi.
 
-Nell'app desktop, **Apri in una finestra** sposta la bacheca in una finestra tutta sua, per un secondo schermo. I suoi pulsanti agiscono nella finestra principale, che passa in primo piano.
+Nell'app desktop la bacheca si apre sempre in una finestra tutta sua, per un secondo schermo: ogni modo di aprirla porta in primo piano quella finestra, e **Cmd+Shift+B** la mostra o la nasconde. I suoi pulsanti agiscono nella finestra principale, che passa in primo piano.
 
 ## Qualche scorciatoia utile {#shortcuts}
 
