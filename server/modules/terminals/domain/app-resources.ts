@@ -50,7 +50,10 @@ export const SERVER_ITEM_LABEL = 'Specrails server'
 
 /** `npm run dev` reads better than its script name alone. */
 const PACKAGE_RUNNERS = new Set(['npm', 'pnpm', 'yarn'])
-const RUNTIME_WRAPPERS = new Set(['node', 'bun', 'deno', 'npx', 'python', 'python3', 'cmd', 'sh', 'bash', 'zsh'])
+// The packaged server binary doubles as the Node runtime for the scripts it
+// launches (e.g. Core's agent-session host), so it is a wrapper too: name the
+// script it runs, never the binary.
+const RUNTIME_WRAPPERS = new Set(['node', 'bun', 'deno', 'npx', 'python', 'python3', 'cmd', 'sh', 'bash', 'zsh', 'specrails-server'])
 
 function basename(token: string): string {
   const clean = token.replace(/^["']|["']$/g, '')
@@ -80,6 +83,11 @@ export function classifyCommand(command: string): { category: 'agent-cli' | 'mcp
   const lower = command.toLowerCase()
   if (/mcp-bridge/.test(lower)) return { category: 'mcp', label: 'MCP bridge' }
   if (/local-runner/.test(lower)) return { category: 'mcp', label: 'Local runner' }
+  // Core's agent runtime: the session host runs mission and Intent sessions; other
+  // runtime commands (run, status…) without a registered owner are still agents.
+  if (/agent-runtime[\\/]cli(\.m?js)?\b/.test(lower)) {
+    return { category: 'agent-cli', label: /\shost(\s|$)/.test(lower) ? 'Core session host' : 'Core runtime' }
+  }
   const head = commandHead(lower)
   const headText = head.join(' ')
   for (const [pattern, label] of AGENT_CLIS) if (pattern.test(headText)) return { category: 'agent-cli', label }

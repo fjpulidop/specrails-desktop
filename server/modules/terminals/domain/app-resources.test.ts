@@ -122,3 +122,12 @@ describe('measureAppResources', () => {
     expect(result.categories.find((c) => c.id === 'background')?.processCount).toBe(2)
   })
 })
+
+describe('the server binary as a runtime', () => {
+  it("names Core's session host instead of the server binary that runs it", () => {
+    const host = '/Applications/Specrails.app/Contents/MacOS/specrails-server /Users/me/.specrails/core/current/dist/agent-runtime/cli.js host --stdio --scope specrails'
+    expect(classifyCommand(host)).toEqual({ category: 'agent-cli', label: 'Core session host' })
+    expect(classifyCommand('/x/specrails-server /x/dist/agent-runtime/cli.js status --run r1')).toEqual({ category: 'agent-cli', label: 'Core runtime' })
+    expect(classifyCommand('/x/specrails-server /x/scripts/some-tool.js --flag').label).toBe('some-tool')
+  })
+})
