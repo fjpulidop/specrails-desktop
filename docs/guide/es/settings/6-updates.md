@@ -22,3 +22,14 @@ En Estable, si todavía no se ha promovido ninguna versión, **Buscar actualizac
 
 - Pasar de Última a Estable nunca te baja de versión. Te quedas en la tuya hasta que Estable la alcance.
 - Todas las actualizaciones se firman y se verifican antes de instalarse, en los dos canales.
+
+## Si hay trabajo en marcha
+
+La tarjeta de actualización comprueba qué detendría un reinicio. Si quedan turnos de misiones o ejecuciones en marcha, te lo dice y te ofrece:
+
+- **Instalar cuando no haya nada en marcha**: la tarjeta espera y se reinicia sola en cuanto termina el último turno o ejecución.
+- **Reiniciar ahora**: reinicia igualmente. El trabajo interrumpido se te ofrece de nuevo tras el reinicio.
+
+## Después de un reinicio
+
+Si Specrails se cierra, se reinicia para actualizarse o se detiene de forma inesperada con trabajo en marcha, el siguiente arranque muestra **Retoma donde lo dejaste**: las misiones que estaban a mitad de turno y las ejecuciones que pausó el reinicio, cada una con su casilla. Nada se reanuda solo. Las misiones continúan en su propia sesión (con una nota breve de que la app se reinició); las ejecuciones usan su Reanudar habitual. **Ahora no** descarta la lista; las ejecuciones pausadas siguen en la Bandeja.

@@ -22,3 +22,14 @@ No Estável, se nenhuma versão tiver sido promovida ainda, **Verificar atualiza
 
 - Trocar de Mais recente para Estável nunca faz downgrade. Você fica na sua versão até o Estável alcançá-la.
 - Toda atualização é assinada e verificada antes de ser instalada, nos dois canais.
+
+## Quando há trabalho em andamento
+
+O cartão de atualização verifica o que um reinício interromperia. Se ainda há turnos de missão ou execuções em andamento, ele avisa e oferece:
+
+- **Instalar quando nada estiver em execução**: o cartão espera e reinicia sozinho assim que o último turno ou execução termina.
+- **Reiniciar agora**: reinicia mesmo assim. O trabalho interrompido é oferecido de novo depois do reinício.
+
+## Depois de um reinício
+
+Se o Specrails fechar, reiniciar para uma atualização ou parar inesperadamente com trabalho em andamento, a próxima abertura mostra **Continue de onde parou**: as missões que estavam no meio de um turno e as execuções que o reinício pausou, cada uma com sua caixa de seleção. Nada é retomado sozinho. As missões continuam na própria sessão (com uma nota curta de que o app reiniciou); as execuções usam o Retomar de sempre. **Agora não** descarta a lista; as execuções pausadas continuam na Caixa de entrada.
