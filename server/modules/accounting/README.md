@@ -79,3 +79,36 @@ category mapping (implementation, missions, specs, code, support) behind
 `byCategory` and the `category` filter. The client mirrors it in
 `client/src/features/analytics/types/spending.ts`; keep both in sync (each side
 has a test that every surface maps to exactly one category).
+
+## App-wide analytics
+
+[desktop-analytics.ts](runtime/desktop-analytics.ts) (`GET /api/analytics`, the
+All-projects analytics page, and the status-bar today figures) counts the app
+ledger (`agent_invocations`) exactly like the project ledgers: cost, estimated
+part, priced/unpriced counts, the per-day timeline and the five-category
+`byCategory` split (same mapping as the project page; ledger surface `flow` is
+`intent`, anything else `mission`). A turn pinned to a loaded project lands on
+that project's row (`agentTurns`); Home missions, Blueprint / Builder chats
+(`project_id` NULL) and turns pinned to a project that is not loaded form one
+explicit `kind: 'app'` row (`APP_LEDGER_ROW_ID`, shown as "Home & Blueprint").
+The window clause applies to agent turns too. Job counts and success rate stay
+job-only.
+
+## Core v1 programmatic runs
+
+A Core v1 invocation reports one inclusive total (`agent-runtime` / `per-role`).
+`insertLoopInvocation` (loops) splits it with
+[attributeProgrammaticUsage](../agent-runtime/runtime/agent-runtime-accounting.ts):
+the step's Core events give each settled attempt's usage and the provider/model
+of its calls (`runtime-efficiency-event` kind `role-context`, which now keeps
+the call's own usage). One row per phase × provider × model is written (id
+`core-v1:<invocation>:<n>[:t<ticket>]`, `surface_ref_id` `<node>:<phase>`). The
+shares must reconcile with the invocation total per metric — a positive
+remainder (e.g. an in-flight attempt) stays an `agent-runtime` row, anything
+that exceeds the total or is unknown against a known total keeps the single
+aggregate row. A cost Core did not report stays unknown (not rate-carded here),
+so totals never change. Core's deterministic completion check
+(`deterministic-verification`) calls no provider and writes no row. Migration 95
+re-attributes history only where it is provable (one v1 invocation in the run,
+one provider per attempt, figures that reconcile) and drops the old $0
+verification rows; everything else stays as recorded.

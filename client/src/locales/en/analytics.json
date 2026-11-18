@@ -224,7 +224,11 @@
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",
     "costPartiallyUnavailable_one": "Known cost subtotal; {{count}} invocation unavailable.",
-    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable."
+    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable.",
+    "homeAndBlueprint": "Home & Blueprint",
+    "homeAndBlueprintHint": "Agent turns not pinned to a loaded project: Home missions and Blueprint / Builder chats.",
+    "agentTurns_one": "{{count}} agent turn",
+    "agentTurns_other": "{{count}} agent turns"
   },
   "windowLabels": {
     "7d": "Last 7 days",

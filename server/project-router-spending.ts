@@ -10,7 +10,7 @@ import type { DbInstance } from './db'
 import { getDecisionTimes } from './modules/accounting/runtime/decision-times'
 import { clampDays, computeWhatIf } from './modules/accounting/runtime/what-if'
 import { readSpendOverview } from './modules/execution/runtime/budget-overview'
-import { readDesktopCaps, readProjectCaps, writeProjectCap, type ProjectCapKey } from './modules/execution/adapters/budget-storage'
+import { pinnedAppLedger, readDesktopCaps, readProjectCaps, writeProjectCap, type ProjectCapKey } from './modules/execution/adapters/budget-storage'
 import { getDesktopSetting } from './desktop-db'
 import { getLoopEconomics, listRecentDeliveries, type KnownLoop, type RegressionLink } from './modules/accounting/runtime/loop-economics'
 import { readStore, listRegressionLinks } from './modules/specs/runtime/ticket-store'
@@ -530,7 +530,8 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     try {
       const at = new Date()
       res.json({
-        ...readSpendOverview([{ db: c.db, projectId: c.project.id }], at),
+        // The agent turns pinned to this project count, as in its caps.
+        ...readSpendOverview([{ db: c.db, projectId: c.project.id }], at, pinnedAppLedger(registry.desktopDb, c.project.id)),
         config: readProjectCaps(c.db),
         appConfig: readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key)),
         caps: c.budgetCaps?.(at) ?? [],

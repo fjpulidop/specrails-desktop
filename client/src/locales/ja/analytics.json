@@ -224,7 +224,11 @@
     "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
     "costUnavailableShort": "利用不可",
     "costPartiallyUnavailable_one": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
-    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
+    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
+    "homeAndBlueprint": "ホームと Blueprint",
+    "homeAndBlueprintHint": "読み込まれたプロジェクトに固定されていないエージェントのターン：ホームのミッションと Blueprint / Builder のチャット。",
+    "agentTurns_one": "エージェントのターン {{count}} 件",
+    "agentTurns_other": "エージェントのターン {{count}} 件"
   },
   "windowLabels": {
     "7d": "過去 7 日間",

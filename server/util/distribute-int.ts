@@ -24,3 +24,27 @@ export function distributeIntEvenly(
   return out
 }
 
+
+/**
+ * Distribute an integer `total` across buckets in proportion to `weights`
+ * (largest remainder), summing EXACTLY back to `total`. Non-positive or
+ * non-finite weights count as zero; when every weight is zero the total is
+ * split evenly. `undefined` total ⇒ `undefined` per bucket.
+ */
+export function distributeIntByWeight(
+  total: number | null | undefined,
+  weights: readonly number[],
+): (number | undefined)[] {
+  const n = weights.length
+  if (total === null || total === undefined || n === 0) return new Array(n).fill(undefined)
+  const clean = weights.map((w) => (Number.isFinite(w) && w > 0 ? w : 0))
+  const sum = clean.reduce((a, b) => a + b, 0)
+  if (sum === 0) return distributeIntEvenly(total, n)
+  const t = Math.trunc(total)
+  const exact = clean.map((w) => (t * w) / sum)
+  const out = exact.map((v) => Math.floor(v))
+  let remainder = t - out.reduce((a, b) => a + b, 0)
+  const order = exact.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1])
+  for (let k = 0; remainder > 0 && k < order.length; k++, remainder--) out[order[k][1]] += 1
+  return out
+}

@@ -1,7 +1,13 @@
 import type { ProjectRegistry } from '../../../project-registry'
 import type { AnalyticsOpts } from '../../../types'
 import type { DbInstance } from '../../../db'
-import { sumAgentInvocationsCost } from '../../../desktop-db'
+import { agentLedgerSurface } from './spending'
+import { buildCategoryBreakdown, type CategoryBreakdownEntry, type SurfaceSpendAggregate } from './spend-categories'
+import type { SpendSurface } from './ai-invocations'
+
+/** `projectBreakdown` id of the app-level row: agent-ledger turns pinned to no
+ *  loaded project (Home missions, Blueprint / Builder chats). */
+export const APP_LEDGER_ROW_ID = 'app:home-blueprint'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +24,10 @@ export interface DesktopProjectStats {
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
+  /** 'app' = the Home & Blueprint row (agent turns of no loaded project); absent = a project. */
+  kind?: 'project' | 'app'
+  /** Agent-ledger turns (missions, Intent) counted in this row's cost. */
+  agentTurns?: number
 }
 
 export interface DesktopAnalyticsResponse {
@@ -50,6 +60,8 @@ export interface DesktopAnalyticsResponse {
     estimatedCostUsd: number
     unpricedCount?: number
   }>
+  /** The window's spend in the five categories (same mapping as the project page). */
+  byCategory: CategoryBreakdownEntry[]
 }
 
 // ─── Period resolution ────────────────────────────────────────────────────────
@@ -169,23 +181,72 @@ function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): Pro
   }
 }
 
-/**
- * App-level agent-chat (Mission Control) spend lives in desktop.sqlite's
- * `agent_invocations` table (not per-project). MED-8: fold it into the grand
- * cost total. Defensive: a DB without the table (older schema / a stubbed test
- * registry) yields 0 instead of throwing. `sinceIso` is a lower bound only —
- * for windowed periods ending "now" that captures exactly the window; a custom
- * period with a past upper bound may marginally over-count agent spend (the
- * helper offers no upper bound).
- */
-function agentCostSince(registry: ProjectRegistry, sinceIso?: string): number {
+// ─── App ledger (desktop.sqlite `agent_invocations`) ─────────────────────────
+//
+// Mission / Agent-Chat and Intent turns record to the APP-level ledger with the
+// pinned project's id (NULL for Home, Blueprint and Builder chats). It is
+// disjoint from every project's `ai_invocations`, so folding it in never double
+// counts. Rows are counted exactly like project rows — priced / unpriced /
+// estimated, per day and per category — and attributed to their project when it
+// is loaded, else to the app-level "Home & Blueprint" row. The same window
+// clause applies (it previously had a lower bound only).
+
+interface AgentLedgerAgg {
+  projectId: string | null
+  surface: string | null
+  date: string
+  costUsd: number
+  estimatedCostUsd: number
+  pricedRuns: number
+  unpricedRuns: number
+  count: number
+  tokens: number
+}
+
+/** Defensive: a desktop DB without the table (older schema / stubbed registry) yields no rows. */
+function queryAgentLedger(registry: ProjectRegistry, clause: string, params: unknown[]): AgentLedgerAgg[] {
   try {
     const ddb = registry.desktopDb
-    if (!ddb) return 0
-    return sumAgentInvocationsCost(ddb, sinceIso)
+    if (!ddb || typeof ddb.prepare !== 'function') return []
+    return ddb.prepare(`
+      SELECT project_id AS projectId, surface,
+        strftime('%Y-%m-%d', started_at) AS date,
+        COALESCE(SUM(total_cost_usd), 0) AS costUsd,
+        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimatedCostUsd,
+        COUNT(total_cost_usd) AS pricedRuns,
+        SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedRuns,
+        COUNT(*) AS count,
+        COALESCE(SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0) + COALESCE(tokens_cache_read, 0) + COALESCE(tokens_cache_create, 0)), 0) AS tokens
+      FROM agent_invocations ${clause}
+      GROUP BY project_id, surface, date
+    `).all(...params) as AgentLedgerAgg[]
   } catch {
-    return 0
+    return []
   }
+}
+
+// Per-surface spend of one project's ledger, for the category split.
+function queryProjectSurfaces(db: DbInstance, clause: string, params: unknown[]): SurfaceSpendAggregate[] {
+  return db.prepare(`
+    SELECT surface,
+      COALESCE(SUM(total_cost_usd), 0) AS costUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimatedCostUsd,
+      COUNT(*) AS count,
+      COALESCE(SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0) + COALESCE(tokens_cache_read, 0) + COALESCE(tokens_cache_create, 0)), 0) AS tokens,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedCount
+    FROM ai_invocations ${clause}
+    GROUP BY surface
+  `).all(...params) as SurfaceSpendAggregate[]
+}
+
+function addSurface(into: Map<string, SurfaceSpendAggregate>, agg: SurfaceSpendAggregate): void {
+  const acc = into.get(agg.surface) ?? { surface: agg.surface, costUsd: 0, estimatedCostUsd: 0, count: 0, tokens: 0, unpricedCount: 0 }
+  acc.costUsd += agg.costUsd
+  acc.estimatedCostUsd += agg.estimatedCostUsd
+  acc.count += agg.count
+  acc.tokens += agg.tokens
+  acc.unpricedCount += agg.unpricedCount ?? 0
+  into.set(agg.surface, acc)
 }
 
 interface TimelineRow {
@@ -241,7 +302,16 @@ export function getDesktopAnalytics(
   let jobsToday = 0
 
   const projectBreakdown: DesktopProjectStats[] = []
+  const rowsById = new Map<string, DesktopProjectStats>()
   const timelineMap = new Map<string, { costUsd: number; estimatedCostUsd: number; unpricedCount: number }>()
+  const surfaces = new Map<string, SurfaceSpendAggregate>()
+  const addDay = (date: string, costUsd: number, estimated: number, unpriced: number): void => {
+    const acc = timelineMap.get(date) ?? { costUsd: 0, estimatedCostUsd: 0, unpricedCount: 0 }
+    acc.costUsd += costUsd
+    acc.estimatedCostUsd += estimated
+    acc.unpricedCount += unpriced ?? 0
+    timelineMap.set(date, acc)
+  }
 
   // Iterate sequentially to avoid SQLite contention
   for (const ctx of contexts) {
@@ -261,7 +331,7 @@ export function getDesktopAnalytics(
     unpricedTodayRuns += todayKpi.unpricedRuns
     jobsToday += todayKpi.totalJobs
 
-    projectBreakdown.push({
+    const row: DesktopProjectStats = {
       projectId: ctx.project.id,
       projectName: ctx.project.name,
       totalCostUsd: kpi.totalCostUsd,
@@ -271,22 +341,50 @@ export function getDesktopAnalytics(
       totalJobs: kpi.totalJobs,
       successRate: kpi.totalJobs > 0 ? kpi.successCount / kpi.totalJobs : 0,
       avgDurationMs: kpi.avgDurationMs,
-    })
-
-    for (const row of timeline) {
-      const acc = timelineMap.get(row.date) ?? { costUsd: 0, estimatedCostUsd: 0, unpricedCount: 0 }
-      acc.costUsd += row.costUsd
-      acc.estimatedCostUsd += row.estimatedCostUsd
-      acc.unpricedCount += row.unpricedCount ?? 0
-      timelineMap.set(row.date, acc)
+      kind: 'project',
+      agentTurns: 0,
     }
+    projectBreakdown.push(row)
+    rowsById.set(ctx.project.id, row)
+
+    for (const day of timeline) addDay(day.date, day.costUsd, day.estimatedCostUsd, day.unpricedCount)
+    for (const agg of queryProjectSurfaces(ctx.db, clause, params)) addSurface(surfaces, agg)
   }
 
-  // MED-8: add app-level agent-chat (Mission Control) spend to the grand cost
-  // totals. It is not per-project, so it contributes to the KPI headline and
-  // costToday only (not the per-project breakdown / per-day timeline).
-  totalCostUsd += agentCostSince(registry, current.from ?? undefined)
-  costToday += agentCostSince(registry, today)
+  // App ledger: every agent turn of the window counts in the KPIs, the timeline
+  // and the categories; its cost lands on the pinned project's row, or on the
+  // app-level row when no loaded project owns it.
+  let appRow: DesktopProjectStats | null = null
+  for (const agg of queryAgentLedger(registry, clause, params)) {
+    totalCostUsd += agg.costUsd
+    estimatedCostUsd += agg.estimatedCostUsd
+    pricedRuns += agg.pricedRuns
+    unpricedRuns += agg.unpricedRuns ?? 0
+    addDay(agg.date, agg.costUsd, agg.estimatedCostUsd, agg.unpricedRuns)
+    const surface: SpendSurface = agentLedgerSurface(agg.surface)
+    addSurface(surfaces, { surface, costUsd: agg.costUsd, estimatedCostUsd: agg.estimatedCostUsd, count: agg.count, tokens: agg.tokens, unpricedCount: agg.unpricedRuns ?? 0 })
+    let row = agg.projectId ? rowsById.get(agg.projectId) : undefined
+    if (!row) {
+      appRow ??= {
+        projectId: APP_LEDGER_ROW_ID, projectName: 'Home & Blueprint', kind: 'app', agentTurns: 0,
+        totalCostUsd: 0, estimatedCostUsd: 0, pricedRuns: 0, unpricedRuns: 0, totalJobs: 0, successRate: 0, avgDurationMs: null,
+      }
+      row = appRow
+    }
+    row.totalCostUsd += agg.costUsd
+    row.estimatedCostUsd += agg.estimatedCostUsd
+    row.pricedRuns = (row.pricedRuns ?? 0) + agg.pricedRuns
+    row.unpricedRuns = (row.unpricedRuns ?? 0) + (agg.unpricedRuns ?? 0)
+    row.agentTurns = (row.agentTurns ?? 0) + agg.count
+  }
+  if (appRow) projectBreakdown.push(appRow)
+
+  for (const agg of queryAgentLedger(registry, todayClause, todayParams)) {
+    costToday += agg.costUsd
+    estimatedCostToday += agg.estimatedCostUsd
+    pricedTodayRuns += agg.pricedRuns
+    unpricedTodayRuns += agg.unpricedRuns ?? 0
+  }
 
   // Build sorted cost timeline
   const costTimeline = Array.from(timelineMap.entries())
@@ -319,6 +417,7 @@ export function getDesktopAnalytics(
     },
     projectBreakdown,
     costTimeline,
+    byCategory: buildCategoryBreakdown([...surfaces.values()]),
   }
 }
 
@@ -419,8 +518,13 @@ export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodaySta
     jobsToday += jobsRow.jobsToday
   }
 
-  // App-level agent-chat spend (desktop.sqlite), added to the headline figure.
-  costToday += agentCostSince(registry, today)
+  // App-level agent turns (desktop.sqlite), counted like every other row.
+  for (const agg of queryAgentLedger(registry, clause, params)) {
+    costToday += agg.costUsd
+    estimatedCostToday += agg.estimatedCostUsd
+    pricedRuns += agg.pricedRuns
+    unpricedRuns += agg.unpricedRuns ?? 0
+  }
 
   return {
     costToday,

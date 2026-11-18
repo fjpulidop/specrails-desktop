@@ -224,7 +224,11 @@
     "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
     "costUnavailableShort": "nicht verfügbar",
     "costPartiallyUnavailable_one": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}.",
-    "costPartiallyUnavailable_other": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
+    "costPartiallyUnavailable_other": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}.",
+    "homeAndBlueprint": "Start & Blueprint",
+    "homeAndBlueprintHint": "Agenten-Turns ohne geladenes Projekt: Start-Missionen und Blueprint-/Builder-Chats.",
+    "agentTurns_one": "{{count}} Agenten-Turn",
+    "agentTurns_other": "{{count}} Agenten-Turns"
   },
   "windowLabels": {
     "7d": "Letzte 7 Tage",

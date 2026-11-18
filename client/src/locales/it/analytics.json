@@ -224,7 +224,11 @@
     "costUnavailable": "Sono state registrate invocazioni, ma la telemetria dei costi non è disponibile.",
     "costUnavailableShort": "non disponibile",
     "costPartiallyUnavailable_one": "Subtotale dei costi noti; invocazioni senza costo: {{count}}.",
-    "costPartiallyUnavailable_other": "Subtotale dei costi noti; invocazioni senza costo: {{count}}."
+    "costPartiallyUnavailable_other": "Subtotale dei costi noti; invocazioni senza costo: {{count}}.",
+    "homeAndBlueprint": "Home e Blueprint",
+    "homeAndBlueprintHint": "Turni dell’agente senza progetto caricato: missioni della Home e chat di Blueprint / Builder.",
+    "agentTurns_one": "{{count}} turno dell’agente",
+    "agentTurns_other": "{{count}} turni dell’agente"
   },
   "windowLabels": {
     "7d": "Ultimi 7 giorni",

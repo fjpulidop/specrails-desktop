@@ -8,6 +8,8 @@ export interface DailyBudgetGateOptions {
   /** The project's own connection — never another project's. */
   db: DbInstance
   projectId: string
+  /** desktop.sqlite: the agent turns pinned to this project (missions, Intent) count against its caps. */
+  appLedgerDb?: DbInstance
   /** App-wide snapshot; the same function the QueueManager auto-pause reads. */
   desktop?: () => BudgetSnapshot
   /** App-wide weekly/monthly cap with its spend (all projects), for the period containing `at`. */
@@ -22,7 +24,7 @@ export interface DailyBudgetGateOptions {
  * disagree about which cap is reached.
  */
 export function readCapStatuses(options: DailyBudgetGateOptions, at: Date): CapStatus[] {
-  const storage = createQueueBudgetStorage(options.db)
+  const storage = createQueueBudgetStorage(options.db, options.appLedgerDb)
   const out: CapStatus[] = []
   const push = (scope: DailyBudgetScope, period: CapPeriod, snapshot: BudgetSnapshot | null): void => {
     if (!snapshot || snapshot.budget == null || !(snapshot.budget > 0)) return

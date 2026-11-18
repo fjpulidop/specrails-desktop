@@ -291,6 +291,8 @@ export class QueueManager {
   private _getCostAlertThreshold: (() => number | null) | null
   private _getDesktopDailyBudget: (() => { budget: number | null; totalSpend: number }) | null
   private _getPeriodCapBreaches: (() => CapStatus[]) | null
+  /** desktop.sqlite: the agent turns pinned to this project count against its daily budget. */
+  private _appLedgerDb: DbInstance | null
   private _adapter: ProviderAdapter
   /** Effective model to use when spawning processes. For Claude the adapter
    *  reads its own config; this is the override that gets passed via `--model`.
@@ -413,6 +415,9 @@ export class QueueManager {
       /** Weekly/monthly caps (project + app-wide) that are reached right now.
        *  Enforced exactly like the daily budget: the queue pauses. */
       getPeriodCapBreaches?: () => CapStatus[]
+      /** App-level agent ledger (desktop.sqlite): mission / Intent turns pinned to
+       *  this project count against the project's daily budget, like the gate. */
+      appLedgerDb?: DbInstance
       /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
@@ -483,6 +488,7 @@ export class QueueManager {
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
     this._getPeriodCapBreaches = options?.getPeriodCapBreaches ?? null
+    this._appLedgerDb = options?.appLedgerDb ?? null
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
     this._agentDefaults = options?.agentDefaults ?? null
@@ -1568,7 +1574,7 @@ export class QueueManager {
     const db = this._db
     if (!db) return
     try {
-      const storage = createQueueBudgetStorage(db)
+      const storage = createQueueBudgetStorage(db, this._appLedgerDb ?? undefined)
       enforceDailyBudgets({
         project: () => storage.project(this._projectId, () => this._localDayStartIso()),
         desktop: this._getDesktopDailyBudget ? () => this._getDesktopDailyBudget!() : undefined,

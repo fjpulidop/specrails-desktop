@@ -224,7 +224,11 @@
     "costUnavailable": "已记录调用，但成本遥测数据不可用。",
     "costUnavailableShort": "不可用",
     "costPartiallyUnavailable_one": "已知成本小计；{{count}} 次调用不可用。",
-    "costPartiallyUnavailable_other": "已知成本小计；{{count}} 次调用不可用。"
+    "costPartiallyUnavailable_other": "已知成本小计；{{count}} 次调用不可用。",
+    "homeAndBlueprint": "主页与 Blueprint",
+    "homeAndBlueprintHint": "未固定到已加载项目的智能体轮次：主页任务以及 Blueprint / Builder 对话。",
+    "agentTurns_one": "{{count}} 个智能体轮次",
+    "agentTurns_other": "{{count}} 个智能体轮次"
   },
   "windowLabels": {
     "7d": "最近 7 天",

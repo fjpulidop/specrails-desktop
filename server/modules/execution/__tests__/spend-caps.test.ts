@@ -7,7 +7,8 @@ import {
 } from '..'
 import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses } from '../runtime/daily-budget-gate'
 import { readSpendOverview } from '../runtime/budget-overview'
-import { readProjectCaps, writeProjectCap } from '../adapters/budget-storage'
+import { appWideSpendSince, createQueueBudgetStorage, pinnedAppLedger, readProjectCaps, writeProjectCap } from '../adapters/budget-storage'
+import { initDesktopDb, recordAgentInvocation } from '../../../desktop-db'
 
 const local = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h)
 
@@ -175,5 +176,84 @@ describe('cap gating on a project database', () => {
       expect(overview.projection).toMatchObject({ estimate: true, trailingDays: 3, monthToDateUsd: 32 })
       expect(overview.projection?.projectedUsd).toBeCloseTo(32 + (32 / 3) * 6, 1)
     } finally { db.close() }
+  })
+})
+
+describe('mission spend (app ledger) counts against the caps', () => {
+  const invoke = (db: ReturnType<typeof initDb>, project: string, at: Date, cost: number) =>
+    recordInvocation(db, { project_id: project, provider: 'claude', surface: 'loop', status: 'success', started_at: at.toISOString(), total_cost_usd: cost })
+  let n = 0
+  const turn = (ddb: ReturnType<typeof initDesktopDb>, projectId: string | null, at: Date, cost: number | null, extra: Record<string, unknown> = {}) =>
+    recordAgentInvocation(ddb, { id: `turn-${n++}`, conversation_id: 'c1', project_id: projectId, provider: 'claude', status: 'success', started_at: at.toISOString(), total_cost_usd: cost, ...extra } as Parameters<typeof recordAgentInvocation>[1])
+
+  it('refuses a launch once pinned mission turns push the project over its weekly cap', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      writeProjectCap(db, 'week', 20)
+      invoke(db, 'p1', local(2026, 10, 20), 12)
+      const at = local(2026, 10, 22)
+      const gate = createDailyBudgetGate({ db, projectId: 'p1', appLedgerDb: ddb, now: () => at })
+      expect(gate()).toBeNull()
+      turn(ddb, 'p1', local(2026, 10, 21), 9) // a mission turn pinned to p1
+      expect(gate()).toMatchObject({ scope: 'project', period: 'week', budgetUsd: 20, spentUsd: 21 })
+      // Without the app ledger the gate keeps its historical project-only view.
+      expect(createDailyBudgetGate({ db, projectId: 'p1', now: () => at })()).toBeNull()
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('counts only the turns pinned to the project, never Home / Blueprint or other projects', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      writeProjectCap(db, 'month', 10)
+      turn(ddb, null, local(2026, 10, 21), 50) // Home / Blueprint
+      turn(ddb, 'p2', local(2026, 10, 21), 50) // another project
+      turn(ddb, 'p1', local(2026, 10, 21), null) // unpriced: skipped, never zero-filled
+      turn(ddb, 'p1', local(2026, 10, 21), 4)
+      expect(readCapStatuses({ db, projectId: 'p1', appLedgerDb: ddb }, local(2026, 10, 22))).toEqual([expect.objectContaining({ period: 'month', spentUsd: 4, exhausted: false })])
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('pauses the queue day budget on pinned mission spend (same storage the queue reads)', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      db.prepare("INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '5')").run()
+      const now = new Date()
+      turn(ddb, 'p1', now, 6)
+      const dayStart = () => new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+      expect(createQueueBudgetStorage(db, ddb).project('p1', dayStart)).toEqual({ budget: 5, totalSpend: 6 })
+      expect(createQueueBudgetStorage(db).project('p1', dayStart)).toEqual({ budget: 5, totalSpend: 0 })
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('the app-wide spend includes every agent turn (pinned, Home, Blueprint) plus every project', () => {
+    const db1 = initDb(':memory:'); const db2 = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      invoke(db1, 'p1', local(2026, 10, 21), 1)
+      invoke(db2, 'p2', local(2026, 10, 21), 2)
+      turn(ddb, 'p1', local(2026, 10, 21), 3)
+      turn(ddb, null, local(2026, 10, 21), 4)
+      turn(ddb, 'removed-project', local(2026, 10, 21), 5)
+      turn(ddb, null, local(2026, 10, 1), 100) // before the period
+      const since = local(2026, 10, 19, 0).toISOString()
+      expect(appWideSpendSince([{ db: db1, projectId: 'p1' }, { db: db2, projectId: 'p2' }], ddb, since)).toBe(15)
+      // A ledger that cannot be read adds nothing (fail-open).
+      expect(appWideSpendSince([{ db: db1, projectId: 'p1' }], { prepare: () => { throw new Error('closed') } } as unknown as ReturnType<typeof initDesktopDb>, since)).toBe(1)
+    } finally { db1.close(); db2.close(); ddb.close() }
+  })
+
+  it('shows mission spend in the Budget panel per provider and in the projection', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      const now = local(2026, 10, 25)
+      invoke(db, 'p1', local(2026, 10, 24), 10)
+      turn(ddb, 'p1', local(2026, 10, 23), 2, { provider: 'codex', total_cost_usd_estimated: 1, num_turns: 3 })
+      turn(ddb, null, local(2026, 10, 23), 7)
+      const project = readSpendOverview([{ db, projectId: 'p1' }], now, pinnedAppLedger(ddb, 'p1'))
+      expect(project.spend.month.usd).toBe(12)
+      expect(project.spend.month.byProvider.find((p) => p.provider === 'codex')).toMatchObject({ usd: 2, estimatedUsd: 2, invocations: 1, turns: 3 })
+      expect(project.projection?.monthToDateUsd).toBe(12)
+      const appWide = readSpendOverview([{ db, projectId: 'p1' }], now, { db: ddb })
+      expect(appWide.spend.month.usd).toBe(19)
+    } finally { db.close(); ddb.close() }
   })
 })

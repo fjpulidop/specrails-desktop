@@ -84,7 +84,8 @@ import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from
 import { deriveFailureDiagnosis, isDiagnosableOutcome, serializeDiagnosis } from '../../recovery'
 import { newId } from '../../../ids'
 import { getAdapter, requireToolPolicy } from '../../../providers'
-import { parseProgrammaticUsage } from '../../agent-runtime/runtime/agent-runtime-accounting'
+import { attributeProgrammaticUsage, parseProgrammaticUsage, type ProgrammaticShare } from '../../agent-runtime/runtime/agent-runtime-accounting'
+import { distributeIntByWeight } from '../../../util/distribute-int'
 import { parseStreamEvents } from '../../../providers/runtime'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { claimRailTickets, claimTicketOutcomeOwners } from '../../delivery/runtime/rails-store'
@@ -661,11 +662,37 @@ type LoopRecordedResult = {
   failed?: boolean
 }
 
+/** Core's deterministic completion check (loop-executors): no provider call, no cost. */
+export const DETERMINISTIC_VERIFICATION_MODEL = 'deterministic-verification'
+function isDeterministicVerification(result: LoopRecordedResult): boolean {
+  return result.provider === 'agent-runtime' && result.model === DETERMINISTIC_VERIFICATION_MODEL
+}
+
+/** Row id prefix of a Core v1 invocation share attributed to its real engine. */
+export const CORE_V1_ROW_PREFIX = 'core-v1:'
+
+/**
+ * The per-phase shares of a Core v1 invocation ('agent-runtime' / 'per-role'),
+ * read from the step's own Core events (after the staged event cursor). Undefined
+ * when the stream names no engine or the shares do not reconcile: the single
+ * aggregate row is kept.
+ */
+function programmaticShares(db: DbInstance, payload: LoopStepRecoveryPayload, result: LoopRecordedResult): ProgrammaticShare[] | undefined {
+  if (result.provider !== 'agent-runtime' || result.model !== 'per-role') return undefined
+  const rows = db.prepare(`
+    SELECT payload FROM events
+     WHERE job_id = ? AND seq > ? AND source = 'stdout' AND event_type IN ('workflow-event', 'runtime-efficiency-event')
+     ORDER BY seq
+  `).all(payload.runId, payload.completedEventSeq ?? -1) as Array<{ payload: string }>
+  const tokensOut = result.tokensOut ?? (result.tokensIn === undefined && result.tokensOut === undefined ? result.tokens : undefined)
+  return attributeProgrammaticUsage(rows.map((row) => row.payload), { cost: result.cost, tokensIn: result.tokensIn, tokensOut })
+}
+
 function programmaticUsageAvailability(db: DbInstance, runId: string): { present: boolean; costUnknown: boolean; tokensInUnknown: boolean; tokensOutUnknown: boolean } {
   const row = db.prepare(`SELECT COUNT(*) AS count,
     MAX(total_cost_usd IS NULL) AS cost_unknown,
     MAX(tokens_in IS NULL) AS input_unknown, MAX(tokens_out IS NULL) AS output_unknown
-    FROM ai_invocations WHERE surface = 'loop' AND loop_run_id = ? AND provider = 'agent-runtime'`).get(runId) as { count: number; cost_unknown: number | null; input_unknown: number | null; output_unknown: number | null }
+    FROM ai_invocations WHERE surface = 'loop' AND loop_run_id = ? AND (provider = 'agent-runtime' OR id LIKE '${CORE_V1_ROW_PREFIX}%')`).get(runId) as { count: number; cost_unknown: number | null; input_unknown: number | null; output_unknown: number | null }
   return { present: row.count > 0, costUnknown: Boolean(row.cost_unknown), tokensInUnknown: Boolean(row.input_unknown), tokensOutUnknown: Boolean(row.output_unknown) }
 }
 
@@ -696,7 +723,47 @@ function insertLoopInvocation(
   const cacheRead = splitInt(result.tokensCacheRead)
   const cacheCreate = splitInt(result.tokensCacheCreate)
   const turns = splitInt(result.numTurns)
-  targets.forEach((ticketId, index) => {
+  // Core's deterministic completion check calls no provider: it is not an AI
+  // invocation, so it writes no ledger row (a $0 row inflated call counts, the
+  // priced share and the 'agent-runtime' provider/model breakdowns).
+  const providerCall = !isDeterministicVerification(result)
+  const shares = providerCall ? programmaticShares(db, payload, result) : undefined
+  if (shares) {
+    // One row per phase × engine × ticket. Totals are the invocation's exactly:
+    // Core's per-phase figures reconcile with them (else no split), duration is
+    // apportioned by the measured call time (else tokens, else evenly).
+    const weights = shares.every((share) => share.durationMs !== undefined)
+      ? shares.map((share) => share.durationMs!)
+      : shares.map((share) => (share.tokensIn ?? 0) + (share.tokensOut ?? 0))
+    const durations = distributeIntByWeight(result.durationMs === undefined ? undefined : Math.round(result.durationMs), weights)
+    shares.forEach((share, shareIndex) => {
+      const shareIn = splitInt(share.tokensIn), shareOut = splitInt(share.tokensOut), shareDuration = splitInt(durations[shareIndex])
+      targets.forEach((ticketId, index) => {
+        const suffix = ticketId == null || targets.length === 1 ? '' : `:t${ticketId}`
+        recordInvocation(db, {
+          id: `${CORE_V1_ROW_PREFIX}${payload.invocationId}:${shareIndex}${suffix}`,
+          project_id: payload.projectId,
+          provider: share.provider,
+          surface: 'loop',
+          surface_ref_id: `${payload.surfaceRefId}${share.stepId ? `:${share.stepId}` : ''}${suffix}`,
+          ticket_id: ticketId,
+          status: result.failed ? 'failed' : 'success',
+          started_at: payload.startedAt,
+          finished_at: finishedAt,
+          total_cost_usd: share.cost === undefined ? undefined : share.cost / targets.length,
+          // Core reports no cost ⇒ unknown, as the aggregate row did; never priced here.
+          total_cost_usd_estimated: share.cost === undefined,
+          tokens_in: shareIn[index],
+          tokens_out: shareOut[index],
+          session_id: result.sessionId,
+          duration_ms: shareDuration[index],
+          model: share.model ?? undefined,
+          loop_run_id: payload.runId,
+        })
+      })
+    })
+  }
+  if (providerCall && !shares) targets.forEach((ticketId, index) => {
     const suffix = ticketId == null || targets.length === 1 ? '' : `:t${ticketId}`
     recordInvocation(db, {
       id: `${payload.invocationId}${suffix}`,

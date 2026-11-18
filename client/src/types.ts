@@ -214,6 +214,10 @@ export interface DesktopProjectStats {
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
+  /** 'app' = the Home & Blueprint row (agent turns pinned to no loaded project). */
+  kind?: 'project' | 'app'
+  /** Agent-ledger turns (missions, Intent) included in this row's cost. */
+  agentTurns?: number
 }
 
 export interface DesktopAnalyticsResponse {
@@ -242,6 +246,15 @@ export interface DesktopAnalyticsResponse {
     costUsd: number
     estimatedCostUsd?: number
     unpricedCount?: number
+  }>
+  /** The window's spend in the five spend categories (absent on older servers). */
+  byCategory?: Array<{
+    category: 'implementation' | 'missions' | 'specs' | 'code' | 'support'
+    costUsd: number
+    estimatedCostUsd: number
+    count: number
+    tokens: number
+    unpricedCount: number
   }>
 }
 

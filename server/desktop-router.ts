@@ -1066,7 +1066,8 @@ export function createDesktopRouter(
     try {
       const at = new Date()
       res.json({
-        ...readSpendOverview(registry.listContexts().map((c) => ({ db: c.db, projectId: c.project.id })), at),
+        // App-wide scope: every project plus every agent turn (missions, Intent, Home and Blueprint chats).
+        ...readSpendOverview(registry.listContexts().map((c) => ({ db: c.db, projectId: c.project.id })), at, { db: registry.desktopDb }),
         config: readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key)),
         caps: registry.desktopCapStatuses(at),
       })

@@ -71,3 +71,11 @@ historical one; week/month add `period`. `LoopRunManager` additionally checks th
 `loop_runs.run_cap_usd`, migration 85) on the same `budget_paused` pause, with Core's cooperative pause when the run is
 mid-step; `resumeBudgetPause(runId, { ignore } | { raiseTo })` is the explicit answer. Storage keys are in
 [budget-storage](adapters/budget-storage.ts).
+
+Mission and Intent turns live in the app ledger (desktop.sqlite `agent_invocations`), not in `ai_invocations`. The
+composition root passes that DB as `appLedgerDb`: a project's caps (gate, queue day budget, Budget panel, projection)
+add the turns pinned to the project, and the app-wide caps add every turn (Home, Blueprint and Builder chats included;
+`appWideSpendSince`). The app-wide daily budget uses the same basis as the other caps (all recorded costs since the
+LOCAL day start); it used to read completed jobs since the UTC day. An unreadable ledger adds nothing (fail-open).
+Missions themselves are not gated: a mission over a cap keeps running, but its spend now counts, so the next job,
+rail, loop or PR-CI launch is refused (and the queue pauses at its next drain) until the cap resets or is raised.

@@ -8,8 +8,8 @@ import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidatio
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
 import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
-import { projectSpendSince, readDesktopCaps, readProjectCaps, type CapConfig } from './modules/execution/adapters/budget-storage'
-import { dailyBudgetResetsAt, effectiveRunCap, isCapExceeded, periodResetsAtIso, periodStartIso, type CapPeriod, type CapStatus } from './modules/execution'
+import { appWideSpendSince, readDesktopCaps, readProjectCaps, type CapConfig } from './modules/execution/adapters/budget-storage'
+import { dailyBudgetResetsAt, effectiveRunCap, isCapExceeded, localDayStartIso, periodResetsAtIso, periodStartIso, type CapPeriod, type CapStatus } from './modules/execution'
 import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
@@ -854,6 +854,7 @@ export class ProjectRegistry {
         return val != null ? parseFloat(val) : null
       },
       getDesktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
+      appLedgerDb: this._desktopDb,
       getPeriodCapBreaches: () => this._capStatuses(db, project.id).filter((cap) => cap.exhausted && cap.period !== 'day'),
       onBudgetExceeded: (event, data) => {
         if (event === 'desktop_daily_budget_exceeded') {
@@ -1279,7 +1280,7 @@ export class ProjectRegistry {
     // See resolveLoopBaseEnv.
     // Same budget state the queue auto-pause enforces; bound to THIS project's
     // connection (project budget) plus the app-wide snapshot.
-    const capOptions = { db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period: Exclude<CapPeriod, 'day'>, at: Date) => this._desktopPeriodSnapshot(period, at) }
+    const capOptions = { db, projectId: project.id, appLedgerDb: this._desktopDb, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period: Exclude<CapPeriod, 'day'>, at: Date) => this._desktopPeriodSnapshot(period, at) }
     const dailyBudgetRejection = createDailyBudgetGate(capOptions)
     const dailyBudgetHeadroom = createDailyBudgetHeadroom(capOptions)
     // Every configured cap with its spend (Budget panel, inbox, mid-run pause).
@@ -1917,18 +1918,18 @@ export class ProjectRegistry {
   }
 
   /** App-wide daily budget state. The queue auto-pause and the rail/loop
-   *  admission gate read this same snapshot, so both doors agree. */
-  private _desktopDailyBudgetSnapshot(): { budget: number | null; totalSpend: number } {
+   *  admission gate read this same snapshot, so both doors agree. Same basis as
+   *  the project day cap and the weekly/monthly caps: every recorded cost since
+   *  the LOCAL day start, all projects plus every agent turn (missions, Intent,
+   *  Home and Blueprint chats). It used to read completed jobs since the UTC day. */
+  private _desktopDailyBudgetSnapshot(at: Date = new Date()): { budget: number | null; totalSpend: number } {
     const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
     const budget = val != null ? parseFloat(val) : null
-    let totalSpend = 0
-    for (const c of this.listContexts()) {
-      const row = c.db.prepare(
-        `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
-      ).get() as { total: number }
-      totalSpend += row.total
-    }
-    return { budget, totalSpend }
+    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, localDayStartIso(at)) }
+  }
+
+  private _spendProjects(): Array<{ db: DbInstance; projectId: string }> {
+    return this.listContexts().map((c) => ({ db: c.db, projectId: c.project.id }))
   }
 
   /** App-wide caps (all projects combined) as configured in desktop settings. */
@@ -1940,18 +1941,14 @@ export class ProjectRegistry {
   private _desktopPeriodSnapshot(period: Exclude<CapPeriod, 'day'>, at: Date): { budget: number | null; totalSpend: number } {
     const budget = this._desktopCapConfig()[period]
     if (budget === null) return { budget: null, totalSpend: 0 }
-    const since = periodStartIso(period, at)
-    let totalSpend = 0
-    for (const c of this.listContexts()) {
-      try { totalSpend += projectSpendSince(c.db, c.project.id, since) } catch { /* an unreadable project adds nothing (fail-open) */ }
-    }
-    return { budget, totalSpend }
+    // Every project plus every agent turn (app-wide scope).
+    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, periodStartIso(period, at)) }
   }
 
   /** The app-wide caps with their spend (all projects combined), for the Budget panel. */
   desktopCapStatuses(at: Date = new Date()): CapStatus[] {
     const out: CapStatus[] = []
-    const day = this._desktopDailyBudgetSnapshot()
+    const day = this._desktopDailyBudgetSnapshot(at)
     const push = (period: CapPeriod, snapshot: { budget: number | null; totalSpend: number }, resetsAt: string): void => {
       if (snapshot.budget == null || !(snapshot.budget > 0)) return
       out.push({ scope: 'desktop', period, budgetUsd: snapshot.budget, spentUsd: snapshot.totalSpend, exhausted: isCapExceeded(snapshot.budget, snapshot.totalSpend), resetsAt })
@@ -1964,7 +1961,7 @@ export class ProjectRegistry {
 
   /** Every cap of one project plus the app-wide ones, with spend. */
   private _capStatuses(db: DbInstance, projectId: string, at: Date = new Date()): CapStatus[] {
-    return readCapStatuses({ db, projectId, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period, when) => this._desktopPeriodSnapshot(period, when) }, at)
+    return readCapStatuses({ db, projectId, appLedgerDb: this._desktopDb, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period, when) => this._desktopPeriodSnapshot(period, when) }, at)
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

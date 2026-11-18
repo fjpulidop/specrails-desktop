@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
+import { APP_LEDGER_ROW_ID, getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
 import { initDb } from '../../../db'
 import { recordInvocation, type Surface } from './ai-invocations'
 import { initDesktopDb, recordAgentInvocation } from '../../../desktop-db'
@@ -498,5 +498,85 @@ describe('getDesktopAnalytics — custom period edge cases', () => {
     const today = new Date().toISOString().slice(0, 10)
     const result = getDesktopAnalytics(registry, { period: 'custom', to: today })
     expect(result.kpi.totalJobs).toBeGreaterThanOrEqual(0)
+  })
+})
+
+// ─── App ledger (missions, Intent, Home & Blueprint) counted everywhere ───────
+
+describe('getDesktopAnalytics — app ledger rows', () => {
+  let n = 0
+  const turn = (ddb: DbInstance, projectId: string | null, startedAt: string, cost: number | null, extra: Record<string, unknown> = {}) =>
+    recordAgentInvocation(ddb, { id: `t${n++}`, conversation_id: 'c1', project_id: projectId, provider: 'claude', status: 'success', started_at: startedAt, total_cost_usd: cost, tokens_in: 10, tokens_out: 5, ...extra } as Parameters<typeof recordAgentInvocation>[1])
+
+  it('puts pinned turns under their project and the rest in an explicit Home & Blueprint row', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([{ costUsd: 0.10, status: 'completed', startedAt: `${today}T10:00:00.000Z` }])
+    const ddb = initDesktopDb(':memory:')
+    turn(ddb, 'p1', `${today}T11:00:00.000Z`, 0.20) // mission pinned to p1
+    turn(ddb, 'p1', `${today}T11:30:00.000Z`, 0.05, { surface: 'flow', total_cost_usd_estimated: true }) // Intent turn, estimated
+    turn(ddb, null, `${today}T12:00:00.000Z`, 0.30) // Home / Blueprint
+    turn(ddb, null, `${today}T12:30:00.000Z`, null) // unpriced Builder chat turn
+    turn(ddb, 'not-loaded', `${today}T13:00:00.000Z`, 0.01) // pinned to a project that is not loaded
+    const result = getDesktopAnalytics(makeRegistry([{ id: 'p1', name: 'Proj', db }], ddb), { period: '7d' })
+
+    const project = result.projectBreakdown.find((row) => row.projectId === 'p1')!
+    expect(project.totalCostUsd).toBeCloseTo(0.35, 6)
+    expect(project.estimatedCostUsd).toBeCloseTo(0.05, 6)
+    expect(project).toMatchObject({ kind: 'project', agentTurns: 2, pricedRuns: 3, unpricedRuns: 0, totalJobs: 1 })
+    const app = result.projectBreakdown.find((row) => row.projectId === APP_LEDGER_ROW_ID)!
+    expect(app).toMatchObject({ kind: 'app', agentTurns: 3, pricedRuns: 2, unpricedRuns: 1, totalJobs: 0 })
+    expect(app.totalCostUsd).toBeCloseTo(0.31, 6)
+
+    // KPIs, coverage and the timeline reconcile with the rows.
+    expect(result.kpi.totalCostUsd).toBeCloseTo(0.66, 6)
+    expect(result.kpi.estimatedCostUsd).toBeCloseTo(0.05, 6)
+    expect(result.kpi).toMatchObject({ pricedRuns: 5, unpricedRuns: 1, pricedTodayRuns: 5, unpricedTodayRuns: 1, totalJobs: 1 })
+    expect(result.kpi.costToday).toBeCloseTo(0.66, 6)
+    expect(result.projectBreakdown.reduce((sum, row) => sum + row.totalCostUsd, 0)).toBeCloseTo(result.kpi.totalCostUsd, 6)
+    expect(result.costTimeline).toEqual([expect.objectContaining({ date: today, unpricedCount: 1 })])
+    expect(result.costTimeline[0].costUsd).toBeCloseTo(0.66, 6)
+    expect(result.costTimeline[0].estimatedCostUsd).toBeCloseTo(0.05, 6)
+  })
+
+  it('splits the window by spend category, missions included', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([{ costUsd: 0.10, status: 'completed', startedAt: `${today}T10:00:00.000Z` }], [{ costUsd: 0.04, surface: 'explore-spec' }])
+    const ddb = initDesktopDb(':memory:')
+    turn(ddb, null, `${today}T12:00:00.000Z`, 0.30)
+    turn(ddb, 'p1', `${today}T12:00:00.000Z`, 0.02, { surface: 'flow' })
+    const result = getDesktopAnalytics(makeRegistry([{ id: 'p1', name: 'Proj', db }], ddb), { period: '7d' })
+    const byCategory = Object.fromEntries(result.byCategory.map((entry) => [entry.category, entry]))
+    expect(byCategory.missions.costUsd).toBeCloseTo(0.32, 6)
+    expect(byCategory.missions.count).toBe(2)
+    expect(byCategory.missions.surfaces.map((s) => s.surface).sort()).toEqual(['intent', 'mission'])
+    expect(byCategory.implementation.costUsd).toBeCloseTo(0.10, 6)
+    expect(byCategory.specs.costUsd).toBeCloseTo(0.04, 6)
+    expect(result.byCategory.reduce((sum, entry) => sum + entry.costUsd, 0)).toBeCloseTo(result.kpi.totalCostUsd, 6)
+  })
+
+  it('applies the window upper bound to agent turns too', () => {
+    const db = makeProjectDb([])
+    const ddb = initDesktopDb(':memory:')
+    turn(ddb, null, '2026-01-05T10:00:00.000Z', 1)
+    turn(ddb, null, '2026-03-05T10:00:00.000Z', 9)
+    const result = getDesktopAnalytics(makeRegistry([{ id: 'p1', name: 'Proj', db }], ddb), { period: 'custom', from: '2026-01-01', to: '2026-01-31' })
+    expect(result.kpi.totalCostUsd).toBe(1)
+  })
+
+  it('omits the Home & Blueprint row when every turn belongs to a loaded project', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const ddb = initDesktopDb(':memory:')
+    turn(ddb, 'p1', `${today}T12:00:00.000Z`, 0.5)
+    const result = getDesktopAnalytics(makeRegistry([{ id: 'p1', name: 'Proj', db: makeProjectDb([]) }], ddb), { period: '7d' })
+    expect(result.projectBreakdown.map((row) => row.projectId)).toEqual(['p1'])
+  })
+
+  it('counts agent turns in the status-bar coverage figures', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const ddb = initDesktopDb(':memory:')
+    turn(ddb, null, `${today}T12:00:00.000Z`, 0.5, { total_cost_usd_estimated: true })
+    turn(ddb, null, `${today}T12:00:00.000Z`, null)
+    const stats = getDesktopTodayStats(makeRegistry([{ id: 'p1', name: 'Proj', db: makeProjectDb([]) }], ddb))
+    expect(stats).toMatchObject({ costToday: 0.5, estimatedCostToday: 0.5, includesEstimated: true, pricedRuns: 1, unpricedRuns: 1 })
   })
 })

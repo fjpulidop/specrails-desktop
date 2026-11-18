@@ -20,6 +20,19 @@ export function runtimeEfficiencyEventLine(line: string, runId: string): string 
     payload[key] = raw[key]
   }
   if (raw.exitCode !== undefined) { if (typeof raw.exitCode !== 'number' || !Number.isSafeInteger(raw.exitCode)) return null; payload.exitCode = raw.exitCode }
+  // A provider call's reported usage: it attributes the v1 invocation total to
+  // the real provider/model (attributeProgrammaticUsage). Unknown stays null.
+  if (raw.usage !== undefined) {
+    if (!raw.usage || typeof raw.usage !== 'object' || Array.isArray(raw.usage)) return null
+    const source = raw.usage as Record<string, unknown>, usage: Record<string, number | null> = {}
+    for (const key of ['costUsd', 'inputTokens', 'outputTokens', 'uncachedInputTokens', 'cacheReadInputTokens', 'cacheWriteInputTokens']) {
+      const value = source[key]
+      if (value === undefined) continue
+      if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) return null
+      usage[key] = value as number | null
+    }
+    payload.usage = usage
+  }
   return JSON.stringify({ type: event.type, schemaVersion: 1, eventId: event.eventId, runId, attemptId: event.attemptId, kind: event.kind, payload })
 }
 export function isRecordedRuntimeEfficiencyEvent(db: DbInstance, runId: string, line: string): boolean {

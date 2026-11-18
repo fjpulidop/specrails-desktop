@@ -224,7 +224,11 @@
     "costUnavailable": "Des invocations ont été enregistrées, mais la télémétrie de coût est indisponible.",
     "costUnavailableShort": "indisponible",
     "costPartiallyUnavailable_one": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
-    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
+    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
+    "homeAndBlueprint": "Accueil et Blueprint",
+    "homeAndBlueprintHint": "Tours de l’agent sans projet chargé : missions de l’accueil et discussions Blueprint / Builder.",
+    "agentTurns_one": "{{count}} tour de l’agent",
+    "agentTurns_other": "{{count}} tours de l’agent"
   },
   "windowLabels": {
     "7d": "7 derniers jours",

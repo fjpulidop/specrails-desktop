@@ -5,10 +5,86 @@ import { migrateRepositoryProvenance } from '../project-repository-provenance'
 import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
 import { createJobSearchSchema, rebuildJobSearchIndex } from './job-search'
 import { estimateCostUsd } from '../modules/accounting/runtime/pricing'
+import { attributeProgrammaticUsage } from '../modules/agent-runtime/runtime/agent-runtime-accounting'
+import { distributeIntByWeight, distributeIntEvenly } from '../util/distribute-int'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
 type Migration = (db: DbInstance) => void
+
+interface ProgrammaticLedgerRow {
+  id: string; project_id: string; surface_ref_id: string | null; ticket_id: number | null; status: string
+  started_at: string; finished_at: string | null; duration_ms: number | null; tokens_in: number | null; tokens_out: number | null
+  total_cost_usd: number | null; total_cost_usd_estimated: number; session_id: string | null; created_at: string; loop_run_id: string
+}
+
+/**
+ * Migration 95: Core v1 programmatic runs were recorded as ONE row per
+ * invocation with provider 'agent-runtime' / model 'per-role'. Re-attribute a
+ * row set to its real phases and engines ONLY when the stored Core events prove
+ * it: the run holds exactly one such invocation (so every Core event of the run
+ * is that invocation's), its settled step attempts name one provider each and
+ * their usage reconciles with the stored totals (attributeProgrammaticUsage).
+ * Anything else — several invocations in one run, mixed providers inside an
+ * attempt, recordings without role-context events, figures that disagree —
+ * stays as it was. Totals are unchanged by construction. The deterministic
+ * completion check's $0 rows are removed: no provider was called.
+ */
+function reattributeCoreV1Invocations(db: DbInstance): void {
+  db.prepare(`DELETE FROM ai_invocations WHERE provider = 'agent-runtime' AND model = 'deterministic-verification'
+    AND COALESCE(total_cost_usd, 0) = 0 AND COALESCE(tokens_in, 0) = 0 AND COALESCE(tokens_out, 0) = 0`).run()
+  const rows = db.prepare(`SELECT id, project_id, surface_ref_id, ticket_id, status, started_at, finished_at, duration_ms,
+      tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated, session_id, created_at, loop_run_id
+    FROM ai_invocations WHERE surface = 'loop' AND provider = 'agent-runtime' AND model = 'per-role' AND loop_run_id IS NOT NULL
+    ORDER BY loop_run_id, id`).all() as ProgrammaticLedgerRow[]
+  const byRun = new Map<string, Map<string, ProgrammaticLedgerRow[]>>()
+  for (const row of rows) {
+    const base = row.id.replace(/:t\d+$/, '')
+    const groups = byRun.get(row.loop_run_id) ?? new Map<string, ProgrammaticLedgerRow[]>()
+    groups.set(base, [...(groups.get(base) ?? []), row])
+    byRun.set(row.loop_run_id, groups)
+  }
+  const events = db.prepare(`SELECT payload FROM events WHERE job_id = ? AND source = 'stdout'
+    AND event_type IN ('workflow-event', 'runtime-efficiency-event') ORDER BY seq`)
+  const remove = db.prepare('DELETE FROM ai_invocations WHERE id = ?')
+  const insert = db.prepare(`INSERT INTO ai_invocations (
+      id, project_id, provider, surface, surface_ref_id, ticket_id, model, status, started_at, finished_at,
+      duration_ms, tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated, session_id, created_at, loop_run_id
+    ) VALUES (?, ?, ?, 'loop', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  for (const [runId, groups] of byRun) {
+    if (groups.size !== 1) continue
+    const [[base, group]] = [...groups]
+    const sum = (key: 'tokens_in' | 'tokens_out' | 'total_cost_usd' | 'duration_ms'): number | undefined =>
+      group.some((row) => row[key] === null) ? undefined : group.reduce((acc, row) => acc + (row[key] as number), 0)
+    const shares = attributeProgrammaticUsage(
+      (events.all(runId) as Array<{ payload: string }>).map((row) => row.payload),
+      { cost: sum('total_cost_usd'), tokensIn: sum('tokens_in'), tokensOut: sum('tokens_out') },
+    )
+    if (!shares) continue
+    const first = group[0]
+    const tickets = group.map((row) => row.ticket_id)
+    const refBase = (first.surface_ref_id ?? '').replace(/:t\d+$/, '')
+    const totalDuration = sum('duration_ms')
+    const weights = shares.map((share) => share.durationMs ?? (share.tokensIn ?? 0) + (share.tokensOut ?? 0))
+    const durations = distributeIntByWeight(totalDuration === undefined ? undefined : Math.round(totalDuration), weights)
+    for (const row of group) remove.run(row.id)
+    shares.forEach((share, shareIndex) => {
+      const inTokens = distributeIntEvenly(share.tokensIn, tickets.length)
+      const outTokens = distributeIntEvenly(share.tokensOut, tickets.length)
+      const duration = distributeIntEvenly(durations[shareIndex], tickets.length)
+      tickets.forEach((ticketId, index) => {
+        const suffix = ticketId == null || tickets.length === 1 ? '' : `:t${ticketId}`
+        insert.run(
+          `core-v1:${base}:${shareIndex}${suffix}`, first.project_id, share.provider,
+          `${refBase}${share.stepId ? `:${share.stepId}` : ''}${suffix}`, ticketId, share.model, first.status,
+          first.started_at, first.finished_at, duration[index] ?? null, inTokens[index] ?? null, outTokens[index] ?? null,
+          share.cost === undefined ? null : share.cost / tickets.length, share.cost === undefined ? 1 : 0,
+          first.session_id, first.created_at, runId,
+        )
+      })
+    })
+  }
+}
 
 /** Backfill only terminal Safe-PR rows whose ticket ownership is unambiguous.
  * Eligibility is intentionally deferred to the outbox drainer, which freezes
@@ -2104,6 +2180,11 @@ const MIGRATIONS: Migration[] = [
       if (cost !== null) update.run(cost, row.id)
     }
   },
+
+  // Migration 95: re-attribute Core v1 'agent-runtime' / 'per-role' rows to their
+  // real phases, providers and models where the stored Core events prove it,
+  // and drop the deterministic completion check's $0 non-invocation rows.
+  reattributeCoreV1Invocations,
 ]
 
 export function applyMigrations(db: DbInstance): void {
