@@ -22,6 +22,17 @@ Sélectionnez des lignes en cliquant sur leurs numéros (Maj-clic étend la plag
 
 **Ouvrir dans l'éditeur** ouvre le fichier, à la ligne sélectionnée, dans VS Code, Cursor ou un IDE JetBrains. Choisissez l'éditeur dans **Réglages → Code → Éditeur**. Le fichier s'ouvre depuis votre propre copie du projet, où la branche de la revue n'est peut-être pas extraite.
 
+## Voir les conflits avant de fusionner {#merge-preview}
+
+Chaque livraison qui vous attend est comparée à sa branche de base **telle qu’elle est maintenant** (le dernier `origin/<base>` récupéré), sans toucher à votre checkout : Git fusionne les deux en mémoire et rien n’est écrit dans votre dépôt. La carte du rail, le dossier de revue et le live board indiquent alors :
+
+- **Conflit avec main dans …** : le changement ne se fusionne plus proprement ; les fichiers sont listés. Il prend l’aspect d’avertissement.
+- **En collision avec le Rail N dans …** : une autre livraison en attente sur la même base modifie les mêmes lignes, donc celle qui fusionnera en second aura des conflits.
+- **main a avancé de N commits depuis la création de cette branche** : la base a progressé ; pensez à mettre la branche à jour avant de décider.
+- **Déjà dans main** : le changement est déjà intégré (par exemple après un squash merge).
+
+L’aperçu se met à jour quand une livraison change d’état ou qu’un run se termine. Quand Specrails fusionne lui-même plusieurs résultats, il fusionne d’abord ceux qui s’appliquent proprement. Git 2.38 ou plus récent est nécessaire ; avec un Git plus ancien, l’aperçu indique qu’il est indisponible.
+
 ## Choisir ce qu'il advient d'une livraison {#pr-decision}
 
 Une exécution terminée ne vous demande qu'une chose : que faire de son résultat. La carte affiche un bouton principal pour l'étape suivante (créer la PR, la publier ou la vérifier) et, à côté, **Relire**, qui ouvre le dossier de relecture en langage clair. Tout le reste se trouve sous **Plus d'actions** :

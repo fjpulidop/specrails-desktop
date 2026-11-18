@@ -298,6 +298,7 @@ A few env vars are read directly by the app. The two most useful operational one
 |----------|-------------|
 | `SPECRAILS_TECH_URL` | Fallback specrails-tech base URL. Resolution order is the `specrails_tech_url` app setting **first**, then this env var, then `http://localhost:3000` — so a stored app setting takes precedence over this var. |
 | `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for the asynchronous login-shell probe that recovers configured project environment names (default `10000`, capped at `120000`). The synchronous cold fallback keeps its 1.5 s bound. See [Login-shell recovery](#login-shell-recovery-and-resolution-status). |
+| `SPECRAILS_WORKTREE_PREPARATION` | `false` turns off prepared run checkouts (Launch all prewarm and preparation alongside the launch fetch); worktrees are then created with a plain `git worktree add`, still with `checkout.workers=4` unless `checkout.workers` is configured. See [delivery › Faster run worktrees](../../server/modules/delivery/README.md#faster-run-worktrees). |
 | `WM_ZOMBIE_TIMEOUT_MS` | Zombie-job detection timeout in milliseconds (default `1800000` = 30 min). This is a stuck-job watchdog, **not** a hard "kill after N minutes" cap. |
 
 ### Run worktree ports

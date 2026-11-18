@@ -22,6 +22,17 @@ Select lines by clicking their numbers (Shift-click extends the range), then cho
 
 **Open in editor** opens the file, at the selected line, in VS Code, Cursor or a JetBrains IDE. Choose the editor in **Settings → Code → Editor**. The file opens from your own checkout of the project, where the review branch may not be checked out.
 
+## See conflicts before you merge {#merge-preview}
+
+Each delivery waiting for you is checked against its base branch **as it is now** (the last fetched `origin/<base>`), without touching your checkout: Git merges the two in memory and nothing is written to your repository. The rail card, the review packet and the live board then say:
+
+- **Conflicts with main in …**: the change no longer merges cleanly; the files are listed. It shows the warning look.
+- **Collides with Rail N in …**: another delivery waiting on the same base changes the same lines, so whichever merges second will conflict.
+- **main moved N commits since this branch was cut**: the base advanced; consider updating the branch before you decide.
+- **Already in main**: the change landed already (for example after a squash merge).
+
+The preview refreshes when a delivery changes state or a run ends. When Specrails merges several results back itself, it merges the ones that apply cleanly first. Git 2.38 or later is needed; with an older Git the preview says it is unavailable.
+
 ## Choose what happens to a delivery {#pr-decision}
 
 A finished run asks you one thing: what to do with its result. The card shows one main button for the next step (create the PR, publish it or verify it) and, next to it, **Review**, which opens the plain-language review packet. Everything else sits behind **More actions**:

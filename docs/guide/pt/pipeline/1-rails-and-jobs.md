@@ -61,6 +61,8 @@ Toda vez que você aperta Play, a execução do rail vira um **job**. A regra ma
 
 Quer tudo andando de uma vez? O botão **Lançar todos** no cabeçalho de Rails inicia todas as pistas prontas de uma só vez, após uma única confirmação que enquadra o custo total (N rails × gasto de IA). Rails vazios, já em execução ou aguardando uma decisão de PR são pulados e reportados em um toast de resumo compacto. O agente integrado tem o mesmo poder via `specrails_rails(launch_all)` — e cria um rail novo quando não existe pista livre.
 
+Enquanto a caixa **Launch all** está aberta, o Specrails já prepara até três worktrees em segundo plano, para que os rails comecem mais cedo quando você confirmar; um lançamento sem nada preparado preenche seu worktree enquanto faz o fetch. Seu hook Git `post-checkout` continua rodando uma vez para cada worktree novo. Fechar a caixa sem lançar descarta o que foi preparado.
+
 Projetos sem git não têm isolamento por worktree nem continuação de PR. Eles ainda podem rodar, mas o rail escreve diretamente na pasta compartilhada do projeto e o resultado é aceito ou revertido manualmente a partir do quadro de specs.
 
 Não há um botão global de concorrência para ajustar. O único limite automático é baseado em orçamento: se você definiu um orçamento diário (do projeto ou da app), a fila se autopausa assim que o gasto do dia atinge o teto.
