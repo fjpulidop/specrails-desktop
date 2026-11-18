@@ -9,6 +9,7 @@ vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn()
 vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
+import { configureCoreChildRegistry } from '../../../util/core-child-process'
 import { coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
 let root: string, contextPath: string
@@ -159,6 +160,26 @@ describe('definition verification admission', () => {
 })
 
 describe('Core process bridge', () => {
+  it.skipIf(process.platform === 'win32')('runs Core in its own process group and records it while it runs', async () => {
+    const registry = join(root, 'core-children')
+    configureCoreChildRegistry(registry)
+    try {
+      // The fake Core reports its process group and what the registry holds while it runs.
+      script(`import { execFileSync } from 'node:child_process'; import fs from 'node:fs'
+const pgid = Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(process.pid)], { encoding: 'utf8' }).trim())
+console.log(JSON.stringify({ type: 'agent-event', role: 'developer', event: { kind: 'text', text: 'group ' + (pgid === process.pid ? 'own' : 'shared') + ' records ' + fs.readdirSync(${JSON.stringify(registry)}).join(',') } }))
+console.log(JSON.stringify(${JSON.stringify(final())}))`)
+      const lines: string[] = []
+      let pid = 0
+      const result = await runAgentRuntimeInvocation({ ...options(), onLine: line => lines.push(line), onSpawn: child => { pid = child.pid! } })
+      expect(result.failed).toBe(false)
+      expect(lines.join('')).toContain(`group own records ${pid}.json`)
+      // Desktop's own process group is not Core's.
+      expect(pid).not.toBe(process.pid)
+      expect(existsSync(join(registry, `${pid}.json`))).toBe(false)
+    } finally { configureCoreChildRegistry(null) }
+  })
+
   it('compacts a large successful Jest stream without changing raw events or its recorded outcome', async () => {
     const identity = { runId: 'run-1', nodePath: 'verify', scopeId: 'root', attemptId: 'attempt-1', attempt: 1, visit: 1 }
     const rows = 77_018

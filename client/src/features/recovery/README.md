@@ -30,7 +30,7 @@ Failure recovery cockpit: the **diagnosis card** at the top of a failed or block
 A run that failed, stalled or was blocked is explained by ONE typed record, the
 *diagnosis*, produced by the server ([recovery module](../../../../server/modules/recovery/README.md)):
 `kind` (`tests_failed`, `provider_limit`, `environment`, `port_in_use`, `blocked`, `timeout`, `tool_inactivity`,
-`crash`, `incomplete_tasks` with its `incompleteTasks` list, `spec_invalid`, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
+`crash`, `incomplete_tasks` with its `incompleteTasks` list, `spec_invalid`, `workflow_protocol` with the `role`, `model` and an optional `strongerModel` to suggest, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
 `resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, the contested
 `port` (`port_in_use`, when the output named it; amber like the other causes the host can unblock),
 and the server-ranked `remedies`.

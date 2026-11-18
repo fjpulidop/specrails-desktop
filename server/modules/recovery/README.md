@@ -31,6 +31,10 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
   OpenSpec rejects (`spec_invalid`), host blockers (`environment`) and exhausted or unchanged
   corrections (`blocked`). A low-confidence Core record never hides them. Everything else is
   `unknown` with `confidence: 'low'`.
+- `workflow_protocol` (Core 5.16, or Core's fixed "Required OpenSpec role workflow was not executed"
+  sentence from an older Core) is resumable; reads present it with `strongerModel`, the provider's
+  default model when the provider catalog marks the model that ran `small` (`strongerModelFor`,
+  catalog injected by [adapters/sqlite.ts](adapters/sqlite.ts) so the domain stays pure).
 - `incomplete_tasks` remedies are `continue-to-review` and `retry-with-browser`, applied by
   `POST /loop-runs/:id/remedy` as a Core fork ([incomplete-tasks-remedy.ts](../delivery/runtime/incomplete-tasks-remedy.ts)).
 - A low-confidence record is always `unknown`, whatever kind it claimed, and its remedies are only

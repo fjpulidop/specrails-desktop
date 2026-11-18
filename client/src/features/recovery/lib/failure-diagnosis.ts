@@ -8,7 +8,7 @@
 import type { EventRow } from '../../../types'
 import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 
 export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
@@ -38,6 +38,11 @@ export interface FailureDiagnosis {
   port?: number | null
   /** `incomplete_tasks`: the approved tasks still unticked, as the run named them. */
   incompleteTasks?: string[] | null
+  /** `workflow_protocol`: the role whose model skipped the required OpenSpec steps, and what it ran on. */
+  role?: string | null
+  model?: string | null
+  /** `workflow_protocol` on a small model: the provider's default model to run that role on instead. */
+  strongerModel?: { provider: string; model: string; label: string } | null
   source: 'core' | 'desktop'
   /** Ranked by the server; a surface shows the first ones it can run. */
   remedies: RemedyId[]
@@ -64,6 +69,13 @@ function readBlocker(raw: unknown): FailureBlocker | null {
   }
 }
 
+function readStrongerModel(raw: unknown): FailureDiagnosis['strongerModel'] {
+  if (!raw || typeof raw !== 'object') return null
+  const v = raw as Record<string, unknown>
+  const provider = text(v.provider, 64), model = text(v.model, 128), label = text(v.label, 120)
+  return provider && model && label ? { provider, model, label } : null
+}
+
 /** Defensive read of the wire record: anything malformed is absent, never thrown. */
 export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
@@ -85,6 +97,9 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
     blocker: readBlocker(v.blocker),
     port: typeof v.port === 'number' && Number.isInteger(v.port) && v.port >= 1 && v.port <= 65535 ? v.port : null,
     incompleteTasks: Array.isArray(v.incompleteTasks) ? v.incompleteTasks.filter((task): task is string => typeof task === 'string' && !!task.trim()).slice(0, 20).map((task) => task.slice(0, 300)) : null,
+    role: text(v.role, 64),
+    model: text(v.model, 128),
+    strongerModel: readStrongerModel(v.strongerModel),
     source: v.source === 'core' ? 'core' : 'desktop',
     // An uncertain record is offered the same two safe remedies whatever the wire said.
     remedies: confident ? remedies : ['open-logs', 'retry'],
@@ -121,6 +136,8 @@ export function headlineKey(diagnosis: FailureDiagnosis, phaseLabel: string | nu
     case 'tool_inactivity':
     case 'crash':
     case 'blocked': return { key: `headline.${diagnosis.kind}.${phaseLabel ? 'phase' : 'plain'}`, params }
+    // The role names who skipped the steps (`plan`); the phase id is only the node it ran in.
+    case 'workflow_protocol': return diagnosis.role ? { key: 'headline.workflow_protocol.role', params: { ...params, role: diagnosis.role } } : { key: 'headline.workflow_protocol.plain', params }
     case 'port_in_use': return diagnosis.port ? { key: 'headline.port_in_use.port', params: { ...params, port: diagnosis.port } } : { key: 'headline.port_in_use.plain', params }
     default: return { key: `headline.${diagnosis.kind}`, params }
   }
@@ -141,6 +158,9 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'crash': return { key: 'why.crash', params: {} }
     case 'incomplete_tasks': return { key: 'why.incomplete_tasks', params: {} }
     case 'spec_invalid': return { key: 'why.spec_invalid', params: {} }
+    case 'workflow_protocol': return diagnosis.strongerModel
+      ? { key: 'why.workflow_protocol.stronger', params: { model: diagnosis.model ?? '', stronger: diagnosis.strongerModel.label } }
+      : { key: 'why.workflow_protocol.plain', params: {} }
     default: return null
   }
 }

@@ -23,7 +23,7 @@ const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
   { value: 'fable', label: 'Claude Fable 5.2' },
   { value: 'opus', label: 'Claude Opus 5.5' },
-  { value: 'haiku', label: 'Claude Haiku 5.5' },
+  { value: 'haiku', label: 'Claude Haiku 5.5', small: true as const },
 ] as const
 
 /** Mirror of ChatManager.normalizeClaudeCodeModel — pinned model strings the

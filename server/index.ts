@@ -1,4 +1,5 @@
 import { installAppWorktreeProcessReaper, sweepSettledRunWorktrees } from './worktree-process-reaper'
+import { configureCoreChildRegistry, reapOrphanedCoreChildren } from './util/core-child-process'
 import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
 import { createDesktopQuotaStore } from './modules/provider-quota/runtime/composition'
 import { reportRateLimit } from './modules/provider-quota/runtime/quota-reports'
@@ -194,6 +195,15 @@ try {
   console.error(`[error] ${error.message}.`)
   console.error('[error] Close that Specrails first, or start the development app with `npm run dev:desktop -- --isolated`.')
   process.exit(1)
+}
+
+// Core runtime/session children run in their own process group and are recorded
+// while they run. Reap the ones a crashed previous server left before anything
+// resumes: their pipes died with it, and a live orphan would hold its run's lease.
+configureCoreChildRegistry(path.join(PID_DIR, 'core-children'))
+{
+  const reaped = reapOrphanedCoreChildren({ log: (line) => console.log(line) })
+  if (reaped.length) console.log(`[core-children] startup sweep terminated ${reaped.length} orphaned Core process(es)`)
 }
 
 function removePidFile(): void {

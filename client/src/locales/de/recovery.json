@@ -32,6 +32,10 @@
     },
     "incomplete_tasks": "Einige freigegebene Aufgaben blieben unerledigt",
     "spec_invalid": "OpenSpec hat die Spezifikation der Änderung abgelehnt",
+    "workflow_protocol": {
+      "role": "Das Modell für {{role}} hat erforderliche OpenSpec-Schritte übersprungen",
+      "plain": "Das Modell hat erforderliche OpenSpec-Schritte übersprungen"
+    },
     "unknown": "Unbekannte Ursache",
     "stepFailed": "Der Schritt {{phase}} ist fehlgeschlagen"
   },
@@ -50,6 +54,10 @@
     "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
     "incomplete_tasks": "Alles andere ist erledigt. Ist der Rest eine Prüfung, die nur ein Mensch machen kann, weiter zum Review mit ihr als Prüfung von Hand; sonst erneut ausführen und den Lauf sie mit Browser und Werkzeugen abschließen lassen.",
     "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
+    "workflow_protocol": {
+      "plain": "Es hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Die Arbeit vor diesem Schritt bleibt erhalten: setze dort fort.",
+      "stronger": "{{model}} ist ein kleines Modell und hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Setze bei diesem Schritt fort; passiert es wieder, wähle {{stronger}} für diese Rolle."
+    },
     "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist."
   },
   "remedies": {

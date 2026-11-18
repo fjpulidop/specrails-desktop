@@ -32,6 +32,10 @@
     },
     "incomplete_tasks": "Algumas tarefas aprovadas ficaram por terminar",
     "spec_invalid": "O OpenSpec rejeitou a especificação da alteração",
+    "workflow_protocol": {
+      "role": "O modelo de {{role}} pulou etapas obrigatórias do OpenSpec",
+      "plain": "O modelo pulou etapas obrigatórias do OpenSpec"
+    },
     "unknown": "Causa desconhecida",
     "stepFailed": "A etapa {{phase}} falhou"
   },
@@ -50,6 +54,10 @@
     "crash": "O processo do provedor ou sua conexão morreu no meio da execução.",
     "incomplete_tasks": "Todo o resto está feito. Se o que falta é uma verificação que só uma pessoa pode fazer, continue para a revisão com ela listada como verificação manual; caso contrário, tente de novo e deixe a execução terminá-la com o navegador e as ferramentas.",
     "spec_invalid": "O plano ou a especificação não passou no OpenSpec, e o planeamento não conseguiu corrigi-lo.",
+    "workflow_protocol": {
+      "plain": "Ele encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. O trabalho anterior a essa etapa é mantido: retome a partir dela.",
+      "stronger": "{{model}} é um modelo pequeno e encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. Retome dessa etapa; se acontecer de novo, escolha {{stronger}} para esta função."
+    },
     "unknown": "Os registos da execução não indicam a causa. Uma leitura do log com IA costuma encontrá-la."
   },
   "remedies": {
