@@ -56,7 +56,7 @@ The built-ins are editable, too: edit one in the Loop Builder and publish it, an
 
 Every time you press Play, the rail run becomes a **job**. The most important rule to internalise:
 
-> **Rails run in parallel.** Every git-backed launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other. Fresh work settles into an **On Review** decision card where you can create a draft PR or discard it; follow-up work for a spec that already has an open PR continues that PR branch instead of starting over from the integration branch.
+> **Rails run in parallel.** Every git-backed launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other. Fresh work settles into an **On review** decision card where you can create a draft PR or discard it; follow-up work for a spec that already has an open PR continues that PR branch instead of starting over from the integration branch.
 
 Want everything moving at once? The **Launch all** button in the Rails header starts every ready lane in one go, after a single confirmation that frames the total cost (N rails × AI spend). Rails that are empty, already running, or awaiting a PR decision are skipped and reported in a compact summary toast. The in-app agent has the same power through `specrails_rails(launch_all)` — and it will create a fresh rail when no free lane exists.
 

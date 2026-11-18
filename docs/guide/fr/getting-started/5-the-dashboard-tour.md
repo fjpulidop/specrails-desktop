@@ -40,7 +40,7 @@ Un fin bandeau court tout en bas de la fenêtre. Discret mais bien pratique :
 
 ## Des fenêtres à part entière
 
-Dans l'application de bureau, certains écrans s'ouvrent dans de vraies fenêtres plutôt que dans des panneaux de la fenêtre principale : les **Paramètres de l'app**, le détail d'un job ouvert depuis une mission, ainsi que **Loops** et **Plugins** en mode Mission. Vous pouvez les déplacer sur un autre écran et continuer à travailler dans la fenêtre principale. Chacune utilise les contrôles de fenêtre du système ; les Paramètres et la fenêtre du job se ferment aussi avec **Échap**. Les changements que vous y faites, comme le thème ou la langue, s'appliquent immédiatement à la fenêtre principale. Dans la version navigateur, ces écrans s'ouvrent en panneaux.
+Dans l'application de bureau, certains écrans s'ouvrent dans de vraies fenêtres plutôt que dans des panneaux de la fenêtre principale : les **Paramètres**, le détail d'un job ouvert depuis une mission, ainsi que **Loops** et **Plugins** en mode Mission. Vous pouvez les déplacer sur un autre écran et continuer à travailler dans la fenêtre principale. Chacune utilise les contrôles de fenêtre du système ; les Paramètres et la fenêtre du job se ferment aussi avec **Échap**. Les changements que vous y faites, comme le thème ou la langue, s'appliquent immédiatement à la fenêtre principale. Dans la version navigateur, ces écrans s'ouvrent en panneaux.
 
 ## Les notifications de ce qui vous attend {#attention}
 

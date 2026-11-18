@@ -4,7 +4,7 @@ A **spec** in specrails-desktop is a description of work you want done — what 
 
 ## Creating a spec
 
-Open the Dashboard and click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add Spec** dialog opens with three modes:
+Open the Dashboard and click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add spec** dialog opens with three modes:
 
 - **Quick** — you describe what you want; the AI writes the full spec.
 - **Explore** — you converse with the AI and shape the spec turn by turn.
@@ -57,9 +57,9 @@ Click **Fine-tune** to set the flags individually. One toggle only appears here:
 
 **Buttons in the shell:**
 
-- **Save as Draft** — persists the conversation as a draft ticket so you can come back later. Available once you've sent at least one user message. The draft carries `origin_conversation_id` pointing back at this conversation so you can resume it from the dashboard.
+- **Save as draft** — persists the conversation as a draft ticket so you can come back later. Available once you've sent at least one user message. The draft carries `origin_conversation_id` pointing back at this conversation so you can resume it from the dashboard.
 - **Review →** — opens a Review overlay that diffs the proposed spec against the baseline before you commit.
-- **Create Spec** — promotes the live draft to a real spec (status `todo`). When you're editing an existing spec the same button reads **Update Spec** instead. The conversation stays in history.
+- **Create spec** — promotes the live draft to a real spec (status `todo`). When you're editing an existing spec the same button reads **Update spec** instead. The conversation stays in history.
 - **Minimize** — parks the conversation as a chip in the minimized-chats dock; click the chip later to restore it.
 - **Discard** — destructive, asks for confirmation.
 
@@ -73,7 +73,7 @@ A draft is an in-progress Explore conversation saved as a ticket with status `dr
 
 - Carry a `Draft` pill where the priority pill would be.
 - Live in the active (Todo) bucket with a subtly tinted border — there's no separate Backlog column.
-- Have a **Continue Editing** action in the detail modal that re-opens the original conversation with its full chat history.
+- Have a **Continue editing** action in the detail modal that re-opens the original conversation with its full chat history.
 
 Drafts are never auto-deleted. You either discard them explicitly or commit them to a real status.
 
@@ -106,7 +106,7 @@ Click a picker card and that side becomes a second detail modal — now you have
 - Backdrop click → close both.
 - `×` on the *original* (origin) side → close both.
 - `×` on the *other* side → return that side to the picker.
-- Open a third spec from a link inside either panel (e.g. an epic chip in the SMASH sidebar, or **Continue Editing** on a draft) → split-view collapses and the third spec opens centred.
+- Open a third spec from a link inside either panel (e.g. an epic chip in the SMASH sidebar, or **Continue editing** on a draft) → split-view collapses and the third spec opens centred.
 
 **URL persistence:** the comparison is encoded in the URL as `?compare=<id>&compareSide=<side>&compareOrigin=<id>`, so a page refresh restores the split.
 
@@ -124,7 +124,7 @@ Inside the epic's modal you'll see an **Epic Family Sidebar** listing all childr
 
 ## Continue Editing — refine an existing spec
 
-For any spec with status `draft`, `todo`, or `backlog`, the detail modal shows a **Continue Editing** button. Click it and:
+For any spec with status `draft`, `todo`, or `backlog`, the detail modal shows a **Continue editing** button. Click it and:
 
 1. The spec opens in a fresh Explore shell with the draft pane pre-seeded with the current title, description, priority, labels, and acceptance criteria.
 2. If the spec was originally an Explore draft (i.e. it has `origin_conversation_id`), that original conversation is resumed — you see the chat history.

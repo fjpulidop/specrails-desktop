@@ -281,6 +281,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes. Secondary text is `text-muted-foreground`, never an alpha of it (`/70`, `/80`); `theme-contrast.test.ts` fails on a failing token pair, on an alpha on any text colour (`text-primary/60`, `placeholder-*/50`) and on `opacity-N` over a text element; a decorative, `aria-hidden` mark is the only exception.
 - **Do** show one loading indicator per region: `<RailTrack running />` for a panel or region, a `LiveDot` for a status chip, and a 12 to 14 px `Loader2` only inside a busy button.
 - **Do** add new copy to all eight locales and add new semantic tokens to every `[data-theme]` block.
+- **Do** write UI labels, titles and buttons in sentence case; capitalise only proper nouns (Specrails, GitHub, Jira, Claude). The product is always spelled "Specrails".
 
 ### Don't:
 - **Don't** introduce spinners, bouncing dots or a second ping implementation; use `LiveDot` or `RailTrack`. Exception: a 12–14 px `Loader2` inside a pending button is allowed; content-area waits use `<RailTrack running />` (indeterminate) or `Skeleton`.

@@ -40,7 +40,7 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 
 ## Windows of their own
 
-In the desktop app, some screens open as real windows instead of panels inside the main window: **App settings**, the detail of a job opened from a mission, and **Loops** and **Plugins** in Mission mode. You can move them to another screen and keep working in the main window. Each one uses the system's own window controls; Settings and the job window also close with **Escape**. Changes you make there, such as the theme or the language, apply to the main window right away. In the browser version these screens open as panels.
+In the desktop app, some screens open as real windows instead of panels inside the main window: **Settings**, the detail of a job opened from a mission, and **Loops** and **Plugins** in Mission mode. You can move them to another screen and keep working in the main window. Each one uses the system's own window controls; Settings and the job window also close with **Escape**. Changes you make there, such as the theme or the language, apply to the main window right away. In the browser version these screens open as panels.
 
 ## Notifications that need you {#attention}
 

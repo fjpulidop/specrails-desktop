@@ -40,7 +40,7 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 
 ## Finestre proprie
 
-Nell'app desktop alcune schermate si aprono come vere finestre invece che come pannelli dentro la finestra principale: **Impostazioni app**, il dettaglio di un job aperto da una missione, e **Loops** e **Plugin** in modalità Missione. Puoi spostarle su un altro schermo e continuare a lavorare nella finestra principale. Ognuna usa i controlli di finestra del sistema; le Impostazioni e la finestra del job si chiudono anche con **Escape**. Le modifiche che fai lì, come il tema o la lingua, si applicano subito alla finestra principale. Nella versione browser queste schermate si aprono come pannelli.
+Nell'app desktop alcune schermate si aprono come vere finestre invece che come pannelli dentro la finestra principale: **Impostazioni**, il dettaglio di un job aperto da una missione, e **Loops** e **Plugin** in modalità Missione. Puoi spostarle su un altro schermo e continuare a lavorare nella finestra principale. Ognuna usa i controlli di finestra del sistema; le Impostazioni e la finestra del job si chiudono anche con **Escape**. Le modifiche che fai lì, come il tema o la lingua, si applicano subito alla finestra principale. Nella versione browser queste schermate si aprono come pannelli.
 
 ## Notifiche di ciò che ti aspetta {#attention}
 

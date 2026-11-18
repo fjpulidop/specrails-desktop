@@ -40,7 +40,7 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 
 ## Janelas próprias
 
-Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições da app**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
+Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
 
 ## Notificações do que precisa de você {#attention}
 

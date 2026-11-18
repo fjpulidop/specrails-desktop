@@ -40,7 +40,7 @@ Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
 
 ## Eigene Fenster
 
-In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als Panels im Hauptfenster: die **App-Einstellungen**, die Details eines aus einer Mission geöffneten Jobs sowie **Loops** und **Plugins** im Mission-Modus. Du kannst sie auf einen anderen Bildschirm schieben und im Hauptfenster weiterarbeiten. Jedes nutzt die systemeigenen Fenstersteuerungen; die Einstellungen und das Job-Fenster schließen sich außerdem mit **Escape**. Änderungen, die du dort machst, etwa am Theme oder an der Sprache, gelten sofort auch im Hauptfenster. In der Browser-Version öffnen sich diese Bildschirme als Panels.
+In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als Panels im Hauptfenster: die **Einstellungen**, die Details eines aus einer Mission geöffneten Jobs sowie **Loops** und **Plugins** im Mission-Modus. Du kannst sie auf einen anderen Bildschirm schieben und im Hauptfenster weiterarbeiten. Jedes nutzt die systemeigenen Fenstersteuerungen; die Einstellungen und das Job-Fenster schließen sich außerdem mit **Escape**. Änderungen, die du dort machst, etwa am Theme oder an der Sprache, gelten sofort auch im Hauptfenster. In der Browser-Version öffnen sich diese Bildschirme als Panels.
 
 ## Benachrichtigungen über das, was auf dich wartet {#attention}
 

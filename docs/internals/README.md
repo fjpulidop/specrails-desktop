@@ -39,7 +39,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [gemini-mcp-registration.md](gemini-mcp-registration.md) | How MCP servers actually reach gemini-cli (`.gemini/settings.json` + trust env, FQN tool prefix) and the deferred `.mcp.json` gap on non-agent-chat surfaces |
 | [../../DESIGN.md](../../DESIGN.md) | The design system record (Signal box at night): colour, type, radius, elevation, motion and component tokens derived from the shipped code; `visual-design-audit.md` stays the conventions log |
 | [modal-standard.md](modal-standard.md) | The client modal standard: Radix primitive, five sizes, sticky header/body/footer anatomy, button order, named z-index layers (`client/src/lib/layers.ts`), one scrim and entrance animation, workspace-only resizing, 12px type floor |
-| [native-window-surfaces.md](native-window-surfaces.md) | Modal surfaces as native OS windows in the desktop app (App Settings, Job detail): `<Surface>`/`useNativeSurface`, URL params, result and close events, per-window capabilities, geometry, preference mirroring, web fallback, remaining dialogs |
+| [native-window-surfaces.md](native-window-surfaces.md) | Modal surfaces as native OS windows in the desktop app (Settings, Job detail): `<Surface>`/`useNativeSurface`, URL params, result and close events, per-window capabilities, geometry, preference mirroring, web fallback, remaining dialogs |
 | [browser-capture-performance.md](browser-capture-performance.md) | Embedded-browser fluidity: the CDP screencast → WS → canvas pipeline, the latency levers (non-blocking navigation, input coalescing, latest-frame-wins drawing, frame conflation), tuning knobs, and the OAuth popup design |
 
 **See also:** the app registers Claude Code, Codex CLI, Gemini CLI, and Kimi

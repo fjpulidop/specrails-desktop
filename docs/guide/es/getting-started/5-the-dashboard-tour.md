@@ -40,7 +40,7 @@ Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil
 
 ## Ventanas propias
 
-En la app de escritorio, algunas pantallas se abren como ventanas reales en lugar de paneles dentro de la ventana principal: **Ajustes de la app**, el detalle de un trabajo abierto desde una misión, y **Loops** y **Plugins** en el modo Misión. Puedes moverlas a otra pantalla y seguir trabajando en la ventana principal. Cada una usa los controles de ventana del propio sistema; los Ajustes y la ventana del trabajo también se cierran con **Escape**. Los cambios que hagas ahí, como el tema o el idioma, se aplican a la ventana principal al momento. En la versión de navegador estas pantallas se abren como paneles.
+En la app de escritorio, algunas pantallas se abren como ventanas reales en lugar de paneles dentro de la ventana principal: **Ajustes**, el detalle de un trabajo abierto desde una misión, y **Loops** y **Plugins** en el modo Misión. Puedes moverlas a otra pantalla y seguir trabajando en la ventana principal. Cada una usa los controles de ventana del propio sistema; los Ajustes y la ventana del trabajo también se cierran con **Escape**. Los cambios que hagas ahí, como el tema o el idioma, se aplican a la ventana principal al momento. En la versión de navegador estas pantallas se abren como paneles.
 
 ## Notificaciones de lo que te necesita {#attention}
 

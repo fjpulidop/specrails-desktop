@@ -36,7 +36,7 @@ The more context you give it, the longer generation takes (it switches to multi-
 
 Use **Quick** when the idea is already clear in your head — you could write the spec yourself, you'd just rather the AI do it. Use [**Explore**](add-spec-explore-mode.md) when you're still thinking it through and want a partner to help you shape it.
 
-A spec created in Quick mode is a fully normal spec: you can later open it and **Continue Editing** in an Explore session if it needs refining.
+A spec created in Quick mode is a fully normal spec: you can later open it and **Continue editing** in an Explore session if it needs refining.
 
 ## Where to go next
 

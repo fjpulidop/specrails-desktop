@@ -38,7 +38,7 @@ Release admission uses the current run/attempt of the named CI workflow and the 
 
 ## Update channels
 
-Desktop offers two update channels, chosen in **App settings ▸ Updates ▸ Update channel** and stored as the app setting `updateChannel` (`GET/PUT /api/settings`):
+Desktop offers two update channels, chosen in **Settings ▸ Updates ▸ Update channel** and stored as the app setting `updateChannel` (`GET/PUT /api/settings`):
 
 | Channel | Desktop updater manifest | Core (npm dist-tag) |
 |---|---|---|

@@ -79,7 +79,7 @@ When the spec needs shaping:
 2. (Optional) pick a context preset from the slider — `Minimal` (just your message) up to `Desktop` (the full codebase + Contract Layer enrichment + project and user-approved MCPs).
 3. Type a starting message. The AI responds with a live draft below.
 4. Iterate. Each turn updates the draft.
-5. Click **Save as Draft** to come back later, or **Create Spec** when the draft looks right.
+5. Click **Save as draft** to come back later, or **Create spec** when the draft looks right.
 
 The committed spec lands on your board with status `todo`.
 
