@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "Read from the {{provider}} session",
     "compacted": "The provider compacted the context during the last turn.",
     "highNote": "The provider compacts the context automatically when it fills up. Starting a new session with a summary can also help."
+  },
+  "ask": {
+    "menu": "Ask about this",
+    "title": "Ask about this",
+    "description": "A side conversation about the selected text, using this mission's earlier context. The mission itself is not changed.",
+    "selection": "Selected text",
+    "showAll": "Show all",
+    "showLess": "Show less",
+    "thread": "Side conversation",
+    "running": "Thinking…",
+    "failed": "Could not get an answer. Try again.",
+    "retry": "Retry",
+    "inputLabel": "Question about the selected text",
+    "placeholder": "Ask something, or press Enter to explain it · not saved",
+    "placeholderFollowUp": "Ask a follow-up · not saved",
+    "send": "Ask",
+    "footer": "Answered with {{model}} · closing discards this conversation",
+    "footerPending": "Runs on {{model}} · closing discards this conversation",
+    "answer": "Answer",
+    "defaultQuestion": "Explain what this means in this context.",
+    "providerDefault": "{{provider}} default model"
   }
 }

@@ -1056,8 +1056,9 @@ export function clearProjectSetupSession(db: DbInstance, projectId: string): voi
 // ─── Agent-chat invocations (cost accounting, HIGH-3) ───────────────────────────
 
 export type AgentInvocationStatus = 'success' | 'failed' | 'aborted'
-/** `agent-chat` = a mission turn; `flow` = an Intent session turn (its own Core session in the Intent worktree). */
-export type AgentInvocationSurface = 'agent-chat' | 'flow'
+/** `agent-chat` = a mission turn; `flow` = an Intent session turn (its own Core session in the Intent worktree);
+ *  `side-question` = an "Ask about this" side question about a mission selection (counted under Missions). */
+export type AgentInvocationSurface = 'agent-chat' | 'flow' | 'side-question'
 
 /** One agent-chat turn's billable accounting. App-global — `project_id` is the
  *  pinned project id when the turn ran project-scoped, else NULL (Home). Cost is

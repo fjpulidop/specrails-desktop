@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "Letto dalla sessione {{provider}}",
     "compacted": "Il provider ha compattato il contesto durante l'ultimo turno.",
     "highNote": "Il provider compatta il contesto automaticamente quando si riempie. Anche avviare una nuova sessione con un riepilogo può aiutare."
+  },
+  "ask": {
+    "menu": "Chiedi su questo",
+    "title": "Chiedi su questo",
+    "description": "Una conversazione a parte sul testo selezionato, con il contesto precedente di questa missione. La missione non cambia.",
+    "selection": "Testo selezionato",
+    "showAll": "Mostra tutto",
+    "showLess": "Mostra meno",
+    "thread": "Conversazione a parte",
+    "running": "Sto pensando…",
+    "failed": "Impossibile ottenere una risposta. Riprova.",
+    "retry": "Riprova",
+    "inputLabel": "Domanda sul testo selezionato",
+    "placeholder": "Chiedi qualcosa o premi Invio per una spiegazione · non salvato",
+    "placeholderFollowUp": "Fai un'altra domanda · non salvato",
+    "send": "Chiedi",
+    "footer": "Risposta di {{model}} · chiudendo la conversazione viene scartata",
+    "footerPending": "Usa {{model}} · chiudendo la conversazione viene scartata",
+    "answer": "Risposta",
+    "defaultQuestion": "Spiega cosa significa in questo contesto.",
+    "providerDefault": "modello predefinito di {{provider}}"
   }
 }

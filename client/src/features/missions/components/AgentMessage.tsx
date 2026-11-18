@@ -37,7 +37,8 @@ import { LiveDot } from '../../../components/ui/live-dot'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
-const MD = cn(
+/** Mission markdown styling, shared with the "Ask about this" side thread. */
+export const MISSION_MARKDOWN_CLASS = cn(
   'max-w-[72ch] text-body leading-relaxed text-foreground [overflow-wrap:anywhere]',
   '[&_p]:my-3.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
   '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-semibold',
@@ -58,6 +59,8 @@ const MD = cn(
   '[&_td]:border [&_td]:border-border [&_td]:px-2.5 [&_td]:py-1.5',
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
+
+const MD = MISSION_MARKDOWN_CLASS
 
 /** Clipboard write with a short-lived "copied" flag (announced, not just drawn). */
 function useCopyFeedback(): { copied: boolean; failed: boolean; copy: (text: string) => Promise<void> } {

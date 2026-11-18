@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "Aus der {{provider}}-Sitzung gelesen",
     "compacted": "Der Anbieter hat den Kontext im letzten Durchgang komprimiert.",
     "highNote": "Der Anbieter komprimiert den Kontext automatisch, wenn er voll ist. Eine neue Sitzung mit einer Zusammenfassung kann ebenfalls helfen."
+  },
+  "ask": {
+    "menu": "Dazu fragen",
+    "title": "Dazu fragen",
+    "description": "Ein Nebengespräch über den markierten Text mit dem bisherigen Kontext dieser Mission. Die Mission selbst bleibt unverändert.",
+    "selection": "Markierter Text",
+    "showAll": "Alles anzeigen",
+    "showLess": "Weniger anzeigen",
+    "thread": "Nebengespräch",
+    "running": "Denkt nach…",
+    "failed": "Keine Antwort erhalten. Versuche es erneut.",
+    "retry": "Erneut versuchen",
+    "inputLabel": "Frage zum markierten Text",
+    "placeholder": "Frag etwas oder drücke Enter für eine Erklärung · wird nicht gespeichert",
+    "placeholderFollowUp": "Stelle eine Folgefrage · wird nicht gespeichert",
+    "send": "Fragen",
+    "footer": "Beantwortet mit {{model}} · Schließen verwirft dieses Gespräch",
+    "footerPending": "Läuft mit {{model}} · Schließen verwirft dieses Gespräch",
+    "answer": "Antwort",
+    "defaultQuestion": "Erkläre, was das in diesem Zusammenhang bedeutet.",
+    "providerDefault": "Standardmodell von {{provider}}"
   }
 }

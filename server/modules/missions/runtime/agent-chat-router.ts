@@ -37,6 +37,7 @@ import {
 } from '../../agents/runtime/agent-store'
 import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroundProcessHistory } from '../../../transient-children'
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
+import { askSideQuestion, SideQuestionError, validateSideQuestionRequest, type SideQuestionDeps } from './mission-side-question'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -49,6 +50,8 @@ export interface AgentRouterDeps {
   desktopDb: DbInstance
   /** Best-effort cleanup in open projects; closed projects sweep on their next open. */
   onPermanentlyDeleted?: (conversationId: string) => void
+  /** Test seam for "Ask about this" (defaults to the shared one-shot generator). */
+  sideQuestion?: Pick<SideQuestionDeps, 'createGenerator' | 'cwd'>
 }
 
 export function isAgentChatEnabled(): boolean {
@@ -299,6 +302,30 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     }
     manager.notifyConversationCreated(conversation.id)
     res.status(201).json({ conversation })
+  })
+
+  // "Ask about this": a one-turn, no-tool side question about selected text.
+  // Reads the mission's history up to the selection; never writes a message,
+  // never touches the provider session. Nothing about the side thread is stored.
+  router.post('/conversations/:id/side-questions', async (req: Request, res: Response) => {
+    const parsed = validateSideQuestionRequest(req.body)
+    if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return }
+    const abort = new AbortController()
+    res.on('close', () => { if (!res.writableEnded) abort.abort() })
+    try {
+      const answer = await askSideQuestion({
+        desktopDb,
+        ...deps.sideQuestion,
+        onRecorded: (projectId) => { if (projectId) manager.notifySpendingInvalidated?.(projectId) },
+      }, String(req.params.id), parsed.value, abort.signal)
+      res.json(answer)
+    } catch (error) {
+      if (abort.signal.aborted) return
+      if (error instanceof SideQuestionError) { res.status(error.status).json({ error: error.message }); return }
+      // The provider's own message (unsupported model, usage limit) is the useful one.
+      const message = error instanceof Error && error.message ? error.message.slice(0, 1000) : 'Side question failed'
+      res.status(502).json({ error: message, code: 'SIDE_QUESTION_FAILED' })
+    }
   })
 
   // "Recently deleted" missions (soft-deleted, restorable for 30 days). Registered

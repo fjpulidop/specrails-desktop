@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1432 source/build files. Nearby tests are linked where names
+Includes 1434 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -629,6 +629,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentTierChip.tsx](../../client/src/features/missions/components/AgentTierChip.tsx)
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
 - [AgentWorkspaceSidebar.tsx](../../client/src/features/missions/components/AgentWorkspaceSidebar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx)
+- [MissionAskDialog.tsx](../../client/src/features/missions/components/MissionAskDialog.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionAskDialog.test.tsx)
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
 - [MissionHomeHeader.tsx](../../client/src/features/missions/components/MissionHomeHeader.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionHomeHeader.test.tsx)
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
@@ -1773,6 +1774,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
+- [mission-side-question.ts](../../server/modules/missions/runtime/mission-side-question.ts) · [test](../../server/modules/missions/runtime/mission-side-question.test.ts)
 - [mission-tool-policy.ts](../../server/modules/missions/runtime/mission-tool-policy.ts) · [test](../../server/modules/missions/runtime/mission-tool-policy.test.ts)
 
 ## server/modules/onboarding

@@ -535,6 +535,11 @@ export class AgentChatManager {
     this._broadcast({ type: 'agent_conversation_created', conversationId, timestamp: new Date().toISOString() })
   }
 
+  /** Spend recorded outside a turn (a side question) refreshes the project's dashboards. */
+  notifySpendingInvalidated(projectId: string): void {
+    this._broadcast({ type: 'spending.invalidated', projectId })
+  }
+
   private _startLifecycle(conversationId: string): void {
     const startedAt = new Date().toISOString()
     this._turnStartedAt.set(conversationId, startedAt)

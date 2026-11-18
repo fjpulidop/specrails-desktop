@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "{{provider}} セッションから読み取り",
     "compacted": "前回のターン中にプロバイダーがコンテキストを圧縮しました。",
     "highNote": "コンテキストがいっぱいになると、プロバイダーが自動的に圧縮します。要約を添えて新しいセッションを始めるのも効果的です。"
+  },
+  "ask": {
+    "menu": "これについて質問",
+    "title": "これについて質問",
+    "description": "選択したテキストについて、このミッションのこれまでの文脈を使って別に会話します。ミッション自体は変更されません。",
+    "selection": "選択したテキスト",
+    "showAll": "すべて表示",
+    "showLess": "折りたたむ",
+    "thread": "サイド会話",
+    "running": "考え中…",
+    "failed": "回答を取得できませんでした。もう一度お試しください。",
+    "retry": "再試行",
+    "inputLabel": "選択したテキストについての質問",
+    "placeholder": "質問を入力、または Enter で説明 · 保存されません",
+    "placeholderFollowUp": "続けて質問 · 保存されません",
+    "send": "質問する",
+    "footer": "{{model}} が回答 · 閉じるとこの会話は破棄されます",
+    "footerPending": "{{model}} を使用 · 閉じるとこの会話は破棄されます",
+    "answer": "回答",
+    "defaultQuestion": "この文脈でこれが何を意味するか説明してください。",
+    "providerDefault": "{{provider}} の既定モデル"
   }
 }

@@ -160,6 +160,24 @@ so deleting it does not damage a fork. On its first provider turn, a fork seeds
 its copied historical attachments alongside the existing bounded history prompt;
 provider resume uses its own independent session thereafter.
 
+## Ask about selected text
+
+`POST /api/agent/conversations/:id/side-questions` answers a side question
+about selected mission text ([mission-side-question.ts](runtime/mission-side-question.ts)).
+It reuses the code module's one-shot, pure-output generator
+(`createFileSummaryGenerator` with a side-question system prompt): one turn,
+no tools, on the mission's provider and model, retrying once with the provider
+default when the account rejects the model. The prompt carries the mission
+history through `throughMessageId` (newest 12 messages, 17k characters, 3.5k
+per message, cancelled/interrupted input skipped), the selection, the modal's
+own bounded side thread and the question, all as data. It runs from an empty
+app-owned cwd so no operator or project instruction file is loaded. It never
+writes a mission message or touches the provider session, and stores nothing
+about the side thread. Each call records one `agent_invocations` row with
+`surface: 'side-question'`, which analytics maps to Missions (only `flow` is
+Intent). The answer is not streamed: the adapters emit whole assistant messages
+for a one-shot call, so the modal shows a running state until it arrives.
+
 ## Resource history cleanup
 
 The chat router calls its injected `onPermanentlyDeleted` callback only after a

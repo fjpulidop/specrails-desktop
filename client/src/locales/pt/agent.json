@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "Lido da sessão do {{provider}}",
     "compacted": "O provedor compactou o contexto durante o último turno.",
     "highNote": "O provedor compacta o contexto automaticamente quando ele enche. Iniciar uma nova sessão com um resumo também pode ajudar."
+  },
+  "ask": {
+    "menu": "Perguntar sobre isto",
+    "title": "Perguntar sobre isto",
+    "description": "Uma conversa à parte sobre o texto selecionado, com o contexto anterior desta missão. A missão não é alterada.",
+    "selection": "Texto selecionado",
+    "showAll": "Mostrar tudo",
+    "showLess": "Mostrar menos",
+    "thread": "Conversa à parte",
+    "running": "Pensando…",
+    "failed": "Não foi possível obter uma resposta. Tente novamente.",
+    "retry": "Tentar novamente",
+    "inputLabel": "Pergunta sobre o texto selecionado",
+    "placeholder": "Pergunte algo ou pressione Enter para uma explicação · não é salvo",
+    "placeholderFollowUp": "Faça outra pergunta · não é salvo",
+    "send": "Perguntar",
+    "footer": "Respondido com {{model}} · fechar descarta esta conversa",
+    "footerPending": "Usa {{model}} · fechar descarta esta conversa",
+    "answer": "Resposta",
+    "defaultQuestion": "Explique o que isto significa neste contexto.",
+    "providerDefault": "modelo padrão de {{provider}}"
   }
 }

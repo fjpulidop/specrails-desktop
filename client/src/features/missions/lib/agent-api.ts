@@ -313,6 +313,19 @@ export async function createAgentConversation(input: {
 }
 
 /** Materialise a separate mission without sending the selected prompt. */
+export interface SideQuestionTurn { role: 'user' | 'assistant'; content: string }
+export interface SideQuestionAnswer { answer: string; provider: string; model: string }
+
+/** "Ask about this": one no-tool side question about selected mission text.
+ * Nothing is stored server-side and the mission's conversation is untouched. */
+export async function askAboutSelection(conversationId: string, body: {
+  selection: string; throughMessageId: string; question: string; thread: SideQuestionTurn[]; language?: string
+}, signal?: AbortSignal): Promise<SideQuestionAnswer> {
+  return json<SideQuestionAnswer>(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/side-questions`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
+  }))
+}
+
 export async function branchAgentConversation(sourceId: string, throughMessageId: string, mode: 'empty' | 'fork'): Promise<AgentConversation> {
   // A fresh mission needs no history-copy operation. Use the established API
   // so a frontend preview also works against a server without fork support.

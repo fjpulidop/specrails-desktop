@@ -304,6 +304,18 @@ selected text in the new composer draft, then adds a split pane and focuses its
 composer. Existing panes keep their keys, transcripts and scroll state. The
 floating panel shares the root split provider so it can open the same layout.
 
+**Ask about this** (first item) opens [`MissionAskDialog`](components/MissionAskDialog.tsx),
+a `wide` modal for a side conversation about the selection, in the spirit of a
+"by the way" question. It shows the quoted selection (collapsed past 280
+characters), the side thread rendered with the mission markdown styles, a
+composer (Enter sends, Shift+Enter adds a line, an empty question asks for a
+plain explanation), a rail running state, the provider's error with Retry, and
+the model used. Each question calls `askAboutSelection` with the newest whole
+Q&A pairs that fit the server bounds. Nothing is persisted: closing aborts an
+in-flight question and discards the thread, and the mission's own conversation,
+composer and provider session are untouched. Focus starts in the composer and
+returns to the transcript on close.
+
 A fork shows its source title and renders inherited assistant/system cards in
 disabled fieldsets. Inherited proposals and deliveries never join the new
 mission's active run strip, and inherited option shortcuts cannot send replies.

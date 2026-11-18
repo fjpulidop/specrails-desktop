@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "从 {{provider}} 会话读取",
     "compacted": "提供方在上一轮中压缩了上下文。",
     "highNote": "上下文填满时，提供方会自动压缩。带着摘要开始新会话也会有帮助。"
+  },
+  "ask": {
+    "menu": "询问这段内容",
+    "title": "询问这段内容",
+    "description": "针对所选文本的旁路对话，使用此任务之前的上下文。任务本身不会改变。",
+    "selection": "所选文本",
+    "showAll": "显示全部",
+    "showLess": "收起",
+    "thread": "旁路对话",
+    "running": "思考中…",
+    "failed": "无法获得回答，请重试。",
+    "retry": "重试",
+    "inputLabel": "关于所选文本的问题",
+    "placeholder": "输入问题，或按 Enter 获取解释 · 不会保存",
+    "placeholderFollowUp": "继续提问 · 不会保存",
+    "send": "提问",
+    "footer": "由 {{model}} 回答 · 关闭后将丢弃此对话",
+    "footerPending": "使用 {{model}} · 关闭后将丢弃此对话",
+    "answer": "回答",
+    "defaultQuestion": "解释这在此上下文中的含义。",
+    "providerDefault": "{{provider}} 默认模型"
   }
 }

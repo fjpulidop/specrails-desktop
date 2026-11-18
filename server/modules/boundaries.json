@@ -2324,6 +2324,7 @@
         "./agent-input-store",
         "./agent-session-store",
         "./agent-tier",
+        "./mission-side-question",
         "express",
         "fs",
         "multer"
@@ -2438,6 +2439,20 @@
         "../../agents/runtime/agent-store",
         "../../audit",
         "./agent-session-store"
+      ],
+      "runtime/mission-side-question.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers",
+        "../../../providers/types",
+        "../../agents/runtime/agent-store",
+        "../../code/runtime/file-summary-generator",
+        "../../code/runtime/file-summary-manager",
+        "./agent-cwd-manager",
+        "./agent-input-store",
+        "crypto",
+        "fs",
+        "path"
       ],
       "runtime/mission-tool-policy.ts": [
         "../../../feature-flags",

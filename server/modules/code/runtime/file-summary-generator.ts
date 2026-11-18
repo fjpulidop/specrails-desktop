@@ -2,7 +2,7 @@ import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
-import type { ProviderAdapter, AdapterEvent } from '../../../providers/types'
+import type { ProviderAdapter, AdapterEvent, ReasoningEffort } from '../../../providers/types'
 import {
   buildProviderEnv,
   parseStreamEvents,
@@ -57,6 +57,9 @@ export interface GeneratorOpts {
    *  spawn/parse/settle skeleton with a different instruction. Defaults to the
    *  file-summary prompt (buildSystemPrompt). */
   systemPrompt?: (language: 'en' | 'es') => string
+  /** Reasoning effort for the call (e.g. a mission's own setting); the adapter
+   *  emits it only when the provider supports a per-invocation effort. */
+  reasoningEffort?: ReasoningEffort
 }
 
 /** Cheapest model per provider for summary generation (file summaries are
@@ -134,6 +137,7 @@ function createModelRun(opts: GeneratorOpts): (model: string, input: GenerateInp
       model,
       maxTurns: 1,
       toolPolicy,
+      ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
     }
     const args = adapter.buildArgs('spec-gen', spawnOptions)
 

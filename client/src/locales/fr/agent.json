@@ -1632,5 +1632,26 @@
     "sourceSessionFile": "Lu depuis la session {{provider}}",
     "compacted": "Le fournisseur a compacté le contexte pendant le dernier tour.",
     "highNote": "Le fournisseur compacte le contexte automatiquement lorsqu'il est plein. Démarrer une nouvelle session avec un résumé peut aussi aider."
+  },
+  "ask": {
+    "menu": "Poser une question",
+    "title": "Poser une question",
+    "description": "Une conversation à part sur le texte sélectionné, avec le contexte précédent de cette mission. La mission n'est pas modifiée.",
+    "selection": "Texte sélectionné",
+    "showAll": "Tout afficher",
+    "showLess": "Afficher moins",
+    "thread": "Conversation à part",
+    "running": "Réflexion…",
+    "failed": "Impossible d'obtenir une réponse. Réessayez.",
+    "retry": "Réessayer",
+    "inputLabel": "Question sur le texte sélectionné",
+    "placeholder": "Posez une question ou appuyez sur Entrée pour une explication · non enregistré",
+    "placeholderFollowUp": "Posez une autre question · non enregistré",
+    "send": "Demander",
+    "footer": "Réponse de {{model}} · fermer efface cette conversation",
+    "footerPending": "Utilise {{model}} · fermer efface cette conversation",
+    "answer": "Réponse",
+    "defaultQuestion": "Explique ce que cela signifie dans ce contexte.",
+    "providerDefault": "modèle par défaut de {{provider}}"
   }
 }
