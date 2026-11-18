@@ -87,7 +87,7 @@ Set a daily limit to cap what a day can cost. Every cap, daily, weekly, monthly 
 
 When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume.
 
-The project limit counts your local day; the app-wide limit counts the UTC day. The per-job cost alert is a separate setting.
+Both limits count your local day, and both include mission spend. The per-job cost alert is a separate setting.
 
 **Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
 

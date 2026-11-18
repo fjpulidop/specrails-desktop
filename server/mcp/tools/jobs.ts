@@ -6,6 +6,8 @@ import { startBackgroundProcess, getBackgroundProcess, getBackgroundProcessLogs,
 import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
 import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
 import { getProjectRepositories } from '../../project-repositories'
+import { toolResponse, type NextCall } from './envelope'
+import { DEFAULT_LOG_LINES, MAX_LOG_LINES, focusedLog } from './job-logs'
 
 const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give the user each as a clickable markdown link: local opens on this computer; network opens from a phone or another device on the same Wi-Fi/VPN. No network URL means the server only listens on this computer (it was started without its host/LAN flag).'
 
@@ -93,12 +95,15 @@ export function jobsTools(): McpToolSpec[] {
         'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
         'runtime_settle (write — prepare delivery for a succeeded-but-unsettled run), runtime_dismiss (write — dismiss a settled continuation from the rail card), ' +
         'runtime_cancel (destructive — cancel an active runtime continuation), ' +
+        'diagnose_failure (read — why a failed job stopped: the deterministic diagnosis plus the saved AI analysis {headline, cause, category, evidence, nextSteps}; generate:true asks the provider that ran it for a new analysis — ai-spawn, one short no-tools call), ' +
+        'logs (read — bounded, failure-focused log of jobId: the failed step\'s lines first, then the end of the log; default 200 lines via limit, max 1000), ' +
         'audit (read — what the agents of jobId read, wrote, executed, called over MCP or fetched, as JSONL or CSV via format; omit jobId for a project-wide export bounded by from/to; reads are only as complete as each provider\'s stream).',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
         if (['cancel', 'purge', 'background_start', 'background_kill', 'runtime_cancel'].includes(action)) return 'destructive'
         if (['spawn', 'interactive_turn', 'runtime_resume', 'runtime_recover'].includes(action)) return 'ai-spawn'
+        if (action === 'diagnose_failure' && a.generate === true) return 'ai-spawn'
         if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss', 'runtime_steer'].includes(action)) return 'write'
         return 'read'
       },
@@ -143,6 +148,8 @@ export function jobsTools(): McpToolSpec[] {
             'runtime_dismiss',
             'runtime_cancel',
             'audit',
+            'diagnose_failure',
+            'logs',
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
@@ -207,6 +214,9 @@ export function jobsTools(): McpToolSpec[] {
         section: z.enum(['summary', 'stdout', 'stderr', 'source']).optional().describe('runtime_evidence: summary index, command output or recorded source'),
         sourceId: z.string().max(1024).optional().describe('runtime_evidence: source id returned by the evidence index'),
         cursor: z.string().max(1024).optional().describe('runtime_evidence: continuation cursor returned by the previous page'),
+        // ── diagnose_failure ──
+        generate: z.boolean().optional().describe('diagnose_failure: true asks the provider that ran the job for a fresh AI analysis when none is current (ai-spawn, costs a little); default false only reads the saved one'),
+        language: z.string().regex(/^[a-z]{2}(?:-[A-Za-z0-9]{2,8})?$/).optional().describe('diagnose_failure: language of the AI analysis (en, es, de, fr, it, ja, pt, zh; default en)'),
       },
       async handler(ctx, args) {
         const base = projectPath(ctx, args.projectId as string | undefined)
@@ -584,10 +594,105 @@ export function jobsTools(): McpToolSpec[] {
             }
           }
 
+          case 'diagnose_failure':
+            return diagnoseFailure(ctx, base, args)
+
+          case 'logs':
+            return jobLogs(ctx, base, args)
+
           default:
             throw new Error(`Unknown action "${action}".`)
         }
       },
     },
   ]
+}
+
+type Row = Record<string, unknown>
+const asRecord = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
+const text = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim() : null
+
+async function readJob(ctx: McpToolContext, base: string, jobId: string): Promise<{ job: Row; events: Array<{ event_type: string; payload: string | null }> }> {
+  const result = asRecord(await apiCall(ctx, 'GET', `${base}/jobs/${encodeURIComponent(jobId)}`))
+  const events = Array.isArray(result.events) ? result.events.map(asRecord).map((event) => ({
+    event_type: String(event.event_type ?? ''),
+    payload: typeof event.payload === 'string' ? event.payload : event.payload === undefined || event.payload === null ? null : JSON.stringify(event.payload),
+  })) : []
+  return { job: asRecord(result.job), events }
+}
+
+/** The deterministic diagnosis plus the saved (or freshly generated) AI analysis of a failed job. */
+async function diagnoseFailure(ctx: McpToolContext, base: string, args: Record<string, unknown>): Promise<unknown> {
+  const jobId = args.jobId as string | undefined
+  if (!jobId) throw new Error('diagnose_failure requires a "jobId".')
+  const projectId = typeof args.projectId === 'string' ? args.projectId : undefined
+  const scope = projectId ? { projectId } : {}
+  const { job } = await readJob(ctx, base, jobId)
+  const status = text(job.status) ?? 'unknown'
+  const diagnosis = job.failureDiagnosis ?? null
+  const diagnosisRow = asRecord(diagnosis)
+  if (status !== 'failed' && status !== 'canceled') {
+    return toolResponse({ jobId, status, command: job.command ?? null, diagnosis, analysis: null }, {
+      status, ids: { jobId, ...scope },
+      summary: `Job ${jobId} is ${status}, not failed, so there is nothing to diagnose.`,
+      next: status === 'running' || status === 'queued' ? [{ tool: 'specrails_watch', args: { ref: jobId, ...scope }, why: 'Wait for it to settle.' }] : [],
+    })
+  }
+  const query = typeof args.language === 'string' ? `?language=${encodeURIComponent(args.language)}` : ''
+  const path = `${base}/jobs/${encodeURIComponent(jobId)}/failure-analysis${query}`
+  let analysis = asRecord(await apiCall(ctx, 'GET', path))
+  let generated = false
+  if (args.generate === true && (analysis.status !== 'ready' || analysis.stale === true)) {
+    analysis = asRecord(await apiCall(ctx, 'POST', path, typeof args.language === 'string' ? { language: args.language } : {}))
+    generated = true
+  }
+  const ready = analysis.status === 'ready'
+  const reading = asRecord(analysis.analysis)
+  const reason = text(reading.headline) ?? text(diagnosisRow.detail)
+    ?? (text(diagnosisRow.kind) && diagnosisRow.kind !== 'unknown' ? String(diagnosisRow.kind).replace(/_/g, ' ') : null)
+  const next: NextCall[] = [{ tool: 'specrails_jobs', args: { action: 'logs', jobId, ...scope }, why: 'Read the failed step’s log lines.' }]
+  if (!ready || analysis.stale === true) next.unshift({ tool: 'specrails_jobs', args: { action: 'diagnose_failure', jobId, generate: true, ...scope }, why: 'Ask the provider that ran it for an AI reading of the log (ai-spawn, small cost).' })
+  next.push({ tool: 'specrails_jobs', args: { action: 'runtime_diagnose', jobId, ...scope }, why: 'Recovery assessment before recommending a retry.' })
+  return toolResponse({
+    jobId, status, command: job.command ?? null, provider: job.provider ?? null, model: job.model ?? null,
+    diagnosis,
+    analysis: ready ? {
+      headline: reading.headline ?? null, cause: reading.cause ?? null, category: reading.category ?? null,
+      failedStep: reading.failedStep ?? null, evidence: reading.evidence ?? [], nextSteps: reading.nextSteps ?? [],
+      provider: analysis.provider ?? null, model: analysis.model ?? null, createdAt: analysis.createdAt ?? null,
+      stale: analysis.stale === true, generated, label: 'AI reading of the log; the diagnosis keeps its own kind and remedies.',
+    } : null,
+  }, {
+    status,
+    ids: { jobId, ...scope },
+    summary: `Job ${jobId} ${status === 'canceled' ? 'was canceled' : 'failed'}${reason ? `: ${reason.replace(/\.$/, '')}.` : ' with no recorded cause yet.'}${ready ? ` AI analysis (${String(reading.category ?? 'other')})${analysis.stale === true ? ' is stale' : ' is available'}.` : ' No AI analysis yet.'}`,
+    next,
+  })
+}
+
+/** Bounded, failure-focused log tail instead of raw paged events. */
+async function jobLogs(ctx: McpToolContext, base: string, args: Record<string, unknown>): Promise<unknown> {
+  const jobId = args.jobId as string | undefined
+  if (!jobId) throw new Error('logs requires a "jobId".')
+  const projectId = typeof args.projectId === 'string' ? args.projectId : undefined
+  const scope = projectId ? { projectId } : {}
+  const limit = typeof args.limit === 'number' ? Math.min(MAX_LOG_LINES, Math.max(1, Math.floor(args.limit))) : DEFAULT_LOG_LINES
+  const { job, events } = await readJob(ctx, base, jobId)
+  const status = text(job.status) ?? 'unknown'
+  const failed = status === 'failed' || status === 'canceled'
+  const diagnosis = asRecord(job.failureDiagnosis)
+  const log = focusedLog(events, { limit, failed, failedStepHint: text(diagnosis.phase) })
+  const where = log.failedStep ? ` The failed step “${log.failedStep.title}” (${log.failedStep.status ?? 'unknown'}) comes first.` : ''
+  return toolResponse({ jobId, status, limit, ...log }, {
+    status,
+    ids: { jobId, ...scope },
+    truncated: log.truncated,
+    summary: log.totalLines
+      ? `Job ${jobId} (${status}): showing ${(log.failedStep?.lines.length ?? 0) + log.tail.length} of ${log.totalLines} log lines.${where}`
+      : `Job ${jobId} (${status}) has no log lines recorded yet.`,
+    next: [
+      ...(failed ? [{ tool: 'specrails_jobs', args: { action: 'diagnose_failure', jobId, ...scope }, why: 'The diagnosis and AI analysis of this failure.' }] : []),
+      ...(log.truncated ? [{ tool: 'specrails_jobs', args: { action: 'logs', jobId, limit: Math.min(MAX_LOG_LINES, limit * 2), ...scope }, why: 'Read more of the log.' }] : []),
+    ],
+  })
 }

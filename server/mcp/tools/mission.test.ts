@@ -36,7 +36,8 @@ const spec = (handler: McpToolSpec['handler'], tier: 'read' | 'write' = 'write')
   name: 'test_action', title: 'test', description: 'test', tier, inputSchema: {}, handler,
 })
 const jsonBlocks = (reply: CallToolResult) => reply.content.filter(block => block.type === 'text').flatMap(block => {
-  try { return [JSON.parse(block.text)] } catch { return [] }
+  // Unwrap the response envelope of a successful call; steering blocks are passed through.
+  try { const value = JSON.parse(block.text); return [value && value.ok === true && 'summary' in value ? value.data : value] } catch { return [] }
 })
 const allText = (reply: CallToolResult) => reply.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
 
@@ -74,7 +75,10 @@ describe('Specrails mission update MCP dispatch', () => {
     }))
     const reply = await action({}, extra)
     expect(reply.isError).toBe(failure ? true : undefined)
-    expect(reply.content[0]).toEqual({ type: 'text', text: failure ? 'Error: original operation failed' : JSON.stringify({ original: 'operation result' }, null, 2) })
+    expect(reply.content[0].type).toBe('text')
+    expect(JSON.parse((reply.content[0] as { text: string }).text)).toMatchObject(failure
+      ? { ok: false, error: { code: 'internal', message: 'original operation failed' } }
+      : { ok: true, data: { original: 'operation result' } })
     expect(jsonBlocks(reply)).toContainEqual(expect.objectContaining({ type: 'mission_user_updates', content: 'Do the next step differently.' }))
     expect(reply.content).toContainEqual(image)
     expect(broadcast).toHaveBeenCalledTimes(failure ? 0 : 1)
@@ -152,7 +156,10 @@ describe('Specrails mission update MCP dispatch', () => {
 
   it('uses a read-tier first-party control with a strictly bounded revision schema', () => {
     const tool = missionTools()[0]
-    expect(tool.tier).toBe('read')
+    const tierOf = tool.tier as (args: Record<string, unknown>) => string
+    for (const action of ['acknowledge_updates', 'acknowledge_inputs', 'subagent_wait', 'subagent_list', 'subagent_stop']) expect(tierOf({ action })).toBe('read')
+    // Starting a sub-agent spawns a paid provider run.
+    expect(tierOf({ action: 'subagent_start' })).toBe('ai-spawn')
     const schema = z.object(tool.inputSchema)
     expect(schema.safeParse({ action: 'acknowledge_updates', revision: 2 }).success).toBe(true)
     for (const revision of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '1']) {

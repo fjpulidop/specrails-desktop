@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1434 source/build files. Nearby tests are linked where names
+Includes 1442 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -623,6 +623,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentRunStrip.tsx](../../client/src/features/missions/components/AgentRunStrip.tsx)
 - [AgentRuntimeSelector.tsx](../../client/src/features/missions/components/AgentRuntimeSelector.tsx)
 - [AgentSessionIndicators.tsx](../../client/src/features/missions/components/AgentSessionIndicators.tsx)
+- [AgentSessionSummaryCard.tsx](../../client/src/features/missions/components/AgentSessionSummaryCard.tsx)
 - [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
 - [AgentSubagentsCard.tsx](../../client/src/features/missions/components/AgentSubagentsCard.tsx)
 - [AgentThinkingHalo.tsx](../../client/src/features/missions/components/AgentThinkingHalo.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentThinkingHalo.test.tsx)
@@ -1350,18 +1351,24 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [code.ts](../../server/mcp/tools/code.ts) · [test](../../server/mcp/tools/code.test.ts)
 - [context.ts](../../server/mcp/tools/context.ts) · [test](../../server/mcp/tools/context.test.ts)
 - [env.ts](../../server/mcp/tools/env.ts)
+- [envelope.ts](../../server/mcp/tools/envelope.ts) · [test](../../server/mcp/tools/envelope.test.ts)
 - [git.ts](../../server/mcp/tools/git.ts)
+- [inbox.ts](../../server/mcp/tools/inbox.ts) · [test](../../server/mcp/tools/inbox.test.ts)
 - [jira.ts](../../server/mcp/tools/jira.ts)
+- [job-logs.ts](../../server/mcp/tools/job-logs.ts)
 - [jobs.ts](../../server/mcp/tools/jobs.ts)
 - [loops.ts](../../server/mcp/tools/loops.ts)
 - [meta.ts](../../server/mcp/tools/meta.ts)
 - [mission.ts](../../server/mcp/tools/mission.ts) · [test](../../server/mcp/tools/mission.test.ts)
+- [missions.ts](../../server/mcp/tools/missions.ts) · [test](../../server/mcp/tools/missions.test.ts)
 - [plugins.ts](../../server/mcp/tools/plugins.ts) · [test](../../server/mcp/tools/plugins.test.ts)
 - [projects.ts](../../server/mcp/tools/projects.ts)
 - [rails.ts](../../server/mcp/tools/rails.ts)
 - [recovery.ts](../../server/mcp/tools/recovery.ts) · [test](../../server/mcp/tools/recovery.test.ts)
 - [setup.ts](../../server/mcp/tools/setup.ts) · [test](../../server/mcp/tools/setup.test.ts)
 - [specs.ts](../../server/mcp/tools/specs.ts) · [test](../../server/mcp/tools/specs.test.ts)
+- [status.ts](../../server/mcp/tools/status.ts) · [test](../../server/mcp/tools/status.test.ts)
+- [summaries.ts](../../server/mcp/tools/summaries.ts) · [test](../../server/mcp/tools/summaries.test.ts)
 - [support.ts](../../server/mcp/tools/support.ts)
 - [types.ts](../../server/mcp/tools/types.ts)
 - [watch.ts](../../server/mcp/tools/watch.ts) · [test](../../server/mcp/tools/watch.test.ts)
@@ -1774,6 +1781,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
+- [mission-session-summary.ts](../../server/modules/missions/runtime/mission-session-summary.ts) · [test](../../server/modules/missions/runtime/mission-session-summary.test.ts)
 - [mission-side-question.ts](../../server/modules/missions/runtime/mission-side-question.ts) · [test](../../server/modules/missions/runtime/mission-side-question.test.ts)
 - [mission-tool-policy.ts](../../server/modules/missions/runtime/mission-tool-policy.ts) · [test](../../server/modules/missions/runtime/mission-tool-policy.test.ts)
 

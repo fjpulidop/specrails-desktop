@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { envelopeOf, errorMessage, payloadOf } from './__fixtures__/envelope'
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'rails-launch-test-token-no-filesystem-access' }))
 import express from 'express'
 import type { Server } from 'http'
@@ -50,7 +51,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
     const capability = mintAgentCapability({ conversationId: 'conv-launch-all', projectId: 'p1', tierLevel: 3 })
     const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }
     const res = await captured!(args, extra)
-    return { res, data: res.isError ? null : JSON.parse(res.content[0].text) }
+    return { res, data: res.isError ? null : payloadOf(res) }
   }
 
   beforeEach(async () => {
@@ -139,7 +140,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
     for (let i = 0; i < 9; i++) createRail(db)
     const { res } = await call({ action: 'create_rail' })
     expect(res.isError).toBe(true)
-    expect(res.content[0].text).toContain('rail_limit_reached')
+    expect(errorMessage(res)).toContain('rail_limit_reached')
   })
 
   it('launch_all launches every eligible rail IN PARALLEL and skips the rest with reasons', async () => {
@@ -256,7 +257,8 @@ describe('specrails_rails — create_rail + launch_all', () => {
     wipLimit = 1
     const single = await call({ action: 'launch', railIndex: 0 })
     expect(single.res.isError).toBe(true)
-    expect(single.res.content[0].text).toContain('review_wip_limit_reached')
+    expect(envelopeOf(single.res).error).toMatchObject({ code: 'conflict', backendCode: 'review_wip_limit_reached' })
+    expect(errorMessage(single.res)).toContain('waiting for review')
     const { data } = await call({ action: 'launch_all' })
     expect(data.launched).toBe(0)
     for (const index of [0, 1]) {

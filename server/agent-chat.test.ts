@@ -356,7 +356,7 @@ describe('registerTieredTool agent capability', () => {
     const trusted = withCapability(0, 'proj-bound')
     trusted.requestInfo!.headers![AGENT_PROJECT_HEADER] = 'proj-spoofed'
     const r = await captured!({}, trusted)
-    expect(JSON.parse(r.content[0].text)).toMatchObject({
+    expect(JSON.parse(r.content[0].text).data).toMatchObject({
       active: 'proj-bound',
       conversation: 'conv-cap',
       firstParty: true,
@@ -367,7 +367,7 @@ describe('registerTieredTool agent capability', () => {
       [AGENT_PROJECT_HEADER]: 'proj-spoofed',
     } } }
     const untrusted = await captured!({}, spoofOnly)
-    expect(JSON.parse(untrusted.content[0].text)).toMatchObject({ active: null })
+    expect(JSON.parse(untrusted.content[0].text).data).toMatchObject({ active: null })
   })
 
   it('legacy autonomous header cannot bypass disabled Settings tiers', async () => {

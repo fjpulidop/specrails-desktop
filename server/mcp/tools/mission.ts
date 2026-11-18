@@ -9,7 +9,10 @@ export function missionTools(): McpToolSpec[] {
     description: 'First-party mission only: acknowledge authenticated user updates received during the current running turn. For MCP mission_user_updates, read every block, replan, and acknowledge_updates with the exact latest revision in a separate call before invoking other tools. For the initial Mission input ID or native user messages carrying queueId, acknowledge_inputs with those inputIds only after reading them; this records a read receipt and does not release the MCP revision gate. Does not execute, retry or undo any action and cannot change permissions, provider or project pin. ' +
       'When the mission says Specrails launches its sub-agents: subagent_start (description, instructions, optional contextTurns) delegates a task to a sub-agent on the configured provider; subagent_wait returns finished results (results you never wait for arrive later as a message); subagent_list shows them; subagent_stop stops them. These actions are refused in missions whose agent launches its own sub-agents.',
     // Delegation is gated by the project's "Allow sub-agents" / "Run sub-agents with" settings, like native sub-agents.
-    tier: 'read',
+    // Starting a sub-agent spawns a paid provider run, so it needs the AI-spawn tier;
+    // acknowledging, waiting, listing and stopping its own sub-agents stay read.
+    hintTier: 'read',
+    tier: (args) => args.action === 'subagent_start' ? 'ai-spawn' : 'read',
     inputSchema: {
       action: z.enum(['acknowledge_updates', 'acknowledge_inputs', 'subagent_start', 'subagent_wait', 'subagent_list', 'subagent_stop']),
       description: z.string().min(1).max(200).optional().describe('subagent_start: a short name for the task, shown to the user'),

@@ -30,9 +30,11 @@
       ],
       "runtime/desktop-analytics.ts": [
         "../../../db",
-        "../../../desktop-db",
         "../../../project-registry",
-        "../../../types"
+        "../../../types",
+        "./ai-invocations",
+        "./spend-categories",
+        "./spending"
       ],
       "runtime/loop-economics.ts": [
         "../../../db",
@@ -2166,6 +2168,7 @@
         "../../../providers/runtime",
         "../../../providers/types",
         "../../../types",
+        "../../../util/distribute-int",
         "../../../util/win-spawn",
         "../../accounting/runtime/ai-invocations",
         "../../accounting/runtime/result-event",
@@ -2301,6 +2304,7 @@
         "./flow-turn-context",
         "./mission-context-usage",
         "./mission-core-sessions",
+        "./mission-session-summary",
         "./mission-tool-policy",
         "child_process",
         "crypto",
@@ -2324,6 +2328,7 @@
         "./agent-input-store",
         "./agent-session-store",
         "./agent-tier",
+        "./mission-session-summary",
         "./mission-side-question",
         "express",
         "fs",
@@ -2440,10 +2445,27 @@
         "../../audit",
         "./agent-session-store"
       ],
+      "runtime/mission-session-summary.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../agents/runtime/agent-store",
+        "../../code/runtime/file-summary-generator",
+        "../../code/runtime/file-summary-manager",
+        "./agent-context-resolver",
+        "./agent-cwd-manager",
+        "./agent-input-store",
+        "crypto",
+        "fs",
+        "path"
+      ],
       "runtime/mission-side-question.ts": [
         "../../../db",
         "../../../desktop-db",
         "../../../providers",
+        "../../../providers/runtime",
         "../../../providers/types",
         "../../agents/runtime/agent-store",
         "../../code/runtime/file-summary-generator",

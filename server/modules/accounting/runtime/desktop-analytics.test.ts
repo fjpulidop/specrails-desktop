@@ -580,3 +580,14 @@ describe('getDesktopAnalytics — app ledger rows', () => {
     expect(stats).toMatchObject({ costToday: 0.5, estimatedCostToday: 0.5, includesEstimated: true, pricedRuns: 1, unpricedRuns: 1 })
   })
 })
+
+describe('local day', () => {
+  it('spans local midnight to the next local midnight as UTC instants', async () => {
+    const { localDayWindow } = await import('./desktop-analytics')
+    const now = new Date(2026, 10, 18, 0, 30)
+    const window = localDayWindow(now)
+    expect(new Date(window.from).getTime()).toBe(new Date(2026, 10, 18).getTime())
+    expect(new Date(window.to).getTime()).toBe(new Date(2026, 10, 19).getTime())
+    expect(window.from).toMatch(/Z$/)
+  })
+})

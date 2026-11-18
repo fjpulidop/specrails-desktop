@@ -36,11 +36,14 @@ reading one description. The tools are:
 
 | Tool | What it covers |
 |---|---|
+| `specrails_status` | One cheap app-wide glance: headline, mood (`idle`/`working`/`needs_you`/`failing`), running missions/rails/jobs, what needs the person, recent failures, today's spend, CPU/memory; poll with `ifNoneMatch` |
+| `specrails_inbox` | The "Needs you" inbox: `list`, `open`, `question`; `answer` (write), `resume` / `retry` (AI-spawn) through the routes the desktop and phone use |
+| `specrails_missions` | Agent missions: `list`, `active`, `get` (recent messages, context usage), `send` / `ask` (AI-spawn), `abort` (destructive); never changes a mission's permission level, provider or pin |
 | `specrails_projects` | List / resolve projects; unregister (destructive) |
 | `specrails_context` | Compact live briefing: project/providers, backlog, rails/runs/deliveries, Git/worktrees, blueprint; source and availability per section |
 | `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend, and **spec addenda** (`list_addenda`, `add_addendum`, `update_addendum`, `dismiss_addendum`, `reopen_addendum`, `delete_addendum`) — the way to iterate on an existing spec without rewriting its description: an open addendum rides into the next launch on any loop and the packet reports it |
 | `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail |
-| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs; read and drive programmatic runtime runs (`runtime_*`) |
+| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs; read and drive programmatic runtime runs (`runtime_*`); `diagnose_failure` (diagnosis + saved AI analysis; `generate:true` is AI-spawn) and `logs` (bounded, failed step first) |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
 | `specrails_agents` | Provider-scoped agent profiles and catalog; explicit profiles are validated for the selected provider |
 | `specrails_plugins` | The per-project plugin marketplace (install / verify / uninstall) |
@@ -75,6 +78,25 @@ For investigation, fetch the relevant context sections, search source text with
 `specrails_code(search)`, and read the returned file ranges. Refresh state after
 mutations and inspect `specrails_rails(review_packet)` before assessing a
 delivery. Context summaries and truncated searches are partial evidence.
+
+### Results and errors
+
+Every tool answers with one envelope, returned as pretty JSON text **and** as
+MCP `structuredContent` (each tool advertises it as its `outputSchema`):
+
+```json
+{ "ok": true, "summary": "2 registered projects: Shop, Blog.", "status": "…", "data": { "…": "the tool payload, unchanged" },
+  "ids": { "projectId": "p1" }, "next": [{ "tool": "specrails_status", "args": {}, "why": "…" }], "truncated": false, "cursor": null, "partial": false }
+```
+
+`summary` is one or two plain sentences an assistant can relay; `data` is the
+pre-envelope payload, so existing consumers read one level deeper; `next`
+suggests follow-up calls with exact arguments. Failures set `isError` and answer
+`{ "ok": false, "summary": "…", "error": { "code", "message", "retryable", "choices"?, "next"? } }`
+with stable codes: `not_found`, `invalid_input`, `conflict`, `unauthorized`,
+`provider_unavailable`, `rate_limited`, `internal`, `ambiguous` (with the valid
+`choices`) and `confirmation_required`. The full contract is in
+[MCP response envelope](internals/mcp-response-envelope.md).
 
 ### Resources
 
@@ -161,6 +183,13 @@ read-only with three unticks, and **destructive and cost-incurring actions can
 be withheld independently**. A tool's tier is dynamic per action — e.g.
 `specrails_specs(list)` is read while `specrails_specs(delete)` is destructive —
 so the same tool exposes different actions at different trust levels.
+
+**Explicit confirmation.** An external client must resend every destructive
+call with `confirm: true` after the person agreed. Without it the server
+answers `confirmation_required` with the exact arguments to resend; with
+`dryRun: true` nothing executes and the answer describes what would happen.
+The in-app agent is governed by its live permission ladder instead. The
+Destructive tier stays on by default.
 
 ## Setting it up
 

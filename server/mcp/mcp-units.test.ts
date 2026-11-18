@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { errorMessage, payloadOf } from './tools/__fixtures__/envelope'
 import fs from 'fs'
 import type { Request, Response } from 'express'
 vi.mock('../transient-children', () => ({
@@ -607,10 +608,10 @@ describe('registerTieredTool per-request active project', () => {
     })
     const extra = capabilityExtra(0, 'proj-42')
     const r1 = await captured!({}, extra)
-    expect(JSON.parse(r1.content[0].text).active).toBe('proj-42')
+    expect(payloadOf(r1).active).toBe('proj-42')
     // A subsequent external call must not inherit the capability context.
     const r2 = await captured!({})
-    expect(JSON.parse(r2.content[0].text).active).toBeNull()
+    expect(payloadOf(r2).active).toBeNull()
     expect(getActiveProject(ctx)).toBeNull()
   })
 
@@ -627,13 +628,13 @@ describe('registerTieredTool per-request active project', () => {
     setActiveProject('sticky-1')
     try {
       const r1 = await captured!({})
-      expect(JSON.parse(r1.content[0].text).active).toBe('sticky-1')
+      expect(payloadOf(r1).active).toBe('sticky-1')
       const extra = capabilityExtra(0, null)
       const r2 = await captured!({}, extra)
-      expect(JSON.parse(r2.content[0].text).active).toBeNull()
+      expect(payloadOf(r2).active).toBeNull()
       // The override was per-request: sticky selection survives.
       const r3 = await captured!({})
-      expect(JSON.parse(r3.content[0].text).active).toBe('sticky-1')
+      expect(payloadOf(r3).active).toBe('sticky-1')
     } finally {
       setActiveProject(null)
     }
@@ -667,7 +668,7 @@ describe('registerTieredTool per-request active project', () => {
       [AGENT_PROJECT_HEADER]: 'proj-spoofed',
       [AGENT_TIER_HEADER]: 'autonomous',
     } } })
-    expect(JSON.parse(r.content[0].text)).toEqual({ active: null })
+    expect(payloadOf(r)).toEqual({ active: null })
   })
 })
 
@@ -705,10 +706,10 @@ describe('registerTieredTool per-request origin conversation', () => {
   it('a capability lands its origin on the per-call context only', async () => {
     const { extra } = extraWithCapability('conv-abc-1')
     const r1 = await captured!({}, extra)
-    expect(JSON.parse(r1.content[0].text).origin).toBe('conv-abc-1')
+    expect(payloadOf(r1).origin).toBe('conv-abc-1')
     // A subsequent external call must not inherit it.
     const r2 = await captured!({})
-    expect(JSON.parse(r2.content[0].text).origin).toBeUndefined()
+    expect(payloadOf(r2).origin).toBeUndefined()
   })
 
   it('ignores legacy conversation/project/tier headers without capability proof', async () => {
@@ -717,13 +718,13 @@ describe('registerTieredTool per-request origin conversation', () => {
       [AGENT_PROJECT_HEADER]: 'proj-spoofed',
       [AGENT_TIER_HEADER]: 'autonomous',
     } } })
-    expect(JSON.parse(r.content[0].text)).toEqual({ project: null })
+    expect(payloadOf(r)).toEqual({ project: null })
   })
 
   it('derives conversation and project from the same capability binding', async () => {
     const { extra } = extraWithCapability('conv-42', 'proj-42')
     const r = await captured!({}, extra)
-    const parsed = JSON.parse(r.content[0].text)
+    const parsed = payloadOf(r)
     expect(parsed.origin).toBe('conv-42')
     expect(parsed.project).toBe('proj-42')
   })
@@ -733,7 +734,7 @@ describe('registerTieredTool per-request origin conversation', () => {
     revokeAgentCapability(token)
     const r = await captured!({}, extra)
     expect(r.isError).toBe(true)
-    expect(r.content[0].text).toContain('revoked')
+    expect(errorMessage(r)).toContain('revoked')
   })
 })
 

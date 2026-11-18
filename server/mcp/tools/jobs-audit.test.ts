@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { errorMessage, payloadOf } from './__fixtures__/envelope'
 import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
@@ -64,11 +65,11 @@ describe('MCP specrails_jobs audit + mission wrapper rows', () => {
     const conv = createAgentConversation(desktopDb, { provider: 'claude' })
     const jsonl = await call({ action: 'audit', projectId: 'p1', jobId: 'run-1' }, missionExtra(conv.id))
     expect(jsonl.isError).toBeFalsy()
-    const body = JSON.parse(jsonl.content[0].text) as { format: string; rows: number; data: string }
+    const body = payloadOf(jsonl) as { format: string; rows: number; data: string }
     expect(body).toMatchObject({ format: 'jsonl', rows: 2 })
     expect(body.data.trim().split('\n').map(line => JSON.parse(line).target)).toEqual(['src/a.ts', 'npm test'])
 
-    const csv = JSON.parse((await call({ action: 'audit', projectId: 'p1', jobId: 'run-1', format: 'csv' }, missionExtra(conv.id))).content[0].text) as { rows: number; data: string }
+    const csv = payloadOf(await call({ action: 'audit', projectId: 'p1', jobId: 'run-1', format: 'csv' }, missionExtra(conv.id))) as { rows: number; data: string }
     expect(csv.rows).toBe(2)
     expect(csv.data.split('\n')[0]).toBe('id,ts,run_id,job_id,role,kind,target,hash,source')
 
@@ -87,7 +88,7 @@ describe('MCP specrails_jobs audit + mission wrapper rows', () => {
       { runId: 'b', kind: 'write', target: 'new.ts', source: 's', ts: '2026-10-01T00:00:00.000Z' },
     ])
     const result = await call({ action: 'audit', projectId: 'p1', from: '2026-06-01T00:00:00Z' }, { requestInfo: { headers: {} } })
-    const body = JSON.parse(result.content[0].text) as { rows: number; data: string }
+    const body = payloadOf(result) as { rows: number; data: string }
     expect(body.rows).toBe(1)
     expect(JSON.parse(body.data.trim()).target).toBe('new.ts')
     expect(audit.service.exportWindow({}, 'jsonl').body.trim().split('\n')).toHaveLength(2)

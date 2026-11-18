@@ -2,6 +2,15 @@ import { z } from 'zod'
 import { apiCall, getActiveProject, type McpToolSpec } from './types'
 import { serializeProject } from './projects'
 import { getProjectRepositories, resolveProjectRepository } from '../../project-repositories'
+import { GIT_DIAGNOSTIC_ACTIONS } from '../../git-diagnostics'
+
+/** Git follow-up named from the facade's real action list, never a hard-coded guess. */
+const GIT_FOLLOW_UP_ACTIONS = (['info', 'status', 'diff', 'log'] as const)
+  .filter(action => action === 'info' || (GIT_DIAGNOSTIC_ACTIONS as readonly string[]).includes(action))
+export function gitFollowUp(projectId: string, repositoryId: string | null): string {
+  const scope = repositoryId ? `, repositoryId:"${repositoryId}"` : ''
+  return `specrails_git(action: ${GIT_FOLLOW_UP_ACTIONS.join('|')}, projectId:"${projectId}"${scope}) for details; delivery acceptance belongs to the verified review flow`
+}
 
 const SECTIONS = ['overview', 'backlog', 'runs', 'git', 'blueprint'] as const
 type Section = typeof SECTIONS[number]
@@ -109,6 +118,7 @@ export function contextTools(): McpToolSpec[] {
           }
           case 'git': {
             const members = selectedRepository ? [selectedRepository] : getProjectRepositories(project)
+            const multiRepository = getProjectRepositories(project).length > 1
             const projectGit = (value: unknown) => {
             const data = record(value)
             if (typeof data.git !== 'boolean') throw new Error('Invalid Git response; repository state is unknown.')
@@ -116,7 +126,7 @@ export function contextTools(): McpToolSpec[] {
               ...pick(data, ['git', 'repositoryId', 'branch', 'detached', 'dirty', 'lastCommit', 'worktrees'], limit),
               worktreeCount: rows(data.worktrees).length,
               truncated: rows(data.worktrees).length > limit,
-              next: 'specrails_git(info/status/diff) for details; delivery acceptance belongs to the verified review flow',
+              next: gitFollowUp(project.id, typeof data.repositoryId === 'string' && multiRepository ? data.repositoryId : selectedRepository && multiRepository ? selectedRepository.id : null),
             }
             }
             if (!selectedRepository && members.length === 1) return [section, await probe(`${base}/git`, projectGit)]

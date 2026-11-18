@@ -60,7 +60,8 @@ interface SimulatedInvocation {
 
 const parsedBlocks = (result: CallToolResult): Array<Record<string, any>> => result.content.flatMap(block => {
   if (block.type !== 'text') return []
-  try { return [JSON.parse(block.text)] } catch { return [] }
+  // Unwrap the MCP response envelope of a successful call; steering blocks pass through.
+  try { const value = JSON.parse(block.text); return [value && value.ok === true && 'summary' in value ? value.data : value] } catch { return [] }
 })
 const updates = (result: CallToolResult) => parsedBlocks(result).filter(block => block.type === 'mission_user_updates')
 const textOf = (result: CallToolResult) => result.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
@@ -269,8 +270,8 @@ describe('mission live steering across manager, durable inbox and MCP dispatch',
     const result = await inFlight
     if (failure) {
       expect(result.isError).toBe(true)
-      expect(result.content[0]).toMatchObject({ text: 'Error: Existing work encountered a merge conflict.' })
-    } else expect(JSON.parse((result.content[0] as { text: string }).text)).toEqual({ jobId: 'existing-job-42', committed: true })
+      expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({ ok: false, error: { message: 'Existing work encountered a merge conflict.' } })
+    } else expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({ ok: true, data: { jobId: 'existing-job-42', committed: true } })
     expect(updates(result)[0].content).toContain('After that operation, inspect the conflict.')
     expect(stale).not.toHaveBeenCalled()
     expect(events('agent_steered')).toHaveLength(1)

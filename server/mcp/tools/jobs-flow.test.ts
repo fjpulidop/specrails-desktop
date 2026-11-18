@@ -1,4 +1,5 @@
 // Intent apps: a mission conversation with an ACTIVE Intent starts its dev server
+import { errorMessage, payloadOf } from './__fixtures__/envelope'
 // through `specrails_jobs background_start` and it runs in the Intent worktree
 // (a real `git worktree`), tagged with the Intent, admitted below the Autonomous
 // level, and stopped with the Intent. Real processes, real tier wrapper; only
@@ -102,7 +103,7 @@ server.listen(0, '127.0.0.1', () => {
   })
   const json = <T>(result: ToolResult): T => {
     if (result.isError) throw new Error(result.content[0]!.text)
-    return JSON.parse(result.content[0]!.text) as T
+    return payloadOf(result) as T
   }
   const startApp = (tierLevel: AgentTierLevel, args: Record<string, unknown> = {}) => call({
     action: 'background_start', command: `${quote(process.execPath)} server.cjs`, confirmed: true, ...args,
@@ -135,17 +136,17 @@ server.listen(0, '127.0.0.1', () => {
   it('keeps cwd inside the worktree', async () => {
     const outside = await startApp(1, { cwd: repo })
     expect(outside.isError).toBe(true)
-    expect(outside.content[0]!.text).toMatch(/cwd must stay within the Intent worktree/)
+    expect(errorMessage(outside)).toMatch(/cwd must stay within the Intent worktree/)
   })
 
   it('applies the exception only inside an active Intent and only with explicit confirmation', async () => {
     // Unconfirmed: the ladder decides (Edit cannot run destructive actions).
     const unconfirmed = await startApp(1, { confirmed: false })
-    expect(unconfirmed.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
+    expect(errorMessage(unconfirmed)).toMatch(/requires the "Destructive" permission tier/)
     // Outside an active Intent the normal tier rule stays.
     flowState = 'paused'
     const paused = await startApp(1)
-    expect(paused.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
+    expect(errorMessage(paused)).toMatch(/requires the "Destructive" permission tier/)
     // At Autonomous, outside Intent, the app runs in the project checkout as before.
     const normal = json<{ process: BackgroundProcess; repositoryId: string }>(await startApp(3))
     expect(normal.process.cwd).toBe(repo)
@@ -158,7 +159,7 @@ server.listen(0, '127.0.0.1', () => {
     const foreign = json<{ process: BackgroundProcess }>(await startApp(3)).process
     flowState = 'active'
     const refused = await call({ action: 'background_kill', pid: foreign.pid, processId: foreign.processId }, as(1))
-    expect(refused.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
+    expect(errorMessage(refused)).toMatch(/requires the "Destructive" permission tier/)
   })
 
   it('stops only the Intent processes when the Intent pauses, ends or is handed off', async () => {

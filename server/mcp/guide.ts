@@ -82,6 +82,31 @@ Codex, Gemini, Kimi Code) to implement specs.
   more; a requested engine must be one of the installed set.
 - **Plugin**: an MCP-based integration installed per project (e.g. serena).
 
+## Start here, and how results look
+
+- \`specrails_status\` is the cheapest app-wide glance: a headline, a mood
+  (idle|working|needs_you|failing), running missions/rails/jobs, what needs the
+  person, recent failures (one-line reason, whether an AI analysis exists),
+  today's spend and machine load. Poll it with \`ifNoneMatch:<etag>\`; it
+  answers \`{unchanged:true}\` until something meaningful changes.
+- \`specrails_inbox\` lists what needs the person and acts on it safely:
+  question → answer (write), resume / retry (ai-spawn), open (detail).
+- \`specrails_missions\` reads and drives the app's Agent missions: list,
+  active, get, send / ask (ai-spawn), abort (destructive). It cannot change a
+  mission's permission level, provider or project pin.
+- Every tool answers with one envelope, as JSON text and as MCP
+  \`structuredContent\`: \`{ ok, summary, status?, data, ids?, next?, truncated?,
+  cursor?, partial? }\`. Relay \`summary\`; \`data\` is the full payload;
+  \`next\` lists useful follow-up calls with exact arguments (never run an
+  ai-spawn or destructive suggestion without the person's go-ahead).
+- Failures answer \`{ ok:false, error:{ code, message, retryable, choices?, next? } }\`
+  with stable codes: not_found, invalid_input, conflict, unauthorized,
+  provider_unavailable, rate_limited, internal, ambiguous (pick one of
+  \`choices\`), confirmation_required.
+- Destructive actions from external clients need \`confirm:true\` after the
+  person agreed; without it you get confirmation_required with the exact
+  arguments to resend. \`dryRun:true\` never executes and describes the call.
+
 ## Establish project context before acting
 
 Use \`specrails_context(projectId, sections, limit)\` for a compact live briefing:
@@ -293,7 +318,9 @@ normally; native provider tools and external MCP servers are outside this bridge
   (+destructive). It overrides the Settings checkboxes for that chat. On
   refusal, tell the user to raise the level with Shift+Tab.
 
-Tools cannot raise their own permissions in either regime. Common tiers:
+External clients also confirm each destructive call with \`confirm:true\`
+(the in-app agent's ladder already covers it). Tools cannot raise their own
+permissions in either regime. Common tiers:
 list/get/spending/watch = read; from_prompt, update, set_tickets,
 create_rail, plugin install, Jira connect = write; spec create/generate, rail
 launch/launch_all, chat send, job spawn = ai-spawn; spec delete, rail stop, job
@@ -344,6 +371,11 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   \`summary\`, \`provenance\`, \`diff\`. General Code Explorer remains read-only; stopped-run repairs use specrails_recovery.
   Start with content search to find behavior and tests, then read exact ranges.
   Truncated scans or skipped files do not prove that a symbol is absent.
+- **Why a job failed**: \`specrails_jobs(diagnose_failure, jobId)\` returns the
+  deterministic diagnosis plus the saved AI analysis (cause, category,
+  evidence, nextSteps); \`generate:true\` asks for a new analysis (ai-spawn,
+  small cost). \`specrails_jobs(logs, jobId)\` returns a bounded log, the failed
+  step's lines first (default 200 lines), instead of raw paged events.
 - **Run failures & recovery**: Start with \`specrails_jobs(runtime_diagnose, jobId)\`
   for original scope, completed steps, repeated failures and receipt validity.
   Its \`reviewer\` field is the latest reviewer verdict of the run (approved,

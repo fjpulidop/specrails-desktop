@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import type { ZodRawShape } from 'zod'
+import { z, type ZodRawShape } from 'zod'
 import type { ProjectRegistry, ProjectContext } from '../../project-registry'
 import type { DbInstance } from '../../db'
 import type { WsMessage } from '../../types'
@@ -12,6 +12,8 @@ import { getAgentConversation } from '../../modules/agents/runtime/agent-store'
 import { verifyAgentCapability } from '../agent-capability'
 import { getProjectRepositories, resolveProjectRepository, type ProjectRepository } from '../../project-repositories'
 import { acknowledgeAgentSteering, acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from '../../modules/missions/runtime/agent-steering'
+import { ENVELOPE_OUTPUT_SHAPE, McpToolError, errorEnvelope, isToolResponse, successEnvelope, type Envelope } from './envelope'
+import { summarizeResult } from './summaries'
 
 export type { McpTier } from '../mcp-tiers'
 
@@ -64,7 +66,7 @@ export interface McpToolContext {
 
 export class McpApiError extends Error {
   readonly code?: string
-  constructor(message: string, readonly status: number, readonly data: unknown) {
+  constructor(message: string, readonly status: number, readonly data: unknown, readonly route?: { method: string; path: string }) {
     super(message)
     this.name = 'McpApiError'
     const error = (data as { error?: unknown } | null)?.error
@@ -84,14 +86,14 @@ export async function apiCall(
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
+  options: { timeoutMs?: number } = {},
 ): Promise<unknown> {
   // Shared loopback client (server/internal-api.ts) — also drives the milestone
   // launch chain's chunk launches, so both stay byte-identical to a dashboard call.
   // MCP calls additionally retain their request cancellation and bounded wait;
   // those lifetimes belong to this call, not to the durable milestone chain.
-  const signal = ctx.signal
-    ? AbortSignal.any([ctx.signal, AbortSignal.timeout(120_000)])
-    : AbortSignal.timeout(120_000)
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? 120_000)
+  const signal = ctx.signal ? AbortSignal.any([ctx.signal, timeout]) : timeout
   const res = await createInternalApi({
     port: ctx.desktopPort,
     fetchImpl: (input, init) => fetch(input, { ...init, signal }),
@@ -99,7 +101,7 @@ export async function apiCall(
   if (!res.ok) {
     const data = res.body
     const detail = typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data)
-    throw new McpApiError(`API ${method} ${path} → ${res.status}: ${detail}`, res.status, data)
+    throw new McpApiError(`API ${method} ${path} → ${res.status}: ${detail}`, res.status, data, { method, path: path.split('?')[0] })
   }
   return res.body
 }
@@ -189,16 +191,25 @@ export interface McpToolSpec {
 export function requireProject(ctx: McpToolContext, projectId: string | undefined): ProjectContext {
   const id = projectId ?? getActiveProject(ctx)
   if (!id) {
-    throw new Error('No project specified and no active project selected. Call specrails_select_project or pass projectId.')
+    throw new McpToolError('ambiguous', 'No project specified and no active project selected. Call specrails_select_project or pass projectId.', { choices: projectChoices(ctx) })
   }
   const pc = ctx.registry.getContext(id)
   if (!pc) {
     if (ctx.registry.getProjectRow?.(id)) {
-      throw new Error(`Project "${id}" is registered but its database is temporarily unavailable. Retry after recovery; do not register a duplicate project.`)
+      throw new McpToolError('provider_unavailable', `Project "${id}" is registered but its database is temporarily unavailable. Retry after recovery; do not register a duplicate project.`)
     }
-    throw new Error(`Unknown projectId "${id}". Use specrails_projects(list) to see valid ids.`)
+    throw new McpToolError('not_found', `Unknown projectId "${id}". Use specrails_projects(list) to see valid ids.`, { choices: projectChoices(ctx) })
   }
   return pc
+}
+
+/** Valid project selectors for an ambiguous/unknown project error (bounded). */
+export function projectChoices(ctx: McpToolContext): Array<{ projectId: string; name: string }> {
+  try {
+    return (ctx.registry.listProjects?.() ?? []).slice(0, 25).map((project) => ({ projectId: project.id, name: project.name }))
+  } catch {
+    return []
+  }
 }
 
 // ── Active-project stickiness (per server process) ────────────────────────────
@@ -243,13 +254,69 @@ function tierAnnotations(tier: McpTier): { readOnlyHint?: boolean; destructiveHi
   }
 }
 
-function toResult(data: unknown): CallToolResult {
-  const text = typeof data === 'string' ? data : JSON.stringify(data ?? null, null, 2)
-  return { content: [{ type: 'text', text }] }
+/**
+ * Success: the envelope as JSON text AND as structuredContent. A prose payload
+ * (the guide) keeps its readable text; the structured envelope still carries it.
+ */
+function envelopeResult(envelope: Envelope): CallToolResult {
+  const prose = envelope.ok && typeof envelope.data === 'string'
+  const text = prose ? envelope.data as string : JSON.stringify(envelope, null, 2)
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: envelope as unknown as Record<string, unknown>,
+    ...(envelope.ok ? {} : { isError: true }),
+  }
 }
 
-function errorResult(message: string): CallToolResult {
-  return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }
+function errorResult(err: unknown, tool: string, action: string | null): CallToolResult {
+  return envelopeResult(errorEnvelope(err, tool, action))
+}
+
+const actionOf = (args: Record<string, unknown>): string | null => typeof args.action === 'string' ? args.action : null
+
+// ── Destructive confirmation ─────────────────────────────────────────────────
+
+/** Actions of a facade whose tier resolves to destructive with default arguments. */
+export function destructiveActions(spec: McpToolSpec): string[] {
+  if (spec.tier === 'destructive') return ['*']
+  if (typeof spec.tier !== 'function') return []
+  const field = spec.inputSchema.action as { options?: unknown } | undefined
+  const options = Array.isArray(field?.options) ? field.options as string[] : []
+  const tier = spec.tier
+  return options.filter((action) => { try { return tier({ action }) === 'destructive' } catch { return false } })
+}
+
+/**
+ * Adds `confirm` / `dryRun` to a tool that has destructive actions. External
+ * clients must resend a destructive call with `confirm:true`; `dryRun:true`
+ * never executes and describes what would happen.
+ */
+export function withConfirmationFields(spec: McpToolSpec): McpToolSpec {
+  if (!destructiveActions(spec).length) return spec
+  return {
+    ...spec,
+    inputSchema: {
+      ...spec.inputSchema,
+      confirm: z.boolean().optional().describe('Required (true) for destructive actions from external MCP clients, after the person explicitly agreed. Without it the call returns confirmation_required with the exact arguments to resend.'),
+      dryRun: z.boolean().optional().describe('true: do not execute; describe what this call would do and which permission tier it needs.'),
+    },
+  }
+}
+
+/** One sentence on what a destructive action does, read from the tool description. */
+export function describeEffect(spec: McpToolSpec, action: string | null): string {
+  if (action) {
+    const escaped = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = new RegExp(`${escaped}\\s*\\(([^)]*)\\)`).exec(spec.description)
+    if (match?.[1]) return match[1].replace(/^destructive\s*[—–-]\s*/i, '').trim()
+  }
+  return spec.title
+}
+
+function stripControl(args: Record<string, unknown>): Record<string, unknown> {
+  const { confirm: _confirm, dryRun: _dryRun, ...rest } = args
+  void _confirm; void _dryRun
+  return rest
 }
 
 /**
@@ -326,17 +393,21 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       title: spec.title,
       description: spec.description,
       inputSchema: spec.inputSchema,
+      outputSchema: ENVELOPE_OUTPUT_SHAPE,
       annotations,
     },
     async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
-      if (extra?.signal?.aborted) return errorResult('MCP request was cancelled before execution.')
+      const action = actionOf(args ?? {})
+      const fail = (message: string, code: 'unauthorized' | 'provider_unavailable' = 'unauthorized') =>
+        errorResult(new McpToolError(code, message), spec.name, action)
+      if (extra?.signal?.aborted) return fail('MCP request was cancelled before execution.', 'provider_unavailable')
       // Loopback identifies a machine, not a trusted caller. All first-party
       // authority and context come from this unguessable, server-minted bearer;
       // legacy tier/project/conversation headers are deliberately ignored.
       const suppliedCapability = extra?.requestInfo?.headers?.[AGENT_CAPABILITY_HEADER]
       const capability = verifyAgentCapability(suppliedCapability)
       if (suppliedCapability !== undefined && !capability) {
-        return errorResult('Agent capability expired or was revoked. Start a new mission turn to reconnect.')
+        return fail('Agent capability expired or was revoked. Start a new mission turn to reconnect.')
       }
       const callCtx: McpToolContext = capability
         ? {
@@ -350,16 +421,40 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       callCtx.signal = extra?.signal
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
       if (!toolTierAllowed(callCtx, tier) && !(callCtx.firstPartyAgent && admittedByException(spec, callCtx, args ?? {}))) {
-        return errorResult(tierRefusalMessage(tier))
+        return fail(tierRefusalMessage(tier))
       }
-      if (capability) recordMissionMcpAction(callCtx, spec.name, args ?? {})
+      const confirmable = 'confirm' in spec.inputSchema
+      if (confirmable && args?.dryRun === true) {
+        const effect = describeEffect(spec, action)
+        const label = action ? `${spec.name}(${action})` : spec.name
+        return envelopeResult(successEnvelope({
+          tool: spec.name, action, tier, args: stripControl(args ?? {}), effect,
+          wouldExecute: false, requiresConfirm: tier === 'destructive' && !callCtx.firstPartyAgent,
+        }, { tool: spec.name, action, meta: {
+          status: 'dry_run',
+          summary: `Dry run, nothing executed: ${label} would ${tier === 'destructive' ? 'perform a destructive change' : `run with the ${tier} tier`} (${effect}).`,
+          next: [{ tool: spec.name, args: { ...stripControl(args ?? {}), ...(tier === 'destructive' ? { confirm: true } : {}) }, why: 'Execute it for real once the person agrees.' }],
+        } }))
+      }
+      // External clients confirm destructive calls explicitly; the in-app agent's
+      // live permission ladder (and its own confirmation cards) already governs it.
+      if (confirmable && tier === 'destructive' && !callCtx.firstPartyAgent && args?.confirm !== true) {
+        const resend = { tool: spec.name, args: { ...stripControl(args ?? {}), confirm: true } }
+        return errorResult(new McpToolError('confirmation_required',
+          `${action ? `${spec.name}(${action})` : spec.name} is destructive (${describeEffect(spec, action)}). Ask the person to confirm, then resend with confirm:true.`,
+          { resend, next: [{ ...resend, why: 'Resend after the person explicitly confirmed.' }, { tool: spec.name, args: { ...stripControl(args ?? {}), dryRun: true }, why: 'Preview what it would do without executing.' }] }), spec.name, action)
+      }
+      const handlerArgs = confirmable ? stripControl(args ?? {}) : (args ?? {})
+      if (capability) recordMissionMcpAction(callCtx, spec.name, handlerArgs)
       const operation = async (): Promise<CallToolResult> => {
         try {
-          const data = await spec.handler(callCtx, args ?? {})
-          if (tier !== 'read') emitMcpActivity(callCtx, spec, args ?? {}, tier)
-          return toResult(data)
+          const data = await spec.handler(callCtx, handlerArgs)
+          if (tier !== 'read') emitMcpActivity(callCtx, spec, handlerArgs, tier)
+          let meta
+          if (!isToolResponse(data)) { try { meta = summarizeResult(spec.name, action, handlerArgs, data) } catch { meta = undefined } }
+          return envelopeResult(successEnvelope(data, { tool: spec.name, action, meta }))
         } catch (err) {
-          return errorResult(err instanceof Error ? err.message : String(err))
+          return errorResult(err, spec.name, action)
         }
       }
       if (capability && typeof suppliedCapability === 'string') {

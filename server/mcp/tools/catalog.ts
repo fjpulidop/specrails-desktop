@@ -1,4 +1,8 @@
 import type { McpToolSpec } from './types'
+import { withConfirmationFields } from './types'
+import { statusTools } from './status'
+import { inboxTools } from './inbox'
+import { missionsTools } from './missions'
 import { projectsTools } from './projects'
 import { appTools } from './app-settings'
 import { watchTool } from './watch'
@@ -29,8 +33,11 @@ import { missionTools } from './mission'
 export function buildToolSpecs(): McpToolSpec[] {
   const specs: McpToolSpec[] = []
   // App-level + meta + watch
+  specs.push(...statusTools())
   specs.push(...projectsTools())
   specs.push(...contextTools())
+  specs.push(...inboxTools())
+  specs.push(...missionsTools())
   specs.push(...missionTools())
   specs.push(...appTools())
   specs.push(watchTool())
@@ -50,7 +57,9 @@ export function buildToolSpecs(): McpToolSpec[] {
   specs.push(...gitTools())
   specs.push(...envTools())
   specs.push(...supportTools())
+  // Destructive actions take confirm/dryRun (enforced in registerTieredTool).
+  const confirmed = specs.map(withConfirmationFields)
   // Meta last (needs the full list for search/describe)
-  specs.push(...metaTools(() => specs))
-  return specs
+  confirmed.push(...metaTools(() => confirmed))
+  return confirmed
 }

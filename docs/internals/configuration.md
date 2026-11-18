@@ -485,10 +485,11 @@ rm -rf ~/.specrails/desktop.sqlite ~/.specrails/projects/
 ## Spend caps (daily, weekly, monthly, per run)
 
 Caps are plain settings; there is no feature flag. The week starts on **Monday 00:00** and the month on the
-**1st 00:00**, both in the **local** time of the machine running the server (the day is local for a project cap;
-the app-wide *daily* budget keeps its historical UTC day). A cap counts the recorded `total_cost_usd` of
-`ai_invocations` (the same sum the daily budget has always used); the part priced from the local rate card is
-reported apart in the Budget panel.
+**1st 00:00**, both in the **local** time of the machine running the server; the day is the local day for
+every cap, the app-wide daily budget included (it used the UTC day before). A cap counts the recorded
+`total_cost_usd` of `ai_invocations` plus the mission and Intent turns of the app ledger (`agent_invocations`):
+pinned turns count for their project, every turn counts app-wide. The part priced from the local rate card is
+reported apart in the Budget panel. Spend "today" in Analytics and the MCP status uses the same local day.
 
 | Cap | Project key (`queue_state`) | App-wide key (`desktop_settings`) |
 | --- | --- | --- |

@@ -339,8 +339,47 @@ describe('McpServerManager (embedded MCP server)', () => {
     const client = await connectClient(url)
     const result = await client.callTool({ name: 'specrails_projects', arguments: { action: 'list' } })
     expect(result.isError).toBeFalsy()
-    expect((result.content as Array<{ type: string; text: string }>)[0].text).toBe('[]')
+    const envelope = JSON.parse((result.content as Array<{ type: string; text: string }>)[0].text)
+    expect(envelope).toMatchObject({ ok: true, data: [], summary: expect.stringContaining('No projects') })
+    expect(result.structuredContent).toEqual(envelope)
     await client.close()
+  })
+
+  it('advertises the envelope outputSchema and confirm/dryRun only on tools with destructive actions', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'true')
+    const client = await connectClient(url)
+    try {
+      const { tools } = await client.listTools()
+      const byName = new Map(tools.map((tool) => [tool.name, tool]))
+      for (const name of ['specrails_status', 'specrails_inbox', 'specrails_missions']) expect(byName.has(name)).toBe(true)
+      for (const tool of tools) expect(tool.outputSchema?.properties).toHaveProperty('summary')
+      expect(byName.get('specrails_projects')?.inputSchema.properties).toHaveProperty('confirm')
+      expect(byName.get('specrails_missions')?.inputSchema.properties).toHaveProperty('dryRun')
+      expect(byName.get('specrails_status')?.inputSchema.properties).not.toHaveProperty('confirm')
+      expect(byName.get('specrails_guide')?.inputSchema.properties ?? {}).not.toHaveProperty('confirm')
+    } finally {
+      await client.close()
+    }
+  })
+
+  it('requires confirm:true for an external destructive call and previews it with dryRun', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'true')
+    const client = await connectClient(url)
+    try {
+      const refused = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x' } })
+      expect(refused.isError).toBe(true)
+      expect(refused.structuredContent).toMatchObject({
+        ok: false,
+        error: { code: 'confirmation_required', retryable: false, resend: { tool: 'specrails_projects', args: { action: 'unregister', projectId: 'x', confirm: true } } },
+      })
+      const preview = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x', dryRun: true } })
+      expect(preview.isError).toBeFalsy()
+      expect(preview.structuredContent).toMatchObject({ ok: true, status: 'dry_run', data: { wouldExecute: false, tier: 'destructive', requiresConfirm: true } })
+      const confirmed = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x', confirm: true } })
+      expect(confirmed.structuredContent).toMatchObject({ ok: false, error: { code: 'not_found', message: 'Unknown projectId "x".' } })
+    } finally {
+      await client.close()
+    }
   })
 
   it('authorizes facade actions individually for a first-party read-only mission', async () => {

@@ -101,15 +101,28 @@ function resolveBounds(opts: AnalyticsOpts): { current: DateBounds; label: strin
   return { current: { from, to }, label }
 }
 
+/** A date-only bound covers its whole day (`to` is inclusive); an exact
+ *  instant (it has a time, e.g. a local midnight) is used as is (`to` exclusive). */
+function upperBound(to: string): string {
+  if (to.includes('T')) return new Date(to).toISOString()
+  return new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10)
+}
+const lowerBound = (from: string) => (from.includes('T') ? new Date(from).toISOString() : from)
+
 function buildWhere(bounds: DateBounds): { clause: string; params: unknown[] } {
   if (!bounds.from && !bounds.to) return { clause: '', params: [] }
   if (bounds.from && bounds.to) {
-    const nextDay = new Date(new Date(bounds.to).getTime() + 86400000).toISOString().slice(0, 10)
-    return { clause: 'WHERE started_at >= ? AND started_at < ?', params: [bounds.from, nextDay] }
+    return { clause: 'WHERE started_at >= ? AND started_at < ?', params: [lowerBound(bounds.from), upperBound(bounds.to)] }
   }
-  if (bounds.from) return { clause: 'WHERE started_at >= ?', params: [bounds.from] }
-  const nextDay = new Date(new Date(bounds.to!).getTime() + 86400000).toISOString().slice(0, 10)
-  return { clause: 'WHERE started_at < ?', params: [nextDay] }
+  if (bounds.from) return { clause: 'WHERE started_at >= ?', params: [lowerBound(bounds.from)] }
+  return { clause: 'WHERE started_at < ?', params: [upperBound(bounds.to!)] }
+}
+
+/** Today on this machine (the person's clock): local midnight to the next one, as UTC instants. */
+export function localDayWindow(now: Date = new Date()): { from: string; to: string } {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return { from: start.toISOString(), to: end.toISOString() }
 }
 
 // ─── Per-project query ────────────────────────────────────────────────────────
@@ -282,10 +295,10 @@ export function getDesktopAnalytics(
   const { current, label } = resolveBounds(opts)
   const { clause, params } = buildWhere(current)
 
-  const today = new Date().toISOString().slice(0, 10)
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  // "Today" is the local day, the same basis as the spend caps.
+  const localToday = localDayWindow()
   const todayClause = 'WHERE started_at >= ? AND started_at < ?'
-  const todayParams = [today, tomorrow]
+  const todayParams = [localToday.from, localToday.to]
 
   const contexts = registry.listContexts()
 

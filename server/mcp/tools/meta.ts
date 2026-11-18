@@ -68,16 +68,26 @@ function actions(ctx: McpToolContext, spec: McpToolSpec) {
   return (field.options as string[]).map(action => ({ action, ...permissions(ctx, spec, { action }) }))
 }
 
-const STOP_WORDS = new Set('a an the to for of in and or with how do i my this el la los las un una de del en y o con como que quiero para mi por'.split(' '))
+const STOP_WORDS = new Set('a an the to for of in and or with how do i my me is are was be it what which right now this el la los las un una de del en y o con como que quiero para mi por esta estan hay tengo me ahora'.split(' '))
 const INTENTS: Record<string, string[]> = {
   proyecto: ['project', 'context'], proyectos: ['projects'], contexto: ['context', 'overview'],
   codigo: ['code', 'search'], buscar: ['search', 'find'], archivo: ['file'], archivos: ['file', 'tree'],
   implementar: ['launch', 'run', 'implement'], implementacion: ['implement', 'run'], lanzar: ['launch', 'run'],
-  ejecucion: ['job', 'run'], ejecuciones: ['jobs', 'runs'], fallida: ['failed', 'logs'], error: ['error', 'logs'],
-  mision: ['conversation'], conversar: ['chat'], especificaciones: ['specs'], especificacion: ['spec'],
+  ejecucion: ['job', 'run'], ejecuciones: ['jobs', 'runs'], fallida: ['failure', 'diagnose_failure', 'logs'], error: ['error', 'logs'],
+  mision: ['missions', 'conversation'], conversar: ['chat'], especificaciones: ['specs'], especificacion: ['spec'],
   revisar: ['review', 'packet'], cambios: ['diff', 'git'], rama: ['branch', 'git'], ramas: ['branch'],
   esperar: ['watch', 'wait'], estado: ['status', 'context'], bucle: ['loop'], bucles: ['loops'],
   herramientas: ['tools'], permisos: ['tier', 'permissions'], configurar: ['settings'],
+  // App-wide glance, inbox, missions and failures (EN synonyms + ES intents).
+  pasando: ['status', 'glance'], resumen: ['status', 'glance'], vistazo: ['status', 'glance'], happening: ['status', 'glance'],
+  glance: ['status'], overview: ['status', 'context'], mood: ['status'], dashboard: ['status'],
+  pendiente: ['inbox', 'needs'], pendientes: ['inbox', 'needs'], bandeja: ['inbox'], necesita: ['inbox', 'needs'], atencion: ['inbox', 'needs'],
+  waiting: ['inbox', 'question'], attention: ['inbox', 'needs'], needs: ['inbox'], pregunta: ['question', 'inbox'], responder: ['answer', 'inbox'],
+  reintentar: ['retry'], reanudar: ['resume'], misiones: ['missions'], agente: ['missions', 'agent'], agentes: ['missions', 'agents'],
+  missions: ['missions'], mission: ['missions'], detener: ['abort', 'stop'], parar: ['abort', 'stop'],
+  fallo: ['failure', 'diagnose_failure', 'logs'], fallos: ['failure', 'diagnose_failure'], fallado: ['failure', 'diagnose_failure'],
+  failed: ['failure', 'diagnose_failure', 'logs'], why: ['diagnose_failure', 'failure'], registros: ['logs'], logs: ['logs'],
+  gasto: ['spending', 'spend'], gastos: ['spending', 'spend'], coste: ['spending', 'cost'], costo: ['spending', 'cost'], hoy: ['today', 'status'],
 }
 const normalize = (text: string) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
