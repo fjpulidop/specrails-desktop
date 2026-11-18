@@ -2864,7 +2864,7 @@
       ],
       "runtime/agent-operator-prompt.ts": [
         "../../../feature-flags",
-        "../../specs/runtime/spec-contract-prompt"
+        "../../../mcp/guide"
       ],
       "runtime/agent-session-store.ts": [
         "../../../db",

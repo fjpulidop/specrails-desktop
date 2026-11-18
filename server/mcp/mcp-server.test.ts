@@ -271,7 +271,14 @@ describe('McpServerManager (embedded MCP server)', () => {
     const result = await client.callTool({ name: 'specrails_guide', arguments: {} })
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     expect(text).toContain('Specrails')
+    expect(text).toContain('rails-and-launch')
     expect(result.isError).toBeFalsy()
+    const topic = await client.callTool({ name: 'specrails_guide', arguments: { topic: 'rails-and-launch' } })
+    expect(topic.isError).toBeFalsy()
+    expect(JSON.stringify(topic)).toContain('Launch, then release the turn')
+    const unknown = await client.callTool({ name: 'specrails_guide', arguments: { topic: 'nope' } })
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown)).toContain('invalid_input')
     await client.close()
   })
 

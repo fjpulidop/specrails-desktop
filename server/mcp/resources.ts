@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SubscribeRequestSchema, UnsubscribeRequestSchema, type ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
-import { SPECRAILS_GUIDE } from './guide'
+import { fullGuide } from './guide'
 import { serializeProject } from './tools/projects'
 import type { McpToolContext, McpToolSpec } from './tools/types'
 import { McpApiError } from './tools/types'
@@ -63,7 +63,7 @@ export function registerResources(server: McpServer, ctx: McpToolContext, specs:
     'specrails://guide',
     { title: 'Specrails platform guide', description: 'Concepts, workflow and invariants for operating Specrails.', mimeType: 'text/markdown' },
     async (uri): Promise<ReadResourceResult> => ({
-      contents: [{ uri: uri.href, text: SPECRAILS_GUIDE }],
+      contents: [{ uri: uri.href, text: fullGuide() }],
     }),
   )
 

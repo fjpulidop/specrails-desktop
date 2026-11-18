@@ -63,7 +63,7 @@ reading one description. The tools are:
 | `specrails_analytics` | Per-project spending analytics + budget, decision times, loop economics (`loop_economics`) |
 | `specrails_settings` | App-level settings |
 | `specrails_watch` | Await the real result of an async (cost-incurring) action |
-| `specrails_guide` | Returns the platform guide — read this first |
+| `specrails_guide` | The platform guide by topic: no `topic` returns the topic index (read it first), `topic` returns one section |
 | `specrails_search` | Find tools/actions by English or Spanish intent, including current permission previews |
 | `specrails_describe` | Complete nested JSON schema and action tiers; optionally validate proposed arguments without execution |
 | `specrails_select_project` | Set this session's active project so later calls can omit `projectId` |
@@ -153,12 +153,36 @@ keep their full default answer when `limit` is absent.
 { "ok": false, "summary": "specrails_jobs(get) failed: …", "error": { "code": "invalid_input", "message": "specrails_jobs(get) missing \"jobId\". It takes: jobId (required), eventLimit, eventOffset.", "retryable": false } }
 ```
 
+### Guide topics
+
+`specrails_guide` is split into topics so an agent loads only what it needs.
+Without arguments it returns the index: one line per topic saying when to read
+it. `specrails_guide(topic: "<id>")` returns that topic; ids are matched
+case-insensitively with `_` or spaces read as `-`, and an unknown id answers
+`invalid_input` with the valid ids as `choices`. The topics are
+`platform-model`, `mcp-conventions`, `live-user-updates`,
+`permissions-and-confirmations`, `support-and-core`,
+`failure-diagnosis-and-recovery`, `git-and-local-delivery`,
+`intent-and-framing`, `specs-and-drafts`, `contract-refine`,
+`smash-and-epics`, `addenda`, `rails-and-launch`, `rail-launch-cards`,
+`pr-decisions-and-ci`, `background-processes-and-apps`, `loops`,
+`budgets-and-spend`, `integrations-jira`, `settings-and-providers`,
+`setup-and-projects` and `explore-or-delegate`. External clients should start
+with `platform-model`, `mcp-conventions` and `permissions-and-confirmations`;
+the topics written for the in-app agent say so.
+
+The topics ([`server/mcp/guide.ts`](../server/mcp/guide.ts)) are also the
+in-app mission agent's detailed manual: a mission always loads only a compact
+operator core with the non-negotiable rules and this index, and reads a topic
+before the work it covers. The tool is read tier, so every mission permission
+level can call it. `rail-launch-cards` follows `SPECRAILS_MISSION_RAIL_CARDS`.
+
 ### Resources
 
 Read-only state is also exposed as MCP **resources** so a client can fetch it
 without a tool call:
 
-- `specrails://guide` — the platform guide (concepts, workflow, invariants).
+- `specrails://guide` — the complete platform guide (the topic index plus every topic).
 - `specrails://status` — the `specrails_status` snapshot (with its `etag`).
 - `specrails://projects` — all registered projects.
 - `specrails://projects/{projectId}` — a single project.

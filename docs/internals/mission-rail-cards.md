@@ -1,6 +1,6 @@
 # Mission rail cards — as-built record
 
-> OpenSpec change `mission-rail-cards` (2026-09-18), branch `feat/mission-rail-cards`. Companion to the CLAUDE.md section of the same name. Everything below is what the code on disk does; "deferred" means it does not.
+> OpenSpec change `mission-rail-cards` (2026-09-18), branch `feat/mission-rail-cards`. Companion to the `rail-launch-cards` guide topic and the operator core's rail-card clause. Everything below is what the code on disk does; "deferred" means it does not.
 
 ## The problem
 
@@ -88,7 +88,7 @@ Parser: `client/src/features/rails/lib/rail-launch-draft.ts` (client only; the s
 
 | Piece | Where | Notes |
 |---|---|---|
-| Operator prompt | `server/modules/missions/runtime/agent-operator-prompt.ts` `RAIL_LAUNCH_CARD_SECTION`, `RAIL_LAUNCH_CARD_SYSTEM_CLAUSE`, `buildOperatorSystemPrompt()` | Propose = block; launch directly only on an explicit "now"; failure briefing reply ≤ 6 lines + one action, no mutation. Gated on `isMissionRailCardsEnabled()`. |
+| Operator prompt | `server/modules/missions/runtime/agent-operator-prompt.ts` `RAIL_LAUNCH_CARD_SYSTEM_CLAUSE`, `buildOperatorSystemPrompt()`; card protocol `RAIL_LAUNCH_CARD_SECTION` in `server/mcp/guide.ts` (topic `rail-launch-cards`) | Propose = block; launch directly only on an explicit "now"; failure briefing reply ≤ 6 lines + one action, no mutation. Gated on `isMissionRailCardsEnabled()`. |
 | Message intent | desktop-db migration 29 (`agent_messages.intent`, column-guarded); `agent-store.ts` `setAgentMessageIntent`; `PATCH /api/agent/conversations/:id/messages/:mid/intent` | JSON ARRAY of decisions keyed by `proposalIndex`; append-only; 409 `already_decided`; 403 when the feature is off. Rows expose `intents[]`. |
 | Envelope | `server/types.ts` `PrDecisionCardEnvelope` (+ `MissionRunPhase`, `MissionRunRuntime`, `MissionRunFailure`) | `hasDelivery`, `phase`, `railName`, `runtime` — all optional; `decision` vocabulary unchanged. |
 | Run-only cards | `server/modules/missions/runtime/mission-run-notify.ts` `runCardId` / `isRunCardId` / `buildRunCardEnvelope` / `postRunCard` / `settleRunCard` / `failureForLoopOutcome` / `runtimeFromSummary` | Synthetic `prDeliveryId = 'run:<runId>'`, `hasDelivery:false`. Wired in the shared-cwd branch of `rails-launch-http.ts` (origin stored on `railLoopRuns` meta; 202 returns `runIds`). |

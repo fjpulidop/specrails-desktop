@@ -223,6 +223,31 @@ transcript has no window either. The window is the last one this mission
 measured from a stream-json turn, or 1,000,000 for a `[1m]` model; otherwise it
 stays null and the ring is hidden. No per-model table is used.
 
+## Context budget
+
+A fresh mission turn sends the provider its system prompt, the cwd instruction
+files the CLI auto-loads, the MCP tool list and the turn (project snapshot,
+bounded history, message). The operator text used to be two layers: a 69.6k
+character manual written to `~/.specrails/agent-cwd/CLAUDE.md` (Claude injects
+it as project instructions, about 24.5k tokens) plus an 11.6k character system
+prompt. It is now one compact core (`buildOperatorSystemPrompt()`, about 17k
+characters, ~6k tokens) sent as the system prompt, with the cwd files reduced to a short
+pointer. The detail moved verbatim into `specrails_guide` topics that the agent
+reads on demand (see the [missions module](../../server/modules/missions/README.md#operator-core-and-guide-topics)
+and [the MCP guide](../mcp.md#guide-topics)).
+
+Measured with a throwaway replica of the Core Claude argv (`--setting-sources
+project,local --system-prompt-file`, read-only tools, the captured Specrails
+tool list on a stub MCP, `--model haiku`, empty cwd), a "Hola" turn's first
+request went from 64,733 to 42,978 input tokens (−21.8k, −34%): the operator
+text went from ~28.0k tokens to ~6.3k (core 5,980 plus the cwd pointer). The
+rest (~36.7k) is the MCP tool list and Claude Code's own context. Codex,
+Gemini and Kimi read the core from their cwd instructions file (`AGENTS.md`,
+`GEMINI.md`, `.kimi-code/AGENTS.md`) once per session instead of the 69.6k
+manual, and it is no longer repeated in every user turn, so it does not pile
+up in a resumed session's history. Only local engines, which read no file,
+still get it folded into the turn.
+
 ## Rollout
 
 `SPECRAILS_CORE_SESSIONS` (`auto` by default, `on` or `off`, see

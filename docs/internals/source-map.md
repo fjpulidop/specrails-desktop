@@ -1435,7 +1435,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/mcp
 
 - [agent-capability.ts](../../server/mcp/agent-capability.ts) · [test](../../server/mcp/agent-capability.test.ts)
-- [guide.ts](../../server/mcp/guide.ts)
+- [guide.ts](../../server/mcp/guide.ts) · [test](../../server/mcp/guide.test.ts)
 - [index.ts](../../server/mcp/index.ts)
 - [mcp-admin-router.ts](../../server/mcp/mcp-admin-router.ts) · [test](../../server/mcp/mcp-admin-router.test.ts)
 - [mcp-server.ts](../../server/mcp/mcp-server.ts) · [test](../../server/mcp/mcp-server.test.ts)
@@ -1919,7 +1919,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-chat-registry.ts](../../server/modules/missions/runtime/agent-chat-registry.ts)
 - [agent-chat-router.ts](../../server/modules/missions/runtime/agent-chat-router.ts)
 - [agent-context-resolver.ts](../../server/modules/missions/runtime/agent-context-resolver.ts) · [test](../../server/modules/missions/runtime/agent-context-resolver.test.ts)
-- [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts)
+- [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts) · [test](../../server/modules/missions/runtime/agent-cwd-manager.test.ts)
 - [agent-failure-briefing.ts](../../server/modules/missions/runtime/agent-failure-briefing.ts) · [test](../../server/modules/missions/runtime/agent-failure-briefing.test.ts)
 - [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts) · [test](../../server/modules/missions/runtime/agent-fence-promotion.test.ts)
 - [agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts) · [test](../../server/modules/missions/runtime/agent-flow-prompt.test.ts)

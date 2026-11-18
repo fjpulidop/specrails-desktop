@@ -157,9 +157,13 @@ describe('tool handlers', () => {
     expect(tierFn({ action: 'unregister' })).toBe('destructive')
   })
 
-  it('specrails_guide returns the guide text', async () => {
+  it('specrails_guide returns the topic index, and the topics carry the guide text', async () => {
     const ctx = makeCtx(db)
-    const text = await tool('specrails_guide').handler(ctx, {})
+    const index = String(await tool('specrails_guide').handler(ctx, {}))
+    expect(index).toContain('topic index')
+    expect(index).toContain('`permissions-and-confirmations`')
+    const topics = ['permissions-and-confirmations', 'rails-and-launch', 'loops', 'settings-and-providers', 'support-and-core', 'pr-decisions-and-ci']
+    const text = (await Promise.all(topics.map((topic) => tool('specrails_guide').handler(ctx, { topic })))).join('\n')
     expect(String(text)).toContain('Permissions — two regimes')
     expect(String(text)).toContain('refused with\n    `builtin_loop_retired`')
     expect(String(text)).toContain('Freestyle and SDD Quick\n  (OpenSpec) are gallery loops, not built-ins')

@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { canonicalRepositoryPath, repositoryPathKey, getProjectRepositories } from '../../project-repositories'
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
-import { SPECRAILS_GUIDE } from '../guide'
+import { GUIDE_TOPIC_IDS, findGuideTopic, guideIndex } from '../guide'
+import { McpToolError } from './envelope'
 import type { McpToolContext, McpToolSpec } from './types'
 import { setActiveProject, toolTierAllowed } from './types'
 import { advertisedActions, describeActionFields, validateActionArgs } from './actions'
@@ -136,11 +137,21 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
       name: 'specrails_guide',
       title: 'Platform guide',
       description:
-        'Returns a self-contained guide to Specrails: concepts, workflow, invariants, and how to use these tools. ' +
-        'Read this first — call once per session before your first domain call.',
+        'The Specrails platform guide, by topic: concepts, workflow, invariants and how to use these tools. ' +
+        'Without topic it returns the topic index (read it first, once per session); with topic it returns that topic.',
       tier: 'read',
-      inputSchema: {},
-      handler: () => SPECRAILS_GUIDE,
+      inputSchema: {
+        topic: z.string().trim().max(64).optional().describe('Topic id from the index, e.g. "rails-and-launch"; omit for the index'),
+      },
+      handler: (_ctx, args) => {
+        const requested = typeof args.topic === 'string' ? args.topic.trim() : ''
+        if (!requested) return guideIndex()
+        const topic = findGuideTopic(requested)
+        if (!topic) {
+          throw new McpToolError('invalid_input', `Unknown guide topic "${requested}". Valid topics: ${GUIDE_TOPIC_IDS.join(', ')}.`, { choices: [...GUIDE_TOPIC_IDS] })
+        }
+        return topic.body()
+      },
     },
     {
       name: 'specrails_search',

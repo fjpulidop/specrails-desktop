@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { buildOperatorInstructions } from './agent-operator-prompt'
+import { OPERATOR_CWD_INSTRUCTIONS, buildOperatorSystemPrompt } from './agent-operator-prompt'
 
 // ─── App-level agent working directory (design D1) ────────────────────────────
 //
@@ -20,22 +20,38 @@ export function agentCwdPath(): string {
   return path.join(homeDir(), '.specrails', 'agent-cwd')
 }
 
-const INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md'] as const
+/**
+ * The operator core reaches each provider ONCE per session, never repeated in
+ * every turn (which would pile up in a resumed session's history):
+ * - Claude gets it as the system prompt, so CLAUDE.md only holds a pointer;
+ * - Codex (AGENTS.md), Gemini (GEMINI.md) and Kimi (.kimi-code/AGENTS.md) load
+ *   their instructions file natively, so the core lives there.
+ * See providerLoadsOperatorCore() (agent-operator-prompt.ts) for the turn side.
+ */
+const INSTRUCTION_FILES: ReadonlyArray<{ name: string; content: () => string }> = [
+  { name: 'CLAUDE.md', content: () => OPERATOR_CWD_INSTRUCTIONS },
+  { name: 'AGENTS.md', content: buildOperatorSystemPrompt },
+  { name: 'GEMINI.md', content: buildOperatorSystemPrompt },
+  { name: path.join('.kimi-code', 'AGENTS.md'), content: buildOperatorSystemPrompt },
+]
+
 const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 
 function ensureCwd(dir: string): string {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
   try { fs.chmodSync(dir, 0o700) } catch { /* best-effort on platforms without chmod */ }
-  for (const name of INSTRUCTION_FILES) {
-    // App-owned files (not user-edited) — always (re)write so operator-prompt
-    // updates take effect instead of being pinned to the first materialization.
-    fs.writeFileSync(path.join(dir, name), buildOperatorInstructions(), 'utf-8')
+  for (const file of INSTRUCTION_FILES) {
+    // App-owned files (not user-edited) — always (re)write so updates take
+    // effect and the full manual older builds wrote here is replaced.
+    const target = path.join(dir, file.name)
+    fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(target, file.content(), 'utf-8')
   }
   return dir
 }
 
 /**
- * Ensures the app-level agent cwd exists with operator instruction files.
+ * Ensures the app-level agent cwd exists with its operator pointer files.
  * Idempotent; safe to call on every turn. Returns the cwd path.
  */
 export function ensureAgentCwd(): string {

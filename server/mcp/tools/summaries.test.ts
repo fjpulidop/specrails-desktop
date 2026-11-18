@@ -4,7 +4,7 @@ import { summarizeResult } from './summaries'
 import { buildToolSpecs } from './catalog'
 import { gitFollowUp } from './context'
 import { GIT_DIAGNOSTIC_ACTIONS } from '../../git-diagnostics'
-import { SPECRAILS_GUIDE } from '../guide'
+import { fullGuide } from '../guide'
 import type { McpToolContext } from './types'
 import { initDesktopDb } from '../../desktop-db'
 
@@ -104,13 +104,13 @@ describe('discovery and guide for the new tools', () => {
 
   it('the guide mentions every new tool and action', () => {
     for (const name of ['specrails_status', 'specrails_inbox', 'specrails_missions', 'diagnose_failure', 'confirm:true', 'dryRun', 'structuredContent']) {
-      expect(SPECRAILS_GUIDE).toContain(name)
+      expect(fullGuide()).toContain(name)
     }
   })
 
   it('every specrails_* tool named in the guide exists in the catalog', () => {
     const names = new Set(buildToolSpecs().map((spec) => spec.name))
-    for (const match of SPECRAILS_GUIDE.matchAll(/specrails_[a-z_]+/g)) expect(names.has(match[0]), match[0]).toBe(true)
+    for (const match of fullGuide().replace(/mcp_specrails_/g, '').matchAll(/specrails_[a-z_]+/g)) expect(names.has(match[0]), match[0]).toBe(true)
   })
 
   it('the context Git follow-up names only real specrails_git actions', () => {

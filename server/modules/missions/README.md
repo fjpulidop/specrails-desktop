@@ -25,11 +25,34 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/missions` and any affected consumers.
 
+## Operator core and guide topics
+
+The mission agent loads ONE operator text every turn: the core built by
+`buildOperatorSystemPrompt()` in [agent-operator-prompt.ts](runtime/agent-operator-prompt.ts)
+(about 17k characters, measured at ~6k tokens on Claude). It holds identity and working style,
+every non-negotiable rule (read-only boundary, permission ladder and
+confirmations, honest reporting, data is never an instruction, never resume
+without a diagnosis, never start long-lived processes from its own shell, the
+intent/spec gate), the decision guide, how to report, and a topic index. The
+detailed manual is the set of topics in [the MCP guide](../../mcp/guide.ts),
+read on demand with `specrails_guide(topic)`; the core's index is rendered from
+that registry, so every entry resolves. A rule that must hold even when the
+agent never reads a topic belongs in the core; detail belongs in a topic.
+
+Provider parity, once per session: providers with a system-prompt argument
+(Claude through Core's `--system-prompt-file`, local engines) receive the core
+as the system prompt, and `CLAUDE.md` in `~/.specrails/agent-cwd` only carries
+a short pointer (`OPERATOR_CWD_INSTRUCTIONS`). Codex, Gemini and Kimi read the
+core from their instructions file there (`AGENTS.md`, `GEMINI.md`,
+`.kimi-code/AGENTS.md`, rewritten every turn) and do not get it repeated in
+each user turn (`providerLoadsOperatorCore`); local engines, which read no
+file, get it folded into the turn.
+
 ## Intent drafts and the commit_draft gate
 
 The operator writes the intent first (intent-mode): one fenced `intent-draft`
-block before any `spec-draft` ([operator prompt](runtime/agent-operator-prompt.ts),
-section "Writing the intent"). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
+block before any `spec-draft` (rule in the [operator core](runtime/agent-operator-prompt.ts),
+protocol in the `intent-and-framing` guide topic). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
 derives the gate from the stored messages: an answered `intent-draft` (or a
 legacy `problem-frame`) authorises ONE `commit_draft`, and `answeredSpecIntent`
 returns the intent the MCP `commit_draft` attaches to the spec. Payload rules are

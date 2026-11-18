@@ -27,7 +27,7 @@ import { recordAgentInvocation, type AgentInvocationStatus, type AgentInvocation
 import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
-import { buildOperatorSystemPrompt } from './agent-operator-prompt'
+import { buildOperatorSystemPrompt, providerLoadsOperatorCore } from './agent-operator-prompt'
 import { missionReadOnlyGap, missionSpawnPolicy } from './mission-tool-policy'
 import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
@@ -900,7 +900,16 @@ export class AgentChatManager {
       // session journals the rest); a mission turn includes it when fresh.
       const withHistory = flowTurn ? !this._briefedFlowSessions.has(flowTurn.coreSessionId) : !useResume
       const freshPrompt = withHistory && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
-      return adapter.capabilities.systemPromptArg ? freshPrompt : `${systemPrompt}\n\n---\n\n${freshPrompt}`
+      if (adapter.capabilities.systemPromptArg) return freshPrompt
+      // Codex, Gemini and Kimi read the operator core from their cwd
+      // instructions file once per session; repeating it in every turn would
+      // pile up in a resumed session's history. Only the attachment note rides
+      // the turn. Intent turns carry their own prompt, and local engines read
+      // no file, so those keep the folded prompt.
+      if (!flowTurn && providerLoadsOperatorCore(adapter.id)) {
+        return hasAttachments ? `${USER_ATTACHMENT_SYSTEM_NOTE}\n\n---\n\n${freshPrompt}` : freshPrompt
+      }
+      return `${systemPrompt}\n\n---\n\n${freshPrompt}`
     }
     // Only pass native image paths to providers that can vision-load them (codex
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.

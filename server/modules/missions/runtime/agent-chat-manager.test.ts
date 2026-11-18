@@ -1,3 +1,4 @@
+import { buildOperatorSystemPrompt } from './agent-operator-prompt'
 // These fixtures exercise the CLI/MCP fallback; native protocols have dedicated integration suites.
 vi.mock('../../../providers/live-session', () => ({ nativeLiveSessionRunner: () => undefined }))
 
@@ -512,6 +513,16 @@ describe('AgentChatManager read-only mission policy (mission-read-only-policy)',
     expect(flagValue(args, '--approval-mode')).toBe('plan')
     expect(args).not.toContain('--yolo')
     expect(prepared.readOnly).toBe(true)
+  })
+
+  it('does not repeat the operator core in Codex, Gemini or Kimi turns (they read it from their cwd file)', async () => {
+    const core = buildOperatorSystemPrompt()
+    const marker = core.split('\n').find((line) => line.trim().length > 40)!
+    for (const provider of ['codex', 'gemini', 'kimi'] as const) {
+      const frames = { codex: { type: 'thread.started', thread_id: 't' }, gemini: { type: 'init', session_id: 'g' }, kimi: { role: 'assistant', content: 'ok' } }[provider]
+      const { args } = await turnArgs(provider, [JSON.stringify(frames)])
+      expect(args.join('\n')).not.toContain(marker)
+    }
   })
 
   it('keeps Kimi on its default tools because prompt mode has no native read-only boundary', async () => {
