@@ -2584,6 +2584,8 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
       sourceRoot: '/repo', // legacy: the repo's own on-disk untracked entries
       providerDir: '.claude',
       instructionsFilename: 'CLAUDE.md',
+      // Claude worktrees carry the in-turn agent policy hook (managed local settings).
+      policyHookCommand: expect.stringContaining('specrails-policy-hook'),
     })
   })
 

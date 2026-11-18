@@ -9,10 +9,10 @@ Los agentes de rails, loops y misiones trabajan sin preguntarte antes de cada co
 | **Push forzado** (`--force`, `--force-with-lease`, `+rama`, `--mirror`) | Reescribe historia compartida. |
 | **Push a la rama de integración** (la rama por defecto del proyecto, `main` o `master`) | El trabajo llega ahí solo mediante una pull request que fusiona una persona. |
 | **Borrar una rama remota** | Las ramas se limpian con la entrega, no las borra el agente. |
-| **`git reset --hard` fuera de la rama del run** | Se permite en la rama del run dentro del run; en cualquier otro sitio puede destruir trabajo ajeno. |
-| **Borrar ramas** protegidas, la del propio run o fuera del run | Por lo mismo. |
+| **`git reset --hard` fuera de la rama de la ejecución** | Se permite en la rama de la ejecución dentro de la ejecución; en cualquier otro sitio puede destruir trabajo ajeno. |
+| **Borrar ramas** protegidas, la de la propia ejecución o fuera de la ejecución | Por lo mismo. |
 | **Fusionar una pull request** (`gh pr merge`) | Lo que se fusiona lo decides tú. |
-| **Borrados recursivos fuera del run** (`rm -rf`, `rimraf`, `find -delete`, `git clean -f`) | Solo se pueden vaciar el worktree del run y las carpetas temporales. También se bloquea un borrado cuyo destino no se puede saber (`rm -rf "$DIR"`, `xargs rm -rf`). |
+| **Borrados recursivos fuera de la ejecución** (`rm -rf`, `rimraf`, `find -delete`, `git clean -f`) | Solo se pueden vaciar el worktree de la ejecución y las carpetas temporales. También se bloquea un borrado cuyo destino no se puede saber (`rm -rf "$DIR"`, `xargs rm -rf`). |
 | **Leer o escribir credenciales**: `~/.ssh`, `~/.aws`, `~/.gnupg`, llaveros y el almacén de secretos de Specrails | Los agentes nunca necesitan tus claves. |
 | **Cambiar los ficheros de la propia política** | Para que un agente no pueda desactivarla. |
 
@@ -21,14 +21,14 @@ Todo lo demás funciona como siempre.
 ## Qué ves
 
 - El agente recibe el motivo y sigue sin esa acción, o explica lo que necesita.
-- El log del run o la misión muestra una fila **Bloqueado por la política de Specrails** con la regla y el motivo.
+- El log de la ejecución o la misión muestra una fila **Bloqueado por la política de Specrails** con la regla y el motivo.
 - La [auditoría de acciones de los agentes](3-reviewing-a-delivery.md) registra cada bloqueo (origen `policy-hook`) junto a la acción intentada.
 
 ## Dónde se aplica
 
 - Rails aislados, loops y sesiones de Intent (cada uno en su propio worktree) y misiones.
-- **Solo Claude.** Codex no tiene un equivalente que Specrails pueda instalar sin cambiar tu propia configuración de Codex; en los runs de Codex, Specrails sigue comprobando la rama y la entrega después de cada turno.
-- Los runs que trabajan directamente en la carpeta de tu proyecto (sin aislar) no están cubiertos: Specrails nunca escribe en tu propia copia.
+- **Solo Claude.** Codex no tiene un equivalente que Specrails pueda instalar sin cambiar tu propia configuración de Codex; en las ejecuciones de Codex, Specrails sigue comprobando la rama y la entrega después de cada turno.
+- Las ejecuciones que trabajan directamente en la carpeta de tu proyecto (sin aislar) no están cubiertos: Specrails nunca escribe en tu propia copia.
 - macOS y Linux. En Windows la política aún no se instala.
 
 ## Conviene saber
