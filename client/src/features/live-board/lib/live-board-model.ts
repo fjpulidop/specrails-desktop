@@ -135,6 +135,20 @@ function readCard(raw: unknown): LiveCard | null {
     jobId: str(v.jobId),
     deliveryId: str(v.deliveryId),
     attention,
+    mergePreview: readMergePreview(v.mergePreview),
+  }
+}
+
+const MERGE_STATUSES = new Set(['clean', 'conflicts', 'already_merged', 'unknown'])
+
+function readMergePreview(raw: unknown): LiveMergePreview | null {
+  const v = raw as Record<string, unknown> | null
+  if (!v || typeof v !== 'object' || !MERGE_STATUSES.has(v.status as string)) return null
+  return {
+    status: v.status as LiveMergePreview['status'],
+    conflictFileCount: num(v.conflictFileCount) ?? 0,
+    siblingConflictCount: num(v.siblingConflictCount) ?? 0,
+    baseAdvancedBy: num(v.baseAdvancedBy),
   }
 }
 

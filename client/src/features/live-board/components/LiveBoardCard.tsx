@@ -109,12 +109,11 @@ function MergePreviewPhrase({ preview }: { preview: LiveMergePreview }) {
   if (preview.siblingConflictCount > 0) parts.push(t('card.mergeSiblings', { count: preview.siblingConflictCount }))
   const moved = preview.baseAdvancedBy ?? 0
   if (parts.length === 0 && moved === 0) return null
+  const text = [...parts, ...(moved > 0 ? [t('card.baseMoved', { count: moved })] : [])].join(' · ')
   return (
-    <p className="flex min-w-0 items-center gap-1.5 text-caption" data-testid="live-card-merge-preview">
+    <p className="flex min-w-0 items-center gap-1.5 text-caption" data-testid="live-card-merge-preview" title={text}>
       {parts.length > 0 ? <RunStateGlyph state="blocked" size="xs" /> : null}
-      <span className={cn('truncate', parts.length > 0 ? 'text-foreground' : 'text-muted-foreground')}>
-        {[...parts, ...(moved > 0 ? [t('card.baseMoved', { count: moved })] : [])].join(' · ')}
-      </span>
+      <span className={cn('truncate', parts.length > 0 ? 'text-foreground' : 'text-muted-foreground')}>{text}</span>
     </p>
   )
 }

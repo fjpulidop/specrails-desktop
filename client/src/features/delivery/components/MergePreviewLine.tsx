@@ -55,7 +55,7 @@ export function MergePreviewView({ preview, detailed = false, className = '' }: 
       {moved > 0 ? (
         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground" data-testid="merge-preview-base-moved">
           <GitCommitHorizontal className="h-3 w-3 shrink-0" aria-hidden />
-          {t('mergePreview.baseMoved', { base, count: moved })}
+          <span className="min-w-0 [overflow-wrap:anywhere]">{t('mergePreview.baseMoved', { base, count: moved })}</span>
         </span>
       ) : null}
     </div>

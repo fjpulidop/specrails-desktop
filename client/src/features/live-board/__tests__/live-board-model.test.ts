@@ -44,6 +44,15 @@ describe('live board wire', () => {
     expect(readLiveBoardSnapshot(null)).toMatchObject({ cards: [], lanes: [], totals: { needsYou: 0, costTodayUsd: null } })
   })
 
+  it('reads a delivery card merge preview and drops a malformed one', () => {
+    const s = snapshot([
+      wire({ id: 'p1:delivery:d1', deliveryId: 'd1', mergePreview: { status: 'conflicts', conflictFileCount: 2, siblingConflictCount: 1, baseAdvancedBy: 4 } }),
+      wire({ id: 'p1:delivery:d2', deliveryId: 'd2', mergePreview: { status: 'sideways' } }),
+    ])
+    expect(s.cards[0].mergePreview).toEqual({ status: 'conflicts', conflictFileCount: 2, siblingConflictCount: 1, baseAdvancedBy: 4 })
+    expect(s.cards[1].mergePreview).toBeNull()
+  })
+
   it('drops lane card ids that are not on the board', () => {
     const s = snapshot([wire()], [{ conversationId: 'm1', title: 'One', provider: 'claude', projectIds: ['p1'], cardIds: ['p1:loop-run:r1', 'ghost'], todayCostUsd: 1, urgency: 2 }])
     expect(s.lanes[0].cardIds).toEqual(['p1:loop-run:r1'])
