@@ -536,6 +536,10 @@ describe('run worktree ports', () => {
     expect(outside.env.SPECRAILS_RUN_PORT).toBeUndefined()
     const ex = createLoopExecutors({ env: { PATH: process.env.PATH, PORT: '4000' } })
     const shell = await ex.runShell({ command: 'printf "%s:%s" "$PORT" "$SPECRAILS_RUN_PORT"', cwd: worktree, repoDir: worktree })
-    expect(shell.stdout).toMatch(/^4000:30\d{3}$/)
+    // A pinned PORT is kept; the run still gets its own leased block (30100–32099, chosen from the worktree path).
+    const [pinned, leased] = shell.stdout.split(':')
+    expect(pinned).toBe('4000')
+    expect(Number(leased)).toBeGreaterThanOrEqual(30100)
+    expect(Number(leased)).toBeLessThanOrEqual(32099)
   })
 })
