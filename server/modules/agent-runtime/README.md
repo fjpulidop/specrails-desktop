@@ -127,8 +127,32 @@ to existing Desktop controls. Resume first validates safe node paths, then exact
 membership in the saved run. Metrics use those steps and role IDs from the frozen
 runtime configuration. Legacy runs retain their six phases and three-role
 summary validation. Historical projections without an authoritative catalog keep
-the legacy fallback until D2 supplies the graph projection. SQLite status stays
-uncached because a legacy journal cannot represent its WAL revision.
+the legacy fallback until D2 supplies the graph projection.
+
+## Status read cost
+
+Every Core `status` read is a Node child process, and the Board asks for one
+run per rail (`GET /agent-runtime/runs?railIndex=N`) on every mount and poll.
+`agent-runtime-status-cache.ts` (one per project controller) keeps that cheap:
+
+- Legacy runs are keyed by the checkpoint's content hash, as before.
+- Engine v2 runs are keyed by a stat fingerprint of `agent-workflow/run.sqlite`,
+  its `-wal` (not the read-side `-shm`), the checkpoint and the frozen
+  selection/config files. A cached answer is reused only while the run is
+  settled — no live Core lease, not `running`, no host task in progress, not
+  active in Desktop and its loop run neither running nor paused — and for at
+  most 5 minutes. Seeing the run live drops the entry.
+- Concurrent reads of one run share a single Core process; at most four status
+  processes run per project. Resume, settle, steer, dismiss, cancel and
+  retention collection invalidate the run's entry.
+
+Read-only inspection (`status`, `evidence`) resolves the retained Core package
+with `resolveRetainedAgentRuntimeForInspection`: the same pin rules, but the
+package digest (the whole production dependency closure, ~16k files) is computed
+with async I/O and reused per retained root for 5 minutes. The synchronous,
+uncached `resolveRetainedAgentRuntime` remains the gate for anything that runs
+the package (resume, recovery, signal). Before this split each rail read hashed
+the package synchronously (~2 s of blocked event loop per request).
 
 ## Recovery diagnosis
 

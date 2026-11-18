@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execFile, execSync } from 'child_process'
 import { checkSessionContract, type SessionContractBlock, type SessionContractCheck } from './modules/agent-sessions'
 import fs from 'fs'
 import path from 'path'
@@ -211,6 +211,19 @@ export function detectAvailableCLIs(): Record<string, boolean> {
     }
   }
   return out
+}
+
+/**
+ * Non-blocking detectAvailableCLIs: the same PATH probe (`which`/`where`),
+ * run as concurrent child processes so request handlers never stall the
+ * event loop while it resolves.
+ */
+export async function detectAvailableCLIsAsync(): Promise<Record<string, boolean>> {
+  const adapters = listAdapters()
+  const found = await Promise.all(adapters.map((adapter) => new Promise<boolean>((resolve) => {
+    execFile(WHICH_CMD, [adapter.binary], { windowsHide: true, timeout: 5000 }, (error) => resolve(!error))
+  })))
+  return Object.fromEntries(adapters.map((adapter, index) => [adapter.id, found[index]]))
 }
 
 /**

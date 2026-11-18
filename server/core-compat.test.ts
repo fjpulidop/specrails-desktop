@@ -8,7 +8,7 @@ import os from 'os'
 import fs from 'fs'
 
 // Mock child_process before importing the module under test
-vi.mock('child_process', () => ({ execSync: vi.fn() }))
+vi.mock('child_process', () => ({ execSync: vi.fn(), execFile: vi.fn() }))
 
 import {
   checkCoreCompat,
@@ -16,10 +16,11 @@ import {
   findCoreContract,
   detectCLI,
   detectCLISync,
+  detectAvailableCLIsAsync,
   getCLIStatus,
   EXPECTED_CORE_CONTRACT_SCHEMA_VERSION,
 } from './core-compat'
-import { execSync } from 'child_process'
+import { execFile, execSync } from 'child_process'
 
 // Minimal valid contract matching app constants
 const COMPATIBLE_CONTRACT = {
@@ -453,5 +454,21 @@ describe('findCoreContract', () => {
       if (previous === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
       else process.env.SPECRAILS_BUNDLED_CORE_PATH = previous
     }
+  })
+})
+
+describe('detectAvailableCLIsAsync', () => {
+  it('probes every registered binary with a non-blocking `which` and maps the result per provider', async () => {
+    vi.mocked(execSync).mockClear()
+    vi.mocked(execFile).mockImplementation(((_cmd: string, args: string[], _opts: unknown, callback: (error: Error | null) => void) => {
+      setImmediate(() => callback(args[0] === 'claude' ? null : new Error('not found')))
+      return {} as never
+    }) as never)
+    const result = await detectAvailableCLIsAsync()
+    expect(result.claude).toBe(true)
+    expect(result.codex).toBe(false)
+    expect(Object.keys(result)).toEqual(expect.arrayContaining(['claude', 'codex', 'gemini', 'kimi']))
+    expect(vi.mocked(execFile).mock.calls.every(([cmd]) => cmd === (process.platform === 'win32' ? 'where' : 'which'))).toBe(true)
+    expect(execSync).not.toHaveBeenCalled()
   })
 })

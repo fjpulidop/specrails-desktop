@@ -201,6 +201,14 @@ async function probeAdapter(adapter: ProviderAdapter, home: string): Promise<Det
 
 let _snapshot: DetectionSnapshot | null = null
 let _inflight: Promise<DetectionSnapshot> | null = null
+let _generation = 0
+
+/** Bumps whenever a detection cycle (full or local-only) publishes a snapshot.
+ *  Derived caches (e.g. /available-providers probes) key on it so an explicit
+ *  re-detect is never answered from a stale derived value. */
+export function detectionGeneration(): number {
+  return _generation
+}
 
 async function runDetection(): Promise<DetectionSnapshot> {
   const home = os.homedir()
@@ -217,6 +225,7 @@ async function runDetection(): Promise<DetectionSnapshot> {
     at: Date.now(),
   }
   _snapshot = snapshot
+  _generation += 1
   return snapshot
 }
 
@@ -273,6 +282,7 @@ export async function refreshLocalDetection(): Promise<{ snapshot: DetectionSnap
   const detected = ordered.filter((id) => providers[id]?.usable)
   const snapshot: DetectionSnapshot = { providers, detected, at: _snapshot.at }
   _snapshot = snapshot
+  _generation += 1
   return { snapshot, changed: before !== detected.join(',') }
 }
 
@@ -287,4 +297,6 @@ export async function refreshDetection(): Promise<{ snapshot: DetectionSnapshot;
 export function _resetDetectionForTests(): void {
   _snapshot = null
   _inflight = null
+  // _generation stays monotonic so derived caches never see a reused value.
+  _generation += 1
 }

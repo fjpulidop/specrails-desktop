@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { ProfileListEntry } from './types'
+import { sharedFetch } from '../../../lib/shared-fetch'
 
 interface Props {
   provider: string
@@ -24,7 +25,8 @@ export function RailProfileSelector({ provider, value, onChange }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${getApiBase()}/profiles?provider=${encodeURIComponent(provider)}`)
+    // Every rail header asks for the same list; concurrent mounts share one request.
+    sharedFetch(`${getApiBase()}/profiles?provider=${encodeURIComponent(provider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles: ProfileListEntry[] }>) : { profiles: [] }))
       .then((data) => {
         // A malformed/empty payload must degrade to "no profiles", never crash

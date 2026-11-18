@@ -1,6 +1,7 @@
 import { cloneGithubRepository } from './github-clone'
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
+import { registerAppResourceRoutes } from './app-resources-router'
 import { registerOnboardingRoutes } from './modules/onboarding/adapters/http'
 import { loadPresetCandidates } from './modules/onboarding/adapters/providers'
 import { createSampleFiles, createSampleGit, createSampleSpecs, createSampleState } from './modules/onboarding/adapters/runtime'
@@ -32,7 +33,7 @@ import {
   checkCoreCompat,
   coreCompatSupportsProvider,
   getCLIStatus,
-  detectAvailableCLIs,
+  detectAvailableCLIsAsync,
 } from './core-compat'
 import { getAdapter, hasAdapter, listAdapters } from './providers'
 import {
@@ -41,9 +42,11 @@ import {
   refreshLocalDetection,
   getDetectedIdsSync,
   refreshDetection,
+  detectionGeneration,
   isCodexBetaDisabled,
   isGeminiBetaDisabled,
 } from './provider-detection'
+import { createAsyncMemo } from './util/async-memo'
 import { getCachedProbe, probeConnection } from './local-engine-detection'
 import { isLocalEnginesEnabled, syncLocalAdapters } from './providers/local-adapter-registry'
 import { isLocalAdapter } from './providers/local-adapter'
@@ -239,6 +242,41 @@ async function detectProviderReadiness(
   }
 }
 
+/** Machine-level PATH + Kimi readiness probes behind /available-providers. */
+interface AvailableProviderProbes {
+  clis: Record<string, boolean>
+  kimiIssue: { code: string; message: string } | null
+}
+
+async function probeAvailableProviders(): Promise<AvailableProviderProbes> {
+  const clis = await detectAvailableCLIsAsync()
+  let kimiIssue: AvailableProviderProbes['kimiIssue'] = null
+  if (clis.kimi) {
+    const readiness = await detectProviderReadiness(getAdapter('kimi'))
+    if (readiness.issue) kimiIssue = readiness.issue
+    else if (!coreCompatSupportsProvider(await checkCoreCompat(), 'kimi')) {
+      kimiIssue = {
+        code: 'core_provider_unsupported',
+        message:
+          'This Specrails Core build cannot render Kimi skills. Update or reinstall Specrails, then retry.',
+      }
+    }
+  }
+  return { clis, kimiIssue }
+}
+
+/**
+ * Provider presence is a machine property (no project data), probed by
+ * spawning `which` and `kimi --version`. Every Board/rail card asks for it, so
+ * the probes are shared by concurrent requests and reused for the detection
+ * cache's lifetime; an explicit re-detect (new detection generation) or the
+ * TTL forces a new probe.
+ */
+export const AVAILABLE_PROVIDERS_TTL_MS = 60_000
+const availableProviderProbes = createAsyncMemo<number, AvailableProviderProbes>({ ttlMs: AVAILABLE_PROVIDERS_TTL_MS, maxEntries: 2 })
+/** Test seam: forget cached /available-providers probes. */
+export function _resetAvailableProvidersCacheForTests(): void { availableProviderProbes.invalidate() }
+
 function canonicalizePath(resolvedPath: string): string {
   try {
     return fs.realpathSync(resolvedPath)
@@ -380,6 +418,8 @@ export function createDesktopRouter(
   if (usageService) registerUsageRoutes(router, usageService)
   // "Needs you" inbox: read-only projection across projects (modules/inbox).
   registerInboxRoutes(router, registry)
+  // App-wide Resources (status bar): CPU/memory of everything the server launched.
+  registerAppResourceRoutes(router, registry)
   // Sample-project first run (modules/onboarding): create/remove the bundled
   // sample project and report launch readiness. Registered before the
   // `/projects` routes below; it shares their registration side effects.
@@ -500,19 +540,24 @@ export function createDesktopRouter(
   // as an emergency rollback (forces codex back to "unavailable" in the UI
   // without redeploying) — unset or `1` reports the real detection.
   router.get('/available-providers', async (_req, res) => {
-    const providers = detectAvailableCLIs()
+    const probes = await availableProviderProbes.get(detectionGeneration(), probeAvailableProviders)
     // Return the full detected map (registry-driven) so a newly-registered
     // provider surfaces here with no edit. Apply per-provider beta gates: codex
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
-    const gated: Record<string, boolean> = { ...providers }
+    const gated: Record<string, boolean> = { ...probes.clis }
     // Local (OpenAI-compatible) engines have no CLI to `which`: their binary is
     // the bundled node, so the PATH probe above always says "installed" even
     // when the endpoint is down. Their availability is the bounded HTTP probe
-    // from the detection cycle (refreshed here so a first call after boot is
-    // not blind); an id the snapshot does not know stays unavailable.
+    // from the detection cycle (awaited only when no cycle has completed yet,
+    // so a first call after boot is not blind); an id the snapshot does not
+    // know stays unavailable. An expired snapshot answers now and refreshes in
+    // the background: an unreachable endpoint's probe takes up to 8 s, which
+    // would otherwise stall every Board render once a minute.
     const localIds = listAdapters().filter(isLocalAdapter).map((adapter) => adapter.id)
     if (localIds.length > 0) {
-      const snapshot = await getDetectionSnapshot()
+      const previous = getSnapshotSync()
+      const snapshot = previous ?? await getDetectionSnapshot()
+      if (previous) void getDetectionSnapshot().catch(() => { /* next request retries */ })
       for (const id of localIds) gated[id] = snapshot.providers[id]?.usable === true
     }
     if (isCodexBetaDisabled()) gated.codex = false
@@ -520,22 +565,9 @@ export function createDesktopRouter(
     // SPECRAILS_GEMINI_BETA=0 (emergency rollback, parity with codex).
     if (isGeminiBetaDisabled()) gated.gemini = false
     const providerIssues: Record<string, { code: string; message: string }> = {}
-    if (gated.kimi) {
-      const readiness = await detectProviderReadiness(getAdapter('kimi'))
-      if (readiness.issue) {
-        gated.kimi = false
-        providerIssues.kimi = readiness.issue
-      } else {
-        const core = await checkCoreCompat()
-        if (!coreCompatSupportsProvider(core, 'kimi')) {
-          gated.kimi = false
-          providerIssues.kimi = {
-            code: 'core_provider_unsupported',
-            message:
-              'This Specrails Core build cannot render Kimi skills. Update or reinstall Specrails, then retry.',
-          }
-        }
-      }
+    if (gated.kimi && probes.kimiIssue) {
+      gated.kimi = false
+      providerIssues.kimi = probes.kimiIssue
     }
     // tiers: quick install is always available (app-driven config); full
     // requires a CLI that also survives provider-specific compatibility gates.

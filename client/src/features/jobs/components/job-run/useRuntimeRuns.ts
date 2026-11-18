@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { notifyError } from '../../../../lib/notify-error'
 import { repositoryApiBase } from '../../../projects/lib/project-repositories'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
+import { sharedFetch } from '../../../../lib/shared-fetch'
 
 export type RuntimeRunAction = 'resume' | 'approve' | 'recover' | 'answer' | 'cancel' | 'settle' | 'dismiss'
 
@@ -59,7 +60,8 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
     let timer: ReturnType<typeof setTimeout>
     async function refresh() {
       try {
-        const response = await fetch(statusEndpoint, { cache: 'no-store' })
+        // Rail rows that mount together share one request (no caching after it settles).
+        const response = await sharedFetch(statusEndpoint, { cache: 'no-store' })
         if (!response.ok) throw new Error()
         const data = await response.json() as { runs?: RuntimeRun[] }
         if (!Array.isArray(data.runs)) throw new Error()

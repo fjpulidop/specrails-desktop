@@ -2,6 +2,7 @@ import { withRuntimePackageLock } from './agent-runtime-package-lock'
 export { collectUnreferencedRuntimePackages } from './agent-runtime-package-gc'
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
+import { createAsyncMemo } from '../../../util/async-memo'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
@@ -50,6 +51,62 @@ function treeDigest(root: string, entries = fs.readdirSync(root).sort()): string
   }
   for (const entry of entries) if (fs.existsSync(path.join(root, entry))) visit(entry)
   return hash.digest('hex')
+}
+
+/** Same digest as treeDigest, computed with async I/O so a 100 MB+ retained
+ * package (its full production dependency closure) never blocks the event loop. */
+async function treeDigestAsync(root: string, entries: string[]): Promise<string> {
+  const hash = createHash('sha256')
+  let files = 0, bytes = 0
+  const visit = async (relative: string): Promise<void> => {
+    const file = path.join(root, relative), stat = await fs.promises.lstat(file)
+    if (stat.isSymbolicLink()) throw new Error('Retained Core package contains a symbolic link')
+    if (stat.isDirectory()) for (const name of (await fs.promises.readdir(file)).sort()) await visit(path.posix.join(relative, name))
+    else if (stat.isFile()) {
+      if (++files > 100_000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
+      hash.update(JSON.stringify([relative, stat.size])).update('\0').update(await fs.promises.readFile(file)).update('\0')
+    } else throw new Error('Core runtime package contains a nonregular file')
+  }
+  for (const entry of entries) if (fs.existsSync(path.join(root, entry))) await visit(entry)
+  return hash.digest('hex')
+}
+
+/** Retained packages are content-addressed and written once. Read-only
+ * inspection (status/evidence) reuses a successful verification of the same
+ * root for a few minutes instead of re-hashing ~16k files on every request;
+ * concurrent requests share one verification. Execution paths keep the
+ * synchronous, uncached check in resolveRetainedAgentRuntime. */
+export const RETAINED_PACKAGE_VERIFY_TTL_MS = 5 * 60_000
+const verifiedPackages = createAsyncMemo<string, string>({ ttlMs: RETAINED_PACKAGE_VERIFY_TTL_MS })
+/** Test seam / retention hook: forget cached verifications. */
+export function forgetRetainedPackageVerifications(root?: string): void { verifiedPackages.invalidate(root) }
+
+function readRetainedPin(contextPath: string): { pin: RuntimePackagePin; expected: string } {
+  const pinFile = path.join(path.dirname(contextPath), 'desktop-runtime-package.json')
+  if (!fs.existsSync(pinFile)) throw new Error('Original runtime identity is unrecorded. Restore a proven original Core package before continuing this saved execution.')
+  const pin = JSON.parse(fs.readFileSync(pinFile, 'utf8')) as RuntimePackagePin
+  const expected = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages', pin.integrity)
+  if (pin.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(pin.integrity) || pin.root !== expected || !fs.existsSync(expected) || fs.realpathSync(expected) !== path.resolve(expected)
+    || typeof pin.cli !== 'string' || path.isAbsolute(pin.cli) || pin.cli.split(/[\\/]/).includes('..')) throw new Error('The original retained Core package is unavailable or invalid. Restore it before continuing.')
+  return { pin, expected }
+}
+
+function retainedCli(expected: string, pin: RuntimePackagePin): string {
+  const cli = path.join(expected, pin.cli)
+  if (!fs.statSync(cli).isFile()) throw new Error('The original Core executable is unavailable')
+  return cli
+}
+
+/** Read-only variant of resolveRetainedAgentRuntime: same pin and integrity
+ * rules, verified off the event loop and memoized per retained root. */
+export async function resolveRetainedAgentRuntimeForInspection(contextPath: string): Promise<string> {
+  const { pin, expected } = readRetainedPin(contextPath)
+  const digest = await verifiedPackages.get(expected, () => treeDigestAsync(expected, fs.readdirSync(expected).sort()))
+  if (digest !== pin.integrity) {
+    verifiedPackages.invalidate(expected)
+    throw new Error('The original retained Core package failed its integrity check. Restore it before continuing.')
+  }
+  return retainedCli(expected, pin)
 }
 
 /** Copy only the selected package and its installed production dependency
@@ -134,14 +191,7 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
 }
 
 export function resolveRetainedAgentRuntime(contextPath: string): string {
-  const pinFile = path.join(path.dirname(contextPath), 'desktop-runtime-package.json')
-  if (!fs.existsSync(pinFile)) throw new Error('Original runtime identity is unrecorded. Restore a proven original Core package before continuing this saved execution.')
-  const pin = JSON.parse(fs.readFileSync(pinFile, 'utf8')) as RuntimePackagePin
-  const expected = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages', pin.integrity)
-  if (pin.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(pin.integrity) || pin.root !== expected || !fs.existsSync(expected) || fs.realpathSync(expected) !== path.resolve(expected)
-    || typeof pin.cli !== 'string' || path.isAbsolute(pin.cli) || pin.cli.split(/[\\/]/).includes('..')) throw new Error('The original retained Core package is unavailable or invalid. Restore it before continuing.')
+  const { pin, expected } = readRetainedPin(contextPath)
   if (treeDigest(expected) !== pin.integrity) throw new Error('The original retained Core package failed its integrity check. Restore it before continuing.')
-  const cli = path.join(expected, pin.cli)
-  if (!fs.statSync(cli).isFile()) throw new Error('The original Core executable is unavailable')
-  return cli
+  return retainedCli(expected, pin)
 }

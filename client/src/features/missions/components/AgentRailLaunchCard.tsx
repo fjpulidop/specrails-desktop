@@ -54,6 +54,7 @@ import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { announce } from '../../../lib/announce'
+import { sharedFetch } from '../../../lib/shared-fetch'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -253,9 +254,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     setBusy(null)
     const base = repositoryApiBase(projectId)
     Promise.all([
-      fetch(`${base}/rails`).then((r) => (r.ok ? (r.json() as Promise<RailsResponse>) : Promise.reject(new Error(String(r.status))))),
-      fetch(`${base}/tickets`).then((r) => (r.ok ? (r.json() as Promise<{ tickets?: LocalTicket[] }>) : Promise.reject(new Error(String(r.status))))),
-      fetch(`${base}/repositories`).then((r) => (r.ok ? (r.json() as Promise<{ repositories?: ProjectRepository[] }>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/rails`).then((r) => (r.ok ? (r.json() as Promise<RailsResponse>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/tickets`).then((r) => (r.ok ? (r.json() as Promise<{ tickets?: LocalTicket[] }>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/repositories`).then((r) => (r.ok ? (r.json() as Promise<{ repositories?: ProjectRepository[] }>) : Promise.reject(new Error(String(r.status))))),
     ]).then(([rails, tix, repos]) => {
       if (cancelled) return
       if (!Array.isArray(repos.repositories) || !repos.repositories.some(repository => repository.isPrimary)) throw new Error('Missing project repositories')
@@ -344,7 +345,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   useEffect(() => {
     if (!projectId || intent || !catalogProvider || !profilesApply) { setProfiles([]); return }
     let cancelled = false
-    fetch(`${repositoryApiBase(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
+    sharedFetch(`${repositoryApiBase(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles?: ProfileListEntry[] }>) : { profiles: [] }))
       .then((d) => {
         if (cancelled) return

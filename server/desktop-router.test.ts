@@ -13,6 +13,7 @@ vi.mock('./core-compat', async (importActual) => {
     checkCoreCompat: vi.fn().mockResolvedValue({ compatible: true, contractFound: false }),
     getCLIStatus: vi.fn().mockReturnValue({ provider: 'claude', version: '1.2.3' }),
     detectAvailableCLIs: vi.fn().mockReturnValue({ claude: true, codex: false, gemini: false }),
+    detectAvailableCLIsAsync: vi.fn().mockResolvedValue({ claude: true, codex: false, gemini: false }),
   }
 })
 
@@ -43,8 +44,8 @@ vi.mock('./specrails-tech-client', () => ({
   createSpecrailsTechClient: vi.fn(() => mockSpecrailsTechClient),
 }))
 
-import { createDesktopRouter } from './desktop-router'
-import { checkCoreCompat, detectAvailableCLIs } from './core-compat'
+import { createDesktopRouter, _resetAvailableProvidersCacheForTests, AVAILABLE_PROVIDERS_TTL_MS } from './desktop-router'
+import { checkCoreCompat, detectAvailableCLIsAsync } from './core-compat'
 import { kimiAdapter } from './providers'
 import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook, addProjectRepository, updateProjectRepository, removeProjectRepository } from './desktop-db'
 import { initDb } from './db'
@@ -809,6 +810,34 @@ describe('desktop-router', () => {
   // ─── GET /api/available-providers ───────────────────────────────────────
 
   describe('GET /api/available-providers', () => {
+    beforeEach(() => { _resetAvailableProvidersCacheForTests() })
+
+    it('shares one machine probe between concurrent requests and reuses it within the TTL', async () => {
+      vi.mocked(detectAvailableCLIsAsync).mockClear()
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: true, codex: false, gemini: false, kimi: true })
+      vi.mocked(checkCoreCompat).mockResolvedValue({ compatible: true, contractFound: true, supportedProviders: ['kimi'] } as never)
+      vi.mocked(kimiAdapter.detectInstalled).mockClear()
+      const { app } = createApp()
+      const bodies = (await Promise.all([1, 2, 3].map(() => request(app).get('/api/available-providers')))).map(res => res.body)
+      expect(bodies.every(body => body.claude === true && body.kimi === true)).toBe(true)
+      await request(app).get('/api/available-providers')
+      expect(detectAvailableCLIsAsync).toHaveBeenCalledTimes(1)
+      expect(kimiAdapter.detectInstalled).toHaveBeenCalledTimes(1)
+      expect(AVAILABLE_PROVIDERS_TTL_MS).toBeGreaterThan(0)
+    })
+
+    it('re-probes after an explicit re-detect (new detection generation)', async () => {
+      vi.mocked(detectAvailableCLIsAsync).mockClear()
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValueOnce({ claude: false, codex: false, gemini: false })
+      const { app } = createApp()
+      expect((await request(app).get('/api/available-providers')).body.claude).toBe(false)
+      const { _resetDetectionForTests } = await import('./provider-detection')
+      _resetDetectionForTests() // bumps the generation like a completed detection cycle
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValueOnce({ claude: true, codex: false, gemini: false })
+      expect((await request(app).get('/api/available-providers')).body.claude).toBe(true)
+      expect(detectAvailableCLIsAsync).toHaveBeenCalledTimes(2)
+    })
+
     it('returns available CLI providers (codex forced to false — coming soon)', async () => {
       const { app } = createApp()
       const res = await request(app).get('/api/available-providers')
@@ -825,7 +854,7 @@ describe('desktop-router', () => {
       register(createLocalAdapter({ id: 'lmstudio', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:1234/v1' }), 'local')
       try {
         // The PATH probe says "installed" (its binary is node) …
-        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: false, codex: false, gemini: false, kimi: false, lmstudio: true })
+        vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: false, codex: false, gemini: false, kimi: false, lmstudio: true })
         // … but the endpoint probe is the authority: unreachable ⇒ unavailable.
         vi.mocked(getDetectionSnapshot).mockResolvedValueOnce({
           providers: { lmstudio: { id: 'lmstudio', displayName: 'LM Studio', installed: false, executable: false, authState: 'unknown', usable: false, kind: 'local', error: 'unreachable' } },
@@ -845,12 +874,12 @@ describe('desktop-router', () => {
         expect(res.body.tiers).toContain('full')
       } finally {
         unregisterAdapter('lmstudio')
-        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: true, codex: false, gemini: false })
+        vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: true, codex: false, gemini: false })
       }
     })
 
     it('gates detected Kimi on Core rendering support and returns remediation', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -873,7 +902,7 @@ describe('desktop-router', () => {
     })
 
     it('enables detected Kimi when bundled Core advertises providers.kimi', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -892,7 +921,7 @@ describe('desktop-router', () => {
     })
 
     it('does not advertise a detected Kimi binary below the supported 0.27 floor', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -917,7 +946,7 @@ describe('desktop-router', () => {
     })
 
     it('does not advertise a Kimi shim that exists but cannot execute', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,

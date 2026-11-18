@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFileSync } from 'node:child_process'
-import { retainAgentRuntime, resolveRetainedAgentRuntime, runtimeEntryFingerprint } from './agent-runtime-package'
+import { retainAgentRuntime, resolveRetainedAgentRuntime, resolveRetainedAgentRuntimeForInspection, forgetRetainedPackageVerifications, runtimeEntryFingerprint, RETAINED_PACKAGE_VERIFY_TTL_MS } from './agent-runtime-package'
 
 let root: string
 beforeEach(() => { root = fs.realpathSync(fs.mkdtempSync(path.join(tmpdir(), 'runtime pin '))) })
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }))
+afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); forgetRetainedPackageVerifications(); vi.useRealTimers() })
 function file(relative: string, contents: string): string {
   const target = path.join(root, relative); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, contents); return target
 }
@@ -76,4 +76,40 @@ it('retains a package reached through a directory alias using its real CLI path'
   const retained = retainAgentRuntime(path.join(alias, 'dist/agent-runtime/cli.js'), context)
   expect(resolveRetainedAgentRuntime(context)).toBe(retained)
   expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
+})
+
+it('inspection resolves the same retained CLI with async verification and refuses a corrupt package', async () => {
+  const { cli, context } = fixture()
+  const retained = retainAgentRuntime(cli, context)
+  expect(await resolveRetainedAgentRuntimeForInspection(context)).toBe(retained)
+  fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
+  forgetRetainedPackageVerifications()
+  await expect(resolveRetainedAgentRuntimeForInspection(context)).rejects.toThrow('integrity')
+  await expect(resolveRetainedAgentRuntimeForInspection(file('pipeline/other/desktop-context.json', '{}'))).rejects.toThrow('unrecorded')
+})
+
+it('inspection shares one verification per retained package and re-verifies after the TTL', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  const { cli, context } = fixture()
+  const retained = retainAgentRuntime(cli, context)
+  const reads = vi.spyOn(fs.promises, 'readFile')
+  try {
+    expect(await Promise.all([resolveRetainedAgentRuntimeForInspection(context), resolveRetainedAgentRuntimeForInspection(context)])).toEqual([retained, retained])
+    const firstPass = reads.mock.calls.length
+    expect(firstPass).toBeGreaterThan(0)
+    expect(await resolveRetainedAgentRuntimeForInspection(context)).toBe(retained)
+    expect(reads.mock.calls.length).toBe(firstPass)
+    // A tampered package is caught again once the verification expires.
+    fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
+    vi.setSystemTime(Date.now() + RETAINED_PACKAGE_VERIFY_TTL_MS)
+    await expect(resolveRetainedAgentRuntimeForInspection(context)).rejects.toThrow('integrity')
+  } finally { reads.mockRestore() }
+})
+
+it('execution keeps the uncached synchronous integrity check', async () => {
+  const { cli, context } = fixture()
+  const retained = retainAgentRuntime(cli, context)
+  expect(await resolveRetainedAgentRuntimeForInspection(context)).toBe(retained)
+  fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
+  expect(() => resolveRetainedAgentRuntime(context)).toThrow('integrity')
 })
