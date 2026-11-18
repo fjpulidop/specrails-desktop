@@ -155,6 +155,23 @@ Core 5.8 adds `failure` to `runtime-result` and `runtime-status` for a run that 
 
 The diagnosis card (client feature [recovery](../../client/src/features/recovery/README.md)) shows it on Job Detail, the mission run card and, as a sentence, the inbox row. Its remedies are the app's existing actions: runtime resume, run again / relaunch, opening the spec (addenda), the host blocker's required action, and the log at the failing step.
 
+## Provider usage limits (contract 5.14)
+
+Core reports the provider account's usage-limit state while a run works:
+`agent-event` lines of kind `rate-limit` carry `event.provider` and
+`event.rateLimit` (status `allowed` / `allowed_warning` / `rejected`, the
+binding window and its ISO reset, every window's utilization and reset,
+overage flags). The bridge (`agent-runtime-bridge.ts`) and the live job/loop
+stream handlers hand them to the machine's quota store
+([provider-quota](../../server/modules/provider-quota/README.md)). An
+invocation refused on the limit fails with error code `provider_limit`, and its
+failure classification adds `resetsAt` (ISO). A Core workflow run failing that
+way does not settle: Desktop pauses it at the limit (`limit_paused`) and, at
+the reset (or on the person's Resume), resumes the retained run so Core runs
+the refused step again. A run with a durable completion cannot resume and keeps
+its failure. Older Cores send no `rate-limit` events; the provider-limit
+classifier over the run's own text stays the fallback.
+
 ## Definition catalog compatibility (D0)
 
 Desktop accepts optional `engineVersion`, `nodeKindsVersion`, `nodeKinds` and

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1645 source/build files. Nearby tests are linked where names
+Includes 1676 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -859,6 +859,29 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/projects/types
 
 - [multi-repo.ts](../../client/src/features/projects/types/multi-repo.ts)
+
+## client/src/features/provider-quota/components
+
+- [LaunchPreflightChips.tsx](../../client/src/features/provider-quota/components/LaunchPreflightChips.tsx)
+- [LimitPauseCard.tsx](../../client/src/features/provider-quota/components/LimitPauseCard.tsx)
+- [MissionUsageLimitCard.tsx](../../client/src/features/provider-quota/components/MissionUsageLimitCard.tsx)
+- [ProviderQuotaBridge.tsx](../../client/src/features/provider-quota/components/ProviderQuotaBridge.tsx)
+- [RunLimitPause.tsx](../../client/src/features/provider-quota/components/RunLimitPause.tsx)
+
+## client/src/features/provider-quota/lib
+
+- [format-reset.ts](../../client/src/features/provider-quota/lib/format-reset.ts)
+- [labels.ts](../../client/src/features/provider-quota/lib/labels.ts)
+- [launch-preflight.ts](../../client/src/features/provider-quota/lib/launch-preflight.ts)
+- [limit-pause.ts](../../client/src/features/provider-quota/lib/limit-pause.ts)
+- [quota-attention.ts](../../client/src/features/provider-quota/lib/quota-attention.ts)
+- [quota-store.ts](../../client/src/features/provider-quota/lib/quota-store.ts)
+- [types.ts](../../client/src/features/provider-quota/lib/types.ts)
+- [usage-limit-row.ts](../../client/src/features/provider-quota/lib/usage-limit-row.ts)
+- [useCountdownNow.ts](../../client/src/features/provider-quota/lib/useCountdownNow.ts)
+- [useLaunchPreflight.ts](../../client/src/features/provider-quota/lib/useLaunchPreflight.ts)
+- [useProviderQuota.ts](../../client/src/features/provider-quota/lib/useProviderQuota.ts)
+- [useRunLimitPause.ts](../../client/src/features/provider-quota/lib/useRunLimitPause.ts)
 
 ## client/src/features/providers/components
 
@@ -1922,6 +1945,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [http.ts](../../server/modules/intent/adapters/http.ts)
 - [sqlite.ts](../../server/modules/intent/adapters/sqlite.ts)
 
+## server/modules/launch-preflight
+
+- [domain.ts](../../server/modules/launch-preflight/domain.ts)
+
+## server/modules/launch-preflight/adapters
+
+- [http.ts](../../server/modules/launch-preflight/adapters/http.ts)
+
+## server/modules/launch-preflight/runtime
+
+- [composition.ts](../../server/modules/launch-preflight/runtime/composition.ts)
+- [preflight.ts](../../server/modules/launch-preflight/runtime/preflight.ts)
+
 ## server/modules/live-board
 
 - [application.ts](../../server/modules/live-board/application.ts)
@@ -1961,6 +1997,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-implement-recipe.ts](../../server/modules/loops/runtime/loop-implement-recipe.ts) · [test](../../server/modules/loops/runtime/loop-implement-recipe.test.ts)
 - [loop-interactive-ai-step.ts](../../server/modules/loops/runtime/loop-interactive-ai-step.ts)
 - [loop-legacy-traversal.ts](../../server/modules/loops/runtime/loop-legacy-traversal.ts)
+- [loop-limit-pauses.ts](../../server/modules/loops/runtime/loop-limit-pauses.ts)
 - [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)
 - [loop-node-ai-step.ts](../../server/modules/loops/runtime/loop-node-ai-step.ts)
 - [loop-node-decider.ts](../../server/modules/loops/runtime/loop-node-decider.ts)
@@ -2054,6 +2091,24 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [http.ts](../../server/modules/project-settings/adapters/http.ts)
 - [sqlite.ts](../../server/modules/project-settings/adapters/sqlite.ts)
+
+## server/modules/provider-quota
+
+- [domain.ts](../../server/modules/provider-quota/domain.ts) · [test](../../server/modules/provider-quota/__tests__/domain.test.ts)
+- [ports.ts](../../server/modules/provider-quota/ports.ts)
+
+## server/modules/provider-quota/adapters
+
+- [claude-stream.ts](../../server/modules/provider-quota/adapters/claude-stream.ts)
+- [http.ts](../../server/modules/provider-quota/adapters/http.ts)
+
+## server/modules/provider-quota/runtime
+
+- [composition.ts](../../server/modules/provider-quota/runtime/composition.ts)
+- [quota-reports.ts](../../server/modules/provider-quota/runtime/quota-reports.ts)
+- [quota-store.ts](../../server/modules/provider-quota/runtime/quota-store.ts)
+- [resume-clock.ts](../../server/modules/provider-quota/runtime/resume-clock.ts)
+- [stream-observer.ts](../../server/modules/provider-quota/runtime/stream-observer.ts)
 
 ## server/modules/recovery
 

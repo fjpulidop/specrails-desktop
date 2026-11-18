@@ -113,7 +113,7 @@ Se a [telemetria](../settings/pipeline-telemetry-and-diagnostics) estava ativada
 Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com o **cartão de diagnóstico**, que explica a causa e porque aconteceu, quando se sabe. Quando o runtime registou que passo falhou, o cartão indica-o: o passo, a tentativa, a iteração e a hora. As causas:
 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
-- **Limite do provedor**: o limite de uso do provedor de IA foi atingido. O cartão cita quando ele é redefinido, com as palavras do próprio provedor.
+- **Limite do fornecedor** — foi atingido o limite de utilização do fornecedor de IA. O cartão diz quando é reposto, na tua hora local quando o fornecedor indicou a hora exata, senão nas palavras do fornecedor. Uma execução ainda em pausa no limite mostra o seu próprio cartão: quando retoma sozinha, **Retomar agora** e **Continuar agora com** outro fornecedor. Vê [Limites de utilização](1-rails-and-jobs.md#usage-limits).
 - **Ambiente**: a máquina não consegue executar as verificações (credenciais, uma ferramenta ausente, um comando de preparação que falha). *Corrigir o ambiente* mostra exatamente o que executar ou mudar.
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
 - **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.

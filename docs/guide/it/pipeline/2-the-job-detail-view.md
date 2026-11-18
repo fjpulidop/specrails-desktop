@@ -113,7 +113,7 @@ Comodo per condividere un'esecuzione con un collega, o per inviare una segnalazi
 Per un job fallito o annullato con diagnosi, **Cause dell’errore** si apre con la **scheda di diagnosi**, che spiega la causa e, quando è noto, perché è successo. Quando il runtime ha registrato quale passo è fallito, la scheda lo dice: il passo, il tentativo, l’iterazione e l’ora. Le cause:
 
 - **Test falliti**: i controlli continuano a fallire dopo i giri di correzioni.
-- **Limite del provider**: è stato raggiunto il limite d'uso del provider IA. La scheda riporta quando si azzera, con le parole del provider.
+- **Limite del provider** — è stato raggiunto il limite d'uso del provider di IA. La scheda indica l'azzeramento nella tua ora locale quando il provider ha comunicato l'ora esatta, altrimenti con le sue parole. Una run ancora in pausa al limite mostra la propria scheda: quando riprende da sola, **Riprendi ora** e **Continua ora con** un altro provider. Vedi [Limiti d'uso](1-rails-and-jobs.md#usage-limits).
 - **Ambiente**: la macchina non riesce a eseguire i controlli (credenziali, uno strumento mancante, un comando di preparazione che fallisce). *Sistema l'ambiente* mostra esattamente cosa eseguire o cambiare.
 - **Bloccata**, **senza tempo**, **in silenzio** e **fermata all'improvviso** indicano il limite o il processo che ha fermato l'esecuzione.
 - **Causa sconosciuta**: l'app non tira a indovinare. Mostra la fine del log perché lo legga tu.

@@ -107,6 +107,17 @@ L’intervallo è la metà centrale della tua cronologia: dal 25º al 75º perce
 L’importo in dollari compare solo quando si sa che il motore fattura a consumo (per esempio con una chiave API). Con un piano in abbonamento, o finché la modalità di fatturazione non è nota, compare solo il tempo. Se il rail contiene più spec, l’intervallo vale per una spec e lo dice con *(per spec)*. Se la spesa di oggi più il limite alto dell’intervallo potesse raggiungere il tuo budget giornaliero, la riga aggiunge *Potrebbe fermarsi al budget* con un link alle impostazioni del budget. Se il budget di oggi è già esaurito, Avvia chiede prima una conferma, perché l’esecuzione resterebbe in pausa fino al ripristino.
 
 
+## Limiti d'uso {#usage-limits}
+
+I piani in abbonamento limitano quanto puoi usare in una finestra di 5 ore e in una settimanale. L'app legge quel limite dal provider mentre le tue run lavorano, quindi conosce l'ora esatta in cui una finestra si azzera invece di indovinarla dal testo del provider.
+
+- **Barra di stato.** L'indicatore d'uso diventa ambra all'80% di una finestra e rosso al 90%. Quando il provider rifiuta le richieste mostra *limite · si azzera 15:00*, e una notifica lo dice una volta (categoria **Limiti di spesa** in Impostazioni ▸ Notifiche).
+- **Controlli prima del lancio.** **Lancia tutti** controlla in un paio di secondi: lo spazio libero dove vivono i worktree (rifiuta sotto 1 GB e avvisa sotto 5 GB), se ogni motore e GitHub hanno l'accesso e quanta quota resta. Lanciare N rail in una finestra all'80% o oltre, o in una rifiutata, mostra un avviso con l'ora di azzeramento. Un controllo non superato blocca il lancio finché non lo risolvi.
+- **In pausa al limite.** Quando una run raggiunge il limite si mette in pausa invece di fallire. Riprende da sola all'azzeramento e ripete il passaggio rifiutato dal provider. Disattivalo per una run con **Non riprendere da sola**, riprendila subito con **Riprendi ora** oppure, per un loop i cui passaggi esegue l'app, **Continua ora con** un altro provider; il nuovo provider riceve quanto fatto finora come contesto, mai come istruzioni. La pausa sopravvive a un riavvio. Una run non parte mai mentre il computer dorme: aspetta che sia sveglio da due minuti.
+- **Missioni.** Un turno di missione che raggiunge il limite lascia una scheda con l'ora di azzeramento. Non continua mai da solo: scegli **Continua alle 15:00** o **Continua ora con** un altro provider.
+
+Dopo tre rifiuti di fila la run si ferma con il messaggio del provider, come prima.
+
 ## Dove andare ora
 
 - [Il Loop Builder](the-loop-builder) — cosa esegue un rail e come costruire i tuoi loop.

@@ -105,6 +105,17 @@ The range is the middle half of your own history: the 25th to 75th percentile of
 The dollar figure shows only when the engine is known to bill per use (for example an API key). On a subscription plan, or while the billing mode is not known yet, only the time shows. When the rail holds several specs the band is for one spec and says *(per spec)*. If today's spend plus the top of the range could reach your daily budget, the line adds *May pause at budget* with a link to the budget settings. If today's budget is already used up, Launch asks you to confirm first, because the run would pause until it resets.
 
 
+## Usage limits {#usage-limits}
+
+Subscription plans cap how much you can use in a 5-hour and a weekly window. The app reads that limit from the provider while your runs work, so it knows the exact time a window resets instead of guessing from the provider's wording.
+
+- **Status bar.** The usage meter turns amber at 80 % and red at 90 % of a window. When the provider refuses requests it reads *limit · resets 15:00*, and a notification says so once (category **Spending limits** in Settings ▸ Notifications).
+- **Launch checks.** **Launch all** checks, in a second or two: free disk where the worktrees live (it refuses under 1 GB and warns under 5 GB), whether each engine and GitHub are signed in, and how much quota is left. Launching N rails into a window at 80 % or more, or into a refused one, shows a warning with the reset time. A failed check blocks the launch until you fix it.
+- **Paused at the limit.** When a run hits the limit it pauses instead of failing. It resumes on its own at the reset, and retries the step the provider refused. Turn that off for one run with **Don't resume on its own**, resume it right away with **Resume now**, or, for a loop whose steps the app runs, **Continue now with** another provider; the new provider receives what was done so far as context, never as instructions. The pause survives a restart. A run never starts while the computer sleeps: it waits until it has been awake for two minutes.
+- **Missions.** A mission turn that hits the limit leaves a card with the reset time. It never continues on its own: choose **Continue at 15:00** or **Continue now with** another provider.
+
+After three refusals in a row the run stops with the provider's own message, as before.
+
 ## Where to go next
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.

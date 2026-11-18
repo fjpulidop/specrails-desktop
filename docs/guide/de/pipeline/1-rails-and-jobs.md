@@ -106,6 +106,17 @@ Die Spanne ist die mittlere Hälfte deines eigenen Verlaufs: das 25. bis 75. Per
 Der Dollarbetrag erscheint nur, wenn bekannt ist, dass die Engine nach Verbrauch abrechnet (zum Beispiel mit einem API-Schlüssel). Bei einem Abo-Tarif oder solange die Abrechnungsart noch nicht bekannt ist, wird nur die Zeit angezeigt. Enthält die Rail mehrere Specs, gilt die Spanne für eine Spec und sagt das mit *(pro Spec)*. Könnten die heutigen Ausgaben plus das obere Ende der Spanne dein Tagesbudget erreichen, ergänzt die Zeile *Könnte am Budget pausieren* mit einem Link zu den Budgeteinstellungen. Ist das heutige Budget bereits aufgebraucht, bittet Starten zuerst um Bestätigung, weil der Lauf bis zum Zurücksetzen pausieren würde.
 
 
+## Nutzungslimits {#usage-limits}
+
+Abonnements begrenzen, wie viel du in einem 5-Stunden- und einem Wochenfenster nutzen kannst. Die App liest dieses Limit beim Anbieter mit, während deine Läufe arbeiten, und kennt so den genauen Reset-Zeitpunkt eines Fensters, statt ihn aus dem Text des Anbieters zu raten.
+
+- **Statusleiste.** Die Nutzungsanzeige wird bei 80 % eines Fensters gelb und bei 90 % rot. Lehnt der Anbieter Anfragen ab, steht dort *Limit · Reset 15:00*, und eine Benachrichtigung sagt es einmal (Kategorie **Ausgabenlimits** unter Einstellungen ▸ Benachrichtigungen).
+- **Prüfungen vor dem Start.** **Alle starten** prüft in ein, zwei Sekunden: freien Speicher dort, wo die Worktrees liegen (unter 1 GB wird nicht gestartet, unter 5 GB gewarnt), ob jede Engine und GitHub angemeldet sind und wie viel Kontingent übrig ist. N Rails in ein Fenster ab 80 % oder in ein abgelehntes zu starten zeigt eine Warnung mit der Reset-Zeit. Eine fehlgeschlagene Prüfung blockiert den Start, bis du sie behebst.
+- **Am Limit pausiert.** Erreicht ein Lauf das Limit, pausiert er statt fehlzuschlagen. Er setzt beim Reset von selbst fort und wiederholt den abgelehnten Schritt. Schalte das für einen Lauf mit **Nicht von selbst fortsetzen** ab, setze ihn sofort mit **Jetzt fortsetzen** fort oder, bei einem Loop, dessen Schritte die App ausführt, **Jetzt mit** einem anderen Anbieter **fortsetzen**; der neue Anbieter erhält das bisher Erledigte als Kontext, nie als Anweisungen. Die Pause übersteht einen Neustart. Ein Lauf startet nie, während der Computer schläft: Er wartet, bis dieser zwei Minuten wach ist.
+- **Missionen.** Ein Missionszug, der das Limit erreicht, hinterlässt eine Karte mit der Reset-Zeit. Er setzt nie von selbst fort: Wähle **Um 15:00 fortsetzen** oder **Jetzt mit** einem anderen Anbieter **fortsetzen**.
+
+Nach drei Ablehnungen in Folge stoppt der Lauf mit der Meldung des Anbieters, wie bisher.
+
 ## Wie es weitergeht
 
 - [Der Loop Builder](the-loop-builder) — was eine rail ausführt und wie du deine eigenen Loops baust.

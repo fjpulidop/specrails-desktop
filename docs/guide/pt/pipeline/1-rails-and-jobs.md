@@ -106,6 +106,17 @@ O intervalo é a metade central do seu próprio histórico: do percentil 25 ao 7
 O valor em dólares só aparece quando se sabe que o motor cobra por uso (por exemplo, uma chave de API). Em um plano de assinatura, ou enquanto o modo de cobrança ainda não é conhecido, só o tempo aparece. Quando o rail tem várias specs, o intervalo vale para uma spec e diz isso com *(por spec)*. Se o gasto de hoje mais o topo do intervalo puder atingir o seu orçamento diário, a linha acrescenta *Pode pausar no orçamento* com um link para as configurações de orçamento. Se o orçamento de hoje já acabou, Iniciar pede confirmação antes, porque a execução ficaria em pausa até ser reiniciado.
 
 
+## Limites de utilização {#usage-limits}
+
+Os planos de subscrição limitam quanto podes usar numa janela de 5 horas e numa semanal. A app lê esse limite do fornecedor enquanto as tuas execuções trabalham, por isso sabe a hora exata em que uma janela é reposta em vez de a adivinhar a partir do texto do fornecedor.
+
+- **Barra de estado.** O medidor de utilização fica âmbar a 80 % de uma janela e vermelho a 90 %. Quando o fornecedor recusa pedidos mostra *limite · repõe 15:00*, e uma notificação avisa uma vez (categoria **Limites de gasto** em Definições ▸ Notificações).
+- **Verificações de lançamento.** **Lançar todos** verifica, num ou dois segundos: o espaço livre onde vivem os worktrees (recusa abaixo de 1 GB e avisa abaixo de 5 GB), se cada motor e o GitHub têm sessão iniciada e quanta quota resta. Lançar N rails numa janela a 80 % ou mais, ou numa recusada, mostra um aviso com a hora de reposição. Uma verificação falhada bloqueia o lançamento até a corrigires.
+- **Em pausa no limite.** Quando uma execução atinge o limite fica em pausa em vez de falhar. Retoma sozinha na reposição e repete o passo que o fornecedor recusou. Desliga isso para uma execução com **Não retomar sozinha**, retoma-a já com **Retomar agora** ou, num loop cujos passos a app executa, **Continuar agora com** outro fornecedor; o novo fornecedor recebe o que foi feito como contexto, nunca como instruções. A pausa sobrevive a um reinício. Uma execução nunca arranca enquanto o computador dorme: espera até estar acordado há dois minutos.
+- **Missões.** Um turno de missão que atinge o limite deixa um cartão com a hora de reposição. Nunca continua sozinho: escolhe **Continuar às 15:00** ou **Continuar agora com** outro fornecedor.
+
+Após três recusas seguidas a execução para com a mensagem do próprio fornecedor, como antes.
+
 ## Para onde ir agora
 
 - [O Loop Builder](the-loop-builder) — o que um rail roda, e como construir seus próprios loops.

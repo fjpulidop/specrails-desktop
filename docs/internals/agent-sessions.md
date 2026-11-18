@@ -108,6 +108,16 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
   derived rows and replays the journal silently (see the
   [API reference](api-reference.md)).
 
+## Usage limits
+
+Core journals `provider.rate-limit` (contract 5.14; optional in
+`OPTIONAL_EVENT_TYPES`, so older Cores stay compatible) whenever the account's
+usage-limit state changes. The projection turns it into a `rate-limit` op with
+the session's driver, and `SessionHostRegistry` (`onRateLimit`) forwards it to
+the machine's quota store ([provider-quota](../../server/modules/provider-quota/README.md))
+before the surface listener sees the ops. Replays after a restart never move the
+store backwards: reports older than its state are ignored.
+
 ## Sub-agent policy
 
 [`resolveSubagentPolicy`](../../server/modules/agent-sessions/domain/subagent-policy.ts)
