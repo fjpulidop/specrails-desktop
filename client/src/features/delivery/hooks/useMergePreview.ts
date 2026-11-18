@@ -1,5 +1,5 @@
-import { useContext, useEffect, useId, useSyncExternalStore } from 'react'
-import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
+import { useEffect, useId, useSyncExternalStore } from 'react'
+import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { getApiBase } from '../../../lib/api'
 import {
   mergePreviewVersion, nudgeMergePreviews, readMergePreview, subscribeMergePreviews,
@@ -12,7 +12,7 @@ import type { DeliveryMergePreview } from '../lib/merge-preview'
  */
 export function useMergePreview(deliveryId: string | null | undefined): DeliveryMergePreview | null {
   const projectId = activeProjectOf()
-  const ws = useContext(SharedWebSocketContext)
+  const ws = useOptionalSharedWebSocket()
   const handlerId = `merge-preview-${useId()}`
   useSyncExternalStore(
     (listener) => (projectId && deliveryId ? subscribeMergePreviews(projectId.id, projectId.base, listener) : () => {}),
@@ -34,4 +34,14 @@ function activeProjectOf(): { id: string; base: string } | null {
   try { base = getApiBase() } catch { return null }
   const match = /\/api\/projects\/([^/]+)$/.exec(base)
   return match ? { id: decodeURIComponent(match[1]!), base } : null
+}
+
+/** The app socket when a provider is mounted (a strip rendered outside one, e.g. in isolation, just skips live refreshes). */
+function useOptionalSharedWebSocket(): ReturnType<typeof useSharedWebSocket> | null {
+  try {
+    // useSharedWebSocket reads the context unconditionally before throwing, so hook order is stable.
+    return useSharedWebSocket()
+  } catch {
+    return null
+  }
 }
