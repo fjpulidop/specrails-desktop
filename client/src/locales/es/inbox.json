@@ -21,7 +21,7 @@
     "budget": "Pausado por un límite",
     "jira": "Falló la sincronización con Jira",
     "failedNoCause": "Se detuvo antes de entregar",
-    "capReached": "Límite alcanzado"
+    "capReached": "Trabajo en pausa"
   },
   "actions": {
     "open": "Abrir",
@@ -34,15 +34,11 @@
   "working": "Procesando…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Posponer",
-    "hour": "1 hora",
-    "tomorrow": "Hasta mañana",
-    "cancel": "Cancelar"
+    "hour": "Posponer 1 hora",
+    "tomorrow": "Posponer hasta mañana"
   },
-  "snoozeItem": "Posponer {{title}}",
-  "snoozeFor": "Posponer {{title}} durante",
   "done": "Hecho",
-  "doneItem": "Marcar {{title}} como hecho",
+  "more": "Más acciones para {{title}}",
   "age": {
     "now": "ahora mismo",
     "ago": "hace {{age}}"
@@ -87,8 +83,6 @@
   "unseen": "Nuevo",
   "markRead": "Marcar como leído",
   "markUnread": "Marcar como no leído",
-  "markReadItem": "Marcar {{title}} como leído",
-  "markUnreadItem": "Marcar {{title}} como no leído",
   "mute": {
     "mute": "Silenciar las notificaciones de {{project}}",
     "unmute": "Volver a activar las notificaciones de {{project}}"

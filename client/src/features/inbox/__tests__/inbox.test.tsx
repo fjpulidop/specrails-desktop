@@ -76,6 +76,12 @@ const openPanel = async () => {
   return screen.findByTestId('inbox-dialog')
 }
 
+/** Opens a row's "More actions" menu and picks an item (the menu is portalled to the body). */
+function pick(row: HTMLElement, testId: string): void {
+  fireEvent.click(within(row).getByTestId('inbox-more'))
+  fireEvent.click(screen.getByTestId(testId))
+}
+
 describe('Inbox badge and button', () => {
   it('shows the count of items needing you and names it for assistive tech', async () => {
     mount()
@@ -369,7 +375,7 @@ describe('Primary actions call the real handlers', () => {
     mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row'))[0]
     expect(row).toHaveTextContent('Project weekly limit reached')
-    expect(row).toHaveTextContent('Spend limit reached')
+    expect(row).toHaveTextContent('Work paused')
     expect(row).toHaveTextContent('$52.50 of $50.00 spent')
     expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise limit')
     fireEvent.click(within(row).getByTestId('inbox-primary'))
@@ -387,12 +393,57 @@ describe('Primary actions call the real handlers', () => {
   })
 })
 
+describe('Row actions: one primary, the rest behind "More actions"', () => {
+  it('each row shows ONE action button and a More actions menu with Snooze, Done, read state and Mute', async () => {
+    mount('/?inbox=1')
+    const rows = await screen.findAllByTestId('inbox-row')
+    for (const row of rows) {
+      expect(within(row).getAllByRole('button').map((b) => b.getAttribute('data-testid'))).toEqual(['inbox-primary', 'inbox-more'])
+    }
+    const row = rows[0]
+    const more = within(row).getByTestId('inbox-more')
+    expect(more).toHaveAttribute('aria-haspopup', 'menu')
+    expect(more.getAttribute('aria-label')).toMatch(/^More actions for /)
+    fireEvent.click(more)
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').map((el) => el.textContent)).toEqual([
+      'Snooze 1 hour', 'Snooze until tomorrow', 'Done', 'Mark as read', `Mute notifications from ${row.closest('[data-testid="inbox-group"]')!.querySelector('h3 span')!.textContent}`,
+    ])
+  })
+
+  it('keeps the arrow keys for the menu while it is open, and Escape closes only the menu', async () => {
+    mount('/?inbox=1')
+    const dialog = await screen.findByTestId('inbox-dialog')
+    const row = (await screen.findAllByTestId('inbox-row'))[0]
+    const more = within(row).getByTestId('inbox-more')
+    more.focus()
+    fireEvent.keyDown(more, { key: 'ArrowDown' })
+    const menu = await screen.findByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    items[0].focus()
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(items[1], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(dialog).toBeInTheDocument()
+    expect(document.activeElement).toBe(more)
+  })
+
+  it('the group header has the mute bell and no bare count', async () => {
+    mount('/?inbox=1')
+    const group = (await screen.findAllByTestId('inbox-group'))[0]
+    const header = group.querySelector('h3')!
+    expect(header.textContent).toBe(group.querySelector('h3 span')!.textContent)
+    expect(within(header).getByTestId('inbox-project-mute').getAttribute('aria-label')).toMatch(/^Mute notifications from /)
+  })
+})
+
 describe('Snooze and Done', () => {
   const rowOf = async (id: string) => (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === id)!
 
   it('Done hides the row, lowers the badge and persists per viewer', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     expect(screen.queryByText('Add login')).toBeNull()
     expect(JSON.parse(localStorage.getItem(DISMISSALS_KEY)!)['p1:review:d1']).toMatchObject({ version: 'on_review', until: null })
@@ -401,8 +452,7 @@ describe('Snooze and Done', () => {
   it('Snooze 1 hour hides the row until it lapses', async () => {
     mount('/?inbox=1')
     const row = await rowOf('p1:review:d1')
-    fireEvent.click(within(row).getByTestId('inbox-snooze'))
-    fireEvent.click(within(row).getByTestId('inbox-snooze-hour'))
+    pick(row, 'inbox-snooze-hour')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     const stored = JSON.parse(localStorage.getItem(DISMISSALS_KEY)!)['p1:review:d1']
     expect(stored.until).toBeGreaterThan(Date.now() + 59 * 60_000)
@@ -412,7 +462,7 @@ describe('Snooze and Done', () => {
 
   it('Done says what happened, offers Undo, and Undo brings the row back', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     expect(h.toast).toHaveBeenCalledWith('Marked done', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
     const action = h.toast.mock.calls[0][1].action as { onClick: () => void }
@@ -424,8 +474,7 @@ describe('Snooze and Done', () => {
   it('Snooze says until when, offers Undo, and Undo brings the row back', async () => {
     mount('/?inbox=1')
     const row = await rowOf('p1:review:d1')
-    fireEvent.click(within(row).getByTestId('inbox-snooze'))
-    fireEvent.click(within(row).getByTestId('inbox-snooze-tomorrow'))
+    pick(row, 'inbox-snooze-tomorrow')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     const [message, options] = h.toast.mock.calls[0]
     expect(message).toMatch(/^Snoozed until .+/)
@@ -440,21 +489,21 @@ describe('Snooze and Done', () => {
     const before = within(dialog).getAllByTestId('inbox-row').map((r) => r.getAttribute('data-item-id'))
     const first = (await rowOf('p1:review:d1'))
     const heirId = before[before.indexOf('p1:review:d1') + 1]
-    within(first).getByTestId('inbox-done').focus()
-    fireEvent.click(within(first).getByTestId('inbox-done'))
+    within(first).getByTestId('inbox-more').focus()
+    pick(first, 'inbox-done')
     await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(heirId))
     expect(document.activeElement).toHaveAttribute('data-inbox-primary')
     // the last row hands the focus back to its predecessor
     const rows = within(dialog).getAllByTestId('inbox-row')
     const last = rows[rows.length - 1]
     const previousId = rows[rows.length - 2].getAttribute('data-item-id')
-    fireEvent.click(within(last).getByTestId('inbox-done'))
+    pick(last, 'inbox-done')
     await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(previousId))
   })
 
   it('a dismissed item comes back when its state changes', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     items = items.map((i) => (i.id === 'p1:review:d1' ? { ...i, version: 'pr_draft' } : i))
     act(() => handlers.get('inbox')!({ type: 'rail.pr_state', projectId: 'p1' }))
@@ -470,7 +519,7 @@ describe('Snooze and Done', () => {
   it('works when storage is unavailable', async () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     spy.mockRestore()
   })
@@ -546,14 +595,14 @@ describe('Unseen items, Dock badge and project mute', () => {
     const dialog = await openPanel()
     await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
     const row = within(dialog).getAllByTestId('inbox-row')[0]
-    fireEvent.click(within(row).getByTestId('inbox-mark-read'))
+    pick(row, 'inbox-mark-read')
     expect(within(row).queryByTestId('inbox-unseen-dot')).toBeNull()
-    fireEvent.click(within(row).getByTestId('inbox-mark-unread'))
+    pick(row, 'inbox-mark-unread')
     expect(within(row).getByTestId('inbox-unseen-dot')).toBeInTheDocument()
     await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(1))
     // Still unread while the inbox stays open (it is not re-marked as seen under the person's finger).
     expect(JSON.parse(localStorage.getItem(SEEN_KEY)!)).not.toHaveProperty([row.getAttribute('data-item-id')!])
-    fireEvent.click(within(row).getByTestId('inbox-mark-read'))
+    pick(row, 'inbox-mark-read')
     await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
   })
 

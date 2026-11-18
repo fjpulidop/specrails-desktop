@@ -21,7 +21,7 @@
     "budget": "En pause (budget)",
     "jira": "Échec de la synchronisation Jira",
     "failedNoCause": "Arrêté avant la livraison",
-    "capReached": "Plafond de budget atteint"
+    "capReached": "Travail en pause"
   },
   "actions": {
     "open": "Ouvrir",
@@ -34,15 +34,11 @@
   "working": "En cours…",
   "rowLabel": "{{action}} : {{title}}",
   "snooze": {
-    "label": "Reporter",
-    "hour": "1 heure",
-    "tomorrow": "Jusqu'à demain",
-    "cancel": "Annuler"
+    "hour": "Reporter d'1 heure",
+    "tomorrow": "Reporter à demain"
   },
-  "snoozeItem": "Reporter {{title}}",
-  "snoozeFor": "Reporter {{title}} de",
   "done": "Terminé",
-  "doneItem": "Marquer {{title}} comme terminé",
+  "more": "Autres actions pour {{title}}",
   "age": {
     "now": "à l'instant",
     "ago": "il y a {{age}}"
@@ -87,8 +83,6 @@
   "unseen": "Nouveau",
   "markRead": "Marquer comme lu",
   "markUnread": "Marquer comme non lu",
-  "markReadItem": "Marquer {{title}} comme lu",
-  "markUnreadItem": "Marquer {{title}} comme non lu",
   "mute": {
     "mute": "Couper les notifications de {{project}}",
     "unmute": "Réactiver les notifications de {{project}}"

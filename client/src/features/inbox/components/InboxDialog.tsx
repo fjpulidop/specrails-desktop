@@ -1,10 +1,13 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useRef, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, BellOff, CircleCheck, Inbox, OctagonAlert } from 'lucide-react'
+import { AlarmClock, Bell, BellOff, Check, CircleCheck, Inbox, Mail, MailOpen, MoreHorizontal, OctagonAlert, Sunrise } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { EmptyState } from '../../../components/ui/empty-state'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { compactRelativeTime } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
@@ -19,21 +22,42 @@ import { notifyError } from '../../../lib/notify-error'
 
 export { primaryLabelKey } from '../lib/inbox-model'
 
+/** Mute or unmute a project's notifications (its items stay listed). */
+function useProjectMute(projectId: string, projectName: string) {
+  const { t } = useTranslation('inbox')
+  const { prefs, update } = useAttentionPrefs()
+  const muted = prefs.mutedProjects.includes(projectId)
+  const label = muted ? t('mute.unmute', { project: projectName }) : t('mute.mute', { project: projectName })
+  const toggle = (): void => {
+    const mutedProjects = muted ? prefs.mutedProjects.filter((id) => id !== projectId) : [...prefs.mutedProjects, projectId]
+    update({ mutedProjects }).then(
+      () => toast(muted ? t('toast.unmuted', { project: projectName }) : t('toast.muted', { project: projectName })),
+      () => notifyError(t('toast.muteFailed')),
+    )
+  }
+  return { muted, label, toggle }
+}
+
+/**
+ * One item: its state, title and why, ONE primary action, and a "More actions"
+ * menu (Snooze 1 hour / until tomorrow, Done, Mark as read / unread, Mute the project).
+ */
 function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const { t } = useTranslation('inbox')
-  const [snoozing, setSnoozing] = useState(false)
   const state = inboxKindRunState(item.kind)
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
   // A failed or blocked run says WHY in plain words; an unknown cause says so, the raw outcome (often English) stays on hover.
   const { title, kindLabel, detail: detailText, rawDetail } = useInboxItemText(item)
   const unseen = inbox.showsUnseen(item)
+  const mute = useProjectMute(item.projectId, item.projectName)
+  const moreLabel = t('more', { title })
   return (
-    <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind} data-unseen={unseen || undefined}>
-      <div className="flex items-start gap-2.5">
-        {/* The kind's state in the status vocabulary (its words are the kind label). */}
-        <RunStateGlyph state={state} size="md" className="mt-0.5" />
-        <div className="min-w-0 flex-1">
+    <li className="flex items-start gap-2.5 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind} data-unseen={unseen || undefined}>
+      {/* The kind's state in the status vocabulary (its words are the kind label). */}
+      <RunStateGlyph state={state} size="md" className="mt-0.5" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-body text-foreground">
             {unseen && (
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary" data-testid="inbox-unseen-dot">
@@ -48,75 +72,89 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>
         </div>
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground"
+            disabled={working}
+            data-inbox-primary=""
+            data-testid="inbox-primary"
+            aria-label={t('rowLabel', { action: t(primaryLabelKey(item)), title })}
+            onClick={() => { void inbox.runPrimary(item) }}
+          >
+            {working ? t('working') : t(primaryLabelKey(item))}
+          </Button>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 pl-[1.625rem]">
-        <Button
-          size="sm"
-          variant="outline"
-          className="focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground"
-          disabled={working}
-          data-inbox-primary=""
-          data-testid="inbox-primary"
-          aria-label={t('rowLabel', { action: t(primaryLabelKey(item)), title })}
-          onClick={() => { void inbox.runPrimary(item) }}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={moreLabel}
+          title={moreLabel}
+          data-testid="inbox-more"
+          className="-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          {working ? t('working') : t(primaryLabelKey(item))}
-        </Button>
-        {snoozing ? (
-          <div className="flex items-center gap-1" role="group" aria-label={t('snoozeFor', { title })}>
-            <Button size="sm" variant="outline" data-testid="inbox-snooze-hour" onClick={() => inbox.snooze(item, 'hour')}>{t('snooze.hour')}</Button>
-            <Button size="sm" variant="outline" data-testid="inbox-snooze-tomorrow" onClick={() => inbox.snooze(item, 'tomorrow')}>{t('snooze.tomorrow')}</Button>
-            <Button size="sm" variant="ghost" onClick={() => setSnoozing(false)}>{t('snooze.cancel')}</Button>
-          </div>
-        ) : (
-          <>
-            <Button size="sm" variant="ghost" data-testid="inbox-snooze" aria-label={t('snoozeItem', { title })} onClick={() => setSnoozing(true)}>{t('snooze.label')}</Button>
-            <Button size="sm" variant="ghost" data-testid="inbox-done" aria-label={t('doneItem', { title })} onClick={() => inbox.done(item)}>{t('done')}</Button>
-            {unseen ? (
-              <Button size="sm" variant="ghost" data-testid="inbox-mark-read" aria-label={t('markReadItem', { title })} onClick={() => inbox.markRead(item)}>{t('markRead')}</Button>
-            ) : (
-              <Button size="sm" variant="ghost" data-testid="inbox-mark-unread" aria-label={t('markUnreadItem', { title })} onClick={() => inbox.markUnread(item)}>{t('markUnread')}</Button>
-            )}
-          </>
-        )}
-      </div>
+          <MoreHorizontal className="h-4 w-4" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className={DIALOG_LAYER_CLASS.stacked} aria-label={moreLabel}>
+          <DropdownMenuItem data-testid="inbox-snooze-hour" onSelect={() => inbox.snooze(item, 'hour')}>
+            <AlarmClock className="h-3.5 w-3.5" aria-hidden />{t('snooze.hour')}
+          </DropdownMenuItem>
+          <DropdownMenuItem data-testid="inbox-snooze-tomorrow" onSelect={() => inbox.snooze(item, 'tomorrow')}>
+            <Sunrise className="h-3.5 w-3.5" aria-hidden />{t('snooze.tomorrow')}
+          </DropdownMenuItem>
+          <DropdownMenuItem data-testid="inbox-done" onSelect={() => inbox.done(item)}>
+            <Check className="h-3.5 w-3.5" aria-hidden />{t('done')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {unseen ? (
+            <DropdownMenuItem data-testid="inbox-mark-read" onSelect={() => inbox.markRead(item)}>
+              <MailOpen className="h-3.5 w-3.5" aria-hidden />{t('markRead')}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem data-testid="inbox-mark-unread" onSelect={() => inbox.markUnread(item)}>
+              <Mail className="h-3.5 w-3.5" aria-hidden />{t('markUnread')}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem data-testid="inbox-row-mute" onSelect={mute.toggle}>
+            {mute.muted ? <Bell className="h-3.5 w-3.5" aria-hidden /> : <BellOff className="h-3.5 w-3.5" aria-hidden />}
+            {mute.label}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </li>
   )
 }
 
 /** The group header's bell: mute or unmute this project's notifications (its items stay listed). */
 function ProjectMuteToggle({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const { t } = useTranslation('inbox')
-  const { prefs, update } = useAttentionPrefs()
-  const muted = prefs.mutedProjects.includes(projectId)
+  const { muted, label, toggle } = useProjectMute(projectId, projectName)
   const Icon = muted ? BellOff : Bell
-  const label = muted ? t('mute.unmute', { project: projectName }) : t('mute.mute', { project: projectName })
-  const toggle = (): void => {
-    const mutedProjects = muted ? prefs.mutedProjects.filter((id) => id !== projectId) : [...prefs.mutedProjects, projectId]
-    update({ mutedProjects }).then(
-      () => toast(muted ? t('toast.unmuted', { project: projectName }) : t('toast.muted', { project: projectName })),
-      () => notifyError(t('toast.muteFailed')),
-    )
-  }
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-pressed={muted}
-      aria-label={label}
-      title={label}
-      data-testid="inbox-project-mute"
-      className={cn(
-        'grid h-5 w-5 place-items-center rounded focus-visible:outline focus-visible:outline-ring',
-        muted ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    <TooltipProvider delayDuration={300}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={muted}
+          aria-label={label}
+          data-testid="inbox-project-mute"
+          className={cn(
+            'grid h-6 w-6 place-items-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            muted ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left" className={DIALOG_LAYER_CLASS.stacked}>{label}</TooltipContent>
+    </Tooltip>
+    </TooltipProvider>
   )
 }
 
-/** The "Needs you" panel: items grouped by project, a primary action per row, Snooze, Done and read state. */
+/** The "Needs you" panel: items grouped by project, one primary action per row, the rest behind "More actions". */
 export function InboxDialog() {
   const { t } = useTranslation('inbox')
   const inbox = useInbox()
@@ -125,7 +163,8 @@ export function InboxDialog() {
 
   // Arrow keys walk the rows' primary buttons; Home/End jump to the ends.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    // An open "More actions" menu (or its trigger opening it) handles its own arrows.
+    if (event.defaultPrevented || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
     const targets = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-inbox-primary]:not(:disabled)') ?? [])
     if (targets.length === 0) return
     const current = targets.findIndex((el) => el === document.activeElement || el.closest('li')?.contains(document.activeElement))
@@ -207,9 +246,8 @@ export function InboxDialog() {
               <section key={group.projectId} aria-labelledby={`inbox-group-${group.projectId}`} data-testid="inbox-group" data-project-id={group.projectId}>
                 <h3 id={`inbox-group-${group.projectId}`} className="mb-1.5 flex items-center justify-between text-label text-muted-foreground">
                   <span className="truncate">{group.projectName}</span>
-                  <span className="flex shrink-0 items-center gap-1.5 pl-2">
+                  <span className="shrink-0 pl-2">
                     <ProjectMuteToggle projectId={group.projectId} projectName={group.projectName} />
-                    <span className="tabular-nums">{group.items.length}</span>
                   </span>
                 </h3>
                 <ul role="list" className="flex flex-col gap-1.5">

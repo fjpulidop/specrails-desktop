@@ -21,7 +21,7 @@
     "budget": "予算で一時停止",
     "jira": "Jira 同期に失敗",
     "failedNoCause": "納品前に停止しました",
-    "capReached": "予算の上限に達しました"
+    "capReached": "作業を一時停止中"
   },
   "actions": {
     "open": "開く",
@@ -34,15 +34,11 @@
   "working": "処理中…",
   "rowLabel": "{{action}}：{{title}}",
   "snooze": {
-    "label": "後で通知",
-    "hour": "1 時間",
-    "tomorrow": "明日まで",
-    "cancel": "キャンセル"
+    "hour": "1 時間後に通知",
+    "tomorrow": "明日まで後で通知"
   },
-  "snoozeItem": "{{title}} を後で通知",
-  "snoozeFor": "{{title}} を保留する期間",
   "done": "完了",
-  "doneItem": "{{title}} を完了にする",
+  "more": "{{title}} のその他の操作",
   "age": {
     "now": "たった今",
     "ago": "{{age}}前"
@@ -87,8 +83,6 @@
   "unseen": "新着",
   "markRead": "既読にする",
   "markUnread": "未読にする",
-  "markReadItem": "{{title}} を既読にする",
-  "markUnreadItem": "{{title}} を未読にする",
   "mute": {
     "mute": "{{project}} の通知をミュート",
     "unmute": "{{project}} の通知を再開"

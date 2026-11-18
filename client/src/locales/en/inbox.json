@@ -21,7 +21,7 @@
     "budget": "Paused: spend limit reached",
     "jira": "Jira sync failed",
     "failedNoCause": "Stopped before delivery",
-    "capReached": "Spend limit reached"
+    "capReached": "Work paused"
   },
   "actions": {
     "open": "Open",
@@ -34,15 +34,11 @@
   "working": "Working…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Snooze",
-    "hour": "1 hour",
-    "tomorrow": "Until tomorrow",
-    "cancel": "Cancel"
+    "hour": "Snooze 1 hour",
+    "tomorrow": "Snooze until tomorrow"
   },
-  "snoozeItem": "Snooze {{title}}",
-  "snoozeFor": "Snooze {{title}} for",
   "done": "Done",
-  "doneItem": "Mark {{title}} as done",
+  "more": "More actions for {{title}}",
   "age": {
     "now": "just now",
     "ago": "{{age}} ago"
@@ -87,8 +83,6 @@
   "unseen": "New",
   "markRead": "Mark as read",
   "markUnread": "Mark as unread",
-  "markReadItem": "Mark {{title}} as read",
-  "markUnreadItem": "Mark {{title}} as unread",
   "mute": {
     "mute": "Mute notifications from {{project}}",
     "unmute": "Turn notifications from {{project}} back on"

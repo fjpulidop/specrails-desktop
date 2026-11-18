@@ -11,26 +11,16 @@ import { appAttention } from '../../../lib/attention/app-attention'
 import type { AttentionCenter, AttentionEvent } from '../../../lib/attention/attention-center'
 import { isMainFocused } from '../../../lib/attention/window-focus'
 import { INBOX_PARAM, JOB_PARAM, REVIEW_PARAM } from '../../../lib/places'
-import { headlineKey, humanizePhase } from '../../recovery/lib/failure-diagnosis'
+import { inboxItemText } from '../lib/inbox-item-text'
 import {
   attentionCategoryOf, inboxItemKey, inboxTarget, planAnnouncements, readAnnounced, writeAnnounced, type InboxItem,
 } from '../lib/inbox-model'
 
-/** The item's plain-language title and cause, as the inbox row words them. */
+/** The notification of an item: its kind as the title, then project · item · why, worded exactly like the inbox row. */
 export function inboxAttentionText(item: InboxItem): { title: string; body: string } {
-  const t = i18n.t.bind(i18n)
-  const cap = item.cap
-  const kind = item.action === 'raise-cap' ? t('inbox:kinds.capReached') : t(`inbox:kinds.${item.kind}`)
-  const subject = cap ? t(`inbox:cap.title.${cap.scope}.${cap.period}`) : item.title
-  let cause: string | null = null
-  if (item.diagnosis && item.diagnosis.kind !== 'unknown') {
-    const phase = item.diagnosis.phase
-    const phaseLabel = phase ? t(`agentRuntime:roles.${phase}`, { defaultValue: humanizePhase(phase) ?? phase }) : null
-    const head = headlineKey(item.diagnosis, phaseLabel)
-    cause = t(`recovery:${head.key}`, head.params)
-  }
-  const parts = [item.projectName, subject, cause].filter((part): part is string => !!part)
-  return { title: kind, body: parts.join(' · ') }
+  const text = inboxItemText(item, i18n.t.bind(i18n), i18n.language)
+  const parts = [item.projectName, text.title, text.detail].filter((part): part is string => !!part)
+  return { title: text.kindLabel, body: parts.join(' · ') }
 }
 
 /** Is the item's own place (or the inbox) what the main window shows right now? */
