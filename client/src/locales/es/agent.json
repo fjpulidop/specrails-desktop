@@ -1556,11 +1556,7 @@
     "greeting": "¿Qué debería salir a continuación en {{project}}?",
     "greetingNoProject": "¿Qué debería salir a continuación?",
     "statusTodo_one": "{{count}} por hacer",
-    "statusTodo_other": "{{count}} por hacer",
-    "statusReview_one": "{{count}} esperando revisión",
-    "statusReview_other": "{{count}} esperando revisión",
-    "statusRunning_one": "{{count}} en curso",
-    "statusRunning_other": "{{count}} en curso"
+    "statusTodo_other": "{{count}} por hacer"
   },
   "prCi": {
     "title": "Vigilar y arreglar el CI de la PR {{pr}}",

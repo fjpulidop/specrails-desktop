@@ -1556,11 +1556,7 @@
     "greeting": "Was soll als Nächstes in {{project}} ausgeliefert werden?",
     "greetingNoProject": "Was soll als Nächstes ausgeliefert werden?",
     "statusTodo_one": "{{count}} offen",
-    "statusTodo_other": "{{count}} offen",
-    "statusReview_one": "{{count}} wartet auf Review",
-    "statusReview_other": "{{count}} warten auf Review",
-    "statusRunning_one": "{{count}} läuft",
-    "statusRunning_other": "{{count}} laufen"
+    "statusTodo_other": "{{count}} offen"
   },
   "prCi": {
     "title": "CI von PR {{pr}} überwachen und reparieren",

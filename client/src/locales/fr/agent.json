@@ -1556,11 +1556,7 @@
     "greeting": "Que faut-il livrer ensuite dans {{project}} ?",
     "greetingNoProject": "Que faut-il livrer ensuite ?",
     "statusTodo_one": "{{count}} à faire",
-    "statusTodo_other": "{{count}} à faire",
-    "statusReview_one": "{{count}} en attente de revue",
-    "statusReview_other": "{{count}} en attente de revue",
-    "statusRunning_one": "{{count}} en cours",
-    "statusRunning_other": "{{count}} en cours"
+    "statusTodo_other": "{{count}} à faire"
   },
   "prCi": {
     "title": "Surveiller et corriger la CI de la PR {{pr}}",

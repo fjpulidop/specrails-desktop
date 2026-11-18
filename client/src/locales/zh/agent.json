@@ -1556,11 +1556,7 @@
     "greeting": "{{project}} 接下来要交付什么?",
     "greetingNoProject": "接下来要交付什么?",
     "statusTodo_one": "{{count}} 项待办",
-    "statusTodo_other": "{{count}} 项待办",
-    "statusReview_one": "{{count}} 项等待评审",
-    "statusReview_other": "{{count}} 项等待评审",
-    "statusRunning_one": "{{count}} 项运行中",
-    "statusRunning_other": "{{count}} 项运行中"
+    "statusTodo_other": "{{count}} 项待办"
   },
   "prCi": {
     "title": "监控并修复 PR {{pr}} 的 CI",

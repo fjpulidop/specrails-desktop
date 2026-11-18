@@ -1556,11 +1556,7 @@
     "greeting": "What should ship next in {{project}}?",
     "greetingNoProject": "What should ship next?",
     "statusTodo_one": "{{count}} to do",
-    "statusTodo_other": "{{count}} to do",
-    "statusReview_one": "{{count}} waiting for review",
-    "statusReview_other": "{{count}} waiting for review",
-    "statusRunning_one": "{{count}} running",
-    "statusRunning_other": "{{count}} running"
+    "statusTodo_other": "{{count}} to do"
   },
   "prCi": {
     "title": "Watch and fix the CI of PR {{pr}}",

@@ -1556,11 +1556,7 @@
     "greeting": "Cosa deve andare in consegna dopo in {{project}}?",
     "greetingNoProject": "Cosa deve andare in consegna dopo?",
     "statusTodo_one": "{{count}} da fare",
-    "statusTodo_other": "{{count}} da fare",
-    "statusReview_one": "{{count}} in attesa di revisione",
-    "statusReview_other": "{{count}} in attesa di revisione",
-    "statusRunning_one": "{{count}} in corso",
-    "statusRunning_other": "{{count}} in corso"
+    "statusTodo_other": "{{count}} da fare"
   },
   "prCi": {
     "title": "Monitora e correggi la CI della PR {{pr}}",
