@@ -81,6 +81,8 @@ import { ContractRefineTrackerProvider } from './features/specs/hooks/useContrac
 import { SmashTrackerProvider } from './features/specs/context/SmashTrackerContext'
 import { useOsNotifications } from './hooks/useOsNotifications'
 import { useAttentionReturn } from './hooks/useAttentionReturn'
+import { useStartupQueue } from './hooks/useStartupQueue'
+import { decideTour, startupQueue } from './lib/startup-queue'
 import { useMissionReplyNotifications } from './features/missions/hooks/useMissionReplyNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
@@ -446,8 +448,24 @@ function DesktopApp() {
 
   // Selected mission ⇄ ?mission=<id>.
   useMissionPlaceSync()
-  const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
+  // The product tour opens on a first install only when the startup queue says the
+  // launch is clean (no crash to explain, nothing to resume); otherwise it waits
+  // for the next clean launch. Replay (Help, ⌘K, Settings) opens it at once.
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
   const onboardingMounted = useMountOnOpen(onboardingOpen)
+  const startup = useStartupQueue()
+  const tourDecided = useRef(false)
+  useEffect(() => {
+    if (tourDecided.current || hasSeenOnboarding()) return
+    const decision = decideTour(startup)
+    if (decision === 'pending') return
+    tourDecided.current = true
+    if (decision === 'show') setOnboardingOpen(true)
+  }, [startup])
+  useEffect(() => {
+    if (!onboardingOpen) return
+    return startupQueue.hold('tour')
+  }, [onboardingOpen])
   // Help ▸ Replay tour (Docs dialog, ⌘K) reopens the platform tour without importing the shell.
   useEffect(() => {
     const onReplay = () => setOnboardingOpen(true)
@@ -616,7 +634,7 @@ function DesktopApp() {
     terminals.ensureProject(activeProjectId)
   }, [activeProjectId, terminals])
   const chevronSlot =
-    FEATURE_TERMINAL_PANEL && uiMode === 'kanban' && panelState.visibility === 'hidden' ? (
+    FEATURE_TERMINAL_PANEL && panelState.visibility === 'hidden' ? (
       <PanelChevronButton
         isOpen={false}
         onClick={() => activeProjectId && terminals.setVisibility(activeProjectId, 'restored')}
@@ -720,9 +738,8 @@ function DesktopApp() {
           )}
         </main>
 
-        {/* Hoisted terminal panel — single instance shared by both modes.
-            Footer status/chevron chrome is Kanban-only; in Agent Mode the
-            entry point is the workspace sidebar's Terminal tool. */}
+        {/* Hoisted terminal panel — single instance shared by both modes; the
+            status bar's toggle opens it in either mode. */}
         {FEATURE_TERMINAL_PANEL && activeProjectId && activeProject && (
           <BottomPanel
             projectId={activeProjectId}
@@ -734,7 +751,7 @@ function DesktopApp() {
           />
         )}
         <ProviderQuotaBridge />
-        <StatusBar connectionStatus={connectionStatus} minimal={uiMode === 'agent'} rightSlot={uiMode === 'agent' ? undefined : chevronSlot} />
+        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"

@@ -10,6 +10,8 @@ Specrails' eigene Dateien – seine Datenbanken, der projektspezifische Zustand,
 ~/.specrails/
 ```
 
+**Einstellungen ▸ Über** zeigt den genauen Speicherort der Datenbank und die Version der App, die du verwendest.
+
 Dieser Ordner ist der private Arbeitsbereich der App. Hier leben die Projektregistrierung, die projektspezifischen Datenbanken, die mitgelieferten Tools und alle betrieblichen Bestandteile. Deine eigentlichen Code-Repositories werden für nichts davon als Ablageplatz missbraucht.
 
 Das bedeutet:
@@ -51,7 +53,7 @@ Wenn du ein Projekt aus Specrails entfernst, räumt die App ihren eigenen projek
 
 Jeder Rail-Run arbeitet in einem eigenen Git-Worktree unter `~/.specrails/projects/<Projekt>/worktrees/`. Wenn ein Run abgeschlossen ist, entfernt Specrails diesen Worktree, aber nur, wenn es beweisen kann, dass nichts verloren geht. Kann es das nicht (nicht committete Änderungen, Dateien, die es nur dort gibt, oder ein fehlgeschlagenes Entfernen), behält es den Worktree. Mit der Zeit sammeln sie sich an.
 
-**Einstellungen ▸ Speicher** listet sie für alle Projekte auf. Du erreichst die Liste auch über das Popover **Ressourcen** in der Statusleiste. Jeder Worktree zeigt seine Größe (im Hintergrund gemessen), wie lange er ungenutzt ist, seinen PR und was beim Entfernen verloren ginge:
+**Einstellungen ▸ Speicher** listet sie für alle Projekte auf. Du erreichst die Liste auch über das Popover **App-Ressourcen** in der Statusleiste. Jeder Worktree zeigt seine Größe (im Hintergrund gemessen), wie lange er ungenutzt ist, seinen PR und was beim Entfernen verloren ginge:
 
 - **Nichts zu verlieren**: keine nicht committeten Änderungen, und jede ignorierte Datei ist wiederherstellbar (`node_modules`), ein Link oder identisch mit derselben Datei in deinem Haupt-Checkout (zum Beispiel eine kopierte `.env`). Jeder Commit seines Branches liegt auf einem Remote oder einem anderen Branch, oder seine Lieferung wurde gemergt.
 - **Wartet auf dich**: Etwas braucht noch dich. Jeder Grund wird genannt: nicht committete Änderungen, ignorierte Dateien, die es nur dort gibt, Commits nur auf diesem Branch, eine Lieferung, die noch auf deine Entscheidung wartet, kürzliche Aktivität (die letzte Stunde) oder dass Git ihn nicht prüfen konnte. Kann Git einen Worktree nicht prüfen, gilt er nie als sauber.

@@ -21,10 +21,10 @@ describe('ServerResponsiveness', () => {
     getStalls.mockResolvedValue({ thresholdMs: 200, sampling: false, sinceMs: 0, total: 0, longestMs: 0, recent: [] })
     render(<ServerResponsiveness active />)
     await flush()
-    expect(screen.getByTestId('server-responsiveness')).toHaveTextContent('No stalls since')
+    expect(screen.getByTestId('server-responsiveness')).toHaveTextContent('No slowdowns since')
   })
 
-  it('summarises stalls and names the operation of the last one', async () => {
+  it('summarises slowdowns in plain language, without the internal request name', async () => {
     getStalls.mockResolvedValue({ thresholdMs: 200, sampling: true, sinceMs: 0, total: 2, longestMs: 1500, recent: [
       { atMs: 10, durationMs: 640, operation: 'GET /api/projects/:id/jobs', utilization: 1 },
       { atMs: 5, durationMs: 1500, operation: null, utilization: 1 },
@@ -32,7 +32,8 @@ describe('ServerResponsiveness', () => {
     render(<ServerResponsiveness active />)
     await flush()
     const panel = screen.getByTestId('server-responsiveness')
-    expect(panel).toHaveTextContent('2 stalls · longest 1.5 sec')
-    expect(panel).toHaveTextContent('640 ms during GET /api/projects/:id/jobs')
+    expect(panel).toHaveTextContent('2 slowdowns · longest 1.5 sec')
+    expect(panel).toHaveTextContent('the app took 640 ms to respond')
+    expect(panel).not.toHaveTextContent('GET')
   })
 })

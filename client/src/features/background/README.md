@@ -58,7 +58,7 @@ process listening inside a run's assigned block is flagged with the warning lamp
 
 ## Retained run worktrees
 
-`RetainedWorktreesSection` is the body of **Settings ▸ Storage**. The status-bar Resources popover links to it
+`RetainedWorktreesSection` is the body of **Settings ▸ Storage**. The status-bar App resources popover links to it
 with `openAppSettings('storage', 'retainedWorktrees')`.
 
 - `useRetainedWorktrees(active)` reads `GET /api/worktrees/retained` only while the pane is shown.

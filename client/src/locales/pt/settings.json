@@ -65,7 +65,7 @@
       "notifications": "Notificações",
       "storage": "Armazenamento"
     },
-    "title": "Definições do Desktop",
+    "title": "Definições",
     "description": "Aparência, fornecedores de IA, atualizações e preferências gerais do Desktop.",
     "registeredProjects": "Projetos registados",
     "noProjects": "Ainda não há projetos registados",
@@ -83,10 +83,10 @@
     "platformTour": "Tour da plataforma",
     "platformTourDescription": "Repita o assistente de boas-vindas para rever as funcionalidades principais.",
     "replayTour": "Repetir tour",
-    "infoHeading": "Informações do Desktop",
+    "infoHeading": "Sobre",
     "infoPort": "Porta",
     "infoProjects": "Projetos",
-    "infoDb": "BD do Desktop",
+    "infoDb": "Base de dados",
     "removeProjectConfirmTitle": "Remover {{name}}?",
     "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde.",
     "navLabel": "Secções das definições",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Alterações não guardadas",
     "dailyBudgetCurrent": "Atualmente {{amount}} por dia",
-    "dailyBudgetNone": "Sem limite diário"
+    "dailyBudgetNone": "Sem limite diário",
+    "infoVersion": "Versão"
   },
   "webhooks": {
     "heading": "Webhooks de saída",
@@ -155,7 +156,7 @@
   "appearance": {
     "taglines": {
       "dracula": "O original — escuro com tom púrpura e acentos néon vivos",
-      "aurora-light": "Claro premium — índigo inspirado no Linear sobre branco quente",
+      "aurora-light": "Mesa de desenho à luz do dia — tinta sobre papel quente, profundidade com sombras suaves",
       "obsidian-dark": "Grafite pro — quase preto neutro com um único acento violeta suave",
       "specrails": "Tema da marca — azul-marinho-índigo profundo com acentos ciano saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre quase preto esverdeado",
@@ -168,7 +169,7 @@
   },
   "mobile": {
     "heading": "Companion móvel",
-    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
+    "description": "Controle o Specrails a partir da app Specrails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
     "accessOn": "Acesso móvel ligado",
     "accessOff": "Acesso móvel desligado",
     "listeningOnPort": "À escuta na porta {{port}}",
@@ -181,7 +182,7 @@
     "identityReset": "Identidade móvel reposta",
     "enableFailed": "Não foi possível ativar o acesso móvel",
     "disableFailed": "Não foi possível desativar o acesso móvel",
-    "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor SpecRails na primeira ativação — escolha “Permitir em redes privadas”.",
+    "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor Specrails na primeira ativação — escolha “Permitir em redes privadas”.",
     "pairedDevices": "Dispositivos emparelhados",
     "noDevices": "Ainda não há dispositivos emparelhados.",
     "revokeDevice": "Revogar {{name}}",

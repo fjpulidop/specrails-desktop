@@ -96,7 +96,7 @@ Disable in Settings → Terminal panel → Image rendering if you hit memory pre
 
 Two layers:
 
-- **App-wide defaults** — Desktop Settings (gear icon on the sidebar) → Terminal panel.
+- **App-wide defaults** — Settings (gear icon on the sidebar) → Terminal panel.
 - **Per-project overrides** — Project Settings (gear in the project navbar) → Terminal panel.
 
 Project wins per-field; absent fields fall back to app-wide defaults.

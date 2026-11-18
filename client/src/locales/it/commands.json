@@ -26,7 +26,7 @@
       "desktopAnalytics": "Analytics di Desktop",
       "projectAnalytics": "Analytics del progetto",
       "activityFeed": "Feed attività",
-      "desktopSettings": "Impostazioni Desktop",
+      "desktopSettings": "Impostazioni",
       "docs": "Docs",
       "replayTour": "Rivedi il tour"
     },
@@ -69,7 +69,7 @@
       "switchTheme": "Cambia tema",
       "switchToMission": "Passa alla modalità Missione",
       "switchToBoard": "Passa alla modalità Board",
-      "openAppSettings": "Apri le impostazioni dell'app",
+      "openAppSettings": "Apri le impostazioni",
       "openProjectSettings": "Apri le impostazioni del progetto",
       "switchProject": "Cambia progetto",
       "runLoop": "Esegui un loop",
@@ -95,7 +95,7 @@
         "themeTitle": "Tema",
         "themePlaceholder": "Scegli un tema...",
         "noThemes": "Nessun tema disponibile.",
-        "appSettingsTitle": "Impostazioni dell'app",
+        "appSettingsTitle": "Impostazioni",
         "projectSettingsTitle": "Impostazioni del progetto",
         "sectionPlaceholder": "Scegli una sezione...",
         "noSections": "Nessuna sezione.",
@@ -215,7 +215,7 @@
       }
     },
     "settings": {
-      "appScope": "Impostazioni di Desktop",
+      "appScope": "Impostazioni",
       "projectScope": "Impostazioni del progetto",
       "entries": {
         "theme": {
@@ -506,6 +506,10 @@
       "runs_one": "{{count}} esecuzione",
       "runs_other": "{{count}} esecuzioni",
       "something": "il lavoro in corso"
+    },
+    "chip": {
+      "text": "Aggiorna",
+      "label": "Specrails {{version}} è disponibile. Mostra l'aggiornamento"
     }
   },
   "notifications": {

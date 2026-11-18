@@ -52,9 +52,9 @@ describe('JobComparisonModal', () => {
     })
   })
 
-  it('renders "Job Comparison" heading', () => {
+  it('renders "Job comparison" heading', () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
-    expect(screen.getByText('Job Comparison')).toBeInTheDocument()
+    expect(screen.getByText('Job comparison')).toBeInTheDocument()
   })
 
   it('shows loading skeleton while fetching', () => {
@@ -154,7 +154,7 @@ describe('JobComparisonModal', () => {
 
   it('is a labelled dialog and calls onClose on Escape', () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
-    const dialog = screen.getByRole('dialog', { name: 'Job Comparison' })
+    const dialog = screen.getByRole('dialog', { name: 'Job comparison' })
     fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })

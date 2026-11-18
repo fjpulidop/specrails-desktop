@@ -63,5 +63,13 @@
     "limitUnknown": "Monatslimit nicht verfügbar",
     "resets": "Zurücksetzung am {{time}}",
     "progress": "Monatlicher Claude-Verbrauch"
+  },
+  "statusBar": {
+    "label": "Plannutzung: {{provider}} bei {{percent}} %. Details anzeigen",
+    "rejectedLabel": "Plannutzung: Limit von {{provider}} erreicht. Details anzeigen"
+  },
+  "today": {
+    "title": "Heute ausgegeben",
+    "estimated": "Enthält Schätzungen für Anbieter, die keinen Preis melden"
   }
 }

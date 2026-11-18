@@ -10,6 +10,14 @@ const PROJECTS: RunModalProject[] = [
   { id: 'p3', name: 'Kimi Project', providers: ['kimi'] },
 ]
 
+const openSelect = (trigger: HTMLElement) =>
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+/** Opens a picker and clicks the option with that accessible name. */
+const pick = (trigger: HTMLElement, name: string) => {
+  openSelect(trigger)
+  fireEvent.click(screen.getByRole('option', { name }))
+}
+
 describe('LoopRunModal', () => {
   it('renders nothing when no loop is set', () => {
     render(<LoopRunModal loop={null} projects={PROJECTS} onClose={() => {}} onExecute={() => {}} />)
@@ -20,7 +28,10 @@ describe('LoopRunModal', () => {
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByRole('option', { name: 'Project One' })).toBeInTheDocument()
+    expect(within(dialog).getByTestId('run-project-select')).toHaveTextContent('Project One')
+    openSelect(within(dialog).getByTestId('run-project-select'))
+    expect(screen.getByRole('option', { name: 'Project One' })).toHaveAttribute('data-state', 'checked')
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' }))
   })
@@ -32,7 +43,7 @@ describe('LoopRunModal', () => {
     // Default project p1 has a single provider → no provider select.
     expect(within(dialog).queryByLabelText('Provider')).not.toBeInTheDocument()
     // Switch to p2 (two providers) → provider select appears.
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p2' } })
+    pick(within(dialog).getByTestId('run-project-select'), 'Project Two')
     expect(within(dialog).getByLabelText('Provider')).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p2', provider: 'claude' }))
@@ -43,12 +54,12 @@ describe('LoopRunModal', () => {
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
     // p1 is claude → claude catalog, default Sonnet.
-    const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
-    expect(within(modelSel).getByRole('option', { name: 'Claude Sonnet 5.5' })).toBeInTheDocument()
-    expect(within(modelSel).getByRole('option', { name: 'Claude Opus 5.5' })).toBeInTheDocument()
-    expect(modelSel.value).toBe('sonnet')
+    const modelSel = within(dialog).getByTestId('run-model-select')
+    expect(modelSel).toHaveTextContent('Claude Sonnet 5.5')
+    openSelect(modelSel)
+    expect(screen.getByRole('option', { name: 'Claude Sonnet 5.5' })).toHaveAttribute('data-state', 'checked')
     // pick a non-default model
-    fireEvent.change(modelSel, { target: { value: 'opus' } })
+    fireEvent.click(screen.getByRole('option', { name: 'Claude Opus 5.5' }))
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1', model: 'opus' }))
   })
@@ -58,13 +69,15 @@ describe('LoopRunModal', () => {
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
     // Switch to p2 (claude+codex), then pick codex as the provider.
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p2' } })
-    fireEvent.change(within(dialog).getByLabelText('Provider'), { target: { value: 'codex' } })
-    const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
-    // Codex catalog, default GPT-5.5; no Claude models present.
-    expect(modelSel.value).toBe('gpt-6.1-sol')
-    expect(within(modelSel).getByRole('option', { name: 'GPT-6.1 Sol' })).toBeInTheDocument()
-    expect(within(modelSel).queryByRole('option', { name: 'Claude Sonnet 5.5' })).not.toBeInTheDocument()
+    pick(within(dialog).getByTestId('run-project-select'), 'Project Two')
+    pick(within(dialog).getByLabelText('Provider'), 'Codex')
+    const modelSel = within(dialog).getByTestId('run-model-select')
+    // Codex catalog, default GPT-6.1 Sol; no Claude models present.
+    expect(modelSel).toHaveTextContent('GPT-6.1 Sol')
+    openSelect(modelSel)
+    expect(screen.getByRole('option', { name: 'GPT-6.1 Sol' })).toHaveAttribute('data-state', 'checked')
+    expect(screen.queryByRole('option', { name: 'Claude Sonnet 5.5' })).not.toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-6.1-sol' }))
   })
@@ -73,10 +86,12 @@ describe('LoopRunModal', () => {
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
-    const effort = within(dialog).getByLabelText('Reasoning effort') as HTMLSelectElement
-    expect(Array.from(effort.options, (option) => option.value)).toEqual(['low', 'high', 'max'])
-    expect(effort.value).toBe('high')
+    pick(within(dialog).getByTestId('run-project-select'), 'Kimi Project')
+    const effort = within(dialog).getByLabelText('Reasoning effort')
+    expect(effort).toHaveTextContent('high')
+    openSelect(effort)
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['low', 'high', 'max'])
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     expect(within(dialog).getByTestId('run-model-select')).toHaveValue('k3')
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({
@@ -90,7 +105,7 @@ describe('LoopRunModal', () => {
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    pick(within(dialog).getByTestId('run-project-select'), 'Kimi Project')
     expect(within(dialog).getByLabelText('Reasoning effort')).toBeInTheDocument()
 
     fireEvent.change(within(dialog).getByTestId('run-model-select'), {
@@ -112,7 +127,7 @@ describe('LoopRunModal', () => {
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    pick(within(dialog).getByTestId('run-project-select'), 'Kimi Project')
 
     const model = within(dialog).getByTestId('run-model-select')
     fireEvent.change(model, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
@@ -132,7 +147,7 @@ describe('LoopRunModal', () => {
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
     const dialog = screen.getByRole('dialog')
-    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    pick(within(dialog).getByTestId('run-project-select'), 'Kimi Project')
     const model = within(dialog).getByTestId('run-model-select')
     fireEvent.change(model, { target: { value: '--yolo' } })
     fireEvent.blur(model)
@@ -162,7 +177,7 @@ describe('LoopRunModal launch forecast', () => {
     render(<TooltipProvider><LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={() => {}} /></TooltipProvider>)
     expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
     expect(calls.find((u) => u.includes('/launch-forecast'))).toMatch(/\/api\/projects\/p1\/launch-forecast\?loopId=l1&provider=claude$/)
-    fireEvent.change(screen.getByTestId('run-project-select'), { target: { value: 'p3' } })
+    pick(screen.getByTestId('run-project-select'), 'Kimi Project')
     await vi.waitFor(() => expect(calls.some((u) => /\/projects\/p3\/launch-forecast\?loopId=l1&provider=kimi$/.test(u))).toBe(true))
   })
 })

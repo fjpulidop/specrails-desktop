@@ -4,6 +4,7 @@ import i18n from '../lib/i18n'
 import { appAttention } from '../lib/attention/app-attention'
 import type { AttentionCenter } from '../lib/attention/attention-center'
 import { requestOpenInbox } from '../lib/inbox-events'
+import { startupQueue } from '../lib/startup-queue'
 
 /** Wait for a browser notification's own click handler (it focuses the window first) before summarizing. */
 export const RETURN_SETTLE_MS = 250
@@ -24,14 +25,15 @@ export function useAttentionReturn(center: AttentionCenter = appAttention): void
         const entries = center.takeAway()
         if (entries.length === 0) return
         const single = entries.length === 1 ? entries[0].open : undefined
-        toast(i18n.t('commands:notifications.attention.away', { count: entries.length }), {
+        // Held while a startup modal is open (it then arrives with any other held toast).
+        startupQueue.deliver(() => toast(i18n.t('commands:notifications.attention.away', { count: entries.length }), {
           id: 'attention-away',
           duration: 15_000,
           action: {
             label: single ? i18n.t('commands:notifications.attention.open') : i18n.t('commands:notifications.attention.openInbox'),
             onClick: single ?? requestOpenInbox,
           },
-        })
+        }))
       }, RETURN_SETTLE_MS)
     }
     window.addEventListener('focus', onFocus)

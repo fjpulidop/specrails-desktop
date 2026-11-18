@@ -262,7 +262,7 @@ describe('AgentModeSpecsPane', () => {
 
     const running = screen.getByRole('button', { name: /Running thing/ })
     expect(within(running).getByText('#3')).toBeInTheDocument()
-    expect(within(running).getByText('In Progress')).toBeInTheDocument()
+    expect(within(running).getByText('In progress')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Pending thing/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Shipped thing/ })).not.toBeInTheDocument()
 
@@ -289,9 +289,9 @@ describe('AgentModeSpecsPane', () => {
   it('[spec:mission-specs-pane/specs-pane-lists-the-project-backlog-with-status] re-renders with the new status when useTickets emits a status change', () => {
     state.tickets = [spec(4, 'todo', 'Moving spec')]
     const view = render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
-    expect(within(screen.getByRole('button', { name: /Moving spec/ })).queryByText('In Progress')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /Moving spec/ })).queryByText('In progress')).not.toBeInTheDocument()
     state.tickets = [spec(4, 'in_progress', 'Moving spec')]
     view.rerender(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
-    expect(within(screen.getByRole('button', { name: /Moving spec/ })).getByText('In Progress')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /Moving spec/ })).getByText('In progress')).toBeInTheDocument()
   })
 })

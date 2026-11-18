@@ -57,7 +57,7 @@
     "failed": "Failed",
     "canceled": "Canceled",
     "draft": "Draft",
-    "onReview": "On Review"
+    "onReview": "On review"
   },
   "runState": {
     "queued": "Queued",

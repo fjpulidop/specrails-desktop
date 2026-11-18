@@ -290,7 +290,7 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('does not show Cancel Job button for completed jobs', async () => {
+  it('does not show Cancel job button for completed jobs', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ job: mockJob, events: mockEvents }),
@@ -299,10 +299,10 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /Cancel Job/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cancel job/i })).not.toBeInTheDocument()
   })
 
-  it('shows Cancel Job button for running jobs', async () => {
+  it('shows Cancel job button for running jobs', async () => {
     const runningJob = { ...mockJob, status: 'running' as const }
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -310,7 +310,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
   })
 
@@ -323,10 +323,10 @@ describe('JobDetailPage', () => {
 
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /Cancel Job/i }))
+    await user.click(screen.getByRole('button', { name: /Cancel job/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/jobs/job-abc123/cancel',
@@ -446,7 +446,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /Run again/i })).not.toBeInTheDocument()
   })
@@ -891,7 +891,7 @@ describe('JobDetailPage', () => {
       }) as unknown as typeof fetch
 
       render(<JobDetailPage />)
-      await waitFor(() => expect(screen.getByText('Finalize Job')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Finalize job')).toBeInTheDocument())
 
       const textarea = screen.getByPlaceholderText(/Send a message to the running job/i)
       await user.type(textarea, 'add error handling')
@@ -900,7 +900,7 @@ describe('JobDetailPage', () => {
         expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/messages') && c.method === 'POST')).toBe(true),
       )
 
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() =>
         expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/finalize') && c.method === 'POST')).toBe(true),
       )
@@ -913,7 +913,7 @@ describe('JobDetailPage', () => {
       }) as unknown as typeof fetch
       render(<JobDetailPage />)
       await waitFor(() => expect(screen.getByText('/specrails:freestyle #1 --yes')).toBeInTheDocument())
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
       expect(screen.queryByPlaceholderText(/Send a message to the running job/i)).not.toBeInTheDocument()
     })
   })

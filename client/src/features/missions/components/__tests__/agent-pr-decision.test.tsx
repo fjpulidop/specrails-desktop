@@ -305,7 +305,7 @@ describe('AgentPrDecisionCard states', () => {
     } finally { global.fetch = original }
   })
 
-  it('a ready PR with merge conflicts says so even after a green CI loop, and leads with Fix CI / Conflicts', async () => {
+  it('a ready PR with merge conflicts says so even after a green CI loop, and leads with Fix CI / conflicts', async () => {
     const original = global.fetch
     global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
       ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'conflict', total: 3, pending: 0, failing: [] }] }), { status: 200 })
@@ -326,7 +326,7 @@ describe('AgentPrDecisionCard states', () => {
   it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_failed', loopId: 'factory:pr-ci', statusCode: 'recovery_unavailable', deliveryOutcome: 'blocked', implementationOutcome: 'succeeded',
       statusDetail: 'The preserved branch diverges from the live PR head.', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x', runIds: ['r1'] })} />)
-    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI / Conflicts again')
+    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI / conflicts again')
     expect(screen.queryByTestId('agent-pr-retry-delivery')).toBeNull()
   })
 
@@ -1072,7 +1072,7 @@ describe('AgentPrDecisionCard actions', () => {
     const dialog = screen.getByTestId('agent-pr-discard-confirm')
     expect(dialog).toHaveTextContent('Discard this delivery?')
     expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
-    expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
+    expect(dialog).toHaveTextContent('Specrails-owned local branches and worktrees that are still at their recorded commit')
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
     expect(dialog).toHaveTextContent('specs will return to the backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')

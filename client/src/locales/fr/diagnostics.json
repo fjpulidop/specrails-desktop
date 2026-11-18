@@ -32,11 +32,10 @@
   "restarting": "Le serveur local s’est arrêté. Redémarrage…",
   "responsiveness": {
     "title": "Réactivité",
-    "none": "Aucun blocage depuis {{time}}",
-    "summary_one": "{{count}} blocage · le plus long {{duration}}",
-    "summary_other": "{{count}} blocages · le plus long {{duration}}",
-    "last": "Dernier à {{time}} : {{duration}} pendant {{operation}}",
-    "background": "travail en arrière-plan",
-    "hint": "Un blocage est un moment de {{threshold}} ou plus pendant lequel le serveur local n’a pas pu répondre."
+    "none": "Aucun ralentissement depuis {{time}}",
+    "summary_one": "{{count}} ralentissement · le plus long {{duration}}",
+    "summary_other": "{{count}} ralentissements · le plus long {{duration}}",
+    "last": "Dernier à {{time}} : l'app a mis {{duration}} à répondre",
+    "hint": "Un ralentissement est un moment de {{threshold}} ou plus pendant lequel l'app n'a pas pu répondre."
   }
 }

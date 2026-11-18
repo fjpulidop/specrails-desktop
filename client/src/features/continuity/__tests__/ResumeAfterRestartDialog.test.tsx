@@ -19,6 +19,7 @@ vi.mock('../../inbox/context/InboxContext', () => ({
 
 import { ResumeAfterRestartDialog } from '../components/ResumeAfterRestartDialog'
 import { interruptedRunItems, resumeQueueId } from '../lib/continuity-model'
+import { decideTour, resetStartupQueueForTests, startupQueue } from '../../../lib/startup-queue'
 
 const run = (overrides: Partial<InboxItem> = {}): InboxItem => ({
   id: 'p1:blocked:r1', projectId: 'p1', projectName: 'Shop', kind: 'blocked', title: 'Implement · #12', detail: 'interrupted',
@@ -33,6 +34,34 @@ beforeEach(() => {
   send.mockResolvedValue({ accepted: true, queued: false })
   runPrimary.mockResolvedValue(undefined)
   inboxItems = [run(), run({ id: 'p1:blocked:old', subjectId: 'old' })]
+  resetStartupQueueForTests()
+})
+
+describe('ResumeAfterRestartDialog in the startup queue', () => {
+  it('nothing to resume: reports a clean launch, so the tour may open', async () => {
+    fetchOffers.mockResolvedValue({ offers: [], runs: [], bootedAt: null })
+    startupQueue.report('crash', false)
+    render(<ResumeAfterRestartDialog />)
+    await waitFor(() => expect(decideTour(startupQueue.getSnapshot())).toBe('show'))
+  })
+
+  it('offers: the only modal at launch holds the queue and defers the tour; attention toasts wait for it', async () => {
+    fetchOffers.mockResolvedValue({ offers: [offer], runs: [], bootedAt: null })
+    startupQueue.report('crash', false)
+    render(<ResumeAfterRestartDialog />)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(decideTour(startupQueue.getSnapshot())).toBe('defer')
+    expect(startupQueue.held()).toBe(true)
+    const toast = vi.fn()
+    startupQueue.deliver(toast)
+    expect(toast).not.toHaveBeenCalled()
+    // Esc only hides it (the offers stay for the next start) and releases the queue.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(settle).not.toHaveBeenCalled()
+    expect(startupQueue.held()).toBe(false)
+    expect(toast).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('ResumeAfterRestartDialog', () => {

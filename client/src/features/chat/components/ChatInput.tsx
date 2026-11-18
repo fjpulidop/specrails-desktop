@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { cn } from '../../../lib/utils'
 import {
@@ -119,22 +120,24 @@ export function ChatInput({
                   onCommit={onModelChange}
                 />
               ) : (
-                <select
-                  value={model}
-                  disabled={hasMessages}
-                  className={cn(
-                    'rounded bg-transparent text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'border border-border/20 px-1.5 py-0.5',
-                    hasMessages && 'opacity-50 pointer-events-none'
-                  )}
-                  onChange={(e) => onModelChange(e.target.value)}
-                >
-                  {MODEL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-background">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={model} disabled={hasMessages} onValueChange={onModelChange}>
+                  <SelectTrigger
+                    size="sm"
+                    className={cn(
+                      'border-border/20 bg-transparent text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      hasMessages && 'opacity-50 pointer-events-none'
+                    )}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </span>
           </TooltipTrigger>

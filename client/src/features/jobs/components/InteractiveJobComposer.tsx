@@ -6,6 +6,7 @@ import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
@@ -16,6 +17,9 @@ import { formatUsd } from '../../../lib/format-usd'
 import { notifyError } from '../../../lib/notify-error'
 import type { RuntimeRunsState } from './job-run/useRuntimeRuns'
 import { answerableRun } from './job-run/job-run-model'
+
+/** Radix Select items cannot use an empty value; this stands for "no interrupt picked" (state ''). */
+const NO_INTERRUPT = '__no-interrupt__'
 
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
@@ -393,10 +397,15 @@ export function InteractiveJobComposer({
       {pending.length > 0 && (
         <div className="space-y-2 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3">
           <label className="block text-sm">{tl('core.selectInterrupt')}
-            <select aria-label={tl('core.selectInterrupt')} className="mt-1 w-full rounded border border-border bg-background p-2" value={interruptId} onChange={event => setInterruptId(event.target.value)}>
-              <option value="">{tl('core.selectInterrupt')}</option>
-              {pending.map(item => <option key={item.id} value={item.id}>{item.nodePath} · {tl(`core.${item.kind === 'question' ? 'answerQuestion' : 'approval'}`)}</option>)}
-            </select>
+            <Select value={interruptId || NO_INTERRUPT} onValueChange={next => setInterruptId(next === NO_INTERRUPT ? '' : next)}>
+              <SelectTrigger aria-label={tl('core.selectInterrupt')} className="mt-1 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_INTERRUPT}>{tl('core.selectInterrupt')}</SelectItem>
+                {pending.map(item => <SelectItem key={item.id} value={item.id}>{item.nodePath} · {tl(`core.${item.kind === 'question' ? 'answerQuestion' : 'approval'}`)}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </label>
           {selectedInterrupt && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
           {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}

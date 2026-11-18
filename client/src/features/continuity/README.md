@@ -40,3 +40,8 @@ unexpectedly), `ResumeAfterRestartDialog` lists, once per launch:
 Nothing resumes without a click. "Not now" dismisses the mission offers; paused
 runs stay in the Inbox. The API lives in [lib/continuity-api.ts](../../lib/continuity-api.ts)
 because the update card also uses it ("Install when nothing is running").
+
+The dialog is the only modal allowed at launch ([startup queue](../../lib/startup-queue.ts)):
+it reports whether it has offers (offers defer the product tour to the next clean
+launch) and holds the queue while open, so attention toasts wait and the update
+offer does not appear. Escape or an outside click only hides it for this launch.

@@ -9,6 +9,7 @@ import { sendAgentMessage } from '../../missions/lib/agent-api'
 import { useInbox } from '../../inbox/context/InboxContext'
 import type { InboxItem } from '../../inbox/lib/inbox-model'
 import { interruptedRunItems, resumeQueueId } from '../lib/continuity-model'
+import { startupQueue } from '../../../lib/startup-queue'
 
 type RowKey = `mission:${string}` | `run:${string}`
 
@@ -45,13 +46,22 @@ export function ResumeAfterRestartDialog() {
   )
 
   // Open once per launch, as soon as both lists are known and one is not empty.
+  // The startup queue learns either way: offers defer the product tour.
   useEffect(() => {
     if (decided || offers === null || (inbox && inbox.status === 'loading')) return
-    if (offers.length === 0 && runs.length === 0) return
+    const present = offers.length > 0 || runs.length > 0
+    startupQueue.report('resume', present)
+    if (!present) return
     setSelected(new Set<RowKey>([...offers.map((o) => `mission:${o.conversationId}` as RowKey), ...runs.map((r) => `run:${r.id}` as RowKey)]))
     setOpen(true)
     setDecided(true)
   }, [decided, offers, runs, inbox])
+
+  // The only modal allowed at launch: hold the queue (tour, update card, attention toasts) while open.
+  useEffect(() => {
+    if (!open) return
+    return startupQueue.hold('resume')
+  }, [open])
 
   const toggle = useCallback((key: RowKey, on: boolean) => {
     setSelected((current) => {

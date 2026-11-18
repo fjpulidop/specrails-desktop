@@ -338,10 +338,10 @@ describe('RecentJobs - extended coverage', () => {
       const trashButtons = document.querySelectorAll('button[class*="text-muted-foreground hover:text-destructive"]')
       await user.click(trashButtons[0] as HTMLElement)
 
-      expect(screen.getByText('Clear Jobs')).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Clear jobs' })).toBeInTheDocument()
 
       fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-      expect(screen.queryByText('Clear Jobs')).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Clear jobs' })).not.toBeInTheDocument()
     })
 
     it('closes clear modal on Escape (ui/dialog dismissal)', async () => {
@@ -351,10 +351,10 @@ describe('RecentJobs - extended coverage', () => {
       const trashButtons = document.querySelectorAll('button[class*="text-muted-foreground hover:text-destructive"]')
       await user.click(trashButtons[0] as HTMLElement)
 
-      expect(screen.getByText('Clear Jobs')).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Clear jobs' })).toBeInTheDocument()
 
       await user.keyboard('{Escape}')
-      expect(screen.queryByText('Clear Jobs')).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Clear jobs' })).not.toBeInTheDocument()
     })
   })
 

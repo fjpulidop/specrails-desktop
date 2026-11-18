@@ -353,7 +353,7 @@ function loadProjectSkill(
   }
   throw new KimiSkillResolutionError(
     `Kimi skill "${requestedName}" is not installed under ${skillsRoot}. ` +
-    'Run the SpecRails Core update for provider "kimi" before retrying.',
+    'Run the Specrails Core update for provider "kimi" before retrying.',
   )
 }
 

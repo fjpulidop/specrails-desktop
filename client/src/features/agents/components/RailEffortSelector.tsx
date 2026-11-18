@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Gauge } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import {
   defaultReasoningEffortForProvider,
   reasoningEffortsForProvider,
@@ -37,17 +38,21 @@ export function RailEffortSelector({
       onClick={(e) => e.stopPropagation()}
     >
       <Gauge className="w-3 h-3 text-muted-foreground mr-1" />
-      <select
-        value={current}
-        aria-label={t('railControls.effortTitle')}
-        data-testid="rail-effort-selector"
-        onChange={(e) => onChange(e.target.value as ReasoningEffort)}
-        className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
-      >
-        {efforts.map((e) => (
-          <option key={e} value={e}>{e}</option>
-        ))}
-      </select>
+      <Select value={current} onValueChange={(next) => onChange(next as ReasoningEffort)}>
+        <SelectTrigger
+          size="sm"
+          aria-label={t('railControls.effortTitle')}
+          data-testid="rail-effort-selector"
+          className="border-border/50 bg-transparent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-40"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {efforts.map((e) => (
+            <SelectItem key={e} value={e}>{e}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

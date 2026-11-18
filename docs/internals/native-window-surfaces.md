@@ -1,7 +1,7 @@
 # Native window surfaces
 
 In the desktop app, a modal surface can open as a real OS window instead of an
-in-page Radix modal. The browser build keeps the modal. App Settings, Job
+in-page Radix modal. The browser build keeps the modal. Settings, Job
 detail and the live board (`live-board`: in the desktop app every way in opens or focuses this window, never the in-page dialog; a second-screen board
 whose card actions are reported to the main window, which the host brings
 forward through `focus_opener_on_result`) are the surfaces. Loops and Plugins, which already had their
@@ -155,7 +155,7 @@ Surface windows already have `dialog:allow-ask`/`allow-confirm`.
   maximized). The next open passes it to the host. The host clamps the size to
   the surface minimum and ignores a position that no longer lands on a
   connected monitor (it centers instead).
-- **Single instance.** One App Settings window app-wide (reopening focuses it).
+- **Single instance.** One Settings window app-wide (reopening focuses it).
   One window per job for Job detail (`(surface, params)` key). A reused window
   keeps its original request id, and the host returns it, so a new opener
   follows the live window's events. At most 16 surface windows.

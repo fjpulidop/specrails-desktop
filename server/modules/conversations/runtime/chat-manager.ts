@@ -51,7 +51,7 @@ import { generateAutoTitle } from './explore-draft-title'
 import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 const COMMAND_INSTRUCTION =
-  'When you want to suggest a SpecRails command for the user to execute, wrap it in a command block like this: ' +
+  'When you want to suggest a Specrails command for the user to execute, wrap it in a command block like this: ' +
   ':::command\n/specrails:implement #42\n::: ' +
   'The user will be prompted to confirm before the command runs.'
 
@@ -548,7 +548,7 @@ export class ChatManager {
 
     return (
       `You are a project assistant for the "${name}" specrails project with full access to this repository via Claude Code. ` +
-      `You can help answer questions about the codebase, explain SpecRails concepts, and suggest commands to run.` +
+      `You can help answer questions about the codebase, explain Specrails concepts, and suggest commands to run.` +
       `\n\nIMPORTANT: You have explicit permission to read and write .specrails/local-tickets.json — ` +
       `this is the project's local ticket store managed by Specrails. It is NOT sensitive. ` +
       `When creating or updating tickets, write directly to this JSON file.` +

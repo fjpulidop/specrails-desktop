@@ -31,22 +31,23 @@ A barra lateral direita é o seu painel de comutação para o projeto atual. Pas
 
 ## A barra de estado
 
-Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
+Uma faixa fina percorre o fundo da janela. É igual nos modos Missão e Quadro, e mantém-se discreta: quando não há nada a dizer, um espaço fica simplesmente vazio.
 
-- **Indicador de ligação** (à esquerda) — um ponto colorido e uma etiqueta a mostrar que a app está ativa: verde para *ligado*, âmbar enquanto *reconecta*, azul enquanto *sincroniza* logo após uma reconexão. Raramente vai precisar dele, mas é tranquilizador quando precisa.
-- **Gasto total** (à direita) — um total acumulado do que gastou, para que o custo esteja sempre a um relance de distância.
-- **Recursos** (à direita) — quanto CPU e memória está a usar neste momento tudo o que o Specrails iniciou, e quantos processos. Clique para ver os totais, uma tendência da memória e a divisão por origem: missões e chats, rails, loops e jobs, processos em segundo plano, terminais, CLIs de agentes, MCP e runners, Git e o próprio servidor do Specrails. Expanda uma origem para ver os seus processos. Abaixo das origens, **Portas dos worktrees de execução** lista as portas servidas pelo servidor de desenvolvimento ou de testes de cada rail (rail, spec, projeto e processo) e avisa quando outro processo ocupa as portas atribuídas a um rail.
+- **Ligação** (à esquerda) — vazia enquanto está tudo bem. Mostra *A religar…* (âmbar) ou *Sem ligação* (vermelho) apenas quando a app perde o seu servidor local, e *A sincronizar…* durante um momento depois de voltar a ligar.
+- **Atualizar** (à direita) — aparece quando uma nova versão está pronta e a app está inativa há cerca de meio minuto. Clique para abrir o cartão de atualização (consulte [Atualizações](../settings/6-updates.md)).
+- **Uso do plano** (à direita) — um único medidor para o fornecedor mais perto do seu limite. Fica neutro até aos 80 %, passa a âmbar com o nome do fornecedor a partir dos 80 % e a vermelho a partir dos 90 %, e mostra *limite · repõe 15:00* quando o fornecedor recusa pedidos. Passe o rato por cima ou clique para ver as janelas de cada fornecedor e o gasto de hoje neste projeto.
+- **Recursos da app** (à direita) — um ícone e o número de processos, só enquanto há trabalho a correr. Clique para ver o CPU e a memória, uma tendência da memória e a divisão por origem: missões e chats, rails, loops e jobs, processos em segundo plano, terminais, CLIs de agentes, MCP e runners, Git e o próprio servidor do Specrails. Expanda uma origem para ver os seus processos. Abaixo das origens, **Portas dos worktrees de execução** lista as portas servidas pelo servidor de desenvolvimento ou de testes de cada rail (rail, spec, projeto e processo) e avisa quando outro processo ocupa as portas atribuídas a um rail. Na app para desktop, **Manter o computador ativo** também está aqui; enquanto estiver ligado, um ícone de chávena na barra de estado indica-o (clique nele para voltar a permitir a suspensão).
 - **Botão do terminal** (à direita ao fundo) — abre o painel de terminal integrado. Carregue em **Cmd+J** (macOS) ou **Ctrl+J** (Windows/Linux) para o alternar a qualquer momento. É uma shell completa, aberta diretamente na pasta do seu projeto.
 
 ## Janelas próprias
 
-Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições da app**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
+Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
 
 ## Notificações do que precisa de você {#attention}
 
 O Specrails avisa quando algo precisa de você: uma pergunta ou a resposta de uma missão, uma revisão pronta para decidir, uma execução que falhou, foi bloqueada ou parou de avançar, um limite de gasto e um job concluído. A forma depende de onde você está:
 
-- **Fora do app** — uma notificação do sistema com o projeto e a causa. No app para desktop ela não pode ser clicada; quando você volta, um aviso resume (**3 coisas precisam de você**) e abre o item, ou **Pendências** quando são vários.
+- **Fora do app** — uma notificação do sistema com o projeto e a causa. No app para desktop ela não pode ser clicada; quando você volta, um aviso resume (**3 coisas precisam de você**) e abre o item, ou **Pendências** quando são vários. Os avisos que chegam enquanto **Continue de onde parou** ou o tour da plataforma estão abertos esperam até você fechá-los e depois chegam como um só.
 - **Em outra parte do app** — um pequeno aviso com **Abrir**.
 - **Já está vendo** — nada. Uma missão que você está acompanhando não avisa das próprias respostas; uma execução travada é a exceção e sempre avisa.
 

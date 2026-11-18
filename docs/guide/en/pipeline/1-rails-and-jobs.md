@@ -56,7 +56,7 @@ The built-ins are editable, too: edit one in the Loop Builder and publish it, an
 
 Every time you press Play, the rail run becomes a **job**. The most important rule to internalise:
 
-> **Rails run in parallel.** Every git-backed launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other. Fresh work settles into an **On Review** decision card where you can create a draft PR or discard it; follow-up work for a spec that already has an open PR continues that PR branch instead of starting over from the integration branch.
+> **Rails run in parallel.** Every git-backed launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other. Fresh work settles into an **On review** decision card where you can create a draft PR or discard it; follow-up work for a spec that already has an open PR continues that PR branch instead of starting over from the integration branch.
 
 Want everything moving at once? The **Launch all** button in the Rails header starts every ready lane in one go, after a single confirmation that frames the total cost (N rails × AI spend). Rails that are empty, already running, or awaiting a PR decision are skipped and reported in a compact summary toast. The in-app agent has the same power through `specrails_rails(launch_all)` — and it will create a fresh rail when no free lane exists.
 
@@ -111,7 +111,7 @@ The dollar figure shows only when the engine is known to bill per use (for examp
 
 Subscription plans cap how much you can use in a 5-hour and a weekly window. The app reads that limit from the provider while your runs work, so it knows the exact time a window resets instead of guessing from the provider's wording.
 
-- **Status bar.** The usage meter turns amber at 80 % and red at 90 % of a window. When the provider refuses requests it reads *limit · resets 15:00*, and a notification says so once (category **Spending limits** in Settings ▸ Notifications).
+- **Status bar.** The usage meter shows the provider closest to its limit; it turns amber at 80 % and red at 90 % of a window, naming the provider. Settings ▸ Subscription usage reads the same figures. When the provider refuses requests it reads *limit · resets 15:00*, and a notification says so once (category **Spending limits** in Settings ▸ Notifications).
 - **Launch checks.** **Launch all** checks, in a second or two: free disk where the worktrees live (it refuses under 1 GB and warns under 5 GB), whether each engine and GitHub are signed in, and how much quota is left. Launching N rails into a window at 80 % or more, or into a refused one, shows a warning with the reset time. A failed check blocks the launch until you fix it.
 - **Paused at the limit.** When a run hits the limit it pauses instead of failing. It resumes on its own at the reset, and retries the step the provider refused. Turn that off for one run with **Don't resume on its own**, resume it right away with **Resume now**, or, for a loop whose steps the app runs, **Continue now with** another provider; the new provider receives what was done so far as context, never as instructions. The pause survives a restart. A run never starts while the computer sleeps: it waits until it has been awake for two minutes.
 - **Missions.** A mission turn that hits the limit leaves a card with the reset time. It never continues on its own: choose **Continue at 15:00** or **Continue now with** another provider.

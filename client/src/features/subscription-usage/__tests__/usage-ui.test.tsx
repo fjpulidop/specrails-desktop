@@ -84,12 +84,14 @@ describe('subscription usage surfaces', () => {
     fireEvent.click(header)
     expect(fixture.refresh).toHaveBeenCalledTimes(2)
   })
-  it('shows the account weekly quota in the footer and all windows on opening', () => {
+  it('shows ONE quiet meter for the most-loaded provider and all windows on opening', () => {
     fixture.snapshot!.providers[0].windows.push({ ...fixture.snapshot!.providers[0].windows[0], id: 'weekly', label: 'weekly', usedPercent: 58 })
     render(<SubscriptionUsageFooter />)
-    const trigger = screen.getByRole('button', { name: 'Usage' })
-    expect(trigger).toHaveTextContent('Claude58%')
-    expect(trigger).not.toHaveTextContent('Claude0%')
+    const trigger = screen.getByRole('button', { name: 'Plan usage: Claude at 58%. Show details' })
+    // Healthy: no name, no colour, a single figure.
+    expect(trigger).toHaveTextContent(/^58%$/)
+    expect(screen.getAllByTestId('usage-meter')).toHaveLength(1)
+    expect(screen.getByTestId('usage-meter-reading')).toHaveAttribute('data-level', 'ok')
     fireEvent.focus(trigger)
     expect(screen.getAllByRole('progressbar')).toHaveLength(3)
     expect(screen.queryByRole('button', { name: 'Compact' })).not.toBeInTheDocument()
@@ -98,7 +100,7 @@ describe('subscription usage surfaces', () => {
   it('uses the menu outline halo during refresh instead of a spinner', () => {
     fixture.busy = true
     const view = render(<SubscriptionUsageFooter />)
-    fireEvent.focus(screen.getByRole('button', { name: 'Usage' }))
+    fireEvent.focus(screen.getByRole('button', { name: /^Plan usage/ }))
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByTestId('builder-halo')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Refresh usage' })).not.toBeInTheDocument()
@@ -110,7 +112,7 @@ describe('subscription usage surfaces', () => {
     fixture.snapshot!.providers[0].observedAt = new Date(Date.now() - 180_000).toISOString()
     fixture.snapshot!.providers[0].windows[0].resetsAt = new Date(Date.now() + (6 * 24 + 2) * 3600_000).toISOString()
     render(<SubscriptionUsageFooter />)
-    fireEvent.focus(screen.getByRole('button', { name: 'Usage' }))
+    fireEvent.focus(screen.getByRole('button', { name: /^Plan usage/ }))
     expect(screen.getByText('Updated 3 minutes ago')).toBeInTheDocument()
     expect(screen.getByText(/Resets in 6d 2h/)).toBeInTheDocument()
     expect(screen.getByText('Reset time unavailable')).toBeInTheDocument()
@@ -118,14 +120,33 @@ describe('subscription usage surfaces', () => {
   it('opens footer usage on mouse hover and closes with Escape', () => {
     render(<SubscriptionUsageFooter />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    fireEvent.pointerEnter(screen.getByRole('button', { name: 'Usage' }), { pointerType: 'mouse' })
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /^Plan usage/ }), { pointerType: 'mouse' })
     // Focus is an equivalent keyboard entry point.
-    fireEvent.focus(screen.getByRole('button', { name: 'Usage' }))
+    fireEvent.focus(screen.getByRole('button', { name: /^Plan usage/ }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'Claude' })).toBeInTheDocument()
     expect(fixture.refresh).toHaveBeenCalled()
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+  it('names and colours the meter only at amber or red, picking the busiest provider', () => {
+    fixture.snapshot!.providers[0].windows[0].usedPercent = 40
+    fixture.snapshot!.providers[1].windows[0].usedPercent = 85
+    render(<SubscriptionUsageFooter details={<p>Spent today</p>} />)
+    const trigger = screen.getByRole('button', { name: 'Plan usage: Codex at 85%. Show details' })
+    expect(trigger).toHaveTextContent('Codex85%')
+    expect(screen.getByTestId('usage-meter-reading')).toHaveClass('text-accent-warning')
+    fireEvent.focus(trigger)
+    expect(screen.getByText('Spent today')).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Claude' })).toBeInTheDocument()
+  })
+  it('renders nothing (never a dash) without a reading', () => {
+    fixture.snapshot!.providers.forEach(p => { p.installed = false; p.windows = []; p.issue = { code: 'cli-missing', retryable: true } })
+    const view = render(<SubscriptionUsageFooter />)
+    expect(view.container).toBeEmptyDOMElement()
+    fixture.snapshot = null
+    view.rerender(<SubscriptionUsageFooter />)
+    expect(view.container).toBeEmptyDOMElement()
   })
   it('keeps unknown plan absent and respects refresh cooldown', () => {
     fixture.snapshot!.providers.forEach(p => { p.retryAt = new Date(Date.now() + 120_000).toISOString() })
@@ -145,8 +166,8 @@ describe('Enterprise monthly spending surfaces', () => {
   it('shows measured dollar spend and assigned budget in the footer menu instead of unavailable', () => {
     enterprise()
     render(<SubscriptionUsageFooter />)
-    const trigger = screen.getByRole('button', { name: 'Usage' })
-    expect(trigger).toHaveTextContent('Claude2%')
+    const trigger = screen.getByRole('button', { name: /^Plan usage: Claude/ })
+    expect(trigger).toHaveTextContent('2%')
     fireEvent.focus(trigger)
     expect(screen.getByText('Enterprise · On demand')).toBeInTheDocument()
     expect(screen.getByText('$20.78 of $1,000.00 spent')).toBeInTheDocument()

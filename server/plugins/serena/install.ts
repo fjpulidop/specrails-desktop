@@ -58,7 +58,7 @@ export async function installSerena(ctx: PluginLifecycleContext): Promise<void> 
 
   // Claude additionally receives its historical custom-agent fragment. Kimi
   // consumes the provider-aware AGENTS.md contributor and native MCP config;
-  // its built-in subagents are not modelled as SpecRails roles.
+  // its built-in subagents are not modelled as Specrails roles.
   if (adapter.id === 'claude') {
     ctx.log(`Writing ${CLAUDE_FRAGMENT_REL}`)
     const fragmentDest = path.join(ctx.projectPath, CLAUDE_FRAGMENT_REL)

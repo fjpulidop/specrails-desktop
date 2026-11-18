@@ -158,7 +158,7 @@
     "discardedToast": "PR scartata — le spec sono tornate in Specs",
     "decisionPending": "Questo rail ha una decisione sulla PR in sospeso — creala, pubblicala o scartala prima di rilanciare",
     "discardConfirmTitle": "Scartare questa consegna?",
-    "discardConfirmBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di SpecRails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog di Specs. Le risorse locali rimosse non possono essere recuperate.",
+    "discardConfirmBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di Specrails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog di Specs. Le risorse locali rimosse non possono essere recuperate.",
     "implementationFailedDiscardTitle": "Scartare questa consegna non riuscita?",
     "implementationFailedDiscardBody": "La scheda verrà chiusa e le spec torneranno in Specs. Il lavoro locale e i branch saranno conservati per l'ispezione. Potranno essere rimosse solo le risorse la cui pulizia è dimostrata sicura.",
     "mergeLocal": "Integra in locale",
@@ -184,7 +184,7 @@
     "relaunchSent": "Rilancio del rail",
     "relaunchFailed": "Impossibile rilanciare il rail",
     "recheckRecoveryConfirmTechnical": "Specrails riesaminerà in questo clone il worktree, il branch, i ref, i reflog e gli oggetti Git orfani appartenenti alla consegna di {{branch}}. Se dimostra un unico risultato, potrà eseguire il commit delle modifiche isolate e ritentare il push esatto. La cartella principale del progetto non verrà toccata.",
-    "fixCi": "Correggi CI / Conflitti",
+    "fixCi": "Correggi CI / conflitti",
     "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
     "fixCiStarted": "Monitoraggio della CI avviato",
     "fixCiFailed": "Impossibile avviare il loop di CI"

@@ -15,7 +15,7 @@ En Estable, si todavía no se ha promovido ninguna versión, **Buscar actualizac
 
 ## Cómo llegan las actualizaciones
 
-- **Specrails Desktop** comprueba al arrancar y cada 6 horas. Cuando hay una actualización aparece una tarjeta desde la que descargas, instalas y reinicias. También puedes pulsar **Buscar actualizaciones**.
+- **Specrails Desktop** comprueba al arrancar y cada 6 horas. Cuando hay una actualización, aparece un pequeño botón **Actualizar** en la barra de estado en cuanto la app lleva unos 30 segundos inactiva, nunca encima de una ventana o un diálogo abiertos. Haz clic en él para ver la tarjeta de actualización: desde ahí descargas, instalas y reinicias. **Descartar** omite esa versión. También puedes pulsar **Buscar actualizaciones** aquí; entonces la tarjeta aparece directamente en Ajustes.
 - **specrails-core** nunca se actualiza solo. Pulsa **Buscar actualizaciones** en la tarjeta de Core y luego **Actualizar** para instalarlo. Tus proyectos pasan al nuevo framework sin reiniciar la app.
 
 ## Conviene saber
@@ -32,4 +32,6 @@ La tarjeta de actualización comprueba qué detendría un reinicio. Si quedan tu
 
 ## Después de un reinicio
 
-Si Specrails se cierra, se reinicia para actualizarse o se detiene de forma inesperada con trabajo en marcha, el siguiente arranque muestra **Retoma donde lo dejaste**: las misiones que estaban a mitad de turno y las ejecuciones que pausó el reinicio, cada una con su casilla. Nada se reanuda solo. Las misiones continúan en su propia sesión (con una nota breve de que la app se reinició); las ejecuciones usan su Reanudar habitual. **Ahora no** descarta la lista; las ejecuciones pausadas siguen en la Bandeja.
+Si Specrails se cierra, se reinicia para actualizarse o se detiene de forma inesperada con trabajo en marcha, el siguiente arranque muestra **Retoma donde lo dejaste**: las misiones que estaban a mitad de turno y las ejecuciones que pausó el reinicio, cada una con su casilla. Nada se reanuda solo. Las misiones continúan en su propia sesión (con una nota breve de que la app se reinició); las ejecuciones usan su Reanudar habitual. **Ahora no** descarta la lista; las ejecuciones pausadas siguen en la Bandeja. Escape o un clic fuera solo la ocultan: vuelve a aparecer en el siguiente arranque.
+
+Es la única ventana que se abre sola al arrancar. Si además la app se detuvo de forma inesperada, la explicación aparece como una barra en la parte superior de la ventana (nunca te bloquea). En una instalación nueva, el tour de la plataforma espera a un arranque sin ninguna de las dos.

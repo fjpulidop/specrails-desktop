@@ -365,9 +365,11 @@ export function TicketPostitCard({
         {/* Spacer pushes the Move-to-Rail button to the bottom */}
         <div className="flex-1" />
 
-        {/* Footer actions: Continue Editing (when editable) · Move to Rail */}
+        {/* Footer actions: Continue editing (when editable) · Move to rail.
+            Each label stays on one line; on a narrow card the row wraps as a
+            whole instead of breaking a label in two. */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/30">
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
             {canContinueEditing && (
               <button
                 type="button"
@@ -375,7 +377,7 @@ export function TicketPostitCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 data-testid="postit-continue-editing"
                 title={t('card.continueEditingTitle')}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-label text-accent-primary hover:bg-accent-primary/10 hover:text-accent-primary transition-colors"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 rounded-md text-label text-accent-primary hover:bg-accent-primary/10 hover:text-accent-primary transition-colors"
               >
                 <MessageSquare className="w-2.5 h-2.5" aria-hidden />
                 {t('card.continueEditing')}
@@ -390,7 +392,7 @@ export function TicketPostitCard({
                 type="button"
                 onClick={handleMoveClick}
                 data-testid="move-to-rail-button"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-label text-accent-info hover:bg-accent-info/10 hover:text-accent-info transition-colors"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 rounded-md text-label text-accent-info hover:bg-accent-info/10 hover:text-accent-info transition-colors"
               >
                 {t('card.moveToRail')}
                 <ArrowRight className="w-2.5 h-2.5" aria-hidden />

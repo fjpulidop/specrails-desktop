@@ -216,7 +216,7 @@ export interface ProviderCapabilities {
    * Optional — absent ⇒ false.
    */
   supportsImageInput?: boolean
-  /** Provider can execute SpecRails-owned structured transforms. */
+  /** Provider can execute Specrails-owned structured transforms. */
   structuredActions?: boolean
   /**
    * Non-default tool boundaries that the CLI enforces natively in headless
@@ -232,7 +232,7 @@ export interface ProviderCapabilities {
    * string through the JSON schema and preserves it byte-for-byte.
    */
   customModelAliases?: boolean
-  /** Desktop may discover and invoke provider-native SpecRails role skills. */
+  /** Desktop may discover and invoke provider-native Specrails role skills. */
   customRoles?: boolean
   /**
    * Provider headless mode does not intercept its interactive slash-skill

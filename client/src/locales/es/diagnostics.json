@@ -32,11 +32,10 @@
   "restarting": "El servidor local se detuvo. Reiniciándolo…",
   "responsiveness": {
     "title": "Capacidad de respuesta",
-    "none": "Sin bloqueos desde las {{time}}",
-    "summary_one": "{{count}} bloqueo · el más largo {{duration}}",
-    "summary_other": "{{count}} bloqueos · el más largo {{duration}}",
-    "last": "Último a las {{time}}: {{duration}} durante {{operation}}",
-    "background": "trabajo en segundo plano",
-    "hint": "Un bloqueo es un momento de {{threshold}} o más en el que el servidor local no pudo responder."
+    "none": "Sin ralentizaciones desde las {{time}}",
+    "summary_one": "{{count}} ralentización · la más larga {{duration}}",
+    "summary_other": "{{count}} ralentizaciones · la más larga {{duration}}",
+    "last": "Última a las {{time}}: la app tardó {{duration}} en responder",
+    "hint": "Una ralentización es un momento de {{threshold}} o más en el que la app no pudo responder."
   }
 }

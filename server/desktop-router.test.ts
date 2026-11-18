@@ -46,6 +46,7 @@ vi.mock('./specrails-tech-client', () => ({
 
 import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { createDesktopRouter, _resetAvailableProvidersCacheForTests, AVAILABLE_PROVIDERS_TTL_MS } from './desktop-router'
+import { displayPath } from './desktop-router-settings'
 import { checkCoreCompat, detectAvailableCLIsAsync } from './core-compat'
 import { kimiAdapter } from './providers'
 import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook, addProjectRepository, updateProjectRepository, removeProjectRepository } from './desktop-db'
@@ -59,6 +60,7 @@ function createMockRegistry(desktopDb: DbInstance) {
 
   const registry = {
     desktopDb,
+    desktopPort: 4395,
     notifySettingsChanged: vi.fn(),
     getContext: vi.fn((id: string) => contexts.get(id)),
     getContextByPath: vi.fn((projectPath: string) => {
@@ -574,6 +576,23 @@ describe('desktop-router', () => {
       const res = await request(app).get('/api/settings')
       expect(res.status).toBe(200)
       expect(res.body.port).toBe(8080)
+    })
+
+    it('reports the running version and where this instance keeps its database (About)', async () => {
+      const { app } = createApp()
+      const res = await request(app).get('/api/settings')
+      expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/)
+      expect(res.body.databasePath).toBe(desktopDb.name)
+      expect(res.body.runningPort).toBe(4395)
+    })
+  })
+
+  describe('displayPath', () => {
+    it('shortens the home folder to ~ and leaves other paths alone', () => {
+      expect(displayPath('/Users/me/.specrails-dev/.specrails/desktop.sqlite', '/Users/me')).toBe('~/.specrails-dev/.specrails/desktop.sqlite')
+      expect(displayPath('/Users/me', '/Users/me')).toBe('~')
+      expect(displayPath('/Users/meow/x', '/Users/me')).toBe('/Users/meow/x')
+      expect(displayPath(':memory:', '/Users/me')).toBe(':memory:')
     })
   })
 

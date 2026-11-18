@@ -10,6 +10,8 @@ Os ficheiros do próprio Specrails — as suas bases de dados, o estado por proj
 ~/.specrails/
 ```
 
+**Definições ▸ Sobre** mostra a localização exata da base de dados e a versão da aplicação que está a usar.
+
 Essa pasta é o workspace privado da aplicação. É onde ficam o registo de projetos, as bases de dados por projeto, as ferramentas integradas e toda a parte operacional. Os seus repositórios de código nunca são usados como depósito para nada disto.
 
 Isto significa que:
@@ -51,7 +53,7 @@ Quando remove um projeto do Specrails, a aplicação limpa o seu próprio estado
 
 Cada execução de um rail trabalha no seu próprio worktree Git em `~/.specrails/projects/<projeto>/worktrees/`. Quando uma execução termina, o Specrails remove esse worktree, mas só se conseguir provar que nada se perde. Se não conseguir (alterações sem commit, ficheiros que só existem lá ou uma remoção que falhou), mantém-no. Com o tempo vão-se acumulando.
 
-**Definições ▸ Armazenamento** lista-os para todos os projetos. Também pode lá chegar a partir do popover **Recursos** da barra de estado. Cada worktree mostra o seu tamanho (medido em segundo plano), há quanto tempo está sem uso, a sua PR e o que se perderia ao removê-lo:
+**Definições ▸ Armazenamento** lista-os para todos os projetos. Também pode lá chegar a partir do popover **Recursos da app** da barra de estado. Cada worktree mostra o seu tamanho (medido em segundo plano), há quanto tempo está sem uso, a sua PR e o que se perderia ao removê-lo:
 
 - **Nada a perder**: sem alterações sem commit, e cada ficheiro ignorado é regenerável (`node_modules`), uma ligação ou idêntico ao mesmo ficheiro no seu checkout principal (um `.env` copiado, por exemplo). Todos os commits da sua branch estão num remoto ou noutra branch, ou a sua entrega foi integrada.
 - **À sua espera**: algo ainda precisa de si. Cada motivo é indicado: alterações sem commit, ficheiros ignorados que só existem lá, commits só nesta branch, uma entrega que espera a sua decisão, atividade recente (a última hora) ou o Git não conseguiu verificá-lo. Um worktree que o Git não consegue verificar nunca é considerado limpo.

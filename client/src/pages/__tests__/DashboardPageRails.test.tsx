@@ -96,10 +96,9 @@ describe('DashboardPage — rail interactions', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ rails: [], activeJobs: {}, activeLoopRuns: {}, profiles: [] }) })
     render(<DashboardPage />)
     await waitFor(() => {
-      const pickers = screen.getAllByTestId('rail-loop-selector') as HTMLSelectElement[]
-      expect(pickers[0].value).toBe('factory:implement')
-      expect(pickers[1].value).toBe('factory:implement')
-      expect(pickers.slice(2).map((p) => p.value)).toEqual(['factory:implement', 'factory:implement', 'factory:implement'])
+      // Every rail reads as the Implement built-in (factory:implement).
+      const pickers = screen.getAllByTestId('rail-loop-selector')
+      expect(pickers.map((p) => p.textContent)).toEqual(['Implement', 'Implement', 'Implement', 'Implement', 'Implement'])
     })
     expect(screen.queryByText('Batch')).not.toBeInTheDocument()
     expect(screen.queryByText('Freestyle')).not.toBeInTheDocument()
@@ -310,7 +309,10 @@ describe('DashboardPage — loop model picker wiring', () => {
     // Without the wiring it will not exist — this is the failing assertion.
     const picker = await screen.findByTestId('loop-model-selector')
     await act(async () => {
-      fireEvent.change(picker, { target: { value: 'haiku' } })
+      fireEvent.pointerDown(picker, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Claude Haiku 5.5' }))
     })
 
     const playBtn = await screen.findByTitle('Play')

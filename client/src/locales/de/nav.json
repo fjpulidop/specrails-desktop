@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Linke Seitenleiste einklappen (angepinnt lassen)",
       "pinnedCollapsed": "Linke Seitenleiste lösen",
-      "unpinned": "Linke Seitenleiste offen anpinnen"
+      "unpinned": "Linke Seitenleiste offen anpinnen",
+      "showOverlay": "Seitenleiste einblenden",
+      "hideOverlay": "Seitenleiste ausblenden"
     },
     "right": {
       "pinnedOpen": "Rechte Seitenleiste einklappen (angepinnt lassen)",
@@ -47,7 +49,7 @@
     "docs": "Doku",
     "analytics": "Analytics aller Projekte",
     "companion": "Companion",
-    "settings": "App-Einstellungen",
+    "settings": "Einstellungen",
     "plugins": "Plugins",
     "review": "Review",
     "landmark": "Projekte und Missionen",
@@ -87,10 +89,9 @@
     "activeCli": "Aktive CLI: {{label}}"
   },
   "statusBar": {
-    "connected": "verbunden",
-    "syncing": "synchronisiere...",
-    "reconnecting": "verbinde neu...",
-    "disconnected": "getrennt",
+    "syncing": "Synchronisiere…",
+    "reconnecting": "Verbinde neu…",
+    "disconnected": "Offline",
     "connectionRestored": "Verbindung wiederhergestellt"
   },
   "titleBar": {
@@ -155,11 +156,11 @@
   },
   "keepAwake": {
     "label": "Computer wach halten",
-    "on": "An",
-    "off": "Aus",
     "active": "Verhindert automatischen Ruhezustand. Der Bildschirm darf ausgehen.",
     "inactive": "Normaler Ruhezustand erlaubt.",
-    "failed": "Ruhezustand konnte nicht geändert werden."
+    "failed": "Ruhezustand konnte nicht geändert werden.",
+    "turnOff": "Ruhezustand wieder erlauben",
+    "activeHint": "Der Computer wird wach gehalten. Klicken, um den Ruhezustand zu erlauben."
   },
   "skipToContent": "Zum Hauptinhalt springen",
   "places": {

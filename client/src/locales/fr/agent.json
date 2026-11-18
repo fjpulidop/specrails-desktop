@@ -442,7 +442,7 @@
       "mergeLocalTitle": "Intégrer localement ?",
       "mergeLocalBody": "Les branches livrées seront fusionnées dans {{base}} localement. Les modifications existantes sont préservées ; les modifications qui se chevauchent peuvent nécessiter une résolution avant l’intégration.",
       "freshDiscardTitle": "Supprimer cette livraison ?",
-      "freshDiscardBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à SpecRails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog. Les ressources locales supprimées ne peuvent pas être récupérées.",
+      "freshDiscardBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à Specrails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog. Les ressources locales supprimées ne peuvent pas être récupérées.",
       "implementationFailedDiscardTitle": "Abandonner cette livraison en échec ?",
       "implementationFailedDiscardBody": "La carte sera fermée et ses specs retourneront dans le backlog. Le travail local et les branches seront conservés pour inspection. Seules les ressources dont le nettoyage est prouvé sûr pourront être supprimées.",
       "dismissTitle": "Fermer ce suivi ?",
@@ -937,7 +937,7 @@
     "retry": "Réessayer",
     "openRight": "Ouvrir à droite",
     "openBelow": "Ouvrir en dessous",
-    "layoutMenu": "Disposition du panneau",
+    "layoutMenu": "Diviser et organiser les panneaux",
     "splitRight": "Diviser à droite",
     "splitDown": "Diviser en bas",
     "moveLeft": "Déplacer à gauche",
@@ -1583,7 +1583,7 @@
     "startFailed": "La boucle de CI n’a pas pu démarrer.",
     "dismissFailed": "Impossible d’enregistrer votre choix. Réessayez.",
     "startedToast": "Surveillance de la CI démarrée sur le rail {{index}}",
-    "fixCi": "Corriger CI / Conflits",
+    "fixCi": "Corriger CI / conflits",
     "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
     "step": {
       "checks": "En attente de la CI",
@@ -1601,7 +1601,7 @@
     "noCiMany": "Les PR {{pr}} n’ont pas de checks de CI",
     "needsAttentionMany": "Les PR {{pr}} sont poussées ; leur CI n'est pas encore verte",
     "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
-    "retry": "Corriger CI / Conflits à nouveau",
+    "retry": "Corriger CI / conflits à nouveau",
     "openLog": "Voir le journal"
   },
   "missionResources": {

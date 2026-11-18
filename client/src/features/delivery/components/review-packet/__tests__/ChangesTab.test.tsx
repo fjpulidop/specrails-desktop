@@ -222,7 +222,7 @@ describe('ChangesTab', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
     const [message, options] = toastError.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
     expect(message).toBe('Couldn’t open VS Code. Is it installed? Change it in Settings ▸ Code.')
-    expect(options.action.label).toBe('Open Settings')
+    expect(options.action.label).toBe('Open settings')
     options.action.onClick()
     expect(openAppSettings).toHaveBeenCalledWith('code', 'editor')
   })

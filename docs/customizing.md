@@ -4,15 +4,15 @@ Every setting you can change, grouped by where you'll find it.
 
 ## Themes
 
-Open **App settings** (gear icon at the bottom of the left sidebar) → **Appearance**.
+Open **Settings** (gear icon at the bottom of the left sidebar) → **Appearance**.
 
 Five built-in themes:
 
 | Theme | Vibe |
 |-------|------|
-| **SpecRails** *(default)* | Brand theme — deep navy-indigo with saturated cyan accents |
+| **Specrails** *(default)* | Brand theme — deep navy-indigo with saturated cyan accents |
 | **Dracula** | The original — dark purple-tinted with vivid neon accents |
-| **Aurora Light** | Premium light — cool indigo on warm off-white |
+| **Aurora Light** | Daylight drafting table — ink on warm paper, depth from soft shadows |
 | **Obsidian Dark** | Premium dark — near-black blue-tinted with electric accents |
 | **Matrix** | Phosphor terminal — soft mint on green-tinted near-black |
 
@@ -104,18 +104,18 @@ See [terminal.md](terminal.md) for the full reference of keyboard shortcuts and 
 
 ## App-wide settings
 
-Open **App settings** from the bottom of the left sidebar. These apply across every project.
+Open **Settings** from the bottom of the left sidebar. These apply across every project.
 
 | Section | What it does |
 |---------|--------------|
 | **Appearance** | Theme picker — see above. |
 | **Language** | UI language picker. Eight locales (English, Spanish, French, German, Portuguese, Italian, Chinese, Japanese). Hot-switches the whole app — no restart. First run follows your OS language until you pick one explicitly. |
 | **Code section** | Defaults for the Code section: the plain-language file-summary language (English or Spanish) and a monthly summary budget cap in USD. Hidden when the Code section is disabled. |
-| **Registered Projects** | The project registry. Re-resolve, rename, or remove projects. |
+| **Registered projects** | The project registry. Re-resolve, rename, or remove projects. |
 | **specrails-tech** | Base URL for the external specrails-tech agents service (default `http://localhost:3000`). |
 | **Budget & Alerts** | App-wide daily budget (a global spend cap across all projects — queues auto-pause when exceeded) plus a per-job cost alert threshold. Distinct from the per-project budget. |
 | **OS Notifications** | Native desktop notifications when jobs complete or fail. Notifications only fire when the tab isn't focused. Filter on all / completed-only / failed-only. |
-| **Outbound Webhooks** | Notify external tools (Slack, Zapier, CI/CD) on app events. Requests are signed with `X-Specrails-Signature` when a secret is set. |
+| **Outbound webhooks** | Notify external tools (Slack, Zapier, CI/CD) on app events. Requests are signed with `X-Specrails-Signature` when a secret is set. |
 | **Terminal Panel** | The same terminal fields as per-project, applied app-wide as defaults. Per-project values override them. |
 | **Onboarding** | Re-run the welcome tour. |
 | **Desktop Information** | Version, paths, and diagnostics. |

@@ -26,7 +26,7 @@
       "desktopAnalytics": "Desktop 分析",
       "projectAnalytics": "プロジェクト分析",
       "activityFeed": "アクティビティフィード",
-      "desktopSettings": "Desktop 設定",
+      "desktopSettings": "設定",
       "docs": "ドキュメント",
       "replayTour": "ツアーをもう一度見る"
     },
@@ -69,7 +69,7 @@
       "switchTheme": "テーマを切り替え",
       "switchToMission": "ミッションモードに切り替え",
       "switchToBoard": "ボードモードに切り替え",
-      "openAppSettings": "アプリ設定を開く",
+      "openAppSettings": "設定を開く",
       "openProjectSettings": "プロジェクト設定を開く",
       "switchProject": "プロジェクトを切り替え",
       "runLoop": "ループを実行",
@@ -95,7 +95,7 @@
         "themeTitle": "テーマ",
         "themePlaceholder": "テーマを選択...",
         "noThemes": "利用できるテーマがありません。",
-        "appSettingsTitle": "アプリ設定",
+        "appSettingsTitle": "設定",
         "projectSettingsTitle": "プロジェクト設定",
         "sectionPlaceholder": "セクションを選択...",
         "noSections": "セクションがありません。",
@@ -215,7 +215,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop 設定",
+      "appScope": "設定",
       "projectScope": "プロジェクト設定",
       "entries": {
         "theme": {
@@ -506,6 +506,10 @@
       "runs_one": "実行 {{count}} 件",
       "runs_other": "実行 {{count}} 件",
       "something": "進行中の作業"
+    },
+    "chip": {
+      "text": "アップデート",
+      "label": "Specrails {{version}} が利用できます。アップデートを表示"
     }
   },
   "notifications": {

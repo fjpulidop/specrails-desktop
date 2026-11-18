@@ -158,7 +158,7 @@
     "discardedToast": "PR abandonnée — specs renvoyées vers Specs",
     "decisionPending": "Ce rail a une décision de PR en attente — créez, publiez ou abandonnez-la avant de relancer",
     "discardConfirmTitle": "Abandonner cette livraison ?",
-    "discardConfirmBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à SpecRails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog Specs. Les ressources locales supprimées ne peuvent pas être récupérées.",
+    "discardConfirmBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à Specrails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog Specs. Les ressources locales supprimées ne peuvent pas être récupérées.",
     "implementationFailedDiscardTitle": "Abandonner cette livraison en échec ?",
     "implementationFailedDiscardBody": "La carte sera fermée et ses specs retourneront vers Specs. Le travail local et les branches seront conservés pour inspection. Seules les ressources dont le nettoyage est prouvé sûr pourront être supprimées.",
     "mergeLocal": "Intégrer en local",
@@ -184,7 +184,7 @@
     "relaunchSent": "Relance du rail",
     "relaunchFailed": "Impossible de relancer le rail",
     "recheckRecoveryConfirmTechnical": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché.",
-    "fixCi": "Corriger CI / Conflits",
+    "fixCi": "Corriger CI / conflits",
     "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
     "fixCiStarted": "Surveillance de la CI démarrée",
     "fixCiFailed": "La boucle de CI n’a pas pu démarrer"

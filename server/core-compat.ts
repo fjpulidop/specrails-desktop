@@ -285,7 +285,8 @@ export async function getCLIStatus(): Promise<CLIStatus> {
   }
 }
 
-function readDesktopVersion(): string {
+/** The running app's version (its package.json), or 'unknown'. */
+export function readDesktopVersion(): string {
   // __dirname is server/ in dev (tsx) or server/dist/ when compiled
   const candidates = [
     path.join(__dirname, '..', 'package.json'),       // from server/ (dev)

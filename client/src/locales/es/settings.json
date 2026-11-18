@@ -65,7 +65,7 @@
       "notifications": "Notificaciones",
       "storage": "Almacenamiento"
     },
-    "title": "Ajustes de Desktop",
+    "title": "Ajustes",
     "description": "Apariencia, proveedores de IA, actualizaciones y preferencias generales de Desktop.",
     "registeredProjects": "Proyectos registrados",
     "noProjects": "Aún no hay proyectos registrados",
@@ -83,10 +83,10 @@
     "platformTour": "Tour de la plataforma",
     "platformTourDescription": "Vuelve a ver el asistente de bienvenida para repasar las funciones clave.",
     "replayTour": "Repetir tour",
-    "infoHeading": "Información de Desktop",
+    "infoHeading": "Acerca de",
     "infoPort": "Puerto",
     "infoProjects": "Proyectos",
-    "infoDb": "BD de Desktop",
+    "infoDb": "Base de datos",
     "removeProjectConfirmTitle": "¿Quitar {{name}}?",
     "removeProjectConfirmBody": "{{name}} se elimina del registro de Specrails y su trabajo en curso se detiene. Los archivos del repositorio en disco no se borran; puedes volver a añadir la carpeta más tarde.",
     "navLabel": "Secciones de ajustes",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Cambios sin guardar",
     "dailyBudgetCurrent": "Ahora mismo: {{amount}} al día",
-    "dailyBudgetNone": "Sin límite diario"
+    "dailyBudgetNone": "Sin límite diario",
+    "infoVersion": "Versión"
   },
   "webhooks": {
     "heading": "Webhooks salientes",
@@ -155,7 +156,7 @@
   "appearance": {
     "taglines": {
       "dracula": "El original — oscuro con tinte púrpura y acentos neón vivos",
-      "aurora-light": "Claro premium — índigo inspirado en Linear sobre blanco cálido",
+      "aurora-light": "Mesa de dibujo a la luz del día — tinta sobre papel cálido, profundidad con sombras suaves",
       "obsidian-dark": "Grafito pro — casi negro neutro con un solo acento violeta apagado",
       "specrails": "Tema de marca — azul marino-índigo profundo con acentos cian saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre casi negro verdoso",
@@ -168,7 +169,7 @@
   },
   "mobile": {
     "heading": "App móvil",
-    "description": "Controla Specrails desde la app SpecRails Companion de tu teléfono, 100 % a través de tu red local. Desactivado por defecto. Un teléfono emparejado puede responder preguntas, reanudar, reintentar y crear PR en borrador desde la bandeja, según lo que permitan los niveles de permisos MCP; fusionar, descartar y los ajustes se quedan en este ordenador.",
+    "description": "Controla Specrails desde la app Specrails Companion de tu teléfono, 100 % a través de tu red local. Desactivado por defecto. Un teléfono emparejado puede responder preguntas, reanudar, reintentar y crear PR en borrador desde la bandeja, según lo que permitan los niveles de permisos MCP; fusionar, descartar y los ajustes se quedan en este ordenador.",
     "accessOn": "Acceso móvil activado",
     "accessOff": "Acceso móvil desactivado",
     "listeningOnPort": "A la escucha en el puerto {{port}}",
@@ -181,7 +182,7 @@
     "identityReset": "Identidad móvil restablecida",
     "enableFailed": "No se pudo activar el acceso móvil",
     "disableFailed": "No se pudo desactivar el acceso móvil",
-    "windowsFirewall": "El Firewall de Windows pedirá permiso para el servidor de SpecRails la primera vez que lo actives — elige «Permitir en redes privadas».",
+    "windowsFirewall": "El Firewall de Windows pedirá permiso para el servidor de Specrails la primera vez que lo actives — elige «Permitir en redes privadas».",
     "pairedDevices": "Dispositivos emparejados",
     "noDevices": "Aún no hay dispositivos emparejados.",
     "revokeDevice": "Revocar {{name}}",
@@ -502,7 +503,7 @@
   },
   "budgetMoved": "Los límites se editan en Analíticas ▸ Presupuesto.",
   "openBudget": "Abrir Presupuesto",
-  "openSettings": "Abrir Ajustes",
+  "openSettings": "Abrir ajustes",
   "accessibility": {
     "density": {
       "title": "Densidad",

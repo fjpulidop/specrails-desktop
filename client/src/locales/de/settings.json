@@ -65,7 +65,7 @@
       "notifications": "Benachrichtigungen",
       "storage": "Speicher"
     },
-    "title": "Desktop-Einstellungen",
+    "title": "Einstellungen",
     "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",
     "registeredProjects": "Registrierte Projekte",
     "noProjects": "Noch keine Projekte registriert",
@@ -83,10 +83,10 @@
     "platformTour": "Plattform-Tour",
     "platformTourDescription": "Den Willkommensassistenten erneut abspielen, um die wichtigsten Funktionen zu sehen.",
     "replayTour": "Tour erneut abspielen",
-    "infoHeading": "Desktop-Informationen",
+    "infoHeading": "Über",
     "infoPort": "Port",
     "infoProjects": "Projekte",
-    "infoDb": "Desktop-DB",
+    "infoDb": "Datenbank",
     "removeProjectConfirmTitle": "{{name}} entfernen?",
     "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen.",
     "navLabel": "Einstellungsbereiche",
@@ -97,7 +97,8 @@
     },
     "unsavedChanges": "Ungespeicherte Änderungen",
     "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
-    "dailyBudgetNone": "Kein Tageslimit gesetzt"
+    "dailyBudgetNone": "Kein Tageslimit gesetzt",
+    "infoVersion": "Version"
   },
   "webhooks": {
     "heading": "Ausgehende Webhooks",
@@ -155,7 +156,7 @@
   "appearance": {
     "taglines": {
       "dracula": "Das Original — dunkel mit Violettstich und lebhaften Neon-Akzenten",
-      "aurora-light": "Premium hell — Linear-inspiriertes Indigo auf warmem Cremeweiß",
+      "aurora-light": "Zeichentisch bei Tageslicht — Tinte auf warmem Papier, Tiefe durch weiche Schatten",
       "obsidian-dark": "Graphit Pro — neutrales Fast-Schwarz mit einem gedämpften Violett-Akzent",
       "specrails": "Marken-Theme — tiefes Marine-Indigo mit satten Cyan-Akzenten",
       "code-rain": "Phosphor-Terminal — sanftes Mint auf grünlichem Fast-Schwarz",
@@ -168,7 +169,7 @@
   },
   "mobile": {
     "heading": "Mobile Companion",
-    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
+    "description": "Steuern Sie Specrails über die Specrails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
     "accessOn": "Mobilzugriff an",
     "accessOff": "Mobilzugriff aus",
     "listeningOnPort": "Lauscht auf Port {{port}}",
@@ -181,7 +182,7 @@
     "identityReset": "Mobile Identität zurückgesetzt",
     "enableFailed": "Mobilzugriff konnte nicht aktiviert werden",
     "disableFailed": "Mobilzugriff konnte nicht deaktiviert werden",
-    "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der SpecRails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
+    "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der Specrails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
     "revokeDevice": "{{name}} widerrufen",

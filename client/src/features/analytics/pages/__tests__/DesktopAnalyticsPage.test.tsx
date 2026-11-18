@@ -77,10 +77,10 @@ describe('DesktopAnalyticsPage', () => {
     })
   })
 
-  it('renders Desktop Analytics heading', async () => {
+  it('renders Desktop analytics heading', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    expect(screen.getByText('Desktop Analytics')).toBeInTheDocument()
+    expect(screen.getByText('Desktop analytics')).toBeInTheDocument()
   })
 
   it('renders loading skeleton initially', async () => {
@@ -100,10 +100,10 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Total Cost')).toBeInTheDocument()
+      expect(screen.getByText('Total cost')).toBeInTheDocument()
     })
-    expect(screen.getByText('Total Jobs')).toBeInTheDocument()
-    expect(screen.getByText('Success Rate')).toBeInTheDocument()
+    expect(screen.getByText('Total jobs')).toBeInTheDocument()
+    expect(screen.getByText('Success rate')).toBeInTheDocument()
   })
 
   it('renders project comparison section', async () => {
@@ -111,7 +111,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Project Comparison')).toBeInTheDocument()
+      expect(screen.getByText('Project comparison')).toBeInTheDocument()
     })
     expect(screen.getByText('Project Alpha')).toBeInTheDocument()
   })
@@ -334,7 +334,7 @@ describe('DesktopAnalyticsPage', () => {
   it('MED-10: states the active window once, in the header (default 7d)', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
     expect(screen.getByTestId('analytics-window-label')).toHaveTextContent('Last 7 days')
     // No per-card duplicate of the window.
     expect(screen.queryByTestId('kpi-window-label')).not.toBeInTheDocument()
@@ -350,11 +350,11 @@ describe('DesktopAnalyticsPage', () => {
         </DialogContent>
       </Dialog>,
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Desktop Analytics' })
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    const dialog = await screen.findByRole('dialog', { name: 'Desktop analytics' })
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
     // The accessible name comes from the one visible heading — no sr-only twin.
-    expect(screen.getAllByText('Desktop Analytics')).toHaveLength(1)
-    expect(screen.getByText('Desktop Analytics')).not.toHaveClass('sr-only')
+    expect(screen.getAllByText('Desktop analytics')).toHaveLength(1)
+    expect(screen.getByText('Desktop analytics')).not.toHaveClass('sr-only')
     expect(dialog).toHaveAccessibleDescription('Last 7 days')
     expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
     // One close button, in the header row next to the period controls.
@@ -367,7 +367,7 @@ describe('DesktopAnalyticsPage', () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
 
     const before = fetchMock.mock.calls.length
     // Cross-project page: a spend broadcast from ANY project must refetch.
@@ -383,7 +383,7 @@ describe('DesktopAnalyticsPage', () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
 
     const before = fetchMock.mock.calls.length
     wsMock.emit({ type: 'log', event_type: 'job_done' })

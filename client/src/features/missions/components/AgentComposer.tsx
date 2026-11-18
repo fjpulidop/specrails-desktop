@@ -27,6 +27,7 @@ import {
   clearSubmittedComposerDraft,
   restoreSubmittedComposerDraft,
   NEW_MISSION_DRAFT_KEY,
+  missionPlaceholderIndex,
   type AgentComposerDraftSnapshot,
 } from '../lib/agent-composer-drafts'
 import { isBrowserCaptureEnabled } from '../../browser/lib/browser-capture'
@@ -152,8 +153,8 @@ export function AgentComposer({
   const backgroundProjectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
   const missionResources = useMissionResourceHistory(backgroundProjectId ?? null, active?.id ?? null, resourcesOpen)
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
-  // Keep the welcome stable while typing; choose again for another mission.
-  const welcomeIndex = useMemo(() => Math.floor(Math.random() * 20), [draftKey])
+  // Stable per mission across renders and reloads; varies between missions.
+  const welcomeIndex = missionPlaceholderIndex(draftKey)
   const missionWindows = useMissionWindows()
   const recoveredKey = useRef<string | null>(null)
   if (recoveredKey.current !== draftKey) {

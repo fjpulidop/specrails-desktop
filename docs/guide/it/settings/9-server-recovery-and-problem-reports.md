@@ -4,7 +4,7 @@ Specrails esegue sul tuo computer un piccolo server che fa funzionare progetti, 
 
 ## Cosa succede quando il server si arresta
 
-- **Specrails lo riavvia per te.** Il server torna allo stesso indirizzo e le finestre aperte si ricollegano da sole; la barra di stato mostra **Riconnessione** per qualche secondo.
+- **Specrails lo riavvia per te.** Il server torna allo stesso indirizzo e le finestre aperte si ricollegano da sole; la barra di stato mostra **Riconnessione…** per qualche secondo.
 - **Un banner spiega cosa è successo**: quando il server si è arrestato e perché (un codice di uscita o un segnale). Il lavoro in corso in quel momento potrebbe essere stato interrotto: controlla il suo stato e rilancialo se serve.
 - **Al massimo tre riavvii al minuto.** Se il server continua ad arrestarsi, Specrails smette di riavviarlo per non nascondere un problema e mostra una finestra di dialogo. Scegli **Try again** per avviarlo ora, oppure chiudi e riapri Specrails. I progetti salvati restano sul disco.
 - **Anche l’avvio successivo lo spiega.** Se Specrails è stato chiuso mentre il server era fermo, il banner compare alla prossima apertura.
@@ -38,4 +38,4 @@ Token, chiavi API, password, chiavi private e credenziali negli URL sono sostitu
 
 ## Reattività {#responsiveness}
 
-Il popover **Risorse** nella barra di stato mostra anche la **Reattività**: quante volte il server non è riuscito a rispondere per 200 ms o più, il più lungo di questi momenti e cosa stava facendo. Blocchi lunghi e frequenti meritano un rapporto.
+Il popover **Risorse dell'app** nella barra di stato mostra anche la **Reattività**: quanti rallentamenti ci sono stati (momenti di 200 ms o più in cui l'app non riusciva a rispondere), il più lungo e quando si è verificato l'ultimo. Rallentamenti lunghi e frequenti meritano un rapporto, che include il dettaglio tecnico.

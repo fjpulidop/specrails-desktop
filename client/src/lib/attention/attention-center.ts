@@ -43,6 +43,11 @@ export interface AttentionCenterDeps {
   focus(): Promise<WindowFocus>
   notify(notification: NativeNotification): Promise<boolean>
   toast(event: AttentionEvent): void
+  /**
+   * Shows an in-app toast now or later (the startup queue holds them while a
+   * launch modal is open). Default: now.
+   */
+  deliver?: (show: () => void) => void
   now?: () => number
   /**
    * Coalescing of OS notifications: those sent within `burstMs` of the first
@@ -70,6 +75,11 @@ export interface AttentionCenter {
 
 export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCenter {
   const now = deps.now ?? Date.now
+  const deliver = deps.deliver ?? ((show: () => void) => show())
+  const showToast = (event: AttentionEvent): void => deliver(() => {
+    if (event.inAppToast) event.inAppToast()
+    else deps.toast(event)
+  })
   const keys = new Map<string, number>()
   const subjects = new Map<string, number>()
   let away: AwayEntry[] = []
@@ -124,8 +134,7 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
         return decision
       }
       if (decision === 'toast') {
-        if (event.inAppToast) event.inAppToast()
-        else deps.toast(event)
+        showToast(event)
         return decision
       }
       const open = event.open
@@ -139,10 +148,7 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
       // Away: remembered for the return toast even when the system refused the
       // notification (permission denied), so the person still hears about it.
       if (!focus.appFocused) away = [...away.filter((entry) => entry.key !== event.key), { key: event.key, open }]
-      else if (!shown) {
-        if (event.inAppToast) event.inAppToast()
-        else deps.toast(event)
-      }
+      else if (!shown) showToast(event)
       return decision
     },
     takeAway() {

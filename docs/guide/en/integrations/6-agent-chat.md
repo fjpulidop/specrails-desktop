@@ -37,7 +37,7 @@ text still streaming or waiting in the queue is not available yet.
 Right-click a mission in the sidebar (or press **Shift+F10** on it) and choose **Split view**, **Open to the right** or **Open below**. Split view puts it next to the mission you are in when there is room for both, otherwise below it.
 
 - **Resize** by dragging the line between two missions. It snaps to the middle; double-click it to share that space evenly. With the line focused, the arrow keys move it (Shift for bigger steps) and Home centres it.
-- **Pane layout menu** (the columns button in each mission's header): open another mission to the right or below, move the mission left, right, up or down, swap it with another one, maximize it, equalize all missions, or close it. Options that would leave a mission too small (under about 360 × 240 px) are disabled.
+- **Split and arrange panes** (the split-square button in each mission's header): open another mission to the right or below, move the mission left, right, up or down, swap it with another one, maximize it, equalize all missions, or close it. Options that would leave a mission too small (under about 360 × 240 px) are disabled.
 - **Shortcuts:** **⌥⌘]** / **⌥⌘[** next or previous mission, **⌘⇧↵** maximize or restore, **⌥⌘=** equalize, **⌥⌘W** close the mission you are in (on Windows/Linux, Ctrl+Alt instead of ⌥⌘ and Ctrl+Shift+Enter).
 - **Small windows:** when the missions no longer fit, they stack: a row of tabs at the top picks the one shown, and the others keep running.
 
@@ -119,7 +119,7 @@ In the expanded Mission sidebar, the selector beside **Projects** offers **Activ
 
 Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **on by default**; turn them off per project if you want to keep each request's cost down, since they multiply what one request costs.
 
-- **Turn them off per project.** Open the project's **Settings → Sub-agents** and switch off **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
+- **Turn them off per project.** Open the project's **Settings → Sub-agents** and switch off **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **Settings → AI providers → Allow sub-agents in missions without a project**.
 - **Choose who runs them.** Under **Run sub-agents with**, the default **Same as the mission agent** lets the mission's own CLI launch them natively: fastest, and they share its prompt cache. Pick a provider, model and effort instead to mix providers — for example a Codex mission with Claude sub-agents. Missions already on that provider stay native with that model; on another provider Specrails launches each sub-agent itself, which starts colder and can cost more, but gives you more control and shows each one's real cost. Specrails asks you to confirm before switching, and those sub-agents carry a provider badge in the mission.
 - **Watch them work.** The agents a reply launched appear as one compact line under that reply. It stays open while they work, and once they all finish it folds into a summary with the total time and tokens. Expand a row to read its result and what it cost, or to follow its activity live. Each launch stays at its point in the conversation, so later launches never mix with earlier ones. Stop a running agent from its row, or stop them all from the line.
 - **The agent follows up on its own.** When background agents finish, the agent continues and posts what they found, marked *Continued after background agents*.
@@ -128,7 +128,7 @@ Some providers can hand parts of a task to **sub-agents** — helpers that work 
 
 ## Connectors in missions {#connectors}
 
-Missions can use the connectors and MCP servers you already set up in each provider: your **claude.ai account connectors** (Google Drive, Gmail…) and the servers in `~/.claude.json` when the mission runs on Claude, the servers in `~/.codex/config.toml` when it runs on Codex, and Gemini's servers on Gemini. Open **App settings → AI providers → Connectors in missions** to see them, grouped by provider.
+Missions can use the connectors and MCP servers you already set up in each provider: your **claude.ai account connectors** (Google Drive, Gmail…) and the servers in `~/.claude.json` when the mission runs on Claude, the servers in `~/.codex/config.toml` when it runs on Codex, and Gemini's servers on Gemini. Open **Settings → AI providers → Connectors in missions** to see them, grouped by provider.
 
 - **Everything starts on.** A connector you add later is on too. Switch off the ones your missions don't need: each one can add thousands of tokens to every request.
 - **Sizes.** **Measure sizes** starts each local MCP server once and shows how many tools it has and roughly how many tokens their definitions take. Claude sends those definitions in full with every request; Codex only loads them when the agent looks a tool up, so on Codex a connector costs almost nothing until it's used.

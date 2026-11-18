@@ -72,7 +72,7 @@ describe('SettingsPage', () => {
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Project Settings')).toBeInTheDocument()
+      expect(screen.getByText('Project settings')).toBeInTheDocument()
     })
   })
 
@@ -109,14 +109,14 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('shows Rail Pre-prompt section after load', async () => {
+  it('shows Rail pre-prompt section after load', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockConfig,
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Rail Pre-prompt')).toBeInTheDocument()
+      expect(screen.getByText('Rail pre-prompt')).toBeInTheDocument()
       expect(screen.getByLabelText('Pre-prompt')).toBeInTheDocument()
     })
   })

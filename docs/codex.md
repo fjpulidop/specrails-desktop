@@ -47,7 +47,7 @@ the choice later.
 Once more than one is installed:
 
 - **Per-invocation engine pickers** let you choose which engine runs each
-  time you spawn work. The picker appears in the **Add Spec** dialog
+  time you spawn work. The picker appears in the **Add spec** dialog
   (`AiEngineSelector`), in the **rail header** (`RailEngineSelector`),
   and in the terminal's **Open AI CLI** menu (`CliLaunchMenu`). On
   single-provider projects these pickers don't render — there's nothing

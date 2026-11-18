@@ -29,12 +29,12 @@
   "page": {
     "title": "Jobs",
     "subtitle": "Every run on this project, with cost, duration and outcome.",
-    "exportJobs": "Export Jobs",
+    "exportJobs": "Export jobs",
     "proposalDeleted": "Proposal deleted",
     "proposal": {
       "title": "Proposal",
       "noContent": "No proposal content yet.",
-      "githubIssue": "GitHub Issue:",
+      "githubIssue": "GitHub issue:",
       "status": {
         "input": "Awaiting input",
         "exploring": "Exploring",
@@ -62,10 +62,10 @@
     "exportDiagnosticTooltip": "Download ZIP with telemetry, logs, and summary for this job",
     "reExecute": "Run again",
     "reExecuteTooltip": "Spawn a new job with the same command",
-    "cancelJob": "Cancel Job",
+    "cancelJob": "Cancel job",
     "cancelJobTooltip": "Send SIGTERM to the running process. The job will be marked as canceled.",
     "cancelInteractive": "Discard",
-    "finalizeJob": "Finalize Job",
+    "finalizeJob": "Finalize job",
     "finalizing": "Finalizing…",
     "finalizeJobTooltip": "End this interactive session and roll every turn's tokens and cost into the job total.",
     "interactive": {
@@ -181,7 +181,7 @@
     "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
-    "title": "Job Comparison",
+    "title": "Job comparison",
     "jobN": "Job {{n}}",
     "loadFailed": "Failed to load comparison. Try again.",
     "duration": "Duration",
@@ -229,7 +229,7 @@
       "low": "low"
     },
     "clearModal": {
-      "title": "Clear Jobs",
+      "title": "Clear jobs",
       "jobsInHistory_one": "{{count}} job in history",
       "jobsInHistory_other": "{{count}} jobs in history",
       "clearAll_one": "Clear all {{count}} job",
@@ -259,7 +259,7 @@
     "noneHint": "Select a command below to start a job",
     "exitCode": "exit {{code}}",
     "cancelTooltip": "Send SIGTERM to the running claude process",
-    "viewLogs": "View Logs",
+    "viewLogs": "View logs",
     "toast": {
       "cancelRequested": "Job cancellation requested",
       "cancelRequestedDescription": "Sending SIGTERM to the process",

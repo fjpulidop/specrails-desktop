@@ -1,8 +1,6 @@
 {
-  "button": "资源",
-  "open": "显示 Specrails 使用的资源",
-  "openWithSummary": "资源：内存 {{memory}}，{{count}} 个进程",
-  "title": "资源",
+  "openWithSummary": "应用资源：{{count}} 个进程正在运行。查看详情",
+  "title": "应用资源",
   "subtitle": "Specrails 启动的所有内容",
   "cpu": "CPU",
   "memory": "内存",

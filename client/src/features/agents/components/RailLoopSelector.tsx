@@ -5,6 +5,7 @@ import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
 import { railRunnableCustomLoops } from '../../loops/lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
 import { HelpHint } from '../../../components/HelpHint'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../../components/ui/select'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
@@ -71,29 +72,33 @@ export function RailLoopSelector({
     >
       <Workflow className="w-3 h-3 text-muted-foreground mr-1" />
       <HelpHint topic="railLoops" className="mr-0.5 size-5" />
-      <select
-        value={value ?? ''}
-        disabled={disabled}
-        aria-label={t('railControls.loop')}
-        data-testid="rail-loop-selector"
-        data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
-        onChange={(e) => onChange(e.target.value)}
-        className={`h-6 text-caption rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
-      >
-        <option value="" disabled>{t('railControls.pickLoop')}</option>
-        <optgroup label={t('railControls.builtInLoops')}>
-          {builtIn.map((f) => (
-            <option key={f.id} value={f.id}>{withRecommendation(builtinRows.get(f.id)?.builtinModified ? builtinRows.get(f.id)!.name : t(f.labelKey), f.id)}</option>
-          ))}
-        </optgroup>
-        {published.length > 0 && (
-          <optgroup label={t('railControls.customLoops')}>
-            {published.map((l) => (
-              <option key={l.id} value={l.id}>{withRecommendation(l.name, l.id)}</option>
+      <Select value={value ?? ''} disabled={disabled} onValueChange={onChange}>
+        <SelectTrigger
+          size="sm"
+          aria-label={t('railControls.loop')}
+          data-testid="rail-loop-selector"
+          data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
+          className={`bg-transparent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-40 ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
+        >
+          <SelectValue placeholder={t('railControls.pickLoop')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>{t('railControls.builtInLoops')}</SelectLabel>
+            {builtIn.map((f) => (
+              <SelectItem key={f.id} value={f.id}>{withRecommendation(builtinRows.get(f.id)?.builtinModified ? builtinRows.get(f.id)!.name : t(f.labelKey), f.id)}</SelectItem>
             ))}
-          </optgroup>
-        )}
-      </select>
+          </SelectGroup>
+          {published.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>{t('railControls.customLoops')}</SelectLabel>
+              {published.map((l) => (
+                <SelectItem key={l.id} value={l.id}>{withRecommendation(l.name, l.id)}</SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+        </SelectContent>
+      </Select>
     </div>
     {description ? <p className="max-w-[200px] truncate text-caption text-muted-foreground" title={description} data-testid="rail-loop-description">{description}</p> : null}
     </div>

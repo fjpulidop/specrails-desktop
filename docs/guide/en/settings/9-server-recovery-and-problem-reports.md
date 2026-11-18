@@ -4,7 +4,7 @@ Specrails runs a small server on your computer that keeps your projects, rails, 
 
 ## What happens when the server stops
 
-- **Specrails restarts it for you.** The server comes back on the same address and the open windows reconnect on their own; the status bar shows **Reconnecting** for a few seconds.
+- **Specrails restarts it for you.** The server comes back on the same address and the open windows reconnect on their own; the status bar shows **Reconnecting…** for a few seconds.
 - **A banner explains what happened**: when the server stopped and why (an exit code or a signal). Work that was running at that moment may have been interrupted: check its status and retry it if needed.
 - **At most three restarts a minute.** If the server keeps stopping, Specrails stops restarting it so it does not hide a problem, and shows a dialog. Choose **Try again** to start it now, or quit and reopen Specrails. Your saved projects stay on disk.
 - **The next start explains it too.** If Specrails was closed while the server was stopped, the banner appears the next time you open it.
@@ -38,4 +38,4 @@ Tokens, API keys, passwords, private keys and credentials in URLs are replaced w
 
 ## Responsiveness {#responsiveness}
 
-The **Resources** popover in the status bar also shows **Responsiveness**: how many times the server was unable to answer for 200 ms or more, the longest of those moments and what it was doing at the time. Frequent long stalls are worth a problem report.
+The **App resources** popover in the status bar also shows **Responsiveness**: how many slowdowns there were (moments of 200 ms or more when the app could not respond), the longest one and when the last happened. Frequent long slowdowns are worth a problem report, which includes the technical detail.

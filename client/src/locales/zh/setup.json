@@ -55,7 +55,7 @@
   },
   "instructions": {
     "title": "安装开发工具",
-    "description": "SpecRails 需要 PATH 上的 Node.js、npm、npx 和 Git。选择适合你操作系统的命令片段并运行，然后点击“我已安装，重新检测”。",
+    "description": "Specrails 需要 PATH 上的 Node.js、npm、npx 和 Git。选择适合你操作系统的命令片段并运行，然后点击“我已安装，重新检测”。",
     "darwin": {
       "intro": "用 Homebrew 一行命令即可装好两个工具。如果没有 brew，请使用官方下载。",
       "installNodeGit": "通过 Homebrew 安装 Node.js 和 Git"

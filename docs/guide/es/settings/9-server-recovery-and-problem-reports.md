@@ -4,7 +4,7 @@ Specrails ejecuta en tu ordenador un pequeño servidor que mantiene en marcha tu
 
 ## Qué pasa cuando el servidor se detiene
 
-- **Specrails lo reinicia por ti.** El servidor vuelve en la misma dirección y las ventanas abiertas se reconectan solas; la barra de estado muestra **Reconectando** durante unos segundos.
+- **Specrails lo reinicia por ti.** El servidor vuelve en la misma dirección y las ventanas abiertas se reconectan solas; la barra de estado muestra **Reconectando…** durante unos segundos.
 - **Un aviso explica lo ocurrido**: cuándo se detuvo el servidor y por qué (un código de salida o una señal). El trabajo que estaba en marcha en ese momento puede haberse interrumpido: revisa su estado y vuelve a lanzarlo si hace falta.
 - **Como mucho tres reinicios por minuto.** Si el servidor se sigue deteniendo, Specrails deja de reiniciarlo para no ocultar un problema y muestra un diálogo. Elige **Try again** para arrancarlo ahora, o cierra y vuelve a abrir Specrails. Tus proyectos guardados siguen en el disco.
 - **El siguiente arranque también lo explica.** Si Specrails se cerró mientras el servidor estaba detenido, el aviso aparece la próxima vez que lo abras.
@@ -38,4 +38,4 @@ Los tokens, claves de API, contraseñas, claves privadas y credenciales en URL s
 
 ## Capacidad de respuesta {#responsiveness}
 
-El panel **Recursos** de la barra de estado muestra también la **Capacidad de respuesta**: cuántas veces el servidor no pudo responder durante 200 ms o más, el más largo de esos momentos y qué estaba haciendo entonces. Si hay bloqueos largos a menudo, merece la pena enviar un informe.
+El panel **Recursos de la app** de la barra de estado muestra también la **Capacidad de respuesta**: cuántas ralentizaciones hubo (momentos de 200 ms o más en los que la app no pudo responder), la más larga y cuándo ocurrió la última. Si hay ralentizaciones largas a menudo, merece la pena enviar un informe, que incluye el detalle técnico.

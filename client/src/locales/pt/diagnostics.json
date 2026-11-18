@@ -32,11 +32,10 @@
   "restarting": "O servidor local parou. A reiniciar…",
   "responsiveness": {
     "title": "Capacidade de resposta",
-    "none": "Sem bloqueios desde as {{time}}",
-    "summary_one": "{{count}} bloqueio · o mais longo {{duration}}",
-    "summary_other": "{{count}} bloqueios · o mais longo {{duration}}",
-    "last": "Último às {{time}}: {{duration}} durante {{operation}}",
-    "background": "trabalho em segundo plano",
-    "hint": "Um bloqueio é um momento de {{threshold}} ou mais em que o servidor local não conseguiu responder."
+    "none": "Sem lentidão desde as {{time}}",
+    "summary_one": "{{count}} lentidão · a mais longa {{duration}}",
+    "summary_other": "{{count}} lentidões · a mais longa {{duration}}",
+    "last": "Última às {{time}}: a app demorou {{duration}} a responder",
+    "hint": "Uma lentidão é um momento de {{threshold}} ou mais em que a app não conseguiu responder."
   }
 }

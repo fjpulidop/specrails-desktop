@@ -158,7 +158,7 @@
     "discardedToast": "PR 已丢弃 — 规格已退回 Specs",
     "decisionPending": "该 Rail 有待处理的 PR 决定 — 请先创建、发布或丢弃，再重新启动",
     "discardConfirmTitle": "丢弃本次交付？",
-    "discardConfirmBody": "PR 将关闭，但不会删除其远程分支。只会删除归 SpecRails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。规格将返回 Specs 待办列表。已删除的本地资源无法恢复。",
+    "discardConfirmBody": "PR 将关闭，但不会删除其远程分支。只会删除归 Specrails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。规格将返回 Specs 待办列表。已删除的本地资源无法恢复。",
     "implementationFailedDiscardTitle": "丢弃此失败的交付？",
     "implementationFailedDiscardBody": "卡片将被关闭，规格会返回 Specs。本地工作和分支将保留以供检查。只有确认可安全清理的资源才可能被移除。",
     "mergeLocal": "本地集成",

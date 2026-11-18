@@ -1,8 +1,6 @@
 {
-  "button": "Risorse",
-  "open": "Mostra le risorse usate da Specrails",
-  "openWithSummary": "Risorse: {{memory}} di memoria, {{count}} processi",
-  "title": "Risorse",
+  "openWithSummary": "Risorse dell'app: {{count}} processi in esecuzione. Mostra dettagli",
+  "title": "Risorse dell'app",
   "subtitle": "Tutto ciò che Specrails ha avviato",
   "cpu": "CPU",
   "memory": "Memoria",

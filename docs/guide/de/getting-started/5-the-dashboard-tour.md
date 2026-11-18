@@ -31,22 +31,23 @@ Die rechte Seitenleiste ist deine Schaltzentrale für das aktuelle Projekt. Fahr
 
 ## Die Statusleiste
 
-Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
+Ein schmaler Streifen verläuft ganz unten am Fenster. Er sieht im Mission- und im Board-Modus gleich aus und bleibt ruhig: Gibt es nichts zu sagen, bleibt eine Stelle einfach leer.
 
-- **Verbindungsanzeige** (links) – ein farbiger Punkt mit Beschriftung, der zeigt, dass die App aktiv ist: Grün für *verbunden*, Bernstein während des *Neuverbindens*, Blau während des *Synchronisierens* direkt nach einer erneuten Verbindung. Du wirst sie selten brauchen, aber wenn doch, beruhigt sie.
-- **Gesamtausgaben** (rechts) – eine laufende Summe dessen, was du ausgegeben hast, sodass die Kosten immer nur einen Blick entfernt sind.
-- **Ressourcen** (rechts) – wie viel CPU und Arbeitsspeicher alles, was Specrails gestartet hat, gerade nutzt, und wie viele Prozesse. Klicke darauf für die Summen, einen Speicherverlauf und die Aufteilung nach Quelle: Missionen & Chats, Rails, Loops & Jobs, Hintergrundprozesse, Terminals, Agenten-CLIs, MCP & Runner, Git und der Specrails-Server selbst. Klappe eine Quelle auf, um ihre Prozesse zu sehen. Unter den Quellen zeigt **Ports der Lauf-Worktrees**, welche Ports der Entwicklungs- oder Testserver jeder Rail bedient (Rail, Spec, Projekt und Prozess), und warnt, wenn ein anderer Prozess in den zugewiesenen Ports einer Rail sitzt.
+- **Verbindung** (links) – leer, solange alles in Ordnung ist. Dort steht *Verbinde neu…* (Bernstein) oder *Offline* (rot) nur, wenn die App ihren lokalen Server verliert, und kurz nach dem Neuverbinden *Synchronisiere…*.
+- **Update** (rechts) – erscheint, wenn eine neue Version bereitsteht und die App etwa eine halbe Minute untätig war. Klicke darauf für die Update-Karte (siehe [Updates](../settings/6-updates.md)).
+- **Plannutzung** (rechts) – eine Anzeige für den Anbieter, der seinem Limit am nächsten ist. Sie bleibt bis 80 % neutral, wird ab 80 % bernsteinfarben mit dem Namen des Anbieters und ab 90 % rot und zeigt *Limit · Reset 15:00*, wenn der Anbieter Anfragen ablehnt. Fahre mit der Maus darüber oder klicke darauf, um die Fenster aller Anbieter und die heutigen Ausgaben in diesem Projekt zu sehen.
+- **App-Ressourcen** (rechts) – ein Symbol und die Zahl der Prozesse, nur solange Arbeit läuft. Klicke darauf für CPU und Arbeitsspeicher, einen Speicherverlauf und die Aufteilung nach Quelle: Missionen & Chats, Rails, Loops & Jobs, Hintergrundprozesse, Terminals, Agenten-CLIs, MCP & Runner, Git und der Specrails-Server selbst. Klappe eine Quelle auf, um ihre Prozesse zu sehen. Unter den Quellen zeigt **Ports der Lauf-Worktrees**, welche Ports der Entwicklungs- oder Testserver jeder Rail bedient (Rail, Spec, Projekt und Prozess), und warnt, wenn ein anderer Prozess in den zugewiesenen Ports einer Rail sitzt. In der Desktop-App findest du hier auch **Computer wach halten**; solange es aktiv ist, zeigt ein Tassensymbol in der Statusleiste das an (klicke darauf, um den Ruhezustand wieder zu erlauben).
 - **Terminal-Umschalter** (ganz rechts) – öffnet das integrierte Terminal-Panel. Drücke **Cmd+J** (macOS) oder **Ctrl+J** (Windows/Linux), um es jederzeit ein- oder auszublenden. Es ist eine vollwertige Shell, direkt in deinem Projektordner geöffnet.
 
 ## Eigene Fenster
 
-In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als Panels im Hauptfenster: die **App-Einstellungen**, die Details eines aus einer Mission geöffneten Jobs sowie **Loops** und **Plugins** im Mission-Modus. Du kannst sie auf einen anderen Bildschirm schieben und im Hauptfenster weiterarbeiten. Jedes nutzt die systemeigenen Fenstersteuerungen; die Einstellungen und das Job-Fenster schließen sich außerdem mit **Escape**. Änderungen, die du dort machst, etwa am Theme oder an der Sprache, gelten sofort auch im Hauptfenster. In der Browser-Version öffnen sich diese Bildschirme als Panels.
+In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als Panels im Hauptfenster: die **Einstellungen**, die Details eines aus einer Mission geöffneten Jobs sowie **Loops** und **Plugins** im Mission-Modus. Du kannst sie auf einen anderen Bildschirm schieben und im Hauptfenster weiterarbeiten. Jedes nutzt die systemeigenen Fenstersteuerungen; die Einstellungen und das Job-Fenster schließen sich außerdem mit **Escape**. Änderungen, die du dort machst, etwa am Theme oder an der Sprache, gelten sofort auch im Hauptfenster. In der Browser-Version öffnen sich diese Bildschirme als Panels.
 
 ## Benachrichtigungen über das, was auf dich wartet {#attention}
 
 Specrails sagt dir Bescheid, wenn etwas auf dich wartet: eine Frage oder die Antwort einer Mission, ein Review, das eine Entscheidung braucht, ein Lauf, der fehlgeschlagen, blockiert oder stehen geblieben ist, ein Ausgabenlimit und ein fertiger Job. Wie, hängt davon ab, wo du bist:
 
-- **Nicht in der App** — eine Systembenachrichtigung mit Projekt und Ursache. In der Desktop-App lässt sie sich nicht anklicken; wenn du zurückkommst, fasst ein Hinweis alles zusammen (**3 Sachen warten auf dich**) und öffnet den Eintrag, bei mehreren den Posteingang **Offen**.
+- **Nicht in der App** — eine Systembenachrichtigung mit Projekt und Ursache. In der Desktop-App lässt sie sich nicht anklicken; wenn du zurückkommst, fasst ein Hinweis alles zusammen (**3 Sachen warten auf dich**) und öffnet den Eintrag, bei mehreren den Posteingang **Offen**. Hinweise, die eintreffen, während **Dort weitermachen, wo du aufgehört hast** oder die Plattform-Tour offen ist, warten, bis du sie schließt, und kommen dann gesammelt als einer.
 - **Woanders in der App** — ein kleiner Hinweis mit **Öffnen**.
 - **Du siehst es schon** — nichts. Eine Mission, die du gerade ansiehst, meldet ihre eigenen Antworten nicht; ein hängender Lauf ist die Ausnahme und meldet sich immer.
 

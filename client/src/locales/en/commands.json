@@ -23,10 +23,10 @@
     },
     "nav": {
       "dashboard": "Dashboard",
-      "desktopAnalytics": "Desktop Analytics",
-      "projectAnalytics": "Project Analytics",
-      "activityFeed": "Activity Feed",
-      "desktopSettings": "Desktop Settings",
+      "desktopAnalytics": "Desktop analytics",
+      "projectAnalytics": "Project analytics",
+      "activityFeed": "Activity feed",
+      "desktopSettings": "Settings",
       "docs": "Docs",
       "replayTour": "Replay tour"
     },
@@ -69,7 +69,7 @@
       "switchTheme": "Switch theme",
       "switchToMission": "Switch to Mission mode",
       "switchToBoard": "Switch to Board mode",
-      "openAppSettings": "Open app settings",
+      "openAppSettings": "Open settings",
       "openProjectSettings": "Open project settings",
       "switchProject": "Switch project",
       "runLoop": "Run loop",
@@ -95,7 +95,7 @@
         "themeTitle": "Theme",
         "themePlaceholder": "Pick a theme...",
         "noThemes": "No themes available.",
-        "appSettingsTitle": "App settings",
+        "appSettingsTitle": "Settings",
         "projectSettingsTitle": "Project settings",
         "sectionPlaceholder": "Pick a section...",
         "noSections": "No sections.",
@@ -215,7 +215,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop settings",
+      "appScope": "Settings",
       "projectScope": "Project settings",
       "entries": {
         "theme": {
@@ -387,7 +387,7 @@
     "displayNames": {
       "proposeSpec": "Custom-Propose",
       "updateBacklog": "Auto-propose",
-      "productBacklog": "Auto-Select Specs"
+      "productBacklog": "Auto-select specs"
     },
     "emptyState": {
       "title": "No commands installed",
@@ -400,7 +400,7 @@
     }
   },
   "shortcuts": {
-    "title": "Keyboard Shortcuts",
+    "title": "Keyboard shortcuts",
     "subtitle": "Press <1>?</1> anywhere to toggle this panel",
     "categories": {
       "general": "General",
@@ -506,6 +506,10 @@
       "runs_one": "{{count}} run",
       "runs_other": "{{count}} runs",
       "something": "work in progress"
+    },
+    "chip": {
+      "text": "Update",
+      "label": "Specrails {{version}} is available. Show the update"
     }
   },
   "notifications": {
@@ -559,8 +563,8 @@
     }
   },
   "templateDialog": {
-    "editTitle": "Edit Template",
-    "newTitle": "New Template",
+    "editTitle": "Edit template",
+    "newTitle": "New template",
     "nameLabel": "Name",
     "namePlaceholder": "e.g. Full pipeline",
     "descriptionLabel": "Description (optional)",

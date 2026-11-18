@@ -47,6 +47,9 @@ vi.mock('../../../../hooks/useDesktop', () => ({
 
 const desktopSettings = {
   port: 4200,
+  version: '2.3.4',
+  runningPort: 4395,
+  databasePath: '~/.specrails-dev/.specrails/desktop.sqlite',
   specrailsTechUrl: 'http://localhost:3000',
 }
 
@@ -76,24 +79,24 @@ function defaultFetchMock(url: string) {
   return Promise.resolve({ ok: true, json: async () => desktopSettings })
 }
 
-describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
+describe('GlobalSettingsPage (Settings dialog)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjects = []
     global.fetch = vi.fn().mockImplementation(defaultFetchMock)
   })
 
-  it('renders Desktop Settings title when open', async () => {
+  it('renders the Settings title when open', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
   })
 
-  it('renders the Desktop-wide preferences description', async () => {
+  it('renders the app-wide preferences description', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Appearance, AI providers, updates and Desktop-wide preferences.')).toBeInTheDocument()
+      expect(screen.getByText('Appearance, AI providers, updates and app-wide preferences.')).toBeInTheDocument()
     })
   })
 
@@ -178,17 +181,18 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     expect(secret).toHaveAttribute('autocomplete', 'off')
   })
 
-  it('renders the panes immediately and shows an em dash for the port before settings resolve', async () => {
+  it('renders the panes immediately and leaves the port out (no dash) before settings resolve', async () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    expect(await screen.findByText('Registered Projects')).toBeInTheDocument()
-    expect(screen.getByText('Port').nextElementSibling).toHaveTextContent('—')
+    expect(await screen.findByText('Registered projects')).toBeInTheDocument()
+    expect(screen.queryByTestId('about-port')).not.toBeInTheDocument()
+    expect(screen.getByTestId('about-projects')).toBeInTheDocument()
   })
 
-  it('renders Registered Projects section after load', async () => {
+  it('renders Registered projects section after load', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Registered Projects')).toBeInTheDocument()
+      expect(screen.getByText('Registered projects')).toBeInTheDocument()
     })
   })
 
@@ -305,19 +309,22 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
 
 
 
-  it('renders Desktop Information section with port', async () => {
+  it('About shows the port and project count', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Desktop Information')).toBeInTheDocument()
-      expect(screen.getByText('4200')).toBeInTheDocument()
+      expect(screen.getByText('About', { selector: 'h3, h2, [data-setting-id] *' })).toBeInTheDocument()
+      // The port this instance listens on, not only the persisted setting.
+      expect(screen.getByTestId('about-port')).toHaveTextContent('4395')
     })
   })
 
-  it('renders desktop.sqlite path in Desktop Information', async () => {
+  it('About shows the real version and database location from the server, and leaves out what it did not report', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('~/.specrails/desktop.sqlite')).toBeInTheDocument()
+      expect(screen.getByTestId('about-version')).toHaveTextContent('2.3.4')
+      expect(screen.getByTestId('about-database')).toHaveTextContent('~/.specrails-dev/.specrails/desktop.sqlite')
     })
+    expect(screen.queryByText('~/.specrails/desktop.sqlite')).not.toBeInTheDocument()
   })
 
   it('does not fetch when open=false', () => {
@@ -341,7 +348,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     // Should not throw — isLoading goes false, settings stay null
     await waitFor(() => {
       // After error, isLoading becomes false
-      expect(screen.queryByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
   })
 
@@ -446,7 +453,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
   })
 })
 
-// ─── Outbound Webhooks section ────────────────────────────────────────────────
+// ─── Outbound webhooks section ────────────────────────────────────────────────
 
 const mockWebhook = {
   id: 'wh-1',
@@ -470,17 +477,17 @@ function makeFetchWithWebhooks(webhooks: typeof mockWebhook[]) {
   })
 }
 
-describe('GlobalSettingsPage — Outbound Webhooks', () => {
+describe('GlobalSettingsPage — Outbound webhooks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjects = []
     global.fetch = makeFetchWithWebhooks([])
   })
 
-  it('renders Outbound Webhooks section header', async () => {
+  it('renders Outbound webhooks section header', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
+      expect(screen.getByText('Outbound webhooks')).toBeInTheDocument()
     })
   })
 
@@ -491,7 +498,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
   })
 
-  it('disables Add Webhook button when URL is empty', async () => {
+  it('disables Add webhook button when URL is empty', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /add webhook/i })).toBeInTheDocument()
@@ -648,7 +655,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     const user = userEvent.setup()
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
+      expect(screen.getByText('Outbound webhooks')).toBeInTheDocument()
     })
     // Find the "Daily limit exceeded" checkbox and toggle it
     const checkbox = screen.getByRole('checkbox', { name: /daily limit exceeded/i })
@@ -741,7 +748,7 @@ describe('GlobalSettingsPage — Effects section', () => {
 
   it('lists Effects in the left nav and shows the thinking-halo switch when selected', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await screen.findByText('Desktop Settings')
+    await screen.findByRole('heading', { name: 'Settings' })
     const nav = await screen.findByRole('button', { name: /effects/i })
     await userEvent.click(nav)
     expect(screen.getByTestId('effects-section')).toBeVisible()

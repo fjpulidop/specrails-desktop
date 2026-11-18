@@ -11,7 +11,7 @@ describe('KeyboardShortcutsCheatsheet', () => {
       <KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />,
     )
     expect(screen.getByTestId('shortcuts-cheatsheet')).toBeInTheDocument()
-    expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument()
+    expect(screen.getByText('Keyboard shortcuts')).toBeInTheDocument()
   })
 
   it('does not render content when closed', () => {

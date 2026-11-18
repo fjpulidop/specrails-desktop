@@ -35,8 +35,9 @@ export function ServerResponsiveness({ active }: { active: boolean }) {
           <div className="text-muted-foreground">{t('responsiveness.none', { time: formatClockTime(snapshot.sinceMs, lang) })}</div>
         ) : <>
           <div className="text-accent-warning">{t('responsiveness.summary', { count: snapshot.total, duration: formatStallDuration(snapshot.longestMs, lang) })}</div>
-          {last && <div className="truncate text-muted-foreground" title={last.operation ?? undefined}>
-            {t('responsiveness.last', { time: formatClockTime(last.atMs, lang), duration: formatStallDuration(last.durationMs, lang), operation: last.operation ?? t('responsiveness.background') })}
+          {/* Plain language: the request that was running stays in the problem report, not here. */}
+          {last && <div className="text-muted-foreground">
+            {t('responsiveness.last', { time: formatClockTime(last.atMs, lang), duration: formatStallDuration(last.durationMs, lang) })}
           </div>}
         </>}
       </div>

@@ -4,6 +4,7 @@ import { Bot } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { ProfileListEntry } from './types'
 import { sharedFetch } from '../../../lib/shared-fetch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 
 interface Props {
   provider: string
@@ -64,21 +65,26 @@ export function RailProfileSelector({ provider, value, onChange }: Props) {
       onClick={(e) => e.stopPropagation()}
     >
       <Bot className="w-3 h-3 text-muted-foreground mr-1" />
-      <select
+      <Select
         value={currentValue}
-        onChange={(e) => {
-          const v = e.target.value
-          onChange(v === LEGACY_VALUE ? null : v)
-        }}
-        className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+        onValueChange={(v) => onChange(v === LEGACY_VALUE ? null : v)}
       >
-        {profiles.map((p) => (
-          <option key={p.name} value={p.name}>
-            {p.name}
-          </option>
-        ))}
-        <option value={LEGACY_VALUE}>{t('railSelectors.noProfile')}</option>
-      </select>
+        <SelectTrigger
+          size="sm"
+          aria-label={t('railSelectors.profileTitle')}
+          className="border-border/50 bg-transparent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-40"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {profiles.map((p) => (
+            <SelectItem key={p.name} value={p.name}>
+              {p.name}
+            </SelectItem>
+          ))}
+          <SelectItem value={LEGACY_VALUE}>{t('railSelectors.noProfile')}</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   )
 }

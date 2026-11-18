@@ -1,10 +1,16 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { KeepAwakeControl } from '../KeepAwakeControl'
+import { KeepAwakeIndicator, KeepAwakeSwitch, useKeepAwake } from '../KeepAwakeControl'
 const fixture = vi.hoisted(() => ({ native: true, awake: false, fail: false }))
 vi.mock('../../lib/tauri-shell', () => ({ isTauri: () => fixture.native }))
 const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
+
+function Harness() {
+  const keepAwake = useKeepAwake()
+  return <><KeepAwakeIndicator keepAwake={keepAwake} /><KeepAwakeSwitch keepAwake={keepAwake} /></>
+}
+
 beforeEach(() => {
   fixture.native = true; fixture.awake = false; fixture.fail = false
   invoke.mockReset().mockImplementation(async (command: string, args?: { enabled: boolean }) => {
@@ -15,29 +21,33 @@ beforeEach(() => {
     return { supported: true, awake: fixture.awake }
   })
 })
-describe('keep awake footer control', () => {
-  it('starts off and toggles the native sleep assertion both ways', async () => {
-    render(<KeepAwakeControl />)
-    const button = await screen.findByRole('button', { name: 'Keep computer awake' })
-    expect(button).toHaveAttribute('aria-pressed', 'false')
-    fireEvent.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'true'))
+describe('keep awake', () => {
+  it('the switch toggles the native sleep assertion both ways; the status bar icon shows only while active', async () => {
+    render(<Harness />)
+    const toggle = await screen.findByRole('switch', { name: 'Keep computer awake' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(screen.queryByTestId('keep-awake-indicator')).not.toBeInTheDocument()
+    fireEvent.click(toggle)
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'))
     expect(invoke).toHaveBeenCalledWith('desktop_set_awake', { enabled: true })
-    fireEvent.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'false'))
+    const indicator = screen.getByTestId('keep-awake-indicator')
+    fireEvent.click(indicator)
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'))
     expect(invoke).toHaveBeenCalledWith('desktop_set_awake', { enabled: false })
+    expect(screen.queryByTestId('keep-awake-indicator')).not.toBeInTheDocument()
   })
   it('does not report active if the native assertion fails', async () => {
     fixture.fail = true
-    render(<KeepAwakeControl />)
-    const button = await screen.findByRole('button', { name: 'Keep computer awake' })
-    fireEvent.click(button)
-    await screen.findByRole('status')
-    expect(button).toHaveAttribute('aria-pressed', 'false')
+    render(<Harness />)
+    const toggle = await screen.findByRole('switch', { name: 'Keep computer awake' })
+    fireEvent.click(toggle)
+    await screen.findByText('Could not change sleep prevention.')
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
   })
   it('is absent from browser-only sessions', () => {
     fixture.native = false
-    render(<KeepAwakeControl />)
+    render(<Harness />)
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(invoke).not.toHaveBeenCalled()
   })

@@ -9,9 +9,9 @@ describe('TicketStatusDot', () => {
     expect(screen.getByLabelText('Todo')).toBeDefined()
   })
 
-  it('renders with aria-label "In Progress" for in_progress status', () => {
+  it('renders with aria-label "In progress" for in_progress status', () => {
     render(<TicketStatusDot status="in_progress" />)
-    expect(screen.getByLabelText('In Progress')).toBeDefined()
+    expect(screen.getByLabelText('In progress')).toBeDefined()
   })
 
   it('renders with aria-label "Done" for done status', () => {
@@ -24,9 +24,9 @@ describe('TicketStatusDot', () => {
     expect(screen.getByLabelText('Cancelled')).toBeDefined()
   })
 
-  it('renders with aria-label "On Review" for on_review status', () => {
+  it('renders with aria-label "On review" for on_review status', () => {
     render(<TicketStatusDot status="on_review" />)
-    expect(screen.getByLabelText('On Review')).toBeDefined()
+    expect(screen.getByLabelText('On review')).toBeDefined()
   })
 })
 
@@ -36,9 +36,9 @@ describe('TicketStatusBadge', () => {
     expect(screen.getByText('Todo')).toBeDefined()
   })
 
-  it('renders "In Progress" label for in_progress status', () => {
+  it('renders "In progress" label for in_progress status', () => {
     render(<TicketStatusBadge status="in_progress" />)
-    expect(screen.getByText('In Progress')).toBeDefined()
+    expect(screen.getByText('In progress')).toBeDefined()
   })
 
   it('renders "Done" label for done status', () => {
@@ -51,9 +51,9 @@ describe('TicketStatusBadge', () => {
     expect(screen.getByText('Cancelled')).toBeDefined()
   })
 
-  it('renders "On Review" label with the accent-review variant for on_review status', () => {
+  it('renders "On review" label with the accent-review variant for on_review status', () => {
     render(<TicketStatusBadge status="on_review" />)
-    const badge = screen.getByText('On Review')
+    const badge = screen.getByText('On review')
     expect(badge).toBeDefined()
     expect(badge.className).toContain('text-accent-review')
   })

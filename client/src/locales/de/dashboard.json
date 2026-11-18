@@ -158,7 +158,7 @@
     "discardedToast": "PR verworfen — Specs zurück in Specs",
     "decisionPending": "Dieser Rail hat eine ausstehende PR-Entscheidung — erstelle, veröffentliche oder verwirf sie, bevor du neu startest",
     "discardConfirmTitle": "Diese Lieferung verwerfen?",
-    "discardConfirmBody": "Der PR wird geschlossen, ohne seinen Remote-Branch zu löschen. Nur lokale Branches und Worktrees, die SpecRails gehören und noch auf dem aufgezeichneten Commit stehen, werden entfernt; alles Veränderte bleibt mit einer Warnung erhalten. Die Specs kehren in den Specs-Backlog zurück. Entfernte lokale Ressourcen können nicht wiederhergestellt werden.",
+    "discardConfirmBody": "Der PR wird geschlossen, ohne seinen Remote-Branch zu löschen. Nur lokale Branches und Worktrees, die Specrails gehören und noch auf dem aufgezeichneten Commit stehen, werden entfernt; alles Veränderte bleibt mit einer Warnung erhalten. Die Specs kehren in den Specs-Backlog zurück. Entfernte lokale Ressourcen können nicht wiederhergestellt werden.",
     "implementationFailedDiscardTitle": "Diese fehlgeschlagene Lieferung verwerfen?",
     "implementationFailedDiscardBody": "Die Karte wird geschlossen und ihre Specs kehren zu Specs zurück. Lokale Arbeit und Branches bleiben zur Prüfung erhalten. Nur nachweislich sicher bereinigbare Ressourcen dürfen entfernt werden.",
     "mergeLocal": "Lokal integrieren",

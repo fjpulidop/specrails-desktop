@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "收起左侧边栏（保持固定）",
       "pinnedCollapsed": "取消固定左侧边栏",
-      "unpinned": "固定并展开左侧边栏"
+      "unpinned": "固定并展开左侧边栏",
+      "showOverlay": "显示侧边栏",
+      "hideOverlay": "隐藏侧边栏"
     },
     "right": {
       "pinnedOpen": "收起右侧边栏（保持固定）",
@@ -47,7 +49,7 @@
     "docs": "文档",
     "analytics": "所有项目分析",
     "companion": "Companion",
-    "settings": "应用设置",
+    "settings": "设置",
     "plugins": "插件",
     "review": "审阅",
     "landmark": "项目与任务",
@@ -87,10 +89,9 @@
     "activeCli": "当前 CLI：{{label}}"
   },
   "statusBar": {
-    "connected": "已连接",
-    "syncing": "同步中...",
-    "reconnecting": "重新连接中...",
-    "disconnected": "已断开",
+    "syncing": "同步中…",
+    "reconnecting": "重新连接中…",
+    "disconnected": "离线",
     "connectionRestored": "连接已恢复"
   },
   "titleBar": {
@@ -155,11 +156,11 @@
   },
   "keepAwake": {
     "label": "保持电脑唤醒",
-    "on": "开启",
-    "off": "关闭",
     "active": "防止自动睡眠，屏幕仍可关闭。",
     "inactive": "允许正常睡眠。",
-    "failed": "无法更改睡眠状态。"
+    "failed": "无法更改睡眠状态。",
+    "turnOff": "重新允许睡眠",
+    "activeHint": "正在保持电脑唤醒。点击以允许睡眠。"
   },
   "skipToContent": "跳到主要内容",
   "places": {
