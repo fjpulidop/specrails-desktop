@@ -245,17 +245,14 @@ describe('JobRunHeader', () => {
     expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
   })
 
-  // ── Details memory ─────────────────────────────────────────────────────────
+  // ── Details popover ───────────────────────────────────────────────────────
 
-  it('remembers the Details state per surface in localStorage', () => {
-    const { unmount } = renderHeader(completedJob)
+  it('opens Details as a popover beside the tabs instead of a block above the log', () => {
+    renderHeader(completedJob)
     expect(screen.queryByTestId('job-run-details')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByTestId('job-run-details')).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-details')!)).toEqual({ page: true })
-    unmount()
-    renderHeader(completedJob, [], { variant: 'glass' })
-    expect(screen.queryByTestId('job-run-details')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Details' })).toContainElement(screen.getByTestId('job-run-details'))
+    expect(localStorage.getItem('specrails-desktop:job-run-details')).toBeNull()
   })
 
   // ── Runtime continuation ───────────────────────────────────────────────────
@@ -448,5 +445,111 @@ describe('JobRunHeader failure diagnosis', () => {
   it('shows the card for a stalled (canceled) job such as a provider limit', () => {
     renderHeader(diagnosed({ ...tests, kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] }, 'canceled'), [], { onOpenLogs: vi.fn() })
     expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid).')
+  })
+})
+
+describe('JobRunHeader evidence chip and run instructions', () => {
+  const summary = { schemaVersion: 1, runId: 'job-1', workflowVersion: '1', technicalAcceptance: 'validated', archive: 'a', delivery: 'd', currentEvidenceIds: [], planHash: null, candidateHash: null, roles: [], invocations: { total: 2, complete: true, byKind: {}, promptBytes: null, contextBytes: null, handoffBytes: null, fullContexts: 1, incrementalContexts: 1 }, checks: { available: true, executed: 2, reused: 1, notRun: 0, durationMs: null } }
+  const steering = (overrides = {}) => ({ receipts: [], pending: 0, consumed: 0, consumptionReported: true, ...overrides })
+  const live = (overrides = {}) => run({ engineVersion: 2, status: 'running', active: true, canResume: false, canCancel: true, steering: steering(), ...overrides })
+  const loopRunning: JobSummary = { ...runningJob, id: 'job-1', command: 'loop: Implement' }
+  const acceptedAt = '2026-11-18T10:00:00.000Z'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('shows no evidence chip without recorded evidence', async () => {
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live()] }))
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    await screen.findByTestId('run-steering')
+    expect(screen.queryByTestId('run-evidence-chip')).not.toBeInTheDocument()
+    expect(screen.queryByText('Verification evidence')).not.toBeInTheDocument()
+  })
+
+  it('[spec:job-run-detail-navigation/failure-information-cannot-displace-navigation] shows the evidence chip in the header row and opens the evidence in a popover', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => String(url).includes('/evidence')
+      ? response({ schemaVersion: 1, available: true, items: [{ id: 'c1', label: 'npm test', repositoryId: 'repo', status: 'passed', disposition: 'executed', planHash: 'p', candidateHash: 'c', sources: [] }] })
+      : response({ runs: [live({ efficiencySummary: summary })] })) as typeof fetch
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    const chip = await screen.findByTestId('run-evidence-chip')
+    expect(screen.getByTestId('run-detail-meta')).toContainElement(chip)
+    expect(chip).toHaveAccessibleName('Verification evidence: Validated · 3 checks')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'done')
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/evidence'), expect.anything())
+    await user.click(chip)
+    const popover = screen.getByRole('dialog', { name: 'Verification evidence' })
+    expect(await within(popover).findByText('repo · npm test')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Verification evidence' })).not.toBeInTheDocument()
+    expect(chip).toHaveFocus()
+  })
+
+  it('[spec:job-run-detail-navigation/run-instructions-dock-under-the-log] docks the composer under the log only while the run accepts instructions', async () => {
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live()] }))
+    const view = renderHeader(loopRunning, [], { projectId: 'p1' })
+    const composer = await screen.findByTestId('run-steering')
+    expect(screen.getByTestId('run-composer-dock')).toContainElement(composer)
+    expect(screen.getByLabelText('Additional instructions')).toHaveAttribute('placeholder', 'Tell the agent something for its next step…')
+    expect(screen.getByLabelText('Additional instructions')).toHaveAccessibleDescription("Applied at the agent's next compatible turn; it doesn't answer questions or grant approvals.")
+    expect(screen.queryByTestId('run-steering-chip')).not.toBeInTheDocument()
+    view.unmount()
+
+    // Old Core: no steering contract, no composer.
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ engineVersion: 1 })] }))
+    const old = renderHeader(loopRunning, [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByTestId('run-steering')).not.toBeInTheDocument()
+    old.unmount()
+
+    // Settled without instructions: nothing at all.
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ status: 'succeeded', active: false, canCancel: false })] }))
+    renderHeader(completedJob, [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByTestId('run-composer-dock')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('run-steering-chip')).not.toBeInTheDocument()
+  })
+
+  it('sends with Cmd/Ctrl+Enter (Enter alone adds a line) and shows the queued chip', async () => {
+    const user = userEvent.setup()
+    let runs = [live()]
+    global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        const { requestId, text } = JSON.parse(String(init.body))
+        runs = [live({ steering: steering({ pending: 1, receipts: [{ id: requestId, acceptedAt, preview: text, length: text.length, status: 'pending' }] }) })]
+        return response({ id: requestId, acceptedAt })
+      }
+      return response({ runs })
+    }) as typeof fetch
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    const field = await screen.findByLabelText('Additional instructions')
+    await user.type(field, 'Keep the API{Enter}stable')
+    expect(field).toHaveValue('Keep the API\nstable')
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/steer'), expect.anything())
+    await user.keyboard('{Control>}{Enter}{/Control}')
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/steer', expect.objectContaining({ method: 'POST' })))
+    await waitFor(() => expect(field).toHaveValue(''))
+    const chip = await screen.findByTestId('run-steering-chip')
+    expect(chip).toHaveTextContent('1 queued')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'queued')
+    await user.click(chip)
+    const list = screen.getByRole('dialog', { name: 'Sent instructions' })
+    expect(list).toHaveTextContent('Keep the API')
+    expect(list).toHaveTextContent("Queued for the agent's next turn")
+  })
+
+  it('shows a settled run\'s instructions as a read-only applied chip beside the tabs', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ status: 'succeeded', active: false, canCancel: false, steering: steering({ consumed: 1, receipts: [{ id: 'm1', acceptedAt, preview: 'Keep compatibility', length: 18, status: 'consumed', consumedAttemptId: 'a7' }] }) })] }))
+    renderHeader(completedJob, [], { projectId: 'p1' })
+    const chip = await screen.findByTestId('run-steering-chip')
+    expect(screen.getByTestId('run-detail-meta')).toContainElement(chip)
+    expect(chip).toHaveTextContent('1 applied')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'done')
+    expect(screen.queryByLabelText('Additional instructions')).not.toBeInTheDocument()
+    await user.click(chip)
+    expect(screen.getByRole('dialog', { name: 'Sent instructions' })).toHaveTextContent('Applied by the agent')
   })
 })

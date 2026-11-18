@@ -15,8 +15,8 @@ import { RailMark } from '../../../../components/brand/RailMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
-import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
-import { RuntimeSteering, steeringVisible } from '../../../settings/components/RuntimeSteering'
+import { RuntimeEvidenceChip } from '../../../settings/components/RuntimeExecutionEvidence'
+import { RuntimeSteering, RuntimeSteeringChip, steeringAcceptsInstructions } from '../../../settings/components/RuntimeSteering'
 import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
 import { useNow } from '../../../../hooks/useNow'
@@ -42,7 +42,15 @@ export interface JobRunDetailsContext {
   diagnosisHandlers: RemedyHandlers
   diagnosisTail: readonly string[]
   hasDetails: boolean
+  /** Recorded figures and runtime notes, opened from the Details button. */
   detailsContent: ReactNode
+  /** The answerable question, shown in the Failure reasons tab. */
+  questionContent: ReactNode
+  /** Compact chips beside the tabs: verification evidence, sent instructions
+   *  of a settled run. Null when the run recorded neither. */
+  metaContent: ReactNode
+  /** Run instructions composer, docked under the log while the run accepts them. */
+  composer: ReactNode
   detailsRequest: number
   /** The status row, drawn by the run details beside their tabs so the
    *  evidence gets the height: state and time before the tabs, activity and
@@ -86,7 +94,8 @@ export interface JobRunHeaderProps {
  * The ONE header both job surfaces render (routed Job Detail page + mission-mode
  * JobDetailModal). Row 1: status · elapsed · phase · activity · steps · actions.
  * Row 2: the pipeline chips, once. The surface renderer receives truthful
- * metrics and runtime continuation content for its bounded Details panel.
+ * metrics for its Details popover, the evidence/instruction chips and the
+ * run-instructions composer docked under the log.
  */
 export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs, renderRunDetails, runtime: sharedRuntime }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
@@ -188,17 +197,51 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     ['cost', final.cost], ['turns', final.turns], ['tokens', final.tokens],
   ] as const).filter(([, value]) => value != null) : []
   const runError = run?.error && !showDiagnosis ? run.error : null
+  // Evidence and instructions have their own chip and composer; the question
+  // has the Failure reasons tab while it can be answered.
+  const readOnlyQuestion = !!run?.pendingQuestion && !answerable
   const runSectionVisible = !!projectId && (!!runtimeError || !!run && (
     run.historical || run.status === 'succeeded' || run.canResume || !!runError || !!run.pendingApproval?.reason
-    || !!run.pendingQuestion || !!run.metrics || !!run.efficiencySummary || steeringVisible(run)))
+    || readOnlyQuestion || !!run.metrics))
   const hasDetails = hasLiveCounters || finalMetrics.length > 0 || (isTerminal && !!pipelineTotals) || modifiedFiles.length > 0 || runSectionVisible
 
   const frameClass = variant === 'glass'
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
 
+  const question = run?.pendingQuestion ? (
+    <div className="space-y-2 text-xs" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+      <p className="font-medium">{tRuntime('runs.question')}</p>
+      <p className="whitespace-pre-wrap">{run.pendingQuestion.question}</p>
+      {answerable && (
+        <>
+          <label className="block space-y-1">{tRuntime('runs.answerLabel')}
+            <textarea
+              className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+              maxLength={20000}
+              placeholder={tRuntime('runs.answerPlaceholder')}
+              value={runtime.answers[run.runId] ?? ''}
+              onChange={(event) => runtime.setAnswer(run.runId, event.target.value)}
+            />
+          </label>
+          <Button size="sm" disabled={busy || !runtime.answers[run.runId]?.trim()} onClick={() => void runtime.act(run, 'answer')}>
+            {tRuntime('runs.answer')}
+          </Button>
+        </>
+      )}
+    </div>
+  ) : null
+
+  const evidenceChip = run && projectId ? <RuntimeEvidenceChip projectId={projectId} run={run} /> : null
+  const acceptsInstructions = !!run && !!projectId && steeringAcceptsInstructions(run)
+  const composer = acceptsInstructions && run && projectId
+    ? <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />
+    : null
+  const steeringChip = run && projectId && !acceptsInstructions ? <RuntimeSteeringChip run={run} /> : null
+  const metaContent = evidenceChip || steeringChip ? <>{evidenceChip}{steeringChip}</> : null
+
   const detailsContent = (
-        <div data-testid="job-run-details" className="px-3 pb-3 space-y-3 border-t border-border/20 pt-3 text-xs">
+        <div data-testid="job-run-details" className="p-3 space-y-3 text-xs">
           {hasLiveCounters && (
             <div>
               <div className="grid grid-cols-2 gap-2 max-w-sm">
@@ -263,31 +306,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               {run?.canResume && <p className="text-muted-foreground">{tRuntime('runs.preserveProgress')}</p>}
               {runError && <p className="text-destructive">{runError}</p>}
               {run?.pendingApproval?.reason && <p className="text-muted-foreground">{run.pendingApproval.reason}</p>}
-              {run?.pendingQuestion && (
-                <div className="space-y-2">
-                  <p className="font-medium">{tRuntime('runs.question')}</p>
-                  <p className="whitespace-pre-wrap">{run.pendingQuestion.question}</p>
-                  {answerable && (
-                    <>
-                      <label className="block space-y-1">{tRuntime('runs.answerLabel')}
-                        <textarea
-                          className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                          maxLength={20000}
-                          placeholder={tRuntime('runs.answerPlaceholder')}
-                          value={runtime.answers[run.runId] ?? ''}
-                          onChange={(event) => runtime.setAnswer(run.runId, event.target.value)}
-                        />
-                      </label>
-                      <Button size="sm" disabled={busy || !runtime.answers[run.runId]?.trim()} onClick={() => void runtime.act(run, 'answer')}>
-                        {tRuntime('runs.answer')}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+              {readOnlyQuestion && question}
               {run?.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
-              {run?.efficiencySummary && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
-              {run && <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />}
             </section>
           )}
         </div>
@@ -346,7 +366,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
     </div>}
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, detailsRequest, statusLead, statusTrail })}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, questionContent: answerable ? question : null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }

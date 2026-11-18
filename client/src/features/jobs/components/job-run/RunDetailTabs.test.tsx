@@ -26,22 +26,25 @@ describe('RunDetailTabs', () => {
     expect(tab('Execution graph')).toHaveAttribute('aria-selected', 'true')
   })
 
-  it.each(['failed', 'canceled'] as const)('[spec:job-run-detail-navigation/failure-navigation-is-conditional-and-initially-selected] [spec:job-run-detail-navigation/failure-information-cannot-displace-navigation] selects eligible %s diagnosis and bounds expanded Details', status => {
+  it.each(['failed', 'canceled'] as const)('[spec:job-run-detail-navigation/failure-navigation-is-conditional-and-initially-selected] [spec:job-run-detail-navigation/failure-information-cannot-displace-navigation] selects eligible %s diagnosis and opens Details beside the tabs', status => {
     render(<RunDetailTabs {...props({ job: { ...job, status }, showDiagnosis: true })} />)
     expect(tab('Failure reasons')).toHaveAttribute('aria-selected', 'true')
     const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
     expect(panel).toHaveClass('max-h-full', 'overflow-y-auto', 'min-h-0')
     expect(panel).toContainElement(screen.getByTestId('failure-diagnosis-card'))
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(panel).toContainElement(screen.getByText('Real metrics'))
-    expect(panel).not.toContainElement(screen.getByRole('tablist', { name: 'Run detail' }))
+    const details = screen.getByRole('dialog', { name: 'Details' })
+    expect(details).toContainElement(screen.getByText('Real metrics'))
+    expect(panel).not.toContainElement(details)
+    expect(screen.getByTestId('run-detail-bar')).toContainElement(screen.getByRole('button', { name: 'Details' }))
   })
 
   it('[spec:job-run-detail-navigation/failure-navigation-is-conditional-and-initially-selected] makes question-only Failure reasons available without fabricating a diagnosis', () => {
-    render(<RunDetailTabs {...props({ diagnosis: null, pendingQuestion: true })} />)
+    render(<RunDetailTabs {...props({ diagnosis: null, pendingQuestion: true, questionContent: <p>Which cache?</p> })} />)
     expect(tab('Execution graph')).toHaveAttribute('aria-selected', 'true')
     fireEvent.click(tab('Failure reasons'))
     expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    expect(screen.getByRole('tabpanel', { name: 'Failure reasons' })).toContainElement(screen.getByText('Which cache?'))
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByText('Real metrics')).toBeVisible()
   })
@@ -141,7 +144,7 @@ describe('RunDetailTabs', () => {
     fireEvent.click(tab('Log detail'))
     expect(scroll.scrollTop).toBe(1000)
   })
-  it('[spec:job-run-detail-navigation/view-preferences-preserve-surface-independence] restores independent section and Details choices, but resets top-level selection on visits', () => {
+  it('[spec:job-run-detail-navigation/view-preferences-preserve-surface-independence] restores independent section choices, but resets top-level selection and Details on visits', () => {
     const p = props({ showDiagnosis: true })
     const first = render(<RunDetailTabs {...p} />)
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
@@ -156,7 +159,7 @@ describe('RunDetailTabs', () => {
     modalEvidence.unmount()
     const second = render(<RunDetailTabs {...p} />)
     expect(tab('Failure reasons')).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'false')
     second.unmount()
     render(<RunDetailTabs {...p} showDiagnosis={false} />)
     expect(tab('Log detail')).toHaveAttribute('aria-selected', 'true')
@@ -198,12 +201,13 @@ describe('RunDetailTabs', () => {
   })
 
   it('[spec:job-run-detail-navigation/pending-questions-reveal-the-answer-form] honors repeated question requests and keeps drafts and errors through navigation and settlement', () => {
-    const p = props({ pendingQuestion: true, diagnosis: null, detailsContent: <><input aria-label="Answer" defaultValue="draft" /><p role="alert">Answer failed</p></> })
+    const p = props({ pendingQuestion: true, diagnosis: null, questionContent: <><textarea aria-label="Answer" defaultValue="draft" /><p role="alert">Answer failed</p></> })
     const view = render(<RunDetailTabs {...p} detailsRequest={0} />)
     view.rerender(<RunDetailTabs {...p} detailsRequest={1} />)
     expect(tab('Failure reasons')).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('textbox', { name: 'Answer' })).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('textbox', { name: 'Answer' })).toHaveFocus()
+    fireEvent.click(tab('Execution graph'))
     view.rerender(<RunDetailTabs {...p} detailsRequest={2} />)
     expect(screen.getByRole('textbox', { name: 'Answer' })).toBeVisible()
     fireEvent.change(screen.getByRole('textbox', { name: 'Answer' }), { target: { value: 'edited' } })
@@ -214,7 +218,7 @@ describe('RunDetailTabs', () => {
     view.rerender(<RunDetailTabs {...p} pendingQuestion={false} detailsRequest={2} />)
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
     expect(tab('Execution graph')).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('textbox', { name: 'Answer' })).not.toBeInTheDocument()
   })
 
   it.each([true, false])('[spec:job-run-detail-navigation/remedies-reveal-evidence-before-navigating-to-it] reveals evidence before dispatching an open-logs remedy (loop=%s)', isLoop => {
@@ -282,12 +286,39 @@ describe('RunDetailTabs', () => {
     await vi.waitFor(() => expect(scroll).toHaveBeenCalled())
     expect(page).toContainElement(scroll.mock.instances[0] as HTMLElement)
     expect(modal).not.toContainElement(scroll.mock.instances[0] as HTMLElement)
-    fireEvent.click(within(page).getByRole('tab', { name: 'Failure reasons' }))
     fireEvent.click(within(page).getByRole('button', { name: 'Details' }))
-    const panel = within(page).getByRole('tabpanel', { name: 'Failure reasons' })
-    expect(panel).toContainElement(within(page).getByText('Real metrics'))
-    expect(panel).not.toContainElement(within(page).getByRole('tablist', { name: 'Run detail' }))
+    expect(within(page).getByRole('dialog', { name: 'Details' })).toContainElement(within(page).getByText('Real metrics'))
+    expect(within(modal).queryByText('Real metrics')).not.toBeInTheDocument()
     scroll.mockRestore()
+  })
+
+  it('[spec:job-run-detail-navigation/failure-information-cannot-displace-navigation] never stacks a Details block above the log', () => {
+    render(<RunDetailTabs {...props()} />)
+    fireEvent.click(tab('Log detail'))
+    const panel = screen.getByRole('tabpanel', { name: 'Log detail' })
+    expect(screen.queryByText('Real metrics')).not.toBeInTheDocument()
+    expect(panel.parentElement).not.toContainElement(screen.getByRole('button', { name: 'Details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog', { name: 'Details' })).toBeVisible()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Details' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveFocus()
+  })
+
+  it('omits the Details button when nothing was recorded', () => {
+    render(<RunDetailTabs {...props({ hasDetails: false })} />)
+    expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+  })
+
+  it('[spec:job-run-detail-navigation/run-instructions-dock-under-the-log] docks the composer under the log on both evidence tabs, not on Failure reasons, and shows meta chips beside the tabs', () => {
+    render(<RunDetailTabs {...props({ pendingQuestion: true, diagnosis: null, composer: <textarea aria-label="Run instructions" />, metaContent: <span>Verification chip</span> })} />)
+    expect(screen.getByTestId('run-detail-meta')).toHaveTextContent('Verification chip')
+    const dock = screen.getByTestId('run-composer-dock')
+    expect(dock).toContainElement(screen.getByRole('textbox', { name: 'Run instructions' }))
+    fireEvent.click(tab('Log detail'))
+    expect(screen.getByRole('textbox', { name: 'Run instructions' })).toBeVisible()
+    fireEvent.click(tab('Failure reasons'))
+    expect(screen.queryByRole('textbox', { name: 'Run instructions' })).not.toBeInTheDocument()
   })
 
   it('keeps session choices usable when storage is denied', () => {

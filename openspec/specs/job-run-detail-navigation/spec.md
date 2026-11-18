@@ -22,12 +22,29 @@ The Job Detail page and modal SHALL show Failure reasons and Log tabs when a fai
 - **THEN** the tab structure, diagnosis, and Details content are equivalent, with only surface chrome and already-supported actions differing
 
 ### Requirement: Failure information cannot displace navigation
-Failure reasons SHALL contain the existing cause and remedies when an eligible failure diagnosis exists, and the Details disclosure inside a bounded internally scrollable panel. Expanding Details SHALL retain its real metrics, modified files, and runtime continuation content while leaving navigation reachable without scrolling the page. Diagnosis wording and remedy behavior SHALL remain unchanged.
+Failure reasons SHALL contain the existing cause and remedies when an eligible failure diagnosis exists inside a bounded internally scrollable panel. No Details block SHALL stack above the log: recorded figures (real metrics, modified files, runtime continuation notes) SHALL open from a Details button in the navigation row as a bounded popover, present only when the run recorded such figures. Verification evidence SHALL open from a chip in the same row, present only when the run recorded evidence. Diagnosis wording and remedy behavior SHALL remain unchanged.
 
-#### Scenario: Expand large Details content
-- **WHEN** the user expands Details with long modified-file lists and runtime evidence
-- **THEN** the panel scrolls within the available run-detail height and the top-level navigation remains outside that scroll region
-- **AND** the same metrics and continuation controls remain accessible
+#### Scenario: Open large Details content
+- **WHEN** the user opens Details with long modified-file lists and runtime notes
+- **THEN** the popover scrolls within its bounded height and the log below keeps its full height
+- **AND** the same metrics and continuation notes remain accessible and Escape closes it, returning focus to its button
+
+#### Scenario: Evidence chip
+- **WHEN** a run recorded verification evidence
+- **THEN** a Verification chip toned by technical acceptance appears beside the tabs and opens the existing evidence in a popover
+- **AND** a run without evidence shows no chip
+
+### Requirement: Run instructions dock under the log
+While Core can still deliver run instructions (engine v2 with a steering contract, active or resumable, no completion recorded, not succeeded or cancelled), a compact composer SHALL be docked at the bottom of the log panel with a short placeholder, an information tooltip stating that instructions apply at the agent's next compatible turn and neither answer questions nor grant approvals, a send button, and Cmd/Ctrl+Enter to send. Sent instructions SHALL appear as a queued/applied chip that lists each receipt with its status; nothing SHALL appear while none were sent. A settled run SHALL show no composer, and its sent instructions, if any, as a read-only chip beside the tabs.
+
+#### Scenario: Live run
+- **WHEN** a live engine-v2 run accepts instructions
+- **THEN** the composer is visible under Execution graph and Log detail but not under Failure reasons
+- **AND** Enter adds a line while Cmd/Ctrl+Enter sends with the existing idempotent request identity
+
+#### Scenario: Settled run
+- **WHEN** a run settles
+- **THEN** the composer disappears, and a run that received instructions keeps a read-only chip
 
 ### Requirement: Log offers graph and detail navigation
 Log SHALL offer Execution graph and Log detail sub-sections for loop jobs, each occupying the remaining content height and reachable in one click from Log. Non-loop jobs SHALL show Log detail alone with no graph control or empty graph panel. Loading, empty, error, and retained-tail indications SHALL remain accurate within Log.
@@ -45,11 +62,11 @@ Log SHALL offer Execution graph and Log detail sub-sections for loop jobs, each 
 - **THEN** Log preserves the existing applicable notices and states without displaying a blank Failure reasons panel
 
 ### Requirement: View preferences preserve surface independence
-The Log sub-section and Details open state SHALL be remembered independently for page and modal visits. The top-level selection SHALL be initialized from diagnosis eligibility on each visit. Unavailable, malformed, or unsupported stored preferences SHALL not prevent inspection. Graph exploration state and log scroll position SHALL survive switching sections during a visit.
+The Log sub-section SHALL be remembered independently for page and modal visits; Details SHALL open closed on each visit. The top-level selection SHALL be initialized from diagnosis eligibility on each visit. Unavailable, malformed, or unsupported stored preferences SHALL not prevent inspection. Graph exploration state and log scroll position SHALL survive switching sections during a visit.
 
 #### Scenario: Revisit each surface
-- **WHEN** a user chooses Log detail on the page, Execution graph in the modal, and different Details states, then revisits each surface
-- **THEN** each surface restores its own sub-section and Details state
+- **WHEN** a user chooses Log detail on the page and Execution graph in the modal, then revisits each surface
+- **THEN** each surface restores its own sub-section and Details starts closed
 - **AND** a diagnosed failed job still initially selects Failure reasons
 
 #### Scenario: Invalid preferences
@@ -88,21 +105,21 @@ The diagnosis open-logs remedy SHALL select Log and Execution graph for loop job
 - **THEN** Log detail or the existing visible evidence fallback is revealed, and existing not-found feedback is used only if no target exists
 
 ### Requirement: Pending questions reveal the answer form
-Activating the question-pending affordance SHALL select Failure reasons, open Details, and reveal the existing answer field and answer/resume behavior. The answer draft and action error behavior SHALL survive ordinary panel navigation.
+Activating the question-pending affordance SHALL select Failure reasons, reveal and focus the existing answer field, and keep the answer/resume behavior. The answer draft and action error behavior SHALL survive ordinary panel navigation.
 
 #### Scenario: Pending question without a diagnosis
 - **WHEN** an answerable pending question exists on a job with no eligible failure diagnosis
-- **THEN** Failure reasons is available with Details/question content and no fabricated diagnosis
-- **AND** activating the question-pending affordance selects it and opens Details regardless of job status
+- **THEN** Failure reasons is available with the question and no fabricated diagnosis
+- **AND** activating the question-pending affordance selects it regardless of job status
 
 #### Scenario: Question settles without diagnosis
 - **WHEN** the question is answered and no eligible diagnosis or answerable pending question remains
 - **THEN** Failure reasons disappears and the view selects Log without moving focus
-- **AND** existing metrics and continuation Details remain accessible there
+- **AND** existing metrics and continuation Details remain accessible from the Details button
 
 #### Scenario: Pending question navigation
 - **WHEN** a run has an answerable pending question and the user activates its header affordance
-- **THEN** Failure reasons is selected, Details is expanded, and the answer field is visible
+- **THEN** Failure reasons is selected and the answer field is visible and focused
 - **AND** an empty answer remains disabled and submitting a valid answer uses the existing continuation action
 
 ### Requirement: Both navigation levels are keyboard accessible
