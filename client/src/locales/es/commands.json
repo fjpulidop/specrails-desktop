@@ -152,7 +152,9 @@
       "copyPrDescription": "Copiar descripción de PR",
       "moveFocusedSpec": "Mover la spec enfocada…",
       "openLiveBoard": "Abrir tablero en vivo",
-      "openLiveBoardKeywords": "tablero, en vivo, ejecuciones, en curso, todos los proyectos, misiones, estado"
+      "openLiveBoardKeywords": "tablero, en vivo, ejecuciones, en curso, todos los proyectos, misiones, estado",
+      "toggleKeepAwake": "Mantener el ordenador despierto (activar / desactivar)",
+      "toggleKeepAwakeKeywords": "mantener despierto, evitar reposo, reposo, suspensión"
     },
     "scopes": {
       "remove": "Quitar ámbito",

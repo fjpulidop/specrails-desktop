@@ -6,6 +6,17 @@ import { Switch } from './ui/switch'
 
 interface AwakeStatus { supported: boolean; awake: boolean }
 
+/**
+ * Toggle request from anywhere in the main window (the command palette): the
+ * status bar owns the one useKeepAwake instance and answers it, so keep-awake
+ * can be switched on even when the app resources popover (which holds the
+ * switch) is hidden because nothing runs.
+ */
+export const KEEP_AWAKE_TOGGLE_EVENT = 'specrails:keep-awake-toggle'
+export function requestKeepAwakeToggle(): void {
+  window.dispatchEvent(new Event(KEEP_AWAKE_TOGGLE_EVENT))
+}
+
 export interface KeepAwake {
   supported: boolean
   awake: boolean
@@ -46,6 +57,13 @@ export function useKeepAwake(): KeepAwake {
       setStatus(await invoke<AwakeStatus>('desktop_system_status'))
     } catch { setFailed(true) } finally { setBusy(false) }
   }, [status, busy])
+  const toggleRef = useRef(toggle)
+  toggleRef.current = toggle
+  useEffect(() => {
+    const onRequest = () => { void toggleRef.current() }
+    window.addEventListener(KEEP_AWAKE_TOGGLE_EVENT, onRequest)
+    return () => window.removeEventListener(KEEP_AWAKE_TOGGLE_EVENT, onRequest)
+  }, [])
   return { supported: !!status?.supported, awake: !!status?.awake, busy, failed, toggle }
 }
 

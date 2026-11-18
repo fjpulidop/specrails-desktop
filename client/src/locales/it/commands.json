@@ -152,7 +152,9 @@
       "copyPrDescription": "Copia descrizione PR",
       "moveFocusedSpec": "Sposta la spec a fuoco…",
       "openLiveBoard": "Apri bacheca live",
-      "openLiveBoardKeywords": "bacheca, live, esecuzioni, in corso, tutti i progetti, missioni, stato"
+      "openLiveBoardKeywords": "bacheca, live, esecuzioni, in corso, tutti i progetti, missioni, stato",
+      "toggleKeepAwake": "Tieni il computer sveglio (attiva / disattiva)",
+      "toggleKeepAwakeKeywords": "tieni sveglio, impedisci stop, sospensione"
     },
     "scopes": {
       "remove": "Rimuovi ambito",

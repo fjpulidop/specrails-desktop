@@ -152,7 +152,9 @@
       "copyPrDescription": "Copy PR description",
       "moveFocusedSpec": "Move focused spec…",
       "openLiveBoard": "Open live board",
-      "openLiveBoardKeywords": "live board, board, runs, running, all projects, missions, status"
+      "openLiveBoardKeywords": "live board, board, runs, running, all projects, missions, status",
+      "toggleKeepAwake": "Keep computer awake (on / off)",
+      "toggleKeepAwakeKeywords": "keep awake, prevent sleep, sleep, awake"
     },
     "scopes": {
       "remove": "Remove scope",

@@ -152,7 +152,9 @@
       "copyPrDescription": "PR-Beschreibung kopieren",
       "moveFocusedSpec": "Fokussierte Spec verschieben…",
       "openLiveBoard": "Live-Board öffnen",
-      "openLiveBoardKeywords": "board, live, läufe, laufend, alle projekte, missionen, status"
+      "openLiveBoardKeywords": "board, live, läufe, laufend, alle projekte, missionen, status",
+      "toggleKeepAwake": "Computer wach halten (an / aus)",
+      "toggleKeepAwakeKeywords": "wach halten, Ruhezustand verhindern, Schlaf"
     },
     "scopes": {
       "remove": "Bereich entfernen",

@@ -152,7 +152,9 @@
       "copyPrDescription": "复制 PR 描述",
       "moveFocusedSpec": "移动聚焦的规格…",
       "openLiveBoard": "打开实时看板",
-      "openLiveBoardKeywords": "看板, 实时, 运行, 进行中, 所有项目, 任务, 状态"
+      "openLiveBoardKeywords": "看板, 实时, 运行, 进行中, 所有项目, 任务, 状态",
+      "toggleKeepAwake": "保持电脑唤醒（开 / 关）",
+      "toggleKeepAwakeKeywords": "保持唤醒, 防止睡眠, 睡眠"
     },
     "scopes": {
       "remove": "移除范围",

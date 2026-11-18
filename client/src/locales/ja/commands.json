@@ -152,7 +152,9 @@
       "copyPrDescription": "PR 説明をコピー",
       "moveFocusedSpec": "フォーカス中のスペックを移動…",
       "openLiveBoard": "ライブボードを開く",
-      "openLiveBoardKeywords": "ライブ, ボード, 実行, 進行中, すべてのプロジェクト, ミッション, 状態"
+      "openLiveBoardKeywords": "ライブ, ボード, 実行, 進行中, すべてのプロジェクト, ミッション, 状態",
+      "toggleKeepAwake": "コンピューターをスリープさせない（オン / オフ）",
+      "toggleKeepAwakeKeywords": "スリープ防止, スリープ, 起動したまま"
     },
     "scopes": {
       "remove": "範囲を解除",

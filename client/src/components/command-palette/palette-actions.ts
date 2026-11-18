@@ -1,4 +1,5 @@
 import {
+  Coffee,
   FilePlus2,
   Sparkles,
   Rocket,
@@ -33,6 +34,8 @@ import {
   Gauge,
   type LucideIcon,
 } from 'lucide-react'
+import { isTauri } from '../../lib/tauri-shell'
+import { requestKeepAwakeToggle } from '../KeepAwakeControl'
 import type { PaletteSurfaces } from '../../lib/palette-bridge'
 import { foldText, matchesPaletteQuery } from '../../features/missions/lib/mission-search'
 import { THEME_IDS, THEMES, type ThemeId } from '../../features/settings/lib/themes'
@@ -550,6 +553,13 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     resolveLabel: (ctx) => (ctx.inbox && ctx.inbox.count > 0 ? ctx.t('palette.actions.openInboxCount', { count: ctx.inbox.count }) : ctx.t('palette.actions.openInbox')),
     when: (ctx) => ctx.inbox !== null,
     run: (ctx) => ctx.inbox?.open(),
+  },
+  {
+    id: 'keepAwake.toggle', labelKey: 'palette.actions.toggleKeepAwake', group: 'global', icon: Coffee,
+    keywords: ['keep awake', 'awake', 'sleep', 'caffeinate', 'prevent sleep', 'insomnia'],
+    keywordsKey: 'palette.actions.toggleKeepAwakeKeywords',
+    when: () => isTauri(),
+    run: () => requestKeepAwakeToggle(),
   },
   {
     id: 'liveBoard.open', labelKey: 'palette.actions.openLiveBoard', group: 'global', icon: Columns3, shortcut: '⌘⇧B',

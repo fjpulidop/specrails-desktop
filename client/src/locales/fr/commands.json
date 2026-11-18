@@ -152,7 +152,9 @@
       "copyPrDescription": "Copier la description de PR",
       "moveFocusedSpec": "Déplacer la spec ciblée…",
       "openLiveBoard": "Ouvrir le tableau en direct",
-      "openLiveBoardKeywords": "tableau, direct, exécutions, en cours, tous les projets, missions, état"
+      "openLiveBoardKeywords": "tableau, direct, exécutions, en cours, tous les projets, missions, état",
+      "toggleKeepAwake": "Garder l'ordinateur éveillé (activer / désactiver)",
+      "toggleKeepAwakeKeywords": "garder éveillé, empêcher la veille, veille"
     },
     "scopes": {
       "remove": "Retirer le périmètre",

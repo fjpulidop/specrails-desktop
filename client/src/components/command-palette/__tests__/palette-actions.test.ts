@@ -104,7 +104,8 @@ describe('registry', () => {
     // 36 with the spec hand-off pair (BB2); they exist only while that spec's modal is open.
     // 37 with Move focused spec (BB4); it exists only while a board card has been focused.
     // 38 with Open live board; it exists only where the board does (main window).
-    expect(all.length).toBeLessThanOrEqual(38)
+    // 39 with Keep computer awake; desktop app only (the switch is hidden while nothing runs).
+    expect(all.length).toBeLessThanOrEqual(39)
   })
 
   it('pins the project settings ids to the real sections', () => {
