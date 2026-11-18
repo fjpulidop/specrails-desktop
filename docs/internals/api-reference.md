@@ -110,7 +110,7 @@ Example — register a project that uses both Claude and Gemini:
 |--------|------|-------|
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
 | `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, `gemini`, or `kimi` — runs the registered adapter's version probe. Registry-driven |
-| `GET` | `/available-providers` | Provider catalogue used by the Add Project dialog (no-provider warning), mission and provider pickers. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
+| `GET` | `/available-providers` | Provider catalogue used by the Add Project dialog (no-provider warning), mission and provider pickers. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server. The PATH and Kimi probes run as async child processes, are shared by concurrent requests and are reused for 60 s or until the next detection cycle (`GET /providers/detected?refresh=1`); local-engine availability answers from the last detection snapshot and refreshes it in the background |
 | `GET` | `/meta` | Versions a client negotiates with: `{ apiVersion, appVersion, coreVersion, contractSchemaVersion, channel, updateManifestUrl }`. `coreVersion` is the Core in use (active framework, else the located contract's Core, else the bundled one); `contractSchemaVersion` is the integration contract's `schemaVersion`; unknown values are `null`. `channel` is the update channel (`latest` or `stable`) and `updateManifestUrl` the Tauri updater manifest it reads |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
 | `GET` | `/core-update/status` | Core update status without network access. Includes `channel`, `resolvedDistTag` (`latest`/`stable`/`null`) and `channelFallback` (`true` when `stable` was requested but Core has no `stable` dist-tag, so `latest` was used). A version cached for another channel is never offered |
@@ -170,6 +170,12 @@ The call reads the last 400 log lines (24k characters) plus the job metadata and
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira` \| `raise-cap`), `subjectId` (delivery id, loop-run id, Jira outbox id, or `<scope>:<period>` for a cap), `conversationId`, `diagnosis` (a failed / blocked run's [failure diagnosis](#failure-diagnosis), else `null`; a provider limit or environment problem is listed as `blocked`), and — only on a reached spend cap (`kind: 'budget'`, `action: 'raise-cap'`, id `<projectId>:budget:cap-<scope>-<period>`) — `cap: { scope, period, budgetUsd, spentUsd, resetsAt }`. A delivery or run item also carries `railIndex` (when known) and a delivery item its `decision` (the state a remote PR decision must echo back). An app-wide cap is listed once, under the first project. Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
+
+### Resources (app-wide)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/resources` | Read-only CPU/memory of everything the server launched, from one process-table read (cached 500 ms): `{ measuredAt, supported, totals: { cpuPercent, memoryBytes, processCount }, categories, history }`. `categories` (non-empty ones only, in this order): `missions` (agent sessions of desktop missions and project chats), `rails` (loop/rail runs, labelled `Rail N · <loop> · #ticket`, including a Core definition run's runtime process and its provider CLIs, and queued jobs labelled with their command), `background`, `terminals`, then the server's remaining children by command line: `agent-cli` (claude/codex/gemini/kimi without a known owner), `mcp` (MCP bridge, local runner, MCP servers), `git`, `other`, and `server` (the server process itself). Each is `{ id, cpuPercent, memoryBytes, processCount, items: [{ label, projectId?, projectName?, chatId?, runId?, cpuPercent, memoryBytes, processCount }] }`; every process is counted once, under the first owner that reaches it. `history` holds up to 100 totals points kept in memory only while a client polls (reset after 30 s without requests). `supported: false` when the process table cannot be read. Shown by the status-bar Resources control; see [terminals › App resources](../../server/modules/terminals/README.md#app-resources). |
 
 ### Sample project (first run)
 
@@ -391,14 +397,37 @@ Jobs within a project run **strictly one at a time** (serialized) — a single q
 
 ### Analytics + spending
 
-Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`.
+Spending covers every AI call of the project. Recorded surfaces (`ai_invocations`): `job`, `loop`,
+`quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`, `chat-sidebar`, `spec-launcher`,
+`proposal`, `agent-studio`, `setup`, `flow` (the Intent spec rewrite), `triage`, `failure-analysis`.
+Two read-only **virtual surfaces** come from the app-level `agent_invocations` ledger (desktop DB) rows
+pinned to the project (`project_id = :projectId`; Home turns are excluded): `mission` (Agent Chat /
+Mission turns) and `intent` (Intent-mode turns, ledger surface `flow`). They count in every aggregate of
+`/spending` and in `/invocations`; they live in a different ledger, so nothing is counted twice.
+`recordInvocation` rejects them.
+
+Every surface belongs to one spend **category** (the "why", `server/modules/accounting/runtime/spend-categories.ts`):
+
+| Category | Surfaces | Why |
+|----------|----------|-----|
+| `implementation` | `job`, `loop` | Building specs with rails, loops and jobs |
+| `missions` | `mission`, `intent`, `flow` | Talking to the agent and Intent mode |
+| `specs` | `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `spec-launcher`, `proposal`, `triage` | Writing and refining specs |
+| `code` | `file-summary` | Explaining the code |
+| `support` | `failure-analysis`, `setup`, `agent-studio`, `chat-sidebar` | Setup, diagnosis and side chats |
+
+Shared query filters for `/spending`, `/invocations` and `/analytics/export`: `period` (`7d`\|`30d`\|`90d`\|`all`\|`custom`
+with `from`/`to`), `surface` (CSV, recorded or virtual; unknown ids dropped), `category` (CSV; intersected
+with `surface` when both are set, an empty intersection matches nothing), `provider`, `model` + `modelProvider`,
+`status`, `minCostUsd`, `ticketId` (excludes every agent-ledger row: they carry no ticket), `tzOffsetMinutes`,
+`sortBy` (`/invocations`).
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/stats` | Summary (total jobs, tokens, cost) |
 | `GET` | `/metrics` | Raw metrics |
-| `GET` | `/spending` | Burn-rate / timeline / by-surface / by-model / top-tickets — powers the Analytics page |
-| `GET` | `/invocations` | Paginated raw `ai_invocations` rows |
+| `GET` | `/spending` | Summary / timeline / by-category / by-surface / by-provider / by-model / top-tickets / `agentMissions` — powers the Analytics page. Agent-ledger rows count in the summary (cost, estimated, runs, tokens, priced/unpriced/usage coverage, previous-period delta), `dailyTimeline` (`missionCostUsd`; each day also carries `byCategory: { implementation, missions, specs, code, support }` summing to its `totalCostUsd`), `byProvider`, `byModel`, `bySurface`, `byCategory` and `scatter`; never in `topTickets` or `byMode`. `byCategory`: `[{ category, costUsd, estimatedCostUsd, count, tokens, unpricedCount, surfaces: [{ surface, costUsd, count, tokens }] }]`, all five categories, costliest first. `agentMissions`: `{ summary: { totalCostUsd, estimatedCostUsd, prevTotalCostUsd, turns, tokensIn, tokensOut, flowCostUsd, flowTurns }, topConversations: [{ conversationId, title, costUsd, estimatedCostUsd, turns, lastAt }] }` (top 5), filtered like the rest. An unreadable agent ledger degrades to the project ledger alone |
+| `GET` | `/invocations` | Paginated raw rows of both ledgers, merged in the requested order. An agent-ledger row has `ledger: 'agent'`, `surface` `mission`\|`intent`, its agent `conversation_id`, `ticket_id: null` and the conversation title in `ticket_title`. `totalAvailable` counts both ledgers |
 | `GET` | `/tickets/:id/spending-summary` | Per-ticket cross-surface aggregate (powers `TicketSpendingLine`) |
 | `GET` | `/analytics/export?format=csv\|json&mode=summary\|raw&…` | Multi-section summary CSV/JSON, or raw rows (10 000 cap) |
 | `GET` | `/analytics/decision-times?period=7d\|30d\|90d\|all\|custom&from&to` | Time to decision / merge per delivery: `{ period, from, to, project, byLoop[] }`, each group `{ deliveries, toDecision, toMerge }` with `{ measured, pending, unknown, medianMs, p90Ms }`. Window = `on_review_at` (or `created_at` for legacy rows). `medianMs`/`p90Ms` are `null` when nothing is measurable; unknown is never zero. Repository children are excluded (counted via the group parent). 400 on an invalid period or a custom period without `from`/`to` |
@@ -411,7 +440,8 @@ Example — the Analytics dashboard payload (abridged):
 // GET /api/projects/my-app/spending?period=30d
 {
   "summary": { "totalCostUsd": 12.40, "totalRuns": 58, "prevPeriodDeltaPct": -8.2, "trackingStartedAt": "2026-05-01" },
-  "bySurface": [{ "surface": "job", "costUsd": 9.10 }, { "surface": "explore-spec", "costUsd": 2.30 }],
+  "byCategory": [{ "category": "implementation", "costUsd": 9.10, "estimatedCostUsd": 0, "count": 31, "tokens": 412000, "unpricedCount": 0, "surfaces": [{ "surface": "job", "costUsd": 9.10, "count": 31, "tokens": 412000 }] }],
+  "bySurface": [{ "surface": "job", "costUsd": 9.10 }, { "surface": "mission", "costUsd": 1.00 }],
   "byModel": [{ "model": "sonnet", "costUsd": 8.00 }, { "model": "gemini-3.5-flash", "costUsd": 1.20 }],
   "dailyTimeline": [ /* zero-filled, stacked by surface */ ],
   "topTickets": [ /* top 10 cross-surface */ ]

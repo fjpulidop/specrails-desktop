@@ -43,6 +43,7 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/domain/recovery-context.ts': [],
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
+  'terminals/domain/app-resources.ts': ['./mission-resources'],
   'terminals/domain/app-urls.ts': [],
   'terminals/domain/mission-resources.ts': [],
   // Failure recovery: pure diagnosis vocabulary and rules (the provider-limit classifier is itself pure).

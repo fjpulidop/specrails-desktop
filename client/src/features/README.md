@@ -23,6 +23,16 @@ subpaths and feature dependencies, [scripts/client-feature-readme.mjs](../../../
 hand-written sections outside it are kept. `--check` also fails when a block is
 stale. Run client coverage after changes spanning capabilities.
 
+## Shared GETs on mount
+
+Surfaces that mount once per rail (rail header selectors, the contextual
+runtime card, rail launch cards, milestone progress) fetch through
+[`lib/shared-fetch.ts`](../lib/shared-fetch.ts): concurrent identical GETs
+(same full URL, so the project id is part of the key) share one request and
+each caller gets its own `Response` clone. Nothing is cached once the request
+settles, so polling and WebSocket-driven refetches still reach the server; use
+`useProjectCache` when a value should survive between renders.
+
 ## Accessibility and personalisation
 
 App-wide preferences live in `lib/a11y-prefs.ts` (per machine, `localStorage`,

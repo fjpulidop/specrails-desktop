@@ -36,6 +36,7 @@
   },
   "background": {
     "publicEntries": [
+      "components/AppResourcesFooter.tsx",
       "components/BackgroundProcessChip.tsx",
       "components/BackgroundProcessHistoryModal.tsx",
       "components/BackgroundProcessLogsModal.tsx",

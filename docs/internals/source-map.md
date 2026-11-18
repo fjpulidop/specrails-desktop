@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1414 source/build files. Nearby tests are linked where names
+Includes 1432 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -87,6 +87,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [load-error.tsx](../../client/src/components/ui/load-error.tsx)
 - [overflow-actions.tsx](../../client/src/components/ui/overflow-actions.tsx)
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
+- [segmented-control.tsx](../../client/src/components/ui/segmented-control.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)
 - [surface.tsx](../../client/src/components/ui/surface.tsx) · [test](../../client/src/components/ui/__tests__/surface.test.tsx)
@@ -147,13 +148,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/analytics/components
 
-- [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
 - [BudgetCard.tsx](../../client/src/features/analytics/components/BudgetCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/BudgetCard.test.tsx)
 - [ChartTooltip.tsx](../../client/src/features/analytics/components/ChartTooltip.tsx)
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
 - [CostValue.tsx](../../client/src/features/analytics/components/CostValue.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostValue.test.tsx)
 - [DecisionTimesCard.tsx](../../client/src/features/analytics/components/DecisionTimesCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/DecisionTimesCard.test.tsx)
 - [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
+- [InfoHint.tsx](../../client/src/features/analytics/components/InfoHint.tsx)
 - [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
 - [LegacyWorkflowUsage.tsx](../../client/src/features/analytics/components/LegacyWorkflowUsage.tsx) · [test](../../client/src/features/analytics/components/__tests__/LegacyWorkflowUsage.test.tsx)
 - [LoopEconomicsCard.tsx](../../client/src/features/analytics/components/LoopEconomicsCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/LoopEconomicsCard.test.tsx)
@@ -162,6 +163,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [PeriodSelector.tsx](../../client/src/features/analytics/components/PeriodSelector.tsx) · [test](../../client/src/features/analytics/components/__tests__/PeriodSelector.test.tsx)
 - [ProviderBreakdownCard.tsx](../../client/src/features/analytics/components/ProviderBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/ProviderBreakdownCard.test.tsx)
 - [QuickVsExploreCard.tsx](../../client/src/features/analytics/components/QuickVsExploreCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/QuickVsExploreCard.test.tsx)
+- [SpendBreakdownCard.tsx](../../client/src/features/analytics/components/SpendBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendBreakdownCard.test.tsx)
 - [SpendingHero.tsx](../../client/src/features/analytics/components/SpendingHero.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendingHero.test.tsx)
 - [SpendingTimeline.tsx](../../client/src/features/analytics/components/SpendingTimeline.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendingTimeline.test.tsx)
 - [TicketSpendingLine.tsx](../../client/src/features/analytics/components/TicketSpendingLine.tsx) · [test](../../client/src/features/analytics/components/__tests__/TicketSpendingLine.test.tsx)
@@ -175,6 +177,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/analytics/lib
 
 - [budget.ts](../../client/src/features/analytics/lib/budget.ts) · [test](../../client/src/features/analytics/lib/__tests__/budget.test.ts)
+- [category-colors.ts](../../client/src/features/analytics/lib/category-colors.ts)
 - [format.ts](../../client/src/features/analytics/lib/format.ts)
 - [use-billing.ts](../../client/src/features/analytics/lib/use-billing.ts)
 
@@ -190,6 +193,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/background/components
 
+- [AppResourcesFooter.tsx](../../client/src/features/background/components/AppResourcesFooter.tsx) · [test](../../client/src/features/background/components/__tests__/AppResourcesFooter.test.tsx)
 - [BackgroundProcessAppLinks.tsx](../../client/src/features/background/components/BackgroundProcessAppLinks.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessAppLinks.test.tsx)
 - [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx)
 - [BackgroundProcessHistoryModal.tsx](../../client/src/features/background/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
@@ -203,10 +207,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/background/hooks
 
+- [useAppResources.ts](../../client/src/features/background/hooks/useAppResources.ts)
 - [useMissionResourceHistory.ts](../../client/src/features/background/hooks/useMissionResourceHistory.ts) · [test](../../client/src/features/background/hooks/__tests__/useMissionResourceHistory.test.ts)
 
 ## client/src/features/background/lib
 
+- [app-resources-api.ts](../../client/src/features/background/lib/app-resources-api.ts)
 - [background-processes-api.ts](../../client/src/features/background/lib/background-processes-api.ts) · [test](../../client/src/features/background/lib/__tests__/background-processes-api.test.ts)
 - [mission-resource-history.ts](../../client/src/features/background/lib/mission-resource-history.ts) · [test](../../client/src/features/background/lib/__tests__/mission-resource-history.test.ts)
 - [mission-resources-api.ts](../../client/src/features/background/lib/mission-resources-api.ts)
@@ -585,6 +591,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentComposerAttachmentChip.tsx](../../client/src/features/missions/components/AgentComposerAttachmentChip.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentComposerAttachmentChip.test.tsx)
 - [AgentComposerEditor.tsx](../../client/src/features/missions/components/AgentComposerEditor.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentComposerEditor.test.tsx)
 - [AgentContextPalette.tsx](../../client/src/features/missions/components/AgentContextPalette.tsx)
+- [AgentContextUsageRing.tsx](../../client/src/features/missions/components/AgentContextUsageRing.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentContextUsageRing.test.tsx)
 - [AgentConversationHeader.tsx](../../client/src/features/missions/components/AgentConversationHeader.tsx)
 - [AgentConversationView.tsx](../../client/src/features/missions/components/AgentConversationView.tsx)
 - [AgentDeliveryReceipt.tsx](../../client/src/features/missions/components/AgentDeliveryReceipt.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentDeliveryReceipt.test.tsx)
@@ -1092,6 +1099,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [run-announcements.ts](../../client/src/lib/run-announcements.ts) · [test](../../client/src/lib/__tests__/run-announcements.test.ts)
 - [run-cap.ts](../../client/src/lib/run-cap.ts)
 - [save-text-file.ts](../../client/src/lib/save-text-file.ts) · [test](../../client/src/lib/__tests__/save-text-file.test.ts)
+- [shared-fetch.ts](../../client/src/lib/shared-fetch.ts) · [test](../../client/src/lib/__tests__/shared-fetch.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
 - [surface-toasts.ts](../../client/src/lib/surface-toasts.ts)
@@ -1186,6 +1194,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [api-not-found.ts](../../server/api-not-found.ts)
 - [api-version.ts](../../server/api-version.ts) · [test](../../server/api-version.test.ts)
+- [app-resources-router.ts](../../server/app-resources-router.ts) · [test](../../server/app-resources-router.test.ts)
 - [artifact-registry.ts](../../server/artifact-registry.ts) · [test](../../server/artifact-registry.test.ts)
 - [attachment-manager.ts](../../server/attachment-manager.ts) · [test](../../server/attachment-manager.test.ts)
 - [auth.ts](../../server/auth.ts) · [test](../../server/auth.test.ts)
@@ -1387,6 +1396,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [metrics.ts](../../server/modules/accounting/runtime/metrics.ts) · [test](../../server/modules/accounting/runtime/metrics.test.ts)
 - [pricing.ts](../../server/modules/accounting/runtime/pricing.ts) · [test](../../server/modules/accounting/runtime/pricing.test.ts)
 - [result-event.ts](../../server/modules/accounting/runtime/result-event.ts) · [test](../../server/modules/accounting/runtime/result-event.test.ts)
+- [spend-categories.ts](../../server/modules/accounting/runtime/spend-categories.ts) · [test](../../server/modules/accounting/runtime/spend-categories.test.ts)
 - [spending.ts](../../server/modules/accounting/runtime/spending.ts) · [test](../../server/modules/accounting/runtime/spending.test.ts)
 - [telemetry-compactor.ts](../../server/modules/accounting/runtime/telemetry-compactor.ts)
 - [telemetry-export.ts](../../server/modules/accounting/runtime/telemetry-export.ts) · [test](../../server/modules/accounting/runtime/telemetry-export.test.ts)
@@ -1418,6 +1428,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
 - [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
+- [agent-runtime-status-cache.ts](../../server/modules/agent-runtime/runtime/agent-runtime-status-cache.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-status-cache.test.ts)
 - [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
 - [core-capabilities.ts](../../server/modules/agent-runtime/runtime/core-capabilities.ts)
@@ -1461,6 +1472,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-refine-manager.ts](../../server/modules/agents/runtime/agent-refine-manager.ts) · [test](../../server/modules/agents/runtime/agent-refine-manager.test.ts)
 - [agent-role-descriptor.ts](../../server/modules/agents/runtime/agent-role-descriptor.ts) · [test](../../server/modules/agents/runtime/agent-role-descriptor.test.ts)
 - [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts)
+- [conversation-context-usage.ts](../../server/modules/agents/runtime/conversation-context-usage.ts)
 - [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
 - [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
 
@@ -1753,8 +1765,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-spec-framing.ts](../../server/modules/missions/runtime/agent-spec-framing.ts) · [test](../../server/modules/missions/runtime/agent-spec-framing.test.ts)
 - [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
 - [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
+- [claude-transcript-reader.ts](../../server/modules/missions/runtime/claude-transcript-reader.ts)
+- [codex-rollout-reader.ts](../../server/modules/missions/runtime/codex-rollout-reader.ts)
 - [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
 - [flow-turn-context.ts](../../server/modules/missions/runtime/flow-turn-context.ts)
+- [mission-context-usage.ts](../../server/modules/missions/runtime/mission-context-usage.ts) · [test](../../server/modules/missions/runtime/mission-context-usage.test.ts)
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
@@ -1867,11 +1882,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/terminals/domain
 
+- [app-resources.ts](../../server/modules/terminals/domain/app-resources.ts) · [test](../../server/modules/terminals/domain/app-resources.test.ts)
 - [app-urls.ts](../../server/modules/terminals/domain/app-urls.ts) · [test](../../server/modules/terminals/domain/app-urls.test.ts)
 - [mission-resources.ts](../../server/modules/terminals/domain/mission-resources.ts) · [test](../../server/modules/terminals/domain/mission-resources.test.ts)
 
 ## server/modules/terminals/runtime
 
+- [app-resources.ts](../../server/modules/terminals/runtime/app-resources.ts) · [test](../../server/modules/terminals/runtime/app-resources.test.ts)
 - [app-urls.ts](../../server/modules/terminals/runtime/app-urls.ts) · [test](../../server/modules/terminals/runtime/app-urls.test.ts)
 - [background-process-control.ts](../../server/modules/terminals/runtime/background-process-control.ts) · [test](../../server/modules/terminals/runtime/background-process-control.test.ts)
 - [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts) · [test](../../server/modules/terminals/runtime/background-process-service.test.ts)
@@ -1940,6 +1957,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/util
 
+- [async-memo.ts](../../server/util/async-memo.ts) · [test](../../server/util/async-memo.test.ts)
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [desktop-core-env.ts](../../server/util/desktop-core-env.ts)

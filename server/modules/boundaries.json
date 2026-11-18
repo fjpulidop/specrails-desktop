@@ -53,9 +53,13 @@
         "../../../providers/types",
         "./pricing"
       ],
+      "runtime/spend-categories.ts": [
+        "./ai-invocations"
+      ],
       "runtime/spending.ts": [
         "../../../db",
-        "./ai-invocations"
+        "./ai-invocations",
+        "./spend-categories"
       ],
       "runtime/telemetry-compactor.ts": [
         "../../../db",
@@ -158,6 +162,7 @@
         "./agent-runtime-retention-host",
         "./agent-runtime-retention-records",
         "./agent-runtime-settlement",
+        "./agent-runtime-status-cache",
         "node:child_process",
         "node:crypto",
         "node:fs",
@@ -204,6 +209,7 @@
         "node:path"
       ],
       "runtime/agent-runtime-package.ts": [
+        "../../../util/async-memo",
         "./agent-runtime-package-gc",
         "./agent-runtime-package-lock",
         "node:crypto",
@@ -286,6 +292,11 @@
         "../../delivery/runtime/rail-pr-store",
         "node:crypto",
         "node:fs"
+      ],
+      "runtime/agent-runtime-status-cache.ts": [
+        "node:crypto",
+        "node:fs",
+        "node:path"
       ],
       "runtime/agent-runtime-verification-log.ts": [
         "node:util"
@@ -387,6 +398,7 @@
       "runtime/agent-refine-manager.ts",
       "runtime/agent-role-descriptor.ts",
       "runtime/agent-store.ts",
+      "runtime/conversation-context-usage.ts",
       "runtime/profile-manager.ts",
       "runtime/profiles-router.ts"
     ],
@@ -452,8 +464,10 @@
         "../../../db",
         "../../../util/search-snippet",
         "../../missions/runtime/agent-tier",
+        "./conversation-context-usage",
         "crypto"
       ],
+      "runtime/conversation-context-usage.ts": [],
       "runtime/profile-manager.ts": [
         "../../../db",
         "../../../providers",
@@ -2036,6 +2050,7 @@
         "../../../db",
         "../../../util/distribute-int",
         "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/pricing",
         "./loop-runs-store"
       ],
       "runtime/loop-definition-recovery.ts": [
@@ -2280,8 +2295,11 @@
         "./agent-session-store",
         "./agent-steering",
         "./agent-tier",
+        "./claude-transcript-reader",
+        "./codex-rollout-reader",
         "./core-session-runner",
         "./flow-turn-context",
+        "./mission-context-usage",
         "./mission-core-sessions",
         "./mission-tool-policy",
         "child_process",
@@ -2362,6 +2380,17 @@
       "runtime/agent-tier.ts": [
         "../../../mcp/mcp-tiers"
       ],
+      "runtime/claude-transcript-reader.ts": [
+        "./codex-rollout-reader",
+        "node:fs/promises",
+        "node:os",
+        "node:path"
+      ],
+      "runtime/codex-rollout-reader.ts": [
+        "node:fs/promises",
+        "node:os",
+        "node:path"
+      ],
       "runtime/core-session-runner.ts": [
         "../../../providers/live-session-types",
         "../../../providers/types",
@@ -2371,6 +2400,10 @@
       ],
       "runtime/flow-turn-context.ts": [
         "../../agent-sessions"
+      ],
+      "runtime/mission-context-usage.ts": [
+        "../../../providers/types",
+        "../../agents/runtime/conversation-context-usage"
       ],
       "runtime/mission-core-sessions.ts": [
         "../../../agent-mcp-config",
@@ -2856,7 +2889,9 @@
   },
   "terminals": {
     "publicEntries": [
+      "domain/app-resources.ts",
       "domain/mission-resources.ts",
+      "runtime/app-resources.ts",
       "runtime/app-urls.ts",
       "runtime/background-process-control.ts",
       "runtime/background-process-service.ts",
@@ -2869,8 +2904,16 @@
       "runtime/terminal-settings.ts"
     ],
     "dependencies": {
+      "domain/app-resources.ts": [
+        "./mission-resources"
+      ],
       "domain/app-urls.ts": [],
       "domain/mission-resources.ts": [],
+      "runtime/app-resources.ts": [
+        "../domain/app-resources",
+        "../domain/mission-resources",
+        "./resource-sampler"
+      ],
       "runtime/app-urls.ts": [
         "../../../transient-children",
         "../domain/app-urls",
