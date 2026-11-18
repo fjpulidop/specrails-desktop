@@ -112,8 +112,10 @@ export function ResumeAfterRestartDialog() {
   const triggers = new Set((offers ?? []).map((o) => o.trigger))
   const description = triggers.size === 1 ? t(`resume.description.${[...triggers][0]}`) : t('resume.description.mixed')
 
+  // Esc / outside click only hide it for this launch: the offers stay and come back on
+  // the next start. Only the explicit "Not now" button discards them.
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) void notNow() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) setOpen(false) }}>
       <DialogContent size="form">
         <DialogHeader icon={<History />}>
           <DialogTitle>{t('resume.title')}</DialogTitle>

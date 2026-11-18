@@ -70,6 +70,16 @@ describe('ResumeAfterRestartDialog', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
+  it('Esc only hides it: the offers are not discarded (they come back on the next start)', async () => {
+    fetchOffers.mockResolvedValue({ offers: [offer], runs: [], bootedAt: null })
+    render(<ResumeAfterRestartDialog />)
+    await screen.findByRole('button', { name: 'Not now' })
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Not now' })).not.toBeInTheDocument())
+    expect(settle).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+  })
+
   it('keeps a failed resume visible', async () => {
     fetchOffers.mockResolvedValue({ offers: [offer], runs: [], bootedAt: null })
     send.mockRejectedValue(new Error('offline'))
