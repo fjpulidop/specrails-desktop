@@ -85,6 +85,17 @@ import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runt
 import { resolveSpecrailsHome } from './util/specrails-home'
 import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
 import { logRejection } from './util/log-rejection'
+import { checkCoreCompat } from './core-compat'
+import { createLogRing, captureProcessOutput } from './modules/diagnostics/runtime/log-ring'
+import { createEventLoopProbe, operationTiming } from './modules/diagnostics/runtime/event-loop-probe'
+import { createDiagnostics } from './modules/diagnostics/adapters/runtime'
+
+// Recent server output for "Report a problem" (in memory, redacted on export),
+// and the event-loop stall probe (one idle 1 s timer; sampling only while busy).
+const serverLogRing = createLogRing()
+captureProcessOutput(serverLogRing)
+const eventLoopProbe = createEventLoopProbe()
+eventLoopProbe.start()
 // Local AI engines: every OpenAI-compatible connection in
 // ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
 // first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
@@ -191,6 +202,8 @@ const app = express()
 // Host-header validation (H-08) — first barrier, anti DNS-rebinding.
 // Implementation in auth.ts (unit-tested there); index.ts is coverage-excluded.
 app.use(hostValidationMiddleware)
+// Names the request when its synchronous handler time causes an event-loop stall.
+app.use(operationTiming(eventLoopProbe))
 
 // ─── CORS — allow only localhost origins (CRIT-02) ────────────────────────────
 
@@ -555,6 +568,19 @@ app.get('/api/token', requireLoopback, (_req, res) => {
 })
 
 app.use('/api', requireAuth)
+
+// Crash notices, stall snapshot and the local "Report a problem" ZIP.
+app.use('/api/diagnostics', createDiagnostics({
+  logRing: serverLogRing,
+  probe: eventLoopProbe,
+  knownSecrets: () => [loadOrGenerateToken(), hostControlToken, getMcpToken()],
+  versions: async () => {
+    const compat = await checkCoreCompat().catch(() => null)
+    return { app: compat?.desktopVersion ?? PKG_VERSION, core: compat?.coreVersion ?? null, api: API_VERSION, contractSchema: compat?.contractSchemaVersion ?? null }
+  },
+  desktopDb: () => _registry?.desktopDb,
+  projectCount: () => _registry?.listProjects().length ?? 0,
+}).router)
 
 // ─── WebSocket rate limiting helper (LOW-03) ──────────────────────────────────
 
@@ -973,6 +999,7 @@ async function shutdown(exitCode = 0): Promise<void> {
   // keep-alive/WebSocket handlers can still resume while teardown runs; they
   // must not create work after their owning managers have been disposed.
   beginAppProcessQuiescence()
+  eventLoopProbe.stop()
   // Headroom lifecycle commands use their own direct process spawner. Close
   // that admission now, but leave the proxy alive until provider owners drain.
   _headroomManager?.beginShutdown()

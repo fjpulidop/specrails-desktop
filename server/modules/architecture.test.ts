@@ -84,6 +84,11 @@ const coreDependencies: Record<string, string[]> = {
   'onboarding/domain.ts': [],
   'onboarding/ports.ts': ['./domain'],
   'onboarding/application.ts': ['./domain', './ports'],
+  // Diagnostics: crash-marker, stall and problem-report rules; use cases depend only on their own ports.
+  'diagnostics/domain.ts': [],
+  'diagnostics/ports.ts': ['./domain'],
+  'diagnostics/application.ts': ['./domain', './ports'],
+  'diagnostics/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

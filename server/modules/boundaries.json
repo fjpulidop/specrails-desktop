@@ -73,6 +73,7 @@
       "runtime/telemetry-export.ts": [
         "../../../db",
         "../../../types",
+        "../../../util/zip",
         "fs",
         "http",
         "zlib"
@@ -1958,6 +1959,67 @@
         "./flow-review-outcome",
         "node:fs"
       ]
+    }
+  },
+  "diagnostics": {
+    "publicEntries": [
+      "adapters/runtime.ts",
+      "runtime/event-loop-probe.ts",
+      "runtime/log-ring.ts"
+    ],
+    "dependencies": {
+      "adapters/host-files.ts": [
+        "../domain",
+        "../ports",
+        "fs",
+        "path"
+      ],
+      "adapters/http.ts": [
+        "../../../util/zip",
+        "../application",
+        "../domain",
+        "express"
+      ],
+      "adapters/redaction.ts": [
+        "../../../mobile/mobile-redact",
+        "../../audit",
+        "../domain"
+      ],
+      "adapters/runtime.ts": [
+        "..",
+        "../../../db/types",
+        "../runtime/event-loop-probe",
+        "../runtime/log-ring",
+        "./host-files",
+        "./http",
+        "./redaction",
+        "./sqlite",
+        "crypto",
+        "express",
+        "os"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ],
+      "runtime/event-loop-probe.ts": [
+        "../domain",
+        "express",
+        "node:perf_hooks"
+      ],
+      "runtime/log-ring.ts": []
     }
   },
   "execution": {
