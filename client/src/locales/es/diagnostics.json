@@ -7,7 +7,7 @@
     "buildFailed": "No se pudo crear el informe: {{error}}",
     "retry": "Reintentar",
     "fileListLabel": "Archivos del informe",
-    "redactionNote": "Los tokens, claves, contraseñas y credenciales se sustituyen por [REDACTED] y tu carpeta personal aparece como ~. Revisa los archivos antes de compartirlos.",
+    "redactionNote": "Los tokens, claves, contraseñas y credenciales se sustituyen por *** o [REDACTED] y tu carpeta personal aparece como ~. Revisa los archivos antes de compartirlos.",
     "save": "Guardar ZIP…",
     "saving": "Guardando…",
     "saved": "Informe guardado",

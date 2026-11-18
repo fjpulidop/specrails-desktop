@@ -7,7 +7,7 @@
     "buildFailed": "Não foi possível criar o relatório: {{error}}",
     "retry": "Tentar novamente",
     "fileListLabel": "Ficheiros do relatório",
-    "redactionNote": "Tokens, chaves, palavras-passe e credenciais são substituídos por [REDACTED] e a sua pasta pessoal aparece como ~. Reveja os ficheiros antes de os partilhar.",
+    "redactionNote": "Tokens, chaves, palavras-passe e credenciais são substituídos por *** ou [REDACTED] e a sua pasta pessoal aparece como ~. Reveja os ficheiros antes de os partilhar.",
     "save": "Guardar ZIP…",
     "saving": "A guardar…",
     "saved": "Relatório guardado",

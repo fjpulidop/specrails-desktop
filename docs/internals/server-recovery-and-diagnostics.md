@@ -98,7 +98,8 @@ holds (desktop API, host control, MCP), the audit's `redactProse` (PEM keys,
 credentials in URLs, Authorization/Cookie headers, Bearer tokens, `name=value`
 secrets, GitHub/OpenAI/Anthropic/Slack/AWS/Google/GitLab/npm token shapes), the
 mobile gateway's `stripHome` (home folder → `~`), and a quoted-JSON-field rule
-(`"apiKey": "…"`). Nothing is uploaded; the client saves the ZIP through the
+(`"apiKey": "…"`). Removed values read `***` (audit rules) or `[REDACTED]`
+(known tokens, settings keys, JSON fields). Nothing is uploaded; the client saves the ZIP through the
 host's save dialog (`desktop_save_bytes`, raw IPC body) or a browser download.
 
 ## Verify

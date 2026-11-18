@@ -34,7 +34,7 @@ Antes de guardar, la ventana lista cada archivo del informe y muestra su conteni
 | `crashes.json` | Cada parada inesperada, con sus últimas líneas de error |
 | `stalls.json` | Momentos en que el servidor no respondía |
 
-Los tokens, claves de API, contraseñas, claves privadas y credenciales en URL se sustituyen por `[REDACTED]`, y tu carpeta personal aparece como `~`. Aun así, lee los archivos antes de compartirlos: puede aparecer el nombre de un proyecto o de un archivo que consideres privado.
+Los tokens, claves de API, contraseñas, claves privadas y credenciales en URL se sustituyen por `***` o `[REDACTED]`, y tu carpeta personal aparece como `~`. Aun así, lee los archivos antes de compartirlos: puede aparecer el nombre de un proyecto o de un archivo que consideres privado.
 
 ## Capacidad de respuesta {#responsiveness}
 

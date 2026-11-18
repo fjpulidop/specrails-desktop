@@ -34,7 +34,7 @@ Prima del salvataggio la finestra elenca ogni file del rapporto e ne mostra il c
 | `crashes.json` | Ogni arresto imprevisto, con le ultime righe di errore |
 | `stalls.json` | Momenti in cui il server non rispondeva |
 
-Token, chiavi API, password, chiavi private e credenziali negli URL sono sostituiti da `[REDACTED]` e la tua cartella personale appare come `~`. Leggi comunque i file prima di condividerli: può comparire il nome di un progetto o di un file che consideri privato.
+Token, chiavi API, password, chiavi private e credenziali negli URL sono sostituiti da `***` o `[REDACTED]` e la tua cartella personale appare come `~`. Leggi comunque i file prima di condividerli: può comparire il nome di un progetto o di un file che consideri privato.
 
 ## Reattività {#responsiveness}
 

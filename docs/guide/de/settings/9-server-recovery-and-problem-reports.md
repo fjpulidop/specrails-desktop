@@ -34,7 +34,7 @@ Vor dem Speichern listet das Fenster jede Datei des Berichts auf und zeigt ihren
 | `crashes.json` | Jeder unerwartete Stopp mit seinen letzten Fehlerzeilen |
 | `stalls.json` | Momente, in denen der Server nicht reagierte |
 
-Tokens, API-Schlüssel, Passwörter, private Schlüssel und Zugangsdaten in URLs werden durch `[REDACTED]` ersetzt, Ihr Benutzerordner erscheint als `~`. Lesen Sie die Dateien trotzdem, bevor Sie sie teilen: Ein Projekt- oder Dateiname, den Sie als privat ansehen, kann vorkommen.
+Tokens, API-Schlüssel, Passwörter, private Schlüssel und Zugangsdaten in URLs werden durch `***` oder `[REDACTED]` ersetzt, Ihr Benutzerordner erscheint als `~`. Lesen Sie die Dateien trotzdem, bevor Sie sie teilen: Ein Projekt- oder Dateiname, den Sie als privat ansehen, kann vorkommen.
 
 ## Reaktionsfähigkeit {#responsiveness}
 

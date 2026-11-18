@@ -7,7 +7,7 @@
     "buildFailed": "Impossibile creare il rapporto: {{error}}",
     "retry": "Riprova",
     "fileListLabel": "File del rapporto",
-    "redactionNote": "Token, chiavi, password e credenziali sono sostituiti da [REDACTED] e la tua cartella personale appare come ~. Controlla i file prima di condividerli.",
+    "redactionNote": "Token, chiavi, password e credenziali sono sostituiti da *** o [REDACTED] e la tua cartella personale appare come ~. Controlla i file prima di condividerli.",
     "save": "Salva ZIP…",
     "saving": "Salvataggio…",
     "saved": "Rapporto salvato",

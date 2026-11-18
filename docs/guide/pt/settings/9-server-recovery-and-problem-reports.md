@@ -34,7 +34,7 @@ Antes de guardar, a janela lista cada ficheiro do relatório e mostra o seu cont
 | `crashes.json` | Cada paragem inesperada, com as últimas linhas de erro |
 | `stalls.json` | Momentos em que o servidor não respondia |
 
-Tokens, chaves de API, palavras-passe, chaves privadas e credenciais em URL são substituídos por `[REDACTED]` e a sua pasta pessoal aparece como `~`. Mesmo assim, leia os ficheiros antes de os partilhar: pode aparecer o nome de um projeto ou ficheiro que considere privado.
+Tokens, chaves de API, palavras-passe, chaves privadas e credenciais em URL são substituídos por `***` ou `[REDACTED]` e a sua pasta pessoal aparece como `~`. Mesmo assim, leia os ficheiros antes de os partilhar: pode aparecer o nome de um projeto ou ficheiro que considere privado.
 
 ## Capacidade de resposta {#responsiveness}
 

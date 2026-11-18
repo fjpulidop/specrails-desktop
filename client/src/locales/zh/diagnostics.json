@@ -7,7 +7,7 @@
     "buildFailed": "无法生成报告：{{error}}",
     "retry": "重试",
     "fileListLabel": "报告中的文件",
-    "redactionNote": "令牌、密钥、密码和凭据会被替换为 [REDACTED]，你的主文件夹显示为 ~。分享前请检查这些文件。",
+    "redactionNote": "令牌、密钥、密码和凭据会被替换为 *** 或 [REDACTED]，你的主文件夹显示为 ~。分享前请检查这些文件。",
     "save": "保存 ZIP…",
     "saving": "正在保存…",
     "saved": "报告已保存",

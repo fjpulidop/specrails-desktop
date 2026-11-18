@@ -34,7 +34,7 @@ Avant l’enregistrement, la fenêtre liste chaque fichier du rapport et affiche
 | `crashes.json` | Chaque arrêt inattendu, avec ses dernières lignes d’erreur |
 | `stalls.json` | Moments où le serveur ne répondait pas |
 
-Les jetons, clés d’API, mots de passe, clés privées et identifiants dans les URL sont remplacés par `[REDACTED]`, et votre dossier personnel apparaît comme `~`. Lisez tout de même les fichiers avant de les partager : un nom de projet ou de fichier que vous jugez privé peut y figurer.
+Les jetons, clés d’API, mots de passe, clés privées et identifiants dans les URL sont remplacés par `***` ou `[REDACTED]`, et votre dossier personnel apparaît comme `~`. Lisez tout de même les fichiers avant de les partager : un nom de projet ou de fichier que vous jugez privé peut y figurer.
 
 ## Réactivité {#responsiveness}
 

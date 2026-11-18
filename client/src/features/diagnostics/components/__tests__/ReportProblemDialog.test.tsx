@@ -49,7 +49,7 @@ describe('ReportProblemDialog', () => {
     expect(screen.getByTestId('report-file-content')).toHaveTextContent('Specrails problem report')
     fireEvent.click(within(list).getByText('server.log'))
     expect(screen.getByTestId('report-file-content')).toHaveTextContent('token=[REDACTED] at ~/code')
-    expect(screen.getByText(/replaced with \[REDACTED\]/)).toBeInTheDocument()
+    expect(screen.getByText(/replaced with \*\*\* or \[REDACTED\]/)).toBeInTheDocument()
   })
 
   it('saves exactly the previewed ZIP and closes', async () => {

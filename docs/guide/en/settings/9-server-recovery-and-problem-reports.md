@@ -34,7 +34,7 @@ Before you save, the window lists every file in the report and shows its content
 | `crashes.json` | Each unexpected stop, with its last error lines |
 | `stalls.json` | Moments the server was unresponsive |
 
-Tokens, API keys, passwords, private keys and credentials in URLs are replaced with `[REDACTED]`, and your home folder is shown as `~`. Read the files before you share them all the same: a project name or a file name you consider private can still appear.
+Tokens, API keys, passwords, private keys and credentials in URLs are replaced with `***` or `[REDACTED]`, and your home folder is shown as `~`. Read the files before you share them all the same: a project name or a file name you consider private can still appear.
 
 ## Responsiveness {#responsiveness}
 

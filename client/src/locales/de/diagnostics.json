@@ -7,7 +7,7 @@
     "buildFailed": "Der Bericht konnte nicht erstellt werden: {{error}}",
     "retry": "Erneut versuchen",
     "fileListLabel": "Dateien im Bericht",
-    "redactionNote": "Tokens, Schlüssel, Passwörter und Zugangsdaten werden durch [REDACTED] ersetzt, Ihr Benutzerordner erscheint als ~. Prüfen Sie die Dateien, bevor Sie sie teilen.",
+    "redactionNote": "Tokens, Schlüssel, Passwörter und Zugangsdaten werden durch *** oder [REDACTED] ersetzt, Ihr Benutzerordner erscheint als ~. Prüfen Sie die Dateien, bevor Sie sie teilen.",
     "save": "ZIP speichern…",
     "saving": "Wird gespeichert…",
     "saved": "Bericht gespeichert",

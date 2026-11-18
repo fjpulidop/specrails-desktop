@@ -7,7 +7,7 @@
     "buildFailed": "The report could not be built: {{error}}",
     "retry": "Try again",
     "fileListLabel": "Files in the report",
-    "redactionNote": "Tokens, keys, passwords and credentials are replaced with [REDACTED], and your home folder is shown as ~. Review the files before you share them.",
+    "redactionNote": "Tokens, keys, passwords and credentials are replaced with *** or [REDACTED], and your home folder is shown as ~. Review the files before you share them.",
     "save": "Save ZIP…",
     "saving": "Saving…",
     "saved": "Report saved",

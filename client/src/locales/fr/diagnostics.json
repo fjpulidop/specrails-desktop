@@ -7,7 +7,7 @@
     "buildFailed": "Impossible de créer le rapport : {{error}}",
     "retry": "Réessayer",
     "fileListLabel": "Fichiers du rapport",
-    "redactionNote": "Les jetons, clés, mots de passe et identifiants sont remplacés par [REDACTED], et votre dossier personnel apparaît comme ~. Vérifiez les fichiers avant de les partager.",
+    "redactionNote": "Les jetons, clés, mots de passe et identifiants sont remplacés par *** ou [REDACTED], et votre dossier personnel apparaît comme ~. Vérifiez les fichiers avant de les partager.",
     "save": "Enregistrer le ZIP…",
     "saving": "Enregistrement…",
     "saved": "Rapport enregistré",
