@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, ClipboardCheck, Inbox, MessageCircleQuestion, OctagonAlert, RefreshCw, Wallet, XCircle, type LucideIcon } from 'lucide-react'
+import { Bell, BellOff, CircleCheck, ClipboardCheck, Inbox, MessageCircleQuestion, OctagonAlert, RefreshCw, Wallet, XCircle, type LucideIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { EmptyState } from '../../../components/ui/empty-state'
@@ -11,6 +12,8 @@ import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
 import type { InboxItem, InboxKind } from '../lib/inbox-model'
 import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
+import { useAttentionPrefs } from '../../../hooks/useAttentionPrefs'
+import { notifyError } from '../../../lib/notify-error'
 
 /** Kind → icon and lamp colour (the same tokens the review lamp, failures and warnings use elsewhere). */
 const KIND_LOOK: Record<InboxKind, { icon: LucideIcon; tone: string }> = {
@@ -49,12 +52,20 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const cap = item.cap
   const title = cap ? t(`cap.title.${cap.scope}.${cap.period}`) : item.title
   const detailText = cap ? t('cap.detail', { spent: formatUsd(cap.spentUsd), budget: formatUsd(cap.budgetUsd) }) : cause ?? (rawNoCause ? t('kinds.failedNoCause') : item.detail)
+  const unseen = inbox.showsUnseen(item)
   return (
-    <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind}>
+    <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind} data-unseen={unseen || undefined}>
       <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', look.tone)} aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-body text-foreground" title={title}>{title}</p>
+          <p className="flex items-center gap-1.5 text-body text-foreground">
+            {unseen && (
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary" data-testid="inbox-unseen-dot">
+                <span className="sr-only">{t('unseen')}</span>
+              </span>
+            )}
+            <span className="truncate" title={title}>{title}</span>
+          </p>
           <p className="truncate text-caption text-muted-foreground">
             <span className={look.tone}>{kindLabel}</span>
             {detailText && <span title={rawNoCause && item.detail ? item.detail : undefined}>{` · ${detailText}`}</span>}
@@ -85,6 +96,11 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
           <>
             <Button size="sm" variant="ghost" data-testid="inbox-snooze" aria-label={t('snoozeItem', { title })} onClick={() => setSnoozing(true)}>{t('snooze.label')}</Button>
             <Button size="sm" variant="ghost" data-testid="inbox-done" aria-label={t('doneItem', { title })} onClick={() => inbox.done(item)}>{t('done')}</Button>
+            {unseen ? (
+              <Button size="sm" variant="ghost" data-testid="inbox-mark-read" aria-label={t('markReadItem', { title })} onClick={() => inbox.markRead(item)}>{t('markRead')}</Button>
+            ) : (
+              <Button size="sm" variant="ghost" data-testid="inbox-mark-unread" aria-label={t('markUnreadItem', { title })} onClick={() => inbox.markUnread(item)}>{t('markUnread')}</Button>
+            )}
           </>
         )}
       </div>
@@ -92,7 +108,39 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   )
 }
 
-/** The "Needs you" panel: items grouped by project, a primary action per row, Snooze and Done. */
+/** The group header's bell: mute or unmute this project's notifications (its items stay listed). */
+function ProjectMuteToggle({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const { t } = useTranslation('inbox')
+  const { prefs, update } = useAttentionPrefs()
+  const muted = prefs.mutedProjects.includes(projectId)
+  const Icon = muted ? BellOff : Bell
+  const label = muted ? t('mute.unmute', { project: projectName }) : t('mute.mute', { project: projectName })
+  const toggle = (): void => {
+    const mutedProjects = muted ? prefs.mutedProjects.filter((id) => id !== projectId) : [...prefs.mutedProjects, projectId]
+    update({ mutedProjects }).then(
+      () => toast(muted ? t('toast.unmuted', { project: projectName }) : t('toast.muted', { project: projectName })),
+      () => notifyError(t('toast.muteFailed')),
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={muted}
+      aria-label={label}
+      title={label}
+      data-testid="inbox-project-mute"
+      className={cn(
+        'grid h-5 w-5 place-items-center rounded focus-visible:outline focus-visible:outline-ring',
+        muted ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+    </button>
+  )
+}
+
+/** The "Needs you" panel: items grouped by project, a primary action per row, Snooze, Done and read state. */
 export function InboxDialog() {
   const { t } = useTranslation('inbox')
   const inbox = useInbox()
@@ -183,7 +231,10 @@ export function InboxDialog() {
               <section key={group.projectId} aria-labelledby={`inbox-group-${group.projectId}`} data-testid="inbox-group" data-project-id={group.projectId}>
                 <h3 id={`inbox-group-${group.projectId}`} className="mb-1.5 flex items-center justify-between text-label text-muted-foreground">
                   <span className="truncate">{group.projectName}</span>
-                  <span className="shrink-0 pl-2 tabular-nums">{group.items.length}</span>
+                  <span className="flex shrink-0 items-center gap-1.5 pl-2">
+                    <ProjectMuteToggle projectId={group.projectId} projectName={group.projectName} />
+                    <span className="tabular-nums">{group.items.length}</span>
+                  </span>
                 </h3>
                 <ul role="list" className="flex flex-col gap-1.5">
                   {group.items.map((item) => <InboxRow key={item.id} item={item} inbox={withFocus} />)}

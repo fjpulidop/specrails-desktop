@@ -13,13 +13,17 @@ every item is projected from state other capabilities already persist, one proje
 | Collect across projects, isolate failures, cap per project | [application.ts](application.ts) |
 | SQL/store reads for one project (deliveries, loop runs, Jira outbox, reached spend caps) | [adapters/project-source.ts](adapters/project-source.ts) |
 | `GET /api/inbox` | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
+| Attention notification prefs (defaults, tolerant read, validated PATCH) | [attention-prefs.ts](attention-prefs.ts) (pure); `GET/PATCH /api/attention-prefs` in [desktop-router-settings.ts](../../desktop-router-settings.ts) |
 
 ## Invariants
 
 - Project isolation: a source is bound to ONE project's database and the collector drops
   any item whose `projectId` is not its own. Nothing is cached between calls.
-- Read-only. Snooze / Done never reach the server; they are per viewer, keyed by item id
+- Read-only. Snooze / Done and the unseen marks never reach the server; they are per viewer, keyed by item id
   and `version` (see the client README).
+- The attention prefs are one app-wide record (`desktop_settings` key `attention_notifications`); the server only
+  stores and validates them and broadcasts `desktop.attention_prefs` on change. Whether to notify is decided by
+  the client (`client/src/lib/attention`).
 - A broken project or a missing table costs that source only; the others still answer.
 - A run a delivery already represents (`rail_pr_deliveries.run_ids`) is left to the delivery.
 - A failed or blocked run (and a failed delivery, through its last run) carries the [failure diagnosis](../recovery/README.md) read from `loop_runs.failure_diagnosis`; a high-confidence provider limit or environment problem is listed as `blocked`, not `failed`, and the item `version` moves with the cause.

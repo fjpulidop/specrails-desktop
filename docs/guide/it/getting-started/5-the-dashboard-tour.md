@@ -42,6 +42,18 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 
 Nell'app desktop alcune schermate si aprono come vere finestre invece che come pannelli dentro la finestra principale: **Impostazioni app**, il dettaglio di un job aperto da una missione, e **Loops** e **Plugin** in modalità Missione. Puoi spostarle su un altro schermo e continuare a lavorare nella finestra principale. Ognuna usa i controlli di finestra del sistema; le Impostazioni e la finestra del job si chiudono anche con **Escape**. Le modifiche che fai lì, come il tema o la lingua, si applicano subito alla finestra principale. Nella versione browser queste schermate si aprono come pannelli.
 
+## Notifiche di ciò che ti aspetta {#attention}
+
+Specrails ti avvisa quando qualcosa ti aspetta: una domanda o la risposta di una missione, una revisione pronta da decidere, un'esecuzione fallita, bloccata o ferma, un limite di spesa e un job terminato. Il modo dipende da dove sei:
+
+- **Fuori dall'app** — una notifica di sistema con il progetto e la causa. Nell'app desktop non si può cliccare, quindi al tuo ritorno un avviso riassume (**3 cose ti aspettano**) e apre l'elemento, o **Da gestire** se sono più di uno.
+- **Altrove nell'app** — un piccolo avviso con **Apri**.
+- **Lo stai già guardando** — niente. Una missione che stai seguendo non segnala le proprie risposte; un'esecuzione bloccata è l'eccezione e avvisa sempre.
+
+Ogni nuovo stato di un elemento viene annunciato una sola volta; dopo un riavvio non viene annunciato di nuovo nulla di vecchio. Nella posta in arrivo, gli elementi che non hai ancora visto hanno un punto; **Segna come non letto** e **Segna come letto** lo cambiano. Nell'app desktop l'icona del Dock (il launcher su Linux) mostra quanti elementi non hai visto.
+
+Scegli di cosa essere avvisato in **Impostazioni ▸ Notifiche**: disattiva tutto, scegli le categorie (domande e risposte, revisioni, errori, limiti di spesa, job completati), aggiungi un suono, nascondi il badge del Dock o disattiva un progetto. Anche la campanella accanto al nome di un progetto nella posta in arrivo lo silenzia; i suoi elementi restano nella posta in arrivo.
+
 ## Qualche scorciatoia utile {#shortcuts}
 
 - **Cmd/Ctrl+B** — fissa o comprimi la barra laterale sinistra; **Option+Cmd+B** (**Ctrl+Alt+B**) fa lo stesso con quella destra.

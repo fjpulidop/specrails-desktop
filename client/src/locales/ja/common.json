@@ -259,7 +259,8 @@
       "specsBoard": "スペックとバックログ",
       "specTimeline": "スペックのタイムラインと引き継ぎ",
       "accessibility": "アクセシビリティとカスタマイズ",
-      "prDecision": "納品オプション"
+      "prDecision": "納品オプション",
+      "attention": "通知"
     }
   },
   "forecast": {

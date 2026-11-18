@@ -274,6 +274,7 @@
       "hooks/useAgentLive.ts",
       "hooks/useAgentRefActions.ts",
       "hooks/useMissionPlaceSync.ts",
+      "hooks/useMissionReplyNotifications.ts",
       "hooks/useOpenMission.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",

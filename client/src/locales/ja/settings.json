@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "概要",
       "effects": "エフェクト",
-      "subscriptionUsage": "サブスクリプション使用量"
+      "subscriptionUsage": "サブスクリプション使用量",
+      "notifications": "通知"
     },
     "title": "Desktop 設定",
     "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
@@ -96,17 +97,6 @@
     "unsavedChanges": "未保存の変更",
     "dailyBudgetCurrent": "現在 1 日 {{amount}}",
     "dailyBudgetNone": "1 日の上限は未設定"
-  },
-  "notifications": {
-    "heading": "OS 通知",
-    "description": "ジョブの完了・失敗時にネイティブのデスクトップ通知を表示します。通知はタブがフォーカスされていないときのみ表示されます。",
-    "enableLabel": "OS 通知を有効化",
-    "notifyOn": "通知の対象:",
-    "filterAll": "すべて（完了と失敗）",
-    "filterCompleted": "完了のみ",
-    "filterFailed": "失敗のみ",
-    "enabledToast": "OS 通知を有効にしました",
-    "disabledToast": "OS 通知を無効にしました"
   },
   "webhooks": {
     "heading": "アウトバウンド Webhook",
@@ -572,5 +562,42 @@
       "gemini": "~/.gemini/settings.json のサーバー。",
       "kimi": "~/.kimi-code/mcp.json のサーバー。"
     }
+  },
+  "attention": {
+    "heading": "通知",
+    "description": "あなたを待っていること：離れているときはシステム通知、アプリの別の場所にいるときはトースト、すでに画面に表示されているときは何もしません。",
+    "enable": "通知する",
+    "enableHint": "オフにすると、以下の通知とトーストがすべて止まります。",
+    "categoriesLegend": "通知する内容",
+    "categories": {
+      "question": {
+        "label": "質問と返信",
+        "hint": "エージェントがあなたの回答を待っている、またはミッションが返信した"
+      },
+      "review": {
+        "label": "レビューの準備完了",
+        "hint": "デリバリーまたはプルリクエストがあなたの判断を待っている"
+      },
+      "failed": {
+        "label": "失敗",
+        "hint": "実行が失敗した、ブロックされた、または止まった"
+      },
+      "budget": {
+        "label": "支出の上限",
+        "hint": "実行が予算、支出上限、またはプロバイダーの使用上限で一時停止した"
+      },
+      "done": {
+        "label": "完了したジョブ",
+        "hint": "ジョブが完了した（アプリを離れているときのみ）"
+      }
+    },
+    "sound": "サウンドを鳴らす",
+    "soundHint": "システムの通知音",
+    "dockBadge": "Dock バッジ",
+    "dockBadgeHint": "アプリのアイコンに、まだ見ていない受信トレイの項目数を表示します",
+    "dockBadgeDesktopOnly": "デスクトップアプリでは、アプリのアイコンに、まだ見ていない受信トレイの項目数を表示します",
+    "projectsHeading": "プロジェクト",
+    "projectsDescription": "プロジェクトをオフにすると、その通知をミュートします。項目は受信トレイに残ります。",
+    "saveFailed": "通知の設定を保存できませんでした"
   }
 }

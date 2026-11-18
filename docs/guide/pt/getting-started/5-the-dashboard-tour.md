@@ -42,6 +42,18 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 
 Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições da app**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
 
+## Notificações do que precisa de você {#attention}
+
+O Specrails avisa quando algo precisa de você: uma pergunta ou a resposta de uma missão, uma revisão pronta para decidir, uma execução que falhou, foi bloqueada ou parou de avançar, um limite de gasto e um job concluído. A forma depende de onde você está:
+
+- **Fora do app** — uma notificação do sistema com o projeto e a causa. No app para desktop ela não pode ser clicada; quando você volta, um aviso resume (**3 coisas precisam de você**) e abre o item, ou **Pendências** quando são vários.
+- **Em outra parte do app** — um pequeno aviso com **Abrir**.
+- **Já está vendo** — nada. Uma missão que você está acompanhando não avisa das próprias respostas; uma execução travada é a exceção e sempre avisa.
+
+Cada novo estado de um item é anunciado uma vez; depois de reiniciar, nada antigo é anunciado de novo. Na caixa de entrada, itens que você ainda não viu têm um ponto; **Marcar como não lido** e **Marcar como lido** mudam isso. No app para desktop, o ícone do Dock (o lançador no Linux) mostra quantos itens você não viu.
+
+Escolha do que ser avisado em **Configurações ▸ Notificações**: desative tudo, escolha as categorias (perguntas e respostas, revisões, falhas, limites de gasto, jobs concluídos), adicione um som, oculte o selo do Dock ou desative um projeto. O sino ao lado do nome de um projeto na caixa de entrada também o silencia; os itens dele continuam na caixa de entrada.
+
 ## Alguns atalhos úteis {#shortcuts}
 
 - **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.

@@ -91,7 +91,7 @@ mod tests {
     fn loop_editors_have_no_host_or_browser_privileges() {
         registry().lock().unwrap().insert("unit-test".into(), "loops-unit-test".into());
         assert!(permits_command("loops-unit-test", "desktop_save_text"));
-        for command in ["restart_app", "loop_window_open", "browser_create", "mission_window_detach"] {
+        for command in ["restart_app", "loop_window_open", "browser_create", "mission_window_detach", "desktop_notify", "desktop_set_badge", "desktop_focus_state"] {
             assert!(!permits_command("loops-unit-test", command));
         }
         assert!(!permits_command("loops-unregistered", "desktop_save_text"));

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1602 source/build files. Nearby tests are linked where names
+Includes 1615 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -435,6 +435,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [InboxContext.tsx](../../client/src/features/inbox/context/InboxContext.tsx)
 
+## client/src/features/inbox/hooks
+
+- [useInboxAttention.ts](../../client/src/features/inbox/hooks/useInboxAttention.ts)
+
 ## client/src/features/inbox/lib
 
 - [inbox-api.ts](../../client/src/features/inbox/lib/inbox-api.ts)
@@ -740,6 +744,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useAgentRefActions.ts](../../client/src/features/missions/hooks/useAgentRefActions.ts)
 - [useGuardedTierCycle.ts](../../client/src/features/missions/hooks/useGuardedTierCycle.ts)
 - [useMissionPlaceSync.ts](../../client/src/features/missions/hooks/useMissionPlaceSync.ts)
+- [useMissionReplyNotifications.ts](../../client/src/features/missions/hooks/useMissionReplyNotifications.ts)
 - [useOpenMission.ts](../../client/src/features/missions/hooks/useOpenMission.ts)
 
 ## client/src/features/missions/lib
@@ -883,6 +888,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentRuntimeSettingsSection.tsx](../../client/src/features/settings/components/AgentRuntimeSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeSettingsSection.test.tsx)
 - [AppUpdateSection.tsx](../../client/src/features/settings/components/AppUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppUpdateSection.test.tsx)
 - [AppearanceSection.tsx](../../client/src/features/settings/components/AppearanceSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppearanceSection.test.tsx)
+- [AttentionSettingsSection.tsx](../../client/src/features/settings/components/AttentionSettingsSection.tsx)
 - [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
 - [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
 - [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
@@ -1103,6 +1109,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/hooks
 
+- [useAttentionPrefs.ts](../../client/src/hooks/useAttentionPrefs.ts)
+- [useAttentionReturn.ts](../../client/src/hooks/useAttentionReturn.ts) · [test](../../client/src/hooks/__tests__/useAttentionReturn.test.ts)
 - [useDesktop.tsx](../../client/src/hooks/useDesktop.tsx) · [test](../../client/src/hooks/__tests__/useDesktop.test.tsx)
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
 - [useElementWidth.ts](../../client/src/hooks/useElementWidth.ts)
@@ -1186,6 +1194,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [utils.ts](../../client/src/lib/utils.ts) · [test](../../client/src/lib/__tests__/utils.test.ts)
 - [viewport.ts](../../client/src/lib/viewport.ts)
 - [ws-url.ts](../../client/src/lib/ws-url.ts) · [test](../../client/src/lib/__tests__/ws-url.test.ts)
+
+## client/src/lib/attention
+
+- [app-attention.ts](../../client/src/lib/attention/app-attention.ts)
+- [attention-center.ts](../../client/src/lib/attention/attention-center.ts) · [test](../../client/src/lib/attention/__tests__/attention-center.test.ts)
+- [attention-policy.ts](../../client/src/lib/attention/attention-policy.ts) · [test](../../client/src/lib/attention/__tests__/attention-policy.test.ts)
+- [attention-prefs-store.ts](../../client/src/lib/attention/attention-prefs-store.ts) · [test](../../client/src/lib/attention/__tests__/attention-prefs-store.test.ts)
+- [dock-badge.ts](../../client/src/lib/attention/dock-badge.ts) · [test](../../client/src/lib/attention/__tests__/dock-badge.test.ts)
+- [native-notify.ts](../../client/src/lib/attention/native-notify.ts) · [test](../../client/src/lib/attention/__tests__/native-notify.test.ts)
+- [window-focus.ts](../../client/src/lib/attention/window-focus.ts)
 
 ## local-runner/src
 
@@ -1843,6 +1861,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/inbox
 
 - [application.ts](../../server/modules/inbox/application.ts)
+- [attention-prefs.ts](../../server/modules/inbox/attention-prefs.ts) · [test](../../server/modules/inbox/__tests__/attention-prefs.test.ts)
 - [domain.ts](../../server/modules/inbox/domain.ts)
 - [index.ts](../../server/modules/inbox/index.ts)
 - [ports.ts](../../server/modules/inbox/ports.ts)

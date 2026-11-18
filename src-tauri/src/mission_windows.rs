@@ -452,7 +452,7 @@ mod tests {
         registry().lock().unwrap().insert(item.transfer.window_label.clone(),item);
         assert!(is_trusted_interface("main")); assert!(is_trusted_interface("mission-unit-permissions"));
         assert!(!is_trusted_interface("mission-unregistered")); assert!(!is_trusted_interface("native-browser-mission-unit-permissions"));
-        for cmd in ["restart_app","set_tray_labels","desktop_notify","mission_window_detach","mission_window_ack"] { assert!(!permits_command("mission-unit-permissions",cmd)); }
+        for cmd in ["restart_app","set_tray_labels","desktop_notify","desktop_set_badge","desktop_focus_state","mission_window_detach","mission_window_ack"] { assert!(!permits_command("mission-unit-permissions",cmd)); }
         assert!(permits_command("mission-unit-permissions","browser_capture"));
         registry().lock().unwrap().remove("mission-unit-permissions"); assert!(!is_trusted_interface("mission-unit-permissions"));
     }

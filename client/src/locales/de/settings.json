@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "Info",
       "effects": "Effekte",
-      "subscriptionUsage": "Abonnementnutzung"
+      "subscriptionUsage": "Abonnementnutzung",
+      "notifications": "Benachrichtigungen"
     },
     "title": "Desktop-Einstellungen",
     "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",
@@ -96,17 +97,6 @@
     "unsavedChanges": "Ungespeicherte Änderungen",
     "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
     "dailyBudgetNone": "Kein Tageslimit gesetzt"
-  },
-  "notifications": {
-    "heading": "OS-Benachrichtigungen",
-    "description": "Native Desktop-Benachrichtigungen anzeigen, wenn Jobs abgeschlossen werden oder fehlschlagen. Benachrichtigungen erscheinen nur, wenn der Tab nicht fokussiert ist.",
-    "enableLabel": "OS-Benachrichtigungen aktivieren",
-    "notifyOn": "Benachrichtigen bei:",
-    "filterAll": "Alle (abgeschlossen & fehlgeschlagen)",
-    "filterCompleted": "Nur abgeschlossen",
-    "filterFailed": "Nur fehlgeschlagen",
-    "enabledToast": "OS-Benachrichtigungen aktiviert",
-    "disabledToast": "OS-Benachrichtigungen deaktiviert"
   },
   "webhooks": {
     "heading": "Ausgehende Webhooks",
@@ -572,5 +562,42 @@
       "gemini": "Server aus ~/.gemini/settings.json.",
       "kimi": "Server aus ~/.kimi-code/mcp.json."
     }
+  },
+  "attention": {
+    "heading": "Benachrichtigungen",
+    "description": "Was auf dich wartet: eine Systembenachrichtigung, wenn du weg bist, ein Hinweis, wenn du woanders in der App bist, und nichts, wenn es schon auf dem Bildschirm ist.",
+    "enable": "Benachrichtige mich",
+    "enableHint": "Ausschalten stoppt alle Benachrichtigungen und Hinweise unten.",
+    "categoriesLegend": "Benachrichtige mich bei",
+    "categories": {
+      "question": {
+        "label": "Fragen und Antworten",
+        "hint": "Ein Agent wartet auf deine Antwort oder eine Mission hat geantwortet"
+      },
+      "review": {
+        "label": "Bereite Reviews",
+        "hint": "Eine Lieferung oder ein Pull Request wartet auf deine Entscheidung"
+      },
+      "failed": {
+        "label": "Fehler",
+        "hint": "Ein Lauf ist fehlgeschlagen, blockiert oder kommt nicht mehr voran"
+      },
+      "budget": {
+        "label": "Ausgabenlimits",
+        "hint": "Ein Lauf wurde an einem Budget, einem Ausgabenlimit oder dem Nutzungslimit des Anbieters pausiert"
+      },
+      "done": {
+        "label": "Fertige Jobs",
+        "hint": "Ein Job ist abgeschlossen (nur wenn du nicht in der App bist)"
+      }
+    },
+    "sound": "Ton abspielen",
+    "soundHint": "Der Benachrichtigungston des Systems",
+    "dockBadge": "Dock-Badge",
+    "dockBadgeHint": "Das App-Symbol zeigt, wie viele Einträge im Posteingang du noch nicht gesehen hast",
+    "dockBadgeDesktopOnly": "In der Desktop-App zeigt das App-Symbol, wie viele Einträge im Posteingang du noch nicht gesehen hast",
+    "projectsHeading": "Projekte",
+    "projectsDescription": "Schalte ein Projekt aus, um seine Benachrichtigungen stummzuschalten. Seine Einträge bleiben im Posteingang.",
+    "saveFailed": "Die Benachrichtigungseinstellungen konnten nicht gespeichert werden"
   }
 }

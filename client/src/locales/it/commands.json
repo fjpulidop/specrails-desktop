@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "Impossibile fermare l'esecuzione",
     "providerLimit": "Limite d'uso del provider raggiunto",
     "providerLimitBody": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto — si azzera {{resetsAt}}. La run si è fermata; rilanciala o usa Recupera e riprova dopo l'azzeramento.",
-    "providerLimitBodyNoReset": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto. La run si è fermata; rilanciala dopo l'azzeramento."
+    "providerLimitBodyNoReset": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto. La run si è fermata; rilanciala dopo l'azzeramento.",
+    "attention": {
+      "open": "Apri",
+      "openInbox": "Apri la posta in arrivo",
+      "away_one": "{{count}} cosa ti aspetta",
+      "away_other": "{{count}} cose ti aspettano",
+      "missionReplied": "{{title}} ha risposto",
+      "untitledMission": "La tua missione"
+    }
   },
   "templates": {
     "emptyState": {

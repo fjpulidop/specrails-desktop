@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "About",
       "effects": "Effects",
-      "subscriptionUsage": "Subscription usage"
+      "subscriptionUsage": "Subscription usage",
+      "notifications": "Notifications"
     },
     "title": "Desktop Settings",
     "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
@@ -96,17 +97,6 @@
     "unsavedChanges": "Unsaved changes",
     "dailyBudgetCurrent": "Currently {{amount}} a day",
     "dailyBudgetNone": "No daily limit set"
-  },
-  "notifications": {
-    "heading": "OS Notifications",
-    "description": "Show native desktop notifications when jobs complete or fail. Notifications only appear when the tab is not focused.",
-    "enableLabel": "Enable OS Notifications",
-    "notifyOn": "Notify on:",
-    "filterAll": "All (completed & failed)",
-    "filterCompleted": "Completed only",
-    "filterFailed": "Failed only",
-    "enabledToast": "OS notifications enabled",
-    "disabledToast": "OS notifications disabled"
   },
   "webhooks": {
     "heading": "Outbound Webhooks",
@@ -572,5 +562,42 @@
       "gemini": "Servers in ~/.gemini/settings.json.",
       "kimi": "Servers in ~/.kimi-code/mcp.json."
     }
+  },
+  "attention": {
+    "heading": "Notifications",
+    "description": "What needs you: a system notification when you're away, a toast when you're elsewhere in the app, nothing when it's already on screen.",
+    "enable": "Notify me",
+    "enableHint": "Turn off to stop every notification and toast below.",
+    "categoriesLegend": "Tell me about",
+    "categories": {
+      "question": {
+        "label": "Questions and replies",
+        "hint": "An agent waits for your answer, or a mission replied"
+      },
+      "review": {
+        "label": "Reviews ready",
+        "hint": "A delivery or pull request waits for your decision"
+      },
+      "failed": {
+        "label": "Failures",
+        "hint": "A run failed, got blocked or stopped moving"
+      },
+      "budget": {
+        "label": "Spending limits",
+        "hint": "A run paused at a spending limit or at the provider's usage limit"
+      },
+      "done": {
+        "label": "Finished jobs",
+        "hint": "A job completed (only while you're away from the app)"
+      }
+    },
+    "sound": "Play a sound",
+    "soundHint": "The system's notification sound",
+    "dockBadge": "Dock badge",
+    "dockBadgeHint": "The app icon shows how many inbox items you haven't seen",
+    "dockBadgeDesktopOnly": "In the desktop app, the app icon shows how many inbox items you haven't seen",
+    "projectsHeading": "Projects",
+    "projectsDescription": "Turn a project off to mute its notifications. Its items still show in the inbox.",
+    "saveFailed": "Couldn't save the notification settings"
   }
 }

@@ -42,6 +42,18 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 
 In the desktop app, some screens open as real windows instead of panels inside the main window: **App settings**, the detail of a job opened from a mission, and **Loops** and **Plugins** in Mission mode. You can move them to another screen and keep working in the main window. Each one uses the system's own window controls; Settings and the job window also close with **Escape**. Changes you make there, such as the theme or the language, apply to the main window right away. In the browser version these screens open as panels.
 
+## Notifications that need you {#attention}
+
+Specrails tells you when something needs you: a question or a mission reply, a review ready to decide, a run that failed, got blocked or stopped moving, a spending limit, and a finished job. How depends on where you are:
+
+- **Away from the app** — a system notification, naming the project and the cause. In the desktop app it cannot be clicked through, so when you come back a toast sums it up (**3 things need you**) and opens the item, or the inbox when there are several.
+- **In the app, somewhere else** — a small toast with **Open**.
+- **Already looking at it** — nothing. A mission you are watching never notifies its own replies; a stuck run is the exception and always alerts.
+
+Each new state of an inbox item is announced once; after a restart nothing old is announced again. In the inbox, items you have not seen yet carry a dot; **Mark as unread** and **Mark as read** change it. In the desktop app the Dock icon (the launcher on Linux) shows how many items you have not seen.
+
+Choose what you hear about in **Settings ▸ Notifications**: turn it all off, pick the categories (questions and replies, reviews, failures, spending limits, finished jobs), add a sound, hide the Dock badge, or turn a project off. The bell next to a project's name in the inbox mutes it too; its items still show in the inbox.
+
 ## A few handy shortcuts {#shortcuts}
 
 - **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.

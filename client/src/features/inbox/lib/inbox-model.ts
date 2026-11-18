@@ -202,3 +202,145 @@ export function inboxTarget(item: InboxItem, mode: 'kanban' | 'agent'): InboxTar
   params.set(review ? REVIEW_PARAM : JOB_PARAM, item.subjectId)
   return { pathname: '/', search: `?${params.toString()}`, place: review ? 'review' : 'job' }
 }
+
+// ── Item versions: what the person has seen, what was announced ─────────────
+
+/** One state of one item: a new `version` is new news (it re-arms Done, unseen and announcements alike). */
+export function inboxItemKey(item: Pick<InboxItem, 'id' | 'version'>): string {
+  return `${item.id}\u0000${item.version}`
+}
+
+/** A version the person has seen (displayed in the open inbox, or opened). */
+export interface SeenMark {
+  version: string
+  /** When it was seen (epoch ms), for pruning. */
+  at: number
+}
+export type SeenMarks = Record<string, SeenMark>
+
+export const SEEN_KEY = 'specrails-desktop:inbox:seen'
+
+function readMarks<T>(key: string, now: number, read: (value: Record<string, unknown>) => T | null, at: (value: T) => number): Record<string, T> {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, T> = {}
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue
+      const mark = read(value as Record<string, unknown>)
+      if (mark === null || now - at(mark) > PRUNE_AFTER_MS) continue
+      out[id] = mark
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function writeMarks(key: string, marks: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(marks))
+  } catch {
+    // storage unavailable: the marks last for this session only
+  }
+}
+
+export function readSeenMarks(now: number = Date.now()): SeenMarks {
+  return readMarks<SeenMark>(SEEN_KEY, now, (v) => (typeof v.version === 'string' && typeof v.at === 'number' ? { version: v.version, at: v.at } : null), (m) => m.at)
+}
+
+export function writeSeenMarks(marks: SeenMarks): void {
+  writeMarks(SEEN_KEY, marks)
+}
+
+export function isUnseen(item: InboxItem, marks: SeenMarks): boolean {
+  return marks[item.id]?.version !== item.version
+}
+
+/** A mark older than this is renewed when its item is still there, so pruning only forgets items that left. */
+const RENEW_AFTER_MS = 7 * 24 * 60 * 60 * 1000
+
+/** The marks with these items' current versions seen; the same object when nothing changes. */
+export function markSeen(marks: SeenMarks, items: readonly InboxItem[], now: number): SeenMarks {
+  const changed = items.filter((item) => isUnseen(item, marks) || now - marks[item.id].at > RENEW_AFTER_MS)
+  if (changed.length === 0) return marks
+  const next = { ...marks }
+  for (const item of changed) next[item.id] = { version: item.version, at: now }
+  return next
+}
+
+/** "Mark as unread": forget that this version was seen. */
+export function markUnseen(marks: SeenMarks, item: InboxItem): SeenMarks {
+  if (!(item.id in marks)) return marks
+  const next = { ...marks }
+  delete next[item.id]
+  return next
+}
+
+/** Unseen items outside muted projects: the Dock badge number. */
+export function unseenCount(items: readonly InboxItem[], marks: SeenMarks, mutedProjects: readonly string[] = []): number {
+  let count = 0
+  for (const item of items) if (isUnseen(item, marks) && !mutedProjects.includes(item.projectId)) count += 1
+  return count
+}
+
+/**
+ * The item versions already announced (or present when the app started),
+ * per viewer: key {@link inboxItemKey} → epoch ms. Pruned after 30 days.
+ */
+export type AnnouncedLedger = Record<string, number>
+
+export const ANNOUNCED_KEY = 'specrails-desktop:inbox:announced'
+
+export function readAnnounced(now: number = Date.now()): AnnouncedLedger {
+  return readMarks<number>(ANNOUNCED_KEY, now, (v) => (typeof v.at === 'number' ? v.at : null), (at) => at)
+}
+
+export function writeAnnounced(ledger: AnnouncedLedger): void {
+  writeMarks(ANNOUNCED_KEY, Object.fromEntries(Object.entries(ledger).map(([key, at]) => [key, { at }])))
+}
+
+/**
+ * Which items to announce now. `seed`: the first snapshot since the app
+ * started — everything already there is recorded silently, so a restart never
+ * announces old news. Afterwards, a key never recorded is announced once;
+ * `snapshot` (every item, snoozed or done included) is recorded, `visible`
+ * (without the snoozed / done ones) is what may be announced.
+ */
+export function planAnnouncements(
+  ledger: AnnouncedLedger,
+  snapshot: readonly InboxItem[],
+  visible: readonly InboxItem[],
+  seed: boolean,
+  now: number,
+): { announce: InboxItem[]; ledger: AnnouncedLedger } {
+  let next = ledger
+  const announce: InboxItem[] = []
+  const visibleKeys = new Set(visible.map(inboxItemKey))
+  for (const item of snapshot) {
+    const key = inboxItemKey(item)
+    if (key in next) {
+      if (now - next[key] > RENEW_AFTER_MS) {
+        if (next === ledger) next = { ...ledger }
+        next[key] = now
+      }
+      continue
+    }
+    if (next === ledger) next = { ...ledger }
+    next[key] = now
+    if (!seed && visibleKeys.has(key)) announce.push(item)
+  }
+  return { announce, ledger: next }
+}
+
+/** The notification category of an item (Settings ▸ Notifications). */
+export function attentionCategoryOf(item: Pick<InboxItem, 'kind' | 'diagnosis'>): 'question' | 'review' | 'failed' | 'budget' {
+  if (item.kind === 'question') return 'question'
+  if (item.kind === 'review') return 'review'
+  if (item.kind === 'budget') return 'budget'
+  // A run blocked by the provider's usage limit is a spending signal, like the live provider-limit alert.
+  if (item.kind === 'blocked' && item.diagnosis?.kind === 'provider_limit') return 'budget'
+  return 'failed'
+}

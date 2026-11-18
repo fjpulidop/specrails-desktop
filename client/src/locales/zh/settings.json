@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "关于",
       "effects": "效果",
-      "subscriptionUsage": "订阅用量"
+      "subscriptionUsage": "订阅用量",
+      "notifications": "通知"
     },
     "title": "Desktop 设置",
     "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
@@ -96,17 +97,6 @@
     "unsavedChanges": "未保存的更改",
     "dailyBudgetCurrent": "当前每日 {{amount}}",
     "dailyBudgetNone": "未设置每日上限"
-  },
-  "notifications": {
-    "heading": "系统通知",
-    "description": "任务完成或失败时显示原生桌面通知。仅在标签页未聚焦时显示通知。",
-    "enableLabel": "启用系统通知",
-    "notifyOn": "通知时机：",
-    "filterAll": "全部（完成与失败）",
-    "filterCompleted": "仅完成",
-    "filterFailed": "仅失败",
-    "enabledToast": "已启用系统通知",
-    "disabledToast": "已禁用系统通知"
   },
   "webhooks": {
     "heading": "出站 Webhook",
@@ -572,5 +562,42 @@
       "gemini": "~/.gemini/settings.json 中的服务器。",
       "kimi": "~/.kimi-code/mcp.json 中的服务器。"
     }
+  },
+  "attention": {
+    "heading": "通知",
+    "description": "需要你处理的事：你不在时发送系统通知，你在应用的其他位置时显示提示，已经在屏幕上时不打扰。",
+    "enable": "通知我",
+    "enableHint": "关闭后，下面所有的通知和提示都会停止。",
+    "categoriesLegend": "通知我以下内容",
+    "categories": {
+      "question": {
+        "label": "提问和回复",
+        "hint": "某个代理在等你回答，或某个任务已回复"
+      },
+      "review": {
+        "label": "可以评审",
+        "hint": "某个交付或拉取请求在等你决定"
+      },
+      "failed": {
+        "label": "失败",
+        "hint": "某次运行失败、被阻塞或停止推进"
+      },
+      "budget": {
+        "label": "支出上限",
+        "hint": "某次运行因预算、支出上限或提供商的用量上限而暂停"
+      },
+      "done": {
+        "label": "已完成的作业",
+        "hint": "某个作业已完成（仅在你离开应用时）"
+      }
+    },
+    "sound": "播放声音",
+    "soundHint": "系统的通知声音",
+    "dockBadge": "程序坞徽标",
+    "dockBadgeHint": "应用图标显示收件箱中你还没看过的项目数",
+    "dockBadgeDesktopOnly": "在桌面应用中，应用图标显示收件箱中你还没看过的项目数",
+    "projectsHeading": "项目",
+    "projectsDescription": "关闭某个项目即可将其通知静音。它的项目仍会显示在收件箱中。",
+    "saveFailed": "无法保存通知设置"
   }
 }

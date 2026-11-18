@@ -40,7 +40,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('mobileCompanion', 'mobile'),
   app('registeredProjects', 'projects'),
   app('budgetAlerts', 'advanced'),
-  app('notifications', 'webhooks'),
+  app('notifications', 'notifications'),
   app('webhooks', 'webhooks'),
   app('updateChannel', 'updates'),
   app('appUpdate', 'updates'),

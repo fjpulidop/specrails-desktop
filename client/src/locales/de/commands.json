@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "Ausführung konnte nicht gestoppt werden",
     "providerLimit": "Nutzungslimit des Anbieters erreicht",
     "providerLimitBody": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht — Reset {{resetsAt}}. Der Lauf wurde gestoppt; nach dem Reset neu starten oder „Wiederherstellen und erneut versuchen“.",
-    "providerLimitBodyNoReset": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht. Der Lauf wurde gestoppt; nach dem Reset neu starten."
+    "providerLimitBodyNoReset": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht. Der Lauf wurde gestoppt; nach dem Reset neu starten.",
+    "attention": {
+      "open": "Öffnen",
+      "openInbox": "Posteingang öffnen",
+      "away_one": "{{count}} Sache wartet auf dich",
+      "away_other": "{{count}} Sachen warten auf dich",
+      "missionReplied": "{{title}} hat geantwortet",
+      "untitledMission": "Deine Mission"
+    }
   },
   "templates": {
     "emptyState": {

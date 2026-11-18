@@ -42,6 +42,18 @@ Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
 
 In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als Panels im Hauptfenster: die **App-Einstellungen**, die Details eines aus einer Mission geöffneten Jobs sowie **Loops** und **Plugins** im Mission-Modus. Du kannst sie auf einen anderen Bildschirm schieben und im Hauptfenster weiterarbeiten. Jedes nutzt die systemeigenen Fenstersteuerungen; die Einstellungen und das Job-Fenster schließen sich außerdem mit **Escape**. Änderungen, die du dort machst, etwa am Theme oder an der Sprache, gelten sofort auch im Hauptfenster. In der Browser-Version öffnen sich diese Bildschirme als Panels.
 
+## Benachrichtigungen über das, was auf dich wartet {#attention}
+
+Specrails sagt dir Bescheid, wenn etwas auf dich wartet: eine Frage oder die Antwort einer Mission, ein Review, das eine Entscheidung braucht, ein Lauf, der fehlgeschlagen, blockiert oder stehen geblieben ist, ein Ausgabenlimit und ein fertiger Job. Wie, hängt davon ab, wo du bist:
+
+- **Nicht in der App** — eine Systembenachrichtigung mit Projekt und Ursache. In der Desktop-App lässt sie sich nicht anklicken; wenn du zurückkommst, fasst ein Hinweis alles zusammen (**3 Sachen warten auf dich**) und öffnet den Eintrag, bei mehreren den Posteingang **Offen**.
+- **Woanders in der App** — ein kleiner Hinweis mit **Öffnen**.
+- **Du siehst es schon** — nichts. Eine Mission, die du gerade ansiehst, meldet ihre eigenen Antworten nicht; ein hängender Lauf ist die Ausnahme und meldet sich immer.
+
+Jeder neue Zustand eines Eintrags wird einmal gemeldet; nach einem Neustart wird nichts Altes erneut gemeldet. Im Posteingang tragen Einträge, die du noch nicht gesehen hast, einen Punkt; **Als ungelesen markieren** und **Als gelesen markieren** ändern ihn. In der Desktop-App zeigt das Dock-Symbol (unter Linux der Starter), wie viele Einträge du noch nicht gesehen hast.
+
+Was gemeldet wird, wählst du unter **Einstellungen ▸ Benachrichtigungen**: alles ausschalten, Kategorien wählen (Fragen und Antworten, Reviews, Fehler, Ausgabenlimits, fertige Jobs), einen Ton hinzufügen, das Dock-Badge ausblenden oder ein Projekt ausschalten. Die Glocke neben einem Projektnamen im Posteingang schaltet es ebenfalls stumm; seine Einträge bleiben im Posteingang.
+
 ## Ein paar praktische Tastenkürzel {#shortcuts}
 
 - **Cmd/Ctrl+B** – linke Seitenleiste anpinnen oder einklappen; **Option+Cmd+B** (**Ctrl+Alt+B**) macht dasselbe mit der rechten.

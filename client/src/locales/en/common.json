@@ -259,7 +259,8 @@
       "specsBoard": "specs and the backlog",
       "specTimeline": "the spec timeline and hand-off",
       "accessibility": "accessibility and personalisation",
-      "prDecision": "the delivery options"
+      "prDecision": "the delivery options",
+      "attention": "Notifications"
     }
   },
   "forecast": {

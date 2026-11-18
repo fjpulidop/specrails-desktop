@@ -204,7 +204,9 @@ Custom commands (`invoke_guard`): a surface window may call
 `surface_window_result`, `surface_window_toast`, `desktop_reveal_path` and `desktop_save_text`, plus
 its surface's own list (`check_app_update` and `restart_app` for Settings). It
 can never open windows, browsers or missions, spawn the sidecar, or change
-tray state. Navigation is locked to the app origin and to its own
+tray state. The attention host commands (`desktop_notify`, `desktop_set_badge`,
+`desktop_focus_state`) are main-window only: the settings window changes the
+prefs through `PATCH /api/attention-prefs` and the main window applies them. Navigation is locked to the app origin and to its own
 `surfaceWindow=<id>` page. New windows are denied.
 
 ## Adding a surface

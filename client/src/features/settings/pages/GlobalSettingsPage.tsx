@@ -41,11 +41,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import type { DesktopProject } from '../../../hooks/useDesktop'
 import { HelpHint } from '../../../components/HelpHint'
 import { APP_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
-import {
-  getOsNotificationPrefs,
-  setOsNotificationPrefs,
-  type OsNotificationFilter,
-} from '../../../hooks/useOsNotifications'
+import { AttentionSettingsSection } from '../components/AttentionSettingsSection'
 
 import { notifyError } from '../../../lib/notify-error'
 type WebhookEvent = 'job.completed' | 'job.failed' | 'daily_budget_exceeded'
@@ -119,6 +115,7 @@ const SETTINGS_GROUPS = [
       { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
       { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
       { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
+      { id: 'notifications', icon: Bell, labelKey: 'desktop.nav.notifications' },
     ],
   },
   {
@@ -181,21 +178,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
   const [newWebhookSecret, setNewWebhookSecret] = useState('')
   const [newWebhookEvents, setNewWebhookEvents] = useState<WebhookEvent[]>(['job.completed', 'job.failed'])
   const [isAddingWebhook, setIsAddingWebhook] = useState(false)
-
-  // OS Notification preferences (localStorage)
-  const [notifEnabled, setNotifEnabled] = useState(() => getOsNotificationPrefs().enabled)
-  const [notifFilter, setNotifFilter] = useState<OsNotificationFilter>(() => getOsNotificationPrefs().filter)
-
-  function handleToggleNotifications(enabled: boolean) {
-    setNotifEnabled(enabled)
-    setOsNotificationPrefs({ enabled, filter: notifFilter })
-    toast.success(enabled ? t('notifications.enabledToast') : t('notifications.disabledToast'))
-  }
-
-  function handleNotifFilterChange(filter: OsNotificationFilter) {
-    setNotifFilter(filter)
-    setOsNotificationPrefs({ enabled: notifEnabled, filter })
-  }
 
   const loadWebhooks = useCallback(async () => {
     try {
@@ -527,43 +509,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 </div>
               </SettingsCard>
 
-              <SettingsCard title={t('notifications.heading')} description={t('notifications.description')} data-setting-id="notifications">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifEnabled}
-                    onChange={(e) => handleToggleNotifications(e.target.checked)}
-                    className="h-4 w-4"
-                    data-testid="notif-toggle"
-                  />
-                  <Bell className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-                  <span className="text-xs">{t('notifications.enableLabel')}</span>
-                </label>
-                {notifEnabled && (
-                  <fieldset className="space-y-1.5 pl-6">
-                    <legend className="text-xs text-muted-foreground">{t('notifications.notifyOn')}</legend>
-                    <div className="flex flex-wrap gap-3">
-                      {([
-                        { value: 'all' as const, label: t('notifications.filterAll') },
-                        { value: 'completed' as const, label: t('notifications.filterCompleted') },
-                        { value: 'failed' as const, label: t('notifications.filterFailed') },
-                      ]).map(({ value, label }) => (
-                        <label key={value} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            name="notif-filter"
-                            checked={notifFilter === value}
-                            onChange={() => handleNotifFilterChange(value)}
-                            className="h-4 w-4"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-              </SettingsCard>
-
               {/* One save bar for the pane, matching Settings ▸ AI providers. */}
               <div
                 className={cn(
@@ -690,6 +635,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
             <div className={paneCls('terminal')}>
               <SettingAnchor id="terminalApp"><TerminalSettingsSection mode="desktop" /></SettingAnchor>
+            </div>
+
+            <div className={paneCls('notifications')}>
+              <AttentionSettingsSection />
             </div>
 
             <div className={paneCls('about')}>

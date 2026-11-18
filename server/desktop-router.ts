@@ -66,7 +66,7 @@ export function createDesktopRouter(
   registerProjectRepositoryRoutes(router, { registry, broadcast })
   registerProviderRoutes(router, { broadcast, assembleNewlyDetected })
   registerAnalyticsRoutes(router, { registry })
-  registerAppSettingsRoutes(router, { registry, missionConnectors: options.missionConnectors })
+  registerAppSettingsRoutes(router, { registry, broadcast, missionConnectors: options.missionConnectors })
   registerAgentRegistryRoutes(router, { registry })
   registerSpecrailsTechRoutes(router, { registry })
   registerWebhookRoutes(router, { registry })

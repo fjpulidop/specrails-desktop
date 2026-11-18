@@ -413,6 +413,8 @@ pub fn run() {
             desktop_actions::desktop_reveal_path,
             desktop_actions::desktop_save_text,
             desktop_actions::desktop_notify,
+            desktop_actions::desktop_set_badge,
+            desktop_actions::desktop_focus_state,
             desktop_status::desktop_system_status,
             desktop_status::desktop_set_awake,
             loop_windows::loop_window_open,

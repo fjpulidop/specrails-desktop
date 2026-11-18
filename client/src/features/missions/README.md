@@ -53,6 +53,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useAgentLive.ts](hooks/useAgentLive.ts)
 - [hooks/useAgentRefActions.ts](hooks/useAgentRefActions.ts)
 - [hooks/useMissionPlaceSync.ts](hooks/useMissionPlaceSync.ts)
+- [hooks/useMissionReplyNotifications.ts](hooks/useMissionReplyNotifications.ts)
 - [hooks/useOpenMission.ts](hooks/useOpenMission.ts)
 - [lib/agent-api.ts](lib/agent-api.ts)
 - [lib/agent-refs.ts](lib/agent-refs.ts)
@@ -232,6 +233,11 @@ A streamed token must never re-render anything but the text it extends. The rule
   bails out is an urgent update: it restarts the interruptible render of the mission
   being opened and can starve it under a busy background stream. `markUnread` keeps a
   ref for "already unread"; `MissionSessionsContext` ignores user-turn tokens.
+- **Reply notifications.** `useMissionReplyNotifications` (main window) announces "<mission> replied" on
+  `agent_done` / `agent_turn_done` through the app's attention pipeline (`lib/attention`, category `question`),
+  unless the person is watching that mission: the primary view or a split pane in Mission mode, the open
+  floating chat in Board mode, or its own detached window (the host's `desktop_focus_state` says which window
+  has the focus). It reads the screen through refs at event time and never touches React state per event.
 - **Place sync.** With the browser router the History API moves at once while the
   router's React state commits as a transition. `useMissionPlaceSync` acts on the real
   URL and never reads a trailing router state as Back/Forward, so a cached revisit is

@@ -63,7 +63,10 @@
     "snoozed": "Zurückgestellt bis {{when}}",
     "undo": "Rückgängig",
     "stillOverBudget_week": "Wochenbudget weiterhin überschritten",
-    "stillOverBudget_month": "Monatsbudget weiterhin überschritten"
+    "stillOverBudget_month": "Monatsbudget weiterhin überschritten",
+    "muted": "Benachrichtigungen von {{project}} stummgeschaltet",
+    "unmuted": "Benachrichtigungen von {{project}} eingeschaltet",
+    "muteFailed": "Die Benachrichtigungen des Projekts konnten nicht geändert werden"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "{{spent}} von {{budget}} ausgegeben"
   },
-  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt."
+  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt.",
+  "unseen": "Neu",
+  "markRead": "Als gelesen markieren",
+  "markUnread": "Als ungelesen markieren",
+  "markReadItem": "{{title}} als gelesen markieren",
+  "markUnreadItem": "{{title}} als ungelesen markieren",
+  "mute": {
+    "mute": "Benachrichtigungen von {{project}} stummschalten",
+    "unmute": "Benachrichtigungen von {{project}} wieder einschalten"
+  }
 }

@@ -63,7 +63,10 @@
     "snoozed": "Snoozed until {{when}}",
     "undo": "Undo",
     "stillOverBudget_week": "Still over the weekly limit",
-    "stillOverBudget_month": "Still over the monthly limit"
+    "stillOverBudget_month": "Still over the monthly limit",
+    "muted": "Notifications from {{project}} muted",
+    "unmuted": "Notifications from {{project}} on",
+    "muteFailed": "Couldn't change the project's notifications"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "{{spent}} of {{budget}} spent"
   },
-  "stale": "Couldn't refresh — showing the last list."
+  "stale": "Couldn't refresh — showing the last list.",
+  "unseen": "New",
+  "markRead": "Mark as read",
+  "markUnread": "Mark as unread",
+  "markReadItem": "Mark {{title}} as read",
+  "markUnreadItem": "Mark {{title}} as unread",
+  "mute": {
+    "mute": "Mute notifications from {{project}}",
+    "unmute": "Turn notifications from {{project}} back on"
+  }
 }

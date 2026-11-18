@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "无法停止运行",
     "providerLimit": "已达到提供商用量限额",
     "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已停止；重置后重新启动或使用“恢复并重试”。",
-    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已停止；限额重置后重新启动。"
+    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已停止；限额重置后重新启动。",
+    "attention": {
+      "open": "打开",
+      "openInbox": "打开收件箱",
+      "away_one": "有 {{count}} 项在等你",
+      "away_other": "有 {{count}} 项在等你",
+      "missionReplied": "{{title}} 已回复",
+      "untitledMission": "你的任务"
+    }
   },
   "templates": {
     "emptyState": {

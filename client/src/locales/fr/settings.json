@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "À propos",
       "effects": "Effets",
-      "subscriptionUsage": "Utilisation des abonnements"
+      "subscriptionUsage": "Utilisation des abonnements",
+      "notifications": "Notifications"
     },
     "title": "Paramètres de Desktop",
     "description": "Apparence, fournisseurs d’IA, mises à jour et préférences globales de Desktop.",
@@ -96,17 +97,6 @@
     "unsavedChanges": "Modifications non enregistrées",
     "dailyBudgetCurrent": "Actuellement {{amount}} par jour",
     "dailyBudgetNone": "Aucun plafond quotidien"
-  },
-  "notifications": {
-    "heading": "Notifications système",
-    "description": "Affiche des notifications de bureau natives quand des jobs se terminent ou échouent. Les notifications n'apparaissent que lorsque l'onglet n'a pas le focus.",
-    "enableLabel": "Activer les notifications système",
-    "notifyOn": "Notifier pour :",
-    "filterAll": "Tout (terminés & échoués)",
-    "filterCompleted": "Terminés uniquement",
-    "filterFailed": "Échoués uniquement",
-    "enabledToast": "Notifications système activées",
-    "disabledToast": "Notifications système désactivées"
   },
   "webhooks": {
     "heading": "Webhooks sortants",
@@ -572,5 +562,42 @@
       "gemini": "Serveurs de ~/.gemini/settings.json.",
       "kimi": "Serveurs de ~/.kimi-code/mcp.json."
     }
+  },
+  "attention": {
+    "heading": "Notifications",
+    "description": "Ce qui vous attend : une notification système quand vous êtes ailleurs, un toast quand vous êtes ailleurs dans l'app, rien quand c'est déjà à l'écran.",
+    "enable": "M'avertir",
+    "enableHint": "Désactivez pour arrêter toutes les notifications et tous les toasts ci-dessous.",
+    "categoriesLegend": "M'avertir pour",
+    "categories": {
+      "question": {
+        "label": "Questions et réponses",
+        "hint": "Un agent attend votre réponse, ou une mission a répondu"
+      },
+      "review": {
+        "label": "Revues prêtes",
+        "hint": "Une livraison ou une pull request attend votre décision"
+      },
+      "failed": {
+        "label": "Échecs",
+        "hint": "Une exécution a échoué, s'est bloquée ou n'avance plus"
+      },
+      "budget": {
+        "label": "Limites de dépense",
+        "hint": "Une exécution s'est mise en pause à un budget, un plafond de dépense ou la limite d'utilisation du fournisseur"
+      },
+      "done": {
+        "label": "Jobs terminés",
+        "hint": "Un job est terminé (seulement quand vous n'êtes pas dans l'app)"
+      }
+    },
+    "sound": "Jouer un son",
+    "soundHint": "Le son de notification du système",
+    "dockBadge": "Badge du Dock",
+    "dockBadgeHint": "L'icône de l'app indique combien d'éléments de la boîte de réception vous n'avez pas vus",
+    "dockBadgeDesktopOnly": "Dans l'app de bureau, l'icône de l'app indique combien d'éléments de la boîte de réception vous n'avez pas vus",
+    "projectsHeading": "Projets",
+    "projectsDescription": "Désactivez un projet pour couper ses notifications. Ses éléments restent dans la boîte de réception.",
+    "saveFailed": "Impossible d'enregistrer les réglages de notification"
   }
 }

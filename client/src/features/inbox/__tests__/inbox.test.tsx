@@ -19,6 +19,8 @@ import { InboxButton } from '../components/InboxButton'
 import { InboxDialog } from '../components/InboxDialog'
 import { DISMISSALS_KEY, type InboxItem } from '../lib/inbox-model'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../lib/app-settings-events'
+import { attentionPrefsStore } from '../../../lib/attention/attention-prefs-store'
+import { SEEN_KEY } from '../lib/inbox-model'
 
 const mk = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:review:d1', projectId: 'p1', projectName: 'Alpha', kind: 'review', title: 'Add login', detail: null,
@@ -487,5 +489,91 @@ describe('Refresh from live events', () => {
     })
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'), { timeout: 2000 })
     expect(reads()).toBe(base + 1)
+  })
+})
+
+describe('Unseen items, Dock badge and project mute', () => {
+  let badge: { set: ReturnType<typeof vi.fn> }
+  let attention: Record<string, unknown>
+  const patches: unknown[] = []
+
+  beforeEach(() => {
+    attentionPrefsStore.reset()
+    patches.length = 0
+    badge = { set: vi.fn() }
+    attention = { enabled: true, sound: false, dockBadge: true, mutedProjects: [], categories: { question: true, review: true, failed: true, budget: true, done: true } }
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/attention-prefs')) {
+        if (init?.method === 'PATCH') {
+          const patch = JSON.parse(String(init.body))
+          patches.push(patch)
+          attention = { ...attention, ...patch }
+        }
+        return { ok: true, status: 200, json: async () => attention }
+      }
+      return base(input, init)
+    })
+  })
+
+  const mountWithBadge = () => render(
+    <MemoryRouter initialEntries={['/']}>
+      <SharedWebSocketContext.Provider value={ws()}>
+        <InboxProvider dockBadge={badge}><InboxButton /><InboxDialog /><Probe /></InboxProvider>
+      </SharedWebSocketContext.Provider>
+    </MemoryRouter>,
+  )
+
+  it('the Dock badge counts unseen items; looking at the inbox clears it', async () => {
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(4))
+    const dialog = await openPanel()
+    // Displayed = seen: the badge drops at once, the dots stay for this open session.
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+    expect(within(dialog).getAllByTestId('inbox-unseen-dot')).toHaveLength(4)
+    expect(Object.keys(JSON.parse(localStorage.getItem(SEEN_KEY)!))).toHaveLength(4)
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('inbox-dialog')).toBeNull())
+    const reopened = await openPanel()
+    expect(within(reopened).queryAllByTestId('inbox-unseen-dot')).toHaveLength(0)
+  })
+
+  it('Mark as unread brings the dot and the badge back; Mark as read clears them', async () => {
+    mountWithBadge()
+    const dialog = await openPanel()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+    const row = within(dialog).getAllByTestId('inbox-row')[0]
+    fireEvent.click(within(row).getByTestId('inbox-mark-read'))
+    expect(within(row).queryByTestId('inbox-unseen-dot')).toBeNull()
+    fireEvent.click(within(row).getByTestId('inbox-mark-unread'))
+    expect(within(row).getByTestId('inbox-unseen-dot')).toBeInTheDocument()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(1))
+    // Still unread while the inbox stays open (it is not re-marked as seen under the person's finger).
+    expect(JSON.parse(localStorage.getItem(SEEN_KEY)!)).not.toHaveProperty([row.getAttribute('data-item-id')!])
+    fireEvent.click(within(row).getByTestId('inbox-mark-read'))
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+  })
+
+  it('the Dock badge pref off clears the badge', async () => {
+    attention.dockBadge = false
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenCalled())
+    expect(badge.set).not.toHaveBeenCalledWith(4)
+    expect(badge.set).toHaveBeenLastCalledWith(null)
+  })
+
+  it('the group bell mutes a project and its items stay listed', async () => {
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(4))
+    const dialog = await openPanel()
+    const group = within(dialog).getAllByTestId('inbox-group')[1]
+    const bell = within(group).getByTestId('inbox-project-mute')
+    expect(bell).toHaveAttribute('aria-pressed', 'false')
+    expect(bell).toHaveAttribute('aria-label', 'Mute notifications from Beta')
+    fireEvent.click(bell)
+    await waitFor(() => expect(patches).toEqual([{ mutedProjects: ['p2'] }]))
+    await waitFor(() => expect(within(group).getByTestId('inbox-project-mute')).toHaveAttribute('aria-pressed', 'true'))
+    expect(within(group).getAllByTestId('inbox-row')).toHaveLength(2)
+    await waitFor(() => expect(h.toast).toHaveBeenCalledWith('Notifications from Beta muted'))
   })
 })

@@ -63,7 +63,10 @@
     "snoozed": "{{when}} まで後回しにしました",
     "undo": "元に戻す",
     "stillOverBudget_week": "週間予算をまだ超えています",
-    "stillOverBudget_month": "月間予算をまだ超えています"
+    "stillOverBudget_month": "月間予算をまだ超えています",
+    "muted": "{{project}} の通知をミュートしました",
+    "unmuted": "{{project}} の通知を再開しました",
+    "muteFailed": "プロジェクトの通知を変更できませんでした"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "{{spent}} / {{budget}} を使用"
   },
-  "stale": "更新できませんでした。前回の一覧を表示しています。"
+  "stale": "更新できませんでした。前回の一覧を表示しています。",
+  "unseen": "新着",
+  "markRead": "既読にする",
+  "markUnread": "未読にする",
+  "markReadItem": "{{title}} を既読にする",
+  "markUnreadItem": "{{title}} を未読にする",
+  "mute": {
+    "mute": "{{project}} の通知をミュート",
+    "unmute": "{{project}} の通知を再開"
+  }
 }

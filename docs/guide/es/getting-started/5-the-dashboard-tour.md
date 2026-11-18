@@ -42,6 +42,18 @@ Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil
 
 En la app de escritorio, algunas pantallas se abren como ventanas reales en lugar de paneles dentro de la ventana principal: **Ajustes de la app**, el detalle de un trabajo abierto desde una misión, y **Loops** y **Plugins** en el modo Misión. Puedes moverlas a otra pantalla y seguir trabajando en la ventana principal. Cada una usa los controles de ventana del propio sistema; los Ajustes y la ventana del trabajo también se cierran con **Escape**. Los cambios que hagas ahí, como el tema o el idioma, se aplican a la ventana principal al momento. En la versión de navegador estas pantallas se abren como paneles.
 
+## Notificaciones de lo que te necesita {#attention}
+
+Specrails te avisa cuando algo te necesita: una pregunta o una respuesta de una misión, una revisión lista para decidir, una ejecución que falló, se bloqueó o dejó de avanzar, un límite de gasto y un trabajo terminado. Cómo te avisa depende de dónde estés:
+
+- **Fuera de la app**: una notificación del sistema con el proyecto y la causa. En la app de escritorio no se puede pulsar, así que al volver un aviso lo resume (**3 cosas te necesitan**) y abre el elemento, o la bandeja **Pendientes** si son varios.
+- **En otra parte de la app**: un aviso pequeño con **Abrir**.
+- **Ya lo estás viendo**: nada. Una misión que estás mirando no avisa de sus propias respuestas; una ejecución atascada es la excepción y siempre avisa.
+
+Cada estado nuevo de un elemento de la bandeja se anuncia una sola vez; tras reiniciar no se vuelve a anunciar nada antiguo. En la bandeja, los elementos que aún no has visto llevan un punto; **Marcar como no leído** y **Marcar como leído** lo cambian. En la app de escritorio, el icono del Dock (el lanzador en Linux) muestra cuántos elementos no has visto.
+
+Elige de qué te avisa en **Ajustes ▸ Notificaciones**: desactívalo todo, elige las categorías (preguntas y respuestas, revisiones, fallos, límites de gasto, trabajos terminados), añade un sonido, oculta la insignia del Dock o desactiva un proyecto. La campana junto al nombre de un proyecto en la bandeja también lo silencia; sus elementos siguen en la bandeja.
+
 ## Algunos atajos prácticos {#shortcuts}
 
 - **Cmd/Ctrl+B** — ancla o contrae la barra lateral izquierda; **Option+Cmd+B** (**Ctrl+Alt+B**) hace lo mismo con la derecha.

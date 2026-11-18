@@ -2230,6 +2230,7 @@
   "inbox": {
     "publicEntries": [
       "adapters/http.ts",
+      "attention-prefs.ts",
       "index.ts"
     ],
     "dependencies": {
@@ -2253,6 +2254,7 @@
         "./domain",
         "./ports"
       ],
+      "attention-prefs.ts": [],
       "domain.ts": [],
       "index.ts": [
         "./application",

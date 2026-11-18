@@ -63,7 +63,10 @@
     "snoozed": "Posticipato a {{when}}",
     "undo": "Annulla",
     "stillOverBudget_week": "Ancora sopra il budget settimanale",
-    "stillOverBudget_month": "Ancora sopra il budget mensile"
+    "stillOverBudget_month": "Ancora sopra il budget mensile",
+    "muted": "Notifiche di {{project}} silenziate",
+    "unmuted": "Notifiche di {{project}} riattivate",
+    "muteFailed": "Impossibile modificare le notifiche del progetto"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "{{spent}} su {{budget}} spesi"
   },
-  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista."
+  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista.",
+  "unseen": "Nuovo",
+  "markRead": "Segna come letto",
+  "markUnread": "Segna come non letto",
+  "markReadItem": "Segna {{title}} come letto",
+  "markUnreadItem": "Segna {{title}} come non letto",
+  "mute": {
+    "mute": "Silenzia le notifiche di {{project}}",
+    "unmute": "Riattiva le notifiche di {{project}}"
+  }
 }

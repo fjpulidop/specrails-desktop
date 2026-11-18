@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "Não foi possível parar a execução",
     "providerLimit": "Limite de utilização do fornecedor atingido",
     "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução parou; volta a lançar ou usa Recuperar e tentar de novo após a reposição.",
-    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução parou; volta a lançar após a reposição."
+    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução parou; volta a lançar após a reposição.",
+    "attention": {
+      "open": "Abrir",
+      "openInbox": "Abrir caixa de entrada",
+      "away_one": "{{count}} coisa precisa de você",
+      "away_other": "{{count}} coisas precisam de você",
+      "missionReplied": "{{title}} respondeu",
+      "untitledMission": "Sua missão"
+    }
   },
   "templates": {
     "emptyState": {

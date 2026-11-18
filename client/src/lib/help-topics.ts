@@ -38,6 +38,7 @@ export const HELP_TOPICS = {
   shortcuts: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
   prDecision: { category: 'pipeline', slug: 'reviewing-a-delivery', anchor: 'pr-decision' },
   inbox: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
+  attention: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'attention' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>
 
 export type HelpTopicId = keyof typeof HELP_TOPICS
@@ -53,6 +54,7 @@ export const APP_SETTINGS_HELP = {
   effects: 'themes',
   code: 'codeExplorer',
   terminal: 'integratedTerminal',
+  notifications: 'attention',
   specrailsAgents: 'agents',
   subscriptionUsage: 'aiProviders',
   mcp: 'mcpServer',

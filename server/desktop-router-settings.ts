@@ -1,7 +1,7 @@
 /**
  * App-level settings routes: general settings, budgets and caps, terminal
  * defaults, UI theme and language, code-explorer summaries, Specrails Agents
- * defaults and the user's external MCP servers.
+ * defaults, the user's external MCP servers and attention notifications.
  *
  * Every value lives in `desktop_settings` (desktop.sqlite); changes that
  * running agent sessions depend on notify the registry.
@@ -35,6 +35,8 @@ import {
   TerminalSettingsValidationError,
 } from './modules/terminals/runtime/terminal-settings'
 import { validateHttpUrl } from './desktop-router-url-validation'
+import { ATTENTION_PREFS_KEY, AttentionPrefsValidationError, applyAttentionPrefsPatch, readAttentionPrefs } from './modules/inbox/attention-prefs'
+import type { WsMessage } from './types'
 
 // Theme allow-list. Mirror of THEME_IDS in `client/src/features/settings/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
@@ -48,8 +50,9 @@ const LEGACY_THEME_ID_MAP: Record<string, string> = {
 // kept duplicated to avoid pulling client code into the server bundle.
 const LANGUAGE_ID_ALLOWLIST = new Set<string>(['en', 'es', 'fr', 'de', 'pt', 'it', 'zh', 'ja'])
 
-export function registerAppSettingsRoutes(router: Router, deps: { registry: ProjectRegistry; missionConnectors?: MissionConnectors }): void {
+export function registerAppSettingsRoutes(router: Router, deps: { registry: ProjectRegistry; missionConnectors?: MissionConnectors; broadcast?: (msg: WsMessage) => void }): void {
   registerGeneralSettingsRoutes(router, deps.registry)
+  registerAttentionPrefsRoutes(router, deps.registry, deps.broadcast)
   registerBudgetRoutes(router, deps.registry)
   registerUiPreferenceRoutes(router, deps.registry)
   registerAgentDefaultsRoutes(router, deps.registry)
@@ -94,6 +97,34 @@ function registerMissionConnectorRoutes(router: Router, registry: ProjectRegistr
         return
       }
       res.status(500).json({ error: 'mission_connectors_failed', message: (err as Error).message })
+    }
+  })
+}
+
+/**
+ * `/attention-prefs`: what the app tells the person about (OS notifications,
+ * in-app toasts, the Dock badge) per category, sound, and muted projects.
+ * PATCH merges a partial body, answers the whole record and broadcasts it so
+ * every window (the settings window included) applies it at once.
+ */
+function registerAttentionPrefsRoutes(router: Router, registry: ProjectRegistry, broadcast?: (msg: WsMessage) => void): void {
+  router.get('/attention-prefs', (_req, res) => {
+    res.json(readAttentionPrefs(getDesktopSetting(registry.desktopDb, ATTENTION_PREFS_KEY)))
+  })
+
+  router.patch('/attention-prefs', (req, res) => {
+    try {
+      const current = readAttentionPrefs(getDesktopSetting(registry.desktopDb, ATTENTION_PREFS_KEY))
+      const next = applyAttentionPrefsPatch(current, req.body)
+      setDesktopSetting(registry.desktopDb, ATTENTION_PREFS_KEY, JSON.stringify(next))
+      broadcast?.({ type: 'desktop.attention_prefs', prefs: next, timestamp: new Date().toISOString() })
+      res.json(next)
+    } catch (err) {
+      if (err instanceof AttentionPrefsValidationError) {
+        res.status(400).json({ error: 'validation_failed', field: err.field, message: err.message })
+        return
+      }
+      throw err
     }
   })
 }

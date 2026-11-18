@@ -4,7 +4,7 @@
  * a feature asks for it through a window event instead of importing the shell.
  */
 export const APP_SETTINGS_SECTIONS = [
-  'appearance', 'effects', 'code', 'terminal',
+  'appearance', 'effects', 'code', 'terminal', 'notifications',
   'specrailsAgents', 'subscriptionUsage', 'mcp', 'mobile',
   'projects', 'advanced', 'webhooks', 'updates', 'about',
 ] as const

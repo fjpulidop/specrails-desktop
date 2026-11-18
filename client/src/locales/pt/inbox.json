@@ -63,7 +63,10 @@
     "snoozed": "Adiado até {{when}}",
     "undo": "Desfazer",
     "stillOverBudget_week": "Ainda acima do orçamento semanal",
-    "stillOverBudget_month": "Ainda acima do orçamento mensal"
+    "stillOverBudget_month": "Ainda acima do orçamento mensal",
+    "muted": "Notificações de {{project}} silenciadas",
+    "unmuted": "Notificações de {{project}} reativadas",
+    "muteFailed": "Não foi possível alterar as notificações do projeto"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "{{spent}} de {{budget}} gastos"
   },
-  "stale": "Não foi possível atualizar; a última lista continua visível."
+  "stale": "Não foi possível atualizar; a última lista continua visível.",
+  "unseen": "Novo",
+  "markRead": "Marcar como lido",
+  "markUnread": "Marcar como não lido",
+  "markReadItem": "Marcar {{title}} como lido",
+  "markUnreadItem": "Marcar {{title}} como não lido",
+  "mute": {
+    "mute": "Silenciar as notificações de {{project}}",
+    "unmute": "Reativar as notificações de {{project}}"
+  }
 }

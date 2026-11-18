@@ -77,6 +77,8 @@ import { SpecGenTrackerProvider } from './features/specs/hooks/useSpecGenTracker
 import { ContractRefineTrackerProvider } from './features/specs/hooks/useContractRefineTracker'
 import { SmashTrackerProvider } from './features/specs/context/SmashTrackerContext'
 import { useOsNotifications } from './hooks/useOsNotifications'
+import { useAttentionReturn } from './hooks/useAttentionReturn'
+import { useMissionReplyNotifications } from './features/missions/hooks/useMissionReplyNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
@@ -492,12 +494,16 @@ function DesktopApp() {
     onNavigateForward: places ? places.forward : undefined,
   })
 
-  // OS notifications for job completions/failures
+  // Job attention (completed / failed / stuck / provider limit) through the attention pipeline
   const projectsById = useMemo(
     () => new Map(projects.map((p) => [p.id, p.name])),
     [projects]
   )
   useOsNotifications({ setActiveProjectId, projectsById })
+  // Attention (lib/attention): mission replies the person is not watching, and the
+  // "N things need you" toast when the window comes back after notifications.
+  useMissionReplyNotifications({ pathname: location.pathname })
+  useAttentionReturn()
   // Milestone toasts (chunk launched / chain paused / delivered / complete) —
   // the server-owned chain replaced the browser-local sequencer; drop its
   // leftover plan key once (its runs settled server-side long ago).

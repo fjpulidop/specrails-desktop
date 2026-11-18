@@ -14,9 +14,13 @@ import { OPEN_INBOX_EVENT } from '../../../lib/inbox-events'
 import { INBOX_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
 import { fetchInbox, resumeInboxRun, retryInboxJira, type InboxActionOutcome } from '../lib/inbox-api'
 import {
-  doneDismissal, groupByProject, inboxTarget, isDismissed, nextSnoozeExpiry, readDismissals, snoozeDismissal, writeDismissals,
-  type Dismissals, type InboxGroup, type InboxItem, type SnoozeChoice,
+  doneDismissal, groupByProject, inboxItemKey, inboxTarget, isDismissed, isUnseen, markSeen, markUnseen, nextSnoozeExpiry, readDismissals,
+  readSeenMarks, snoozeDismissal, unseenCount, writeDismissals, writeSeenMarks,
+  type Dismissals, type InboxGroup, type InboxItem, type SeenMarks, type SnoozeChoice,
 } from '../lib/inbox-model'
+import { useInboxAttention } from '../hooks/useInboxAttention'
+import { useAttentionPrefs } from '../../../hooks/useAttentionPrefs'
+import { createDockBadge, type DockBadge } from '../../../lib/attention/dock-badge'
 
 import { notifyError } from '../../../lib/notify-error'
 /** WS events that can change what needs the person; any of them nudges a refetch. */
@@ -61,6 +65,12 @@ export interface InboxValue {
   runPrimary: (item: InboxItem, choice?: RunCapChoice) => Promise<void>
   snooze: (item: InboxItem, choice: SnoozeChoice) => void
   done: (item: InboxItem) => void
+  /** Items whose current version the person has not seen yet (outside muted projects: the Dock badge). */
+  unseenCount: number
+  /** The row shows the unseen dot (still shown for the rest of the open session once displayed). */
+  showsUnseen: (item: InboxItem) => boolean
+  markRead: (item: InboxItem) => void
+  markUnread: (item: InboxItem) => void
 }
 
 const InboxContext = createContext<InboxValue | null>(null)
@@ -70,7 +80,7 @@ export function useInbox(): InboxValue | null {
   return useContext(InboxContext)
 }
 
-export function InboxProvider({ children }: { children: ReactNode }) {
+export function InboxProvider({ children, dockBadge: injectedBadge }: { children: ReactNode; dockBadge?: DockBadge }) {
   const { t, i18n } = useTranslation('inbox')
   const { activeProjectId, setActiveProjectId } = useDesktop()
   const { uiMode } = useUiMode()
@@ -85,6 +95,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const [dismissals, setDismissals] = useState<Dismissals>(() => readDismissals())
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
+  const [seen, setSeen] = useState<SeenMarks>(() => readSeenMarks())
+  const { prefs: attentionPrefs, loaded: attentionPrefsLoaded } = useAttentionPrefs()
 
   const isOpen = place.value === '1'
 
@@ -208,6 +220,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   // ── Primary action: the same handlers/routes the existing buttons call
   const runPrimary = useCallback(async (item: InboxItem, choice?: RunCapChoice) => {
+    markReadRef.current(item)
     if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap') { openItem(item); return }
     setBusy((current) => new Set(current).add(item.id))
     let outcome: InboxActionOutcome
@@ -228,6 +241,54 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     }
     void refresh()
   }, [openItem, refresh, t])
+
+  // ── Seen / unseen (per viewer, keyed by id and version like Snooze / Done)
+  const persistSeen = useCallback((updater: (current: SeenMarks) => SeenMarks) => {
+    setSeen((current) => {
+      const next = updater(current)
+      if (next !== current) writeSeenMarks(next)
+      return next
+    })
+  }, [])
+  // Displayed in the open inbox = seen. The dot stays for the rest of this open session so the
+  // person can still tell what was new; "Mark as unread" keeps an item out of that until the next open.
+  const [sessionNew, setSessionNew] = useState<ReadonlySet<string>>(new Set())
+  const heldUnread = useRef(new Set<string>())
+  useEffect(() => {
+    if (!isOpen) {
+      heldUnread.current.clear()
+      setSessionNew((current) => (current.size === 0 ? current : new Set()))
+      return
+    }
+    if (status !== 'ready') return
+    const shown = items.filter((item) => !heldUnread.current.has(inboxItemKey(item)))
+    const fresh = shown.filter((item) => isUnseen(item, seen)).map(inboxItemKey)
+    if (fresh.length > 0) setSessionNew((current) => new Set([...current, ...fresh]))
+    persistSeen((current) => markSeen(current, shown, Date.now()))
+  }, [isOpen, status, items, seen, persistSeen])
+  const markRead = useCallback((item: InboxItem) => {
+    const key = inboxItemKey(item)
+    heldUnread.current.delete(key)
+    setSessionNew((current) => { if (!current.has(key)) return current; const next = new Set(current); next.delete(key); return next })
+    persistSeen((current) => markSeen(current, [item], Date.now()))
+  }, [persistSeen])
+  const markReadRef = useRef(markRead)
+  markReadRef.current = markRead
+  const markUnread = useCallback((item: InboxItem) => {
+    const key = inboxItemKey(item)
+    heldUnread.current.add(key)
+    setSessionNew((current) => { if (!current.has(key)) return current; const next = new Set(current); next.delete(key); return next })
+    persistSeen((current) => markUnseen(current, item))
+  }, [persistSeen])
+  const showsUnseen = useCallback((item: InboxItem) => isUnseen(item, seen) || sessionNew.has(inboxItemKey(item)), [seen, sessionNew])
+  const unseen = useMemo(() => unseenCount(items, seen, attentionPrefs.mutedProjects), [items, seen, attentionPrefs.mutedProjects])
+
+  // ── Dock badge (desktop app): the unseen count; only a change reaches the host.
+  const [dockBadge] = useState<DockBadge>(() => injectedBadge ?? createDockBadge())
+  useEffect(() => {
+    if (!attentionPrefsLoaded) return
+    dockBadge.set(attentionPrefs.dockBadge ? unseen : null)
+  }, [dockBadge, attentionPrefsLoaded, attentionPrefs.dockBadge, unseen])
 
   // ── Snooze / Done
   const persist = useCallback((updater: (current: Dismissals) => Dismissals) => {
@@ -259,9 +320,18 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     toast(t('toast.done'), { action: { label: t('toast.undo'), onClick: () => undoDismissal(item.id) } })
   }, [persist, undoDismissal, t])
 
+  // ── Announcements: new item versions go through the attention pipeline once.
+  const openFromAttention = useCallback((item: InboxItem) => {
+    // An open-type item lands on its place; one whose primary acts (Resume, Retry) opens the inbox instead.
+    if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap') void runPrimary(item)
+    else openPlace('1')
+  }, [runPrimary, openPlace])
+  useInboxAttention({ status, snapshot: snapshotItems, visible: items, locationRef, uiModeRef, open: openFromAttention })
+
   const value = useMemo<InboxValue>(() => ({
     isOpen, openInbox, closeInbox, toggleInbox, status, stale, items, groups, count: items.length, busy, refresh, runPrimary, snooze, done,
-  }), [isOpen, openInbox, closeInbox, toggleInbox, status, stale, items, groups, busy, refresh, runPrimary, snooze, done])
+    unseenCount: unseen, showsUnseen, markRead, markUnread,
+  }), [isOpen, openInbox, closeInbox, toggleInbox, status, stale, items, groups, busy, refresh, runPrimary, snooze, done, unseen, showsUnseen, markRead, markUnread])
 
   return (
     <InboxContext.Provider value={value}>

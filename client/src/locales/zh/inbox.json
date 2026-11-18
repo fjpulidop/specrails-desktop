@@ -63,7 +63,10 @@
     "snoozed": "已推迟到 {{when}}",
     "undo": "撤销",
     "stillOverBudget_week": "仍超出每周预算",
-    "stillOverBudget_month": "仍超出每月预算"
+    "stillOverBudget_month": "仍超出每月预算",
+    "muted": "已将 {{project}} 的通知静音",
+    "unmuted": "已重新开启 {{project}} 的通知",
+    "muteFailed": "无法更改该项目的通知"
   },
   "cap": {
     "title": {
@@ -80,5 +83,14 @@
     },
     "detail": "已花费 {{spent}} / {{budget}}"
   },
-  "stale": "无法刷新，当前显示的是上一次的列表。"
+  "stale": "无法刷新，当前显示的是上一次的列表。",
+  "unseen": "新",
+  "markRead": "标为已读",
+  "markUnread": "标为未读",
+  "markReadItem": "将 {{title}} 标为已读",
+  "markUnreadItem": "将 {{title}} 标为未读",
+  "mute": {
+    "mute": "将 {{project}} 的通知静音",
+    "unmute": "重新开启 {{project}} 的通知"
+  }
 }

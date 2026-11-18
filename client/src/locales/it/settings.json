@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "Info",
       "effects": "Effetti",
-      "subscriptionUsage": "Utilizzo abbonamenti"
+      "subscriptionUsage": "Utilizzo abbonamenti",
+      "notifications": "Notifiche"
     },
     "title": "Impostazioni Desktop",
     "description": "Aspetto, provider di IA, aggiornamenti e preferenze generali di Desktop.",
@@ -96,17 +97,6 @@
     "unsavedChanges": "Modifiche non salvate",
     "dailyBudgetCurrent": "Attualmente {{amount}} al giorno",
     "dailyBudgetNone": "Nessun limite giornaliero"
-  },
-  "notifications": {
-    "heading": "Notifiche di sistema",
-    "description": "Mostra notifiche desktop native quando i job vengono completati o falliscono. Le notifiche appaiono solo quando la scheda non è in primo piano.",
-    "enableLabel": "Abilita le notifiche di sistema",
-    "notifyOn": "Notifica per:",
-    "filterAll": "Tutti (completati e falliti)",
-    "filterCompleted": "Solo completati",
-    "filterFailed": "Solo falliti",
-    "enabledToast": "Notifiche di sistema abilitate",
-    "disabledToast": "Notifiche di sistema disabilitate"
   },
   "webhooks": {
     "heading": "Webhook in uscita",
@@ -572,5 +562,42 @@
       "gemini": "Server in ~/.gemini/settings.json.",
       "kimi": "Server in ~/.kimi-code/mcp.json."
     }
+  },
+  "attention": {
+    "heading": "Notifiche",
+    "description": "Ciò che ti aspetta: una notifica di sistema quando sei via, un avviso quando sei altrove nell'app, niente quando è già sullo schermo.",
+    "enable": "Avvisami",
+    "enableHint": "Disattiva per fermare tutte le notifiche e gli avvisi qui sotto.",
+    "categoriesLegend": "Avvisami per",
+    "categories": {
+      "question": {
+        "label": "Domande e risposte",
+        "hint": "Un agente aspetta la tua risposta o una missione ha risposto"
+      },
+      "review": {
+        "label": "Revisioni pronte",
+        "hint": "Una consegna o una pull request aspetta la tua decisione"
+      },
+      "failed": {
+        "label": "Errori",
+        "hint": "Un'esecuzione è fallita, si è bloccata o non avanza più"
+      },
+      "budget": {
+        "label": "Limiti di spesa",
+        "hint": "Un'esecuzione si è fermata per un budget, un tetto di spesa o il limite d'uso del provider"
+      },
+      "done": {
+        "label": "Job completati",
+        "hint": "Un job è terminato (solo quando non sei nell'app)"
+      }
+    },
+    "sound": "Riproduci un suono",
+    "soundHint": "Il suono di notifica del sistema",
+    "dockBadge": "Badge del Dock",
+    "dockBadgeHint": "L'icona dell'app mostra quanti elementi della posta in arrivo non hai visto",
+    "dockBadgeDesktopOnly": "Nell'app desktop, l'icona dell'app mostra quanti elementi della posta in arrivo non hai visto",
+    "projectsHeading": "Progetti",
+    "projectsDescription": "Disattiva un progetto per silenziarne le notifiche. I suoi elementi restano nella posta in arrivo.",
+    "saveFailed": "Impossibile salvare le impostazioni delle notifiche"
   }
 }

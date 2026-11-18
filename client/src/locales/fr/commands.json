@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "Impossible d'arrêter l'exécution",
     "providerLimit": "Limite d'utilisation du fournisseur atteinte",
     "providerLimitBody": "{{provider}} a refusé la requête : limite d'utilisation atteinte — réinitialisation {{resetsAt}}. L'exécution s'est arrêtée ; relancez ou utilisez Récupérer et réessayer après la réinitialisation.",
-    "providerLimitBodyNoReset": "{{provider}} a refusé la requête : limite d'utilisation atteinte. L'exécution s'est arrêtée ; relancez après la réinitialisation."
+    "providerLimitBodyNoReset": "{{provider}} a refusé la requête : limite d'utilisation atteinte. L'exécution s'est arrêtée ; relancez après la réinitialisation.",
+    "attention": {
+      "open": "Ouvrir",
+      "openInbox": "Ouvrir la boîte de réception",
+      "away_one": "{{count}} élément vous attend",
+      "away_other": "{{count}} éléments vous attendent",
+      "missionReplied": "{{title}} a répondu",
+      "untitledMission": "Votre mission"
+    }
   },
   "templates": {
     "emptyState": {

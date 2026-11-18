@@ -257,7 +257,7 @@ mod tests {
         assert!(permits_command("surface-job-detail-test", "surface_window_toast"));
         assert!(permits_command("surface-app-settings-test", "check_app_update"));
         assert!(!permits_command("surface-job-detail-test", "check_app_update"));
-        for command in ["surface_window_open", "loop_window_open", "browser_open", "mission_window_detach", "set_tray_labels"] {
+        for command in ["surface_window_open", "loop_window_open", "browser_open", "mission_window_detach", "set_tray_labels", "desktop_notify", "desktop_set_badge", "desktop_focus_state"] {
             assert!(!permits_command("surface-app-settings-test", command));
             assert!(!permits_command("surface-job-detail-test", command));
         }

@@ -61,7 +61,8 @@
       "webhooks": "Webhooks",
       "about": "Acerca de",
       "effects": "Efectos",
-      "subscriptionUsage": "Uso de suscripciones"
+      "subscriptionUsage": "Uso de suscripciones",
+      "notifications": "Notificaciones"
     },
     "title": "Ajustes de Desktop",
     "description": "Apariencia, proveedores de IA, actualizaciones y preferencias generales de Desktop.",
@@ -96,17 +97,6 @@
     "unsavedChanges": "Cambios sin guardar",
     "dailyBudgetCurrent": "Ahora mismo: {{amount}} al día",
     "dailyBudgetNone": "Sin límite diario"
-  },
-  "notifications": {
-    "heading": "Notificaciones del sistema",
-    "description": "Muestra notificaciones nativas de escritorio cuando los trabajos se completan o fallan. Las notificaciones solo aparecen cuando la pestaña no tiene el foco.",
-    "enableLabel": "Activar notificaciones del sistema",
-    "notifyOn": "Notificar en:",
-    "filterAll": "Todos (completados y fallidos)",
-    "filterCompleted": "Solo completados",
-    "filterFailed": "Solo fallidos",
-    "enabledToast": "Notificaciones del sistema activadas",
-    "disabledToast": "Notificaciones del sistema desactivadas"
   },
   "webhooks": {
     "heading": "Webhooks salientes",
@@ -572,5 +562,42 @@
       "gemini": "Servidores de ~/.gemini/settings.json.",
       "kimi": "Servidores de ~/.kimi-code/mcp.json."
     }
+  },
+  "attention": {
+    "heading": "Notificaciones",
+    "description": "Lo que te necesita: una notificación del sistema cuando no estás, un aviso cuando estás en otra parte de la app y nada cuando ya lo tienes en pantalla.",
+    "enable": "Avisarme",
+    "enableHint": "Desactívalo para detener todas las notificaciones y avisos de abajo.",
+    "categoriesLegend": "Avisarme de",
+    "categories": {
+      "question": {
+        "label": "Preguntas y respuestas",
+        "hint": "Un agente espera tu respuesta o una misión respondió"
+      },
+      "review": {
+        "label": "Revisiones listas",
+        "hint": "Una entrega o pull request espera tu decisión"
+      },
+      "failed": {
+        "label": "Fallos",
+        "hint": "Una ejecución falló, se bloqueó o dejó de avanzar"
+      },
+      "budget": {
+        "label": "Límites de gasto",
+        "hint": "Una ejecución se pausó por un presupuesto, un tope de gasto o el límite de uso del proveedor"
+      },
+      "done": {
+        "label": "Trabajos terminados",
+        "hint": "Un trabajo terminó (solo cuando no estás en la app)"
+      }
+    },
+    "sound": "Reproducir un sonido",
+    "soundHint": "El sonido de notificación del sistema",
+    "dockBadge": "Insignia del Dock",
+    "dockBadgeHint": "El icono de la app muestra cuántos elementos de la bandeja no has visto",
+    "dockBadgeDesktopOnly": "En la app de escritorio, el icono de la app muestra cuántos elementos de la bandeja no has visto",
+    "projectsHeading": "Proyectos",
+    "projectsDescription": "Desactiva un proyecto para silenciar sus notificaciones. Sus elementos siguen en la bandeja.",
+    "saveFailed": "No se pudieron guardar los ajustes de notificaciones"
   }
 }

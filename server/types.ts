@@ -10,6 +10,7 @@ export interface PhaseDefinition {
 // ─── ProjectRow (app-level) — re-exported from desktop-db for WS message use ──
 
 import type { ProjectRow } from './desktop-db'
+import type { AttentionPrefs } from './modules/inbox/attention-prefs'
 export type { ProjectRow }
 
 // ─── ProposalRow re-export ────────────────────────────────────────────────────
@@ -394,6 +395,13 @@ export interface DesktopProjectAddedMessage {
 export interface DesktopProjectRemovedMessage {
   type: 'desktop.project_removed'
   projectId: string
+  timestamp: string
+}
+
+/** App-wide attention preferences changed (Settings ▸ Notifications); every window re-reads them. */
+export interface DesktopAttentionPrefsMessage {
+  type: 'desktop.attention_prefs'
+  prefs: AttentionPrefs
   timestamp: string
 }
 
@@ -1373,7 +1381,7 @@ export type WsMessage =
   | ChatStreamMessage | ChatDoneMessage | ChatErrorMessage
   | ChatCommandProposalMessage | ChatTitleUpdateMessage
   | SpecDraftUpdateMessage
-  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage | DesktopProjectRecoveredMessage
+  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage | DesktopProjectRecoveredMessage | DesktopAttentionPrefsMessage
   | SetupLogMessage | SetupCheckpointMessage | SetupChatMessage
   | SetupInstallDoneMessage | SetupCompleteMessage | SetupErrorMessage
   | SetupTurnDoneMessage

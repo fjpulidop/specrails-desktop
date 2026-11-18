@@ -51,8 +51,30 @@ project**, grouped by project, newest first.
   comes back. Entries older than 30 days are pruned.
 - **Place:** `?inbox=1` is pushed on open (Back closes it). Opening a row replaces that
   entry with the place it leads to.
-- **Notifications:** a provider-limit OS notification opens the inbox
+- **Notifications (attention):** every new item version (`id` + `version`, recorded in
+  `localStorage` `specrails-desktop:inbox:announced`, pruned after 30 days) is announced once through the
+  app's attention pipeline ([`lib/attention`](../../../lib/attention/attention-center.ts), `hooks/useInboxAttention.ts`):
+  an OS notification when the app is in the background, a toast with **Open** when it is focused elsewhere,
+  nothing when the inbox or the item's own place (`?review=` / `?job=`, `/review/:id` / `/jobs/:id`) is on screen.
+  The first snapshot after startup is recorded silently, so a restart never announces old news (what arrived
+  while the app was closed shows through the unseen dot and the Dock badge instead). Snoozed / done items
+  are recorded, not announced. Title: the kind (*Review ready*, *Waiting for your answer*…); body: project ·
+  item · plain cause. Categories: `question`, `review`, `failed` (failed, blocked, Jira), `budget` (budget
+  paused, cap reached, a run blocked by the provider's usage limit). A provider-limit alert opens the inbox
   (`lib/inbox-events.ts`); job notifications keep deep-linking to the job itself.
+- **Back from away.** A native notification in the desktop app cannot be clicked through, so when the main
+  window regains focus one toast sums up what was announced meanwhile (*3 things need you*): **Open** for a
+  single item (the row's primary open handler; Resume / Retry items open the inbox instead), **Open inbox**
+  otherwise (`hooks/useAttentionReturn.ts`). Browser notifications also open the item on click.
+- **Unseen.** An item version is *seen* once it is displayed in the open inbox or opened (per viewer,
+  `localStorage` `specrails-desktop:inbox:seen`, pruned after 30 days, renewed while the item stays). Rows show a
+  dot while unseen, and for the rest of the open session after being displayed; **Mark as unread** / **Mark as
+  read** toggle it (an item marked unread is not re-marked while the inbox stays open).
+- **Dock badge** (desktop app, macOS Dock and Linux launcher; Windows has no count badge) = unseen items outside
+  muted projects, sent to the guarded host command `desktop_set_badge` only when the number changes; cleared at 0
+  or when Settings ▸ Notifications ▸ Dock badge is off.
+- **Mute a project.** The bell in a project's group header mutes / unmutes its notifications (Settings ▸
+  Notifications lists every project too); its items stay listed.
 - **Shortcut.** `Ctrl+Shift+I` opens DevTools in WebView2 and Chromium (development builds and the
   web view), so off macOS the chord is `Ctrl+Alt+I` (`useKeyboardShortcuts`, `SHORTCUTS` with `platform`,
   `keyboardLabel`). macOS keeps `⌘⇧I`. The count badge is neutral (it mixes failures, questions and reviews).

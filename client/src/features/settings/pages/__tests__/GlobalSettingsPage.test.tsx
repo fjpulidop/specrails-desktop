@@ -4,6 +4,7 @@ import { render, screen, waitFor, fireEvent, within } from '../../../../test-uti
 import userEvent from '@testing-library/user-event'
 import GlobalSettingsPage from '../GlobalSettingsPage'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
+import { attentionPrefsStore } from '../../../../lib/attention/attention-prefs-store'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -213,7 +214,8 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     ]
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('My Project')).toBeInTheDocument()
+      const registered = document.querySelector('[data-setting-id="registeredProjects"]') as HTMLElement
+      expect(within(registered).getByText('My Project')).toBeInTheDocument()
       expect(screen.getByText('/home/user/my-project')).toBeInTheDocument()
     })
   })
@@ -656,79 +658,77 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
   })
 })
 
-// ─── OS Notifications section ────────────────────────────────────────────────
+// ─── Notifications (attention) section ───────────────────────────────────────
 
-describe('GlobalSettingsPage — OS Notifications', () => {
+describe('GlobalSettingsPage — Notifications', () => {
+  const patches: unknown[] = []
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    mockProjects = []
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (typeof url === 'string' && url.includes('/api/webhooks')) {
-        return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
+    attentionPrefsStore.reset()
+    patches.length = 0
+    mockProjects = [{ id: 'p1', slug: 'acme', name: 'Acme', path: '/acme', db_path: '/x', added_at: '', last_seen_at: '' }]
+    let prefs = {
+      enabled: true, sound: false, dockBadge: true, mutedProjects: [] as string[],
+      categories: { question: true, review: true, failed: true, budget: true, done: true },
+    }
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === 'string' && url.endsWith('/api/attention-prefs')) {
+        if (init?.method === 'PATCH') {
+          const patch = JSON.parse(String(init.body))
+          patches.push(patch)
+          prefs = { ...prefs, ...patch, categories: { ...prefs.categories, ...(patch.categories ?? {}) } }
+        }
+        return Promise.resolve({ ok: true, json: async () => prefs })
       }
-      return Promise.resolve({ ok: true, json: async () => desktopSettings })
+      return defaultFetchMock(url)
     })
   })
 
-  it('renders OS Notifications section header', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('OS Notifications')).toBeInTheDocument()
-    })
+  it('has its own section with the master switch, the categories, sound and the Dock badge', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const card = await screen.findByTestId('attention-settings')
+    expect(within(card).getByRole('switch', { name: 'Notify me' })).toHaveAttribute('aria-checked', 'true')
+    for (const label of ['Questions and replies', 'Reviews ready', 'Failures', 'Spending limits', 'Finished jobs']) {
+      expect(within(card).getByRole('switch', { name: label })).toHaveAttribute('aria-checked', 'true')
+    }
+    expect(within(card).getByRole('switch', { name: 'Play a sound' })).toHaveAttribute('aria-checked', 'false')
+    expect(within(card).getByRole('switch', { name: 'Dock badge' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByTestId('notif-toggle')).not.toBeInTheDocument()
   })
 
-  it('renders enable checkbox checked by default', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('Enable OS Notifications')).toBeInTheDocument()
-    })
-    const toggle = screen.getByTestId('notif-toggle') as HTMLInputElement
-    expect(toggle.checked).toBe(true)
-  })
-
-  it('shows filter options when notifications are enabled', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('All (completed & failed)')).toBeInTheDocument()
-      expect(screen.getByText('Completed only')).toBeInTheDocument()
-      expect(screen.getByText('Failed only')).toBeInTheDocument()
-    })
-  })
-
-  it('hides filter options when notifications are disabled', async () => {
+  it('saves a category on the server and keeps the switch in step', async () => {
     const user = userEvent.setup()
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByTestId('notif-toggle')).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('notif-toggle'))
-    expect(screen.queryByText('All (completed & failed)')).not.toBeInTheDocument()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const done = await screen.findByRole('switch', { name: 'Finished jobs' })
+    await user.click(done)
+    await waitFor(() => expect(patches).toEqual([{ categories: { done: false } }]))
+    expect(done).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('persists toggle to localStorage', async () => {
+  it('turning everything off disables the categories', async () => {
     const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByTestId('notif-toggle')).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('notif-toggle'))
-    const stored = JSON.parse(localStorage.getItem('specrails-os-notifications')!)
-    expect(stored.enabled).toBe(false)
-    expect(toast.success).toHaveBeenCalledWith('OS notifications disabled')
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    await user.click(await screen.findByRole('switch', { name: 'Notify me' }))
+    await waitFor(() => expect(patches).toEqual([{ enabled: false }]))
+    expect(screen.getByRole('switch', { name: 'Failures' })).toBeDisabled()
   })
 
-  it('changes filter to failed-only via radio', async () => {
+  it('mutes a project from the project list', async () => {
     const user = userEvent.setup()
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('Failed only')).toBeInTheDocument()
-    })
-    const failedRadio = screen.getByRole('radio', { name: /failed only/i })
-    await user.click(failedRadio)
-    const stored = JSON.parse(localStorage.getItem('specrails-os-notifications')!)
-    expect(stored.filter).toBe('failed')
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const projects = await screen.findByTestId('attention-projects')
+    await user.click(within(projects).getByRole('switch', { name: 'Acme' }))
+    await waitFor(() => expect(patches).toEqual([{ mutedProjects: ['p1'] }]))
+    expect(within(projects).getByRole('switch', { name: 'Acme' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('migrates the old job-notification prefs once and drops them', async () => {
+    localStorage.setItem('specrails-os-notifications', JSON.stringify({ enabled: true, filter: 'failed' }))
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    await waitFor(() => expect(patches).toEqual([{ categories: { done: false } }]))
+    await waitFor(() => expect(localStorage.getItem('specrails-os-notifications')).toBeNull())
+    expect(await screen.findByRole('switch', { name: 'Finished jobs' })).toHaveAttribute('aria-checked', 'false')
   })
 })
 

@@ -488,7 +488,15 @@
     "jobStuckStopFailed": "Could not stop the run",
     "providerLimit": "Provider usage limit reached",
     "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run stopped; relaunch or Recover & retry after the reset.",
-    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run stopped; relaunch after the limit resets."
+    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run stopped; relaunch after the limit resets.",
+    "attention": {
+      "open": "Open",
+      "openInbox": "Open inbox",
+      "away_one": "{{count}} thing needs you",
+      "away_other": "{{count}} things need you",
+      "missionReplied": "{{title}} replied",
+      "untitledMission": "Your mission"
+    }
   },
   "templates": {
     "emptyState": {

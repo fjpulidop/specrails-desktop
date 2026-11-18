@@ -42,6 +42,18 @@ Un fin bandeau court tout en bas de la fenêtre. Discret mais bien pratique :
 
 Dans l'application de bureau, certains écrans s'ouvrent dans de vraies fenêtres plutôt que dans des panneaux de la fenêtre principale : les **Paramètres de l'app**, le détail d'un job ouvert depuis une mission, ainsi que **Loops** et **Plugins** en mode Mission. Vous pouvez les déplacer sur un autre écran et continuer à travailler dans la fenêtre principale. Chacune utilise les contrôles de fenêtre du système ; les Paramètres et la fenêtre du job se ferment aussi avec **Échap**. Les changements que vous y faites, comme le thème ou la langue, s'appliquent immédiatement à la fenêtre principale. Dans la version navigateur, ces écrans s'ouvrent en panneaux.
 
+## Les notifications de ce qui vous attend {#attention}
+
+Specrails vous prévient quand quelque chose vous attend : une question ou la réponse d'une mission, une revue prête à décider, une exécution qui a échoué, s'est bloquée ou n'avance plus, une limite de dépense et un job terminé. La manière dépend de l'endroit où vous êtes :
+
+- **Hors de l'app** — une notification système qui nomme le projet et la cause. Dans l'app de bureau, on ne peut pas cliquer dessus : à votre retour, un toast résume (**3 éléments vous attendent**) et ouvre l'élément, ou la boîte **À traiter** s'il y en a plusieurs.
+- **Ailleurs dans l'app** — un petit toast avec **Ouvrir**.
+- **Vous le regardez déjà** — rien. Une mission que vous suivez ne signale pas ses propres réponses ; une exécution bloquée fait exception et alerte toujours.
+
+Chaque nouvel état d'un élément de la boîte est annoncé une seule fois ; après un redémarrage, rien d'ancien n'est annoncé de nouveau. Dans la boîte, les éléments que vous n'avez pas encore vus portent un point ; **Marquer comme non lu** et **Marquer comme lu** le changent. Dans l'app de bureau, l'icône du Dock (le lanceur sous Linux) indique combien d'éléments vous n'avez pas vus.
+
+Choisissez ce qui vous est signalé dans **Réglages ▸ Notifications** : tout couper, choisir les catégories (questions et réponses, revues, échecs, limites de dépense, jobs terminés), ajouter un son, masquer le badge du Dock ou désactiver un projet. La cloche à côté du nom d'un projet dans la boîte le coupe aussi ; ses éléments restent dans la boîte.
+
 ## Quelques raccourcis bien pratiques {#shortcuts}
 
 - **Cmd/Ctrl+B** — épingler ou replier la barre latérale gauche ; **Option+Cmd+B** (**Ctrl+Alt+B**) fait de même pour la droite.
