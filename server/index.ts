@@ -44,6 +44,7 @@ import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mob
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
+import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { createFlowTurnContext } from './modules/intent/adapters/bindings'
 import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
@@ -748,6 +749,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
   _agentChatManager = agentChatManager
+  // "Connectors in missions": each provider's own user-scope servers and account
+  // connectors, on by default; the app-wide deny-list turns them off per turn.
+  // Claude's account connectors are probed (`claude mcp list`) only when Settings asks.
+  const missionConnectors = new MissionConnectors({ db: registry.desktopDb })
+  agentChatManager.setConnectors(missionConnectors)
   // Core agent sessions (core-agent-sessions-host): one supervised Core host per
   // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
   // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
@@ -797,6 +803,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     },
     // Agent actions audit: mission tool calls land in the pinned project's log.
     agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
+    connectors: (providerId, options) => missionConnectors.planFor(providerId, options),
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
@@ -846,7 +853,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   _usageService = usageService
   // Intent cost: subscription-plan turns have no marginal cost.
   registry.setProviderBilling((provider) => usageService.resolveBilling(provider))
-  app.use('/api', createDesktopRouter(registry, broadcast, usageService))
+  app.use('/api', createDesktopRouter(registry, broadcast, usageService, { missionConnectors }))
 
   // Per-project routes under /api/projects/:projectId/*
   app.use('/api/projects', createProjectRouter(registry))

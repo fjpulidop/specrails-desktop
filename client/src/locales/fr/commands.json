@@ -247,6 +247,10 @@
           "label": "Sous-agents (Desktop)",
           "keywords": "sous-agents, subagents, natifs, délégués, parallèle"
         },
+        "missionConnectors": {
+          "label": "Connecteurs dans les missions",
+          "keywords": "connecteurs, mcp, claude.ai, codex, serveurs, google drive, outils"
+        },
         "mobileCompanion": {
           "label": "Application mobile compagnon",
           "keywords": "mobile, compagnon, téléphone, associer, qr, ipad, distant, companion"

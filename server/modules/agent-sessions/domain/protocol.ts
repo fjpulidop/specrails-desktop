@@ -126,6 +126,13 @@ export interface DriverDescriptor {
     subagentModel?: boolean
     /** Native sub-agents can run at another effort. */
     subagentEffort?: boolean
+    /**
+     * The provider loads MCP tool definitions on demand (Claude tool search),
+     * so a connector costs ~nothing until it is used. Absent on Cores that do
+     * not declare it; "Connectors in missions" only injects the user's own
+     * Claude servers when it is true.
+     */
+    deferredMcpTools?: boolean
     autonomousContinuation: boolean
     steer: boolean
     toolFiltering: boolean

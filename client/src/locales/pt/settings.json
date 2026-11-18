@@ -533,5 +533,44 @@
       "full": "Movimento total",
       "fullHint": "Anima mesmo que o SO peça menos"
     }
+  },
+  "missionConnectors": {
+    "title": "Conectores nas missões",
+    "description": "As missões podem usar os conectores e servidores MCP que você já configurou em cada provedor. Todos começam ativados; desative os que suas missões não precisam.",
+    "refresh": "Atualizar",
+    "measure": "Medir tamanhos",
+    "measuring": "Medindo…",
+    "loadFailed": "Não foi possível listar os conectores dos provedores.",
+    "measureFailed": "Não foi possível medir os conectores.",
+    "saveFailed": "Não foi possível atualizar {{name}}.",
+    "empty": "Nenhum conector ou servidor MCP encontrado nos seus provedores.",
+    "appliesNextTurn": "Uma alteração vale a partir do próximo turno da missão. Esse turno reconstrói uma vez o cache de prompts do provedor, por isso custa um pouco mais.",
+    "claudeListStale": "O Claude Code não respondeu, então esta lista mostra os conectores de conta que ele lembra.",
+    "waitsForToolSearch": "Seus próprios servidores MCP serão carregados nas missões do Claude quando o Claude puder buscar ferramentas sob demanda (requer atualizar o Core).",
+    "notLoadedYet": "Ainda não carregado",
+    "toggleLabel": "Usar {{name}} nas missões do {{provider}}",
+    "sizeTitle": "Tamanho aproximado das definições de ferramentas se o provedor as enviar completas",
+    "size_one": "{{count}} ferramenta · ≈{{tokens}} tokens",
+    "size_other": "{{count}} ferramentas · ≈{{tokens}} tokens",
+    "kind": {
+      "account-connector": "Conector de conta",
+      "mcp-server": "Servidor MCP"
+    },
+    "status": {
+      "needsAuth": "Requer login no provedor",
+      "failed": "Não conectou"
+    },
+    "lock": {
+      "specrails-duplicate": "Mesmo servidor que o MCP do Specrails: sempre excluído (as missões já o têm).",
+      "disabled-in-provider": "Desativado na sua configuração do {{provider}}.",
+      "external-mcp": "Adicionado por Servidores MCP externos (Configurações ▸ MCP).",
+      "unsupported": "O {{provider}} o carrega por conta própria; o Specrails não pode desativá-lo."
+    },
+    "providerNote": {
+      "claude": "Conectores de conta do claude.ai e os servidores MCP em ~/.claude.json. O Claude envia as definições completas de ferramentas de cada conector em toda requisição.",
+      "codex": "Servidores em ~/.codex/config.toml. O Codex carrega as definições de ferramentas só quando o agente as procura.",
+      "gemini": "Servidores em ~/.gemini/settings.json.",
+      "kimi": "Servidores em ~/.kimi-code/mcp.json."
+    }
   }
 }

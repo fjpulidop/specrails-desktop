@@ -115,6 +115,17 @@ Alcuni provider possono affidare parti di un compito a **sotto-agenti**: aiutant
 - **Cambiare l'impostazione è sicuro.** Una missione con agenti attivi applica la modifica quando finiscono; te lo segnala e offre **Ferma gli agenti e applica ora**.
 - **Niente si riavvia di nascosto.** Gli agenti interrotti da un riavvio restano segnati come interrotti; **Rilancia** si limita a preparare un messaggio che chiede all'agente di rifare quel lavoro.
 
+## Connettori nelle missioni {#connectors}
+
+Le missioni possono usare i connettori e i server MCP già configurati in ogni provider: i tuoi **connettori dell'account claude.ai** (Google Drive, Gmail…) e i server in `~/.claude.json` quando la missione usa Claude, i server in `~/.codex/config.toml` su Codex e quelli di Gemini su Gemini. Apri **Impostazioni dell'app → Provider di IA → Connettori nelle missioni** per vederli, raggruppati per provider.
+
+- **All'inizio è tutto attivo.** Anche un connettore aggiunto in seguito. Disattiva quelli che alle tue missioni non servono: ognuno può aggiungere migliaia di token a ogni richiesta.
+- **Dimensioni.** **Misura dimensioni** avvia una volta ogni server MCP locale e mostra quanti strumenti ha e quanti token occupano circa le loro definizioni. Claude invia queste definizioni per intero a ogni richiesta; Codex le carica solo quando l'agente cerca uno strumento, quindi su Codex un connettore non costa quasi nulla finché non viene usato.
+- **L'MCP di Specrails non viene mai caricato due volte.** Se la configurazione di un provider elenca anche il server di Specrails, appare come sempre escluso: la missione ha già il suo.
+- **Alcune righe non si possono cambiare.** Un server disattivato nella configurazione del provider resta disattivato; uno aggiunto tramite **Server MCP esterni** segue quell'impostazione; Kimi carica i suoi server da sé.
+- **I tuoi server MCP di Claude aspettano la ricerca degli strumenti.** Le missioni Claude non caricano ancora i server di `~/.claude.json`: senza caricamento degli strumenti su richiesta, un server grande (alcuni hanno centinaia di strumenti) riempirebbe il contesto. Verranno caricati quando Claude potrà cercare gli strumenti su richiesta.
+- **Una modifica si applica al turno successivo.** Quel turno ricostruisce una volta la cache dei prompt del provider, quindi costa un po' di più. **Aggiorna** rilegge le configurazioni dei provider.
+
 ## Alcune cose da sapere
 
 - **Opera e Autonomo costano denaro** perché eseguono IA. L'agente mette in evidenza le azioni che generano costi prima di eseguirle; tieni il livello su Osserva o Modifica se vuoi solo guardare e mettere in ordine.

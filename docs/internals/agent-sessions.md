@@ -154,6 +154,66 @@ reached (e.g. after a Desktop restart) still applies. Legacy turns spawn a
 process per turn with `--resume`. Either way, the first request after a toggle
 has a different tool list, so it rewrites the provider's prompt cache once.
 
+## Connectors in missions
+
+Besides the Specrails bridge, External MCP servers and plugin servers, a
+mission session loads the provider's own connectors, filtered by the app
+setting "Connectors in missions" (rules in the
+[missions module](../../server/modules/missions/README.md#connectors-in-missions)).
+`MissionCoreSessions` asks the injected `connectors` port for a plan per turn
+and sets `policy.mcp`:
+
+- Codex: `inheritUserScope: false` with a name-only spec per enabled server.
+  Core's Codex driver disables each declared server that is not listed and,
+  for a spec without transport, only emits `mcp_servers.<name>.enabled=true`,
+  so no Core change is needed.
+- Claude: `inheritUserScope: true`. Core's `--setting-sources project,local`
+  already leaves the `~/.claude.json` servers out; the claude.ai account
+  connectors load and are switched off through `deniedMcpServers` in the
+  mission cwd's `.claude/settings.local.json`.
+
+Measured with throwaway replicas (Claude: the Core argv with `--tools
+Read,Grep,Glob`, the captured Specrails tool list on a stub server, haiku, a
+one-tool-call prompt; Codex: `codex exec`, gpt-6-luna, a one-word reply):
+
+| Run | Request 1 input | Request 2 cache write |
+| --- | --- | --- |
+| Claude, today (Drive and Docs connected; Gmail and Calendar need sign-in) | 39.8k | 14.8k (connector definitions arrive mid-turn, `toolSearchAbsent: true`) |
+| Claude, Google Drive denied | 39.8k | 3.9k |
+| Claude, every account connector denied | 39.8k | 0.2k |
+| Claude, `ToolSearch` in `--tools` | 7.5k | 0.9k (every MCP tool deferred, Specrails' too) |
+| Claude, `ToolSearch` + Specrails tools `anthropic/alwaysLoad` except two | 38.1k | 2.5k (cache kept) |
+| Claude, `ToolSearch` + every Specrails tool `alwaysLoad` | 39.8k | 40.8k (full rewrite: deferral, and its beta, only start mid-turn) |
+
+So Google Drive costs ~10.9k tokens and Claude Docs ~3.7k per Claude
+request, sent in full. The user-scope servers would cost more if loaded
+without deferral (definitions measured with `tools/list`): premiere-pro 367
+tools ~200k tokens, tokensave 81 ~23k, blender 10 ~7.3k, headroom 3 ~0.5k.
+That is why Claude user-scope servers are only injected when the Claude
+driver declares `capabilities.deferredMcpTools`.
+
+Codex already defers MCP tools (tool search, one line per server in the
+prompt): with every user server off a turn read 15,474 input tokens; with
+node_repl, openaiDeveloperDocs, premiere-pro or blender alone 16,074–16,124,
+and with all of them 16,178. A run where only the config-disabled
+computer-use was "enabled" also read 16,074, so most of the ~600 is run
+variance, not the servers: the whole set costs under ~700 tokens a turn.
+
+### Claude tool search needs a Core change
+
+Claude Code's tool search (deferred MCP tool loading) is on by default in
+2.1.322 (`ENABLE_TOOL_SEARCH` unset), but only when the `ToolSearch` tool is
+available. Core's read-only Claude sessions pass `--tools Read,Grep,Glob[,Agent,Task]`,
+which removes it; `--allowedTools` and `ENABLE_TOOL_SEARCH=true|force` do not
+bring it back (verified). The Core change: add `ToolSearch` to
+`CLAUDE_READ_ONLY_TOOLS` (`drivers/claude/argv.ts`) and declare
+`capabilities.deferredMcpTools: true` on the Claude driver. Resumed sessions
+that ran without tool search stay without it until compacted unless the
+host sets `ENABLE_TOOL_SEARCH=true`. To keep the Specrails tools loaded while
+connectors defer, the bridge can mark them `_meta["anthropic/alwaysLoad"]`,
+leaving at least one tool deferred so the tool-search beta is on from the
+first request (the last two rows above).
+
 ## Permission boundary
 
 Mission sessions are read-only. `MissionCoreSessions.prepareTurn` takes the

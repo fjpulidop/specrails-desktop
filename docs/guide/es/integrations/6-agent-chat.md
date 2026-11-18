@@ -115,6 +115,17 @@ Algunos proveedores pueden repartir partes de una tarea entre **sub-agentes**: a
 - **Cambiar el ajuste es seguro.** Una misión con agentes en marcha aplica el cambio cuando terminan; te lo indica y ofrece **Detener agentes y aplicar ya**.
 - **Nada se relanza a tus espaldas.** Los agentes interrumpidos por un reinicio quedan marcados como interrumpidos; **Relanzar** solo redacta un mensaje pidiendo al agente que rehaga ese trabajo.
 
+## Conectores en las misiones {#connectors}
+
+Las misiones pueden usar los conectores y servidores MCP que ya configuraste en cada proveedor: tus **conectores de cuenta de claude.ai** (Google Drive, Gmail…) y los servidores de `~/.claude.json` cuando la misión usa Claude, los servidores de `~/.codex/config.toml` cuando usa Codex, y los de Gemini en Gemini. Abre **Ajustes de la app → Proveedores de IA → Conectores en las misiones** para verlos, agrupados por proveedor.
+
+- **Todo empieza activado.** Un conector que añadas después también. Desactiva los que tus misiones no necesiten: cada uno puede sumar miles de tokens a cada petición.
+- **Tamaños.** **Medir tamaños** arranca una vez cada servidor MCP local y muestra cuántas herramientas tiene y cuántos tokens ocupan aproximadamente sus definiciones. Claude envía esas definiciones completas en cada petición; Codex solo las carga cuando el agente busca una herramienta, así que en Codex un conector casi no cuesta nada hasta que se usa.
+- **El MCP de Specrails nunca se carga dos veces.** Si la configuración de un proveedor también incluye el servidor de Specrails, aparece como siempre excluido: la misión ya tiene el suyo.
+- **Algunas filas no se pueden cambiar.** Un servidor desactivado en la configuración del propio proveedor sigue desactivado; uno que añadas con **Servidores MCP externos** sigue ese ajuste; Kimi carga sus servidores por su cuenta.
+- **Tus propios servidores MCP de Claude esperan a la búsqueda de herramientas.** Las misiones de Claude aún no cargan los servidores de `~/.claude.json`: sin carga de herramientas bajo demanda, un servidor grande (algunos tienen cientos de herramientas) llenaría el contexto. Se cargarán cuando Claude pueda buscar herramientas bajo demanda.
+- **Un cambio se aplica en el siguiente turno.** Ese turno reconstruye una vez la caché de prompts del proveedor, así que cuesta un poco más. **Actualizar** vuelve a leer la configuración de los proveedores.
+
 ## Algunas cosas que conviene saber
 
 - **Opera y Autónomo cuestan dinero** porque ejecutan IA. El agente saca a la luz las acciones que generan coste antes de hacerlas; mantén el nivel en Observa o Edita si solo quieres mirar y ordenar.

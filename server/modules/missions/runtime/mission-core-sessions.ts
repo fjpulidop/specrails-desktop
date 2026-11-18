@@ -11,6 +11,7 @@ import { FLOW_SUBAGENTS_ADDENDUM } from './agent-flow-prompt'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
+import { connectorsMarker, type ConnectorTurnPlan } from './mission-connectors'
 import type { IntentTurn } from './flow-turn-context'
 
 /** Why an Intent session turn cannot run on Core sessions (there is no legacy Intent path). */
@@ -38,6 +39,11 @@ export interface MissionCoreSessionsDeps {
   subagentRuntime?: (conversation: AgentConversation) => SubagentRuntimeChoice | null
   /** Agent actions audit sink of a project (tool calls of its missions). */
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
+  /**
+   * "Connectors in missions": which of the provider's own user-scope servers
+   * and account connectors this turn loads. Absent = inherit them all.
+   */
+  connectors?: (providerId: string, options: { reserved: readonly string[]; deferredMcpTools: boolean }) => Promise<ConnectorTurnPlan>
 }
 
 export const GLOBAL_SCOPE = 'global'
@@ -134,10 +140,11 @@ export class MissionCoreSessions {
     // Missions are read-only (mission-read-only-policy): the adapter declares how its
     // Core driver enforces that while MCP tools stay callable. User-scope MCP stays inherited.
     const delegation = client.initialize?.capabilities?.delegation === 1
+    const inheritUserScope = await this.applyConnectors(adapter.id, drivers, mcpServers)
     const policy: SessionPolicyInput = {
       subagents: this.subagentPolicy(conversation),
       ...missionSessionBoundary(adapter, drivers.find((driver) => driver.id === adapter.id)),
-      mcp: { inheritUserScope: true },
+      mcp: { inheritUserScope },
       subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation),
     }
     this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: false })
@@ -208,10 +215,11 @@ export class MissionCoreSessions {
     const drivers = client.initialize?.drivers ?? []
     const delegation = client.initialize?.capabilities?.delegation === 1
     const subagents = this.subagentPolicy(conversation)
+    const inheritUserScope = await this.applyConnectors(adapter.id, drivers, mcpServers)
     const policy: SessionPolicyInput = {
       subagents,
       ...turn.flow.policy,
-      mcp: { inheritUserScope: true },
+      mcp: { inheritUserScope },
       ...(subagents === 'enabled' ? { subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation) } : {}),
     }
     this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: true })
@@ -329,6 +337,30 @@ export class MissionCoreSessions {
         console.warn(`[agent-chat] could not update the sub-agent policy of ${sessionId}: ${(error as Error).message}`)
       }
     }
+  }
+
+  /**
+   * Connectors in missions: add the provider's enabled user servers the turn
+   * must list (Codex: name-only specs, so Core keeps the user's definition),
+   * and mark the Specrails spec when connectors are off so a resident process
+   * restarts at the next turn and reads the provider-native switch (Claude's
+   * deny file). Returns `policy.mcp.inheritUserScope`. Never throws.
+   */
+  private async applyConnectors(providerId: string, drivers: DriverDescriptor[], mcpServers: AgentMcpServerSpec[]): Promise<boolean> {
+    if (!this.deps.connectors) return true
+    const deferredMcpTools = drivers.find((driver) => driver.id === providerId)?.capabilities?.deferredMcpTools === true
+    let plan: ConnectorTurnPlan
+    try {
+      plan = await this.deps.connectors(providerId, { reserved: mcpServers.map((server) => server.name), deferredMcpTools })
+    } catch (error) {
+      console.warn(`[agent-chat] connectors in missions unavailable; inheriting the provider's own: ${(error as Error).message}`)
+      return true
+    }
+    for (const server of plan.servers) if (!mcpServers.some((existing) => existing.name === server.name)) mcpServers.push(server)
+    const marker = connectorsMarker(plan.denied)
+    const specrails = mcpServers.find((server) => server.name === 'specrails')
+    if (marker && specrails) specrails.env = { ...(specrails.env ?? {}), SPECRAILS_MISSION_CONNECTORS_OFF: marker }
+    return plan.inheritUserScope
   }
 
   /** The turn runs on the legacy transport because its scope is degraded: say why, once per turn. */

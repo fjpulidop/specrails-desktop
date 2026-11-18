@@ -247,6 +247,10 @@
           "label": "Sub-Agents (Desktop)",
           "keywords": "sub-agents, subagents, nativ, delegiert, parallel"
         },
+        "missionConnectors": {
+          "label": "Konnektoren in Missionen",
+          "keywords": "konnektoren, mcp, claude.ai, codex, server, google drive, werkzeuge"
+        },
         "mobileCompanion": {
           "label": "Mobile Begleit-App",
           "keywords": "mobil, companion, handy, koppeln, qr, ipad, fernsteuerung, mobile"

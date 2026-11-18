@@ -33,6 +33,9 @@ import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } f
 import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { resolveExternalEntries } from '../../../external-mcp'
+import type { MissionConnectors } from './mission-connectors-discovery'
+import { writeClaudeConnectorDenyFile, writeGeminiExcluded } from './mission-connectors-discovery'
+import { codexDisableOverrides } from './mission-connectors'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from '../../../mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
@@ -173,6 +176,8 @@ export class AgentChatManager {
   /** Per-mission measurement generation: a late Codex rollout read never overwrites a newer snapshot or a reset. */
   private readonly _contextUsageVersion = new Map<string, number>()
   private _codexRolloutReader: (sessionId: string) => Promise<string | null> = (sessionId) => readCodexRolloutTail(sessionId)
+  /** "Connectors in missions" (app-wide); null = every provider connector is inherited. */
+  private _connectors: Pick<MissionConnectors, 'planForCached'> | null = null
   /** Claude transcript paths found per provider session (bounded by this manager's missions). */
   private readonly _claudeTranscriptPaths = new Map<string, string>()
   private _claudeTranscriptReader: (sessionId: string, cwd: string | null) => Promise<string | null> =
@@ -200,6 +205,37 @@ export class AgentChatManager {
   /** Composition-time wiring of Core agent sessions (see agent-sessions module). */
   setCoreSessions(coreSessions: MissionCoreSessions | null): void {
     this._coreSessions = coreSessions
+  }
+
+  /** Composition-time wiring of "Connectors in missions". */
+  setConnectors(connectors: Pick<MissionConnectors, 'planForCached'> | null): void {
+    this._connectors = connectors
+  }
+
+  /**
+   * Provider-native switches for the turned-off connectors of a mission turn
+   * in the app-owned cwd: Claude's deny file (read at process start through
+   * `--setting-sources project,local`) and, on legacy turns, Codex `-c`
+   * disables / Gemini `mcp.excluded`. Intent turns run in a project worktree,
+   * which Specrails never writes into, so only their Core policy applies.
+   * Returns extra legacy argv. Never throws: a failure keeps the provider default.
+   */
+  private applyConnectorSwitches(adapterId: string, cwd: string, reserved: readonly string[], legacy: boolean): string[] {
+    // Synchronous: nothing may sit between a turn's start and its spawn.
+    if (!this._connectors) return []
+    try {
+      const plan = this._connectors.planForCached(adapterId, { reserved })
+      if (adapterId === 'claude') writeClaudeConnectorDenyFile(cwd, plan.denied)
+      if (!legacy) return []
+      if (adapterId === 'codex') return codexDisableOverrides(plan.denied)
+      if (adapterId === 'gemini') {
+        const file = getAdapter(adapterId).projectMcpPath?.(cwd)
+        if (file) writeGeminiExcluded(file, plan.denied)
+      }
+    } catch (error) {
+      console.warn(`[agent-chat] connectors in missions not applied for ${adapterId}: ${(error as Error).message}`)
+    }
+    return []
   }
 
   /** Composition-time wiring of the agent actions audit (per pinned project). */
@@ -973,19 +1009,24 @@ export class AgentChatManager {
         let mcpEnv: Record<string, string> = {}
         // Core agent sessions: a resident session presents this turn's capability
         // through structured MCP specs (no provider-specific argv).
+        const external = resolveExternalEntries(adapter.id, this._db)
+        const plugins = this._pluginMcpServers(adapter.id, conversation.pinned_project_id)
         const coreContext = this._coreSessions
-          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id), flow: flowTurn })
+          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external, plugins, flow: flowTurn })
           : null
         if (coreContext && !flowTurn) missionCoreTurn = true
+        const reservedMcp = ['specrails', ...external.map((server) => server.name), ...plugins.map((server) => server.name)]
+        if (coreContext && !flowTurn) this.applyConnectorSwitches(adapter.id, cwd, reservedMcp, false)
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
             adapterId: adapter.id, conversationId, invocationId, cwd,
             port: this._port, capability: agentCapability,
-            external: resolveExternalEntries(adapter.id, this._db),
+            external,
             readOnly: spawnPolicy.toolPolicy === 'read-only',
           })
           mcpArgs = wiring.extraArgs
           mcpEnv = wiring.env
+          if (!flowTurn) mcpArgs.push(...this.applyConnectorSwitches(adapter.id, cwd, reservedMcp, true))
           const project = conversation.pinned_project_id ? this._registry?.getProjectRow?.(conversation.pinned_project_id) : null
           if (adapter.id === 'codex' && project) {
             const execution = resolveProjectExecution(project)

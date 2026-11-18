@@ -11,6 +11,8 @@ vi.mock('./agent-cwd-manager', () => ({
   ensureAgentCwd: () => '/tmp/agent-cwd-test',
   ensureAgentConversationCwd: (id: string) => `/tmp/agent-cwd-test/conversations/${id}`,
 }))
+const switches = vi.hoisted(() => ({ claude: vi.fn(() => {}), gemini: vi.fn(() => {}) }))
+vi.mock('./mission-connectors-discovery', () => ({ writeClaudeConnectorDenyFile: switches.claude, writeGeminiExcluded: switches.gemini }))
 const mcp = vi.hoisted(() => ({
   prepare: vi.fn(() => ({ extraArgs: [], env: {} })),
   spec: vi.fn((opts: { capability: string }) => [{ name: 'specrails', command: 'node', args: ['bridge.js'], env: { SPECRAILS_AGENT_CAPABILITY_FILE: `/tmp/cap-${opts.capability.slice(0, 4)}` } }]),
@@ -419,6 +421,76 @@ describe('missions on Core agent sessions', () => {
     })
     expect(context?.mcpServers.map((server) => [server.name, server.command])).toEqual([['specrails', 'node'], ['serena', 'uvx']])
     sessions.shutdown()
+  })
+
+  describe('connectors in missions', () => {
+    function withConnectors(connectors: NonNullable<ConstructorParameters<typeof MissionCoreSessions>[0]['connectors']>) {
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      return new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: () => {}, adapterFor: getAdapter,
+        availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+        connectors,
+      })
+    }
+
+    it('Codex: stops inheriting, lists enabled user servers by name and tags the turned-off set', async () => {
+      const claudeDriver = host.initialize.drivers[0]!
+      host.initialize = { ...host.initialize, drivers: [claudeDriver, { ...claudeDriver, id: 'codex', displayName: 'Codex' }] }
+      const connectors = vi.fn(async () => ({ inheritUserScope: false, servers: [{ name: 'blender' }, { name: 'serena' }], denied: ['premiere-pro'] }))
+      const sessions = withConnectors(connectors)
+      const conversation = createAgentConversation(db, { provider: 'codex', model: 'gpt-6-luna' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('codex'), { capability: 'cap-c', external: [], plugins: [{ name: 'serena', command: 'uvx', args: ['serena'] }] })
+      expect(connectors).toHaveBeenCalledWith('codex', { reserved: ['specrails', 'serena'], deferredMcpTools: false })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: false })
+      expect(context?.mcpServers.map((server) => [server.name, server.command ?? null])).toEqual([['specrails', 'node'], ['serena', 'uvx'], ['blender', null]])
+      expect(context?.mcpServers[0]!.env?.SPECRAILS_MISSION_CONNECTORS_OFF).toMatch(/^[0-9a-f]{8}$/)
+      sessions.shutdown()
+    })
+
+    it('Claude: keeps inheriting account connectors, passes the driver capability and adds no tag when nothing is off', async () => {
+      const claudeDriver = host.initialize.drivers[0]!
+      host.initialize = { ...host.initialize, drivers: [{ ...claudeDriver, capabilities: { ...claudeDriver.capabilities, deferredMcpTools: true } }] }
+      const connectors = vi.fn(async () => ({ inheritUserScope: true, servers: [{ name: 'tokensave', command: 'tokensave', args: ['serve'] }], denied: [] }))
+      const sessions = withConnectors(connectors)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('claude'), { capability: 'cap-d', external: [] })
+      expect(connectors).toHaveBeenCalledWith('claude', { reserved: ['specrails'], deferredMcpTools: true })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: true })
+      expect(context?.mcpServers.map((server) => server.name)).toEqual(['specrails', 'tokensave'])
+      expect(context?.mcpServers[0]!.env?.SPECRAILS_MISSION_CONNECTORS_OFF).toBeUndefined()
+      sessions.shutdown()
+    })
+
+    it('writes the Claude deny file in the mission cwd before a Core turn', async () => {
+      const planForCached = vi.fn(() => ({ inheritUserScope: true, servers: [], denied: ['claude.ai Gmail'] }))
+      manager.setConnectors({ planForCached })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      expect(planForCached).toHaveBeenCalledWith('claude', { reserved: ['specrails'] })
+      expect(switches.claude).toHaveBeenCalledWith('/tmp/agent-cwd-test', ['claude.ai Gmail'])
+    })
+
+    it('turns servers off with -c on a legacy Codex turn', async () => {
+      enabled = false
+      manager.setConnectors({ planForCached: () => ({ inheritUserScope: false, servers: [{ name: 'node_repl' }], denied: ['blender', 'my server'] }) })
+      const conversation = createAgentConversation(db, { provider: 'codex', model: 'gpt-6-luna' })
+      await manager.sendMessage(conversation.id, 'hello')
+      const codexArgv = () => vi.mocked(mockSpawn).mock.calls.map((call) => call[1] as string[]).find((args) => args.includes('mcp_servers.blender.enabled=false'))
+      await waitFor(() => codexArgv() !== undefined)
+      const argv = codexArgv()
+      expect(argv!.join(' ')).not.toContain('my server')
+      expect(switches.claude).not.toHaveBeenCalled()
+    })
+
+    it('inherits everything when the connector plan fails', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const sessions = withConnectors(async () => { throw new Error('boom') })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('claude'), { capability: 'cap-e', external: [] })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: true })
+      sessions.shutdown()
+    })
   })
 
   describe('"Allow sub-agents" policy', () => {

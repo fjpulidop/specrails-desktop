@@ -247,6 +247,10 @@
           "label": "サブエージェント（Desktop）",
           "keywords": "サブエージェント, subagents, ネイティブ, 委任, 並列"
         },
+        "missionConnectors": {
+          "label": "ミッションのコネクタ",
+          "keywords": "コネクタ, mcp, claude.ai, codex, サーバー, google drive, ツール"
+        },
         "mobileCompanion": {
           "label": "モバイルコンパニオン",
           "keywords": "モバイル, コンパニオン, スマホ, ペアリング, qr, ipad, リモート, mobile"

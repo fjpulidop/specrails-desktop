@@ -115,6 +115,17 @@ Some providers can hand parts of a task to **sub-agents** — helpers that work 
 - **Changing the setting is safe.** A mission with agents still running applies the change once they finish; it tells you so and offers **Stop agents and apply now**.
 - **Nothing restarts behind your back.** Agents interrupted by a restart stay marked as interrupted; **Relaunch** only drafts a message asking the agent to redo that work.
 
+## Connectors in missions {#connectors}
+
+Missions can use the connectors and MCP servers you already set up in each provider: your **claude.ai account connectors** (Google Drive, Gmail…) and the servers in `~/.claude.json` when the mission runs on Claude, the servers in `~/.codex/config.toml` when it runs on Codex, and Gemini's servers on Gemini. Open **App settings → AI providers → Connectors in missions** to see them, grouped by provider.
+
+- **Everything starts on.** A connector you add later is on too. Switch off the ones your missions don't need: each one can add thousands of tokens to every request.
+- **Sizes.** **Measure sizes** starts each local MCP server once and shows how many tools it has and roughly how many tokens their definitions take. Claude sends those definitions in full with every request; Codex only loads them when the agent looks a tool up, so on Codex a connector costs almost nothing until it's used.
+- **Specrails' own MCP is never loaded twice.** If a provider config also lists the Specrails server, it is shown as always left out: the mission already has its own.
+- **Some rows can't be switched.** A server turned off in the provider's own config stays off; a server you add through **External MCP servers** follows that setting; Kimi loads its servers itself.
+- **Your own Claude MCP servers wait for tool search.** Claude missions don't load the servers in `~/.claude.json` yet: without on-demand tool loading, a big server (some have hundreds of tools) would fill the context. They load once Claude can look tools up on demand.
+- **A change applies on the next turn.** That turn rebuilds the provider's prompt cache once, so it costs a little more. **Refresh** re-reads the provider configs.
+
 ## A few things to know
 
 - **Operate and Autonomous cost money** because they run AI. The agent surfaces cost-incurring actions before doing them; keep the level at Observe or Edit if you just want to look and tidy.

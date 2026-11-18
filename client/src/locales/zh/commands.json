@@ -247,6 +247,10 @@
           "label": "子代理（Desktop）",
           "keywords": "子代理, subagents, 原生, 委派, 并行"
         },
+        "missionConnectors": {
+          "label": "任务中的连接器",
+          "keywords": "连接器, mcp, claude.ai, codex, 服务器, google drive, 工具"
+        },
         "mobileCompanion": {
           "label": "移动伴侣应用",
           "keywords": "移动, 手机, 伴侣, 配对, 二维码, ipad, 远程, mobile, companion"

@@ -118,6 +118,25 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(manager.status().activeSessions).toBe(0)
   })
 
+  it('loads the Specrails tools up front for in-app agents only, keeping the integration tools deferred', async () => {
+    const capability = mintAgentCapability({ conversationId: 'conv-meta', tierLevel: 3 })
+    const inApp = new Client({ name: 'in-app', version: '1' })
+    await inApp.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }))
+    const external = await connectClient(url)
+    const alwaysLoad = (tools: Array<{ name: string; _meta?: Record<string, unknown> }>) =>
+      tools.filter((tool) => tool._meta?.['anthropic/alwaysLoad'] === true).map((tool) => tool.name)
+    const inAppTools = (await inApp.listTools()).tools
+    const loaded = alwaysLoad(inAppTools)
+    expect(loaded).toContain('specrails_status')
+    expect(loaded).toContain('specrails_guide')
+    expect(loaded).not.toContain('specrails_jira')
+    expect(loaded).not.toContain('specrails_plugins')
+    expect(loaded.length).toBe(inAppTools.length - 2)
+    expect(alwaysLoad((await external.listTools()).tools)).toEqual([])
+    await inApp.close()
+    await external.close()
+  })
+
   it('binds sessions to their owning turn and closes them when that capability is revoked', async () => {
     const capability = mintAgentCapability({ conversationId: 'owner', tierLevel: 0 })
     const other = mintAgentCapability({ conversationId: 'other', tierLevel: 3 })

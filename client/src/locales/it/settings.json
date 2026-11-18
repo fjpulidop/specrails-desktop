@@ -533,5 +533,44 @@
       "full": "Movimento completo",
       "fullHint": "Anima anche se il SO ne chiede meno"
     }
+  },
+  "missionConnectors": {
+    "title": "Connettori nelle missioni",
+    "description": "Le missioni possono usare i connettori e i server MCP già configurati in ogni provider. Sono tutti attivi all’inizio; disattiva quelli che alle tue missioni non servono.",
+    "refresh": "Aggiorna",
+    "measure": "Misura dimensioni",
+    "measuring": "Misurazione…",
+    "loadFailed": "Impossibile elencare i connettori dei provider.",
+    "measureFailed": "Impossibile misurare i connettori.",
+    "saveFailed": "Impossibile aggiornare {{name}}.",
+    "empty": "Nessun connettore o server MCP trovato nei tuoi provider.",
+    "appliesNextTurn": "Una modifica si applica al turno successivo della missione. Quel turno ricostruisce una volta la cache dei prompt del provider, quindi costa un po’ di più.",
+    "claudeListStale": "Claude Code non ha risposto: l’elenco mostra i connettori dell’account che ricorda.",
+    "waitsForToolSearch": "I tuoi server MCP verranno caricati nelle missioni Claude quando Claude potrà cercare gli strumenti su richiesta (serve un aggiornamento di Core).",
+    "notLoadedYet": "Non ancora caricato",
+    "toggleLabel": "Usa {{name}} nelle missioni {{provider}}",
+    "sizeTitle": "Dimensione approssimativa delle definizioni degli strumenti se il provider le invia per intero",
+    "size_one": "{{count}} strumento · ≈{{tokens}} token",
+    "size_other": "{{count}} strumenti · ≈{{tokens}} token",
+    "kind": {
+      "account-connector": "Connettore dell’account",
+      "mcp-server": "Server MCP"
+    },
+    "status": {
+      "needsAuth": "Richiede l’accesso nel provider",
+      "failed": "Connessione non riuscita"
+    },
+    "lock": {
+      "specrails-duplicate": "Stesso server dell’MCP di Specrails: sempre escluso (le missioni lo hanno già).",
+      "disabled-in-provider": "Disattivato nella tua configurazione di {{provider}}.",
+      "external-mcp": "Aggiunto tramite Server MCP esterni (Impostazioni ▸ MCP).",
+      "unsupported": "{{provider}} lo carica da sé; Specrails non può disattivarlo."
+    },
+    "providerNote": {
+      "claude": "Connettori dell’account claude.ai e server MCP in ~/.claude.json. Claude invia le definizioni complete degli strumenti di un connettore a ogni richiesta.",
+      "codex": "Server in ~/.codex/config.toml. Codex carica le definizioni degli strumenti solo quando l’agente le cerca.",
+      "gemini": "Server in ~/.gemini/settings.json.",
+      "kimi": "Server in ~/.kimi-code/mcp.json."
+    }
   }
 }

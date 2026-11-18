@@ -17,6 +17,7 @@ import { AppUpdateSection } from '../components/AppUpdateSection'
 import { UpdateChannelSection } from '../components/UpdateChannelSection'
 import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
+import { MissionConnectorsSection } from '../components/MissionConnectorsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
 import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save } from 'lucide-react'
 import { cn } from '../../../lib/utils'
@@ -450,6 +451,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('specrailsAgents')}>
               <SettingAnchor id="providers"><ProviderConnectionsCard /></SettingAnchor>
               <SettingAnchor id="subagentsApp"><GlobalSubagentsSection /></SettingAnchor>
+              <MissionConnectorsSection />
             </div>
 
             {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}

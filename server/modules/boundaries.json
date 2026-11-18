@@ -2764,6 +2764,8 @@
       "runtime/agent-steering.ts",
       "runtime/agent-tier.ts",
       "runtime/flow-turn-context.ts",
+      "runtime/mission-connectors-discovery.ts",
+      "runtime/mission-connectors.ts",
       "runtime/mission-core-sessions.ts",
       "runtime/mission-run-notify.ts"
     ],
@@ -2806,6 +2808,8 @@
         "./codex-rollout-reader",
         "./core-session-runner",
         "./flow-turn-context",
+        "./mission-connectors",
+        "./mission-connectors-discovery",
         "./mission-context-usage",
         "./mission-core-sessions",
         "./mission-session-summary",
@@ -2911,6 +2915,16 @@
       "runtime/flow-turn-context.ts": [
         "../../agent-sessions"
       ],
+      "runtime/mission-connectors-discovery.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../util/win-spawn",
+        "./mission-connectors",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/mission-connectors.ts": [],
       "runtime/mission-context-usage.ts": [
         "../../../providers/types",
         "../../agents/runtime/conversation-context-usage"
@@ -2928,6 +2942,7 @@
         "./agent-session-store",
         "./core-session-runner",
         "./flow-turn-context",
+        "./mission-connectors",
         "./mission-session-projector",
         "./mission-tool-policy"
       ],

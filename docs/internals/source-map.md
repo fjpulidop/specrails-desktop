@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1596 source/build files. Nearby tests are linked where names
+Includes 1602 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -891,6 +891,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
 - [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
+- [MissionConnectorsSection.tsx](../../client/src/features/settings/components/MissionConnectorsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MissionConnectorsSection.test.tsx)
 - [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
 - [PairWebCompanionModal.tsx](../../client/src/features/settings/components/PairWebCompanionModal.tsx)
 - [ProjectAnchoringSections.tsx](../../client/src/features/settings/components/ProjectAnchoringSections.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectAnchoringSections.test.tsx)
@@ -1936,6 +1937,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [codex-rollout-reader.ts](../../server/modules/missions/runtime/codex-rollout-reader.ts)
 - [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
 - [flow-turn-context.ts](../../server/modules/missions/runtime/flow-turn-context.ts)
+- [mission-connectors-discovery.ts](../../server/modules/missions/runtime/mission-connectors-discovery.ts) · [test](../../server/modules/missions/runtime/mission-connectors-discovery.test.ts)
+- [mission-connectors.ts](../../server/modules/missions/runtime/mission-connectors.ts) · [test](../../server/modules/missions/runtime/mission-connectors.test.ts)
 - [mission-context-usage.ts](../../server/modules/missions/runtime/mission-context-usage.ts) · [test](../../server/modules/missions/runtime/mission-context-usage.test.ts)
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)

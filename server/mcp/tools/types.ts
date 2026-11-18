@@ -397,7 +397,18 @@ function admittedByException(spec: McpToolSpec, ctx: McpToolContext, args: Recor
  * enforcement and (2) uniform success/error result shaping. No tool can forget
  * the tier check because it lives here, not in the handler.
  */
-export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec: McpToolSpec): void {
+/**
+ * Tools an in-app session leaves to Claude Code tool search even when the rest
+ * load up front: integration tools a conversation rarely needs. Keeping at
+ * least one Specrails tool deferred also keeps tool search on, so a connector
+ * that appears mid-session arrives as a deferred name, not a prompt rewrite.
+ */
+export const DEFERRED_IN_APP_TOOLS: ReadonlySet<string> = new Set(['specrails_jira', 'specrails_plugins'])
+
+/** Claude Code `_meta` key that exempts a tool from tool search deferral. */
+export const ALWAYS_LOAD_META_KEY = 'anthropic/alwaysLoad'
+
+export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec: McpToolSpec, options: { alwaysLoad?: boolean } = {}): void {
   // An action facade may read, write, launch AI and delete data through ONE
   // protocol tool. Advertising the common read action as readOnlyHint:true
   // misleads clients that use annotations when approving mutations.
@@ -416,6 +427,9 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       inputSchema: wireInputObject(spec),
       outputSchema: ENVELOPE_OUTPUT_SHAPE,
       annotations,
+      // In-app agents get the Specrails tools up front (a mission is about
+      // Specrails); external clients keep their own tool search behavior.
+      ...(options.alwaysLoad && !DEFERRED_IN_APP_TOOLS.has(spec.name) ? { _meta: { [ALWAYS_LOAD_META_KEY]: true } } : {}),
     },
     async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
       const action = actionOf(args ?? {})

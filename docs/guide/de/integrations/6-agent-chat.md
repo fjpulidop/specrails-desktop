@@ -115,6 +115,17 @@ Manche Anbieter können Teile einer Aufgabe an **Sub-Agenten** abgeben – Helfe
 - **Die Einstellung zu ändern ist sicher.** Eine Mission mit laufenden Agenten übernimmt die Änderung, sobald diese fertig sind; sie sagt es dir und bietet **Agenten stoppen und jetzt übernehmen** an.
 - **Nichts startet heimlich neu.** Durch einen Neustart unterbrochene Agenten bleiben als unterbrochen markiert; **Neu starten** entwirft nur eine Nachricht, die den Agenten bittet, diese Arbeit erneut zu erledigen.
 
+## Konnektoren in Missionen {#connectors}
+
+Missionen können die Konnektoren und MCP-Server nutzen, die du bei jedem Anbieter bereits eingerichtet hast: deine **claude.ai-Kontokonnektoren** (Google Drive, Gmail…) und die Server aus `~/.claude.json`, wenn die Mission auf Claude läuft, die Server aus `~/.codex/config.toml` auf Codex und die Gemini-Server auf Gemini. Unter **App-Einstellungen → KI-Anbieter → Konnektoren in Missionen** siehst du sie, nach Anbieter gruppiert.
+
+- **Alles ist zunächst aktiv.** Auch ein später hinzugefügter Konnektor. Schalte die aus, die deine Missionen nicht brauchen: Jeder kann jeder Anfrage Tausende Tokens hinzufügen.
+- **Größen.** **Größen messen** startet jeden lokalen MCP-Server einmal und zeigt, wie viele Werkzeuge er hat und wie viele Tokens ihre Definitionen ungefähr belegen. Claude sendet diese Definitionen bei jeder Anfrage vollständig; Codex lädt sie erst, wenn der Agent ein Werkzeug nachschlägt, daher kostet ein Konnektor auf Codex fast nichts, bis er benutzt wird.
+- **Das Specrails-MCP wird nie doppelt geladen.** Führt die Konfiguration eines Anbieters auch den Specrails-Server, wird er als immer ausgeschlossen angezeigt: Die Mission hat bereits ihren eigenen.
+- **Manche Zeilen lassen sich nicht umschalten.** Ein in der Anbieter-Konfiguration ausgeschalteter Server bleibt aus; ein über **Externe MCP-Server** hinzugefügter folgt dieser Einstellung; Kimi lädt seine Server selbst.
+- **Deine eigenen Claude-MCP-Server warten auf die Werkzeugsuche.** Claude-Missionen laden die Server aus `~/.claude.json` noch nicht: Ohne Werkzeugladen bei Bedarf würde ein großer Server (manche haben Hunderte Werkzeuge) den Kontext füllen. Sie werden geladen, sobald Claude Werkzeuge bei Bedarf nachschlagen kann.
+- **Eine Änderung gilt ab dem nächsten Zug.** Dieser Zug baut den Prompt-Cache des Anbieters einmal neu auf und kostet daher etwas mehr. **Aktualisieren** liest die Anbieter-Konfigurationen neu.
+
 ## Ein paar Dinge, die du wissen solltest
 
 - **Ausführen und Autonom kosten Geld**, weil sie KI laufen lassen. Der Agent hebt kostenverursachende Aktionen hervor, bevor er sie ausführt; belasse die Stufe bei Beobachten oder Bearbeiten, wenn du nur schauen und aufräumen willst.

@@ -26,6 +26,7 @@ import { registerProjectRepositoryRoutes, registerProjectRoutes, registerSampleP
 import { createNewlyDetectedAssembler, registerProviderRoutes } from './desktop-router-providers'
 import { registerRuntimeProviderRoutes } from './desktop-router-runtime-providers'
 import { registerAppSettingsRoutes } from './desktop-router-settings'
+import type { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { registerWebhookRoutes } from './desktop-router-webhooks'
 
 export type { RuntimeProviderStatus, RuntimeProviderStatusMap } from './desktop-router-runtime-providers'
@@ -35,6 +36,7 @@ export function createDesktopRouter(
   registry: ProjectRegistry,
   broadcast: (msg: WsMessage) => void,
   usageService?: UsageService,
+  options: { missionConnectors?: MissionConnectors } = {},
 ): Router {
   const router = Router()
   if (usageService) registerUsageRoutes(router, usageService)
@@ -64,7 +66,7 @@ export function createDesktopRouter(
   registerProjectRepositoryRoutes(router, { registry, broadcast })
   registerProviderRoutes(router, { broadcast, assembleNewlyDetected })
   registerAnalyticsRoutes(router, { registry })
-  registerAppSettingsRoutes(router, { registry })
+  registerAppSettingsRoutes(router, { registry, missionConnectors: options.missionConnectors })
   registerAgentRegistryRoutes(router, { registry })
   registerSpecrailsTechRoutes(router, { registry })
   registerWebhookRoutes(router, { registry })

@@ -62,6 +62,61 @@ applies on the next turn and resumes the same provider session, rewriting the
 prompt cache once. Other providers are unaffected. See
 [agent sessions](../../../docs/internals/agent-sessions.md#the-sub-agent-tool-follows-the-setting).
 
+## Connectors in missions
+
+A mission uses the provider's OWN connectors: on Claude the claude.ai account
+connectors (and, once tool search is available, the user-scope servers in
+`~/.claude.json`), on Codex the `[mcp_servers.*]` of `$CODEX_HOME/config.toml`,
+on Gemini `~/.gemini/settings.json`. App settings ▸ AI providers ▸ "Connectors
+in missions" lists them per provider with a toggle each. The setting is an
+app-wide deny-list (`desktop_settings['mission_connectors']`), so anything new
+starts enabled. [mission-connectors.ts](runtime/mission-connectors.ts) holds
+the pure rules (parsing, duplicates, the turn plan);
+[mission-connectors-discovery.ts](runtime/mission-connectors-discovery.ts)
+reads the configs asynchronously, asks `claude mcp list` (30 s timeout, from
+the neutral `~/.specrails/connectors-probe-cwd`, only when Settings asks; a
+turn never waits for it and falls back to `claudeAiMcpEverConnected`), caches
+the result for 10 minutes and measures stdio servers on "Measure sizes"
+(`initialize` + `tools/list`, ~2.7 JSON characters per token, stored in
+`mission_connector_sizes`).
+
+How a turn applies it (`connectorTurnPlan`; names the turn already carries,
+Specrails, External MCP servers and plugins, are never denied or re-added):
+
+| Provider | Mechanism | Core change |
+| --- | --- | --- |
+| Codex | Core session: `policy.mcp.inheritUserScope: false` plus a name-only spec per enabled server. Core disables every declared server not listed (`-c mcp_servers.<n>.enabled=false`) and emits only `enabled=true` for a spec without transport, so the user's definition is kept. Legacy turn: the same `-c` disables. Servers with `enabled = false` in the config stay off. | none |
+| Claude | `deniedMcpServers` in `~/.specrails/agent-cwd/.claude/settings.local.json` (read through `--setting-sources project,local`; verified on Claude Code 2.1.322 for account connectors and user servers). Enabled user-scope servers are injected as specs only when the driver declares `capabilities.deferredMcpTools`. | tool search (below) |
+| Gemini | `mcp.excluded` in the conversation's `.gemini/settings.json` (verified on gemini-cli 0.49.0). | n/a (legacy) |
+| Kimi | listed, not switchable. | n/a |
+
+A server that is Specrails' own MCP (name `specrails`, the `specrails-mcp.js`
+bridge or `http://127.0.0.1:<port>/api/mcp`) is always excluded and shown as
+such. When something is off, the Specrails spec carries
+`SPECRAILS_MISSION_CONNECTORS_OFF=<hash>`, so the policy changes with the set
+and Core restarts an idle resident process before the next turn (the provider
+reads its switch file at start). A change therefore applies on the next turn
+and rewrites the provider's prompt cache once. Intent turns run in a project
+worktree, which Specrails never writes into: on Claude they keep every account
+connector; on Codex the policy applies. See
+[agent sessions](../../../docs/internals/agent-sessions.md#connectors-in-missions).
+
+A legacy turn plans synchronously (`planForCached`: the cached inventory, else
+the provider configs read with `readFileSync`) and writes its small switch
+file only when it changed, so nothing asynchronous sits between a turn's start
+and its spawn and a Stop can never let a stopped turn spawn. Core-session turns
+plan inside their already-async `prepareTurn` with `planFor`.
+
+### Tool search and the Specrails tools
+
+With Core's `deferredMcpTools` capability, Claude sessions get `ToolSearch`:
+MCP tool schemas stay deferred (only names reach the prompt) until the model
+searches for one. In-app agent sessions (a verified agent capability) see the
+Specrails tools with `_meta["anthropic/alwaysLoad"]`, so a mission has its own
+tools up front, except `DEFERRED_IN_APP_TOOLS` (`specrails_jira`,
+`specrails_plugins`), which stay deferred and keep tool search on. External MCP
+clients never get the mark ([types.ts](../../mcp/tools/types.ts)).
+
 ## Intent drafts and the commit_draft gate
 
 The operator writes the intent first (intent-mode): one fenced `intent-draft`

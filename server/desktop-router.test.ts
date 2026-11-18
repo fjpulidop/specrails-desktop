@@ -44,6 +44,7 @@ vi.mock('./specrails-tech-client', () => ({
   createSpecrailsTechClient: vi.fn(() => mockSpecrailsTechClient),
 }))
 
+import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { createDesktopRouter, _resetAvailableProvidersCacheForTests, AVAILABLE_PROVIDERS_TTL_MS } from './desktop-router'
 import { checkCoreCompat, detectAvailableCLIsAsync } from './core-compat'
 import { kimiAdapter } from './providers'
@@ -673,6 +674,57 @@ describe('desktop-router', () => {
       })
       expect(res.status).toBe(400)
       expect(res.body.error).toBe('duplicate_server_name')
+    })
+  })
+
+  // ─── Connectors in missions ────────────────────────────────────────────────
+
+  describe('GET/PATCH /api/mission-connectors', () => {
+    function createConnectorsApp() {
+      const { registry } = createMockRegistry(desktopDb)
+      const missionConnectors = new MissionConnectors({
+        db: desktopDb, env: {}, home: () => '/nonexistent-home-for-test',
+        listClaudeConnectors: async () => 'claude.ai Gmail: https://g - ✔ Connected\n',
+        probeTools: async () => ({ tools: 2, chars: 270 }),
+      })
+      const app = express()
+      app.use(express.json())
+      app.use('/api', createDesktopRouter(registry, vi.fn(), undefined, { missionConnectors }))
+      return app
+    }
+
+    it('lists connectors per provider, enabled by default', async () => {
+      const res = await request(createConnectorsApp()).get('/api/mission-connectors?refresh=1')
+      expect(res.status).toBe(200)
+      const claude = res.body.providers.find((entry: { provider: string }) => entry.provider === 'claude')
+      expect(claude.connectors).toEqual([{ name: 'claude.ai Gmail', kind: 'account-connector', enabled: true, status: 'connected', transport: { url: 'https://g' } }])
+      expect(res.body.providers.map((entry: { provider: string }) => entry.provider)).toEqual(['claude', 'codex', 'gemini', 'kimi'])
+    })
+
+    it('PATCH turns one connector off and back on', async () => {
+      const app = createConnectorsApp()
+      const off = await request(app).patch('/api/mission-connectors').send({ provider: 'claude', name: 'claude.ai Gmail', enabled: false })
+      expect(off.status).toBe(200)
+      expect(off.body.providers[0].connectors[0].enabled).toBe(false)
+      const on = await request(app).patch('/api/mission-connectors').send({ provider: 'claude', name: 'claude.ai Gmail', enabled: true })
+      expect(on.body.providers[0].connectors[0].enabled).toBe(true)
+    })
+
+    it('PATCH rejects a malformed toggle', async () => {
+      const res = await request(createConnectorsApp()).patch('/api/mission-connectors').send({ provider: 'nope', name: 'x', enabled: true })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('unknown_provider')
+    })
+
+    it('POST /measure answers with the refreshed view', async () => {
+      const res = await request(createConnectorsApp()).post('/api/mission-connectors/measure')
+      expect(res.status).toBe(200)
+      expect(res.body.measuring).toBe(false)
+    })
+
+    it('is not mounted without the service', async () => {
+      const { app } = createApp()
+      expect((await request(app).get('/api/mission-connectors')).status).toBe(404)
     })
   })
 

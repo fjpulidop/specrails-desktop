@@ -25,7 +25,10 @@ import {
   applyExternalMcpPatch,
   discoverExternalMcp,
   readExternalMcpSettings,
+  resolveExternalEntries,
 } from './external-mcp'
+import { ConnectorSettingsValidationError } from './modules/missions/runtime/mission-connectors'
+import type { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import {
   getDesktopTerminalSettings,
   patchDesktopTerminalSettings,
@@ -45,11 +48,54 @@ const LEGACY_THEME_ID_MAP: Record<string, string> = {
 // kept duplicated to avoid pulling client code into the server bundle.
 const LANGUAGE_ID_ALLOWLIST = new Set<string>(['en', 'es', 'fr', 'de', 'pt', 'it', 'zh', 'ja'])
 
-export function registerAppSettingsRoutes(router: Router, deps: { registry: ProjectRegistry }): void {
+export function registerAppSettingsRoutes(router: Router, deps: { registry: ProjectRegistry; missionConnectors?: MissionConnectors }): void {
   registerGeneralSettingsRoutes(router, deps.registry)
   registerBudgetRoutes(router, deps.registry)
   registerUiPreferenceRoutes(router, deps.registry)
   registerAgentDefaultsRoutes(router, deps.registry)
+  if (deps.missionConnectors) registerMissionConnectorRoutes(router, deps.registry, deps.missionConnectors)
+}
+
+/**
+ * `/mission-connectors`: each provider's own connectors with a toggle each
+ * (app-wide deny-list; new connectors start enabled). GET reads the cached
+ * discovery (`?refresh=1` re-detects); POST `/measure` sizes the tool
+ * definitions of stdio servers; PATCH flips one toggle. A change applies on
+ * the next mission turn.
+ */
+function registerMissionConnectorRoutes(router: Router, registry: ProjectRegistry, connectors: MissionConnectors): void {
+  const injected = (provider: string): string[] => resolveExternalEntries(provider, registry.desktopDb).map((server) => server.name)
+  const view = (refresh: boolean) => connectors.view({ refresh, injected })
+
+  router.get('/mission-connectors', async (req, res) => {
+    try {
+      res.json(await view(req.query.refresh === '1' || req.query.refresh === 'true'))
+    } catch (err) {
+      res.status(500).json({ error: 'mission_connectors_failed', message: (err as Error).message })
+    }
+  })
+
+  router.post('/mission-connectors/measure', async (_req, res) => {
+    try {
+      await connectors.measure()
+      res.json(await view(false))
+    } catch (err) {
+      res.status(500).json({ error: 'mission_connectors_failed', message: (err as Error).message })
+    }
+  })
+
+  router.patch('/mission-connectors', async (req, res) => {
+    try {
+      connectors.toggle(req.body)
+      res.json(await view(false))
+    } catch (err) {
+      if (err instanceof ConnectorSettingsValidationError) {
+        res.status(400).json({ error: err.code, message: err.message })
+        return
+      }
+      res.status(500).json({ error: 'mission_connectors_failed', message: (err as Error).message })
+    }
+  })
 }
 
 /** `/settings`: port, specrails-tech URL, cost alert, sub-agent policy, update channel. */

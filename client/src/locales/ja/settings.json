@@ -533,5 +533,44 @@
       "full": "フルモーション",
       "fullHint": "OSが控えめを求めてもアニメーションを表示"
     }
+  },
+  "missionConnectors": {
+    "title": "ミッションのコネクタ",
+    "description": "ミッションでは、各プロバイダーで設定済みのコネクタと MCP サーバーを使えます。最初はすべてオンです。ミッションに不要なものはオフにしてください。",
+    "refresh": "更新",
+    "measure": "サイズを測定",
+    "measuring": "測定中…",
+    "loadFailed": "プロバイダーのコネクタを一覧表示できませんでした。",
+    "measureFailed": "コネクタを測定できませんでした。",
+    "saveFailed": "{{name}} を更新できませんでした。",
+    "empty": "プロバイダーにコネクタや MCP サーバーが見つかりません。",
+    "appliesNextTurn": "変更は次のミッションのターンから適用されます。そのターンではプロバイダーのプロンプトキャッシュが一度作り直されるため、少し費用が増えます。",
+    "claudeListStale": "Claude Code が応答しなかったため、記憶されているアカウントコネクタを表示しています。",
+    "waitsForToolSearch": "Claude がツールを必要に応じて検索できるようになると、Claude のミッションで自分の MCP サーバーが読み込まれます（Core の更新が必要）。",
+    "notLoadedYet": "まだ読み込まれません",
+    "toggleLabel": "{{provider}} のミッションで {{name}} を使う",
+    "sizeTitle": "プロバイダーがツール定義をすべて送る場合のおおよそのサイズ",
+    "size_one": "ツール {{count}} 個 · 約 {{tokens}} トークン",
+    "size_other": "ツール {{count}} 個 · 約 {{tokens}} トークン",
+    "kind": {
+      "account-connector": "アカウントコネクタ",
+      "mcp-server": "MCP サーバー"
+    },
+    "status": {
+      "needsAuth": "プロバイダーでのサインインが必要",
+      "failed": "接続できませんでした"
+    },
+    "lock": {
+      "specrails-duplicate": "Specrails 自身の MCP と同じサーバーです。常に除外されます（ミッションには既にあります）。",
+      "disabled-in-provider": "{{provider}} の設定でオフになっています。",
+      "external-mcp": "外部 MCP サーバー（設定 ▸ MCP）から追加されています。",
+      "unsupported": "{{provider}} が自分で読み込みます。Specrails からはオフにできません。"
+    },
+    "providerNote": {
+      "claude": "claude.ai のアカウントコネクタと ~/.claude.json の MCP サーバー。Claude はリクエストごとにコネクタのツール定義をすべて送ります。",
+      "codex": "~/.codex/config.toml のサーバー。Codex はエージェントが検索したときだけツール定義を読み込みます。",
+      "gemini": "~/.gemini/settings.json のサーバー。",
+      "kimi": "~/.kimi-code/mcp.json のサーバー。"
+    }
   }
 }

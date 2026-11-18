@@ -533,5 +533,44 @@
       "full": "完整动效",
       "fullHint": "即使系统要求减少也播放动画"
     }
+  },
+  "missionConnectors": {
+    "title": "任务中的连接器",
+    "description": "任务可以使用你在各个提供方中已配置的连接器和 MCP 服务器。它们默认全部开启；关闭任务不需要的即可。",
+    "refresh": "刷新",
+    "measure": "测量大小",
+    "measuring": "正在测量…",
+    "loadFailed": "无法列出提供方的连接器。",
+    "measureFailed": "无法测量连接器。",
+    "saveFailed": "无法更新 {{name}}。",
+    "empty": "你的提供方中没有找到连接器或 MCP 服务器。",
+    "appliesNextTurn": "更改从任务的下一轮开始生效。那一轮会重建一次提供方的提示缓存，因此费用会稍高。",
+    "claudeListStale": "Claude Code 没有响应，此列表显示的是它记住的账户连接器。",
+    "waitsForToolSearch": "当 Claude 能按需查找工具后，Claude 任务才会加载你自己的 MCP 服务器（需要更新 Core）。",
+    "notLoadedYet": "尚未加载",
+    "toggleLabel": "在 {{provider}} 任务中使用 {{name}}",
+    "sizeTitle": "提供方完整发送工具定义时的大致大小",
+    "size_one": "{{count}} 个工具 · 约 {{tokens}} 个 token",
+    "size_other": "{{count}} 个工具 · 约 {{tokens}} 个 token",
+    "kind": {
+      "account-connector": "账户连接器",
+      "mcp-server": "MCP 服务器"
+    },
+    "status": {
+      "needsAuth": "需要在提供方中登录",
+      "failed": "未能连接"
+    },
+    "lock": {
+      "specrails-duplicate": "与 Specrails 自己的 MCP 是同一服务器：始终排除（任务已经拥有它）。",
+      "disabled-in-provider": "已在你的 {{provider}} 配置中关闭。",
+      "external-mcp": "通过外部 MCP 服务器添加（设置 ▸ MCP）。",
+      "unsupported": "{{provider}} 会自行加载；Specrails 无法关闭它。"
+    },
+    "providerNote": {
+      "claude": "claude.ai 账户连接器以及 ~/.claude.json 中的 MCP 服务器。Claude 每次请求都会发送连接器的完整工具定义。",
+      "codex": "~/.codex/config.toml 中的服务器。Codex 仅在智能体查找时才加载工具定义。",
+      "gemini": "~/.gemini/settings.json 中的服务器。",
+      "kimi": "~/.kimi-code/mcp.json 中的服务器。"
+    }
   }
 }

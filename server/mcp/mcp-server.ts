@@ -130,7 +130,7 @@ export class McpServerManager {
   }
 
   /** Build a fresh McpServer with the full tool, resource and prompt catalog registered. */
-  private buildServer(): { server: McpServer; dispose: () => void } {
+  private buildServer(options: { inApp?: boolean } = {}): { server: McpServer; dispose: () => void } {
     const server = new McpServer(
       { name: 'specrails-desktop', version: this._version },
       { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} } },
@@ -138,7 +138,7 @@ export class McpServerManager {
     const context = { ...this._ctx, sessionState: { activeProjectId: null } }
     const specs = buildToolSpecs()
     for (const spec of specs) {
-      registerTieredTool(server, context, spec)
+      registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
     }
     registerResources(server, context, specs)
     registerPrompts(server)
@@ -192,7 +192,8 @@ export class McpServerManager {
             res.status(400).json(jsonRpcError('Missing mcp-session-id and body is not an initialize request.'))
             return
           }
-          const { server, dispose } = this.buildServer()
+          // A verified in-app agent capability: the session is a Specrails turn.
+          const { server, dispose } = this.buildServer({ inApp: capability !== null && capability !== undefined })
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sid: string) => {

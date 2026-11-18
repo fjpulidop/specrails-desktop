@@ -533,5 +533,44 @@
       "full": "Full motion",
       "fullHint": "Animate even if the OS asks for less"
     }
+  },
+  "missionConnectors": {
+    "title": "Connectors in missions",
+    "description": "Missions can use the connectors and MCP servers you already set up in each provider. All of them start on; turn off the ones your missions do not need.",
+    "refresh": "Refresh",
+    "measure": "Measure sizes",
+    "measuring": "Measuring…",
+    "loadFailed": "Could not list the provider connectors.",
+    "measureFailed": "Could not measure the connectors.",
+    "saveFailed": "Could not update {{name}}.",
+    "empty": "No connectors or MCP servers found in your providers.",
+    "appliesNextTurn": "A change applies on the next mission turn. That turn rebuilds the provider’s prompt cache once, so it costs a little more.",
+    "claudeListStale": "Claude Code did not answer, so this list shows the account connectors it remembers.",
+    "waitsForToolSearch": "Your own MCP servers load in Claude missions once Claude can look tools up on demand (needs a Core update).",
+    "notLoadedYet": "Not loaded yet",
+    "toggleLabel": "Use {{name}} in {{provider}} missions",
+    "sizeTitle": "Approximate size of the tool definitions if the provider sends them in full",
+    "size_one": "{{count}} tool · ≈{{tokens}} tokens",
+    "size_other": "{{count}} tools · ≈{{tokens}} tokens",
+    "kind": {
+      "account-connector": "Account connector",
+      "mcp-server": "MCP server"
+    },
+    "status": {
+      "needsAuth": "Needs sign-in in the provider",
+      "failed": "Did not connect"
+    },
+    "lock": {
+      "specrails-duplicate": "Same server as Specrails’ own MCP: always left out (missions already have it).",
+      "disabled-in-provider": "Turned off in your {{provider}} config.",
+      "external-mcp": "Added through External MCP servers (Settings ▸ MCP).",
+      "unsupported": "{{provider}} loads it itself; Specrails cannot turn it off."
+    },
+    "providerNote": {
+      "claude": "claude.ai account connectors and the MCP servers in ~/.claude.json. Claude sends a connector’s full tool definitions with every request.",
+      "codex": "Servers in ~/.codex/config.toml. Codex loads tool definitions only when the agent looks them up.",
+      "gemini": "Servers in ~/.gemini/settings.json.",
+      "kimi": "Servers in ~/.kimi-code/mcp.json."
+    }
   }
 }

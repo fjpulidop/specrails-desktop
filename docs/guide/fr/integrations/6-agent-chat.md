@@ -115,6 +115,17 @@ Certains fournisseurs peuvent confier des parties d'une tâche à des **sous-age
 - **Changer le réglage est sans risque.** Une mission dont des agents tournent applique le changement quand ils ont fini ; elle vous l'indique et propose **Arrêter les agents et appliquer**.
 - **Rien ne redémarre dans votre dos.** Les agents interrompus par un redémarrage restent marqués interrompus ; **Relancer** rédige seulement un message demandant à l'agent de refaire ce travail.
 
+## Connecteurs dans les missions {#connectors}
+
+Les missions peuvent utiliser les connecteurs et serveurs MCP déjà configurés dans chaque fournisseur : vos **connecteurs de compte claude.ai** (Google Drive, Gmail…) et les serveurs de `~/.claude.json` quand la mission tourne sur Claude, les serveurs de `~/.codex/config.toml` sur Codex, et ceux de Gemini sur Gemini. Ouvrez **Réglages de l'app → Fournisseurs d'IA → Connecteurs dans les missions** pour les voir, groupés par fournisseur.
+
+- **Tout est activé au départ.** Un connecteur ajouté plus tard l'est aussi. Désactivez ceux dont vos missions n'ont pas besoin : chacun peut ajouter des milliers de tokens à chaque requête.
+- **Tailles.** **Mesurer les tailles** démarre une fois chaque serveur MCP local et indique combien d'outils il propose et combien de tokens environ prennent leurs définitions. Claude envoie ces définitions en entier à chaque requête ; Codex ne les charge que lorsque l'agent recherche un outil, donc sur Codex un connecteur ne coûte presque rien tant qu'il n'est pas utilisé.
+- **Le MCP de Specrails n'est jamais chargé deux fois.** Si la configuration d'un fournisseur liste aussi le serveur Specrails, il apparaît comme toujours exclu : la mission a déjà le sien.
+- **Certaines lignes ne se modifient pas.** Un serveur désactivé dans la configuration du fournisseur reste désactivé ; un serveur ajouté via **Serveurs MCP externes** suit ce réglage ; Kimi charge ses serveurs lui-même.
+- **Vos propres serveurs MCP Claude attendent la recherche d'outils.** Les missions Claude ne chargent pas encore les serveurs de `~/.claude.json` : sans chargement d'outils à la demande, un gros serveur (certains ont des centaines d'outils) remplirait le contexte. Ils seront chargés quand Claude pourra rechercher les outils à la demande.
+- **Une modification s'applique au tour suivant.** Ce tour reconstruit une fois le cache de prompts du fournisseur ; il coûte donc un peu plus. **Actualiser** relit la configuration des fournisseurs.
+
 ## Quelques points à savoir
 
 - **Opérer et Autonome coûtent de l'argent** car ils exécutent de l'IA. L'agent met en avant les actions génératrices de coût avant de les réaliser ; gardez le niveau sur Observer ou Modifier si vous voulez juste regarder et ranger.
