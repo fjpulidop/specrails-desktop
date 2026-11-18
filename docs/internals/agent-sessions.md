@@ -46,7 +46,10 @@ is a third implementation of that contract. [`MissionCoreSessions.prepareTurn`](
 selects it when the scope is available and Core lists a driver for the
 conversation's provider. The runner opens or resumes the session, sends the
 prompt as one input, maps user-turn events to `AdapterEvent`s, delivers steer
-through `session.send`, and returns Core's normalised usage. Stop goes through a
+through `session.send`, and returns Core's normalised usage. `input.state` `queued`/`started` marks the turn input `received`; the
+first `turn.output` (or a clean completion) lets the manager mark it `read`
+server-side, so the prompt asks for no `acknowledge_inputs` call
+([read receipts](../../server/modules/missions/README.md#input-read-receipts)). Stop goes through a
 `TurnHandle` (`session.interrupt`); deleting a mission calls `session.close`.
 
 MCP: each turn mints a capability and rewrites the conversation's capability

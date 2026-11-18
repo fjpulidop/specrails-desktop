@@ -87,29 +87,52 @@ describe('native mission input and durable transcript integration', () => {
   const updates = () => broadcast.mock.calls.map(([m]) => m).filter(m => m.type === 'agent_steered')
   const started = async (count = 1) => vi.waitFor(() => expect(runs).toHaveLength(count))
 
-  it('distinguishes initial transport acceptance from explicit model acknowledgement and preserves read', async () => {
+  it('marks the turn input read on the server at its first model output, without a prefix instruction', async () => {
     const id = conversation('codex')
     const turn = manager.sendMessage(id, 'start', { queueId: 'initial' })
     await started()
     const capability = (mocks.prepare.mock.calls[0][0] as { capability: string }).capability
-    expect(runs[0].hooks.buildOpts?.prompt).toContain('Mission input ID: "initial"')
+    expect(runs[0].hooks.buildOpts?.prompt).not.toContain('Mission input ID')
+    expect(runs[0].hooks.buildOpts?.prompt).not.toContain('acknowledge_inputs')
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('sent')
     runs[0].emit({ kind: 'session-started', sessionId: 'thread' })
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('sent')
     runs[0].hooks.onInitialInputAccepted?.()
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('received')
     runs[0].emit({ kind: 'tool-use', name: 'inspect' })
-    runs[0].emit({ kind: 'text-delta', text: 'This could be a synthetic provider notice.' })
-    expect(getAgentInput(db, id, 'initial')?.receipt).toBe('received')
-    acknowledgeAgentInputsRead(db, capability, ['initial'])
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
+    runs[0].emit({ kind: 'text-delta', text: 'more output' })
+    // The compatibility tool stays callable and idempotent for the turn input.
+    expect(acknowledgeAgentInputsRead(db, capability, ['initial'])).toMatchObject({ receipt: 'read' })
     runs[0].hooks.onInitialInputAccepted?.()
     runs[0].finish('done')
     await turn
+    expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
     expect(broadcast.mock.calls.map(([event]) => event).filter(event => event.type === 'agent_input_receipt')).toEqual([
       expect.objectContaining({ queueId: 'initial', receipt: 'received' }),
       expect.objectContaining({ queueId: 'initial', receipt: 'read' }),
     ])
+  })
+
+  it('marks a turn input read when the turn settles cleanly without streamed output', async () => {
+    const id = conversation('claude')
+    const turn = manager.sendMessage(id, 'start', { queueId: 'quiet' })
+    await started()
+    runs[0].finish('')
+    await turn
+    expect(getAgentInput(db, id, 'quiet')?.receipt).toBe('read')
+  })
+
+  it('leaves the turn input unread when the provider fails before producing output', async () => {
+    const id = conversation('claude')
+    const turn = manager.sendMessage(id, 'start', { queueId: 'failed' })
+    await started()
+    runs[0].hooks.onInitialInputAccepted?.()
+    runs[0].emit({ kind: 'error', message: 'provider unavailable' })
+    runs[0].finish('')
+    await turn
+    expect(getAgentInput(db, id, 'failed')?.receipt).toBe('received')
+    expect(broadcast.mock.calls.map(([event]) => event)).not.toContainEqual(expect.objectContaining({ type: 'agent_input_receipt', queueId: 'failed', receipt: 'read' }))
   })
 
   it.each(['claude', 'codex'])('requires a scoped explicit read receipt for %s updates, never inferring it from later output', async provider => {

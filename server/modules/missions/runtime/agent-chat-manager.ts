@@ -885,12 +885,12 @@ export class AgentChatManager {
       registry: this._registry,
       fallbackProjectId: conversation.pinned_project_id,
     })
-    const inputReceiptNote = options.queueId
-      ? `[Mission input ID: ${JSON.stringify(options.queueId)}. After reading this message, confirm receipt with specrails_mission(action:"acknowledge_inputs", inputIds:[this exact ID]). This records reading, not completion of the requested work.]\n\n`
-      : ''
+    // The turn's own input needs no agent acknowledgement: the server marks it
+    // read once the provider produces output for it (see `turnInputRead`), so
+    // the prefix carries no receipt instruction (one model request less per turn).
     // Back to Intent: the review the Intent agent must address rides this user turn once.
     const flowBriefing = flowTurn?.briefing ? `${flowTurn.briefing}\n\n` : ''
-    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${flowBriefing}${userWithAttachments}`
+    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${flowBriefing}${userWithAttachments}`
     const basePrompt = flowTurn ? flowTurn.systemPrompt : buildOperatorSystemPrompt()
     const systemPrompt = hasAttachments
       ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
@@ -1044,6 +1044,18 @@ export class AgentChatManager {
           // still surface persistence failures so the agent can retry them.
           try { if (options.queueId) recordReceipt(options.queueId, 'received') }
           catch (err) { console.warn('[agent-chat] initial input receipt could not be saved:', err instanceof Error ? err.message : String(err)) }
+        }
+        // Server-side read receipt for the turn's own input. It is the user turn
+        // itself, so the first model output (text or a tool call) — or a clean
+        // settlement — proves the provider consumed it. Mid-turn native updates
+        // still need the agent's acknowledge_inputs: output streamed after their
+        // injection may come from a request that started before it.
+        let turnInputMarkedRead = false
+        const turnInputRead = () => {
+          if (turnInputMarkedRead || !options.queueId) return
+          turnInputMarkedRead = true
+          try { recordReceipt(options.queueId, 'read') }
+          catch (err) { console.warn('[agent-chat] turn input read receipt could not be saved:', err instanceof Error ? err.message : String(err)) }
         }
         const consumeInputs = async (
           context: { revision: number; isCurrent: () => boolean },
@@ -1241,6 +1253,7 @@ export class AgentChatManager {
           },
           onEvent: (ev) => {
             if (this._disposed) return
+            if (ev.kind === 'text-delta' || ev.kind === 'tool-use') turnInputRead()
             switch (ev.kind) {
               case 'text-delta':
                 streamed += ev.text
@@ -1307,6 +1320,8 @@ export class AgentChatManager {
         try {
           invocationResult = await invocation
           nativeClosing = true
+          // A turn that settled cleanly without streaming output was still read.
+          if (!invocationResult.disposed && invocationResult.value.code === 0 && !invocationResult.value.spawnFailed && !capturedError) turnInputRead()
           // A receipt and turn completion can arrive in the same chunk. Finish
           // its ledger transaction before draining the next accepted turn.
           if (!invocationResult.disposed && awaitingNativeReceipt) await this._awaitWhileLive(nativeDrain)

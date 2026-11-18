@@ -142,14 +142,18 @@ describe('mission live steering across manager, durable inbox and MCP dispatch',
   const ack = (id: string, revision: number) => call(id, 'specrails_mission', { action: 'acknowledge_updates', revision })
   const events = (type: string) => broadcast.mock.calls.map(([event]) => event).filter(event => event.type === type)
   const transcript = (id: string) => listAgentMessages(db, id).map(message => [message.role, message.content])
-  it('records an explicit initial-message read receipt in a provider with MCP delivery', async () => {
+  it('marks the initial message read on the server in a stream-json provider and keeps the tool idempotent', async () => {
     const id = conversation('gemini')
     const running = manager.sendMessage(id, 'Start the task.', { queueId: 'initial' })
     await vi.waitFor(() => expect(invocations).toHaveLength(1))
-    expect(invocations[0].hooks.buildOpts?.prompt).toContain('Mission input ID: "initial"')
+    expect(invocations[0].hooks.buildOpts?.prompt).not.toContain('Mission input ID')
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('sent')
+    invocations[0].hooks.onEvent?.({ kind: 'text-delta', text: 'Working' })
+    expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
+    expect(events('agent_input_receipt')).toEqual([expect.objectContaining({ queueId: 'initial', receipt: 'read' })])
     expect((await call(id, 'specrails_mission', { action: 'acknowledge_inputs', inputIds: ['initial'] })).isError).toBeUndefined()
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
+    expect(events('agent_input_receipt')).toHaveLength(1)
     invocations[0].finish('done')
     await running
   })

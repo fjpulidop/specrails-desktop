@@ -104,6 +104,24 @@ transport, never overwrite the mission's provider session and are recorded
 with `surface: 'flow'`. A null port leaves mission turns unchanged.
 See [Intent mode](../../../docs/internals/intent-mode.md).
 
+## Input read receipts
+
+A user bubble's receipt moves `sent` → `received` → `read` (`agent_inputs.receipt`,
+broadcast as `agent_input_receipt`; it never moves backwards). For the **turn's own
+input** the server records `read` itself: at the turn's first model output
+(`text-delta` or `tool-use`) or, failing that, when the turn settles cleanly
+(code 0, no error). The prompt carries no receipt instruction, so the model makes
+no extra tool call (and no extra cached-prefix request) per queued turn. A spawn
+failure, a rejected Core input or an abort before output leaves it unread.
+`received` still comes from transport acceptance (`onInitialInputAccepted`).
+
+**Mid-turn native updates** (Steer through the provider's input channel) keep the
+agent-side `specrails_mission(acknowledge_inputs)`: output streamed after the
+injection may belong to a model request that started before it, so only the agent
+knows it has read them. MCP `mission_user_updates` are marked read by the
+mandatory `acknowledge_updates` (no extra call). `acknowledge_inputs` remains
+accepted (idempotent) for the turn's own input.
+
 ## Failure assistance
 
 The operator uses `specrails_runs(diagnose)` and paged `specrails_runs(evidence)`

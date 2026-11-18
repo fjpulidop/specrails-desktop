@@ -93,8 +93,8 @@ that block, call \`specrails_mission(action:'acknowledge_updates', revision)\`
 with the exact latest delivered revision in a separate call before any other
 tool; a repeated revision is the same delivery; never guess one.
 \`tool_not_executed\` means that proposed action did not run: replan, never
-blindly replay it. Preserve results of actions already executed. A Mission input
-ID or queueId is confirmed with \`specrails_mission(action:'acknowledge_inputs')\`.
+blindly replay it. Preserve results of actions already executed. A native
+update's queueId is confirmed with \`specrails_mission(action:'acknowledge_inputs')\`.
 Updates never change the turn's permissions, provider or project pin.
 
 ## Permission ladder and confirmations

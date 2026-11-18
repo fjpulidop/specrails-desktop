@@ -32,6 +32,7 @@ import { SessionRequestError, type InitializeResult, type SessionEvent, type Ses
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { createAgentConversation, listAgentMessages, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
+import { getAgentInput } from './agent-input-store'
 import { getMissionCoreSession, getSessionCursor, listSubagents } from './agent-session-store'
 import { MissionCoreSessions } from './mission-core-sessions'
 
@@ -312,6 +313,32 @@ describe('missions on Core agent sessions', () => {
     await turn
     expect(process.kill).not.toHaveBeenCalled()
     expect(manager.isStreaming(conversation.id)).toBe(false)
+  })
+
+  it('marks the turn input read on the server once the Core turn streams output, with no receipt instruction', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    host.script = (inputId, turnId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+    ]
+    const turn = manager.sendMessage(conversation.id, 'Hola', { queueId: 'q-core' })
+    await waitFor(() => getAgentInput(db, conversation.id, 'q-core')?.receipt === 'received')
+    const send = host.requests.find((request) => request.method === 'session.send')!
+    expect((send.params.input as { text: string }).text).not.toContain('acknowledge_inputs')
+    host.emit(conversation.id, [{ type: 'turn.output', turnId: 't1', channel: 'text', delta: 'Hola' }])
+    expect(getAgentInput(db, conversation.id, 'q-core')?.receipt).toBe('read')
+    host.emit(conversation.id, [{ type: 'turn.completed', turnId: 't1', status: 'completed', text: 'Hola', usage: usage(0.001) }, { type: 'session.phase', phase: 'idle' }])
+    await turn
+    expect(broadcasts.filter((message) => message.type === 'agent_input_receipt').map((message) => message.receipt)).toEqual(['received', 'read'])
+  })
+
+  it('leaves the turn input unread when Core rejects it before the turn starts', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    host.script = (inputId) => [{ type: 'input.state', inputId, state: 'rejected', reason: 'provider_unavailable' }]
+    await manager.sendMessage(conversation.id, 'Hola', { queueId: 'q-rejected' })
+    await waitFor(() => !manager.isStreaming(conversation.id))
+    expect(getAgentInput(db, conversation.id, 'q-rejected')?.receipt).not.toBe('read')
   })
 
   it('closes the Core session when the conversation is deleted', async () => {
