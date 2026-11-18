@@ -31,7 +31,7 @@
       "plain": "El agente se detuvo inesperadamente"
     },
     "incomplete_tasks": "Quedaron tareas aprobadas sin terminar",
-    "spec_invalid": "OpenSpec rechazó la especificación del cambio",
+    "spec_invalid": "OpenSpec rechazó la spec del cambio",
     "unknown": "Causa desconocida",
     "stepFailed": "Falló el paso {{phase}}"
   },
@@ -49,7 +49,7 @@
     "tool_inactivity": "Dejó de usar herramientas y de responder durante demasiado tiempo.",
     "crash": "El proceso del proveedor o su conexión murió a mitad de la ejecución.",
     "incomplete_tasks": "Todo lo demás está hecho. Si lo que falta es una comprobación que solo puede hacer una persona, continúa a revisión con ella como comprobación manual; si no, reintenta y deja que la ejecución la termine con su navegador y herramientas.",
-    "spec_invalid": "El plan o la especificación no pasó OpenSpec y la planificación no pudo repararlo.",
+    "spec_invalid": "El plan o la spec no pasó OpenSpec y la planificación no pudo repararlo.",
     "unknown": "Los registros de la ejecución no indican la causa. Una lectura del log con IA suele encontrarla."
   },
   "remedies": {
@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "Continuando a revisión con lo que falta como comprobaciones manuales.",
     "retried": "Reintentando desde el desarrollador con el navegador y sus herramientas.",
-    "notResumed": "La ejecución continuada no arrancó: {{detail}}",
-    "failed": "No se pudo continuar la ejecución: {{detail}}"
+    "notResumed": "La ejecución continuada no arrancó",
+    "failed": "No se pudo continuar la ejecución"
   }
 }

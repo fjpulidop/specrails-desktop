@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "Passage à la revue, le reste en vérifications à la main.",
     "retried": "Nouvel essai depuis le développeur avec le navigateur et ses outils.",
-    "notResumed": "L'exécution poursuivie n'a pas démarré : {{detail}}",
-    "failed": "Impossible de poursuivre l'exécution : {{detail}}"
+    "notResumed": "L'exécution poursuivie n'a pas démarré",
+    "failed": "Impossible de poursuivre l'exécution"
   }
 }

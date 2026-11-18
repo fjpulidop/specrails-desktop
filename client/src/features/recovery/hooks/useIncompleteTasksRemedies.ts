@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { notifyError } from '../../../lib/notify-error'
 import { API_ORIGIN } from '../../../lib/origin'
 import { ApiResponseError, requestJson } from '../../../lib/api-response'
 import type { FailureDiagnosis, RemedyHandlers } from '../lib/failure-diagnosis'
@@ -34,12 +35,12 @@ export function useIncompleteTasksRemedies(projectId: string | null | undefined,
       if (current.current !== owner) return
       setDone(true)
       toast.success(t(remedy === 'continue-to-review' ? 'remedyResult.continued' : 'remedyResult.retried'))
-      if (body?.resumed === false) toast.error(t('remedyResult.notResumed', { detail: body.resumeDetail ?? '' }))
+      if (body?.resumed === false) notifyError(t('remedyResult.notResumed'), { detail: body.resumeDetail ?? null })
       if (body?.loopRunId) onForked?.(body.loopRunId)
     } catch (error) {
       if (current.current !== owner) return
       const detail = error instanceof ApiResponseError ? ((error.body ?? {}) as { detail?: string; error?: string }).detail ?? ((error.body ?? {}) as { error?: string }).error : error instanceof Error ? error.message : null
-      toast.error(t('remedyResult.failed', { detail: detail ?? '' }))
+      notifyError(t('remedyResult.failed'), { detail: detail ?? null, retry: () => void apply(remedy) })
     } finally {
       if (current.current === owner) setBusy(null)
     }

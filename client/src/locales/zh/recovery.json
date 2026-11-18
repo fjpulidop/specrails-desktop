@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "正在进入评审，剩余项作为人工检查。",
     "retried": "正在从开发者步骤使用浏览器和工具重试。",
-    "notResumed": "继续的运行未能启动：{{detail}}",
-    "failed": "无法继续运行：{{detail}}"
+    "notResumed": "继续的运行未能启动",
+    "failed": "无法继续运行"
   }
 }

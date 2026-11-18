@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "A continuar para a revisão com o restante como verificações manuais.",
     "retried": "A tentar de novo a partir do programador com o navegador e as ferramentas.",
-    "notResumed": "A execução continuada não arrancou: {{detail}}",
-    "failed": "Não foi possível continuar a execução: {{detail}}"
+    "notResumed": "A execução continuada não arrancou",
+    "failed": "Não foi possível continuar a execução"
   }
 }

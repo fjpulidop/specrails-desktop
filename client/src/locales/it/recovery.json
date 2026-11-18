@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "Si prosegue alla revisione con il resto come controlli a mano.",
     "retried": "Nuovo tentativo dallo sviluppatore con il browser e i suoi strumenti.",
-    "notResumed": "L'esecuzione proseguita non è partita: {{detail}}",
-    "failed": "Impossibile proseguire l'esecuzione: {{detail}}"
+    "notResumed": "L'esecuzione proseguita non è partita",
+    "failed": "Impossibile proseguire l'esecuzione"
   }
 }

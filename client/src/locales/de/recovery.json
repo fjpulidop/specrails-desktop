@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "Weiter zum Review, der Rest als Prüfungen von Hand.",
     "retried": "Erneuter Versuch ab dem Entwickler mit Browser und Werkzeugen.",
-    "notResumed": "Der fortgesetzte Lauf ist nicht gestartet: {{detail}}",
-    "failed": "Der Lauf konnte nicht fortgesetzt werden: {{detail}}"
+    "notResumed": "Der fortgesetzte Lauf ist nicht gestartet",
+    "failed": "Der Lauf konnte nicht fortgesetzt werden"
   }
 }

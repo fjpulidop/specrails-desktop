@@ -130,7 +130,7 @@
   "remedyResult": {
     "continued": "Continuing to review with the remaining items as checks by hand.",
     "retried": "Retrying from the developer with the browser and its tools.",
-    "notResumed": "The continued run did not start: {{detail}}",
-    "failed": "Could not continue the run: {{detail}}"
+    "notResumed": "The continued run did not start",
+    "failed": "Could not continue the run"
   }
 }
