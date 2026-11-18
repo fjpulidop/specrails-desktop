@@ -449,7 +449,9 @@
       "downloading": "正在下载更新",
       "installing": "正在安装更新",
       "ready": "更新已就绪",
-      "error": "更新失败"
+      "error": "更新失败",
+      "busy": "仍有工作在运行",
+      "waiting": "等待重启"
     },
     "desc": {
       "available": "Specrails 新版本已可安装。",
@@ -457,12 +459,15 @@
       "progress": "{{percent}}% · {{downloaded}} / {{total}}",
       "installing": "正在验证签名并完成…",
       "ready": "重启以启动版本 {{version}}。",
-      "errorFallback": "无法完成更新。请重试。"
+      "errorFallback": "无法完成更新。请重试。",
+      "busy": "现在重启会停止 {{what}}。",
+      "waiting": "没有任何工作运行时将重启 · {{what}}"
     },
     "pill": {
       "downloading": "下载中",
       "installing": "安装中",
-      "ready": "已就绪"
+      "ready": "已就绪",
+      "waiting": "等待中"
     },
     "actions": {
       "restart": "重启",
@@ -470,7 +475,10 @@
       "update": "更新",
       "installing": "安装中…",
       "tryAgain": "重试",
-      "dismiss": "忽略"
+      "dismiss": "忽略",
+      "whenIdle": "在没有工作运行时安装",
+      "restartNow": "立即重启",
+      "cancelWait": "取消"
     },
     "mockReady": "模拟更新已就绪 — 已跳过重启",
     "errors": {
@@ -479,6 +487,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} 个任务轮次",
+      "missions_other": "{{count}} 个任务轮次",
+      "runs_one": "{{count}} 个运行",
+      "runs_other": "{{count}} 个运行",
+      "something": "正在进行的工作"
     }
   },
   "notifications": {

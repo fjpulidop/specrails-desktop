@@ -13,5 +13,40 @@
       "policy-tamper": "Änderung der Richtliniendateien",
       "policy-error": "Nicht prüfbarer riskanter Befehl"
     }
+  },
+  "resume": {
+    "title": "Dort weitermachen, wo du aufgehört hast",
+    "description": {
+      "quit": "Specrails wurde geschlossen, während diese Arbeit lief.",
+      "update": "Specrails wurde für ein Update neu gestartet, während diese Arbeit lief.",
+      "crash": "Specrails wurde unerwartet beendet, während diese Arbeit lief.",
+      "mixed": "Specrails wurde beendet, während diese Arbeit lief."
+    },
+    "selectAll": "Alle auswählen",
+    "missions_one": "{{count}} Mission war mitten in einem Schritt",
+    "missions_other": "{{count}} Missionen waren mitten in einem Schritt",
+    "runs_one": "{{count}} Run wurde durch den Neustart pausiert",
+    "runs_other": "{{count}} Runs wurden durch den Neustart pausiert",
+    "untitled": "Mission ohne Titel",
+    "trigger": {
+      "quit": "App geschlossen",
+      "update": "Update installiert",
+      "crash": "Unerwarteter Stopp"
+    },
+    "startedAt": "Schritt begann um {{time}}",
+    "runPaused": "durch den Neustart pausiert",
+    "failed": "Fortsetzen fehlgeschlagen. Versuche es erneut oder öffne es.",
+    "nothingAutomatic": "Nichts wird von selbst fortgesetzt. Missionen setzen ihre eigene Sitzung fort; Runs nutzen ihr übliches Fortsetzen.",
+    "progress": "Setze {{done}} von {{total}} fort",
+    "notNow": "Nicht jetzt",
+    "resume_one": "{{count}} fortsetzen",
+    "resume_other": "{{count}} fortsetzen",
+    "resumed_one": "{{count}} Eintrag fortgesetzt",
+    "resumed_other": "{{count}} Einträge fortgesetzt",
+    "prompt": {
+      "quit": "Specrails wurde geschlossen, während du an meiner letzten Anfrage gearbeitet hast. Mach dort weiter, wo du aufgehört hast: Prüfe zuerst den aktuellen Stand und wiederhole keine bereits erledigte Arbeit.",
+      "update": "Specrails wurde für ein Update neu gestartet, während du an meiner letzten Anfrage gearbeitet hast. Mach dort weiter, wo du aufgehört hast: Prüfe zuerst den aktuellen Stand und wiederhole keine bereits erledigte Arbeit.",
+      "crash": "Specrails wurde unerwartet beendet, während du an meiner letzten Anfrage gearbeitet hast. Mach dort weiter, wo du aufgehört hast: Prüfe zuerst den aktuellen Stand und wiederhole keine bereits erledigte Arbeit."
+    }
   }
 }

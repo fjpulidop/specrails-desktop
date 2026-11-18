@@ -902,6 +902,39 @@
       ]
     }
   },
+  "continuity": {
+    "publicEntries": [
+      "adapters/file-store.ts",
+      "adapters/http.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/file-store.ts": [
+        "../../../util/specrails-home",
+        "../domain",
+        "../ports",
+        "fs",
+        "path"
+      ],
+      "adapters/http.ts": [
+        "../application",
+        "express"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
   "conversations": {
     "publicEntries": [
       "runtime/chat-manager.ts",

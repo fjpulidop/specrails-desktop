@@ -449,7 +449,9 @@
       "downloading": "Download dell'aggiornamento",
       "installing": "Installazione dell'aggiornamento",
       "ready": "Aggiornamento pronto",
-      "error": "Aggiornamento non riuscito"
+      "error": "Aggiornamento non riuscito",
+      "busy": "C’è ancora lavoro in corso",
+      "waiting": "In attesa del riavvio"
     },
     "desc": {
       "available": "Una nuova versione di Specrails è pronta per l'installazione.",
@@ -457,12 +459,15 @@
       "progress": "{{percent}}% · {{downloaded}} di {{total}}",
       "installing": "Verifica della firma e completamento…",
       "ready": "Riavvia per avviare la versione {{version}}.",
-      "errorFallback": "Impossibile completare l'aggiornamento. Riprova."
+      "errorFallback": "Impossibile completare l'aggiornamento. Riprova.",
+      "busy": "Riavviare ora interrompe {{what}}.",
+      "waiting": "Si riavvia quando non c’è nulla in corso · {{what}}"
     },
     "pill": {
       "downloading": "Download",
       "installing": "Installazione",
-      "ready": "Pronto"
+      "ready": "Pronto",
+      "waiting": "In attesa"
     },
     "actions": {
       "restart": "Riavvia",
@@ -470,7 +475,10 @@
       "update": "Aggiorna",
       "installing": "Installazione…",
       "tryAgain": "Riprova",
-      "dismiss": "Ignora"
+      "dismiss": "Ignora",
+      "whenIdle": "Installa quando non c’è nulla in corso",
+      "restartNow": "Riavvia ora",
+      "cancelWait": "Annulla"
     },
     "mockReady": "Aggiornamento mock pronto — riavvio saltato",
     "errors": {
@@ -479,6 +487,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} turno di missione",
+      "missions_other": "{{count}} turni di missione",
+      "runs_one": "{{count}} esecuzione",
+      "runs_other": "{{count}} esecuzioni",
+      "something": "il lavoro in corso"
     }
   },
   "notifications": {

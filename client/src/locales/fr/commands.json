@@ -449,7 +449,9 @@
       "downloading": "Téléchargement de la mise à jour",
       "installing": "Installation de la mise à jour",
       "ready": "Mise à jour prête",
-      "error": "Échec de la mise à jour"
+      "error": "Échec de la mise à jour",
+      "busy": "Du travail est en cours",
+      "waiting": "En attente du redémarrage"
     },
     "desc": {
       "available": "Une nouvelle version de Specrails est prête à être installée.",
@@ -457,12 +459,15 @@
       "progress": "{{percent}} % · {{downloaded}} sur {{total}}",
       "installing": "Vérification de la signature et finalisation…",
       "ready": "Redémarrez pour lancer la version {{version}}.",
-      "errorFallback": "Impossible de terminer la mise à jour. Veuillez réessayer."
+      "errorFallback": "Impossible de terminer la mise à jour. Veuillez réessayer.",
+      "busy": "Redémarrer maintenant arrête {{what}}.",
+      "waiting": "Redémarre quand plus rien ne tourne · {{what}}"
     },
     "pill": {
       "downloading": "Téléchargement",
       "installing": "Installation",
-      "ready": "Prête"
+      "ready": "Prête",
+      "waiting": "En attente"
     },
     "actions": {
       "restart": "Redémarrer",
@@ -470,7 +475,10 @@
       "update": "Mettre à jour",
       "installing": "Installation…",
       "tryAgain": "Réessayer",
-      "dismiss": "Ignorer"
+      "dismiss": "Ignorer",
+      "whenIdle": "Installer quand rien ne tourne",
+      "restartNow": "Redémarrer maintenant",
+      "cancelWait": "Annuler"
     },
     "mockReady": "Mise à jour factice prête — redémarrage ignoré",
     "errors": {
@@ -479,6 +487,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} tour de mission",
+      "missions_other": "{{count}} tours de mission",
+      "runs_one": "{{count}} exécution",
+      "runs_other": "{{count}} exécutions",
+      "something": "le travail en cours"
     }
   },
   "notifications": {

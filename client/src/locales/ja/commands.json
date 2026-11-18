@@ -449,7 +449,9 @@
       "downloading": "アップデートをダウンロード中",
       "installing": "アップデートをインストール中",
       "ready": "アップデート準備完了",
-      "error": "アップデートに失敗しました"
+      "error": "アップデートに失敗しました",
+      "busy": "実行中の作業があります",
+      "waiting": "再起動を待機中"
     },
     "desc": {
       "available": "Specrails の新しいバージョンをインストールできます。",
@@ -457,12 +459,15 @@
       "progress": "{{percent}}% · {{total}} 中 {{downloaded}}",
       "installing": "署名を検証して仕上げています…",
       "ready": "再起動するとバージョン {{version}} が起動します。",
-      "errorFallback": "アップデートを完了できませんでした。もう一度お試しください。"
+      "errorFallback": "アップデートを完了できませんでした。もう一度お試しください。",
+      "busy": "今再起動すると {{what}} が停止します。",
+      "waiting": "実行中の作業がなくなったら再起動します · {{what}}"
     },
     "pill": {
       "downloading": "ダウンロード中",
       "installing": "インストール中",
-      "ready": "準備完了"
+      "ready": "準備完了",
+      "waiting": "待機中"
     },
     "actions": {
       "restart": "再起動",
@@ -470,7 +475,10 @@
       "update": "アップデート",
       "installing": "インストール中…",
       "tryAgain": "再試行",
-      "dismiss": "閉じる"
+      "dismiss": "閉じる",
+      "whenIdle": "何も実行されていないときにインストール",
+      "restartNow": "今すぐ再起動",
+      "cancelWait": "キャンセル"
     },
     "mockReady": "モックアップデート準備完了 — 再起動はスキップされました",
     "errors": {
@@ -479,6 +487,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "ミッションのターン {{count}} 件",
+      "missions_other": "ミッションのターン {{count}} 件",
+      "runs_one": "実行 {{count}} 件",
+      "runs_other": "実行 {{count}} 件",
+      "something": "進行中の作業"
     }
   },
   "notifications": {

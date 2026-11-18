@@ -112,6 +112,15 @@
       "specs"
     ]
   },
+  "continuity": {
+    "publicEntries": [
+      "components/ResumeAfterRestartDialog.tsx"
+    ],
+    "dependencies": [
+      "inbox",
+      "missions"
+    ]
+  },
   "dashboard": {
     "publicEntries": [
       "pages/DashboardPage.tsx"

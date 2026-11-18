@@ -13,5 +13,40 @@
       "policy-tamper": "Cambio en los ficheros de la política",
       "policy-error": "Comando de riesgo no verificable"
     }
+  },
+  "resume": {
+    "title": "Retoma donde lo dejaste",
+    "description": {
+      "quit": "Specrails se cerró mientras este trabajo estaba en marcha.",
+      "update": "Specrails se reinició para instalar una actualización mientras este trabajo estaba en marcha.",
+      "crash": "Specrails se detuvo de forma inesperada mientras este trabajo estaba en marcha.",
+      "mixed": "Specrails se detuvo mientras este trabajo estaba en marcha."
+    },
+    "selectAll": "Seleccionar todo",
+    "missions_one": "{{count}} misión estaba a mitad de turno",
+    "missions_other": "{{count}} misiones estaban a mitad de turno",
+    "runs_one": "El reinicio pausó {{count}} ejecución",
+    "runs_other": "El reinicio pausó {{count}} ejecuciones",
+    "untitled": "Misión sin título",
+    "trigger": {
+      "quit": "App cerrada",
+      "update": "Actualización instalada",
+      "crash": "Parada inesperada"
+    },
+    "startedAt": "turno iniciado a las {{time}}",
+    "runPaused": "pausada por el reinicio",
+    "failed": "No se pudo reanudar. Inténtalo de nuevo o ábrela.",
+    "nothingAutomatic": "Nada se reanuda solo. Las misiones continúan su propia sesión; las ejecuciones usan su Reanudar habitual.",
+    "progress": "Reanudando {{done}} de {{total}}",
+    "notNow": "Ahora no",
+    "resume_one": "Reanudar {{count}}",
+    "resume_other": "Reanudar {{count}}",
+    "resumed_one": "{{count}} elemento reanudado",
+    "resumed_other": "{{count}} elementos reanudados",
+    "prompt": {
+      "quit": "Specrails se cerró mientras trabajabas en mi última petición. Continúa donde lo dejaste: revisa primero el estado actual y no repitas el trabajo ya hecho.",
+      "update": "Specrails se reinició para instalar una actualización mientras trabajabas en mi última petición. Continúa donde lo dejaste: revisa primero el estado actual y no repitas el trabajo ya hecho.",
+      "crash": "Specrails se detuvo de forma inesperada mientras trabajabas en mi última petición. Continúa donde lo dejaste: revisa primero el estado actual y no repitas el trabajo ya hecho."
+    }
   }
 }

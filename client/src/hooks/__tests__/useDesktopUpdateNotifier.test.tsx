@@ -29,6 +29,13 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }))
 
+const activeWorkMock = vi.fn()
+const noteUpdateRestartMock = vi.fn()
+vi.mock('../../lib/continuity-api', () => ({
+  fetchActiveWork: (...args: unknown[]) => activeWorkMock(...args),
+  noteUpdateRestart: (...args: unknown[]) => noteUpdateRestartMock(...args),
+}))
+
 import { useDesktopUpdateNotifier, DesktopUpdateToast } from '../useDesktopUpdateNotifier'
 
 type ToastUpdate = Parameters<typeof DesktopUpdateToast>[0]['update']
@@ -109,6 +116,10 @@ describe('useDesktopUpdateNotifier', () => {
 
 describe('DesktopUpdateToast', () => {
   beforeEach(() => {
+    activeWorkMock.mockReset()
+    activeWorkMock.mockResolvedValue({ missions: 0, runs: 0, total: 0 })
+    noteUpdateRestartMock.mockReset()
+    noteUpdateRestartMock.mockResolvedValue(undefined)
     dismissMock.mockReset()
     successMock.mockReset()
     relaunchMock.mockReset()
@@ -187,7 +198,8 @@ describe('DesktopUpdateToast', () => {
     const restart = await screen.findByRole('button', { name: 'Restart' })
     expect(screen.getByText('Update ready')).toBeInTheDocument()
     fireEvent.click(restart)
-    expect(invokeMock).toHaveBeenCalledWith('restart_app')
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'))
+    expect(noteUpdateRestartMock).toHaveBeenCalled()
     expect(relaunchMock).not.toHaveBeenCalled()
   })
 
@@ -220,7 +232,7 @@ describe('DesktopUpdateToast', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
     const restart = await screen.findByRole('button', { name: 'Restart' })
     fireEvent.click(restart)
-    expect(successMock).toHaveBeenCalled()
+    await waitFor(() => expect(successMock).toHaveBeenCalled())
     expect(dismissMock).toHaveBeenCalledWith('specrails-desktop-desktop-update')
     expect(invokeMock).not.toHaveBeenCalled()
   })
@@ -267,5 +279,46 @@ describe('DesktopUpdateToast', () => {
     expect(dismissMock).toHaveBeenCalledWith('specrails-desktop-desktop-update')
     expect(localStorage.getItem('specrails-desktop:dismissedDesktopUpdateVersion')).toBeNull()
     expect(onClose).toHaveBeenCalled()
+  })
+
+  describe('install when nothing is running', () => {
+    function readyUpdate(): ToastUpdate {
+      return {
+        currentVersion: '1.50.0',
+        version: '99.0.0-test',
+        downloadAndInstall: vi.fn(async (onEvent: (e: DownloadEventArg) => void) => { onEvent({ event: 'Finished' } as DownloadEventArg) }),
+      }
+    }
+
+    it('says what a restart would stop and waits until it is idle', async () => {
+      activeWorkMock.mockResolvedValue({ missions: 2, runs: 1, total: 3 })
+      render(<DesktopUpdateToast update={readyUpdate()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart' }))
+      expect(await screen.findByText('Work is still running')).toBeInTheDocument()
+      expect(screen.getByText('Restarting now stops 2 mission turns · 1 run.')).toBeInTheDocument()
+      expect(invokeMock).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Install when nothing is running' }))
+      expect(await screen.findByText('Waiting to restart')).toBeInTheDocument()
+      expect(invokeMock).not.toHaveBeenCalled()
+      // The last turn ends: the card restarts by itself (polling).
+      activeWorkMock.mockResolvedValue({ missions: 0, runs: 0, total: 0 })
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'), { timeout: 8000 })
+      expect(noteUpdateRestartMock).toHaveBeenCalled()
+    }, 15_000)
+
+    it('Restart now overrides the wait; Cancel goes back to ready', async () => {
+      activeWorkMock.mockResolvedValue({ missions: 1, runs: 0, total: 1 })
+      render(<DesktopUpdateToast update={readyUpdate()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Install when nothing is running' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+      expect(await screen.findByText('Update ready')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart now' }))
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'))
+    })
   })
 })

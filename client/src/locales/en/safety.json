@@ -13,5 +13,40 @@
       "policy-tamper": "Policy file change",
       "policy-error": "Unverifiable risky command"
     }
+  },
+  "resume": {
+    "title": "Pick up where you left off",
+    "description": {
+      "quit": "Specrails was closed while this work was running.",
+      "update": "Specrails restarted to install an update while this work was running.",
+      "crash": "Specrails stopped unexpectedly while this work was running.",
+      "mixed": "Specrails stopped while this work was running."
+    },
+    "selectAll": "Select all",
+    "missions_one": "{{count}} mission was mid-turn",
+    "missions_other": "{{count}} missions were mid-turn",
+    "runs_one": "{{count}} run was paused by the restart",
+    "runs_other": "{{count}} runs were paused by the restart",
+    "untitled": "Untitled mission",
+    "trigger": {
+      "quit": "App closed",
+      "update": "Update installed",
+      "crash": "Unexpected stop"
+    },
+    "startedAt": "turn started at {{time}}",
+    "runPaused": "paused by the restart",
+    "failed": "Could not resume. Try again or open it.",
+    "nothingAutomatic": "Nothing resumes on its own. Missions continue their own session; runs use their usual Resume.",
+    "progress": "Resuming {{done}} of {{total}}",
+    "notNow": "Not now",
+    "resume_one": "Resume {{count}}",
+    "resume_other": "Resume {{count}}",
+    "resumed_one": "Resumed {{count}} item",
+    "resumed_other": "Resumed {{count}} items",
+    "prompt": {
+      "quit": "Specrails was closed while you were working on my last request. Continue where you left off: check the current state first and do not redo work that is already done.",
+      "update": "Specrails restarted to install an update while you were working on my last request. Continue where you left off: check the current state first and do not redo work that is already done.",
+      "crash": "Specrails stopped unexpectedly while you were working on my last request. Continue where you left off: check the current state first and do not redo work that is already done."
+    }
   }
 }

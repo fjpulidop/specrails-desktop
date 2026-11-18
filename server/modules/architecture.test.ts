@@ -61,6 +61,11 @@ const coreDependencies: Record<string, string[]> = {
   'agent-policy/domain/settings.ts': [],
   'agent-policy/domain/report.ts': ['./rules'],
   'agent-policy/index.ts': ['./domain/rules', './domain/denial', './domain/settings', './adapters/install', './adapters/spool', './adapters/ingest', './domain/report'],
+  // Restart continuity: pure marker/offer rules; use cases depend only on their own port.
+  'continuity/domain.ts': [],
+  'continuity/ports.ts': ['./domain'],
+  'continuity/application.ts': ['./domain', './ports'],
+  'continuity/index.ts': ['./application', './domain', './ports'],
   // Intent: pure state machine; use cases depend only on their own ports.
   'intent/domain.ts': [],
   'intent/ports.ts': ['./domain'],

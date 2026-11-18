@@ -129,6 +129,12 @@ interface QueuedTurn {
   nativeSubmitted?: boolean
 }
 
+/** Observes mission turns starting and settling (restart continuity). Must not throw or block. */
+export interface TurnLifecycleObserver {
+  started(conversationId: string): void
+  settled(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void
+}
+
 /** A projection rebuild was requested while a turn is running. */
 export class SessionRebuildBusyError extends Error {}
 
@@ -580,17 +586,26 @@ export class AgentChatManager {
     this._broadcast({ type: 'spending.invalidated', projectId })
   }
 
+  /** Composition-time wiring of restart continuity (durable per-turn markers, modules/continuity). */
+  setTurnLifecycleObserver(observer: TurnLifecycleObserver | null): void {
+    this._lifecycleObserver = observer
+  }
+
+  private _lifecycleObserver: TurnLifecycleObserver | null = null
+
   private _startLifecycle(conversationId: string): void {
     const startedAt = new Date().toISOString()
     this._turnStartedAt.set(conversationId, startedAt)
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state: 'active', startedAt }))
+    try { this._lifecycleObserver?.started(conversationId) } catch { /* continuity is best-effort */ }
   }
 
   private _settleLifecycle(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void {
     if (!this._turnStartedAt.delete(conversationId)) return
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state, settledAt: new Date().toISOString() }))
+    try { this._lifecycleObserver?.settled(conversationId, state) } catch { /* continuity is best-effort */ }
   }
 
   /**

@@ -13,5 +13,40 @@
       "policy-tamper": "Modification des fichiers de la politique",
       "policy-error": "Commande risquée invérifiable"
     }
+  },
+  "resume": {
+    "title": "Reprendre là où vous vous étiez arrêté",
+    "description": {
+      "quit": "Specrails a été fermé pendant que ce travail était en cours.",
+      "update": "Specrails a redémarré pour installer une mise à jour pendant que ce travail était en cours.",
+      "crash": "Specrails s’est arrêté de façon inattendue pendant que ce travail était en cours.",
+      "mixed": "Specrails s’est arrêté pendant que ce travail était en cours."
+    },
+    "selectAll": "Tout sélectionner",
+    "missions_one": "{{count}} mission était en plein tour",
+    "missions_other": "{{count}} missions étaient en plein tour",
+    "runs_one": "{{count}} exécution a été mise en pause par le redémarrage",
+    "runs_other": "{{count}} exécutions ont été mises en pause par le redémarrage",
+    "untitled": "Mission sans titre",
+    "trigger": {
+      "quit": "App fermée",
+      "update": "Mise à jour installée",
+      "crash": "Arrêt inattendu"
+    },
+    "startedAt": "tour commencé à {{time}}",
+    "runPaused": "mise en pause par le redémarrage",
+    "failed": "Impossible de reprendre. Réessayez ou ouvrez-la.",
+    "nothingAutomatic": "Rien ne reprend tout seul. Les missions poursuivent leur propre session ; les exécutions utilisent leur Reprendre habituel.",
+    "progress": "Reprise de {{done}} sur {{total}}",
+    "notNow": "Pas maintenant",
+    "resume_one": "Reprendre {{count}}",
+    "resume_other": "Reprendre {{count}}",
+    "resumed_one": "{{count}} élément repris",
+    "resumed_other": "{{count}} éléments repris",
+    "prompt": {
+      "quit": "Specrails a été fermé pendant que tu travaillais sur ma dernière demande. Reprends là où tu t’étais arrêté : vérifie d’abord l’état actuel et ne refais pas le travail déjà fait.",
+      "update": "Specrails a redémarré pour installer une mise à jour pendant que tu travaillais sur ma dernière demande. Reprends là où tu t’étais arrêté : vérifie d’abord l’état actuel et ne refais pas le travail déjà fait.",
+      "crash": "Specrails s’est arrêté de façon inattendue pendant que tu travaillais sur ma dernière demande. Reprends là où tu t’étais arrêté : vérifie d’abord l’état actuel et ne refais pas le travail déjà fait."
+    }
   }
 }

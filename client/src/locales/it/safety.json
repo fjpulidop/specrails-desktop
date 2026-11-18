@@ -13,5 +13,40 @@
       "policy-tamper": "Modifica dei file della policy",
       "policy-error": "Comando rischioso non verificabile"
     }
+  },
+  "resume": {
+    "title": "Riprendi da dove avevi lasciato",
+    "description": {
+      "quit": "Specrails è stato chiuso mentre questo lavoro era in corso.",
+      "update": "Specrails si è riavviato per installare un aggiornamento mentre questo lavoro era in corso.",
+      "crash": "Specrails si è fermato in modo imprevisto mentre questo lavoro era in corso.",
+      "mixed": "Specrails si è fermato mentre questo lavoro era in corso."
+    },
+    "selectAll": "Seleziona tutto",
+    "missions_one": "{{count}} missione era a metà turno",
+    "missions_other": "{{count}} missioni erano a metà turno",
+    "runs_one": "{{count}} esecuzione è stata messa in pausa dal riavvio",
+    "runs_other": "{{count}} esecuzioni sono state messe in pausa dal riavvio",
+    "untitled": "Missione senza titolo",
+    "trigger": {
+      "quit": "App chiusa",
+      "update": "Aggiornamento installato",
+      "crash": "Arresto imprevisto"
+    },
+    "startedAt": "turno iniziato alle {{time}}",
+    "runPaused": "in pausa per il riavvio",
+    "failed": "Impossibile riprendere. Riprova o aprila.",
+    "nothingAutomatic": "Nulla riprende da solo. Le missioni continuano la propria sessione; le esecuzioni usano il loro solito Riprendi.",
+    "progress": "Ripresa di {{done}} su {{total}}",
+    "notNow": "Non ora",
+    "resume_one": "Riprendi {{count}}",
+    "resume_other": "Riprendi {{count}}",
+    "resumed_one": "{{count}} elemento ripreso",
+    "resumed_other": "{{count}} elementi ripresi",
+    "prompt": {
+      "quit": "Specrails è stato chiuso mentre lavoravi alla mia ultima richiesta. Riprendi da dove avevi lasciato: controlla prima lo stato attuale e non rifare il lavoro già fatto.",
+      "update": "Specrails si è riavviato per installare un aggiornamento mentre lavoravi alla mia ultima richiesta. Riprendi da dove avevi lasciato: controlla prima lo stato attuale e non rifare il lavoro già fatto.",
+      "crash": "Specrails si è fermato in modo imprevisto mentre lavoravi alla mia ultima richiesta. Riprendi da dove avevi lasciato: controlla prima lo stato attuale e non rifare il lavoro già fatto."
+    }
   }
 }
