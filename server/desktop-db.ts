@@ -305,7 +305,7 @@ function applyDesktopMigrations(db: DbInstance): void {
       )
     },
     // Migration 8: seed default ui_theme for the app-wide theme system.
-    // Allow-list enforced at the route layer (server/desktop-router.ts) and the
+    // Allow-list enforced at the route layer (server/desktop-router-settings.ts) and the
     // client (client/src/features/settings/lib/themes.ts).
     () => {
       db.prepare('INSERT OR IGNORE INTO hub_settings (key, value) VALUES (?, ?)').run(

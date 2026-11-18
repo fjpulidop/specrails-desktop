@@ -46,7 +46,7 @@ planning and Core writes `clarifications.json` in the run's pipeline directory
 pauses (`awaiting-answers`) and when it proceeds (`proceeded`, with the
 Assumptions lines of `design.md`).
 
-1. **Publish.** The composition (`project-registry.ts`) reads the record after
+1. **Publish.** The composition (`project-context-loops.ts`, wired by `project-registry.ts`) reads the record after
    every Core invocation ends (`LoopRunManager` option
    `onDefinitionInvocationEnd`, so a pause is seen while it waits) and again in
    `onLoopRunFinished`. When `jiraPostClarifications` is on and the connection

@@ -95,7 +95,29 @@ Each project in the `ProjectRegistry` gets its own `ProjectContext`:
 | `SetupManager` | Background workspace assembly for added projects (plus the legacy API/MCP install flow) |
 | `cwd` | Absolute path to the project directory on disk |
 
-The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so managers don't need per-project constructor arguments.
+The `boundBroadcast` closure (`project-context-broadcast.ts`) injects `projectId` into all WebSocket messages, so managers don't need per-project constructor arguments.
+
+`ProjectRegistry._loadProjectContext` is a short orchestrator. Each capability's
+wiring is a function in its own `server/project-context-*.ts` file that takes the
+inputs it needs and returns what it creates; the registry calls them in a
+documented order (admission closes first, Jira/audit before the queue, active loop
+runs captured before the loop engine, the context assembled before the services
+that need it, recovery last) and owns teardown in `removeProject`/`shutdown`.
+
+| File | Wiring it owns |
+|------|----------------|
+| `project-context-broadcast.ts` | `projectId` injection, late-bound observer taps, agent-job release |
+| `project-context-queue.ts` | `QueueManager` construction, admission claims, budget hooks, command catalog |
+| `project-context-job-outcome.ts` | `onJobFinished`: ticket outcome, addenda, rail release, Jira/webhook/WS fan-out |
+| `project-context-managers.ts` | Chat, setup, proposals, refine, spec launcher, file summaries, ticket watcher, browser capture |
+| `project-context-budget.ts` | Daily/period cap gates, run cap default, review WIP gate |
+| `project-context-loops.ts` | `LoopRunManager` and executors, host-task dispatcher, clarification publishing |
+| `project-context-loop-outcome.ts` | `onLoopRunFinished` and startup orphan loop reconciliation |
+| `project-context-milestones.ts` | Milestone launch chain and progress broadcaster |
+| `project-context-services.ts` | Mission resources, spec triage, trash purge, PR merge watch |
+| `project-context-intent.ts` | Intent service and hand-off authority |
+| `project-context-recovery.ts` | Ordered restart replay that reopens process admission; PR-decision reprojection |
+| `project-context-tickets.ts` | Project ticket-store path and spec readers |
 
 ---
 
@@ -106,8 +128,8 @@ The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so
 | `index.ts` | Entry point: PATH resolution, auth bootstrap, port binding, router mounts, WS server |
 | `auth.ts` | Token bootstrap + `requireAuth` middleware + WS upgrade token check |
 | `desktop-db.ts` | App-level SQLite: project registry CRUD, app settings |
-| `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext` |
-| `desktop-router.ts` | `/api/*` routes: projects, settings, themes, specrails-tech proxy, cross-project analytics |
+| `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext`; `_loadProjectContext` orchestrates the `project-context-*.ts` wiring (see below) |
+| `desktop-router.ts` | `/api/*` router composition; route groups live in `desktop-router-*.ts` (projects, providers, analytics, settings, agents/specrails-tech, webhooks, runtime providers, core update) |
 | `project-router.ts` | `/api/projects/:id/*` routes: all project-scoped operations |
 | `db.ts`, `db/` | Stable persistence facade with separate connection, migrations and domain repositories; see [source boundaries](source-architecture.md) |
 | `modules/execution/runtime/queue-manager.ts` | Legacy job queue: spawn provider CLI processes serially per project |
@@ -280,7 +302,7 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 | **Explore acceleration + Contract Refine** | `server/modules/conversations/runtime/explore-cwd-manager.ts`, `server/modules/specs/runtime/contract-refine-runner.ts` | App-managed Explore spawn cwd for fast first-token; optional post-commit Contract Layer enrichment. Kill switches: `SPECRAILS_EXPLORE_CONTRACT_REFINE`, `SPECRAILS_EXPLORE_LEGACY_CWD`. |
 | **Tickets / drafts** | `server/modules/specs/runtime/ticket-store.ts` | Spec tickets (incl. `draft` status) backing the Specs board and Save-as-Draft flow. |
 | **Jira integration** | `server/jira/*` (`jira-sync-manager`, `jira-client`, `jira-materializer`, `jira-status-resolver`, `jira-db`, `jira-credential-store`), `server/jira-router.ts` | Optional per-project sync that backs a project's specs with a Jira board (Cloud or Data Center). Desktop is the sync layer — specrails-core reads the materialized cache unchanged and stays read-only. Inbound polling + a durable outbox handle write-back (`transition`, `comment`, `update`, and `create` — durable promotion of a local ticket enqueued by `enqueuePromote`, idempotent on its key and on an existing link, sharing `promoteTicketToJira`'s create-link-flip logic; created issues carry an invisible `sh.specrails.created-from` property, so a retry recovers an issue whose create response was lost instead of creating a duplicate); the encrypted token lives on-device. Routes under `/api/projects/:id/jira/*` (gated by `SPECRAILS_JIRA_SECTION`, 404 when off); project-scoped WS events `jira.synced`, `jira.sync_error`, `jira.auth_expired`, `jira.outbox_changed`, `jira.degraded`. See [`../jira-integration-plan.md`](../jira-integration-plan.md). |
-| **Theme system** | `server/desktop-router.ts` (`GET/PATCH /api/theme`) | Five built-in themes (`dracula`, `aurora-light`, `obsidian-dark`, `matrix`, `specrails`), default `specrails`, persisted app-wide with an anti-FOUC inline script. |
+| **Theme system** | `server/desktop-router-settings.ts` (`GET/PATCH /api/theme`) | Five built-in themes (`dracula`, `aurora-light`, `obsidian-dark`, `matrix`, `specrails`), default `specrails`, persisted app-wide with an anti-FOUC inline script. |
 
 Most client feature sections are gated by VITE flags, and they share one polarity: `VITE_FEATURE_TERMINAL_PANEL`, `VITE_FEATURE_AGENTS_SECTION`, `VITE_FEATURE_EXPLORE_PREMIUM_UX`, and `VITE_FEATURE_CODE_EXPLORER` are all **opt-out** — default ON, set the flag to `false` to hide that section. See [`configuration.md`](configuration.md) for the full flag and settings reference.
 
@@ -288,7 +310,7 @@ Most client feature sections are gated by VITE flags, and they share one polarit
 
 ## Project add and workspace assembly
 
-There is no setup wizard in the app UI. `POST /api/projects` (`server/desktop-router.ts`) registers the project with the auto-detected providers, answers `201`, and then calls `SetupManager.startSilentAssemble` in the background (skipped when the workspace is already populated):
+There is no setup wizard in the app UI. `POST /api/projects` (`server/desktop-router-projects.ts`) registers the project with the auto-detected providers, answers `201`, and then calls `SetupManager.startSilentAssemble` in the background (skipped when the workspace is already populated):
 
 1. **Assemble** — one specrails-core `init` per detected provider, sequential, with per-provider failure isolation. The bundled Core is preferred (`spawnBundledCoreInit` in `server/offline-assemble.ts`, offline, with the bundled OpenSpec); without a bundle the fallback is `npx` with `CORE_PACKAGE_SPEC` from `server/core-package.ts` (currently `specrails-core@^6.0.0`, a deliberately pinned major range). `SPECRAILS_CORE_BIN` overrides the binary locally. Local (OpenAI-compatible) engines have no Core target and are skipped.
 2. **Relocation** — the framework lands in `~/.specrails/projects/<slug>/workspace` (`workspacePathFor`), never in the user's repository.

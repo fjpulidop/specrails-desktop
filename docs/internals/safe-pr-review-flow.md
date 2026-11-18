@@ -369,7 +369,7 @@ at launch:
   `SPECRAILS_BACKLOG_CONFIG_PATH` / `SPECRAILS_PROFILES_DIR` / `SPECRAILS_STATE_DIR` /
   `SPECRAILS_WORKSPACE_DIR`) rides the executors' lazily-resolved base env
   (`workspace-resolution.ts` `resolveLoopBaseEnv`, wired per project in
-  `project-registry.ts`) — the worktree's cwd-relative `${ENV:-legacy}` defaults would
+  `project-context-loops.ts`) — the worktree's cwd-relative `${ENV:-legacy}` defaults would
   otherwise resolve to nothing. Legacy projects keep `process.env` untouched.
 
 ## The one decision endpoint
@@ -715,11 +715,11 @@ New status in `TicketStatus` / `VALID_STATUSES` (`server/modules/specs/runtime/t
 **Universal ask-first (both completion chokepoints).** Under the default-on PR-delivery flag
 EVERY completed job/run promotes its tickets `todo|in_progress → on_review`, never `done`:
 
-- **Loop runs** (`project-registry.ts` `onLoopRunFinished`): explicit `ticketCompletionStatus`
+- **Loop runs** (`project-context-loop-outcome.ts` `onLoopRunFinished`): explicit `ticketCompletionStatus`
   from `launchIsolatedRail` (launch-captured `prMode`); absent opts default to the flag (see
   "Per-run settle" above) — covering shared-cwd rail launches, standalone loop runs, and the
   isolation-unavailable fallback.
-- **QueueManager jobs** (`project-registry.ts` `onJobFinished`): bare-mode launches, MCP
+- **QueueManager jobs** (`project-context-job-outcome.ts` `onJobFinished`): bare-mode launches, MCP
   `/spawn` jobs, freestyle Finalize, interactive auto-settles. `QueueManager._startJob` reads
   `isRailPrDeliveryEnabled()` ONCE per job at spawn — the SAME read that injects
   `SPECRAILS_GIT_AUTO=false` — records it in the in-memory `_jobPrDelivery` map (restart-durable

@@ -132,7 +132,7 @@ export function renderReadme(blueprint: Blueprint, name: string): string {
   return lines.join('\n')
 }
 
-/** Mirrors desktop-router's slugify/allocateSlug (kept local — same contract). */
+/** Mirrors desktop-router-projects' slugify/allocateSlug (kept local — same contract). */
 function slugifyName(name: string): string {
   return name
     .toLowerCase()

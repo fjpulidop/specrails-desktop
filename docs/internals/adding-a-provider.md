@@ -167,11 +167,11 @@ provider with zero edits):
 
 - `getAdapter` / `listAdapters` / `hasAdapter` (`server/providers/registry.ts`).
 - `detectAvailableCLIs` (`server/core-compat.ts`).
-- `GET /api/available-providers` (`server/desktop-router.ts`) — returns the
+- `GET /api/available-providers` (`server/desktop-router-providers.ts`) — returns the
   **full detected map** built by iterating the registry, not a hardcoded
   `{ claude, codex }` literal. A new provider shows up here with no edit
   (the only per-id touch on this route is an optional beta gate, below).
-- `POST /api/projects` provider validation (`server/desktop-router.ts`,
+- `POST /api/projects` provider validation (`server/desktop-router-projects.ts`,
   via `hasAdapter` / `listAdapters`).
 - `AddProjectDialog` (`client/src/features/projects/components/AddProjectDialog.tsx`) — it
   fetches `/available-providers` generically (`Object.entries(data)`) and a
@@ -208,7 +208,7 @@ makes it look first-class instead of falling back to a raw id:
 - **Beta gate (only if you ship behind a kill switch).** If your CLI's stream
   schema isn't yet validated against a live binary, gate selection behind a
   `SPECRAILS_<ID>_BETA` env var. Mirror Codex/Gemini: add an
-  `isXBetaDisabled()` helper in `server/desktop-router.ts` (return `true`
+  `isXBetaDisabled()` helper in `server/provider-detection.ts` (return `true`
   only when the env value is the **exact string `'0'`** — both providers are
   default-**enabled**), force the provider `false` in the `/available-providers`
   response when disabled, and reject it in `POST /projects` with the same 400
@@ -387,7 +387,7 @@ The genuine id-keyed sites that **remain** are:
   `adapter.id === 'codex'`.
 
 Plus a few cosmetic per-id sites that are *expected* edits, not drift: the
-provider beta-gate env checks (`server/desktop-router.ts`), the install-hint
+provider beta-gate env checks (`server/desktop-router-providers.ts`, `server/desktop-router-projects.ts`), the install-hint
 `switch` (`server/setup-prerequisites.ts`), the `PROVIDER_ORDER` / `PROVIDER_META`
 chip, and the duplicated model catalog (`server/modules/specs/runtime/spec-models.ts`).
 

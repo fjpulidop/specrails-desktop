@@ -21,7 +21,7 @@ Producers live with their streams: `QueueManager`, `InteractiveJobSession`
 (`onProviderEvent`), `LoopRunManager`, `MissionSessionProjector`,
 `AgentChatManager`, `recordMissionMcpAction` in `server/mcp/tools/types.ts` and
 `recordProvenanceForJob` (direct insert in the provenance transaction).
-Composition: `server/project-registry.ts` (one runtime per project connection)
+Composition: `server/project-registry.ts` (one runtime per project connection; consumers wired in `server/project-context-queue.ts` and `server/project-context-loops.ts`)
 and `server/index.ts` (missions resolve the pinned project's recorder).
 
 ## Invariants

@@ -60,7 +60,7 @@ resolved diagnostic for later history reads.
 
 ## Host tasks
 
-`runtime/host-task-dispatcher.ts` resolves Core `host-task` machine interrupts (capability `hostTasks`, contract 5.11): a registry `task → handler` bound at composition (project-registry), dispatches persisted in `host_task_dispatches` (migration 88) before acting and their results before Core resumes with `--host-result`, replay of a recorded result after a restart, and cancellation per run. Handlers live in their capability module (PR CI: `delivery/runtime/pr-ci`).
+`runtime/host-task-dispatcher.ts` resolves Core `host-task` machine interrupts (capability `hostTasks`, contract 5.11): a registry `task → handler` bound at composition (project-context-loops, wired by project-registry), dispatches persisted in `host_task_dispatches` (migration 88) before acting and their results before Core resumes with `--host-result`, replay of a recorded result after a restart, and cancellation per run. Handlers live in their capability module (PR CI: `delivery/runtime/pr-ci`).
 
 ## Loop admission
 

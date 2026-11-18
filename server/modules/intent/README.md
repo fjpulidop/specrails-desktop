@@ -18,7 +18,7 @@ ports-and-adapters slice.
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
 | Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `IntentTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
-| Production wiring | [project-registry.ts](../../project-registry.ts) (per project), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
+| Production wiring | [project-context-intent.ts](../../project-context-intent.ts) (per project, called by [project-registry.ts](../../project-registry.ts)), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
 
 ## Frozen identifiers
 

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 const ROOT = path.resolve(__dirname, '../../../..')
 const SPAWN_PATHS = [
   'server/modules/execution/runtime/queue-manager.ts',
-  'server/project-registry.ts',
+  'server/project-context-loops.ts',
   'server/modules/agent-runtime/runtime/agent-runtime-controls.ts',
   'server/modules/missions/runtime/agent-chat-manager.ts',
   'server/index.ts',
@@ -17,7 +17,7 @@ const SPAWN_PATHS = [
   'server/modules/specs/runtime/contract-refine-runner.ts',
   'server/modules/specs/runtime/smash-runner.ts',
   'server/modules/agents/runtime/agent-refine-manager.ts',
-  'server/project-router-tickets.ts',
+  'server/project-router-tickets-ai-edit.ts',
 ]
 
 describe('agent environment builder coverage', () => {

@@ -96,7 +96,7 @@ export interface RegistryFile {
 }
 
 /**
- * Slug derivation — byte-identical to `slugify` in `server/desktop-router.ts`
+ * Slug derivation — byte-identical to `slugify` in `server/desktop-router-projects.ts`
  * (and to specrails-core's port). Do NOT "improve" it; parity is the contract.
  */
 export function slugify(name: string): string {

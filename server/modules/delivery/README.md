@@ -78,7 +78,7 @@ behind the review packet's Changes tab: delivery head against its merge-base
 (file list, counts, per-file content hash, lazily parsed hunks) plus the
 annotations the delivery already holds. Read-only; git runs through the hardened
 `gitExecEnv` reader and the file endpoint only accepts listed paths. Routes
-`GET /rails/pr-deliveries/:id/changes[/file]` are in `rails-router.ts`. Reviewer
+`GET /rails/pr-deliveries/:id/changes[/file]` are in `rails-review-http.ts`. Reviewer
 finding anchors come from Core contract 5.9 (`readFindingLocations` in
 `delivery-evidence.ts`); older evidence stays unanchored. Real-Git tests:
 [`runtime/delivery-changes.test.ts`](runtime/delivery-changes.test.ts). See the
@@ -117,6 +117,24 @@ A mission can offer the same card for any open same-repository PR of a project r
 - [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
 - [runtime/run-records.ts](runtime/run-records.ts)
 - [runtime/run-review-diagnosis.ts](runtime/run-review-diagnosis.ts)
+
+## Rails HTTP routes
+
+[`runtime/rails-router.ts`](runtime/rails-router.ts) only composes the per-project
+`/rails` router and fixes registration order; each concern registers its own
+routes:
+
+| File | Owns |
+| --- | --- |
+| [`rails-state-http.ts`](runtime/rails-state-http.ts) | list, create and delete rail slots; open-PR candidates |
+| [`rails-settings-http.ts`](runtime/rails-settings-http.ts) | tickets/mode, profile, engine and name of a rail |
+| [`rails-launch-http.ts`](runtime/rails-launch-http.ts) | launch/relaunch admission door, PR CI start on a rail, stop |
+| [`rails-pr-ci-http.ts`](runtime/rails-pr-ci-http.ts) | PR CI status/availability, mission-origin admissions, offer dismiss |
+| [`rails-review-http.ts`](runtime/rails-review-http.ts) | review packet, Changes tab, PR decision, local-changes actions, PR checkout |
+| [`rails-http-shared.ts`](runtime/rails-http-shared.ts) | request context, mode normalization, rail/PR broadcasts, `:railIndex` guard |
+| [`rail-delivery-revision.ts`](runtime/rail-delivery-revision.ts) | pure delivery-snapshot predicates (continuation, revision, checkout target) |
+
+Route tests stay in `rails-router*.test.ts` and exercise the composed router.
 
 ## Phase-3 run records
 
