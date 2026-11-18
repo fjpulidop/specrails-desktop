@@ -64,7 +64,7 @@ pub fn permits_command(label: &str, command: &str) -> bool {
     is_mission_window(label) && (command.starts_with("browser_") || matches!(command,
         "plugin_window_open" | "loop_window_open" | "mission_windows_supported" | "mission_windows_list" | "mission_window_current" |
         "mission_window_ready" | "mission_window_attach" | "mission_window_cancel" |
-        "mission_window_focus" | "mission_window_discard" | "desktop_reveal_path" | "desktop_save_text"))
+        "mission_window_focus" | "mission_window_discard" | "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes"))
 }
 
 fn ensure_caller(caller: &Webview) -> Result<(), String> {

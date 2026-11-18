@@ -65,7 +65,7 @@ fn safe_token(value: &str, max: usize) -> bool { !value.is_empty() && value.len(
 /// needs. They can never open other windows, browsers or missions.
 pub fn permits_command(label: &str, command: &str) -> bool {
     let Some(entry) = entry(label) else { return false };
-    matches!(command, "surface_window_result" | "surface_window_toast" | "desktop_reveal_path" | "desktop_save_text")
+    matches!(command, "surface_window_result" | "surface_window_toast" | "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes")
         || spec(entry.surface).is_some_and(|spec| spec.commands.contains(&command))
 }
 

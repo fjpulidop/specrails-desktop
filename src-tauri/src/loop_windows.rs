@@ -8,7 +8,7 @@ fn registry() -> &'static Mutex<HashMap<String, String>> {
 }
 pub fn permits_command(label: &str, command: &str) -> bool {
     registry().lock().map(|entries| entries.values().any(|entry| entry == label)).unwrap_or(false)
-        && matches!(command, "desktop_reveal_path" | "desktop_save_text")
+        && matches!(command, "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes")
 }
 fn allowed_navigation(origin: &tauri::Url, target: &tauri::Url, surface: &str) -> bool {
     target.scheme() == origin.scheme() && target.host_str() == origin.host_str()

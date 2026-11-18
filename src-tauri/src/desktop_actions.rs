@@ -56,6 +56,53 @@ pub async fn desktop_save_text(app: tauri::AppHandle, webview: tauri::Webview, s
     }).await.map_err(|_| "the save action was interrupted".to_string())?
 }
 
+const MAX_BINARY_BYTES: usize = 64 * 1024 * 1024;
+/// Header carrying the percent-encoded suggested file name of a binary save.
+const SUGGESTED_NAME_HEADER: &str = "x-specrails-suggested-name";
+
+/// `encodeURIComponent` reversed; `None` for malformed escapes or invalid UTF-8.
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+/// The suggested name and raw bytes of a binary save request (raw IPC body).
+fn binary_save_payload(name_header: Option<&str>, body: &tauri::ipc::InvokeBody) -> Result<(String, Vec<u8>), String> {
+    let name = name_header.and_then(percent_decode).ok_or_else(|| "a suggested filename is required".to_string())?;
+    save_name(&name)?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = body else { return Err("the file content must be sent as raw bytes".into()) };
+    if bytes.len() > MAX_BINARY_BYTES { return Err("the file exceeds the 64 MB export limit".into()); }
+    Ok((name, bytes.clone()))
+}
+
+/// Binary-safe sibling of `desktop_save_text` (ZIP reports). The bytes travel
+/// as the raw IPC body, never as a JSON number array; the host owns the save
+/// dialog and writes only the file the person picked.
+#[tauri::command]
+pub async fn desktop_save_bytes(app: tauri::AppHandle, webview: tauri::Webview, request: tauri::ipc::Request<'_>) -> Result<bool, String> {
+    let header = request.headers().get(SUGGESTED_NAME_HEADER).and_then(|value| value.to_str().ok());
+    let (suggested_name, bytes) = binary_save_payload(header, request.body())?;
+    let parent = webview.window();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app.dialog().file().set_parent(&parent).set_file_name(suggested_name).blocking_save_file() else { return Ok(false); };
+        let path = file.into_path().map_err(|_| "the selected save location is unavailable".to_string())?;
+        std::fs::write(path, bytes).map_err(|_| "the file could not be saved to the selected location".to_string())?;
+        Ok(true)
+    }).await.map_err(|_| "the save action was interrupted".to_string())?
+}
+
 /// The platform's own "default" notification sound name: macOS maps this exact
 /// string to `NSUserNotificationDefaultSoundName`, WinRT parses `Default`, and
 /// freedesktop servers look the name up in the sound theme.
@@ -120,6 +167,19 @@ mod tests {
     fn save_suggestion_is_a_filename_not_a_path() {
         assert_eq!(save_name("terminal-scrollback.txt").unwrap(), "terminal-scrollback.txt");
         for name in ["", "../secret", "C:\\secret", "../", "..", "x\ny"] { assert!(save_name(name).is_err()); }
+    }
+    #[test]
+    fn binary_saves_take_raw_bytes_and_a_plain_encoded_filename() {
+        use tauri::ipc::InvokeBody;
+        let zip = vec![0x50, 0x4b, 0x03, 0x04, 0x00, 0xff];
+        let (name, bytes) = binary_save_payload(Some("specrails-report-20261118-093005.zip"), &InvokeBody::Raw(zip.clone())).unwrap();
+        assert_eq!((name.as_str(), bytes), ("specrails-report-20261118-093005.zip", zip));
+        assert_eq!(binary_save_payload(Some("informe%20%C3%B1.zip"), &InvokeBody::Raw(vec![1])).unwrap().0, "informe ñ.zip");
+        assert!(binary_save_payload(None, &InvokeBody::Raw(vec![1])).is_err());
+        assert!(binary_save_payload(Some("..%2Fescape.zip"), &InvokeBody::Raw(vec![1])).is_err());
+        assert!(binary_save_payload(Some("bad%2"), &InvokeBody::Raw(vec![1])).is_err());
+        assert!(binary_save_payload(Some("a.zip"), &InvokeBody::Json(serde_json::json!([1, 2]))).is_err());
+        assert!(binary_save_payload(Some("a.zip"), &InvokeBody::Raw(vec![0; MAX_BINARY_BYTES + 1])).is_err());
     }
     #[test]
     fn notification_sizes_and_sound_names_are_bounded() {

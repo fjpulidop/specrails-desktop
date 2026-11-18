@@ -972,6 +972,7 @@ pub fn run() {
             app_updates::check_app_update,
             desktop_actions::desktop_reveal_path,
             desktop_actions::desktop_save_text,
+            desktop_actions::desktop_save_bytes,
             desktop_actions::desktop_notify,
             desktop_actions::desktop_set_badge,
             desktop_actions::desktop_focus_state,
