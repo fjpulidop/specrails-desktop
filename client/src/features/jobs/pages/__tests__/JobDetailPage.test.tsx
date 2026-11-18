@@ -119,9 +119,9 @@ describe('JobDetailPage', () => {
     render(<JobDetailPage />)
     expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
     const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
-    fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
     expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
-    expect(panel).toContainElement(screen.getByTestId('job-run-details'))
+    fireEvent.click(within(screen.getByTestId('run-detail-bar')).getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog', { name: 'Details' })).toContainElement(screen.getByTestId('job-run-details'))
     expect(screen.getByTestId('run-detail-bar')).not.toContainElement(panel)
     expect(within(screen.getByTestId('run-detail-bar')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
@@ -649,7 +649,7 @@ describe('JobDetailPage', () => {
         })
       render(<JobDetailPage />)
 
-      // Numbers live behind the collapsed Details disclosure.
+      // Numbers live behind the Details popover.
       fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
       await waitFor(() => {
         expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()

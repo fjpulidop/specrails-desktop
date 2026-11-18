@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1755 source/build files. Nearby tests are linked where names
+Includes 1756 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -93,6 +93,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [load-error.tsx](../../client/src/components/ui/load-error.tsx)
 - [overflow-actions.tsx](../../client/src/components/ui/overflow-actions.tsx)
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
+- [popover.tsx](../../client/src/components/ui/popover.tsx) · [test](../../client/src/components/ui/__tests__/popover.test.tsx)
 - [segmented-control.tsx](../../client/src/components/ui/segmented-control.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)

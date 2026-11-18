@@ -6,11 +6,15 @@ Pulsa cualquier tarjeta de trabajo en la página **Trabajos** y aterrizas aquí:
 
 La cabecera compacta conserva estado, duración, fase, acciones y chips del pipeline. Justo debajo, **una única fila de navegación** reúne todo lo que puedes consultar:
 
-- **Motivos del fallo** — presente en una ejecución fallida o cancelada con diagnóstico, y seleccionada primero. Una pregunta pendiente que admita respuesta también la habilita: pulsa el botón de pregunta de la cabecera para abrir Detalles y responder, incluso sin diagnóstico.
+- **Motivos del fallo** — presente en una ejecución fallida o cancelada con diagnóstico, y seleccionada primero. Una pregunta pendiente que admita respuesta también la habilita: pulsa el botón de pregunta de la cabecera para ir allí y responder, incluso sin diagnóstico.
 - **Grafo de ejecución** y **Detalle del registro** — en las ejecuciones de loop, el grafo del workflow y el registro paso a paso.
 - **Registro** — en los trabajos normales, el log en streaming.
 
-El desplegable acotado **Detalles** (cifras reales y controles de ejecución) acompaña a Motivos del fallo cuando esa pestaña existe, y al registro en caso contrario. La última sección del registro que elegiste y si Detalles está expandido se recuerdan por separado para la página y para la ventana de la misión; la pestaña seleccionada se restablece en cada visita. El compositor permanece debajo de la evidencia.
+Junto a las pestañas solo aparecen los chips que la ejecución se ha ganado: **Verificación** (con el número de comprobaciones, en el color de su estado) cuando la ejecución registró evidencia de verificación — púlsalo para ver las comprobaciones y su salida — y un botón **Detalles** (icono de gráfico de barras) cuando hay cifras reales que mostrar. Ambos se abren como ventanas emergentes, así que el registro conserva siempre toda la altura. La última sección del registro que elegiste se recuerda por separado para la página y para la ventana de la misión; la pestaña seleccionada se restablece en cada visita.
+
+### Instrucciones de ejecución
+
+Mientras la ejecución pueda leerlas, un compositor de una línea queda anclado al pie del registro: escribe lo que el agente debe tener en cuenta y pulsa el botón de enviar o **⌘↵** (**Ctrl+Intro**). **Intro** añade una línea. La **ⓘ** explica la regla: las instrucciones se aplican en el siguiente turno compatible del agente; no responden preguntas ni conceden aprobaciones. Lo que enviaste aparece como un chip junto al compositor — *1 en cola*, *2 aplicadas* — que lista cada mensaje y su estado. Cuando la ejecución termina, el compositor desaparece; una ejecución pasada que recibió instrucciones conserva el chip, de solo lectura, junto a las pestañas.
 
 En la app de escritorio, un trabajo abierto desde una misión se muestra en **su propia ventana**, una ventana por trabajo. Pulsa **Escape** o cierra la ventana para volver; la versión de navegador muestra el mismo contenido en un modal.
 
@@ -35,7 +39,7 @@ Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proye
 
 ## Métricas en vivo — honestas por diseño
 
-La cabecera compacta muestra estado, duración, actividad, pasos y acciones. Las cifras reales y los controles de continuación están en **Detalles**, dentro de un panel acotado:
+La cabecera compacta muestra estado, duración, actividad, pasos y acciones. Las cifras reales y las notas de continuación se abren desde el botón **Detalles** junto a las pestañas:
 
 | Métrica | Cuándo ves el valor real |
 |--------|------------------------------|

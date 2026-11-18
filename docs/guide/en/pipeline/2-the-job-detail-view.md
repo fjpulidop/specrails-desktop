@@ -6,11 +6,15 @@ Click any job card on the **Jobs** page and you land here: the cockpit for a sin
 
 The compact header keeps status, elapsed time, phase, actions and pipeline chips. Right below it, **one navigation row** holds everything you can look at:
 
-- **Failure reasons** — present for a failed or canceled run with a diagnosis, and selected first. An answerable pending question also makes it available: click the header's question button to open Details and answer it, even without a diagnosis.
+- **Failure reasons** — present for a failed or canceled run with a diagnosis, and selected first. An answerable pending question also makes it available: click the header's question button to jump there and answer it, even without a diagnosis.
 - **Execution graph** and **Log detail** — for loop runs, the graph of the workflow and the step-by-step log.
 - **Log** — for plain jobs, the streaming log.
 
-The bounded **Details** disclosure (real figures and runtime controls) sits with Failure reasons when that tab exists, and with the log otherwise. The log section you last chose and whether Details is expanded are remembered separately for the page and the mission window; the selected tab resets on each visit. The composer remains below the evidence.
+Beside the tabs sit only the chips the run has earned: **Verification** (with the check count, in the run's state colour) when the run recorded verification evidence — click it to see the checks and their output — and a **Details** button (bar-chart icon) when there are real figures to show. Both open as popovers, so the log always keeps the full height. The log section you last chose is remembered separately for the page and the mission window; the selected tab resets on each visit.
+
+### Run instructions
+
+While a run can still read them, a one-line composer is docked at the bottom of the log: type what the agent should take into account and press the send button or **⌘↵** (**Ctrl+Enter**). **Enter** adds a line. The **ⓘ** explains the rule: instructions are applied at the agent's next compatible turn; they don't answer a question or grant an approval. What you sent appears as a chip next to the composer — *1 queued*, *2 applied* — that lists each message and its status. Once the run settles the composer disappears; a past run that received instructions keeps the chip, read-only, beside the tabs.
 
 In the desktop app, a job opened from a mission shows in **its own window**, one window per job. Press **Escape** or close the window to return; the browser version shows the same content in a modal.
 
@@ -35,7 +39,7 @@ Which agent handles each phase is decided by the project's **agent profile**. Th
 
 ## Live metrics — honest by design
 
-The compact status header shows status, elapsed time, current activity, steps and actions. Real figures and runtime continuation controls are available in the bounded **Details** disclosure:
+The compact status header shows status, elapsed time, current activity, steps and actions. Real figures and runtime continuation notes open from the **Details** button beside the tabs:
 
 | Metric | When you see the real value |
 |--------|------------------------------|

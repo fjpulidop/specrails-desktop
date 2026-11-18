@@ -8,10 +8,7 @@ import {
   formatPipelineCost,
   formatPipelineTokens,
   formatWallClock,
-  loadJobRunDetailsOpen,
   resolveActivityLabel,
-  saveJobRunDetailsOpen,
-  JOB_RUN_DETAILS_KEY,
   JOB_RUN_LOG_SECTION_KEY,
   loadJobRunLogSection,
   saveJobRunLogSection,
@@ -181,38 +178,14 @@ describe('pipeline totals', () => {
   })
 })
 
-describe('details disclosure memory', () => {
-  beforeEach(() => localStorage.clear())
-  it('is collapsed by default and remembered per surface', () => {
-    expect(loadJobRunDetailsOpen('page')).toBe(false)
-    saveJobRunDetailsOpen('page', true)
-    expect(loadJobRunDetailsOpen('page')).toBe(true)
-    expect(loadJobRunDetailsOpen('glass')).toBe(false)
-    saveJobRunDetailsOpen('glass', true)
-    expect(JSON.parse(localStorage.getItem(JOB_RUN_DETAILS_KEY)!)).toEqual({ page: true, glass: true })
-  })
-  it('tolerates a corrupt stored value', () => {
-    localStorage.setItem(JOB_RUN_DETAILS_KEY, '{oops')
-    expect(loadJobRunDetailsOpen('page')).toBe(false)
-    saveJobRunDetailsOpen('page', true)
-    expect(loadJobRunDetailsOpen('page')).toBe(true)
-  })
-})
-
 describe('run detail preferences', () => {
   beforeEach(() => localStorage.clear())
-  it('keeps sections and legacy Details independent per surface', () => {
+  it('keeps sections independent per surface', () => {
     expect(loadJobRunLogSection('page')).toBe('graph')
     saveJobRunLogSection('page', 'detail')
     saveJobRunLogSection('modal', 'graph')
     expect(loadJobRunLogSection('page')).toBe('detail')
     expect(loadJobRunLogSection('modal')).toBe('graph')
-    localStorage.setItem(JOB_RUN_DETAILS_KEY, JSON.stringify({ page: true, glass: false }))
-    expect(loadJobRunDetailsOpen('page')).toBe(true)
-    expect(loadJobRunDetailsOpen('modal')).toBe(false)
-    saveJobRunDetailsOpen('modal', true)
-    expect(loadJobRunDetailsOpen('glass')).toBe(true)
-    expect(loadJobRunDetailsOpen('page')).toBe(true)
   })
   it.each(['broken', 'null', '[]', '42', '{"page":"other"}', '{"page":null}'])('rejects unsupported storage %s', raw => {
     localStorage.setItem(JOB_RUN_LOG_SECTION_KEY, raw)
@@ -223,12 +196,10 @@ describe('run detail preferences', () => {
   it('handles unavailable and quota-failing storage', () => {
     const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied') })
     expect(loadJobRunLogSection('page')).toBe('graph')
-    expect(loadJobRunDetailsOpen('modal')).toBe(false)
     expect(() => saveJobRunLogSection('modal', 'detail')).not.toThrow()
     read.mockRestore()
     const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota') })
     expect(() => saveJobRunLogSection('page', 'detail')).not.toThrow()
-    expect(() => saveJobRunDetailsOpen('modal', true)).not.toThrow()
     write.mockRestore()
   })
 })
