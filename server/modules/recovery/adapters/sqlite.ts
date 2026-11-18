@@ -4,6 +4,10 @@ import {
   type PresentedFailureDiagnosis,
 } from '../domain'
 import type { FailureAnalysis } from '../analysis'
+import { getAdapter, hasAdapter } from '../../../providers'
+
+/** The provider catalogs a `workflow_protocol` diagnosis reads its stronger-model suggestion from. */
+const providerCatalog = (provider: string) => (hasAdapter(provider) ? getAdapter(provider).modelCatalog() : null)
 
 interface RunRow {
   status: string
@@ -21,7 +25,7 @@ export function readRunDiagnosis(db: DbInstance, runId: string): PresentedFailur
   const run = db.prepare('SELECT status, final_outcome, failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as RunRow | undefined
   if (!run || run.status !== 'completed' || !isDiagnosableOutcome(run.final_outcome)) return null
   const stored = parseStoredDiagnosis(run.failure_diagnosis)
-  return presentFailureDiagnosis(stored ?? deriveFailureDiagnosis({ outcome: run.final_outcome }))
+  return presentFailureDiagnosis(stored ?? deriveFailureDiagnosis({ outcome: run.final_outcome }), providerCatalog)
 }
 
 /**

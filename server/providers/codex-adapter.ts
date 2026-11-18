@@ -55,10 +55,10 @@ const CODEX_MODELS = [
   { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', minCliVersion: '0.159.0' },
   { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
   { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
-  { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna', small: true as const },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
-  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', small: true as const },
 ] as const
 
 // Model-specific CLI capabilities (models/list, reviewed 2026-09-05).

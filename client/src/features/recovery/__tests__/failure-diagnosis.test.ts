@@ -116,3 +116,16 @@ describe('incomplete tasks on the wire', () => {
     expect(readFailureDiagnosis({ kind: 'spec_invalid', confidence: 'high', remedies: [] })?.kind).toBe('spec_invalid')
   })
 })
+
+describe('workflow protocol record (Core contract 5.16)', () => {
+  it('reads the role, the model and a well-formed stronger-model suggestion only', () => {
+    const wire = { ...base, kind: 'workflow_protocol', role: 'plan', model: 'haiku', strongerModel: { provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' }, remedies: ['resume', 'retry', 'open-logs'] }
+    expect(readFailureDiagnosis(wire)).toMatchObject({ kind: 'workflow_protocol', role: 'plan', model: 'haiku', strongerModel: { model: 'sonnet' }, remedies: ['resume', 'retry', 'open-logs'] })
+    expect(readFailureDiagnosis({ ...wire, strongerModel: { provider: 'claude' } })?.strongerModel).toBeNull()
+    const read = readFailureDiagnosis(wire)!
+    expect(headlineKey(read, 'Architect')).toEqual({ key: 'headline.workflow_protocol.role', params: { phase: 'Architect', count: 4, role: 'plan' } })
+    expect(whyKey(read)).toEqual({ key: 'why.workflow_protocol.stronger', params: { model: 'haiku', stronger: 'Claude Sonnet 5.5' } })
+    expect(whyKey({ ...read, strongerModel: null })).toEqual({ key: 'why.workflow_protocol.plain', params: {} })
+  })
+})
+

@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/button'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
 import { formatResetTime } from '../../provider-quota/lib/format-reset'
+import { modelLabel } from '../../../lib/model-label'
 import type { FailureAnalysisState } from '../hooks/useFailureAnalysis'
 import {
   availableRemedies, headlineKey, humanizePhase, recordedStepError, whyKey,
@@ -27,6 +28,7 @@ const KIND_LOOK: Record<FailureDiagnosis['kind'], { icon: LucideIcon; tone: Tone
   crash: { icon: Unplug, tone: 'failed' },
   incomplete_tasks: { icon: ListChecks, tone: 'caution' },
   spec_invalid: { icon: FilePenLine, tone: 'failed' },
+  workflow_protocol: { icon: ListChecks, tone: 'caution' },
   unknown: { icon: CircleHelp, tone: 'neutral' },
 }
 
@@ -57,8 +59,12 @@ export function useDiagnosisText(diagnosis: FailureDiagnosis): { headline: strin
   const phaseName = (id: string): string => tRuntime(`roles.${id}`, { defaultValue: humanizePhase(id) ?? id })
   const head = headlineKey(diagnosis, diagnosis.phase ? phaseName(diagnosis.phase) : null)
   const why = whyKey(diagnosis)
-  const whyParams = why && typeof why.params.resetsAt === 'string' ? { ...why.params, time: formatResetTime(why.params.resetsAt, i18n.language) } : why?.params
-  return { headline: t(head.key, head.params), why: why ? t(why.key, whyParams) : null, phaseName }
+  const whyParams = why && typeof why.params.resetsAt === 'string' ? { ...why.params, time: formatResetTime(why.params.resetsAt, i18n.language) }
+    // A model slug (`haiku`) reads as its product name.
+    : why && typeof why.params.model === 'string' ? { ...why.params, model: modelLabel(why.params.model).text || why.params.model }
+      : why?.params
+  const headParams = typeof head.params.role === 'string' ? { ...head.params, role: phaseName(head.params.role) } : head.params
+  return { headline: t(head.key, headParams), why: why ? t(why.key, whyParams) : null, phaseName }
 }
 
 function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {

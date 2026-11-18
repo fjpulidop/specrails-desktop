@@ -32,6 +32,10 @@
     },
     "incomplete_tasks": "有已批准的任务未完成",
     "spec_invalid": "OpenSpec 拒绝了该变更的规范",
+    "workflow_protocol": {
+      "role": "{{role}} 的模型跳过了必需的 OpenSpec 步骤",
+      "plain": "模型跳过了必需的 OpenSpec 步骤"
+    },
     "unknown": "原因未知",
     "stepFailed": "{{phase}} 步骤失败"
   },
@@ -50,6 +54,10 @@
     "crash": "提供商进程或其连接在运行中断开了。",
     "incomplete_tasks": "其余工作都已完成。如果剩下的是只有人才能做的检查，就继续进入评审，并把它列为人工检查；否则重试，让运行用浏览器和工具完成它。",
     "spec_invalid": "计划或规范未通过 OpenSpec，规划也无法修复。",
+    "workflow_protocol": {
+      "plain": "即使收到提醒，它仍在未执行 Specrails 要求的步骤时结束了回合。该步骤之前的工作已保留：从该步骤继续。",
+      "stronger": "{{model}} 是小型模型，即使收到提醒，仍在未执行 Specrails 要求的步骤时结束了回合。从该步骤继续；如果再次发生，请为此角色选择 {{stronger}}。"
+    },
     "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。"
   },
   "remedies": {

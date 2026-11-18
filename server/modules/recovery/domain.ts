@@ -8,7 +8,7 @@
  */
 import { classifyProviderLimit } from '../../provider-limit'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 export type FailureConfidence = 'high' | 'low'
 export type FailureSource = 'core' | 'desktop'
@@ -48,12 +48,45 @@ export interface FailureDiagnosis {
   port?: number | null
   /** `incomplete_tasks`: the approved tasks still unticked, as the run named them. */
   incompleteTasks?: string[] | null
+  /** `workflow_protocol`: the role whose model skipped the required OpenSpec steps, what it ran on, and the steps. */
+  role?: string | null
+  provider?: string | null
+  model?: string | null
+  missingSteps?: string[] | null
   source: FailureSource
+}
+
+/** A stronger model of the same provider to run the role on (from the provider's own catalog). */
+export interface StrongerModel {
+  provider: string
+  model: string
+  label: string
 }
 
 /** What the API returns: the diagnosis plus its ranked remedies. */
 export interface PresentedFailureDiagnosis extends FailureDiagnosis {
   remedies: RemedyId[]
+  /** `workflow_protocol` on a small model: the provider's default model to suggest for that role. */
+  strongerModel?: StrongerModel | null
+}
+
+/** A provider's model catalog as its adapter lists it (`small` marks a smaller size class). */
+export type ModelCatalogLookup = (provider: string) => readonly { value: string; label: string; default?: boolean; small?: boolean }[] | null
+
+/**
+ * The model to suggest when a small model skipped the workflow: the provider's
+ * default, when the model that ran is one the catalog marks small. Pure; null
+ * when the catalog says nothing certain (unknown provider or model, not small).
+ */
+export function strongerModelFor(provider: string | null | undefined, model: string | null | undefined, catalog: ModelCatalogLookup): StrongerModel | null {
+  if (!provider || !model) return null
+  const models = catalog(provider)
+  if (!models) return null
+  // Catalog aliases (`haiku`) or a pinned id that names them (`claude-haiku-5-5`).
+  const ran = models.find((entry) => entry.value === model) ?? models.find((entry) => entry.small && model.split(/[-_/.:]/).includes(entry.value))
+  const recommended = models.find((entry) => entry.default && !entry.small)
+  if (!ran?.small || !recommended || recommended.value === ran.value) return null
+  return { provider, model: recommended.value, label: recommended.label }
 }
 
 const DETAIL_LIMIT = 280
@@ -129,6 +162,10 @@ export function parseCoreFailure(raw: unknown): FailureDiagnosis | null {
     blocker: parseBlocker(value.blocker),
     ...(kind === 'port_in_use' ? { port: validPort(value.port) } : {}),
     ...(kind === 'incomplete_tasks' ? { incompleteTasks: taskList(value.incompleteTasks) } : {}),
+    ...(kind === 'workflow_protocol' ? {
+      role: optionalText(value.role, 64), provider: optionalText(value.provider, 64), model: optionalText(value.model, 128),
+      missingSteps: Array.isArray(value.missingSteps) ? value.missingSteps.filter((step): step is string => typeof step === 'string' && !!step.trim()).slice(0, 4).map((step) => step.trim().slice(0, 64)) : null,
+    } : {}),
     source: 'core',
   }
 }
@@ -163,6 +200,9 @@ const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host block
 const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
 // Core's own sentence for a host precondition (a fixed template, not a guess).
 const HOST_PRECONDITION = /Verification cannot run in this environment/i
+// Core's fixed sentence for a role that ended without its required OpenSpec steps; a Core
+// before contract 5.16 sends it with no classification (or `unknown`).
+const WORKFLOW_PROTOCOL = /Required OpenSpec role workflow was not executed: (\S+) must execute \S+ \(missing ([^)]*)\)/
 
 /**
  * Diagnosis of a terminal run. Core's classification wins; otherwise only
@@ -206,6 +246,11 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (limit) return make('provider_limit', 'high', { resetAt: limit.resetsAt, detail: oneSentence(limit.message) })
   if (BASELINE_CODE.test(text)) return make('blocked', 'high')
   if (HOST_PRECONDITION.test(text)) return make('environment', 'high')
+  const skipped = WORKFLOW_PROTOCOL.exec(text)
+  if (skipped) {
+    const missingSteps = skipped[2]!.split(',').map((step) => step.trim()).filter(Boolean).slice(0, 4)
+    return make('workflow_protocol', 'high', { role: skipped[1]!, provider: null, model: null, missingSteps, resumablePhase: input.stepId ?? null, phase: core?.phase ?? input.stepId ?? null })
+  }
   return core ? { ...core, phase: core.phase ?? input.stepId ?? null } : make('unknown', 'low')
 }
 
@@ -217,7 +262,7 @@ function portConflictOf(input: DeriveInput): { port: number | null; line: string
   return { port: conflict.port, line: oneSentence(conflict.line) ?? conflict.line }
 }
 
-const RESUMABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash'])
+const RESUMABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'workflow_protocol'])
 
 /** Ranked remedies for a diagnosis. Order matters: the client shows the first available ones (at most three). */
 export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'resumablePhase'>): RemedyId[] {
@@ -240,12 +285,16 @@ export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confide
     // run can finish with its tools (retry from the developer with the unblock guidance).
     case 'incomplete_tasks': return ['continue-to-review', 'retry-with-browser', 'open-logs', 'retry']
     case 'spec_invalid': return ['edit-spec', 'open-logs', 'retry']
+    // The work before the step is fine: continue from it (Core reruns the role with a
+    // fresh corrective budget); a person may also run it again on a stronger model.
+    case 'workflow_protocol': return [...resume, 'retry', 'open-logs']
     default: return ['open-logs', 'retry']
   }
 }
 
-export function presentFailureDiagnosis(diagnosis: FailureDiagnosis): PresentedFailureDiagnosis {
-  return { ...diagnosis, remedies: rankRemedies(diagnosis) }
+export function presentFailureDiagnosis(diagnosis: FailureDiagnosis, catalog?: ModelCatalogLookup): PresentedFailureDiagnosis {
+  const strongerModel = diagnosis.kind === 'workflow_protocol' && catalog ? strongerModelFor(diagnosis.provider, diagnosis.model, catalog) : null
+  return { ...diagnosis, remedies: rankRemedies(diagnosis), ...(diagnosis.kind === 'workflow_protocol' ? { strongerModel } : {}) }
 }
 
 /** Outcomes that deserve a diagnosis. */

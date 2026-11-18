@@ -32,6 +32,10 @@
     },
     "incomplete_tasks": "Alcune attività approvate sono rimaste incomplete",
     "spec_invalid": "OpenSpec ha rifiutato la specifica della modifica",
+    "workflow_protocol": {
+      "role": "Il modello di {{role}} ha saltato passaggi OpenSpec obbligatori",
+      "plain": "Il modello ha saltato passaggi OpenSpec obbligatori"
+    },
     "unknown": "Causa sconosciuta",
     "stepFailed": "Il passo {{phase}} non è riuscito"
   },
@@ -50,6 +54,10 @@
     "crash": "Il processo del provider o la sua connessione è morto a metà esecuzione.",
     "incomplete_tasks": "Tutto il resto è fatto. Se ciò che manca è un controllo che solo una persona può fare, prosegui alla revisione con esso come controllo a mano; altrimenti riprova e lascia che l'esecuzione lo completi con il suo browser e i suoi strumenti.",
     "spec_invalid": "Il piano o la specifica non ha superato OpenSpec e la pianificazione non è riuscita a ripararlo.",
+    "workflow_protocol": {
+      "plain": "Ha concluso il turno senza i passaggi che Specrails richiede, anche dopo un promemoria. Il lavoro precedente a quel passaggio è conservato: riprendi da lì.",
+      "stronger": "{{model}} è un modello piccolo e ha concluso il turno senza i passaggi che Specrails richiede, anche dopo un promemoria. Riprendi da quel passaggio; se succede di nuovo, scegli {{stronger}} per questo ruolo."
+    },
     "unknown": "I registri dell'esecuzione non indicano la causa. Una lettura del log con l'IA di solito la trova."
   },
   "remedies": {

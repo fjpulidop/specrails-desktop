@@ -32,6 +32,10 @@
     },
     "incomplete_tasks": "Some approved tasks were left unfinished",
     "spec_invalid": "OpenSpec rejected the change's spec",
+    "workflow_protocol": {
+      "role": "The {{role}} model skipped required OpenSpec steps",
+      "plain": "The model skipped required OpenSpec steps"
+    },
     "unknown": "Unknown cause",
     "stepFailed": "The {{phase}} step failed"
   },
@@ -50,6 +54,10 @@
     "crash": "The provider process or its connection died mid-run.",
     "incomplete_tasks": "Everything else is done. If what is left is a check only a person can make, continue to review with it listed as a check by hand; otherwise retry and let the run finish it with its browser and tools.",
     "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
+    "workflow_protocol": {
+      "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: resume from it.",
+      "stronger": "{{model}} is a small model and ended its turn without the steps Specrails requires, even after a reminder. Resume from that step; if it happens again, choose {{stronger}} for this role."
+    },
     "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it."
   },
   "remedies": {
