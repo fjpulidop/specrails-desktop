@@ -154,6 +154,7 @@ function registerGeneralSettingsRoutes(router: Router, registry: ProjectRegistry
       subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb), updateChannel: getUpdateChannel(registry.desktopDb),
       // About: the real version and where this instance keeps its data (it follows SPECRAILS_REGISTRY_HOME).
       version: readDesktopVersion(),
+      runningPort: registry.desktopPort,
       databasePath: displayPath(registry.desktopDb.name),
     })
   })

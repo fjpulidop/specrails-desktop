@@ -217,6 +217,11 @@ export class ProjectRegistry {
     this._providerBilling = lookup
   }
 
+  /** The port this server instance listens on (may differ from the persisted `port` setting). */
+  get desktopPort(): number {
+    return this._desktopPort
+  }
+
   get desktopDb(): DbInstance {
     return this._desktopDb
   }

@@ -1,7 +1,7 @@
 {
   "language": {
     "title": "Language",
-    "description": "Desktop-wide UI language. Applies instantly — no restart needed.",
+    "description": "App-wide UI language. Applies instantly — no restart needed.",
     "selectLabel": "Interface language",
     "updateFailed": "Could not save the language preference"
   },
@@ -66,7 +66,7 @@
       "storage": "Storage"
     },
     "title": "Settings",
-    "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
+    "description": "Appearance, AI providers, updates and app-wide preferences.",
     "registeredProjects": "Registered projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
@@ -127,7 +127,7 @@
   },
   "terminal": {
     "title": "Terminal panel",
-    "desktopDescription": "Desktop-wide defaults applied to every project unless a per-project override is set.",
+    "desktopDescription": "App-wide defaults applied to every project unless a per-project override is set.",
     "projectDescription": "Per-project overrides for the terminal panel. Leave a field unchanged to inherit the Desktop default.",
     "fontFamily": "Font family",
     "fontSize": "Font size ({{min}}–{{max}})",

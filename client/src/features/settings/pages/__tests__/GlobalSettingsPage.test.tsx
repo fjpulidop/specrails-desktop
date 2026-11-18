@@ -48,6 +48,7 @@ vi.mock('../../../../hooks/useDesktop', () => ({
 const desktopSettings = {
   port: 4200,
   version: '2.3.4',
+  runningPort: 4395,
   databasePath: '~/.specrails-dev/.specrails/desktop.sqlite',
   specrailsTechUrl: 'http://localhost:3000',
 }
@@ -92,10 +93,10 @@ describe('GlobalSettingsPage (Settings dialog)', () => {
     })
   })
 
-  it('renders the Desktop-wide preferences description', async () => {
+  it('renders the app-wide preferences description', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Appearance, AI providers, updates and Desktop-wide preferences.')).toBeInTheDocument()
+      expect(screen.getByText('Appearance, AI providers, updates and app-wide preferences.')).toBeInTheDocument()
     })
   })
 
@@ -312,7 +313,8 @@ describe('GlobalSettingsPage (Settings dialog)', () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(screen.getByText('About', { selector: 'h3, h2, [data-setting-id] *' })).toBeInTheDocument()
-      expect(screen.getByTestId('about-port')).toHaveTextContent('4200')
+      // The port this instance listens on, not only the persisted setting.
+      expect(screen.getByTestId('about-port')).toHaveTextContent('4395')
     })
   })
 

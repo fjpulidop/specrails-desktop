@@ -60,6 +60,7 @@ function createMockRegistry(desktopDb: DbInstance) {
 
   const registry = {
     desktopDb,
+    desktopPort: 4395,
     notifySettingsChanged: vi.fn(),
     getContext: vi.fn((id: string) => contexts.get(id)),
     getContextByPath: vi.fn((projectPath: string) => {
@@ -582,6 +583,7 @@ describe('desktop-router', () => {
       const res = await request(app).get('/api/settings')
       expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/)
       expect(res.body.databasePath).toBe(desktopDb.name)
+      expect(res.body.runningPort).toBe(4395)
     })
   })
 

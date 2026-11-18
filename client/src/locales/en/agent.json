@@ -247,7 +247,7 @@
   "chip": {
     "kindAgent": "Agent mission"
   },
-  "newAgent": "New Mission",
+  "newAgent": "New mission",
   "switchToAgent": "Switch to Mission Control",
   "switchToKanban": "Switch to Board",
   "search": "Search",

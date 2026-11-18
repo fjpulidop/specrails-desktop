@@ -69,6 +69,8 @@ interface DesktopSettings {
   port: number
   specrailsTechUrl: string
   costAlertThresholdUsd: number | null
+  /** The port this server instance actually listens on (server). */
+  runningPort?: number
   /** The running app's version (server). */
   version?: string
   /** Where this instance keeps its database, home shortened to `~` (server). */
@@ -664,7 +666,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 {([
                   ['infoVersion', desktopSettings?.version && desktopSettings.version !== 'unknown' ? desktopSettings.version : null, 'about-version'],
                   ['infoDb', desktopSettings?.databasePath || null, 'about-database'],
-                  ['infoPort', desktopSettings?.port != null ? String(desktopSettings.port) : null, 'about-port'],
+                  ['infoPort', (desktopSettings?.runningPort ?? desktopSettings?.port) != null ? String(desktopSettings?.runningPort ?? desktopSettings?.port) : null, 'about-port'],
                   ['infoProjects', String(projects.length), 'about-projects'],
                 ] as const).map(([key, value, testId]) => value && (
                   <div key={key} className="flex items-center justify-between gap-3 text-xs">
