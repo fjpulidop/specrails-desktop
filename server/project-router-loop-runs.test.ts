@@ -6,6 +6,7 @@ import { initDb, type DbInstance } from './db'
 import { createLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
+import { readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { LoopGraph } from './modules/loops/runtime/loop-graph'
 
@@ -417,5 +418,46 @@ describe('project-router launch forecast (read-only)', () => {
     expect(res.body.time).toMatchObject({ p25Ms: 120_000, p75Ms: 240_000, sampleCount: 5 })
     expect(res.body.cost).toEqual({ lowUsd: 2, highUsd: 4, sampleCount: 5 })
     expect(res.body.budget).toEqual(budget)
+  })
+})
+
+describe('usage-limit pause controls (provider-quota)', () => {
+  const limit = { providerId: 'claude', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, message: 'limit', pausedAt: '2026-11-18T10:00:00.000Z', switchable: true }
+  function limitApp(live: typeof limit | null) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='limit_paused' WHERE id='run-1'").run()
+    const resolveLimitPause = vi.fn().mockReturnValue(true)
+    const app = buildApp({ provider: 'claude', providers: ['claude', 'codex'] }, {
+      db,
+      loopRunManager: { run: vi.fn(), cancel: vi.fn(), limitPause: vi.fn(() => live), resolveLimitPause, budgetPause: () => null },
+    })
+    return { app, db, resolveLimitPause }
+  }
+
+  it('resumes now, toggles the automatic resume and switches only to a provider that does not share the quota', async () => {
+    const { app, resolveLimitPause } = limitApp(limit)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'resume' })).status).toBe(202)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'resume' })
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: false })).status).toBe(200)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'auto', enabled: false })
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'claude' })).body.error).toBe('shares_quota')
+    const switched = await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })
+    expect(switched.status).toBe(202)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', expect.objectContaining({ action: 'switch', provider: 'codex' }))
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'nope' })).status).toBe(400)
+    // The regular Resume (inbox, run card) answers a live limit pause too.
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/resume').send({})).status).toBe(202)
+  })
+
+  it('edits the persisted pause of a run retained over a restart and refuses runs that are not limit-paused', async () => {
+    const { app, db } = limitApp(null)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: true })).status).toBe(409)
+    saveLimitPause(db, 'run-1', limit)
+    const res = await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: false })
+    expect(res.status).toBe(200)
+    expect(res.body.limit).toMatchObject({ autoResume: false })
+    expect(readLimitPause(db, 'run-1')?.autoResume).toBe(false)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })).body.error).toBe('switch_unavailable')
   })
 })

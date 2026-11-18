@@ -1,5 +1,7 @@
 import { installAppWorktreeProcessReaper, sweepSettledRunWorktrees } from './worktree-process-reaper'
 import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
+import { createDesktopQuotaStore } from './modules/provider-quota/runtime/composition'
+import { reportRateLimit } from './modules/provider-quota/runtime/quota-reports'
 // Note: the pkg-binary native-addon hijacks (better_sqlite3.node, node-pty, pty.node)
 // used to live here but had to move to an esbuild `banner.js` in scripts/build-sidecar.mjs
 // so they run BEFORE esbuild's top-of-bundle `require('node-pty')` statement.
@@ -372,6 +374,7 @@ let _getProjectCount: () => number = () => 0
 /** Captured by the Super-mode bootstrap block so graceful shutdown can tear down every
  *  project's spawners (rail/chat children) instead of orphaning them. */
 let _usageService: ReturnType<typeof createDesktopUsageService> | null = null
+let _quotaStore: ReturnType<typeof createDesktopQuotaStore> | null = null
 let _registry: ProjectRegistry | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
@@ -748,6 +751,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   })
 
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
+  // provider-quota: continues the person scheduled at a usage-limit reset survive restarts.
+  agentChatManager.restoreLimitContinues()
   _agentChatManager = agentChatManager
   // "Connectors in missions": each provider's own user-scope servers and account
   // connectors, on by default; the app-wide deny-list turns them off per turn.
@@ -757,7 +762,17 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // Core agent sessions (core-agent-sessions-host): one supervised Core host per
   // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
   // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
+  // Provider quota (machine-wide): fed by Core sessions/runs, Desktop's own
+  // streams and the subscription reader (composed below, resolved lazily).
+  let quotaUsageService: ReturnType<typeof createDesktopUsageService> | null = null
+  const quotaStore = createDesktopQuotaStore({
+    desktopDb: registry.desktopDb,
+    usage: () => quotaUsageService,
+    announce: (message) => broadcast(message as unknown as WsMessage),
+  })
+  _quotaStore = quotaStore
   const sessionHosts = new SessionHostRegistry({
+    onRateLimit: ({ driver, rateLimit, at }) => { reportRateLimit(driver ?? 'claude', rateLimit, 'session', at) },
     launcher: new CoreHostLauncher({
       host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' },
       // A project scope's host follows that project's agent environment mode
@@ -849,11 +864,15 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
   // everything else under /api/projects/:projectId/* falls through to the
   // project router.
-  const usageService = createDesktopUsageService()
+  const usageService = createDesktopUsageService({
+    // A run-observed window refreshed a usage row: push it (the UI does not poll for it).
+    onChange: () => broadcast({ type: 'subscription_usage.updated', snapshot: usageService.snapshot() } as unknown as WsMessage),
+  })
   _usageService = usageService
+  quotaUsageService = usageService
   // Intent cost: subscription-plan turns have no marginal cost.
   registry.setProviderBilling((provider) => usageService.resolveBilling(provider))
-  app.use('/api', createDesktopRouter(registry, broadcast, usageService, { missionConnectors }))
+  app.use('/api', createDesktopRouter(registry, broadcast, usageService, { missionConnectors, quotaStore }))
 
   // Per-project routes under /api/projects/:projectId/*
   app.use('/api/projects', createProjectRouter(registry))
@@ -983,6 +1002,7 @@ async function shutdown(exitCode = 0): Promise<void> {
   // children have received their termination signal.
   await Promise.allSettled([
     Promise.resolve().then(() => _usageService?.dispose()),
+    Promise.resolve().then(() => _quotaStore?.dispose()),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),

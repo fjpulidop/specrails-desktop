@@ -9,6 +9,8 @@ import { parseSpecAddendaReport } from '../../specs/runtime/spec-addenda-core'
 import { executionManifestPrompt } from '../../delivery/runtime/multi-repo-execution-store'
 import { parseVerificationSentinel } from '../../execution/runtime/verification-sentinel'
 import { classifyProviderLimit, describeProviderLimit } from '../../../provider-limit'
+import { historicalContext, resolveResetText } from '../../provider-quota/domain'
+import { quotaResumeAt, reportProviderRefusal } from '../../provider-quota/runtime/quota-reports'
 import type { CoreRunInput } from '../../../core-execution'
 import { interpolateSpec } from './loop-graph'
 import { expandCommands } from './loop-command-catalog'
@@ -25,7 +27,7 @@ import {
   withReviewContinuationContext,
 } from './loop-ai-step-signals'
 import { recordStepResult, stageAiAccounting } from './loop-run-ledger'
-import { awaitHumanDecision } from './loop-run-pauses'
+import { awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
 import { afterPhase, recoverPhase } from './loop-phase-recovery'
 import { DISPOSED, next, settle, type LoopNodeFrame, type LoopRunContext, type LoopRunState, type NodeStep } from './loop-run-context'
 import type { AiStepResult, LoopStepEventPayload } from './loop-run-contract'
@@ -258,35 +260,66 @@ async function retryResumeMiss(ctx: LoopRunContext, frame: LoopNodeFrame, step: 
 }
 
 // Provider usage/rate limit (run 52124009): the CLI answers with the
-// limit notice as the reply. Iterating on it burns cycles and hides
-// the real cause — stop the run at once with the provider's own
-// words and the reset hint, and tell every surface.
-function stopOnProviderLimit(ctx: LoopRunContext, attempt: AiAttempt): NodeStep | undefined {
+// limit notice as the reply. Iterating on it burns cycles and hides the
+// real cause. provider-quota: the step is closed as failed with the
+// provider's own words, then the run PAUSES (`limit_paused`) until the
+// reset — resuming by itself, now, or on another provider — and retries
+// the same step. A provider that keeps refusing after MAX_LIMIT_PAUSES
+// stops the run as before.
+async function holdOnProviderLimit(ctx: LoopRunContext, frame: LoopNodeFrame, step: RenderedAiStep, attempt: AiAttempt): Promise<NodeStep | undefined> {
   const { host, req, runId, state } = ctx
-  const { res } = attempt
-  const providerLimit = !host.isCancelled(runId)
-    ? (classifyProviderLimit(res.errorText) ?? classifyProviderLimit(res.text))
-    : null
-  if (!providerLimit) return undefined
-  const described = describeProviderLimit(providerLimit)
-  ctx.events.emitStepEnd({ status: 'failed', reason: 'provider_limit', durationMs: res.durationMs })
-  ctx.events.logLine(`■ Provider limit reached (${req.provider}): ${described}. Stopping the loop now — relaunch or Recover & retry after the reset.`, 'stderr')
-  ctx.history.push(`AI Step: ${truncate(res.text)}`)
-  recordStepResult(ctx, `loop:${runId}`, { ...res, failed: true }, attempt.startedAt, attempt.recoveryKey)
-  host.clearActiveStepRecovery(runId)
-  host.emit({
-    type: 'loop.provider_limit',
-    projectId: req.projectId,
-    runId,
-    provider: req.provider,
-    kind: providerLimit.kind,
-    message: providerLimit.message,
-    resetsAt: providerLimit.resetsAt,
-    timestamp: new Date().toISOString(),
-  })
-  state.stallReason = 'provider_limit'
-  state.providerLimitHit = providerLimit
-  return settle('stalled')
+  for (let pauses = 0; ; pauses++) {
+    const { res } = attempt
+    const providerLimit = !host.isCancelled(runId)
+      ? (classifyProviderLimit(res.errorText) ?? classifyProviderLimit(res.text))
+      : null
+    if (!providerLimit) return undefined
+    const described = describeProviderLimit(providerLimit)
+    // The typed report (when the run streamed one) names the exact reset; the prose is the fallback.
+    reportProviderRefusal(frame.provider, providerLimit.resetsAt)
+    const resumeAt = quotaResumeAt(frame.provider) ?? resolveResetText(providerLimit.resetsAt, host.now())
+    ctx.events.emitStepEnd({ status: 'failed', reason: 'provider_limit', durationMs: res.durationMs })
+    recordStepResult(ctx, `loop:${runId}`, { ...res, failed: true }, attempt.startedAt, attempt.recoveryKey)
+    host.clearActiveStepRecovery(runId)
+    host.emit({
+      type: 'loop.provider_limit',
+      projectId: req.projectId,
+      runId,
+      provider: frame.provider,
+      kind: providerLimit.kind,
+      message: providerLimit.message,
+      resetsAt: providerLimit.resetsAt,
+      ...(resumeAt ? { resumeAt } : {}),
+      timestamp: new Date().toISOString(),
+    })
+    if (pauses >= MAX_LIMIT_PAUSES) {
+      ctx.events.logLine(`■ Provider limit reached (${frame.provider}) again after ${pauses} pauses: ${described}. Stopping the loop.`, 'stderr')
+      ctx.history.push(`AI Step: ${truncate(res.text)}`)
+      state.stallReason = 'provider_limit'
+      state.providerLimitHit = providerLimit
+      return settle('stalled')
+    }
+    const outcome = await awaitProviderLimit(ctx, { providerId: frame.provider, resumeAt, message: described, switchable: true })
+    if (outcome.action === 'stop') return settle('stopped')
+    let sessionId = res.sessionId ?? state.aiSessionId
+    let current = step
+    const limitedProvider = frame.provider
+    if (outcome.action === 'switch') {
+      // Later steps run on the chosen provider too; its session starts fresh,
+      // carrying the run's record as historical data, never as instructions.
+      state.engineOverride = { provider: outcome.provider, model: outcome.model }
+      state.aiSessionId = undefined
+      sessionId = undefined
+      frame = { ...frame, provider: outcome.provider, model: outcome.model, effort: undefined }
+      const prior = historicalContext(limitedProvider, ctx.history.slice(-12))
+      current = { ...step, prompt: `${prior}\n\n${step.base}` }
+    }
+    ctx.events.emitStep('ai-step', step.stepTitle, frame.node.id, state.iteration + 1, { ...step.stepDetail, attempt: pauses + 2 })
+    const staged = stageAttempt(ctx, frame)
+    const next = await runStagedAttempt(ctx, frame, current, sessionId, staged.recoveryKey)
+    if (!next) return DISPOSED
+    Object.assign(attempt, staged, { res: next })
+  }
 }
 
 /** An implementation step must also pass the installed Core's deterministic
@@ -435,7 +468,7 @@ export async function executeAiStepNode(ctx: LoopRunContext, frame: LoopNodeFram
   // path the engine derives it from the result's accumulated signals
   // (aiStepZeroWork).
   const zeroWork = aiStepZeroWork(attempt.res)
-  const limited = stopOnProviderLimit(ctx, attempt)
+  const limited = await holdOnProviderLimit(ctx, frame, step, attempt)
   if (limited) return limited
   enforceCoreCompletion(ctx, frame, step, attempt, zeroWork)
   const verdict = judgeAiStep(ctx, frame, step, attempt.res, zeroWork)

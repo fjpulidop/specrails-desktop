@@ -7,7 +7,19 @@
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { runDefinitionLoop } from './loop-definition-run'
 import { getLoopRun, readDefinitionRun, saveDefinitionRun } from './loop-runs-store'
-import { awaitBudget, awaitHumanDecision } from './loop-run-pauses'
+import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
+import { parseCoreFailure } from '../../recovery/domain'
+import { classifyProviderLimit } from '../../../provider-limit'
+import { resolveResetText } from '../../provider-quota/domain'
+import { quotaResumeAt, reportProviderRefusal } from '../../provider-quota/runtime/quota-reports'
+import type { DefinitionRuntimeResult } from './loop-definition-run'
+import type { LoopRunRequest } from './loop-run-contract'
+
+/** The provider whose account refused: the one the quota store knows is refusing, else the run's own. */
+function limitedProvider(req: LoopRunRequest): string {
+  const candidates = [...new Set([req.provider, ...Object.values(req.graph.config.agents ?? {}).map(agent => (agent as { provider?: unknown })?.provider).filter((id): id is string => typeof id === 'string')])]
+  return candidates.find(id => quotaResumeAt(id) !== null) ?? req.provider
+}
 import type { LoopRunContext } from './loop-run-context'
 
 export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
@@ -48,6 +60,23 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
       if (state.totalCost > budgetCheckedCost) { budgetCheckedCost = state.totalCost; requestBudgetPause() }
     },
   })
+  // provider-quota: Core failed on a usage limit. Pause until the reset (or a
+  // person's resume) and resume the retained run; Core re-runs the refused step.
+  // A run with a durable completion cannot resume, so its failure stands.
+  let limitPauses = 0
+  const awaitLimit = async (result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle'> => {
+    const failure = parseCoreFailure(result.failure)
+    const limited = failure?.kind === 'provider_limit' || (!failure && classifyProviderLimit(result.errorText) !== null)
+    if (!limited || result.completion || host.isCancelled(runId) || host.isDisposed() || limitPauses >= MAX_LIMIT_PAUSES) return 'settle'
+    limitPauses += 1
+    const provider = limitedProvider(req)
+    const words = failure?.resetAt ?? classifyProviderLimit(result.errorText)?.resetsAt ?? null
+    reportProviderRefusal(provider, failure?.resetsAt ?? words)
+    const resumeAt = failure?.resetsAt ?? quotaResumeAt(provider) ?? resolveResetText(words, host.now())
+    const message = failure?.detail ?? classifyProviderLimit(result.errorText)?.message ?? 'The provider refused the request on its usage limit'
+    const outcome = await awaitProviderLimit(ctx, { providerId: provider, resumeAt, message, switchable: false })
+    return outcome.action === 'stop' ? 'stop' : 'continue'
+  }
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
   const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
     onPrepared: metadata => { saveDefinitionRun(db, runId, metadata) },
@@ -96,6 +125,7 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     },
     // Core exited 2 on the budget pause requested above. A budget raised
     // meanwhile resumes at once; otherwise the run waits like any budget pause.
+    awaitProviderLimit: awaitLimit,
     awaitHostPause: async pause => {
       if (pause.reason !== 'budget') throw new Error(`Core paused (${pause.reason}) without an addressable interrupt`)
       const breach = host.budgetBreach(runId)

@@ -120,6 +120,7 @@
         "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
         "../../loops/runtime/loop-turn-limits",
+        "../../provider-quota/runtime/stream-observer",
         "./agent-runtime-effective-config",
         "./agent-runtime-history",
         "./agent-runtime-loader",
@@ -873,6 +874,7 @@
         "../../accounting/runtime/ai-invocations",
         "../../accounting/runtime/result-event",
         "../../builder/runtime/blueprint-render",
+        "../../provider-quota/runtime/stream-observer",
         "../../specs/runtime/spec-contract-prompt",
         "../../specs/runtime/spec-draft-parser",
         "./context-scope",
@@ -917,6 +919,7 @@
   },
   "delivery": {
     "publicEntries": [
+      "adapters/decisions/metadata.ts",
       "runtime/definition-fork.ts",
       "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
@@ -2059,6 +2062,7 @@
         "../../accounting/runtime/result-event",
         "../../conversations/runtime/explore-stdin-session",
         "../../loops/runtime/loop-constants",
+        "../../provider-quota/runtime/stream-observer",
         "node:child_process",
         "node:crypto",
         "node:readline"
@@ -2075,6 +2079,7 @@
         "../../../util/stream-display",
         "../../accounting/runtime/codex-otel-bridge",
         "../../audit",
+        "../../provider-quota/runtime/stream-observer",
         "child_process",
         "readline"
       ],
@@ -2216,6 +2221,7 @@
         "../../../providers/types",
         "../../../util/cli-prompt",
         "../../../util/win-spawn",
+        "../../provider-quota/runtime/stream-observer",
         "node:child_process",
         "node:readline"
       ],
@@ -2246,6 +2252,7 @@
         "../../../jira/jira-db",
         "../../delivery/runtime/rail-pr-store",
         "../../execution",
+        "../../loops/runtime/loop-limit-pauses",
         "../../recovery",
         "../../recovery/adapters/sqlite",
         "../domain",
@@ -2343,6 +2350,33 @@
       ]
     }
   },
+  "launch-preflight": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "runtime/composition.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../../../provider-selection",
+        "../../delivery/adapters/decisions/metadata",
+        "../runtime/preflight",
+        "express"
+      ],
+      "domain.ts": [],
+      "runtime/composition.ts": [
+        "../../../provider-detection",
+        "../../../providers",
+        "../../../util/bounded-exec",
+        "./preflight"
+      ],
+      "runtime/preflight.ts": [
+        "../domain",
+        "node:fs",
+        "node:path"
+      ]
+    }
+  },
   "live-board": {
     "publicEntries": [
       "adapters/http.ts"
@@ -2399,6 +2433,7 @@
       "runtime/loop-executors.ts",
       "runtime/loop-factory.ts",
       "runtime/loop-graph.ts",
+      "runtime/loop-limit-pauses.ts",
       "runtime/loop-pr-ci-recipe.ts",
       "runtime/loop-role-engines.ts",
       "runtime/loop-run-manager.ts",
@@ -2459,9 +2494,14 @@
         "./loop-runs-store"
       ],
       "runtime/loop-definition-execution.ts": [
+        "../../../provider-limit",
+        "../../provider-quota/domain",
+        "../../provider-quota/runtime/quota-reports",
+        "../../recovery/domain",
         "./loop-definition-events",
         "./loop-definition-run",
         "./loop-run-context",
+        "./loop-run-contract",
         "./loop-run-pauses",
         "./loop-runs-store"
       ],
@@ -2561,6 +2601,10 @@
         "./loop-run-context",
         "./loop-run-pauses"
       ],
+      "runtime/loop-limit-pauses.ts": [
+        "../../../db",
+        "./loop-run-contract"
+      ],
       "runtime/loop-migration.ts": [
         "./loop-compat",
         "./loop-graph",
@@ -2571,6 +2615,8 @@
         "../../../provider-limit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../execution/runtime/verification-sentinel",
+        "../../provider-quota/domain",
+        "../../provider-quota/runtime/quota-reports",
         "../../specs/runtime/spec-addenda-core",
         "./loop-ai-step-signals",
         "./loop-command-catalog",
@@ -2694,12 +2740,14 @@
         "../../../util/win-spawn",
         "../../execution",
         "../../execution/runtime/interactive-job-session",
+        "../../provider-quota/domain",
         "./loop-constants",
         "./loop-definition-execution",
         "./loop-definition-run",
         "./loop-graph",
         "./loop-interactive-ai-step",
         "./loop-legacy-traversal",
+        "./loop-limit-pauses",
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-events",
@@ -2712,7 +2760,9 @@
       ],
       "runtime/loop-run-pauses.ts": [
         "../../../db",
+        "../../provider-quota/runtime/quota-reports",
         "./loop-definition-run",
+        "./loop-limit-pauses",
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-vars",
@@ -2825,6 +2875,7 @@
         "../../../mcp/agent-capability",
         "../../../plugins/codex-spawn",
         "../../../project-env",
+        "../../../provider-limit",
         "../../../providers",
         "../../../providers/live-session",
         "../../../providers/live-session-types",
@@ -2841,6 +2892,9 @@
         "../../audit",
         "../../conversations/runtime/explore-draft-title",
         "../../execution/runtime/spawn-lifecycle",
+        "../../provider-quota/domain",
+        "../../provider-quota/runtime/quota-reports",
+        "../../provider-quota/runtime/stream-observer",
         "./agent-context-resolver",
         "./agent-cwd-manager",
         "./agent-failure-briefing",
@@ -3153,9 +3207,58 @@
       ]
     }
   },
+  "provider-quota": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "domain.ts",
+      "runtime/composition.ts",
+      "runtime/quota-reports.ts",
+      "runtime/quota-store.ts",
+      "runtime/stream-observer.ts"
+    ],
+    "dependencies": {
+      "adapters/claude-stream.ts": [
+        "../domain"
+      ],
+      "adapters/http.ts": [
+        "../runtime/quota-store",
+        "express"
+      ],
+      "domain.ts": [],
+      "ports.ts": [
+        "./domain"
+      ],
+      "runtime/composition.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../domain",
+        "../ports",
+        "./quota-reports",
+        "./quota-store",
+        "./resume-clock"
+      ],
+      "runtime/quota-reports.ts": [
+        "../domain",
+        "./quota-store",
+        "./resume-clock"
+      ],
+      "runtime/quota-store.ts": [
+        "../domain",
+        "../ports"
+      ],
+      "runtime/resume-clock.ts": [
+        "../ports"
+      ],
+      "runtime/stream-observer.ts": [
+        "../adapters/claude-stream",
+        "./quota-reports"
+      ]
+    }
+  },
   "recovery": {
     "publicEntries": [
       "adapters/sqlite.ts",
+      "domain.ts",
       "index.ts"
     ],
     "dependencies": {

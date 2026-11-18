@@ -110,4 +110,28 @@ describe('provider billing', () => {
     await expect(slow.service.resolveBilling('codex', 10, {})).resolves.toEqual({ billing: 'unknown', plan: null })
     expect(slow.service.billing('gemini', {})).toEqual({ billing: 'unknown', plan: null })
   })
+  it('merges run-observed windows into an available row only, newer than the reader, without probing', async () => {
+    const onChange = vi.fn()
+    let clock = Date.parse('2030-01-01T00:00:00Z')
+    const read = vi.fn().mockResolvedValue({ ...result, windows: [{ id: 'five_hour', label: 'session', scope: 'account', model: null, usedPercent: 20, durationMinutes: 300, resetsAt: null }] })
+    const service = createUsageService({ installed: vi.fn().mockResolvedValue(true), now: () => clock, onChange, readers: { claude: { context: vi.fn().mockResolvedValue('a'), read }, codex: { context: vi.fn().mockResolvedValue('a'), read } } })
+    // Not observed yet: a report never signs an account in.
+    service.observe('claude', [{ id: 'five_hour', usedPercent: 90, resetsAt: '2030-01-01T05:00:00.000Z', windowMinutes: 300 }], '2030-01-01T00:00:00.000Z')
+    expect(onChange).not.toHaveBeenCalled()
+    service.refresh('claude'); await service.settled()
+    const before = service.snapshot().revision
+    clock += 1000
+    service.observe('claude', [{ id: 'five_hour', usedPercent: 90, resetsAt: '2030-01-01T05:00:00.000Z', windowMinutes: 300 }, { id: 'seven_day_opus', usedPercent: 40, resetsAt: null, windowMinutes: 10080 }], new Date(clock).toISOString())
+    const row = service.snapshot().providers.find(p => p.providerId === 'claude')!
+    expect(row.windows).toEqual([
+      expect.objectContaining({ id: 'five_hour', usedPercent: 90, resetsAt: '2030-01-01T05:00:00.000Z' }),
+      expect.objectContaining({ id: 'seven_day_opus', scope: 'model', model: 'opus', usedPercent: 40, label: 'weekly' }),
+    ])
+    expect(service.snapshot().revision).toBeGreaterThan(before)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    // An older report changes nothing.
+    service.observe('claude', [{ id: 'five_hour', usedPercent: 10, resetsAt: null, windowMinutes: 300 }], '2029-12-31T00:00:00.000Z')
+    expect(service.snapshot().providers.find(p => p.providerId === 'claude')!.windows[0]!.usedPercent).toBe(90)
+    expect(read).toHaveBeenCalledTimes(1)
+  })
 })

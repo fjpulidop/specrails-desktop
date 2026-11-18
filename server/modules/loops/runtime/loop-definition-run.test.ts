@@ -209,4 +209,32 @@ describe('Core definitions in Loop Manager',()=>{
     expect(progress.mock.lastCall?.[1]).toMatchObject({ cost: .6, tokensIn: 5, tokensOut: 2 })
     prepare.mockRestore()
   })
+
+  it('pauses a Core run refused on a usage limit until the reset, then resumes the retained run', async () => {
+    const limitFailure: DefinitionRuntimeResult = { text: '', runtimeStatus: 'failed', failed: true, errorText: 'claude usage limit reached (five_hour window, resets 2099-01-01T00:00:00.000Z).',
+      failure: { kind: 'provider_limit', confidence: 'high', resetsAt: '2099-01-01T00:00:00.000Z', resetAt: '3am (Europe/Madrid)', detail: 'claude usage limit reached', resumablePhase: 'map[0]/read' } }
+    const run = vi.fn<(input: DefinitionLoopInvocation) => Promise<DefinitionRuntimeResult>>().mockResolvedValueOnce(limitFailure).mockResolvedValueOnce(complete())
+    const broadcasts: Array<Record<string, unknown>> = []
+    const manager = new LoopRunManager(db, (message) => broadcasts.push(message as unknown as Record<string, unknown>), executors(run))
+    const running = manager.run(request())
+    for (let i = 0; i < 400 && !manager.limitPause('r1'); i++) await new Promise((resolve) => setTimeout(resolve, 5))
+    // The typed reset wins over the provider's words; Core runs cannot switch provider mid-run.
+    expect(manager.limitPause('r1')).toMatchObject({ providerId: 'claude', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, switchable: false })
+    expect(manager.resolveLimitPause('r1', { action: 'switch', provider: 'codex', model: 'x' })).toBe(false)
+    expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'paused', restart_reason: 'limit_paused' })
+    expect(manager.resolveLimitPause('r1', { action: 'resume' })).toBe(true)
+    const result = await running
+    expect(result.outcome).toBe('success')
+    expect(run).toHaveBeenCalledTimes(2)
+    // Core resumes the retained run: the refused step runs again where it stopped.
+    expect(run.mock.calls[1]![0]).toMatchObject({ resume: true })
+  })
+
+  it('keeps a usage-limit failure that Core already completed (nothing to resume)', async () => {
+    const run = vi.fn(async (): Promise<DefinitionRuntimeResult> => ({ text: '', runtimeStatus: 'failed', failed: true, completion: { ok: false, verified: false, reasons: ['x'] }, failure: { kind: 'provider_limit', confidence: 'high' } }))
+    const manager = new LoopRunManager(db, () => {}, executors(run))
+    const result = await manager.run(request())
+    expect(result.outcome).toBe('failed')
+    expect(run).toHaveBeenCalledTimes(1)
+  })
 })

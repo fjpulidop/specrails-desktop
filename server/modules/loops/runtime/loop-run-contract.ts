@@ -379,6 +379,8 @@ export interface LoopGraphEventPayload {
 export type PausedHumanDecision =
   | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }
   | { action: 'stop' }
+  /** `limit_paused` only: continue now on another provider (prior context goes along as historical data). */
+  | { action: 'switch'; provider: string; model: string }
 
 /** The daily budget a run is paused on — structurally the admission gate's
  *  409 body (`daily_budget_exceeded`), bound by the composition root. */
@@ -397,6 +399,25 @@ export interface LoopBudgetBreach {
 /** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
  *  run stopped between AI steps by the daily budget. Resumable in place. */
 export const BUDGET_PAUSED = 'budget_paused' as const
+
+/** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
+ *  run whose provider refused requests on its usage limit. It resumes on its own
+ *  at `resumeAt` (unless the person cancels that), now, or on another provider. */
+export const LIMIT_PAUSED = 'limit_paused' as const
+
+/** What a `limit_paused` run waits for. Persisted (queue_state) so a restart keeps `resumeAt`. */
+export interface LoopLimitPause {
+  providerId: string
+  /** When the provider accepts requests again (ISO); null when it did not say. */
+  resumeAt: string | null
+  /** Resume by itself at `resumeAt` (default on; the person can turn it off for this run). */
+  autoResume: boolean
+  /** The provider's own notice. */
+  message: string
+  pausedAt: string
+  /** Legacy engine only: the step can continue on another provider. */
+  switchable: boolean
+}
 
 /** How a resume answers a per-run soft cap: continue without it, or with a higher one. */
 export type RunCapChoice = { ignore: true } | { raiseTo: number }
@@ -430,6 +451,8 @@ export interface PausedRun {
   pending?: DefinitionInterrupt[]
   /** Present when the pause is `budget_paused` rather than a human decision. */
   budget?: LoopBudgetBreach
+  /** Present when the pause is `limit_paused` (provider usage limit). */
+  limit?: LoopLimitPause
   resolve: (decision: PausedHumanDecision) => void
 }
 
@@ -437,6 +460,8 @@ export interface PausedRun {
 export interface LoopRunManagerOptions {
   idleTimeoutMs?: number
   dailyBudget?: () => LoopBudgetBreach | null
+  /** provider-quota: a run paused on a usage limit resumes by itself at the reset (default true). */
+  autoResumeOnLimit?: () => boolean
   /** Default per-run soft cap (USD) a new run starts with; null/absent = none. */
   runCapDefault?: () => number | null
   /** Agent actions audit sink bound to this project (observing only). */

@@ -43,6 +43,7 @@ import { terminalResultError } from '../../../providers/terminal-result'
 import { readClaudeBackgroundTasks } from '../../../providers/claude-background-tasks'
 import { FOREGROUND_RULE } from '../../loops/runtime/loop-constants'
 import type { WsMessage } from '../../../types'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 /** Claude's stream-json result frames do not carry a turn id. Hash a canonical
  * representation of the real frame instead: an exact/semantic retransmission
@@ -643,6 +644,9 @@ export class InteractiveJobSession {
     // Keep the live roster current before deciding whether a result completes
     // the step or needs the parent to join its unfinished workers.
     this._trackBackgroundTasks(parsed)
+
+    // A live usage-limit report updates the machine's provider quota.
+    observeQuotaLine(this._adapter.id, line)
 
     // parseStreamEvents is pure, so classifying the frame through the adapter
     // BEFORE the drop logic is safe — and it is the adapter that knows a claude

@@ -48,6 +48,8 @@ import { createLoopRunEvents } from './loop-run-events'
 import { bindRunCap, initialEventSeq, normalizeLoopRunRequest, persistLoopRunLaunch, resolveRunLimits, writeRunHeader } from './loop-run-launch'
 import { runDefinitionEngine } from './loop-definition-execution'
 import { runLegacyTraversal } from './loop-legacy-traversal'
+import { saveLimitPause } from './loop-limit-pauses'
+import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
 import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
 import type {
@@ -59,6 +61,7 @@ import type {
   PausedRun,
   RunCapChoice,
   BudgetResumeResult,
+  LoopLimitPause,
 } from './loop-run-contract'
 
 export type {
@@ -80,7 +83,7 @@ export type {
   RunCapChoice,
   BudgetResumeResult,
 } from './loop-run-contract'
-export { BUDGET_PAUSED } from './loop-run-contract'
+export { BUDGET_PAUSED, LIMIT_PAUSED } from './loop-run-contract'
 export { truncate, resolveRunVars, seedChangeId, openspecChangeState, extractChangeId } from './loop-run-vars'
 export { DETERMINISTIC_VERIFICATION_MODEL, CORE_V1_ROW_PREFIX, recoverOrphanLoopStepAccounting } from './loop-step-accounting'
 
@@ -154,6 +157,38 @@ export class LoopRunManager {
   budgetPause(runId: string): LoopBudgetBreach | null {
     const budget = this._pausedHumanDecisions.get(runId)?.budget
     return budget ? structuredClone(budget) : null
+  }
+
+  /** The usage limit a run is paused on (`limit_paused`), else null. */
+  limitPause(runId: string): LoopLimitPause | null {
+    const limit = this._pausedHumanDecisions.get(runId)?.limit
+    return limit ? { ...limit } : null
+  }
+
+  /**
+   * Answer a `limit_paused` run: resume now (same provider), continue on
+   * another provider (legacy engine; never one that shares the quota), or turn
+   * its automatic resume on/off. Returns false when the run is not limit-paused
+   * or the choice does not apply to it.
+   */
+  resolveLimitPause(runId: string, choice: { action: 'resume' } | { action: 'switch'; provider: string; model: string } | { action: 'auto'; enabled: boolean }): boolean {
+    const paused = this._pausedHumanDecisions.get(runId)
+    const limit = paused?.limit
+    if (!paused || !limit) return false
+    if (choice.action === 'auto') {
+      limit.autoResume = choice.enabled
+      try { saveLimitPause(this.db, runId, limit) } catch { /* the in-memory choice still applies */ }
+      this._emit({ type: 'loop.limit_pause', projectId: this.projectIdOf(runId), loopRunId: runId, limit: { ...limit } } as unknown as WsMessage)
+      return true
+    }
+    if (choice.action === 'switch' && (!limit.switchable || sharesQuota(limit.providerId, choice.provider))) return false
+    this._pausedHumanDecisions.delete(runId)
+    paused.resolve(choice.action === 'switch' ? { action: 'switch', provider: choice.provider, model: choice.model } : { action: 'resume', text: '' })
+    return true
+  }
+
+  private projectIdOf(runId: string): string | null {
+    try { return getLoopRun(this.db, runId)?.project_id ?? null } catch { return null }
   }
 
   /** Resume a `budget_paused` run once the budget allows the next step. While
@@ -466,6 +501,13 @@ export class LoopRunManager {
       setActiveStepRecovery: (runId, stepKey) => { this._activeStepRecovery.set(runId, stepKey) },
       clearActiveStepRecovery: (runId) => { this._activeStepRecovery.delete(runId) },
       parkPause: (runId, pause) => { this._pausedHumanDecisions.set(runId, pause) },
+      resolvePause: (runId, decision) => {
+        const paused = this._pausedHumanDecisions.get(runId)
+        if (!paused) return false
+        this._pausedHumanDecisions.delete(runId)
+        paused.resolve(decision)
+        return true
+      },
       budgetBreach: (runId) => this._budgetBreach(runId),
       trackRunCap: (runId, cap) => { this._runCaps.set(runId, cap) },
       untrackRunCap: (runId) => { this._runCaps.delete(runId) },
@@ -535,6 +577,7 @@ export class LoopRunManager {
       outcome: 'failed',
       stallReason: undefined,
       providerLimitHit: undefined,
+      engineOverride: undefined,
       failedStepId: undefined,
       failureText: undefined,
       coreFailure: undefined,

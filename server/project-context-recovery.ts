@@ -28,6 +28,8 @@ import { getAgentChatManager } from './modules/missions/runtime/agent-chat-regis
 import { openProjectProcessAdmission } from './process-admission'
 import type { ProjectContext } from './project-registry'
 import { resumeRetainedDefinitionRun } from './project-router-loop-runs'
+import { clearLimitPause, listLimitPauses, readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { scheduleLimitResume } from './modules/provider-quota/runtime/quota-reports'
 import type { WsMessage } from './types'
 import { logRejection } from './util/log-rejection'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -148,6 +150,9 @@ export function startProjectRecovery(deps: {
                 if (outcome.status >= 400) console.warn(`[host-task] ${project.slug}: run ${runId} was not re-dispatched (${outcome.status})`, outcome.body)
               }).catch(error => console.error(`[host-task] ${project.slug}: re-dispatch of ${runId} failed:`, error))
             }
+            // provider-quota: runs that were paused on a usage limit keep their
+            // persisted resumeAt; resume them at the reset (wake-aware clock).
+            scheduleRetainedLimitResumes(ctx, db, isCurrent, project.slug)
             // Intent -> Spec deliveries settled as a generic failure before the
             // review outcome existed: persist the reclassification once (the
             // retained ledger is read-only here) and refresh their cards.
@@ -173,4 +178,27 @@ export function startProjectRecovery(deps: {
       .then(probes => recoverAfterProbe(toDefinitionStates(probes)))
       .catch(error => { console.error(`[loops] Core recovery inspection failed for ${project.slug}; admission remains closed:`, error) })
   } else recoverAfterProbe()
+}
+
+/**
+ * After a restart, a Core workflow run that was paused on a provider usage
+ * limit is retained paused (reason `restart`) with its `limit_pause` record.
+ * When its automatic resume was on, resume it at `resumeAt` through the same
+ * path as the person's Resume; anything else keeps waiting for the person.
+ * Records of runs that did not survive (legacy engine) are dropped.
+ */
+function scheduleRetainedLimitResumes(ctx: ProjectContext, db: DbInstance, isCurrent: () => boolean, slug: string): void {
+  for (const { runId, pause } of listLimitPauses(db)) {
+    const run = getLoopRun(db, runId)
+    if (!run || run.status !== 'paused' || run.engine_version !== 2) { clearLimitPause(db, runId); continue }
+    if (!pause.autoResume || !pause.resumeAt) continue
+    scheduleLimitResume(pause.resumeAt, () => {
+      const current = readLimitPause(db, runId)
+      if (!isCurrent() || !current?.autoResume || getLoopRun(db, runId)?.status !== 'paused') return
+      clearLimitPause(db, runId)
+      void resumeRetainedDefinitionRun(ctx, runId, {}).then(outcome => {
+        if (outcome.status >= 400) console.warn(`[provider-quota] ${slug}: run ${runId} did not resume after the usage limit (${outcome.status})`, outcome.body)
+      }).catch(error => console.error(`[provider-quota] ${slug}: resume of ${runId} failed:`, error))
+    })
+  }
 }

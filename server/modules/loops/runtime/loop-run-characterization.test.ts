@@ -16,6 +16,7 @@ import { LoopRunManager, type LoopExecutors, type LoopRunRequest, type LoopBudge
 import type { DefinitionRuntimeResult } from './loop-definition-run'
 import type { LoopGraph, LoopNode } from './loop-graph'
 import type { WsMessage } from '../../../types'
+import { MAX_LIMIT_PAUSES } from './loop-run-pauses'
 
 let db: DbInstance
 let broadcasts: WsMessage[]
@@ -154,10 +155,16 @@ describe('LoopRunManager characterization: full run traces', () => {
     expect(trace('trace-budget')).toMatchSnapshot('trace')
   })
 
-  it('provider limit stops the run at once', async () => {
+  it('provider limit pauses the run at the limit and stops after repeated refusals', async () => {
     const limit = "You've hit your session limit · resets 3am (Europe/Madrid)"
     const runAiStep = vi.fn(async () => ({ text: limit, sessionId: 'sess-lim', provider: 'claude', model: 'opus', resultIsError: true, failed: true, errorText: `provider returned an error result — ${limit}`, durationMs: 500 }))
-    const result = await manager(executors({ runAiStep })).run(request('trace-limit', verifyLoop()))
+    const m = manager(executors({ runAiStep }))
+    const running = m.run(request('trace-limit', verifyLoop()))
+    for (let pause = 0; pause < MAX_LIMIT_PAUSES; pause++) {
+      for (let i = 0; i < 400 && !m.limitPause('trace-limit'); i++) await new Promise((resolve) => setTimeout(resolve, 5))
+      expect(m.resolveLimitPause('trace-limit', { action: 'resume' })).toBe(true)
+    }
+    const result = await running
     expect(result).toMatchSnapshot('result')
     expect(trace('trace-limit')).toMatchSnapshot('trace')
   })

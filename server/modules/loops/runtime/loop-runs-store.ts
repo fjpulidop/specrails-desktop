@@ -712,7 +712,7 @@ export function finishLoopRun(
 
 /** `reason` marks a non-decision pause on `restart_reason` (e.g. `budget_paused`);
  *  resumeLoopRun clears it. A human-decision pause leaves it untouched. */
-export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>, reason?: 'budget_paused'): LoopRunRow | undefined {
+export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>, reason?: 'budget_paused' | 'limit_paused'): LoopRunRow | undefined {
   if (counters) updateLoopRunCounters(db, id, counters)
   db.prepare(`UPDATE loop_runs SET status = 'paused', restart_reason = COALESCE(?, restart_reason) WHERE id = ? AND status = 'running'`).run(reason ?? null, id)
   return getLoopRun(db, id)
@@ -876,7 +876,9 @@ export function reconcileOrphanLoopRuns(
       }
       if (run.engine_version === 2 && run.run_request_json) {
         const state = definitionStates?.get(run.id)
-        if (state !== null && (!state?.status || ['running', 'paused', 'interrupted'].includes(state.status))) {
+        // A run paused on a provider usage limit holds Core's failed attempt on purpose: it stays retained to resume at the reset.
+        const limitPaused = state?.status === 'failed' && db.prepare('SELECT 1 FROM queue_state WHERE key = ?').get(`limit_pause:${run.id}`) !== undefined
+        if (state !== null && (!state?.status || limitPaused || ['running', 'paused', 'interrupted'].includes(state.status))) {
           markDefinitionRestart(db, run.id, state ?? { status: 'unavailable', reason: 'Original Core status could not be read' })
           continue
         }

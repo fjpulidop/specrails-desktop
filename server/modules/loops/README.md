@@ -137,7 +137,8 @@ mutable run state and the `NodeStep` routing result).
 | `loop-run-events.ts` | Seq allocator, `loop_step` / `loop_step_end` / log / raw-frame emission |
 | `loop-run-ledger.ts` | Stage `loop_step_recovery` before a spawn; record the settled step and totals |
 | `loop-step-accounting.ts` | `ai_invocations` rows and orphan step recovery (startup, teardown, settle) |
-| `loop-run-pauses.ts` | Human-decision and `budget_paused` pauses |
+| `loop-run-pauses.ts` | Human-decision, `budget_paused` and `limit_paused` pauses |
+| `loop-limit-pauses.ts` | Durable `limit_paused` record (`queue_state` `limit_pause:<runId>`: provider, `resumeAt`, automatic resume) that survives a restart |
 | `loop-legacy-traversal.ts` | Engine-1 traversal: between-step guards and node dispatch |
 | `loop-node-ai-step.ts`, `loop-node-shell.ts`, `loop-node-decider.ts` | One executor per executable node kind |
 | `loop-phase-recovery.ts` | Single in-run `failureRecovery` retry/repair routing |
@@ -406,3 +407,23 @@ diagnostics do not install dependencies or certify a failing candidate.
 Default instructions allow proven minimal
 test compatibility repairs in admitted workspaces, preserve safety assertions,
 and require focused reproduction with original exit codes and negative cases.
+
+## Paused at a provider usage limit
+
+A step the provider refuses on its usage limit (typed report from
+[provider-quota](../provider-quota/README.md), else the provider-limit
+classifier) closes as failed and the run pauses (`limit_paused`) instead of
+settling. Legacy steps (`loop-node-ai-step.ts`) retry the same step in the same
+session after the reset, or, when the person continues on another provider,
+in a fresh session of that provider whose prompt carries the run record as
+historical data; later steps keep that provider (`state.engineOverride`).
+Core workflow runs (`loop-definition-execution.ts`, port `awaitProviderLimit`
+of `runDefinitionLoop`) resume the retained Core run, which runs the refused
+step again; they cannot change provider mid-run. The pause resumes by itself at
+`resumeAt` (default on, per-run off switch) on the wake-aware clock, never
+during sleep or a dark wake. After a restart a Core run is retained paused and
+resumed at `resumeAt` (`project-context-recovery.ts`); a legacy run cannot
+survive a restart and its record is dropped. At most `MAX_LIMIT_PAUSES` (3)
+pauses per run; then it settles `stalled` / `provider_limit` as before. Tests:
+`loop-run-manager.test.ts` (usage limit), `loop-definition-run.test.ts`,
+`loop-definition-store.test.ts`, `project-router-loop-runs.test.ts`.

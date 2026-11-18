@@ -1030,8 +1030,10 @@ export interface LoopRunPausedMessage {
   ticketIds: number[]
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
-  pauseKind?: 'budget_paused'
+  pauseKind?: 'budget_paused' | 'limit_paused'
   budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
+  /** `limit_paused`: the provider refused on its usage limit; resumes at `resumeAt` when `autoResume`. */
+  limit?: { providerId: string; resumeAt: string | null; autoResume: boolean; message: string; pausedAt: string; switchable: boolean }
 }
 
 export interface LoopRunResumedMessage {
@@ -1417,7 +1419,7 @@ export type WsMessage =
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
-  | AgentTitleMessage | AgentContextUsageMessage
+  | AgentTitleMessage | AgentContextUsageMessage | AgentLimitContinueMessage
   | { type: 'agent_conversation_created'; conversationId: string; openOnArrival?: boolean; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
@@ -1584,6 +1586,14 @@ export interface AgentTitleMessage {
   type: 'agent_title'
   conversationId: string
   title: string
+  timestamp: string
+}
+
+/** provider-quota: the person scheduled (or cancelled, `at` null) a mission continue at a usage-limit reset. */
+export interface AgentLimitContinueMessage {
+  type: 'agent_limit_continue'
+  conversationId: string
+  at: string | null
   timestamp: string
 }
 
@@ -2053,6 +2063,8 @@ export interface LoopProviderLimitMessage {
   /** The provider's own sentence, verbatim. */
   message: string
   resetsAt: string | null
+  /** provider-quota: the exact instant the provider accepts requests again, when known (ISO). */
+  resumeAt?: string
   timestamp: string
 }
 

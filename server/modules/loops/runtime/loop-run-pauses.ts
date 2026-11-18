@@ -1,7 +1,7 @@
 /**
  * In-process pauses of a running loop: a human decision (LOOP_BLOCKED, a
- * blocked Decider, a Core question/approval) and the resumable
- * `budget_paused` pause. Both park the run on the manager's pause registry,
+ * blocked Decider, a Core question/approval), the resumable `budget_paused`
+ * pause and the `limit_paused` pause (provider usage limit). Both park the run on the manager's pause registry,
  * persist `paused` with the run's counters and broadcast the paused/resumed
  * transitions; Stop (or cancel) resolves them as `stop`.
  */
@@ -9,10 +9,12 @@ import { markJobInteractive } from '../../../db'
 import { pauseLoopRun, resumeLoopRun } from './loop-runs-store'
 import { truncate } from './loop-run-vars'
 import { runCounters, type LoopRunContext } from './loop-run-context'
-import { BUDGET_PAUSED, type LoopBudgetBreach, type PausedHumanDecision } from './loop-run-contract'
+import { BUDGET_PAUSED, LIMIT_PAUSED, type LoopBudgetBreach, type LoopLimitPause, type PausedHumanDecision } from './loop-run-contract'
+import { clearLimitPause, saveLimitPause } from './loop-limit-pauses'
+import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
 
-export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pending?: DefinitionInterrupt[]): Promise<PausedHumanDecision> {
+export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pending?: DefinitionInterrupt[]): Promise<Exclude<PausedHumanDecision, { action: 'switch' }>> {
   const { host, req, runId, state, exactTicketIds } = ctx
   const { logLine } = ctx.events
   const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
@@ -43,7 +45,7 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
 
   const decision = await decisionPromise
   if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
-  if (decision.action === 'stop' || host.isCancelled(runId)) {
+  if (decision.action !== 'resume' || host.isCancelled(runId)) {
     logLine(`\n■ Loop stop requested while paused.`, 'stderr')
     return { action: 'stop' }
   }
@@ -138,4 +140,66 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
     })
     return 'continue'
   }
+}
+
+/** At most this many limit pauses per run: a provider that keeps refusing after its reset is a failure, not a wait. */
+export const MAX_LIMIT_PAUSES = 3
+
+export type LimitPauseOutcome = { action: 'resume' } | { action: 'switch'; provider: string; model: string } | { action: 'stop' }
+
+/**
+ * provider-quota: the provider refused the step on its usage limit. The run
+ * parks as `paused` (restart_reason `limit_paused`) on the same in-process
+ * pause the budget uses, with its `resumeAt` persisted. It resumes by itself
+ * at `resumeAt` when automatic resume is on (default; never during sleep or a
+ * dark wake), when the person resumes it now, or continues on another provider
+ * (legacy engine). Stop settles it 'stopped'. The pause does not consume the
+ * run's wall-clock deadline.
+ */
+export async function awaitProviderLimit(ctx: LoopRunContext, limit: Omit<LoopLimitPause, 'pausedAt' | 'autoResume'>): Promise<LimitPauseOutcome> {
+  const { host, req, runId, state, exactTicketIds } = ctx
+  const { logLine } = ctx.events
+  const pausedAtMs = host.now()
+  const pause: LoopLimitPause = { ...limit, autoResume: limit.resumeAt !== null && host.options.autoResumeOnLimit?.() !== false, pausedAt: new Date(pausedAtMs).toISOString() }
+  const reason = `${limit.message}${limit.resumeAt ? ` (resets ${limit.resumeAt})` : ''}`
+  const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
+    host.parkPause(runId, { reason, limit: pause, resolve })
+  })
+  // Scheduled on the wake-aware clock; whether it still applies is read when it fires.
+  const timer = pause.resumeAt ? scheduleLimitResume(pause.resumeAt, () => {
+    if (pause.autoResume) host.resolvePause(runId, { action: 'resume', text: '' })
+  }) : null
+  logLine(`\n■ Loop paused (${LIMIT_PAUSED}) — ${limit.providerId} usage limit reached: ${limit.message}.${pause.resumeAt
+    ? pause.autoResume ? ` It resumes automatically at ${pause.resumeAt}.` : ` The limit resets at ${pause.resumeAt}.`
+    : ' The provider did not say when it resets; resume it when it does.'}`, 'stderr')
+  try { saveLimitPause(host.db, runId, pause) } catch { /* the in-memory pause still holds; a restart then settles it */ }
+  try { markJobInteractive(host.db, runId) } catch { /* best-effort */ }
+  pauseLoopRun(host.db, runId, runCounters(state), LIMIT_PAUSED)
+  host.emit({
+    type: 'loop.run_paused',
+    projectId: req.projectId,
+    loopRunId: runId,
+    railIndex: req.railIndex ?? null,
+    reason,
+    ticketIds: exactTicketIds,
+    pauseKind: LIMIT_PAUSED,
+    limit: { ...pause },
+  })
+  host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: true, pendingInterrupts: [], settleMode: 'auto', timestamp: pause.pausedAt })
+  const decision = await decisionPromise
+  timer?.cancel()
+  if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
+  try { clearLimitPause(host.db, runId) } catch { /* stale rows are ignored once the run moves on */ }
+  if (decision.action === 'stop' || host.isCancelled(runId)) {
+    logLine(`\n■ Loop stop requested while paused on the usage limit.`, 'stderr')
+    return { action: 'stop' }
+  }
+  if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
+  resumeLoopRun(host.db, runId)
+  logLine(decision.action === 'switch'
+    ? `\n▶ Loop continues on ${decision.provider} — the earlier steps go along as context.`
+    : `\n▶ Loop resumed after the ${limit.providerId} usage limit — retrying the step.`)
+  host.emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: exactTicketIds })
+  host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: new Date(host.now()).toISOString() })
+  return decision.action === 'switch' ? { action: 'switch', provider: decision.provider, model: decision.model } : { action: 'resume' }
 }

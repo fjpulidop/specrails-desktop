@@ -1,3 +1,4 @@
+import { saveLimitPause } from '../../loops/runtime/loop-limit-pauses'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import type { AddressInfo } from 'node:net'
@@ -72,6 +73,17 @@ describe('inbox projection: runs', () => {
     expect(byId['r-human']).toMatchObject({ kind: 'question', action: 'open-run' })
     expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run' })
     expect(byId['r-fork']).toBeUndefined()
+  })
+
+  it('shows a run paused at a usage limit as a budget item that names the provider and its resume time', () => {
+    run('r-limit', 0); pauseLoopRun(db, 'r-limit', undefined, 'limit_paused')
+    saveLimitPause(db, 'r-limit', { providerId: 'claude', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: true, message: 'limit', pausedAt: iso(-60_000), switchable: true })
+    run('r-limit-restart', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart' WHERE id='r-limit-restart'").run()
+    saveLimitPause(db, 'r-limit-restart', { providerId: 'codex', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: false, message: 'limit', pausedAt: iso(-60_000), switchable: false })
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-limit']).toMatchObject({ kind: 'budget', action: 'resume-run', detail: 'usage_limit:claude:2026-11-19T02:00:00.000Z' })
+    // Retained over a restart, still a limit; automatic resume off → no time promised.
+    expect(byId['r-limit-restart']).toMatchObject({ kind: 'budget', detail: 'usage_limit:codex:' })
   })
 
   it('lists recent failed/blocked runs, drops old ones, successes and superseded ones', () => {

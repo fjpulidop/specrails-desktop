@@ -17,6 +17,8 @@ import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/deli
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent } from './db'
+import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
@@ -68,8 +70,48 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
     }
+    // provider-quota: a resident run waiting for a usage-limit reset resumes now (the provider may still refuse).
+    if (run && run.project_id === c.project.id && c.loopRunManager.limitPause?.(runId)) {
+      c.loopRunManager.resolveLimitPause(runId, { action: 'resume' })
+      res.status(202).json({ loopRunId: runId, resumed: true }); return
+    }
     const outcome = await resumeRetainedDefinitionRun(c, runId, req.body ?? {})
     res.status(outcome.status).json(outcome.body)
+  })
+
+  // provider-quota: answer a run paused on a provider usage limit — resume now,
+  // continue on another provider (never one sharing the quota), or turn its
+  // automatic resume at the reset on/off. A run retained over a restart
+  // resumes through the regular retained-run path.
+  router.post('/:projectId/loop-runs/:id/limit', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    const body = (req.body ?? {}) as { action?: unknown; provider?: unknown; enabled?: unknown }
+    const live = c.loopRunManager.limitPause?.(runId) ?? null
+    const retained = live ? null : run.status === 'paused' ? readLimitPause(c.db, runId) : null
+    if (!live && !retained) { res.status(409).json({ error: 'not_limit_paused' }); return }
+    if (body.action === 'auto' && typeof body.enabled === 'boolean') {
+      if (live) c.loopRunManager.resolveLimitPause(runId, { action: 'auto', enabled: body.enabled })
+      else saveLimitPause(c.db, runId, { ...retained!, autoResume: body.enabled })
+      res.json({ limit: live ? c.loopRunManager.limitPause(runId) : readLimitPause(c.db, runId) }); return
+    }
+    if (body.action === 'resume') {
+      if (live) { c.loopRunManager.resolveLimitPause(runId, { action: 'resume' }); res.status(202).json({ loopRunId: runId, resumed: true }); return }
+      const outcome = await resumeRetainedDefinitionRun(c, runId, {})
+      res.status(outcome.status).json(outcome.body); return
+    }
+    if (body.action === 'switch' && typeof body.provider === 'string') {
+      const limit = live ?? retained!
+      if (!live || !limit.switchable) { res.status(409).json({ error: 'switch_unavailable', detail: 'This run cannot change provider mid-run' }); return }
+      if (sharesQuota(limit.providerId, body.provider)) { res.status(409).json({ error: 'shares_quota', detail: `${body.provider} uses the same usage limit` }); return }
+      const checked = validateRequestedProvider(c.project, body.provider)
+      if (!checked.ok || !hasAdapter(body.provider)) { res.status(400).json({ error: 'invalid_provider', detail: checked.ok ? 'Unknown provider' : checked.error }); return }
+      const model = getAdapter(body.provider).defaultModel()
+      if (!c.loopRunManager.resolveLimitPause(runId, { action: 'switch', provider: body.provider, model })) { res.status(409).json({ error: 'switch_unavailable' }); return }
+      res.status(202).json({ loopRunId: runId, provider: body.provider, model }); return
+    }
+    res.status(400).json({ error: 'invalid_limit_action' })
   })
 
   router.post('/:projectId/loop-runs/:id/cancel', async (req: Request, res: Response) => {
@@ -124,13 +166,15 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       || !hasAdapter(run.provider)
       || getAdapter(run.provider).capabilities.reportsUsage !== false
     const { failure_diagnosis: _stored, ...publicRun } = run
+    const limitPause = c.loopRunManager.limitPause?.(run.id) ?? (run.status === 'paused' ? readLimitPause(c.db, run.id) : null)
     const failureDiagnosis = (() => { try { return readRunDiagnosis(c.db, run.id) } catch { return null } })()
     res.json({
       loopRun: usageAvailable
-        ? { ...publicRun, failureDiagnosis, usage_available: true }
+        ? { ...publicRun, failureDiagnosis, limitPause, usage_available: true }
         : {
             ...publicRun,
             failureDiagnosis,
+            limitPause,
             total_cost_usd: null,
             total_tokens: null,
             usage_available: false,
@@ -463,6 +507,8 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
       return { status: 200, body: { loopRunId: runId, settled: true } }
     }
     const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
+    // A resume answers any usage-limit pause the run carried over a restart.
+    try { clearLimitPause(c.db, runId) } catch { /* the record is advisory once the run moves on */ }
     // Resident executions already own their original settlement callback.
     if (!resident) void completion.then(async result => {
       if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)

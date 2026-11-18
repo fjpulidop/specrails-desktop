@@ -11,6 +11,10 @@ const coreDependencies: Record<string, string[]> = {
   'subscription-usage/domain.ts': [],
   'subscription-usage/ports.ts': ['./domain'],
   'subscription-usage/application.ts': ['./domain'],
+  // Provider quota and launch preflight: pure rules, no infrastructure.
+  'provider-quota/domain.ts': [],
+  'provider-quota/ports.ts': ['./domain'],
+  'launch-preflight/domain.ts': [],
   'project-settings/domain.ts': ['../../shared/git-branch-name'],
   'project-settings/ports.ts': ['./domain'],
   'project-settings/application.ts': ['./domain', './ports'],

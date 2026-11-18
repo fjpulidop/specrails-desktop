@@ -29,6 +29,10 @@ import { registerRuntimeProviderRoutes } from './desktop-router-runtime-provider
 import { registerAppSettingsRoutes } from './desktop-router-settings'
 import type { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { registerWebhookRoutes } from './desktop-router-webhooks'
+import { registerQuotaRoutes } from './modules/provider-quota/adapters/http'
+import { registerLaunchPreflightRoutes } from './modules/launch-preflight/adapters/http'
+import { createDesktopLaunchPreflight } from './modules/launch-preflight/runtime/composition'
+import type { QuotaStore } from './modules/provider-quota/runtime/quota-store'
 
 export type { RuntimeProviderStatus, RuntimeProviderStatusMap } from './desktop-router-runtime-providers'
 export { AVAILABLE_PROVIDERS_TTL_MS, _resetAvailableProvidersCacheForTests } from './desktop-router-providers'
@@ -37,10 +41,15 @@ export function createDesktopRouter(
   registry: ProjectRegistry,
   broadcast: (msg: WsMessage) => void,
   usageService?: UsageService,
-  options: { missionConnectors?: MissionConnectors } = {},
+  options: { missionConnectors?: MissionConnectors; quotaStore?: QuotaStore } = {},
 ): Router {
   const router = Router()
   if (usageService) registerUsageRoutes(router, usageService)
+  // Provider quota (modules/provider-quota): the latest usage-limit state per provider account.
+  if (options.quotaStore) registerQuotaRoutes(router, options.quotaStore)
+  // Launch preflight (modules/launch-preflight): disk, sign-in and quota before "Launch all".
+  const quota = options.quotaStore
+  registerLaunchPreflightRoutes(router, registry, createDesktopLaunchPreflight((providerId) => quota?.view(providerId) ?? null))
   // "Needs you" inbox: read-only projection across projects (modules/inbox).
   registerInboxRoutes(router, registry)
   // Live board: every run across every project, read-only (modules/live-board).

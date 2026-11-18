@@ -37,8 +37,9 @@ export const KNOWN_EVENT_TYPES = Object.freeze([
  * Event types this Desktop understands when a Core sends them, without
  * requiring them: Cores released before they existed stay compatible.
  * `turn.image` — an image the provider generated (Codex `imageGeneration`).
+ * `provider.rate-limit` — the provider account's usage-limit state (contract 5.14).
  */
-export const OPTIONAL_EVENT_TYPES = Object.freeze(['turn.image'] as const)
+export const OPTIONAL_EVENT_TYPES = Object.freeze(['turn.image', 'provider.rate-limit'] as const)
 
 export type SessionPhase = 'idle' | 'turn' | 'background'
 /**
@@ -106,6 +107,8 @@ export type SessionEvent = { at: string } & (
   | { type: 'output.truncated'; scope: { turnId: string } | { subagentId: string }; droppedEvents: number; droppedBytes: number }
   | { type: 'notice.interruption'; subagentIds: string[]; inputIds: string[] }
   | { type: 'provider.diagnostic'; level: 'info' | 'warning'; code: string; message: string }
+  /** Core `RateLimitInfo`; validated by the provider-quota module, opaque here. */
+  | { type: 'provider.rate-limit'; rateLimit: Record<string, unknown> }
 )
 
 export interface SessionEventEnvelope {

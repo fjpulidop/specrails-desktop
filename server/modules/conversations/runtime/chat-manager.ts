@@ -48,6 +48,7 @@ import { readBlueprint } from '../../builder/runtime/blueprint-render'
 import { premiumSpecContract } from '../../specs/runtime/spec-contract-prompt'
 import type { ChatConversationRow } from '../../../types'
 import { generateAutoTitle } from './explore-draft-title'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 const COMMAND_INSTRUCTION =
   'When you want to suggest a SpecRails command for the user to execute, wrap it in a command block like this: ' +
@@ -1219,6 +1220,7 @@ export class ChatManager {
 
     const readerHandler = (line: string) => {
       if (this._disposed) return
+      observeQuotaLine(adapter.id, line)
       for (const ev of parseStreamEvents(adapter, line)) {
         adapterEvents.push(ev)
         switch (ev.kind) {
@@ -2000,6 +2002,7 @@ export class ChatManager {
 
       const onLine = (line: string) => {
         if (this._disposed || settled) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           adapterEvents.push(ev)
           switch (ev.kind) {
@@ -2262,6 +2265,7 @@ export class ChatManager {
 
       reader.on('line', (line) => {
         if (this._disposed) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           titleEvents.push(ev)
           if (!titleText && ev.kind === 'text-delta') {

@@ -78,6 +78,18 @@ describe('surface-neutral projection', () => {
   })
 })
 
+describe('usage-limit reports (contract 5.14)', () => {
+  it('projects provider.rate-limit with the session driver, and older Cores stay compatible', () => {
+    const rateLimit = { status: 'rejected', rateLimitType: 'five_hour', resetsAt: '2026-11-18T14:00:00.000Z', utilization: 1, windows: {}, overage: null }
+    const { ops } = run([
+      { type: 'session.opened', driver: 'claude', model: 'm', resumed: false, providerSessionRef: null },
+      { type: 'provider.rate-limit', rateLimit },
+    ] as never)
+    expect(ops.filter((op) => op.kind === 'rate-limit')).toEqual([{ kind: 'rate-limit', driver: 'claude', rateLimit, at }])
+    expect(OPTIONAL_EVENT_TYPES).toContain('provider.rate-limit')
+  })
+})
+
 describe('session contract check', () => {
   const block = { version: 1, protocolVersions: [1], capability: 'sessions', cliOperation: 'host', eventTypes: [...KNOWN_EVENT_TYPES] }
 

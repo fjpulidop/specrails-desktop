@@ -1,3 +1,4 @@
+import { readLimitPause } from '../../loops/runtime/loop-limit-pauses'
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
@@ -141,7 +142,12 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),
     }
     if (run.status === 'paused') {
-      if (run.restart_reason === 'budget_paused') {
+      // provider-quota: waiting for a usage-limit reset (live, or retained over a restart).
+      const limit = run.restart_reason === 'limit_paused' || run.restart_reason === 'restart' ? readLimitPause(handle.db, run.id) : null
+      if (limit) {
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit.resumeAt ?? ''}:${limit.autoResume}`,
+          detail: `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}`, at: toIso(limit.pausedAt, nowIso), action: 'resume-run' })
+      } else if (run.restart_reason === 'budget_paused') {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', detail: null, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       } else if (run.restart_reason === 'restart') {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: 'interrupted', at: toIso(run.started_at, nowIso), action: 'resume-run' })

@@ -46,6 +46,8 @@ import treeKill from 'tree-kill'
 import { attachmentManager } from '../../../attachment-manager'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
 import { MissionCoreSessions } from './mission-core-sessions'
+import { bindQuotaStore } from '../../provider-quota/runtime/quota-reports'
+import { createQuotaStore, realTimers } from '../../provider-quota/runtime/quota-store'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { initDesktopDb } from '../../../desktop-db'
 import { getAdapter } from '../../../providers'
@@ -168,6 +170,36 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     primeTurn([assistantLine('Continued'), resultLine({ session_id: 'fork-native-session' })])
     await mgr.sendMessage(fork.id, 'Next question')
     expect(attachmentManager.getClaudeArgsAgent).not.toHaveBeenCalled()
+  })
+
+  it('[provider-quota] a usage-limit refusal leaves a usage-limit row with the reset, observes the quota, and the person can schedule one continue', async () => {
+    const conv = createAgentConversation(db)
+    const store = createQuotaStore({ timers: realTimers })
+    bindQuotaStore(store)
+    try {
+      const reset = Math.floor(Date.now() / 1000) + 7_200
+      primeTurn([
+        JSON.stringify({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: reset, rateLimitType: 'five_hour', unifiedWindows: { five_hour: { utilization: 1, resetsAt: reset } } } }),
+        resultLine({ subtype: 'success', is_error: true, result: "You've hit your session limit · resets 3am (Europe/Madrid)", session_id: 's' }),
+      ], 1)
+      await mgr.sendMessage(conv.id, 'Go on')
+      const resumeAt = new Date(reset * 1000).toISOString()
+      const row = listAgentMessages(db, conv.id).filter((m) => m.role === 'system').map((m) => JSON.parse(m.content)).find((c) => c.kind === 'usage-limit')
+      // The typed report (streamed in the turn) names the exact reset; the prose is only a fallback.
+      expect(row).toMatchObject({ kind: 'usage-limit', provider: 'claude', resumeAt })
+      expect(broadcastsOfType(broadcast, 'agent_system_row').some((m) => m.kind === 'usage-limit')).toBe(true)
+      expect(broadcastsOfType(broadcast, 'agent_error').at(-1)).toMatchObject({ code: 'provider_limit', provider: 'claude' })
+      expect(store.view('claude')).toMatchObject({ level: 'rejected', rejectedUntil: resumeAt })
+      // Offered, never automatic: nothing is scheduled until the person asks.
+      expect(mgr.limitContinueAt(conv.id)).toBeNull()
+      expect(mgr.scheduleLimitContinue(conv.id, resumeAt)).toEqual({ at: resumeAt })
+      expect(mgr.limitContinueAt(conv.id)).toBe(resumeAt)
+      expect(mgr.scheduleLimitContinue(conv.id, null)).toEqual({ at: null })
+      expect(mgr.limitContinueAt(conv.id)).toBeNull()
+    } finally {
+      bindQuotaStore(null)
+      store.dispose()
+    }
   })
 
   it('refuses archived admission before creating input or message rows and allows it after restore', async () => {

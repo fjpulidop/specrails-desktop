@@ -56,6 +56,7 @@ import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
+import { readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
@@ -694,6 +695,8 @@ const loopRun = getLoopRun(db, jobId)
 const loopPaused = loopRun?.status === 'paused' || (c.loopRunManager?.isPaused?.(jobId) ?? false)
 const loopPauseReason = c.loopRunManager?.pausedReason?.(jobId) ?? null
 const loopPauseBudget = c.loopRunManager?.budgetPause?.(jobId) ?? null
+// provider-quota: a run waiting for a usage-limit reset (live pause, or retained over a restart).
+const loopPauseLimit = c.loopRunManager?.limitPause?.(jobId) ?? (loopRun?.status === 'paused' ? readLimitPause(db, jobId) : null)
 const pendingInterrupts = c.loopRunManager?.pendingInterrupts?.(jobId) ?? []
 if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
 const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
@@ -701,7 +704,7 @@ const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), pendingInterrupts, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
+const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), pendingInterrupts, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

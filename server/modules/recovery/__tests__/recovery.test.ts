@@ -13,6 +13,10 @@ describe('parseCoreFailure', () => {
   })
   it('keeps the reset hint only for provider limits', () => {
     expect(parseCoreFailure({ kind: 'provider_limit', resetAt: '3am', confidence: 'high' })?.resetAt).toBe('3am')
+    // Core 5.14: the typed reset instant rides along; anything else is dropped.
+    expect(parseCoreFailure({ kind: 'provider_limit', resetsAt: '2026-11-18T14:00:00Z', confidence: 'high' })?.resetsAt).toBe('2026-11-18T14:00:00.000Z')
+    expect(parseCoreFailure({ kind: 'provider_limit', resetsAt: 'soon', confidence: 'high' })?.resetsAt).toBeNull()
+    expect(parseCoreFailure({ kind: 'tests_failed', resetsAt: '2026-11-18T14:00:00Z', confidence: 'high' })).not.toHaveProperty('resetsAt')
     expect(parseCoreFailure({ kind: 'crash', resetAt: '3am', confidence: 'high' })?.resetAt).toBeNull()
   })
   it('never presents a low-confidence or newer-than-known kind as a cause', () => {

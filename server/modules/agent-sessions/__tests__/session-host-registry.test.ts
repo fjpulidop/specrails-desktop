@@ -196,5 +196,18 @@ describe('fatal host failures', () => {
     expect(registry.status('proj')).toBe('ready')
     expect(launcher.hosts).toHaveLength(2)
   })
+  it('forwards usage-limit reports of tracked sessions to the quota observer, ops unchanged', async () => {
+    const launcher = new FakeLauncher()
+    const reports: unknown[] = []
+    const registry = new SessionHostRegistry({ launcher, clock: new ManualClock(), onRateLimit: (report) => { reports.push(report); throw new Error('observer failure is advisory') } })
+    const sink = new Sink()
+    const listened: string[] = []
+    await registry.track('p1', 's1', sink, (_id, ops) => { listened.push(...ops.map((op) => op.kind)) })
+    const host = launcher.hosts[0]!
+    host.emit({ sessionId: 's1', seq: 1, event: { type: 'session.opened', driver: 'codex', model: 'm', resumed: false, providerSessionRef: null, at: 't0' } })
+    host.emit({ sessionId: 's1', seq: 2, event: { type: 'provider.rate-limit', rateLimit: { status: 'allowed', utilization: 0.81 }, at: 't1' } })
+    await tick()
+    expect(reports).toEqual([{ scope: 'p1', sessionId: 's1', driver: 'codex', rateLimit: { status: 'allowed', utilization: 0.81 }, at: 't1' }])
+    expect(listened).toContain('rate-limit')
+  })
 })
-
