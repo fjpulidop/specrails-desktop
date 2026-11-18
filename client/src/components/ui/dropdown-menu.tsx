@@ -133,7 +133,7 @@ export function DropdownMenuContent({
     const height = menuRef.current?.offsetHeight ?? 0
     const below = frame.height - (rect.bottom - frame.top) - 8
     const above = rect.top - frame.top - 8
-    const up = side === 'top' ? !(above < height && below > above) : height > 0 && below < height && above > below
+    const up = side === 'top' ? !(height > 0 && above < height && below > above) : height > 0 && below < height && above > below
     const vertical = up ? { bottom: frame.height - (rect.top - frame.top) + 4 } : { top: rect.bottom - frame.top + 4 }
     setPos(
       align === 'end'
