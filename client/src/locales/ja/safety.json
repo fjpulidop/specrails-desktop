@@ -1,0 +1,52 @@
+{
+  "policy": {
+    "blocked": "Specrails のポリシーによりブロックされました",
+    "rules": {
+      "git-force-push": "強制プッシュ",
+      "git-push-protected": "統合ブランチへのプッシュ",
+      "git-push-delete": "リモートブランチの削除",
+      "git-reset-hard": "実行ブランチ外での git reset --hard",
+      "git-branch-delete": "ブランチの削除",
+      "gh-pr-merge": "プルリクエストのマージ",
+      "rm-outside-run": "実行ディレクトリ外の削除",
+      "secret-access": "認証情報へのアクセス",
+      "policy-tamper": "ポリシーファイルの変更",
+      "policy-error": "検証できない危険なコマンド"
+    }
+  },
+  "resume": {
+    "title": "中断したところから再開",
+    "description": {
+      "quit": "この作業の実行中に Specrails が閉じられました。",
+      "update": "この作業の実行中に、アップデートのため Specrails が再起動しました。",
+      "crash": "この作業の実行中に Specrails が予期せず停止しました。",
+      "mixed": "この作業の実行中に Specrails が停止しました。"
+    },
+    "selectAll": "すべて選択",
+    "missions_one": "{{count}} 件のミッションがターンの途中でした",
+    "missions_other": "{{count}} 件のミッションがターンの途中でした",
+    "runs_one": "再起動により {{count}} 件の実行が一時停止しました",
+    "runs_other": "再起動により {{count}} 件の実行が一時停止しました",
+    "untitled": "無題のミッション",
+    "trigger": {
+      "quit": "アプリを終了",
+      "update": "アップデートをインストール",
+      "crash": "予期しない停止"
+    },
+    "startedAt": "ターン開始 {{time}}",
+    "runPaused": "再起動により一時停止",
+    "failed": "再開できませんでした。もう一度試すか、開いてください。",
+    "nothingAutomatic": "自動では何も再開しません。ミッションは自身のセッションを続け、実行は通常の「再開」を使います。",
+    "progress": "{{total}} 件中 {{done}} 件を再開中",
+    "notNow": "今はしない",
+    "resume_one": "{{count}} 件を再開",
+    "resume_other": "{{count}} 件を再開",
+    "resumed_one": "{{count}} 件を再開しました",
+    "resumed_other": "{{count}} 件を再開しました",
+    "prompt": {
+      "quit": "私の直前の依頼に取り組んでいる間に Specrails が閉じられました。中断したところから続けてください。まず現在の状態を確認し、すでに終わった作業はやり直さないでください。",
+      "update": "私の直前の依頼に取り組んでいる間に、アップデートのため Specrails が再起動しました。中断したところから続けてください。まず現在の状態を確認し、すでに終わった作業はやり直さないでください。",
+      "crash": "私の直前の依頼に取り組んでいる間に Specrails が予期せず停止しました。中断したところから続けてください。まず現在の状態を確認し、すでに終わった作業はやり直さないでください。"
+    }
+  }
+}

@@ -453,7 +453,9 @@
       "downloading": "Downloading update",
       "installing": "Installing update",
       "ready": "Update ready",
-      "error": "Update failed"
+      "error": "Update failed",
+      "busy": "Work is still running",
+      "waiting": "Waiting to restart"
     },
     "desc": {
       "available": "A new version of Specrails is ready to install.",
@@ -461,12 +463,15 @@
       "progress": "{{percent}}% · {{downloaded}} of {{total}}",
       "installing": "Verifying signature and finishing up…",
       "ready": "Restart to launch version {{version}}.",
-      "errorFallback": "Couldn’t complete the update. Please try again."
+      "errorFallback": "Couldn’t complete the update. Please try again.",
+      "busy": "Restarting now stops {{what}}.",
+      "waiting": "Restarts when nothing runs · {{what}}"
     },
     "pill": {
       "downloading": "Downloading",
       "installing": "Installing",
-      "ready": "Ready"
+      "ready": "Ready",
+      "waiting": "Waiting"
     },
     "actions": {
       "restart": "Restart",
@@ -474,7 +479,10 @@
       "update": "Update",
       "installing": "Installing…",
       "tryAgain": "Try again",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "whenIdle": "Install when nothing is running",
+      "restartNow": "Restart now",
+      "cancelWait": "Cancel"
     },
     "mockReady": "Mock update ready — restart skipped",
     "errors": {
@@ -483,6 +491,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} mission turn",
+      "missions_other": "{{count}} mission turns",
+      "runs_one": "{{count}} run",
+      "runs_other": "{{count}} runs",
+      "something": "work in progress"
     }
   },
   "notifications": {

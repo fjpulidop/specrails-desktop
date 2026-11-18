@@ -126,3 +126,15 @@ export function isSpecTriageAutoEnabled(): boolean {
 export function isPrCiLoopEnabled(): boolean {
   return process.env.SPECRAILS_PR_CI_LOOP !== 'false'
 }
+
+/**
+ * In-turn agent policy hook (server/modules/agent-policy): a Claude PreToolUse
+ * hook installed in Specrails-owned run directories that denies force-pushes,
+ * pushes to the integration branch, destructive git outside the run, recursive
+ * deletes outside the run and credential reads. Default ON; set
+ * SPECRAILS_AGENT_POLICY_HOOK="false" to stop installing it and remove it from
+ * the directories Specrails writes next (emergency rollback).
+ */
+export function isAgentPolicyHookEnabled(): boolean {
+  return process.env.SPECRAILS_AGENT_POLICY_HOOK !== 'false'
+}

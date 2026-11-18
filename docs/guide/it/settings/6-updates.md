@@ -22,3 +22,14 @@ Su Stabile, se nessuna versione è stata ancora promossa, **Cerca aggiornamenti*
 
 - Passare da Ultima a Stabile non ti riporta mai a una versione precedente. Resti sulla tua finché Stabile non la raggiunge.
 - Ogni aggiornamento è firmato e verificato prima dell'installazione, su entrambi i canali.
+
+## Se c’è lavoro in corso
+
+La scheda di aggiornamento controlla cosa interromperebbe un riavvio. Se ci sono ancora turni di missione o esecuzioni in corso, lo dice e propone:
+
+- **Installa quando non c’è nulla in corso**: la scheda attende e si riavvia da sola appena termina l’ultimo turno o esecuzione.
+- **Riavvia ora**: riavvia comunque. Il lavoro interrotto ti viene riproposto dopo il riavvio.
+
+## Dopo un riavvio
+
+Se Specrails si chiude, si riavvia per un aggiornamento o si ferma in modo imprevisto mentre c’è lavoro in corso, l’avvio successivo mostra **Riprendi da dove avevi lasciato**: le missioni che erano a metà turno e le esecuzioni messe in pausa dal riavvio, ognuna con la sua casella. Nulla riprende da solo. Le missioni continuano nella propria sessione (con una breve nota sul riavvio); le esecuzioni usano il loro solito Riprendi. **Non ora** scarta l’elenco; le esecuzioni in pausa restano nella posta in arrivo.

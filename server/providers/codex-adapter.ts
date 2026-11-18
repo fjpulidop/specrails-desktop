@@ -25,6 +25,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
+import { safeProviderSessionId } from './session-id'
 import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import type {
@@ -158,7 +159,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // framing; the per-turn argv must stay user-text-only so codex doesn't
       // mistake the system prompt for the user request.
       args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
-      args.push(opts.sessionId)
+      args.push(safeProviderSessionId(opts.sessionId, 'codex'))
       args.push(opts.prompt)
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -174,7 +175,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
         throw new Error(`${action} requires sessionId`)
       }
       args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
-      args.push(opts.sessionId)
+      args.push(safeProviderSessionId(opts.sessionId, 'codex'))
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match

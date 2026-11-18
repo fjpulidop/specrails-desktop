@@ -9,7 +9,7 @@ import { getAgentConversation, type AgentConversation } from '../../agents/runti
 import { conversationSessionState, ensureSessionCursor, getMissionCoreSession, getSessionCursor, isMissionCoreSessionId, listSessionCursors, listSubagents, missionCoreSessionId, renewMissionCoreSession, resetSessionProjection, setMissionCoreSessionProvider } from './agent-session-store'
 import { FLOW_SUBAGENTS_ADDENDUM } from './agent-flow-prompt'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
-import { MissionSessionProjector } from './mission-session-projector'
+import { MissionSessionProjector, type MissionSessionProjectorDeps } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
 import { connectorsMarker, type ConnectorTurnPlan } from './mission-connectors'
 import type { IntentTurn } from './flow-turn-context'
@@ -39,6 +39,8 @@ export interface MissionCoreSessionsDeps {
   subagentRuntime?: (conversation: AgentConversation) => SubagentRuntimeChoice | null
   /** Agent actions audit sink of a project (tool calls of its missions). */
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
+  /** A tool call the in-turn policy hook denied in a Core session (system row in the mission). */
+  onPolicyDenial?: MissionSessionProjectorDeps['onPolicyDenial']
   /**
    * "Connectors in missions": which of the provider's own user-scope servers
    * and account connectors this turn loads. Absent = inherit them all.
@@ -529,6 +531,7 @@ export class MissionCoreSessions {
       adapterFor: this.deps.adapterFor,
       onProcessEnded: (id) => this.releaseCapability(id),
       ...(this.deps.agentAudit ? { agentAudit: this.deps.agentAudit } : {}),
+      ...(this.deps.onPolicyDenial ? { onPolicyDenial: this.deps.onPolicyDenial } : {}),
     }, sessionId === conversationId ? {} : isMissionCoreSessionId(conversationId, sessionId) ? { coreSessionId: sessionId, mission: true } : { coreSessionId: sessionId, surface: 'flow' })
     try {
       await this.deps.registry.track(scope, sessionId, projector, () => {})

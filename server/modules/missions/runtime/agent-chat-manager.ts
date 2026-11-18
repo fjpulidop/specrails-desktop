@@ -35,6 +35,7 @@ import { resolveProjectExecution } from '../../../workspace-resolution'
 import { resolveExternalEntries } from '../../../external-mcp'
 import type { MissionConnectors } from './mission-connectors-discovery'
 import { writeClaudeConnectorDenyFile, writeGeminiExcluded } from './mission-connectors-discovery'
+import { installPolicyHookIn, parsePolicyDenial } from '../../agent-policy'
 import { codexDisableOverrides } from './mission-connectors'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from '../../../mcp/agent-capability'
@@ -76,7 +77,7 @@ import {
 } from './agent-input-store'
 import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteering } from './agent-steering'
 import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
-import { recordToolCall, type AgentAuditRecorder } from '../../audit'
+import { recordPolicyDenial, recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
@@ -126,6 +127,12 @@ interface QueuedTurn {
   claimed?: boolean
   /** Written natively; if receipt is lost, never replay this input. */
   nativeSubmitted?: boolean
+}
+
+/** Observes mission turns starting and settling (restart continuity). Must not throw or block. */
+export interface TurnLifecycleObserver {
+  started(conversationId: string): void
+  settled(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void
 }
 
 /** A projection rebuild was requested while a turn is running. */
@@ -579,17 +586,26 @@ export class AgentChatManager {
     this._broadcast({ type: 'spending.invalidated', projectId })
   }
 
+  /** Composition-time wiring of restart continuity (durable per-turn markers, modules/continuity). */
+  setTurnLifecycleObserver(observer: TurnLifecycleObserver | null): void {
+    this._lifecycleObserver = observer
+  }
+
+  private _lifecycleObserver: TurnLifecycleObserver | null = null
+
   private _startLifecycle(conversationId: string): void {
     const startedAt = new Date().toISOString()
     this._turnStartedAt.set(conversationId, startedAt)
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state: 'active', startedAt }))
+    try { this._lifecycleObserver?.started(conversationId) } catch { /* continuity is best-effort */ }
   }
 
   private _settleLifecycle(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void {
     if (!this._turnStartedAt.delete(conversationId)) return
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state, settledAt: new Date().toISOString() }))
+    try { this._lifecycleObserver?.settled(conversationId, state) } catch { /* continuity is best-effort */ }
   }
 
   /**
@@ -1016,6 +1032,10 @@ export class AgentChatManager {
           : null
         if (coreContext && !flowTurn) missionCoreTurn = true
         const reservedMcp = ['specrails', ...external.map((server) => server.name), ...plugins.map((server) => server.name)]
+        // In-turn policy hook (agent-policy): Claude reads it from the app-owned
+        // cwd's local settings at process start, next to the connector deny-list.
+        // Intent turns run in their worktree, which the worktree overlay covers.
+        if (adapter.id === 'claude' && !flowTurn) installPolicyHookIn(cwd)
         if (coreContext && !flowTurn) this.applyConnectorSwitches(adapter.id, cwd, reservedMcp, false)
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
@@ -1276,6 +1296,8 @@ export class AgentChatManager {
         for (const item of this._queue.get(conversationId) ?? []) {
           if (item.options.deliveryMode === 'steer') item.revision = notifyAgentSteering(this._db, agentCapability) ?? undefined
         }
+        // Tool calls of this turn by id, so a policy denial names what was blocked.
+        const legacyToolCalls = new Map<string, { name: string; input: unknown }>()
         const invocation = this._awaitWhileLive((nativeRunner ?? runAiCliInvocation)({
           onInitialInputAccepted: initialReceipt,
           onInputReady: (sink: LiveInputSink) => { nativeSink = sink; notifyNativeInput() },
@@ -1309,6 +1331,7 @@ export class AgentChatManager {
                 }
                 break
               case 'tool-use':
+                if (ev.toolUseId) legacyToolCalls.set(ev.toolUseId, { name: ev.name, input: ev.inputPreview })
                 // Core-session turns are audited by the session projector (full
                 // input); native provider turns are audited here from the preview.
                 if (!coreContext && this._agentAudit && conversation.pinned_project_id) {
@@ -1329,6 +1352,22 @@ export class AgentChatManager {
                 }
                 break
               case 'tool-result':
+                // A call the in-turn policy hook denied (agent-policy): audit it
+                // and show it in the mission as a system row. Core-session turns
+                // are handled by the session projector.
+                if (!coreContext && ev.isError && ev.toolUseId) {
+                  const denial = parsePolicyDenial(ev.outputPreview)
+                  if (denial) {
+                    const call = legacyToolCalls.get(ev.toolUseId) ?? null
+                    if (this._agentAudit && conversation.pinned_project_id) {
+                      try {
+                        const recorder = this._agentAudit(conversation.pinned_project_id)
+                        if (recorder) recordPolicyDenial(recorder, { runId: conversationId, role: 'mission' }, denial, call)
+                      } catch { /* audit is observing only */ }
+                    }
+                    this.postPolicyDenialRow(conversationId, { ...denial, tool: call?.name ?? 'tool', toolUseId: ev.toolUseId })
+                  }
+                }
                 // Feeds the activity-log modal's output column. Claude-only
                 // today; other adapters never emit this kind.
                 if (this._isTurnLive(conversationId)) {
@@ -1895,6 +1934,20 @@ export class AgentChatManager {
   }
 
   private readonly _systemTurnRuns = new Set<string>()
+
+  /**
+   * A tool call the in-turn policy hook denied: one `policy-denied` system row
+   * per blocked call (keyed by its tool-use id). NEVER throws.
+   */
+  postPolicyDenialRow(conversationId: string, denial: { rule: string; reason: string; tool: string; toolUseId: string }): void {
+    this.postSystemRow(conversationId, {
+      kind: 'policy-denied',
+      rule: denial.rule,
+      reason: denial.reason,
+      tool: denial.tool,
+      at: new Date().toISOString(),
+    }, `policy-denied:${denial.toolUseId}`)
+  }
 
   /**
    * Persist an app-authored system row once per `dedupeKey` (durable: an

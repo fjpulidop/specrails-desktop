@@ -22,3 +22,14 @@ On Stable, if no release has been promoted yet, **Check for updates** says so in
 
 - Switching from Latest to Stable never downgrades you. You stay on your version until Stable catches up.
 - Every update is signed and verified before it installs, on both channels.
+
+## When work is running
+
+The update card checks what a restart would stop. If mission turns or runs are still working it says so and offers:
+
+- **Install when nothing is running**: the card waits and restarts by itself as soon as the last turn or run ends.
+- **Restart now**: restart anyway. Interrupted work is offered back after the restart.
+
+## After a restart
+
+When Specrails closes, restarts for an update, or stops unexpectedly while work is running, the next launch shows **Pick up where you left off**: the missions that were mid-turn and the runs the restart paused, each with a checkbox. Nothing resumes on its own. Missions continue in their own session (with a short note that the app restarted); runs use their usual Resume. **Not now** dismisses the list; paused runs stay in the Inbox.

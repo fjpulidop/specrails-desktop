@@ -453,7 +453,9 @@
       "downloading": "Descargando actualización",
       "installing": "Instalando actualización",
       "ready": "Actualización lista",
-      "error": "Error al actualizar"
+      "error": "Error al actualizar",
+      "busy": "Hay trabajo en marcha",
+      "waiting": "Esperando para reiniciar"
     },
     "desc": {
       "available": "Hay una nueva versión de Specrails lista para instalar.",
@@ -461,12 +463,15 @@
       "progress": "{{percent}}% · {{downloaded}} de {{total}}",
       "installing": "Verificando la firma y terminando…",
       "ready": "Reinicia para abrir la versión {{version}}.",
-      "errorFallback": "No se pudo completar la actualización. Inténtalo de nuevo."
+      "errorFallback": "No se pudo completar la actualización. Inténtalo de nuevo.",
+      "busy": "Reiniciar ahora detiene {{what}}.",
+      "waiting": "Se reinicia cuando no haya nada en marcha · {{what}}"
     },
     "pill": {
       "downloading": "Descargando",
       "installing": "Instalando",
-      "ready": "Lista"
+      "ready": "Lista",
+      "waiting": "En espera"
     },
     "actions": {
       "restart": "Reiniciar",
@@ -474,7 +479,10 @@
       "update": "Actualizar",
       "installing": "Instalando…",
       "tryAgain": "Reintentar",
-      "dismiss": "Descartar"
+      "dismiss": "Descartar",
+      "whenIdle": "Instalar cuando no haya nada en marcha",
+      "restartNow": "Reiniciar ahora",
+      "cancelWait": "Cancelar"
     },
     "mockReady": "Actualización simulada lista — reinicio omitido",
     "errors": {
@@ -483,6 +491,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} turno de misión",
+      "missions_other": "{{count}} turnos de misión",
+      "runs_one": "{{count}} ejecución",
+      "runs_other": "{{count}} ejecuciones",
+      "something": "trabajo en curso"
     }
   },
   "notifications": {

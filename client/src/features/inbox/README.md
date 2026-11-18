@@ -56,7 +56,7 @@ project**, grouped by project, newest first.
   entry with the place it leads to.
 - **Notifications (attention):** every new item version (`id` + `version`, recorded in
   `localStorage` `specrails-desktop:inbox:announced`, pruned after 30 days) is announced once through the
-  app's attention pipeline ([`lib/attention`](../../../lib/attention/attention-center.ts), `hooks/useInboxAttention.ts`):
+  app's attention pipeline ([`lib/attention`](../../lib/attention/attention-center.ts), `hooks/useInboxAttention.ts`):
   an OS notification when the app is in the background, a toast with **Open** when it is focused elsewhere,
   nothing when the inbox or the item's own place (`?review=` / `?job=`, `/review/:id` / `/jobs/:id`) is on screen.
   The first snapshot after startup is recorded silently, so a restart never announces old news (what arrived

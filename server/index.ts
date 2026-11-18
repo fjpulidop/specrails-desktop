@@ -45,6 +45,11 @@ import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } f
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
 import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
+import { agentCwdPath } from './modules/missions/runtime/agent-cwd-manager'
+import { createDenialIngest, ensurePolicyHookScript, startDenialSpool } from './modules/agent-policy'
+import { createTurnContinuity, type TurnContinuity } from './modules/continuity'
+import { createFileContinuityStore } from './modules/continuity/adapters/file-store'
+import { registerContinuityRoutes } from './modules/continuity/adapters/http'
 import { createFlowTurnContext } from './modules/intent/adapters/bindings'
 import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
@@ -384,8 +389,12 @@ function broadcast(msg: WsMessage): void {
 let _getProjectCount: () => number = () => 0
 /** Captured by the Super-mode bootstrap block so graceful shutdown can tear down every
  *  project's spawners (rail/chat children) instead of orphaning them. */
+/** When this server process started: the client lists runs paused by THIS restart. */
+const SERVER_BOOTED_AT = new Date().toISOString()
 let _usageService: ReturnType<typeof createDesktopUsageService> | null = null
 let _registry: ProjectRegistry | null = null
+let _policyDenialSpool: { stop(): void } | null = null
+let _continuity: TurnContinuity | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
@@ -829,10 +838,48 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     },
     // Agent actions audit: mission tool calls land in the pinned project's log.
     agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
+    onPolicyDenial: (conversationId, denial) => agentChatManager.postPolicyDenialRow(conversationId, denial),
     connectors: (providerId, options) => missionConnectors.planFor(providerId, options),
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
+  // Restart continuity: turns the previous process left in flight become
+  // resume offers (never replayed without the person); every new mission turn
+  // leaves a durable marker until it settles.
+  _continuity = createTurnContinuity({
+    store: createFileContinuityStore(),
+    mission: (conversationId) => {
+      const conversation = getAgentConversation(registry.desktopDb, conversationId)
+      if (!conversation || conversation.deleted_at) return null
+      return { exists: true, archived: !!conversation.archivedAt, provider: conversation.provider, sessionId: conversation.session_id, turnActive: agentChatManager.isBusy(conversationId) }
+    },
+    runningRuns: () => registry.listContexts().flatMap((context) => {
+      try {
+        return (context.db.prepare("SELECT id FROM loop_runs WHERE status = 'running'").all() as Array<{ id: string }>).map((row) => ({ projectId: context.project.id, runId: row.id }))
+      } catch { return [] }
+    }),
+  })
+  const interruptedTurns = _continuity.recoverAtStartup()
+  if (interruptedTurns > 0) console.log(`[continuity] ${interruptedTurns} mission turn(s) were interrupted by the last stop; offering to resume them`)
+  const continuity = _continuity
+  agentChatManager.setTurnLifecycleObserver({
+    started: (conversationId) => {
+      const conversation = getAgentConversation(registry.desktopDb, conversationId)
+      continuity.turnStarted(conversationId, { provider: conversation?.provider ?? null, sessionId: conversation?.session_id ?? null })
+    },
+    settled: (conversationId, state) => continuity.turnSettled(conversationId, state),
+  })
+  // In-turn agent policy: write the hook script now (worktrees and the mission
+  // cwd reference it), then drain the hook's denial spool into the audit for
+  // runs whose transport does not carry tool results.
+  ensurePolicyHookScript()
+  _policyDenialSpool = startDenialSpool({
+    ingest: createDenialIngest({
+      missionCwd: agentCwdPath,
+      projects: () => registry.listContexts().map((context) => ({ db: context.db, audit: context.agentAudit })),
+      realpath: (p) => { try { return fs.realpathSync(p) } catch { return p } },
+    }),
+  })
   // Intent mode: an active Intent turns a mission turn into an Intent session turn. Missions
   // see only this port; the Intent state lives in each project's database.
   agentChatManager.setFlowTurnContext(createFlowTurnContext({
@@ -879,6 +926,28 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   _usageService = usageService
   // Intent cost: subscription-plan turns have no marginal cost.
   registry.setProviderBilling((provider) => usageService.resolveBilling(provider))
+  // Restart continuity (modules/continuity): resume offers and the update
+  // restart's "is anything running?" check.
+  const continuityRouter = express.Router()
+  registerContinuityRoutes(continuityRouter, {
+    continuity,
+    bootedAt: SERVER_BOOTED_AT,
+    missionTitle: (conversationId) => getAgentConversation(registry.desktopDb, conversationId)?.title ?? null,
+    activeWork: () => {
+      const live = agentChatManager.activeTurns()
+      const turning = new Set(live.turns.map((turn) => turn.conversationId))
+      const background = live.sessions.filter((session) => session.liveSubagents > 0 && !turning.has(session.conversationId)).length
+      let runs = 0
+      for (const context of registry.listContexts()) {
+        try {
+          runs += (context.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'running'").get() as { n: number }).n
+          runs += (context.db.prepare("SELECT COUNT(*) AS n FROM loop_runs WHERE status = 'running'").get() as { n: number }).n
+        } catch { /* a project without those tables runs nothing */ }
+      }
+      return { missions: turning.size + background, runs }
+    },
+  })
+  app.use('/api', continuityRouter)
   app.use('/api', createDesktopRouter(registry, broadcast, usageService, { missionConnectors }))
 
   // Per-project routes under /api/projects/:projectId/*
@@ -999,6 +1068,9 @@ async function shutdown(exitCode = 0): Promise<void> {
   // keep-alive/WebSocket handlers can still resume while teardown runs; they
   // must not create work after their owning managers have been disposed.
   beginAppProcessQuiescence()
+  // Stamp in-flight mission turns with why the app stopped (quit / update)
+  // BEFORE the teardown interrupts them.
+  _continuity?.recordShutdown()
   eventLoopProbe.stop()
   // Headroom lifecycle commands use their own direct process spawner. Close
   // that admission now, but leave the proxy alive until provider owners drain.
@@ -1010,6 +1082,7 @@ async function shutdown(exitCode = 0): Promise<void> {
   // children have received their termination signal.
   await Promise.allSettled([
     Promise.resolve().then(() => _usageService?.dispose()),
+    Promise.resolve().then(() => _policyDenialSpool?.stop()),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),

@@ -1,4 +1,6 @@
 import { MissionSelectionMenu } from './MissionSelectionMenu'
+import { PolicyDeniedNotice } from '../../../components/agent-policy/PolicyDeniedNotice'
+import { parsePolicyDeniedRow } from '../../../components/agent-policy/policy-denial'
 import { useMissionSplitViews, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
@@ -551,6 +553,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
+              // A tool call the in-turn agent policy blocked.
+              const policyDenial = parsePolicyDeniedRow(m.content)
+              if (policyDenial) return <PolicyDeniedNotice key={m.id} denial={policyDenial} className="my-1" />
               // Start fresh with a summary: what the new provider session knows.
               const sessionSummary = parseSessionSummaryRow(m.content)
               if (sessionSummary) return <AgentSessionSummaryCard key={m.id} row={sessionSummary} />

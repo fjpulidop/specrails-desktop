@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { safeProviderSessionId } from '../../../providers/session-id'
 import {
   isSessionRequestError,
   type McpServerSpec,
@@ -295,7 +296,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           driver: context.driver,
           cwd: hooks.cwd,
           ...config,
-          ...(context.legacyProviderSessionRef ? { providerSessionRef: context.legacyProviderSessionRef } : {}),
+          ...(context.legacyProviderSessionRef ? { providerSessionRef: safeProviderSessionId(context.legacyProviderSessionRef, context.driver) } : {}),
           ...(context.metadata ? { metadata: context.metadata } : {}),
         })).snapshot
       }

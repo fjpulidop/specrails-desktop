@@ -118,6 +118,7 @@ import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, 
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
 import { InboxProvider, useInbox } from './features/inbox/context/InboxContext'
+import { ResumeAfterRestartDialog } from './features/continuity/components/ResumeAfterRestartDialog'
 import { InboxDialog } from './features/inbox/components/InboxDialog'
 import { LiveBoardProvider, useLiveBoard } from './features/live-board/context/LiveBoardContext'
 import { usePlaceParam } from './hooks/usePlaceParam'
@@ -945,7 +946,9 @@ function PlaceHistoryOwner({ enabled, children }: { enabled: boolean; children: 
 
 /** The "Needs you" inbox exists in the main window only (it navigates the main window's places). */
 function InboxOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
-  return enabled ? <InboxProvider>{children}<InboxDialog /></InboxProvider> : <>{children}</>
+  // Main window only: the inbox and, once per launch, the "pick up where you
+  // left off" offer for work the last restart interrupted.
+  return enabled ? <InboxProvider>{children}<InboxDialog /><ResumeAfterRestartDialog /></InboxProvider> : <>{children}</>
 }
 
 /** A native surface window: the surface's own content, no app shell (docs/internals/native-window-surfaces.md). */

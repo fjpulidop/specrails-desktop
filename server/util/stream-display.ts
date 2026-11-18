@@ -4,6 +4,13 @@
 // render the SAME log lines QueueManager's one-shot spawn does, without a
 // circular import between the two modules.
 
+import { claudeFrameDenials } from '../modules/agent-policy/domain/denial'
+
+/** The log line of a policy denial; the client log parser recognises the prefix. */
+export function policyLogLine(rule: string, reason: string): string {
+  return `[specrails-policy:${rule}] ${reason.replace(/\s+/g, ' ').trim()}`
+}
+
 /**
  * Map a parsed provider stream-json frame to the single display line the Job
  * Detail log shows (or null when the frame carries no user-facing text).
@@ -74,7 +81,15 @@ export function extractDisplayText(event: Record<string, unknown>): string | nul
     const text = (e.content as string | undefined) ?? ''
     return text.length > 0 ? text : null
   }
-  if (type === 'tool_result' || type === 'system_prompt' || type === 'user' || type === 'system' || type === 'result') {
+  if (type === 'user') {
+    // A tool call the in-turn policy hook denied becomes one explicit log row
+    // (`[specrails-policy:<rule>] <reason>`), rendered as a system row by the
+    // Job/Loop log viewers. Other tool results stay out of the log.
+    const denials = claudeFrameDenials(event)
+    if (denials.length > 0) return denials.map((denial) => policyLogLine(denial.rule, denial.reason)).join('\n')
+    return null
+  }
+  if (type === 'tool_result' || type === 'system_prompt' || type === 'system' || type === 'result') {
     return null
   }
   // ── Codex `exec --json` event types ───────────────────────────────────

@@ -1,5 +1,8 @@
+import { claudeFrameDenials } from '../agent-policy/domain/denial'
 import {
   createStreamAuditState,
+  policyDenialDrafts,
+  rememberedToolDrafts,
   extractStreamActions,
   classifyToolCall,
   retentionCutoff,
@@ -160,9 +163,31 @@ export function createStreamAuditTap(recorder: Pick<AgentAuditRecorder, 'record'
     try {
       const role = typeof context.role === 'function' ? context.role() : context.role ?? 'agent'
       const drafts = extractStreamActions(event, state, role)
+      // In-turn policy denials arrive as the blocked call's hook-error result.
+      for (const denial of claudeFrameDenials(event)) {
+        drafts.push(...policyDenialDrafts(denial.rule, denial.reason, rememberedToolDrafts(state, denial.toolUseId), role))
+      }
       if (drafts.length > 0) recorder.record(drafts.map(draft => withRun(draft, context, role)))
     } catch { /* audit must never affect the run */ }
   }
+}
+
+/**
+ * Record a policy denial observed by a producer that already holds the
+ * blocked call's name and input (mission turns, Core sessions).
+ */
+export function recordPolicyDenial(
+  recorder: Pick<AgentAuditRecorder, 'record'>,
+  context: StreamTapContext,
+  denial: { rule: string; reason: string },
+  call: { name: string; input: unknown } | null,
+): void {
+  try {
+    const role = typeof context.role === 'function' ? context.role() : context.role ?? 'agent'
+    const attempted = call ? classifyToolCall(call.name, call.input, 'policy-hook', role) : []
+    const drafts = policyDenialDrafts(denial.rule, denial.reason, attempted, role)
+    recorder.record(drafts.map(draft => withRun(draft, context, role)))
+  } catch { /* audit must never affect the caller */ }
 }
 
 function withRun(draft: AgentActionDraft, context: StreamTapContext, role: string): AgentActionInput {
@@ -218,6 +243,18 @@ export function createAgentAuditService(deps: {
     countByKind(runIds: readonly string[]): AgentActionCounts {
       settle()
       return deps.store.countByKind(runIds)
+    },
+    /**
+     * Was a policy denial of `rule` already recorded for this run within
+     * `windowMs` of `atIso`? (The stream and the hook's spool can both report one.)
+     */
+    hasPolicyDenial(runId: string, rule: string, atIso: string, windowMs = 120_000): boolean {
+      settle()
+      const at = Date.parse(atIso)
+      if (Number.isNaN(at)) return false
+      const prefix = `denied by policy (${rule})`
+      return deps.store.listWindow({ from: new Date(at - windowMs).toISOString(), to: new Date(at + windowMs).toISOString(), limit: 5_000 })
+        .some((row) => (row.runId === runId || row.jobId === runId) && row.source === 'policy-hook' && row.target.startsWith(prefix))
     },
     /** Delete rows older than the retention window. Returns the number removed. */
     prune(retentionDays: number): number {

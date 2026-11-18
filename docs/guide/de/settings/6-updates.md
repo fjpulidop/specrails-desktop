@@ -22,3 +22,14 @@ Wurde auf Stabil noch keine Version freigegeben, meldet **Nach Updates suchen** 
 
 - Ein Wechsel von Neueste zu Stabil stuft dich nie herab. Du bleibst auf deiner Version, bis Stabil aufholt.
 - Jedes Update wird auf beiden Kanälen vor der Installation signiert und geprüft.
+
+## Wenn noch Arbeit läuft
+
+Die Update-Karte prüft, was ein Neustart stoppen würde. Laufen noch Missionsschritte oder Runs, sagt sie das und bietet an:
+
+- **Installieren, wenn nichts läuft**: Die Karte wartet und startet von selbst neu, sobald der letzte Schritt oder Run endet.
+- **Jetzt neu starten**: trotzdem neu starten. Unterbrochene Arbeit wird nach dem Neustart wieder angeboten.
+
+## Nach einem Neustart
+
+Wird Specrails geschlossen, für ein Update neu gestartet oder unerwartet beendet, während Arbeit läuft, zeigt der nächste Start **Dort weitermachen, wo du aufgehört hast**: die Missionen, die mitten in einem Schritt waren, und die Runs, die der Neustart pausiert hat, jeweils mit Kontrollkästchen. Nichts wird von selbst fortgesetzt. Missionen laufen in ihrer eigenen Sitzung weiter (mit einem kurzen Hinweis auf den Neustart); Runs nutzen ihr übliches Fortsetzen. **Nicht jetzt** verwirft die Liste; pausierte Runs bleiben im Posteingang.

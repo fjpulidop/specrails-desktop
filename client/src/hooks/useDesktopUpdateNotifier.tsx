@@ -5,14 +5,18 @@ import { checkAppUpdate } from '../lib/app-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { invoke } from '@tauri-apps/api/core'
 import { toast } from 'sonner'
-import { DownloadCloud, Cog, Check, AlertTriangle } from 'lucide-react'
+import { DownloadCloud, Cog, Check, AlertTriangle, Hourglass } from 'lucide-react'
 import i18n from '../lib/i18n'
+import { fetchActiveWork, noteUpdateRestart, type ActiveWork } from '../lib/continuity-api'
 
 const DISMISSED_UPDATE_KEY = 'specrails-desktop:dismissedDesktopUpdateVersion'
 const UPDATE_TOAST_ID = 'specrails-desktop-desktop-update'
 const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6h — surface releases published mid-session
+/** "Install when nothing is running": how often the card re-checks for active work. */
+export const IDLE_POLL_MS = 5_000
 
-type UpdateToastState = 'available' | 'downloading' | 'installing' | 'ready' | 'error'
+/** `busy`: ready, but a restart would interrupt running work; `waiting`: restarts as soon as nothing runs. */
+type UpdateToastState = 'available' | 'downloading' | 'installing' | 'ready' | 'busy' | 'waiting' | 'error'
 
 export type DesktopUpdate = Pick<Update, 'currentVersion' | 'version'> & {
   isMock?: boolean
@@ -87,6 +91,9 @@ function accentFor(state: UpdateToastState): string {
       return 'var(--color-accent-info)'
     case 'ready':
       return 'var(--color-accent-success)'
+    case 'busy':
+    case 'waiting':
+      return 'var(--color-accent-warning)'
     default:
       return 'var(--color-accent-primary)'
   }
@@ -96,6 +103,8 @@ function StateIcon({ state }: { state: UpdateToastState }) {
   const cls = 'h-[15px] w-[15px]'
   if (state === 'installing') return <Cog className={`${cls} u-spin`} aria-hidden />
   if (state === 'ready') return <Check className={`${cls} u-check`} aria-hidden />
+  if (state === 'waiting') return <Hourglass className={cls} aria-hidden />
+  if (state === 'busy') return <AlertTriangle className={cls} aria-hidden />
   if (state === 'error') return <AlertTriangle className={cls} aria-hidden />
   return <DownloadCloud className={cls} aria-hidden />
 }
@@ -111,8 +120,8 @@ function ProgressTrack({
   progress: number | null
 }) {
   const determinate = state === 'downloading' && progress != null
-  const indeterminate = state === 'installing' || (state === 'downloading' && progress == null)
-  const full = state === 'ready'
+  const indeterminate = state === 'installing' || state === 'waiting' || (state === 'downloading' && progress == null)
+  const full = state === 'ready' || state === 'busy'
 
   return (
     <div className="relative h-1.5 w-full overflow-hidden rounded-full border border-border/30 bg-background/70">
@@ -133,6 +142,17 @@ function ProgressTrack({
       {/* available / error → empty dim track (nothing rendered) */}
     </div>
   )
+}
+
+function describeWork(t: (key: string, options?: Record<string, unknown>) => string, work: ActiveWork | null, state: 'busy' | 'waiting'): string {
+  const missions = work?.missions ?? 0
+  const runs = work?.runs ?? 0
+  const parts = [
+    ...(missions > 0 ? [t('update.work.missions', { count: missions })] : []),
+    ...(runs > 0 ? [t('update.work.runs', { count: runs })] : []),
+  ]
+  const what = parts.join(' · ') || t('update.work.something')
+  return state === 'waiting' ? t('update.desc.waiting', { what }) : t('update.desc.busy', { what })
 }
 
 export function DesktopUpdateToast({
@@ -175,13 +195,17 @@ export function DesktopUpdateToast({
     }
   }
 
-  function handleRestart() {
+  const [work, setWork] = useState<ActiveWork | null>(null)
+
+  async function restartNow() {
     if (update.isMock) {
       toast.success(t('update.mockReady'), { duration: 2500 })
       toast.dismiss(UPDATE_TOAST_ID)
       onClose?.()
       return
     }
+    // Interrupted mission turns are offered back after the restart as "update".
+    await noteUpdateRestart()
     // Use the Rust `restart_app` command (not plugin-process relaunch directly):
     // it terminates the sidecar and waits for port 4200 to free BEFORE restarting,
     // so the relaunched instance never hits a port conflict (no second restart).
@@ -190,6 +214,37 @@ export function DesktopUpdateToast({
       void relaunch()
     })
   }
+
+  /** Restart only when nothing runs; otherwise say what would stop and let the person choose. */
+  async function handleRestart() {
+    const active = await fetchActiveWork()
+    if (active && active.total > 0) {
+      setWork(active)
+      setState('busy')
+      return
+    }
+    await restartNow()
+  }
+
+  // "Install when nothing is running": poll until the last turn/run ends, then restart.
+  useEffect(() => {
+    if (state !== 'waiting') return
+    let cancelled = false
+    const tick = async () => {
+      const active = await fetchActiveWork()
+      if (cancelled) return
+      if (active) setWork(active)
+      if (active && active.total === 0) {
+        cancelled = true
+        await restartNow()
+      }
+    }
+    void tick()
+    const timer = setInterval(() => void tick(), IDLE_POLL_MS)
+    return () => { cancelled = true; clearInterval(timer) }
+    // restartNow only reads props/translations that are stable for this card.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   const progress = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null
 
@@ -203,6 +258,10 @@ export function DesktopUpdateToast({
         ? t('update.title.installing')
         : state === 'ready'
           ? t('update.title.ready')
+          : state === 'busy'
+            ? t('update.title.busy')
+            : state === 'waiting'
+              ? t('update.title.waiting')
           : state === 'error'
             ? t('update.title.error')
             : t('update.title.available')
@@ -218,6 +277,8 @@ export function DesktopUpdateToast({
           ? t('update.desc.installing')
           : state === 'ready'
             ? t('update.desc.ready', { version: update.version })
+            : state === 'busy' || state === 'waiting'
+              ? describeWork(t, work, state)
             : (error && error.length <= 80 ? error : t('update.desc.errorFallback'))
 
   // Right-hand pill: version delta when idle, status word while working, hidden on error.
@@ -228,8 +289,10 @@ export function DesktopUpdateToast({
         ? t('update.pill.downloading')
         : state === 'installing'
           ? t('update.pill.installing')
-          : state === 'ready'
+          : state === 'ready' || state === 'busy'
             ? t('update.pill.ready')
+            : state === 'waiting'
+              ? t('update.pill.waiting')
             : null
 
   return (
@@ -270,12 +333,39 @@ export function DesktopUpdateToast({
       <ProgressTrack state={state} progress={progress} />
 
       <div className="flex items-center justify-end gap-1.5">
-        {state === 'ready' ? (
+        {state === 'busy' || state === 'waiting' ? (
+          <>
+            {state === 'busy' ? (
+              <button
+                type="button"
+                className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-caption font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25"
+                onClick={() => setState('waiting')}
+              >
+                {t('update.actions.whenIdle')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="h-7 rounded-lg px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+                onClick={() => setState('ready')}
+              >
+                {t('update.actions.cancelWait')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="h-7 rounded-lg px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+              onClick={() => void restartNow()}
+            >
+              {t('update.actions.restartNow')}
+            </button>
+          </>
+        ) : state === 'ready' ? (
           <>
             <button
               type="button"
               className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-caption font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25"
-              onClick={handleRestart}
+              onClick={() => void handleRestart()}
             >
               {t('update.actions.restart')}
             </button>

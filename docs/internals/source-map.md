@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1664 source/build files. Nearby tests are linked where names
+Includes 1689 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -51,6 +51,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [StatusBar.tsx](../../client/src/components/StatusBar.tsx) · [test](../../client/src/components/__tests__/StatusBar.test.tsx)
 - [TitleBar.tsx](../../client/src/components/TitleBar.tsx) · [test](../../client/src/components/__tests__/TitleBar.test.tsx)
 - [WelcomeScreen.tsx](../../client/src/components/WelcomeScreen.tsx) · [test](../../client/src/components/__tests__/WelcomeScreen.test.tsx)
+
+## client/src/components/agent-policy
+
+- [PolicyDeniedNotice.tsx](../../client/src/components/agent-policy/PolicyDeniedNotice.tsx)
+- [policy-denial.ts](../../client/src/components/agent-policy/policy-denial.ts)
 
 ## client/src/components/brand
 
@@ -339,6 +344,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/code/pages
 
 - [CodePage.tsx](../../client/src/features/code/pages/CodePage.tsx) · [test](../../client/src/features/code/pages/__tests__/CodePage.test.tsx)
+
+## client/src/features/continuity/components
+
+- [ResumeAfterRestartDialog.tsx](../../client/src/features/continuity/components/ResumeAfterRestartDialog.tsx)
+
+## client/src/features/continuity/lib
+
+- [continuity-model.ts](../../client/src/features/continuity/lib/continuity-model.ts)
 
 ## client/src/features/dashboard/components
 
@@ -1194,6 +1207,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-updater.ts](../../client/src/lib/app-updater.ts) · [test](../../client/src/lib/__tests__/app-updater.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
+- [continuity-api.ts](../../client/src/lib/continuity-api.ts)
 - [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
 - [docs-events.ts](../../client/src/lib/docs-events.ts)
@@ -1289,6 +1303,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [audit-source.mjs](../../scripts/audit-source.mjs)
 - [build-local-runner.mjs](../../scripts/build-local-runner.mjs)
 - [build-mcp-bridge.mjs](../../scripts/build-mcp-bridge.mjs)
+- [build-policy-hook.mjs](../../scripts/build-policy-hook.mjs)
 - [build-sidecar.mjs](../../scripts/build-sidecar.mjs)
 - [build-updater-manifest.mjs](../../scripts/build-updater-manifest.mjs) · [test](../../scripts/build-updater-manifest.test.mjs)
 - [check-core-compat.ts](../../scripts/check-core-compat.ts)
@@ -1596,6 +1611,30 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [telemetry-receiver.ts](../../server/modules/accounting/runtime/telemetry-receiver.ts) · [test](../../server/modules/accounting/runtime/telemetry-receiver.test.ts)
 - [what-if.ts](../../server/modules/accounting/runtime/what-if.ts) · [test](../../server/modules/accounting/runtime/what-if.test.ts)
 
+## server/modules/agent-policy
+
+- [index.ts](../../server/modules/agent-policy/index.ts)
+
+## server/modules/agent-policy/adapters
+
+- [ingest.ts](../../server/modules/agent-policy/adapters/ingest.ts)
+- [install.ts](../../server/modules/agent-policy/adapters/install.ts)
+- [spool.ts](../../server/modules/agent-policy/adapters/spool.ts)
+
+## server/modules/agent-policy/domain
+
+- [denial.ts](../../server/modules/agent-policy/domain/denial.ts)
+- [report.ts](../../server/modules/agent-policy/domain/report.ts)
+- [rules.ts](../../server/modules/agent-policy/domain/rules.ts)
+- [settings.ts](../../server/modules/agent-policy/domain/settings.ts)
+- [shell.ts](../../server/modules/agent-policy/domain/shell.ts)
+
+## server/modules/agent-policy/hook
+
+- [main.ts](../../server/modules/agent-policy/hook/main.ts)
+- [policy-hook-bundle.generated.ts](../../server/modules/agent-policy/hook/policy-hook-bundle.generated.ts)
+- [policy-hook.ts](../../server/modules/agent-policy/hook/policy-hook.ts)
+
 ## server/modules/agent-runtime/runtime
 
 - [agent-runtime-accounting.ts](../../server/modules/agent-runtime/runtime/agent-runtime-accounting.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-accounting.test.ts)
@@ -1721,6 +1760,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [file-summary-generator.ts](../../server/modules/code/runtime/file-summary-generator.ts) · [test](../../server/modules/code/runtime/file-summary-generator.test.ts)
 - [file-summary-manager.ts](../../server/modules/code/runtime/file-summary-manager.ts) · [test](../../server/modules/code/runtime/file-summary-manager.test.ts)
 - [project-code-discovery.ts](../../server/modules/code/runtime/project-code-discovery.ts)
+
+## server/modules/continuity
+
+- [application.ts](../../server/modules/continuity/application.ts)
+- [domain.ts](../../server/modules/continuity/domain.ts)
+- [index.ts](../../server/modules/continuity/index.ts)
+- [ports.ts](../../server/modules/continuity/ports.ts)
+
+## server/modules/continuity/adapters
+
+- [file-store.ts](../../server/modules/continuity/adapters/file-store.ts)
+- [http.ts](../../server/modules/continuity/adapters/http.ts)
 
 ## server/modules/conversations
 
@@ -2220,6 +2271,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [local-adapter.ts](../../server/providers/local-adapter.ts) · [test](../../server/providers/local-adapter.test.ts)
 - [registry.ts](../../server/providers/registry.ts) · [test](../../server/providers/registry.test.ts)
 - [runtime.ts](../../server/providers/runtime.ts) · [test](../../server/providers/runtime.test.ts)
+- [session-id.ts](../../server/providers/session-id.ts) · [test](../../server/providers/session-id.test.ts)
 - [telemetry-env.ts](../../server/providers/telemetry-env.ts)
 - [terminal-result.ts](../../server/providers/terminal-result.ts) · [test](../../server/providers/terminal-result.test.ts)
 - [types.ts](../../server/providers/types.ts)

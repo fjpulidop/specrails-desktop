@@ -453,7 +453,9 @@
       "downloading": "Update wird heruntergeladen",
       "installing": "Update wird installiert",
       "ready": "Update bereit",
-      "error": "Update fehlgeschlagen"
+      "error": "Update fehlgeschlagen",
+      "busy": "Es läuft noch Arbeit",
+      "waiting": "Warte auf Neustart"
     },
     "desc": {
       "available": "Eine neue Version von Specrails ist bereit zur Installation.",
@@ -461,12 +463,15 @@
       "progress": "{{percent}} % · {{downloaded}} von {{total}}",
       "installing": "Signatur wird geprüft und abgeschlossen…",
       "ready": "Neu starten, um Version {{version}} zu starten.",
-      "errorFallback": "Update konnte nicht abgeschlossen werden. Bitte erneut versuchen."
+      "errorFallback": "Update konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "busy": "Ein Neustart jetzt stoppt {{what}}.",
+      "waiting": "Startet neu, sobald nichts mehr läuft · {{what}}"
     },
     "pill": {
       "downloading": "Wird heruntergeladen",
       "installing": "Wird installiert",
-      "ready": "Bereit"
+      "ready": "Bereit",
+      "waiting": "Wartet"
     },
     "actions": {
       "restart": "Neu starten",
@@ -474,7 +479,10 @@
       "update": "Aktualisieren",
       "installing": "Wird installiert…",
       "tryAgain": "Erneut versuchen",
-      "dismiss": "Schließen"
+      "dismiss": "Schließen",
+      "whenIdle": "Installieren, wenn nichts läuft",
+      "restartNow": "Jetzt neu starten",
+      "cancelWait": "Abbrechen"
     },
     "mockReady": "Mock-Update bereit – Neustart übersprungen",
     "errors": {
@@ -483,6 +491,13 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} Missionsschritt",
+      "missions_other": "{{count}} Missionsschritte",
+      "runs_one": "{{count}} Run",
+      "runs_other": "{{count}} Runs",
+      "something": "laufende Arbeit"
     }
   },
   "notifications": {

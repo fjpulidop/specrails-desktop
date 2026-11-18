@@ -51,8 +51,21 @@ const coreDependencies: Record<string, string[]> = {
   'recovery/index.ts': ['./domain', './analysis'],
   'audit/domain.ts': [],
   'audit/ports.ts': ['./domain'],
-  'audit/application.ts': ['./domain', './ports'],
+  // The stream tap recognises in-turn policy denials with the policy's own (pure) marker parser.
+  'audit/application.ts': ['./domain', './ports', '../agent-policy/domain/denial'],
   'audit/index.ts': ['./application', './domain', './ports'],
+  // Agent policy: pure rules (git rules shared with the app's push path), shell reader, denial marker, settings merge.
+  'agent-policy/domain/shell.ts': [],
+  'agent-policy/domain/rules.ts': ['../../../git-guardrails', './shell'],
+  'agent-policy/domain/denial.ts': ['./rules'],
+  'agent-policy/domain/settings.ts': [],
+  'agent-policy/domain/report.ts': ['./rules'],
+  'agent-policy/index.ts': ['./domain/rules', './domain/denial', './domain/settings', './adapters/install', './adapters/spool', './adapters/ingest', './domain/report'],
+  // Restart continuity: pure marker/offer rules; use cases depend only on their own port.
+  'continuity/domain.ts': [],
+  'continuity/ports.ts': ['./domain'],
+  'continuity/application.ts': ['./domain', './ports'],
+  'continuity/index.ts': ['./application', './domain', './ports'],
   // Intent: pure state machine; use cases depend only on their own ports.
   'intent/domain.ts': [],
   'intent/ports.ts': ['./domain'],

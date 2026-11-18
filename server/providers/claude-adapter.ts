@@ -6,6 +6,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
+import { safeProviderSessionId } from './session-id'
 import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
@@ -182,7 +183,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('--model', model)
       args.push(...commonFlags)
       if (opts.systemPrompt) args.push('--system-prompt', opts.systemPrompt)
-      args.push('--resume', opts.sessionId)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p', opts.prompt)
       if (opts.maxTurns != null) args.push('--max-turns', String(opts.maxTurns))
       if (opts.extraArgs) args.push(...opts.extraArgs)
@@ -201,7 +202,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // When the conversation already has a session (a re-spawn after idle-kill
       // or crash), resume it so the persistent child restores prior context
       // instead of starting a fresh thread. Absent on the very first turn.
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p')
       args.push('--input-format', 'stream-json')
       if (opts.extraArgs) args.push(...opts.extraArgs)
@@ -231,7 +232,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     }
     case 'agent-refine': {
       args.push(...commonFlags)
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p', opts.prompt)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
@@ -246,7 +247,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       if (!opts.sessionId) {
         throw new Error('setup-enrich-resume requires sessionId')
       }
-      args.push('--resume', opts.sessionId)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push(...commonFlags)
       args.push('-p', opts.prompt)
       if (opts.extraArgs) args.push(...opts.extraArgs)

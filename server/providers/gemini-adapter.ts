@@ -25,6 +25,7 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
+import { safeProviderSessionId } from './session-id'
 import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { windowsSpawnEnv } from '../util/win-spawn'
@@ -86,7 +87,7 @@ function buildGeminiArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     }
     case 'chat-resume': {
       if (!opts.sessionId) throw new Error(`${action} requires sessionId`)
-      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
+      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, '--resume', safeProviderSessionId(opts.sessionId, 'gemini'), ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
     case 'chat-stream': {
       // Gemini has no persistent-stdin multi-turn transport; the Explore
@@ -103,7 +104,7 @@ function buildGeminiArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     }
     case 'setup-enrich-resume': {
       if (!opts.sessionId) throw new Error(`${action} requires sessionId`)
-      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
+      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, '--resume', safeProviderSessionId(opts.sessionId, 'gemini'), ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
   }
 }
