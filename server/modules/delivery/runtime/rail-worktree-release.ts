@@ -713,6 +713,11 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       console.warn(`[rail-worktree-release] ${warning}`)
       continue
     }
+    // A dev/preview server left by the run would keep serving a deleted
+    // checkout. Stop it BEFORE the kit is cleared: a process still holding a
+    // kit file open could otherwise write into bytes that are about to be
+    // deleted. Processes are not data; every file is still re-proven below.
+    await reapWorktreeLeftovers({ worktreePaths: [wt.worktree_path], reason: 'worktree-removed', runId: wt.run_id ?? undefined })
     const quarantine = await clearVerifiedOverlayEntries(input, wt, evidence.overlayEntries, evidence.discardable ?? new Map())
     if (quarantine.failure) {
       markNeedsReview()
@@ -737,8 +742,6 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       console.warn(`[rail-worktree-release] ${warning}`)
       continue
     }
-    // A dev/preview server left by the run would keep serving a deleted checkout.
-    await reapWorktreeLeftovers({ worktreePaths: [wt.worktree_path], reason: 'worktree-removed', runId: wt.run_id ?? undefined })
     try {
       await remove(input.git, {
         repoDir: input.repoDir,
