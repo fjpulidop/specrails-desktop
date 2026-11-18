@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Comprimi barra laterale sinistra (mantieni fissata)",
       "pinnedCollapsed": "Sblocca barra laterale sinistra",
-      "unpinned": "Fissa aperta la barra laterale sinistra"
+      "unpinned": "Fissa aperta la barra laterale sinistra",
+      "showOverlay": "Mostra la barra laterale",
+      "hideOverlay": "Nascondi la barra laterale"
     },
     "right": {
       "pinnedOpen": "Comprimi barra laterale destra (mantieni fissata)",

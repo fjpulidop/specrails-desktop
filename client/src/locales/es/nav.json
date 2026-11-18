@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Contraer barra lateral izquierda (mantener anclada)",
       "pinnedCollapsed": "Desanclar barra lateral izquierda",
-      "unpinned": "Anclar barra lateral izquierda abierta"
+      "unpinned": "Anclar barra lateral izquierda abierta",
+      "showOverlay": "Mostrar la barra lateral",
+      "hideOverlay": "Ocultar la barra lateral"
     },
     "right": {
       "pinnedOpen": "Contraer barra lateral derecha (mantener anclada)",

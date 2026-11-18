@@ -790,7 +790,7 @@ export function ArcSidebar({
   // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
   const onSettingsRoute = location.pathname.startsWith('/settings')
   const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
-  const { effectiveLeftMode, setLeftMode } = useSidebarPin()
+  const { effectiveLeftMode, setLeftMode, narrow, leftFlyoutOpen, setLeftFlyoutOpen } = useSidebarPin()
   const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
@@ -1007,7 +1007,9 @@ export function ArcSidebar({
   // ref — 300px expanded, 0px when hidden.
   const [dragging, setDragging] = useState(false)
   const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
-  const expanded = docked || (unpinned && hover.hovered)
+  // Narrow window: the title bar button (or ⌘B) opens the sidebar as an overlay.
+  const flyout = narrow && leftFlyoutOpen && !docked
+  const expanded = docked || (unpinned && hover.hovered) || flyout
   // The in-flow wrapper only reserves the expanded width when pinned open; a
   // hover-expanded unpinned panel overlays the content instead of reflowing it.
   // The hover-intent hook keeps the panel open during a drag.
@@ -1018,8 +1020,9 @@ export function ArcSidebar({
   // Esc closes the hover/flyout overlay of a collapsed or unpinned sidebar and
   // returns focus to the active project's row (focus first: the focus handler
   // re-opens the overlay, the explicit close right after wins).
-  const closeFlyout = hover.setHovered
-  const overlayOpen = unpinned && hover.hovered
+  const setHovered = hover.setHovered
+  const closeFlyout = useCallback((open: boolean) => { setHovered(open); if (!open) setLeftFlyoutOpen(false) }, [setHovered, setLeftFlyoutOpen])
+  const overlayOpen = (unpinned && hover.hovered) || flyout
   useEffect(() => {
     if (!overlayOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -1033,6 +1036,17 @@ export function ArcSidebar({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [overlayOpen, activeProjectId, closeFlyout])
+  // A button-opened overlay closes on a click outside it (the toggle handles itself).
+  useEffect(() => {
+    if (!flyout) return
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null
+      if (!target || resize.wrapperRef.current?.contains(target) || target.closest('[data-sidebar-toggle="left"], [data-sidebar-flyout]')) return
+      setLeftFlyoutOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [flyout, setLeftFlyoutOpen])
   const overlaying = expanded && !docked
 
   /** Collapsed rail: a group header opens the sidebar (pinned) on that group. */

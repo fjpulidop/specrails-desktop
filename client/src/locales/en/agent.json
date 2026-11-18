@@ -937,7 +937,7 @@
     "retry": "Retry",
     "openRight": "Open to the right",
     "openBelow": "Open below",
-    "layoutMenu": "Pane layout",
+    "layoutMenu": "Split and arrange panes",
     "splitRight": "Split right",
     "splitDown": "Split down",
     "moveLeft": "Move left",

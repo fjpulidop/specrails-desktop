@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "收起左侧边栏（保持固定）",
       "pinnedCollapsed": "取消固定左侧边栏",
-      "unpinned": "固定并展开左侧边栏"
+      "unpinned": "固定并展开左侧边栏",
+      "showOverlay": "显示侧边栏",
+      "hideOverlay": "隐藏侧边栏"
     },
     "right": {
       "pinnedOpen": "收起右侧边栏（保持固定）",

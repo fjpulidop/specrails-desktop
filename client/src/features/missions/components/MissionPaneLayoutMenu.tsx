@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowLeftRight, Columns2, Maximize2, Minimize2, PanelBottom, PanelRight, Rows2, X, ChevronLeft,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowLeftRight, Columns2, Maximize2, SquareSplitHorizontal, Minimize2, PanelBottom, PanelRight, Rows2, X, ChevronLeft,
 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import { Kbd } from '../../../components/ui/kbd'
@@ -45,7 +45,8 @@ export function MissionPaneLayoutMenu() {
     <DropdownMenuTrigger aria-label={t('split.layoutMenu')} title={t('split.layoutMenu')} data-testid="mission-pane-layout-trigger"
       className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground',
         (open || maximized) && 'bg-surface text-foreground')}>
-      {maximized ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Columns2 className="h-4 w-4" aria-hidden />}
+      {/* Not a panel glyph: the title bar's sidebar toggle already is one. */}
+      {maximized ? <Minimize2 className="h-4 w-4" aria-hidden /> : <SquareSplitHorizontal className="h-4 w-4" aria-hidden />}
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-60" data-pane-layout-menu aria-label={t('split.layoutMenu')}>
       <PaneLayoutItems paneId={paneId} mode={mode} setMode={setMode} />

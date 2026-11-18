@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Linke Seitenleiste einklappen (angepinnt lassen)",
       "pinnedCollapsed": "Linke Seitenleiste lösen",
-      "unpinned": "Linke Seitenleiste offen anpinnen"
+      "unpinned": "Linke Seitenleiste offen anpinnen",
+      "showOverlay": "Seitenleiste einblenden",
+      "hideOverlay": "Seitenleiste ausblenden"
     },
     "right": {
       "pinnedOpen": "Rechte Seitenleiste einklappen (angepinnt lassen)",

@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Replier la barre latérale gauche (garder épinglée)",
       "pinnedCollapsed": "Désépingler la barre latérale gauche",
-      "unpinned": "Épingler la barre latérale gauche ouverte"
+      "unpinned": "Épingler la barre latérale gauche ouverte",
+      "showOverlay": "Afficher la barre latérale",
+      "hideOverlay": "Masquer la barre latérale"
     },
     "right": {
       "pinnedOpen": "Replier la barre latérale droite (garder épinglée)",

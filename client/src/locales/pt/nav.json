@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Recolher barra lateral esquerda (manter afixada)",
       "pinnedCollapsed": "Desafixar barra lateral esquerda",
-      "unpinned": "Afixar barra lateral esquerda aberta"
+      "unpinned": "Afixar barra lateral esquerda aberta",
+      "showOverlay": "Mostrar a barra lateral",
+      "hideOverlay": "Ocultar a barra lateral"
     },
     "right": {
       "pinnedOpen": "Recolher barra lateral direita (manter afixada)",

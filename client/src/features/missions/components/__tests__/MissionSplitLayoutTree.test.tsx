@@ -219,7 +219,7 @@ describe('MissionSplitLayout', () => {
     const user = userEvent.setup()
     render(<Harness />)
     act(() => views.open('a'))
-    const menuOf = (id: string) => within(screen.getByTestId(`probe-${id}`)).getByRole('button', { name: 'Pane layout' })
+    const menuOf = (id: string) => within(screen.getByTestId(`probe-${id}`)).getByRole('button', { name: 'Split and arrange panes' })
     await user.click(menuOf('a'))
     expect(screen.getByRole('menuitem', { name: 'Move right' })).toBeDisabled()
     await user.click(screen.getByRole('menuitem', { name: 'Move left' }))
@@ -255,7 +255,7 @@ describe('MissionSplitLayout', () => {
     render(<Harness />)
     act(() => views.open('a'))
     act(() => views.openBeside('b', 'down', 'a'))
-    await user.click(within(screen.getByTestId('probe-b')).getByRole('button', { name: 'Pane layout' }))
+    await user.click(within(screen.getByTestId('probe-b')).getByRole('button', { name: 'Split and arrange panes' }))
     // Beside the primary pane would make three columns: 1080px.
     expect(screen.getByRole('menuitem', { name: 'Move left' })).toHaveAttribute('title', 'Not enough room for this layout')
     expect(screen.getByRole('menuitem', { name: 'Move left' })).toBeDisabled()

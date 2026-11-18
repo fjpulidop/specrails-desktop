@@ -33,6 +33,10 @@ vi.mock('../PlaceNavButtons', () => ({
   PlaceNavButtons: () => <div data-testid="place-nav" />,
 }))
 
+vi.mock('../../features/inbox/components/InboxButton', () => ({
+  InboxButton: () => <button type="button" data-testid="inbox-button">Inbox</button>,
+}))
+
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => mocks.useDesktop(),
 }))
@@ -54,6 +58,8 @@ describe('TitleBar', () => {
     render(<TitleBar />)
     expect(screen.getByRole('button', { name: /left sidebar/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /right sidebar/i })).toBeInTheDocument()
+    // The inbox works in the browser too, so its button is there as in the desktop title bar.
+    expect(screen.getByTestId('inbox-button')).toBeInTheDocument()
   })
 
   it('labels the search shortcut for the keyboard in use (Ctrl on Windows and Linux)', () => {

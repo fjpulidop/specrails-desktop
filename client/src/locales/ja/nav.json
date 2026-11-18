@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "左サイドバーを折りたたむ (ピン留めは維持)",
       "pinnedCollapsed": "左サイドバーのピン留めを解除",
-      "unpinned": "左サイドバーを開いた状態でピン留め"
+      "unpinned": "左サイドバーを開いた状態でピン留め",
+      "showOverlay": "サイドバーを表示",
+      "hideOverlay": "サイドバーを隠す"
     },
     "right": {
       "pinnedOpen": "右サイドバーを折りたたむ (ピン留めは維持)",

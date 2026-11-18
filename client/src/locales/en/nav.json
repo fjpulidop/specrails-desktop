@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Collapse left sidebar (keep pinned)",
       "pinnedCollapsed": "Unpin left sidebar",
-      "unpinned": "Pin left sidebar open"
+      "unpinned": "Pin left sidebar open",
+      "showOverlay": "Show sidebar",
+      "hideOverlay": "Hide sidebar"
     },
     "right": {
       "pinnedOpen": "Collapse right sidebar (keep pinned)",

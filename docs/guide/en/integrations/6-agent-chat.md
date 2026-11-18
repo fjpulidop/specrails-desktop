@@ -37,7 +37,7 @@ text still streaming or waiting in the queue is not available yet.
 Right-click a mission in the sidebar (or press **Shift+F10** on it) and choose **Split view**, **Open to the right** or **Open below**. Split view puts it next to the mission you are in when there is room for both, otherwise below it.
 
 - **Resize** by dragging the line between two missions. It snaps to the middle; double-click it to share that space evenly. With the line focused, the arrow keys move it (Shift for bigger steps) and Home centres it.
-- **Pane layout menu** (the columns button in each mission's header): open another mission to the right or below, move the mission left, right, up or down, swap it with another one, maximize it, equalize all missions, or close it. Options that would leave a mission too small (under about 360 × 240 px) are disabled.
+- **Split and arrange panes** (the split-square button in each mission's header): open another mission to the right or below, move the mission left, right, up or down, swap it with another one, maximize it, equalize all missions, or close it. Options that would leave a mission too small (under about 360 × 240 px) are disabled.
 - **Shortcuts:** **⌥⌘]** / **⌥⌘[** next or previous mission, **⌘⇧↵** maximize or restore, **⌥⌘=** equalize, **⌥⌘W** close the mission you are in (on Windows/Linux, Ctrl+Alt instead of ⌥⌘ and Ctrl+Shift+Enter).
 - **Small windows:** when the missions no longer fit, they stack: a row of tabs at the top picks the one shown, and the others keep running.
 
