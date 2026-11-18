@@ -59,12 +59,12 @@ export interface GeneratorOpts {
   systemPrompt?: (language: 'en' | 'es') => string
 }
 
-/** Cheapest model per provider for summary generation. Codex MUST run
- *  `gpt-5.4-mini` (product decision: file summaries are non-critical and the
- *  mini tier is the right cost target). Claude uses `haiku`. The per-provider
- *  env overrides exist for ops escape hatches; the generic
- *  `SPECRAILS_FILE_SUMMARY_MODEL` is honoured only when no provider-specific
- *  override is set. */
+/** Cheapest model per provider for summary generation (file summaries are
+ *  non-critical): Claude `haiku`, Codex `gpt-6-luna` (its most efficient model;
+ *  the old `gpt-5.4-mini` is retired for ChatGPT sign-in). The per-provider env
+ *  overrides are ops escape hatches; the generic `SPECRAILS_FILE_SUMMARY_MODEL`
+ *  is honoured only when no provider-specific override is set. A model the
+ *  account turns down falls back to the provider default (see below). */
 function defaultModelFor(adapter: ProviderAdapter): string {
   if (adapter.id === 'claude') {
     return process.env.SPECRAILS_FILE_SUMMARY_MODEL_CLAUDE
@@ -72,19 +72,56 @@ function defaultModelFor(adapter: ProviderAdapter): string {
       ?? 'haiku'
   }
   if (adapter.id === 'codex') {
-    return process.env.SPECRAILS_FILE_SUMMARY_MODEL_CODEX ?? 'gpt-5.4-mini'
+    return process.env.SPECRAILS_FILE_SUMMARY_MODEL_CODEX ?? 'gpt-6-luna'
   }
   return process.env.SPECRAILS_FILE_SUMMARY_MODEL ?? adapter.defaultModel()
 }
 
+/**
+ * Cheap default models the provider account turned down (e.g. Codex rejects
+ * mini models on ChatGPT plans). It is a fact about the signed-in account, not
+ * about a project, so it is kept for the process lifetime and the next call
+ * goes straight to the provider's own default.
+ */
+const rejectedCheapModels = new Set<string>()
+
+/** The provider's own error for a model this account cannot run. */
+export function isUnsupportedModelError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /model[^.]*\b(?:is )?not supported|not supported when using codex|unsupported model|model[^.]*does not exist|model_not_found/i.test(message)
+}
+
+/** Test seam: forget the account-level model rejections. */
+export function resetRejectedCheapModels(): void { rejectedCheapModels.clear() }
+
 export function createFileSummaryGenerator(opts: GeneratorOpts): (input: GenerateInput, signal?: AbortSignal) => Promise<GenerateOutput> {
   const adapter = opts.adapter
-  const model = opts.model ?? defaultModelFor(adapter)
+  const cheapModel = defaultModelFor(adapter)
+  const rejectionKey = `${adapter.id}:${cheapModel}`
+  const runWith = createModelRun(opts)
+  // An explicit model is the caller's choice and is never swapped.
+  if (opts.model) return (input, signal) => runWith(opts.model!, input, signal)
+  return async (input, signal) => {
+    const fallback = adapter.defaultModel()
+    if (rejectedCheapModels.has(rejectionKey) && fallback) return runWith(fallback, input, signal)
+    try {
+      return await runWith(cheapModel, input, signal)
+    } catch (error) {
+      if (!fallback || fallback === cheapModel || signal?.aborted || !isUnsupportedModelError(error)) throw error
+      rejectedCheapModels.add(rejectionKey)
+      console.warn(`[file-summary] ${adapter.id} rejected ${cheapModel}; using ${fallback} for this account`)
+      return runWith(fallback, input, signal)
+    }
+  }
+}
+
+function createModelRun(opts: GeneratorOpts): (model: string, input: GenerateInput, signal?: AbortSignal) => Promise<GenerateOutput> {
+  const adapter = opts.adapter
   const timeoutMs = opts.timeoutMs ?? GENERATE_TIMEOUT_MS
   const spawn = opts.spawn ?? spawnAiCli
   const systemPromptFor = opts.systemPrompt ?? buildSystemPrompt
 
-  return async function generate(input: GenerateInput, signal?: AbortSignal): Promise<GenerateOutput> {
+  return async function generate(model: string, input: GenerateInput, signal?: AbortSignal): Promise<GenerateOutput> {
     const startedAt = Date.now()
     if (signal?.aborted) throw new Error('file-summary generator aborted before start')
     const toolPolicy = pureOutputToolPolicy(adapter)
