@@ -30,8 +30,10 @@ subscriptions), [prompts.ts](../../server/mcp/prompts.ts).
 ```
 
 - Returned twice: as pretty JSON text in `content[0]` and as `structuredContent`.
-  Each tool advertises the shape as its `outputSchema` (SDK 1.32 validates
-  structured content of non-error results against it). A prose payload (the
+  Each tool advertises the envelope keys as its `outputSchema` (SDK 1.32
+  validates structured content of non-error results against it). That schema
+  is structural only, with open field contents, because some clients send it to
+  the model with every tool. A prose payload (the
   guide) keeps its readable text; the structured envelope still carries it.
 - `data` is the tool's pre-envelope payload, unchanged. Consumers that parsed the
   old text now read `data`.
@@ -102,6 +104,12 @@ The Destructive tier remains on by default.
   moved arguments must survive the SDK's parse), then parses an alias call with
   the target tool's own zod schema, validates its per-action fields and
   summarizes it under the target's name.
+- `tools/list` carries the compact wire form ([wire-schema.ts](../../server/mcp/tools/wire-schema.ts),
+  briefs in [wire-briefs.ts](../../server/mcp/tools/wire-briefs.ts)): brief tool and
+  field text, the required arguments per action on the `action` field, the same
+  validators. `specrails_describe(name, action)` returns an action's fields with
+  their complete descriptions (declared in `actionFields` or named by the field's
+  description; fields naming no action belong to every action).
 - `McpToolSpec.actionFields` declares `required` / `oneOf` / `optional` per
   action. Missing fields fail with `invalid_input` before any REST call; fields
   an action ignores are tolerated for older clients. `specrails_describe`

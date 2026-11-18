@@ -113,8 +113,8 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
 [`resolveSubagentPolicy`](../../server/modules/agent-sessions/domain/subagent-policy.ts)
 maps `(surface, project setting, app setting)` to `policy.subagents`. A
 conversation with a project follows the project's "Allow sub-agents" setting.
-A conversation without a project follows the app setting. Both default to off.
-Implement pipelines are not a surface, so they never resolve a policy. The
+A conversation without a project follows the app setting. Both default to on
+(only a stored `false` turns them off). Implement pipelines are not a surface, so they never resolve a policy. The
 composition root wires the resolver into `MissionCoreSessions`. Settings
 routes call `ProjectRegistry.notifySettingsChanged`, and
 `MissionCoreSessions.refreshSubagentPolicy` then sends the complete policy to
@@ -124,6 +124,35 @@ restarted for nothing. A session with running sub-agents reports the change as
 deferred, and the mission offers "Stop agents and apply now". If Core rejects
 a policy with `policy_unenforceable`, the mission shows a localized error that
 names the provider and the setting.
+
+### The sub-agent tool follows the setting
+
+With sub-agents off, the mission's Claude process has no `Agent` tool at all
+(its definition is ~5.4k characters, ~1.5k tokens, on every request). The
+setting above is the only source, on both transports:
+
+- Core sessions: `policy.subagents: 'disabled'`. Core's Claude driver then
+  launches `--tools Read,Grep,Glob` plus `--disallowedTools Agent,Task`
+  (enabled: `--tools Read,Grep,Glob,Agent,Task`); verified in the bundled Core 6.11.
+- Legacy stream-json turns: `missionSpawnPolicy(adapter, subagents)` sets
+  `nativeSubagents: 'disabled'`, and the Claude adapter drops `Agent` from the
+  read-only set (`Read,Grep,Glob,WebFetch,WebSearch`) or, with the read-only
+  kill switch off, adds `--disallowedTools Agent,Task`.
+- Codex, Gemini, Kimi and local engines have no sub-agent tool and ignore it.
+
+The operator core never mentions sub-agents or the `Agent` tool, so one static
+core serves both states. The delegated-runtime addendum is only sent while
+sub-agents are on (`MissionCoreSessions.delegates` is false otherwise).
+
+Toggling mid-mission keeps the conversation. Claude fixes its tools when the
+process starts, so the change applies to the next turn: Core's
+`session.update` with a changed policy retires the idle provider process
+(deferred while sub-agents run) and the next turn starts a new one that resumes
+the same provider session (`--resume`), in the same Core session and
+generation. Each turn also re-sends the policy, so a toggle that no refresh
+reached (e.g. after a Desktop restart) still applies. Legacy turns spawn a
+process per turn with `--resume`. Either way, the first request after a toggle
+has a different tool list, so it rewrites the provider's prompt cache once.
 
 ## Permission boundary
 

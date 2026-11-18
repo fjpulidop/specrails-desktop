@@ -14,6 +14,7 @@ import { getProjectRepositories, resolveProjectRepository, type ProjectRepositor
 import { acknowledgeAgentSteering, acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from '../../modules/missions/runtime/agent-steering'
 import { ENVELOPE_OUTPUT_SHAPE, McpToolError, errorEnvelope, isToolResponse, successEnvelope, type Envelope } from './envelope'
 import { summarizeResult } from './summaries'
+import { wireInputObject, wireToolDescription } from './wire-schema'
 import { validateActionArgs, type ActionAlias, type ActionFields, type ResolvedAlias } from './actions'
 
 export type { McpTier } from '../mcp-tiers'
@@ -407,10 +408,12 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
     spec.name,
     {
       title: spec.title,
-      description: spec.description,
-      // A facade with hidden aliases keeps the arguments of the moved actions
-      // (validated below against the target tool's own schema).
-      inputSchema: spec.aliases ? z.object(spec.inputSchema).loose() : spec.inputSchema,
+      // The compact wire text (./wire-schema.ts); specrails_describe keeps the full docs.
+      description: wireToolDescription(spec),
+      // Same validators with brief descriptions. A facade with hidden aliases keeps
+      // the arguments of the moved actions (validated below against the target
+      // tool's own schema).
+      inputSchema: wireInputObject(spec),
       outputSchema: ENVELOPE_OUTPUT_SHAPE,
       annotations,
     },

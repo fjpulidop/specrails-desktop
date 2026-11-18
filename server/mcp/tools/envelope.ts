@@ -90,24 +90,26 @@ export function isToolResponse(value: unknown): value is ToolResponse {
 }
 
 /**
- * Output schema advertised for every tool (MCP `outputSchema`). Kept compact —
- * it is repeated in every tools/list entry; the field meanings live in
+ * Output schema advertised for every tool (MCP `outputSchema`). Deliberately
+ * structural only: it is repeated in every tools/list entry and some clients
+ * (Gemini CLI: `responseJsonSchema`) send it to the model with each tool. It
+ * names the envelope keys and leaves their contents open, so it accepts every
+ * envelope the stricter contract below produces; the field meanings live in
  * docs/internals/mcp-response-envelope.md and specrails_guide. Error payloads
- * are not validated by the SDK, so `error` stays a loose object.
+ * are not validated by the SDK.
  */
-const nextCallSchema = z.object({ tool: z.string(), args: z.record(z.string(), z.unknown()), why: z.string() })
 export const ENVELOPE_OUTPUT_SHAPE = {
   ok: z.boolean(),
   summary: z.string(),
   status: z.string().optional(),
   data: z.unknown().optional(),
-  ids: z.record(z.string(), z.unknown()).optional(),
-  links: z.record(z.string(), z.string()).optional(),
-  next: z.array(nextCallSchema).optional(),
+  ids: z.unknown().optional(),
+  links: z.unknown().optional(),
+  next: z.array(z.unknown()).optional(),
   truncated: z.boolean().optional(),
-  cursor: z.union([z.string(), z.number(), z.null()]).optional(),
+  cursor: z.unknown().optional(),
   partial: z.boolean().optional(),
-  error: z.object({ code: z.string(), message: z.string(), retryable: z.boolean() }).passthrough().optional(),
+  error: z.unknown().optional(),
 }
 
 // ── Success ─────────────────────────────────────────────────────────────────

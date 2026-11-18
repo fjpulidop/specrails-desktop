@@ -65,7 +65,7 @@ reading one description. The tools are:
 | `specrails_watch` | Await the real result of an async (cost-incurring) action |
 | `specrails_guide` | The platform guide by topic: no `topic` returns the topic index (read it first), `topic` returns one section |
 | `specrails_search` | Find tools/actions by English or Spanish intent, including current permission previews |
-| `specrails_describe` | Complete nested JSON schema and action tiers; optionally validate proposed arguments without execution |
+| `specrails_describe` | Complete nested JSON schema and action tiers; `action` returns one action's fields with their full docs; optionally validate proposed arguments without execution |
 | `specrails_select_project` | Set this session's active project so later calls can omit `projectId` |
 
 Almost every domain tool is **project-scoped** and takes a `projectId`. Calling
@@ -127,7 +127,9 @@ optional fields. Every action of the split tools declares the fields it takes;
 the server checks them before calling the backend and answers `invalid_input`
 naming them (`specrails_runs(diagnose) missing "jobId". It takes: jobId (required).`).
 `specrails_describe(name)` lists them per action (`takes`, `required`, `oneOf`),
-and `specrails_describe(name, arguments)` validates a call without executing it.
+`specrails_describe(name, action)` returns one action with the complete
+description of each field it takes, and `specrails_describe(name, arguments)`
+validates a call without executing it.
 
 #### Pagination
 
@@ -221,11 +223,35 @@ failure; inspect `specrails_jobs(get)` or `specrails_loops(run_get)` for evidenc
 
 ### Catalog size
 
-Tool descriptions stay short; recipes (launch rules, budget refusals, loop
-lifecycle, recovery) live in `specrails_guide`. The `tools/list` answer
-(33 tools, JSON) is about 124 KB: input schemas ~61 KB, the shared output
-schema ~32 KB (about 1 KB per tool), descriptions ~23 KB. Before the split it was
-about 150 KB for 27 tools.
+Every mission turn resends the whole `tools/list`, so it carries a compact
+**wire** form of each tool ([`wire-briefs.ts`](../server/mcp/tools/wire-briefs.ts),
+[`wire-schema.ts`](../server/mcp/tools/wire-schema.ts)): the tool's purpose,
+its actions with a few words and their tier, and short field descriptions
+(≤ 80 characters). The `action` field lists the required arguments per action
+where the tool declares them. Only text changes: types, enums, bounds, required
+fields and validation are those of the full schema (`$schema` and the ±2^53
+integer bounds are left out of the advertised JSON; the server still checks
+them). The complete descriptions stay reachable:
+`specrails_describe(name, action)` returns that action's tier, required
+arguments and the full docs of the fields it takes; `specrails_describe(name)`
+the whole schema; recipes live in `specrails_guide`.
+
+The output schema is structural only (the envelope keys, contents open), since
+some clients send it to the model too (Gemini CLI as `responseJsonSchema`;
+Claude does not).
+
+| 33 tools | Before | Now |
+|---|---|---|
+| What the model reads (name + description + input schema) | ~86 KB | ~58 KB |
+| Tool descriptions | ~23 KB | ~9 KB |
+| Field descriptions | ~34 KB | ~23 KB |
+| Output schema (all tools) | ~32 KB | ~12 KB |
+| Whole `tools/list` JSON | ~124 KB | ~76 KB |
+| Fresh mission "Hola" turn (Claude Haiku, input tokens) | ~43.0k | ~33.4k |
+
+`wire-schema.test.ts` holds the budget (≤ 60 KB model payload, ≤ 6.5 KB per
+tool, ≤ 80 KB `tools/list`) and checks that every shortened description is
+returned verbatim by `specrails_describe`.
 
 ## Runtime runs and rail availability (mission-rail-cards)
 

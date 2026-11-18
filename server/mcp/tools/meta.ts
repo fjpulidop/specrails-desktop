@@ -6,6 +6,7 @@ import { McpToolError } from './envelope'
 import type { McpToolContext, McpToolSpec } from './types'
 import { setActiveProject, toolTierAllowed } from './types'
 import { advertisedActions, describeActionFields, validateActionArgs } from './actions'
+import { fieldsForAction } from './wire-schema'
 
 /** One serialized input field for `specrails_describe`. */
 interface DescribedField {
@@ -83,6 +84,38 @@ function actionIssues(spec: McpToolSpec, args: Record<string, unknown>): string 
     return null
   } catch (err) {
     return err instanceof Error ? err.message : String(err)
+  }
+}
+
+/**
+ * One action of a tool: tier, the arguments it requires and the complete
+ * description of every field it takes (the full docs behind the brief
+ * tools/list text, see ./wire-schema.ts). An alias action is described as the
+ * call it stands for.
+ */
+function describeAction(ctx: McpToolContext, spec: McpToolSpec, requested: string) {
+  const advertised = advertisedActions(spec)
+  const routed = spec.resolveAlias?.({ action: requested }) ?? null
+  const target = (routed?.spec as McpToolSpec | undefined) ?? spec
+  const action = routed ? String(routed.args.action) : requested
+  const targetActions = advertisedActions(target)
+  if (!targetActions.includes(action)) {
+    throw new McpToolError('invalid_input', `${spec.name} has no action "${requested}". Actions: ${advertised.join(', ')}.`, { choices: advertised })
+  }
+  const declared = target.actionFields?.[action]
+  const names = fieldsForAction(target, targetActions, action)
+  const fields = names.map(name => describeZodField(name, target.inputSchema[name] as z.ZodTypeAny))
+  const jsonSchema = toJsonSchemaCompat(z.object(Object.fromEntries(names.map(name => [name, target.inputSchema[name]])))) as { properties?: unknown }
+  const others = Object.keys(target.inputSchema).filter(name => name !== 'action' && !names.includes(name))
+  return {
+    name: target.name,
+    ...(routed ? { aliasOf: `${target.name}(${action})`, requested: `${spec.name}(${requested})` } : {}),
+    action, ...permissions(ctx, target, { action }),
+    ...(declared ? { takes: describeActionFields(declared), ...(declared.required?.length ? { required: [...declared.required] } : {}), ...(declared.oneOf?.length ? { oneOf: [...declared.oneOf] } : {}) } : {}),
+    fields,
+    properties: jsonSchema.properties ?? {},
+    ...(others.length ? { otherFields: others } : {}),
+    note: 'Fields of this action with their complete descriptions. otherFields belong to other actions; specrails_describe(name) returns the whole schema. Validate a call with specrails_describe(name, arguments).',
   }
 }
 
@@ -190,6 +223,7 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
       tier: 'read',
       inputSchema: {
         name: z.string().describe('Tool name, e.g. "specrails_rails"'),
+        action: z.string().trim().min(1).max(64).optional().describe('Return only this action: its tier, required arguments and the complete docs of the fields it takes (the tools/list schema carries brief descriptions). Ignored with arguments'),
         arguments: z.record(z.string(), z.unknown()).optional().describe('Optional prospective tool arguments to validate and preview permissions; never executes the tool'),
       },
       handler: (ctx, args) => {
@@ -197,6 +231,7 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
         const spec = getSpecs().find((s) => s.name === name)
         if (!spec) throw new Error(`Unknown tool "${name}". Use specrails_search to find one.`)
         const schema = z.object(spec.inputSchema)
+        if (typeof args.action === 'string' && args.action.trim() && args.arguments === undefined) return describeAction(ctx, spec, args.action.trim())
         const prospective = args.arguments as Record<string, unknown> | undefined
         const validation = prospective === undefined ? undefined : schema.safeParse(prospective)
         const actionProblem = validation?.success ? actionIssues(spec, validation.data) : null
