@@ -32,7 +32,10 @@ export function RunPortsSection({ snapshot }: { snapshot: RunPortsSnapshot | nul
           {port.squatting && <span className="text-accent-warning"> · {t('ports.squattingShort')}</span>}
         </span>
         <span className="min-w-0 max-w-24 shrink truncate text-muted-foreground" title={port.command ?? undefined}>{port.command ?? '—'}</span>
-        <span className="w-16 shrink-0 text-right text-muted-foreground" title={t(`ports.confidenceHint.${port.confidence}`)}>{t(`ports.confidence.${port.confidence}`)}</span>
+        <span className="w-16 shrink-0 text-right text-muted-foreground" title={t(`ports.confidenceHint.${port.confidence}`)}>
+          <span aria-hidden>{t(`ports.confidence.${port.confidence}`)}</span>
+          <span className="sr-only">{t(`ports.confidenceHint.${port.confidence}`)}</span>
+        </span>
       </li>)}
     </ul>
   </section>
