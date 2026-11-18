@@ -78,22 +78,11 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       c.loopRunManager.resolveLimitPause(runId, { action: 'resume' })
       res.status(202).json({ loopRunId: runId, resumed: true }); return
     }
-    let controls: unknown = req.body ?? {}
     // A run a Desktop restart interrupted is resumed from the inbox or the restart dialog
-    // with an empty body. That click is the person's explicit recovery: re-run the step
-    // the restart cut off instead of failing on "An interrupted write requires explicit recovery".
-    // Over budget, the retained-run path answers 409 before Core is probed at all.
-    if (run && run.project_id === c.project.id && run.engine_version === 2 && isRestartResume(run, controls) && !c.dailyBudgetRejection?.()) {
-      const probeRun = () => probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
-      let probe = await probeRun()
-      // The Core child the restart killed still holds its lease (up to a minute): the
-      // restart dialog offers Resume at boot, so wait it out here instead of answering
-      // runtime_run_active. Nothing in this process runs it.
-      const wait = staleLeaseWaitMs(probe.lease, Date.now(), c.loopRunManager.isDefinitionRunActive?.(runId) ?? false)
-      if (wait > 0) { await new Promise((resolve) => setTimeout(resolve, wait)); probe = await probeRun() }
-      controls = restartRecoveryControls(controls, probe.recoverableSteps)
-    }
-    const outcome = await resumeRetainedDefinitionRun(c, runId, controls)
+    // with an empty body. That click is the person's explicit recovery (see resumeRetainedDefinitionRun).
+    const controls: unknown = req.body ?? {}
+    const restartResume = !!run && isRestartResume(run, controls)
+    const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume })
     res.status(outcome.status).json(outcome.body)
   })
 
@@ -529,7 +518,7 @@ export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: stri
   return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${outcome.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
 }
 
-export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {
+export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown, options: { restartResume?: boolean } = {}): Promise<{ status: number; body: object }> {
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
@@ -540,11 +529,23 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
     const successor = readDefinitionSuccessor(c.db, runId)
     if (successor) { return { status: 409, body: { error: 'runtime_fork_owns_worktree', loopRunId: successor } } }
     const observedClaim = readDefinitionExecutionClaim(c.db, runId)
-    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    let probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    const residentHere = c.loopRunManager.isDefinitionRunActive?.(runId) ?? false
+    // Restart resume: the Core child the restart killed still holds its lease (up to a
+    // minute) and the restart dialog offers Resume at boot, so wait it out (bounded)
+    // instead of answering runtime_run_active. Nothing in this process runs it.
+    const staleWait = options.restartResume ? staleLeaseWaitMs(probe.lease, Date.now(), residentHere) : 0
+    if (staleWait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, staleWait))
+      probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    }
     if (probe.status === 'unavailable') { return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } } }
     if (probe.lease?.active) { return { status: 409, body: { error: 'runtime_run_active' } } }
+    // The person's Resume of a run the restart cut off authorizes re-running the
+    // interrupted steps, instead of failing on "An interrupted write requires explicit recovery".
+    const requested = options.restartResume && !residentHere ? restartRecoveryControls(rawControls, probe.recoverableSteps ?? []) : rawControls
     let controls
-    try { controls = validateDefinitionResumeControls(rawControls, probe) }
+    try { controls = validateDefinitionResumeControls(requested, probe) }
     catch (error) { return { status: 400, body: { error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) } } }
     // A retained claim can outlive its Core lease. Only release the exact
     // owner observed before inspection, while this remains a restart pause.
