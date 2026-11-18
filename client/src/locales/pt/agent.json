@@ -1620,5 +1620,17 @@
     "history": "Histórico",
     "peakValue": "Pico {{value}}",
     "historyHint": "Um ponto a cada 3 s enquanto a missão trabalhava. Passe o mouse sobre uma linha para ver a hora e o valor."
+  },
+  "contextUsage": {
+    "open": "Contexto usado: {{percent}}%",
+    "title": "Contexto",
+    "description": "Quão cheio está o contexto da sessão do provedor desta missão, conforme informado pelo provedor.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Modelo",
+    "sourceResponse": "Medido a partir da última resposta",
+    "sourceSessionFile": "Lido da sessão do {{provider}}",
+    "compacted": "O provedor compactou o contexto durante o último turno.",
+    "highNote": "O provedor compacta o contexto automaticamente quando ele enche. Iniciar uma nova sessão com um resumo também pode ajudar."
   }
 }

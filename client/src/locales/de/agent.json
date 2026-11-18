@@ -1620,5 +1620,17 @@
     "history": "Verlauf",
     "peakValue": "Spitze {{value}}",
     "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen."
+  },
+  "contextUsage": {
+    "open": "Kontext belegt: {{percent}} %",
+    "title": "Kontext",
+    "description": "Wie voll der Kontext der Anbietersitzung dieser Mission ist, laut Angabe des Anbieters.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}} %",
+    "model": "Modell",
+    "sourceResponse": "Aus der letzten Antwort gemessen",
+    "sourceSessionFile": "Aus der {{provider}}-Sitzung gelesen",
+    "compacted": "Der Anbieter hat den Kontext im letzten Durchgang komprimiert.",
+    "highNote": "Der Anbieter komprimiert den Kontext automatisch, wenn er voll ist. Eine neue Sitzung mit einer Zusammenfassung kann ebenfalls helfen."
   }
 }

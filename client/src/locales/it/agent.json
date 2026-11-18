@@ -1620,5 +1620,17 @@
     "history": "Cronologia",
     "peakValue": "Picco {{value}}",
     "historyHint": "Un punto ogni 3 s mentre la missione lavorava. Passa il mouse su una linea per vedere ora e valore."
+  },
+  "contextUsage": {
+    "open": "Contesto usato: {{percent}}%",
+    "title": "Contesto",
+    "description": "Quanto è pieno il contesto della sessione del provider di questa missione, secondo il provider.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Modello",
+    "sourceResponse": "Misurato dall'ultima risposta",
+    "sourceSessionFile": "Letto dalla sessione {{provider}}",
+    "compacted": "Il provider ha compattato il contesto durante l'ultimo turno.",
+    "highNote": "Il provider compatta il contesto automaticamente quando si riempie. Anche avviare una nuova sessione con un riepilogo può aiutare."
   }
 }

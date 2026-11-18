@@ -176,6 +176,48 @@ it. The line is expanded while agents work and folds once they finish. The
 sidebar keeps a live dot for missions with background work. Details are in the
 [missions feature guide](../../client/src/features/missions/README.md).
 
+## Context used indicator
+
+A mission resumes one provider session per conversation, so its context grows
+until the provider compacts it. After each settled turn,
+[`mission-context-usage.ts`](../../server/modules/missions/runtime/mission-context-usage.ts)
+measures how full that window is from what the provider reported, and nothing else:
+
+- Core sessions (the default path): Core's own `turn.completed.context`
+  (`{ usedTokens, windowTokens, model, compacted? }`, Core 6.12+), which the
+  Core session runner forwards as an `other` event of type `core-context-usage`.
+  It wins over every fallback below; a missing window falls back to the last
+  window this mission measured, then to `[1m]`.
+- Claude: input + cache write + cache read of the newest root (non-sub-agent)
+  `assistant` frame. Output tokens are never added and frames are never summed.
+  The window is `result.modelUsage[<main model>].contextWindow`; a `[1m]` model
+  is 1,000,000. A `compact_boundary` frame makes the usage unknown until the
+  next response.
+- Codex: the last `token_count` in the session rollout
+  (`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*-<id>.jsonl`, tail only, see
+  [`codex-rollout-reader.ts`](../../server/modules/missions/runtime/codex-rollout-reader.ts)).
+- Claude through a Core that does not report `context` yet: the session
+  transcript tail (below).
+- Other providers, and turns without the data, store no snapshot.
+
+The snapshot is stored on `agent_conversations.context_usage` (migration 40),
+returned as `contextUsage` on the conversation, and announced with
+`agent_context_usage` (`contextUsage: null` = cleared). A provider session
+reset (failure, stale resume, new Core generation, provider switch) clears it.
+Intent turns never touch it. The composer ring
+([`AgentContextUsageRing`](../../client/src/features/missions/components/AgentContextUsageRing.tsx))
+is hidden without a window and turns warning at 75% and destructive at 90%.
+
+Core session turns map provider frames to normalised events, and Core's
+`Usage` is a per-turn delta with no context window. For a Claude mission on the
+Core path, Desktop therefore reads the tail of the Claude Code transcript
+(`$CLAUDE_CONFIG_DIR/projects/<encoded-cwd>/<sessionId>.jsonl`, see
+[`claude-transcript-reader.ts`](../../server/modules/missions/runtime/claude-transcript-reader.ts)).
+The session id is the one Core reports in `session.provider-ref`. The
+transcript has no window either. The window is the last one this mission
+measured from a stream-json turn, or 1,000,000 for a `[1m]` model; otherwise it
+stays null and the ring is hidden. No per-model table is used.
+
 ## Rollout
 
 `SPECRAILS_CORE_SESSIONS` (`auto` by default, `on` or `off`, see

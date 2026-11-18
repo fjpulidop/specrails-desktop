@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { SessionRequestError, type SessionEvent, type SessionEventEnvelope, type SessionHostClient } from '../../agent-sessions'
 import type { LiveInputSink, LiveSessionHooks } from '../../../providers/live-session-types'
 import type { AdapterEvent } from '../../../providers/types'
-import { addUsage, createCoreSessionRunner, type TurnHandle } from './core-session-runner'
+import { addUsage, CORE_CONTEXT_USAGE_EVENT, createCoreSessionRunner, type TurnHandle } from './core-session-runner'
 
 const at = '2026-10-07T10:00:00.000Z'
 const tick = async () => { for (let index = 0; index < 6; index++) await new Promise((resolve) => setImmediate(resolve)) }
@@ -116,6 +116,19 @@ describe('CoreSessionTurnRunner', () => {
     expect(h.accepted()).toBe(1)
     expect(result).toMatchObject({ code: 0, spawnFailed: false, child: null, sessionId: 'prov-1', usage: { tokens_in: 100, tokens_out: 20, tokens_cache_read: 5, total_cost_usd: 0.012, model: 'haiku' } })
     expect(handles.map((handle) => handle === null ? 'cleared' : 'set')).toEqual(['set', 'cleared'])
+  })
+
+  it("passes Core's context measurement on to the mission", async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+      { type: 'turn.completed', turnId: 't1', status: 'completed', text: 'Hi', usage, context: { usedTokens: 42_000, windowTokens: 200_000, model: 'claude-sonnet' } },
+    ]
+    const h = hooks()
+    const result = await createCoreSessionRunner(context(core))(h.value)
+    expect(result.code).toBe(0)
+    expect(h.events).toContainEqual({ kind: 'other', type: CORE_CONTEXT_USAGE_EVENT, raw: { usedTokens: 42_000, windowTokens: 200_000, model: 'claude-sonnet' } })
   })
 
   it('maps an image generated in the user turn to an adapter image event', async () => {

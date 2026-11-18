@@ -403,6 +403,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       // foreign thread → "no rollout found").
       if (v !== conversation.provider) {
         patch.session_id = null
+        // The previous provider's context snapshot describes a session that no longer applies.
+        patch.context_usage = null
         patch.model = null
         patch.reasoning_effort = null
       }

@@ -1620,5 +1620,17 @@
     "history": "History",
     "peakValue": "Peak {{value}}",
     "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value."
+  },
+  "contextUsage": {
+    "open": "Context used: {{percent}}%",
+    "title": "Context",
+    "description": "How full this mission's provider session context is, as reported by the provider.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Model",
+    "sourceResponse": "Measured from the last response",
+    "sourceSessionFile": "Read from the {{provider}} session",
+    "compacted": "The provider compacted the context during the last turn.",
+    "highNote": "The provider compacts the context automatically when it fills up. Starting a new session with a summary can also help."
   }
 }

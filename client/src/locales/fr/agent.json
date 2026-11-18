@@ -1620,5 +1620,17 @@
     "history": "Historique",
     "peakValue": "Pic {{value}}",
     "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur."
+  },
+  "contextUsage": {
+    "open": "Contexte utilisé : {{percent}} %",
+    "title": "Contexte",
+    "description": "Le taux de remplissage du contexte de la session fournisseur de cette mission, tel que signalé par le fournisseur.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}} %",
+    "model": "Modèle",
+    "sourceResponse": "Mesuré à partir de la dernière réponse",
+    "sourceSessionFile": "Lu depuis la session {{provider}}",
+    "compacted": "Le fournisseur a compacté le contexte pendant le dernier tour.",
+    "highNote": "Le fournisseur compacte le contexte automatiquement lorsqu'il est plein. Démarrer une nouvelle session avec un résumé peut aussi aider."
   }
 }

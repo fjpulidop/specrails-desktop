@@ -50,8 +50,12 @@ import {
   findAgentSystemMessages,
   deleteAgentMessagesByIds,
   updateAgentMessageContent,
+  setAgentConversationContextUsage,
   type AgentConversation,
 } from '../../agents/runtime/agent-store'
+import { claudeContextUsage, claudeContextUsageFromTranscript, coreContextUsage, codexContextUsageFromRollout, type ContextUsageSnapshot } from './mission-context-usage'
+import { readCodexRolloutTail } from './codex-rollout-reader'
+import { readClaudeTranscriptTail } from './claude-transcript-reader'
 import type { PrDecisionCardEnvelope } from '../../../types'
 import { generateAutoTitle } from '../../conversations/runtime/explore-draft-title'
 import {
@@ -163,6 +167,13 @@ export class AgentChatManager {
   private readonly _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
   private readonly _turnStartedAt = new Map<string, string>()
   private _turnSnapshotVersion = 0
+  /** Per-mission measurement generation: a late Codex rollout read never overwrites a newer snapshot or a reset. */
+  private readonly _contextUsageVersion = new Map<string, number>()
+  private _codexRolloutReader: (sessionId: string) => Promise<string | null> = (sessionId) => readCodexRolloutTail(sessionId)
+  /** Claude transcript paths found per provider session (bounded by this manager's missions). */
+  private readonly _claudeTranscriptPaths = new Map<string, string>()
+  private _claudeTranscriptReader: (sessionId: string, cwd: string | null) => Promise<string | null> =
+    (sessionId, cwd) => readClaudeTranscriptTail(sessionId, cwd, { cache: this._claudeTranscriptPaths })
   /** Permanent lifecycle gate: the app DB may be closed immediately after
    * shutdown, so no delayed turn/title/card callback may touch it afterwards. */
   private _disposed = false
@@ -191,6 +202,83 @@ export class AgentChatManager {
   /** Composition-time wiring of the agent actions audit (per pinned project). */
   setAgentAudit(resolve: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null): void {
     this._agentAudit = resolve
+  }
+
+  /** Test seam: where Codex session rollouts are read from (default: $CODEX_HOME/sessions). */
+  setCodexRolloutReader(reader: (sessionId: string) => Promise<string | null>): void {
+    this._codexRolloutReader = reader
+  }
+
+  /** Test seam: where Claude Code session transcripts are read from (default: $CLAUDE_CONFIG_DIR/projects). */
+  setClaudeTranscriptReader(reader: (sessionId: string, cwd: string | null) => Promise<string | null>): void {
+    this._claudeTranscriptReader = reader
+  }
+
+  /** Persist the mission's context snapshot and announce it when it changed. Never throws into a turn. */
+  private _storeContextUsage(conversationId: string, snapshot: ContextUsageSnapshot | null): void {
+    if (this._disposed) return
+    try {
+      if (!setAgentConversationContextUsage(this._db, conversationId, snapshot)) return
+      this._broadcast({ type: 'agent_context_usage', conversationId, contextUsage: snapshot, timestamp: new Date().toISOString() })
+    } catch (err) {
+      console.warn(`[agent-chat] context usage not saved (${conversationId}):`, err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  private _nextContextUsageVersion(conversationId: string): number {
+    const version = (this._contextUsageVersion.get(conversationId) ?? 0) + 1
+    this._contextUsageVersion.set(conversationId, version)
+    return version
+  }
+
+  /**
+   * Measure how full the provider session's context is after a settled turn
+   * (mission-context-usage.ts): Claude from the turn's own frames, Codex from
+   * its session rollout. Other providers (and turns without data) store null,
+   * which hides the indicator rather than showing a stale value.
+   */
+  private _measureContextUsage(conversationId: string, adapter: ProviderAdapter, model: string, outcome: { events: readonly AdapterEvent[]; sessionId: string | null; cwd?: string | null }): void {
+    const version = this._nextContextUsageVersion(conversationId)
+    // Core's own measurement first (Core session turns): exact, and no file read.
+    const previous = getAgentConversation(this._db, conversationId)?.contextUsage
+    const fromCore = coreContextUsage(outcome.events, { provider: adapter.id, configuredModel: model, knownWindow: previous?.provider === adapter.id ? previous.windowTokens : null })
+    if (fromCore) {
+      this._storeContextUsage(conversationId, fromCore)
+      return
+    }
+    if (adapter.id === 'claude') {
+      const fromFrames = claudeContextUsage(outcome.events, { provider: adapter.id, configuredModel: model })
+      if (fromFrames || !outcome.sessionId) {
+        this._storeContextUsage(conversationId, fromFrames)
+        return
+      }
+      // Core session turns carry no provider frames: read the session transcript.
+      // Its window is the last one this mission measured from a stream-json turn.
+      const knownWindow = previous?.provider === adapter.id ? previous.windowTokens : null
+      void this._claudeTranscriptReader(outcome.sessionId, outcome.cwd ?? null)
+        .catch(() => null)
+        .then((tail) => {
+          if (this._disposed || this._contextUsageVersion.get(conversationId) !== version) return
+          this._storeContextUsage(conversationId, tail ? claudeContextUsageFromTranscript(tail, { provider: adapter.id, configuredModel: model, knownWindow }) : null)
+        })
+      return
+    }
+    if (adapter.id === 'codex' && outcome.sessionId) {
+      void this._codexRolloutReader(outcome.sessionId)
+        .catch(() => null)
+        .then((tail) => {
+          if (this._disposed || this._contextUsageVersion.get(conversationId) !== version) return
+          this._storeContextUsage(conversationId, tail ? codexContextUsageFromRollout(tail, { provider: adapter.id, configuredModel: model }) : null)
+        })
+      return
+    }
+    this._storeContextUsage(conversationId, null)
+  }
+
+  /** A provider session reset: its context is gone, so is the snapshot. */
+  private _clearContextUsage(conversationId: string): void {
+    this._nextContextUsageVersion(conversationId)
+    this._storeContextUsage(conversationId, null)
   }
 
   /** Composition-time wiring of Intent mode (the Intent module binds the port). */
@@ -1183,12 +1271,15 @@ export class AgentChatManager {
       // provider. Only the session id persists, and only while the row's provider
       // is still the one this turn actually ran on (a foreign session id must not
       // pollute the new provider's freshly-reset state).
-      const persistSession = (sessionId: string | null): void => {
+      const persistSession = (sessionId: string | null, measured?: { events: readonly AdapterEvent[] }): void => {
         // An Intent session turn's provider session belongs to the Intent's Core session, never the mission's.
         if (this._disposed || flowTurn) return
         const fresh = getAgentConversation(this._db, conversationId)
         if (fresh && fresh.provider === conversation.provider) {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
+          // The context snapshot follows the provider session: a reset starts a new, empty context.
+          if (!sessionId) this._clearContextUsage(conversationId)
+          else if (measured) this._measureContextUsage(conversationId, adapter, model, { events: measured.events, sessionId, cwd })
         }
       }
       const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string; events?: readonly AdapterEvent[] }): void => {
@@ -1198,7 +1289,7 @@ export class AgentChatManager {
         const attachmentIds = this._importTurnImages(conversationId, r.events ?? [])
         if ((r.text || attachmentIds.length) && getAgentConversation(this._db, conversationId)) {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
-          persistSession(r.sessionId)
+          persistSession(r.sessionId, { events: r.events ?? [] })
           this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         }
       }
@@ -1337,7 +1428,7 @@ export class AgentChatManager {
       const attachmentIds = this._importTurnImages(conversationId, r.events)
       if (r.text || r.checkpointed || attachmentIds.length) {
         const message = r.text || attachmentIds.length ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
-        persistSession(r.sessionId)
+        persistSession(r.sessionId, r)
         // The Core turn id anchors this turn's sub-agents under the reply in every client.
         this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         record(r, 'success')

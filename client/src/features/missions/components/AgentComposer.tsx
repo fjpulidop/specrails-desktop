@@ -52,6 +52,7 @@ import { AgentTierChip } from './AgentTierChip'
 import { MissionModeBadge } from './MissionModeBadge'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
+import { AgentContextUsageRing } from './AgentContextUsageRing'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
@@ -988,6 +989,7 @@ export function AgentComposer({
         )}
 
           <div className="ml-auto flex min-w-0 max-w-[60%] items-center gap-1">
+            {active && <AgentContextUsageRing usage={active.contextUsage} />}
             <AgentRuntimeSelector provider={provider} providers={selectableProviders.map(value => ({ value, label: providerOptionLabel(value) }))}
               models={models} model={effectiveModel} efforts={efforts} effort={effort}
               defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}

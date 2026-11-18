@@ -28,10 +28,25 @@ export interface AgentConversation {
   pinned_project_id: string | null
   tier_level: AgentTierLevel
   archivedAt: string | null
+  /** How full the mission's provider session context is (absent/null = not measured). */
+  contextUsage?: AgentContextUsage | null
   /** Reasoning effort for spawns; null = no provider-specific override. */
   reasoning_effort: string | null
   created_at: string
   updated_at: string
+}
+
+/** Server `ContextUsageSnapshot` (server/modules/missions/runtime/mission-context-usage.ts). */
+export interface AgentContextUsage {
+  provider: string
+  model: string | null
+  usedTokens: number | null
+  windowTokens: number | null
+  /** Not clamped: may exceed 100. */
+  percent: number | null
+  source: 'response' | 'session-file'
+  measuredAt: string
+  compacted?: boolean
 }
 
 export type AgentDeliveryReceipt = 'sent' | 'received' | 'read'

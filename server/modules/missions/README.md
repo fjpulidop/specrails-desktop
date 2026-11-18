@@ -36,6 +36,22 @@ returns the intent the MCP `commit_draft` attaches to the spec. Payload rules ar
 the shared `parseIntentDraft` (specs domain), so the client card and the gate
 accept the same blocks. `flow-offer` is for existing specs only.
 
+## Context used
+
+[runtime/mission-context-usage.ts](runtime/mission-context-usage.ts) is pure:
+it measures the provider session's context from a settled Claude turn's frames
+(newest root assistant usage, `modelUsage` window) or a Codex rollout tail
+(last `token_count`). [runtime/codex-rollout-reader.ts](runtime/codex-rollout-reader.ts)
+finds and tails the rollout. A Claude turn without provider frames (Core
+sessions) reads the session transcript tail through
+[runtime/claude-transcript-reader.ts](runtime/claude-transcript-reader.ts),
+keeping the last measured window. `AgentChatManager` stores the snapshot on the
+conversation when `persistSession` keeps a session, clears it when the session
+resets, and broadcasts `agent_context_usage`. Codex reads are async and
+versioned per mission, so a late read never overwrites a newer value or a reset.
+Values are reported, never estimated; a missing window hides the ring.
+See [agent sessions](../../../docs/internals/agent-sessions.md#context-used-indicator).
+
 ## Read-only boundary
 
 [runtime/mission-tool-policy.ts](runtime/mission-tool-policy.ts) maps every

@@ -1620,5 +1620,17 @@
     "history": "履歴",
     "peakValue": "ピーク {{value}}",
     "historyHint": "ミッションの作業中は 3 秒ごとに 1 点。線にカーソルを合わせると時刻と値が表示されます。"
+  },
+  "contextUsage": {
+    "open": "使用中のコンテキスト: {{percent}}%",
+    "title": "コンテキスト",
+    "description": "このミッションのプロバイダーセッションのコンテキストの使用量(プロバイダーの報告値)。",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "モデル",
+    "sourceResponse": "最後の応答から計測",
+    "sourceSessionFile": "{{provider}} セッションから読み取り",
+    "compacted": "前回のターン中にプロバイダーがコンテキストを圧縮しました。",
+    "highNote": "コンテキストがいっぱいになると、プロバイダーが自動的に圧縮します。要約を添えて新しいセッションを始めるのも効果的です。"
   }
 }

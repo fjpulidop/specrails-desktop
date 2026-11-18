@@ -834,6 +834,12 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!messages.has('source_message_id')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_message_id TEXT;')
       if (!messages.has('source_delivery_status')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_delivery_status TEXT;')
     },
+    // 40: latest "context used" snapshot of the mission's provider session (JSON,
+    // see missions/runtime/mission-context-usage.ts). NULL = not measured yet.
+    () => {
+      const conversations = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map(c => c.name))
+      if (!conversations.has('context_usage')) db.exec('ALTER TABLE agent_conversations ADD COLUMN context_usage TEXT;')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

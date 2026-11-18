@@ -1620,5 +1620,17 @@
     "history": "历史",
     "peakValue": "峰值 {{value}}",
     "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。"
+  },
+  "contextUsage": {
+    "open": "已用上下文：{{percent}}%",
+    "title": "上下文",
+    "description": "此任务的提供方会话上下文的占用情况（由提供方报告）。",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "模型",
+    "sourceResponse": "根据上一次响应测得",
+    "sourceSessionFile": "从 {{provider}} 会话读取",
+    "compacted": "提供方在上一轮中压缩了上下文。",
+    "highNote": "上下文填满时，提供方会自动压缩。带着摘要开始新会话也会有帮助。"
   }
 }

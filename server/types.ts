@@ -1409,7 +1409,7 @@ export type WsMessage =
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
-  | AgentTitleMessage
+  | AgentTitleMessage | AgentContextUsageMessage
   | { type: 'agent_conversation_created'; conversationId: string; openOnArrival?: boolean; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
@@ -1576,6 +1576,24 @@ export interface AgentTitleMessage {
   type: 'agent_title'
   conversationId: string
   title: string
+  timestamp: string
+}
+
+/** The mission's provider-session context snapshot changed (null = unknown / fresh session).
+ *  Shape: `ContextUsageSnapshot` in server/modules/missions/runtime/mission-context-usage.ts. */
+export interface AgentContextUsageMessage {
+  type: 'agent_context_usage'
+  conversationId: string
+  contextUsage: {
+    provider: string
+    model: string | null
+    usedTokens: number | null
+    windowTokens: number | null
+    percent: number | null
+    source: 'response' | 'session-file'
+    measuredAt: string
+    compacted?: boolean
+  } | null
   timestamp: string
 }
 

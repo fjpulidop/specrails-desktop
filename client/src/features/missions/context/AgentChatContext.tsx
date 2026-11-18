@@ -43,6 +43,7 @@ import {
   type AgentConversation,
   type AgentContextReference,
   type AgentMessage,
+  type AgentContextUsage,
   type AgentDeliveryReceipt,
   type AgentPrDecisionEnvelope,
   type AgentTierLevel,
@@ -922,6 +923,15 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         setConversations((cs) => cs.map((c) => (c.id === msg.conversationId ? { ...c, title } : c)))
         setActive((a) => (a && a.id === msg.conversationId ? { ...a, title } : a))
         patchCachedTitle(conversationCacheRef.current, msg.conversationId, title)
+        return
+      }
+      // Context snapshot of the mission's provider session (list + active, like titles).
+      if (msg.type === 'agent_context_usage' && msg.conversationId) {
+        const contextUsage = ((msg as { contextUsage?: AgentContextUsage | null }).contextUsage) ?? null
+        setConversations((cs) => cs.map((c) => (c.id === msg.conversationId ? { ...c, contextUsage } : c)))
+        setActive((a) => (a && a.id === msg.conversationId ? { ...a, contextUsage } : a))
+        const cached = conversationCacheRef.current.get(msg.conversationId)
+        if (cached) conversationCacheRef.current.set(msg.conversationId, { ...cached, conversation: { ...cached.conversation, contextUsage } })
         return
       }
       const convId = msg.conversationId

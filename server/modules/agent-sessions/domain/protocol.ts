@@ -62,6 +62,18 @@ export interface Usage {
   model: string | null
 }
 
+/**
+ * How full the provider's context window was after a turn (Core `ContextUsage`,
+ * optional and additive): the newest main-agent request's prompt size and the
+ * model's window, as the provider reported them. Absent when nothing was measured.
+ */
+export interface ContextUsage {
+  usedTokens: number | null
+  windowTokens: number | null
+  model: string | null
+  compacted?: boolean
+}
+
 export interface ToolActivity {
   toolUseId: string
   name: string
@@ -84,7 +96,7 @@ export type SessionEvent = { at: string } & (
   | { type: 'turn.output'; turnId: string; channel: 'text' | 'thinking'; delta: string }
   | ({ type: 'turn.tool'; turnId: string } & ToolActivity)
   | { type: 'turn.image'; turnId: string; imageId: string; path: string; mimeType: string; prompt?: string }
-  | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage }
+  | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage; context?: ContextUsage }
   | { type: 'subagent.started'; subagentId: string; parentId: string | null; kind: 'foreground' | 'background'; agentType?: string; description: string; prompt?: string; delegated?: { driver: string; model: string } }
   | { type: 'subagent.phase'; subagentId: string; phase: SubagentPhase; reason?: string }
   | { type: 'subagent.output'; subagentId: string; channel: 'text' | 'tool'; delta?: string; tool?: ToolActivity }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import type { DbInstance } from '../../../db'
 import { normalizeLevel, type AgentTierLevel } from '../../missions/runtime/agent-tier'
+import { parseContextUsageSnapshot, type ContextUsageSnapshot } from './conversation-context-usage'
 import {
   FALLBACK_SCAN_ROWS, MARK_END, MARK_START, TRIGRAM_MIN_CHARS,
   foldSearchText, ftsPhrase, parseMarkedSnippet, windowMarked, type SearchSnippet,
@@ -38,6 +39,8 @@ export interface AgentConversation {
   /** Soft-delete stamp ("Recently deleted"); null = live. */
   deleted_at?: string | null
   archivedAt: string | null
+  /** Latest "context used" snapshot of the provider session (migration 40); absent = not measured. */
+  contextUsage?: ContextUsageSnapshot
   created_at: string
   updated_at: string
 }
@@ -226,14 +229,26 @@ interface AgentConversationRaw {
   reasoning_effort: string | null
   deleted_at?: string | null
   archived_at: string | null
+  context_usage?: string | null
   created_at: string
   updated_at: string
 }
 
 function mapConversation(row: AgentConversationRaw | undefined): AgentConversation | undefined {
   if (!row) return undefined
-  const { archived_at, fork_source, ...fields } = row
-  return { ...fields, ...(fork_source ? { forkSource: JSON.parse(fork_source) as AgentForkSource } : {}), archivedAt: archived_at, tier_level: normalizeLevel(row.tier_level) }
+  const { archived_at, fork_source, context_usage, ...fields } = row
+  const contextUsage = parseContextUsageSnapshot(context_usage)
+  return { ...fields, ...(fork_source ? { forkSource: JSON.parse(fork_source) as AgentForkSource } : {}), archivedAt: archived_at, ...(contextUsage ? { contextUsage } : {}), tier_level: normalizeLevel(row.tier_level) }
+}
+
+/**
+ * Replace the mission's context snapshot (null clears it). Does NOT bump
+ * `updated_at`: measuring a session is not mission activity. Returns whether
+ * the stored value changed.
+ */
+export function setAgentConversationContextUsage(db: DbInstance, id: string, snapshot: ContextUsageSnapshot | null): boolean {
+  const value = snapshot ? JSON.stringify(snapshot) : null
+  return db.prepare('UPDATE agent_conversations SET context_usage = ? WHERE id = ? AND context_usage IS NOT ?').run(value, id, value).changes > 0
 }
 
 export function createAgentConversation(
@@ -294,6 +309,8 @@ export function updateAgentConversation(
     pinned_project_id: string | null
     tier_level: AgentTierLevel
     reasoning_effort: string | null
+    /** JSON snapshot column; prefer {@link setAgentConversationContextUsage}. */
+    context_usage: string | null
   }>,
 ): AgentConversation | undefined {
   const sets: string[] = []

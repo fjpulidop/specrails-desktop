@@ -788,6 +788,71 @@ describe('AgentChatManager', () => {
     expect(getAgentConversation(db, c.id)?.session_id).toBe('sess-9')
   })
 
+  it('persists and broadcasts the Claude context snapshot, and clears it when the session resets', async () => {
+    const c = createAgentConversation(db, { provider: 'claude', model: 'sonnet' })
+    const assistant = (usage: Record<string, number>, parent?: string) => ({
+      kind: 'text-delta', text: 'ok', usage, model: 'claude-sonnet-4-5', ...(parent ? { parentToolUseId: parent } : {}),
+    }) as AdapterEvent
+    fakeRun([
+      { kind: 'session-started', sessionId: 'sess-ctx', model: 'claude-sonnet-4-5' } as AdapterEvent,
+      assistant({ input_tokens: 12, cache_creation_input_tokens: 600, cache_read_input_tokens: 18_000, output_tokens: 700 }),
+      assistant({ input_tokens: 90_000 }, 'toolu_sub'),
+      { kind: 'result', payload: { session_id: 'sess-ctx', modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200_000 } } } },
+    ])
+    await manager.sendMessage(c.id, 'hi')
+    const expected = { provider: 'claude', model: 'claude-sonnet-4-5', usedTokens: 18_612, windowTokens: 200_000, percent: 9, source: 'response' }
+    expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject(expected)
+    expect(events.find((e) => e.type === 'agent_context_usage')).toMatchObject({ conversationId: c.id, contextUsage: expected })
+
+    events.length = 0
+    fakeRun([{ kind: 'error', message: 'boom' }], 1)
+    await manager.sendMessage(c.id, 'again')
+    expect(getAgentConversation(db, c.id)?.contextUsage).toBeUndefined()
+    expect(events.find((e) => e.type === 'agent_context_usage')).toMatchObject({ conversationId: c.id, contextUsage: null })
+  })
+
+  it('reads the Codex context snapshot from the session rollout', async () => {
+    const c = createAgentConversation(db, { provider: 'codex' })
+    const asked: string[] = []
+    manager.setCodexRolloutReader(async (sessionId) => {
+      asked.push(sessionId)
+      return [
+        JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5-codex' } }),
+        JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { total_tokens: 68_000 }, model_context_window: 272_000 } } }),
+      ].join('\n')
+    })
+    fakeRun([{ kind: 'session-started', sessionId: 'thread-1' }, { kind: 'text-delta', text: 'done' }])
+    await manager.sendMessage(c.id, 'hi')
+    await vi.waitFor(() => expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject({
+      provider: 'codex', model: 'gpt-5-codex', usedTokens: 68_000, windowTokens: 272_000, percent: 25, source: 'session-file',
+    }))
+    expect(asked).toEqual(['thread-1'])
+  })
+
+  it('reads a Core-path Claude turn (no provider frames) from the session transcript, keeping the known window', async () => {
+    const c = createAgentConversation(db, { provider: 'claude', model: 'sonnet' })
+    // A stream-json turn first: it records the window.
+    fakeRun([
+      { kind: 'session-started', sessionId: 'sess-core', model: 'claude-sonnet-4-5' } as AdapterEvent,
+      { kind: 'text-delta', text: 'ok', usage: { input_tokens: 10, cache_read_input_tokens: 990 } } as AdapterEvent,
+      { kind: 'result', payload: { session_id: 'sess-core', modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200_000 } } } },
+    ])
+    await manager.sendMessage(c.id, 'first')
+    const asked: Array<[string, string | null]> = []
+    manager.setClaudeTranscriptReader(async (sessionId, cwd) => {
+      asked.push([sessionId, cwd])
+      return JSON.stringify({ type: 'assistant', isSidechain: false, message: { model: 'claude-sonnet-4-5', usage: { input_tokens: 5, cache_creation_input_tokens: 1000, cache_read_input_tokens: 49_000 } } })
+    })
+    // A Core turn: only normalised events, provider session id from session.provider-ref.
+    fakeRun([{ kind: 'session-started', sessionId: 'sess-core' }, { kind: 'text-delta', text: 'second' }])
+    await manager.sendMessage(c.id, 'second')
+    await vi.waitFor(() => expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject({
+      provider: 'claude', usedTokens: 50_005, windowTokens: 200_000, percent: 25, source: 'session-file',
+    }))
+    expect(asked[0]?.[0]).toBe('sess-core')
+    expect(asked[0]?.[1]).toEqual(expect.any(String))
+  })
+
   it('expands selected context chips into rich job snapshots before invoking the provider', async () => {
     const projectDb = initDb(':memory:')
     const project = {
