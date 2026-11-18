@@ -43,3 +43,8 @@ export const INTENT_RUN_STATE = {
 export function intentRunState(state: IntentState): RunState {
   return INTENT_RUN_STATE[state]
 }
+
+/** A persisted Intent state string in the vocabulary; null for one this client does not know. */
+export function intentRunStateOf(state: string): RunState | null {
+  return Object.prototype.hasOwnProperty.call(INTENT_RUN_STATE, state) ? INTENT_RUN_STATE[state as IntentState] : null
+}

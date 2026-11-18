@@ -22,14 +22,20 @@ const SHOW_FALLBACK: std::time::Duration = std::time::Duration::from_millis(2500
 
 /// The surfaces that may open natively, with their window chrome and the extra
 /// host permissions their content needs. Anything else stays an in-page modal.
-struct SurfaceSpec { id: &'static str, singleton: bool, title: &'static str, width: f64, height: f64, min_width: f64, min_height: f64, params: &'static [&'static str], commands: &'static [&'static str], permissions: &'static [&'static str] }
+/// `focus_opener_on_result`: a result asks the opener to act (navigate, show a
+/// dialog), so the opener is brought to the front with it.
+struct SurfaceSpec { id: &'static str, singleton: bool, title: &'static str, width: f64, height: f64, min_width: f64, min_height: f64, params: &'static [&'static str], commands: &'static [&'static str], permissions: &'static [&'static str], focus_opener_on_result: bool }
 
 const SURFACES: &[SurfaceSpec] = &[
     // Settings hosts the app-update section: check, download/install, restart.
     SurfaceSpec { id: "app-settings", singleton: true, title: "Settings", width: 1100.0, height: 760.0, min_width: 720.0, min_height: 520.0, params: &["section", "settingId", "onboarding"],
-        commands: &["check_app_update", "restart_app"], permissions: &["updater:default", "process:allow-restart"] },
+        commands: &["check_app_update", "restart_app"], permissions: &["updater:default", "process:allow-restart"], focus_opener_on_result: false },
     SurfaceSpec { id: "job-detail", singleton: false, title: "Run", width: 1280.0, height: 860.0, min_width: 720.0, min_height: 480.0, params: &["jobId", "projectId"],
-        commands: &[], permissions: &[] },
+        commands: &[], permissions: &[], focus_opener_on_result: false },
+    // The live board on a second screen: its cards' actions run in the main
+    // window (open a mission, a review, resume a run), which comes forward.
+    SurfaceSpec { id: "live-board", singleton: true, title: "Live board", width: 1400.0, height: 880.0, min_width: 760.0, min_height: 480.0, params: &[],
+        commands: &[], permissions: &[], focus_opener_on_result: true },
 ];
 
 #[derive(Clone)]
@@ -190,7 +196,11 @@ pub fn surface_window_result(app: tauri::AppHandle, webview: Webview, result: Va
     let entry = entry(label).ok_or("This window has no surface request.")?;
     if serde_json::to_vec(&result).map_err(|err| err.to_string())?.len() > MAX_RESULT_BYTES { return Err("The surface result is too large.".into()); }
     let event = SurfaceEvent { kind: "result", surface: entry.surface, request_id: &entry.request_id, window_label: label, result: Some(result) };
-    app.emit_to(entry.owner.as_str(), EVENT, &event).map_err(|err| err.to_string())
+    app.emit_to(entry.owner.as_str(), EVENT, &event).map_err(|err| err.to_string())?;
+    if spec(entry.surface).is_some_and(|spec| spec.focus_opener_on_result) {
+        if let Some(owner) = app.get_webview_window(&entry.owner) { let _ = focus(&owner); }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Serialize)]
@@ -231,6 +241,8 @@ mod tests {
             let origin = tauri::Url::parse(url).unwrap();
             assert!(allowed_navigation(&origin, &origin.join("index.html?surfaceWindow=app-settings&requestId=r1").unwrap(), "app-settings"));
             assert!(!allowed_navigation(&origin, &origin.join("index.html?surfaceWindow=job-detail").unwrap(), "app-settings"));
+            assert!(allowed_navigation(&origin, &origin.join("index.html?surfaceWindow=live-board&requestId=r2").unwrap(), "live-board"));
+            assert!(!allowed_navigation(&origin, &origin.join("index.html?surfaceWindow=app-settings").unwrap(), "live-board"));
             assert!(!allowed_navigation(&origin, &origin.join("evil.html?surfaceWindow=app-settings").unwrap(), "app-settings"));
             assert!(!allowed_navigation(&origin, &origin.join("index.html?loopsWindow=1").unwrap(), "app-settings"));
             assert!(!allowed_navigation(&origin, &tauri::Url::parse("https://example.org/?surfaceWindow=app-settings").unwrap(), "app-settings"));
@@ -238,7 +250,13 @@ mod tests {
     }
     #[test]
     fn only_declared_surfaces_and_params_are_accepted() {
-        assert!(spec("app-settings").is_some() && spec("job-detail").is_some() && spec("loops").is_none());
+        assert!(spec("app-settings").is_some() && spec("job-detail").is_some() && spec("live-board").is_some() && spec("loops").is_none());
+        // The live board takes no parameters: every card is read from the API.
+        let board = spec("live-board").unwrap();
+        assert!(board.singleton && board.focus_opener_on_result);
+        let any: HashMap<String, String> = [("projectId".into(), "p1".into())].into();
+        assert!(validate_params(board, &any).is_err());
+        assert!(validate_params(board, &HashMap::new()).is_ok());
         let job = spec("job-detail").unwrap();
         let ok: HashMap<String, String> = [("jobId".into(), "abc".into()), ("projectId".into(), "p1".into())].into();
         assert!(validate_params(job, &ok).is_ok());
@@ -253,16 +271,23 @@ mod tests {
         let insert = |label: &str, surface: &'static str| registry().lock().unwrap().insert(label.into(), Entry { key: label.into(), surface, owner: "main".into(), request_id: "r".into() });
         insert("surface-app-settings-test", "app-settings");
         insert("surface-job-detail-test", "job-detail");
+        insert("surface-live-board-test", "live-board");
         assert!(permits_command("surface-app-settings-test", "surface_window_result"));
+        assert!(permits_command("surface-live-board-test", "surface_window_result"));
+        assert!(permits_command("surface-live-board-test", "surface_window_toast"));
+        assert!(!permits_command("surface-live-board-test", "check_app_update"));
+        assert!(!permits_command("surface-live-board-test", "restart_app"));
         assert!(permits_command("surface-job-detail-test", "surface_window_toast"));
         assert!(permits_command("surface-app-settings-test", "check_app_update"));
         assert!(!permits_command("surface-job-detail-test", "check_app_update"));
         for command in ["surface_window_open", "loop_window_open", "browser_open", "mission_window_detach", "set_tray_labels", "desktop_notify", "desktop_set_badge", "desktop_focus_state"] {
             assert!(!permits_command("surface-app-settings-test", command));
             assert!(!permits_command("surface-job-detail-test", command));
+            assert!(!permits_command("surface-live-board-test", command));
         }
         assert!(!permits_command("surface-unregistered", "surface_window_result"));
         registry().lock().unwrap().remove("surface-app-settings-test");
         registry().lock().unwrap().remove("surface-job-detail-test");
+        registry().lock().unwrap().remove("surface-live-board-test");
     }
 }

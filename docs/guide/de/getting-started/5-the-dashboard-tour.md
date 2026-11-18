@@ -54,6 +54,19 @@ Jeder neue Zustand eines Eintrags wird einmal gemeldet; nach einem Neustart wird
 
 Was gemeldet wird, wählst du unter **Einstellungen ▸ Benachrichtigungen**: alles ausschalten, Kategorien wählen (Fragen und Antworten, Reviews, Fehler, Ausgabenlimits, fertige Jobs), einen Ton hinzufügen, das Dock-Badge ausblenden oder ein Projekt ausschalten. Die Glocke neben einem Projektnamen im Posteingang schaltet es ebenfalls stumm; seine Einträge bleiben im Posteingang.
 
+## Das Live-Board {#live-board}
+
+Das **Live-Board** zeigt jeden Lauf aus jedem Projekt an einem Ort: Rails, Loops, Intent-Sitzungen und Jobs. Öffne es über **Live-Board** in der linken Seitenleiste, mit **Cmd+Shift+B** (**Ctrl+Shift+B** unter Windows und Linux) oder mit **Live-Board öffnen** in der Befehlspalette. Es ist auch ein Link (`?live=1`), daher schließt **Zurück** es.
+
+Wähle über den Umschalter in der Kopfzeile, wie du es liest (deine Wahl wird gemerkt):
+
+- **Nach Status**: vier Spalten. **Braucht dich** ist genau das, was der Posteingang listet (Fragen, Fehler, blockierte Läufe, Ausgabenlimits, Jira-Updates), die ältesten zuerst. **In Arbeit** enthält, was läuft, danach, was in der Warteschlange steht. **Zu entscheiden** enthält Arbeit, die auf dein Review wartet. **Heute erledigt** enthält, was heute fertig, gemergt oder gestoppt wurde, und leert sich um Mitternacht. Ein Lauf steht immer nur in einer Spalte.
+- **Nach Mission**: eine Zeile pro Mission mit jedem Lauf, den sie gestartet hat, ihrem Projekt, der Engine, der Zahl der Läufe und den heutigen Ausgaben. Missionen, die dich brauchen, kommen zuerst; Läufe ohne Mission schließen die Liste unter **Nicht aus einer Mission** ab.
+
+Jede Karte zeigt den Zustand des Laufs, das Projekt, die Rail oder die Art, den Titel, was er gerade tut, seine Schritte, wenn es welche gibt, die Engine, wie lange er läuft oder wartet, und seine Kosten, wenn sie bekannt sind. Eine Frage zeigt ihren Text. Der Button auf der Karte ist dieselbe Aktion wie überall sonst: **Antworten**, **Review öffnen**, **Fortsetzen**, **Wiederholen**, **Limit erhöhen** oder **Öffnen**, das die Mission öffnet, die den Lauf gestartet hat, oder den Lauf selbst. Filtere nach Projekt, nach Art (Rails, Loops, Intent, Jobs) oder nach Engine; die Kopfzeile fasst zusammen, wie viele dich brauchen, wie viele laufen und was du heute ausgegeben hast.
+
+In der Desktop-App verschiebt **In Fenster öffnen** das Board in ein eigenes Fenster, etwa für einen zweiten Bildschirm. Seine Buttons wirken im Hauptfenster, das nach vorne kommt.
+
 ## Ein paar praktische Tastenkürzel {#shortcuts}
 
 - **Cmd/Ctrl+B** – linke Seitenleiste anpinnen oder einklappen; **Option+Cmd+B** (**Ctrl+Alt+B**) macht dasselbe mit der rechten.

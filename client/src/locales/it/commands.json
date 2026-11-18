@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "Copia descrizione PR di #{{id}}",
       "exportHandoff": "Esporta passaggio di consegne",
       "copyPrDescription": "Copia descrizione PR",
-      "moveFocusedSpec": "Sposta la spec a fuoco…"
+      "moveFocusedSpec": "Sposta la spec a fuoco…",
+      "openLiveBoard": "Apri bacheca live",
+      "openLiveBoardKeywords": "bacheca, live, esecuzioni, in corso, tutti i progetti, missioni, stato"
     },
     "scopes": {
       "remove": "Rimuovi ambito",
@@ -430,7 +432,8 @@
       "boardSelectClick": "Bacheca: il clic alterna una spec, Maiusc+clic seleziona un intervallo",
       "boardSelectColumn": "Bacheca: seleziona tutte le spec della colonna",
       "boardClearSelection": "Bacheca: deseleziona tutto",
-      "boardMove": "Bacheca: sposta la spec a fuoco (stato o rail)"
+      "boardMove": "Bacheca: sposta la spec a fuoco (stato o rail)",
+      "openLiveBoard": "Apri la bacheca live (ogni esecuzione di ogni progetto)"
     },
     "searchLabel": "Cerca scorciatoie e guide",
     "searchPlaceholder": "Cerca scorciatoie e guide…",

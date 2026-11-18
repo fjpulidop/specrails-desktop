@@ -75,6 +75,11 @@ const coreDependencies: Record<string, string[]> = {
   'inbox/ports.ts': ['./domain'],
   'inbox/application.ts': ['./domain', './ports'],
   'inbox/index.ts': ['./application', './domain', './ports'],
+  // Live board (every run across projects): pure columns/lanes; the collector depends only on its own ports.
+  'live-board/domain.ts': [],
+  'live-board/ports.ts': ['./domain'],
+  'live-board/application.ts': ['./domain', './ports'],
+  'live-board/index.ts': ['./application', './domain', './ports'],
   // Onboarding (sample project): pure preset/naming rules; the use cases depend only on their own ports.
   'onboarding/domain.ts': [],
   'onboarding/ports.ts': ['./domain'],

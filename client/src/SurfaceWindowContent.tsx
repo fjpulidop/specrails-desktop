@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import { SurfaceWindowFrame } from './components/ui/dialog'
 import { useDesktop } from './hooks/useDesktop'
+import { MissionExtensionsProvider } from './features/missions/context/MissionExtensionsContext'
+import { FLOW_MISSION_EXTENSIONS } from './features/intent/components/IntentMissionsBridge'
 import { APP_SETTINGS_SECTIONS, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection } from './lib/app-settings-events'
 import {
   closeCurrentSurfaceWindow,
@@ -17,11 +19,14 @@ import {
 // known; the window stays hidden until the content has painted (see below).
 const loadSettingsDialog = () => import('./features/settings/pages/GlobalSettingsPage')
 const loadJobDetailModal = () => import('./features/jobs/components/JobDetailModal')
+const loadLiveBoardWindow = () => import('./features/live-board/components/LiveBoardWindow')
 const SettingsDialog = lazy(loadSettingsDialog)
 const JobDetailModal = lazy(() => loadJobDetailModal().then(module => ({ default: module.JobDetailModal })))
+const LiveBoardWindow = lazy(loadLiveBoardWindow)
 
 export function preloadSurfaceWindowContent(id: NativeSurfaceId): void {
-  void (id === 'app-settings' ? loadSettingsDialog() : loadJobDetailModal()).catch(() => {})
+  const load = id === 'app-settings' ? loadSettingsDialog : id === 'live-board' ? loadLiveBoardWindow : loadJobDetailModal
+  void load().catch(() => {})
 }
 
 /** Results a surface window reports to its opener (`onResult` of `<Surface>`). */
@@ -88,6 +93,17 @@ function JobDetailWindow({ params }: { params: SurfaceParams }) {
   return <JobDetailModal jobId={params.jobId} projectId={params.projectId} onClose={surface.close} />
 }
 
+/** The live board on a second screen: card actions run in the main window (the host brings it forward). */
+function LiveBoardSurfaceWindow() {
+  const surface = useSurfaceWindowLifecycle('live-board')
+  // Intent sessions read through the missions seam, as in the main window (no Intent state is mounted here).
+  return (
+    <MissionExtensionsProvider value={FLOW_MISSION_EXTENSIONS}>
+      <LiveBoardWindow report={surface.report} onClose={surface.close} />
+    </MissionExtensionsProvider>
+  )
+}
+
 /**
  * Shows the (hidden) window once the surface has painted: two frames after the
  * framed dialog is in the DOM, so the first visible frame is the real content.
@@ -119,7 +135,7 @@ export function SurfaceWindowContent({ id, params }: { id: NativeSurfaceId; para
   return (
     <Suspense fallback={null}>
       <SurfaceWindowFrame>
-        {id === 'app-settings' ? <AppSettingsWindow params={params} /> : <JobDetailWindow params={params} />}
+        {id === 'app-settings' ? <AppSettingsWindow params={params} /> : id === 'live-board' ? <LiveBoardSurfaceWindow /> : <JobDetailWindow params={params} />}
         <RevealWhenPainted />
       </SurfaceWindowFrame>
     </Suspense>

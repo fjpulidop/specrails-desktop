@@ -58,7 +58,8 @@
       "label": "Nur aktive Missionen anzeigen",
       "tooltip": "Nur aktive Missionen anzeigen",
       "empty": "Keine aktiven Missionen"
-    }
+    },
+    "liveBoard": "Live-Board"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops ist im Mission-Fenster geöffnet.",

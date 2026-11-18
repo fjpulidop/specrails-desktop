@@ -54,6 +54,19 @@ Each new state of an inbox item is announced once; after a restart nothing old i
 
 Choose what you hear about in **Settings ▸ Notifications**: turn it all off, pick the categories (questions and replies, reviews, failures, spending limits, finished jobs), add a sound, hide the Dock badge, or turn a project off. The bell next to a project's name in the inbox mutes it too; its items still show in the inbox.
 
+## The live board {#live-board}
+
+The **live board** shows every run of every project in one place: rails, loops, Intent sessions and jobs. Open it from **Live board** in the left sidebar, with **Cmd+Shift+B** (**Ctrl+Shift+B** on Windows and Linux) or with **Open live board** in the command palette. It is a link too (`?live=1`), so **Back** closes it.
+
+Choose how to read it with the selector in its header (your choice is remembered):
+
+- **By status** — four columns. **Needs you** is exactly what the inbox lists (questions, failures, blocked runs, spending limits, Jira updates), oldest first. **In progress** holds what runs, then what waits in the queue. **To decide** holds work ready for your review. **Done today** holds what finished, merged or was stopped today, and clears at midnight. A run is always in one column only.
+- **By mission** — one row per mission with every run it launched, its project, engine, number of runs and what it spent today. The missions that need you come first; runs that no mission started close the list under **Not from a mission**.
+
+Each card shows the run's state, project, rail or kind, title, what it is doing now, its steps when it has them, the engine, how long it has run or waited, and its cost when known. A question shows its text. The button on the card is the same action as everywhere else: **Answer**, **Open review**, **Resume**, **Retry**, **Raise limit**, or **Open**, which opens the mission that launched the run, or the run itself. Filter by project, by kind (Rails, Loops, Intent, Jobs) or by engine; the header sums up how many need you, how many are in progress and what you spent today.
+
+In the desktop app, **Open in window** moves the board to a window of its own, for a second screen. Its buttons act in the main window, which comes to the front.
+
 ## A few handy shortcuts {#shortcuts}
 
 - **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.

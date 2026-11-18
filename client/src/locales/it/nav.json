@@ -58,7 +58,8 @@
       "label": "Mostra solo le missioni attive",
       "tooltip": "Mostra solo le missioni attive",
       "empty": "Nessuna missione attiva"
-    }
+    },
+    "liveBoard": "Bacheca live"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops è aperto nella finestra Mission.",

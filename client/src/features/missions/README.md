@@ -43,6 +43,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)
 - [components/agent-run-failure.ts](components/agent-run-failure.ts)
+- [components/mission-run-strip.ts](components/mission-run-strip.ts)
 - [components/run-primary.tsx](components/run-primary.tsx)
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)

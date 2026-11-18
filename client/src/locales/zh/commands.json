@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "复制 #{{id}} 的 PR 描述",
       "exportHandoff": "导出交接",
       "copyPrDescription": "复制 PR 描述",
-      "moveFocusedSpec": "移动聚焦的规格…"
+      "moveFocusedSpec": "移动聚焦的规格…",
+      "openLiveBoard": "打开实时看板",
+      "openLiveBoardKeywords": "看板, 实时, 运行, 进行中, 所有项目, 任务, 状态"
     },
     "scopes": {
       "remove": "移除范围",
@@ -430,7 +432,8 @@
       "boardSelectClick": "看板:点击切换规格,Shift+点击选择范围",
       "boardSelectColumn": "看板:选择该列中的所有规格",
       "boardClearSelection": "看板:取消选择",
-      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)"
+      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)",
+      "openLiveBoard": "打开实时看板（所有项目的每次运行）"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",

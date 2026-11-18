@@ -12,7 +12,7 @@ every item is projected from state other capabilities already persist, one proje
 | Per-project source port | [ports.ts](ports.ts) |
 | Collect across projects, isolate failures, cap per project | [application.ts](application.ts) |
 | SQL/store reads for one project (deliveries, loop runs, Jira outbox, reached spend caps) | [adapters/project-source.ts](adapters/project-source.ts) |
-| `GET /api/inbox` | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
+| `GET /api/inbox`; `createInboxSources` (one source per project, also projected by the [live board](../live-board/README.md) so both agree) | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
 | Attention notification prefs (defaults, tolerant read, validated PATCH) | [attention-prefs.ts](attention-prefs.ts) (pure); `GET/PATCH /api/attention-prefs` in [desktop-router-settings.ts](../../desktop-router-settings.ts) |
 
 ## Invariants

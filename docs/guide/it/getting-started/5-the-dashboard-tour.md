@@ -54,6 +54,19 @@ Ogni nuovo stato di un elemento viene annunciato una sola volta; dopo un riavvio
 
 Scegli di cosa essere avvisato in **Impostazioni ▸ Notifiche**: disattiva tutto, scegli le categorie (domande e risposte, revisioni, errori, limiti di spesa, job completati), aggiungi un suono, nascondi il badge del Dock o disattiva un progetto. Anche la campanella accanto al nome di un progetto nella posta in arrivo lo silenzia; i suoi elementi restano nella posta in arrivo.
 
+## La bacheca live {#live-board}
+
+La **bacheca live** mostra in un unico posto ogni esecuzione di ogni progetto: rail, loop, sessioni Intent e job. Aprila da **Bacheca live** nella barra laterale sinistra, con **Cmd+Shift+B** (**Ctrl+Shift+B** su Windows e Linux) o con **Apri bacheca live** nella palette dei comandi. È anche un link (`?live=1`), quindi **Indietro** la chiude.
+
+Scegli come leggerla con il selettore nell'intestazione (la scelta viene ricordata):
+
+- **Per stato**: quattro colonne. **Ha bisogno di te** è esattamente ciò che elenca la posta in arrivo (domande, errori, esecuzioni bloccate, limiti di spesa, aggiornamenti Jira), dal più vecchio. **In corso** contiene ciò che è in esecuzione, poi ciò che attende in coda. **Da decidere** contiene il lavoro pronto per la tua revisione. **Completato oggi** contiene ciò che oggi è terminato, è stato unito o fermato, e si svuota a mezzanotte. Un'esecuzione sta sempre in una sola colonna.
+- **Per missione**: una riga per missione con ogni esecuzione che ha avviato, il progetto, il motore, il numero di esecuzioni e la spesa di oggi. Le missioni che hanno bisogno di te vengono prima; le esecuzioni non avviate da una missione chiudono l'elenco in **Non da una missione**.
+
+Ogni scheda mostra lo stato dell'esecuzione, il progetto, il rail o il tipo, il titolo, cosa sta facendo ora, i passaggi quando ci sono, il motore, da quanto è in esecuzione o in attesa e il costo quando è noto. Una domanda mostra il suo testo. Il pulsante della scheda è la stessa azione del resto dell'app: **Rispondi**, **Apri revisione**, **Riprendi**, **Riprova**, **Aumenta limite** o **Apri**, che apre la missione che ha avviato l'esecuzione o l'esecuzione stessa. Filtra per progetto, per tipo (Rail, Loop, Intent, Job) o per motore; l'intestazione riassume quante hanno bisogno di te, quante sono in corso e quanto hai speso oggi.
+
+Nell'app desktop, **Apri in una finestra** sposta la bacheca in una finestra tutta sua, per un secondo schermo. I suoi pulsanti agiscono nella finestra principale, che passa in primo piano.
+
 ## Qualche scorciatoia utile {#shortcuts}
 
 - **Cmd/Ctrl+B** — fissa o comprimi la barra laterale sinistra; **Option+Cmd+B** (**Ctrl+Alt+B**) fa lo stesso con quella destra.

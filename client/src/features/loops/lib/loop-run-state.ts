@@ -42,3 +42,29 @@ export const LOOP_CHIP_RUN_STATE = {
 export function loopChipRunState(state: NodeChipState): RunState {
   return LOOP_CHIP_RUN_STATE[state]
 }
+
+/** A loop run as a whole: its row status, outcome and why it paused. */
+export interface LoopRunStatusFacts {
+  status: 'running' | 'paused' | 'completed'
+  outcome: string | null
+  restartReason: string | null
+}
+
+/**
+ * A whole loop run (live board). Paused on a question it asks the person
+ * (needs-input); paused at a budget or by a restart it waits for a resume
+ * (paused). A stalled run is paused like a stalled step; a blocked run waits
+ * on something outside; a run that hit its iteration or cost ceiling, or was
+ * stopped, ended without delivering (stopped).
+ */
+export function loopRunRunState(run: LoopRunStatusFacts): RunState {
+  if (run.status === 'running') return 'working'
+  if (run.status === 'paused') return run.restartReason === 'budget_paused' || run.restartReason === 'restart' ? 'paused' : 'needs-input'
+  switch (run.outcome) {
+    case 'success': return 'done'
+    case 'failed': return 'failed'
+    case 'blocked': return 'blocked'
+    case 'stalled': return 'paused'
+    default: return 'stopped'
+  }
+}

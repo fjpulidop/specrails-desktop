@@ -282,7 +282,8 @@
       "specTimeline": "スペックのタイムラインと引き継ぎ",
       "accessibility": "アクセシビリティとカスタマイズ",
       "prDecision": "納品オプション",
-      "attention": "通知"
+      "attention": "通知",
+      "liveBoard": "ライブボード"
     }
   },
   "forecast": {

@@ -260,6 +260,12 @@ export interface MissionExtensions {
   describeRun?: (t: TFunction, input: MissionRunDescriptionInput) => MissionRunDescription | null
   /** The discreet mark on agent turns written inside the extension's mode (IntentSession): icon, color, words. */
   useTurnMark?: () => MissionModeBadge | null
+  /**
+   * An extension run (an Intent session) in the run-state vocabulary, from the
+   * state its store persists; null for a state it does not know. Lets app-wide
+   * surfaces (the live board) draw it without depending on the extension.
+   */
+  runStateOf?: (state: string) => RunState | null
 }
 
 const NONE: MissionExtensions = Object.freeze({})

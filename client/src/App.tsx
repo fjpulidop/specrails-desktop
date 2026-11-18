@@ -58,6 +58,7 @@ const DocsDialog = lazy(() => import('./features/docs/components/DocsDialog'))
 const LoopWindowSurface = lazy(() => import('./features/loops/components/LoopWindowSurface').then(module => ({ default: module.LoopWindowSurface })))
 const LoopsPage = lazy(() => import('./features/loops/pages/LoopsPage'))
 const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPage'))
+const LiveBoardDialog = lazy(() => import('./features/live-board/components/LiveBoardDialog'))
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -116,6 +117,7 @@ import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/glo
 import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
 import { InboxProvider, useInbox } from './features/inbox/context/InboxContext'
 import { InboxDialog } from './features/inbox/components/InboxDialog'
+import { LiveBoardProvider, useLiveBoard } from './features/live-board/context/LiveBoardContext'
 import { usePlaceParam } from './hooks/usePlaceParam'
 import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
 import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
@@ -279,6 +281,8 @@ function DesktopApp() {
   const terminals = useTerminals()
   const agentChat = useAgentChat()
   const inbox = useInbox()
+  const liveBoard = useLiveBoard()
+  const liveBoardMounted = useMountOnOpen(!!liveBoard?.isOpen)
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -467,6 +471,7 @@ function DesktopApp() {
     onToggleLeftSidebar: cycleLeftMode,
     onToggleRightSidebar: cycleRightMode,
     onToggleInbox: inbox?.toggleInbox,
+    onToggleLiveBoard: liveBoard?.toggleBoard,
     onSwitchProject: (index) => {
       const project = projects[index - 1]
       if (project) setActiveProjectId(project.id)
@@ -640,6 +645,7 @@ function DesktopApp() {
         onOpenLoops={() => { if (uiMode === 'agent') openOverlay('loops'); else navigate('/loops') }}
         onOpenPlugins={() => { if (uiMode === 'agent') openOverlay('plugins'); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
+        onOpenLiveBoard={liveBoard ? liveBoard.openBoard : undefined}
         onOpenDocs={() => openOverlay('docs')}
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
       />
@@ -811,6 +817,8 @@ function DesktopApp() {
       <Suspense fallback={null}>
         <DocsDialog open={docsOpen} onClose={closeDocs} target={docsTarget} />
       </Suspense>
+      {/* The live board (`?live=1`): every run of every project; loads on first open. */}
+      {liveBoardMounted && <Suspense fallback={null}><LiveBoardDialog /></Suspense>}
 
       <CommandPalette
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
@@ -1038,7 +1046,7 @@ function AppRoutes() {
                           <WebViewModalProvider>
                             <MissionWindowBindings />
                             <MissionWindowError />
-                            {secondary ? <MissionWindowSurface /> : <DesktopApp />}
+                            {secondary ? <MissionWindowSurface /> : <LiveBoardProvider><DesktopApp /></LiveBoardProvider>}
                             <AgentBrowserCaptureHost />
                             <LiveAnnouncer />
                             <ThemedToaster />

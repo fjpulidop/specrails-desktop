@@ -58,7 +58,8 @@
       "label": "Mostrar apenas missões ativas",
       "tooltip": "Mostrar apenas missões ativas",
       "empty": "Nenhuma missão ativa"
-    }
+    },
+    "liveBoard": "Quadro ao vivo"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops está aberto na janela de Mission.",

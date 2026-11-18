@@ -13,6 +13,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/InboxButton.tsx](components/InboxButton.tsx)
 - [components/InboxDialog.tsx](components/InboxDialog.tsx)
 - [context/InboxContext.tsx](context/InboxContext.tsx)
+- [hooks/useInboxItemText.ts](hooks/useInboxItemText.ts)
+- [lib/inbox-model.ts](lib/inbox-model.ts)
 - [lib/inbox-run-state.ts](lib/inbox-run-state.ts)
 
 ## Feature dependencies

@@ -39,6 +39,7 @@ export const HELP_TOPICS = {
   prDecision: { category: 'pipeline', slug: 'reviewing-a-delivery', anchor: 'pr-decision' },
   inbox: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
   attention: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'attention' },
+  liveBoard: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'live-board' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>
 
 export type HelpTopicId = keyof typeof HELP_TOPICS

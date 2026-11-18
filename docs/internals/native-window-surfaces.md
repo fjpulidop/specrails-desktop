@@ -1,8 +1,10 @@
 # Native window surfaces
 
 In the desktop app, a modal surface can open as a real OS window instead of an
-in-page Radix modal. The browser build keeps the modal. App Settings and Job
-detail are the first two surfaces. Loops and Plugins, which already had their
+in-page Radix modal. The browser build keeps the modal. App Settings, Job
+detail and the live board (`live-board`, "Open in window": a second-screen board
+whose card actions are reported to the main window, which the host brings
+forward through `focus_opener_on_result`) are the surfaces. Loops and Plugins, which already had their
 own windows (`loop_windows.rs`), now open there instead of in their Mission-mode
 modals (`useNativeWindowHandoff`). Every other dialog still follows the
 [modal standard](modal-standard.md) unchanged.
@@ -195,6 +197,9 @@ its exact random label (`surface-<id>-<128-bit hex>`), created when the window
 opens, like loop and mission windows. That is tighter than a static
 `surface-*` glob, which would match any webview later created with that
 prefix.
+
+The live board window has no extra permission or command: it reads the API and reports
+`{ action: 'primary' | 'open', card }` results that the main window runs.
 
 | Granted to every surface window | Extra for `app-settings` |
 |---|---|

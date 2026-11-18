@@ -162,6 +162,8 @@
       "components/InboxButton.tsx",
       "components/InboxDialog.tsx",
       "context/InboxContext.tsx",
+      "hooks/useInboxItemText.ts",
+      "lib/inbox-model.ts",
       "lib/inbox-run-state.ts"
     ],
     "dependencies": [
@@ -225,6 +227,21 @@
       "specs"
     ]
   },
+  "live-board": {
+    "publicEntries": [
+      "components/LiveBoardDialog.tsx",
+      "components/LiveBoardWindow.tsx",
+      "context/LiveBoardContext.tsx"
+    ],
+    "dependencies": [
+      "delivery",
+      "inbox",
+      "jobs",
+      "loops",
+      "missions",
+      "providers"
+    ]
+  },
   "loops": {
     "publicEntries": [
       "components/LoopPreviewModal.tsx",
@@ -234,6 +251,7 @@
       "hooks/useDefinitionFork.ts",
       "lib/failed-step.ts",
       "lib/loop-run-models.ts",
+      "lib/loop-run-state.ts",
       "lib/loop-ticket-need.ts",
       "lib/loop-windows.ts",
       "lib/loops-api.ts",
@@ -267,6 +285,7 @@
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",
       "components/agent-run-failure.ts",
+      "components/mission-run-strip.ts",
       "components/run-primary.tsx",
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",

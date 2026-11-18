@@ -2237,6 +2237,7 @@
       "adapters/http.ts": [
         "../../../project-registry",
         "../application",
+        "../ports",
         "./project-source",
         "express"
       ],
@@ -2324,6 +2325,48 @@
       ],
       "adapters/sqlite.ts": [
         "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
+  "live-board": {
+    "publicEntries": [
+      "adapters/http.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../../../util/local-day",
+        "../../accounting/runtime/desktop-analytics",
+        "../../inbox",
+        "../../inbox/adapters/http",
+        "../application",
+        "./missions",
+        "./project-source",
+        "express"
+      ],
+      "adapters/missions.ts": [
+        "../../../db",
+        "../domain",
+        "../ports"
+      ],
+      "adapters/project-source.ts": [
+        "../../../db",
+        "../../delivery/runtime/rail-pr-store",
         "../domain",
         "../ports"
       ],

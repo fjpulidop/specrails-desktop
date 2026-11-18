@@ -1,0 +1,96 @@
+{
+  "title": "实时看板",
+  "description": "所有项目的每一次运行，实时呈现",
+  "shortcutHint": "按 {{shortcut}} 打开或关闭",
+  "stale": "此看板可能不是最新的。",
+  "loading": "正在读取你的项目…",
+  "openInWindow": "在窗口中打开",
+  "summary": {
+    "needsYou_one": "{{count}} 项需要你处理",
+    "needsYou_other": "{{count}} 项需要你处理",
+    "inProgress_one": "{{count}} 项进行中",
+    "inProgress_other": "{{count}} 项进行中",
+    "today": "今日 {{cost}}",
+    "todayEstimated": "今日 ~{{cost}}（含估算）",
+    "paused_one": "{{count}} 个已暂停",
+    "paused_other": "{{count}} 个已暂停"
+  },
+  "layout": {
+    "label": "布局",
+    "status": "按状态",
+    "mission": "按任务"
+  },
+  "columns": {
+    "needs": "需要你",
+    "working": "进行中",
+    "decide": "待决定",
+    "done": "今日完成",
+    "needsHint": "最早的在上",
+    "doneHint": "午夜清空"
+  },
+  "columnEmpty": {
+    "needs": "没有等你处理的事项。",
+    "working": "没有正在运行的内容。",
+    "decide": "没有待决定的事项。",
+    "done": "今天还没有完成的内容。"
+  },
+  "filters": {
+    "label": "筛选",
+    "project": "项目",
+    "kind": "类型",
+    "engine": "引擎",
+    "allProjects": "所有项目"
+  },
+  "kinds": {
+    "rail": "轨道",
+    "loop": "循环",
+    "intent": "Intent",
+    "job": "作业"
+  },
+  "kind": {
+    "rail": "轨道 {{n}}",
+    "railUnknown": "轨道",
+    "loop": "循环",
+    "intent": "Intent",
+    "job": "作业"
+  },
+  "lane": {
+    "noMission": "非任务发起",
+    "noMissionHint": "从看板、循环或作业启动",
+    "untitled": "未命名任务",
+    "mission": "任务",
+    "projects_one": "{{count}} 个项目",
+    "projects_other": "{{count}} 个项目",
+    "runs_one": "{{count}} 次运行",
+    "runs_other": "{{count}} 次运行",
+    "today": "今日 {{cost}}"
+  },
+  "card": {
+    "now": "刚刚",
+    "waiting": "已等待 {{age}}",
+    "queuedFor": "已排队 {{age}}",
+    "queued": "等待开始",
+    "steps": "已完成 {{done}}/{{total}} 步",
+    "open": "打开",
+    "openReview": "打开评审",
+    "untitled": "未命名运行",
+    "untitledIntent": "Intent 会话",
+    "question": "问题",
+    "actionLabel": "{{action}}：{{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "按价目表估算，并非实际计费"
+  },
+  "empty": {
+    "title": "没有正在运行的内容",
+    "description": "所有项目的运行一开始就会显示在这里：轨道、循环、Intent 会话和作业。"
+  },
+  "emptyFiltered": {
+    "title": "没有符合这些筛选条件的内容",
+    "clear": "清除筛选"
+  },
+  "error": {
+    "title": "无法加载实时看板",
+    "description": "应用无法读取你的项目。请稍后再试。",
+    "retry": "重试"
+  }
+}

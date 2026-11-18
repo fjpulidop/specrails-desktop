@@ -1,0 +1,96 @@
+{
+  "title": "Tableau en direct",
+  "description": "Toutes les exécutions de tous les projets, en direct",
+  "shortcutHint": "Ouvrez-le ou fermez-le avec {{shortcut}}",
+  "stale": "Ce tableau n'est peut-être plus à jour.",
+  "loading": "Lecture de vos projets…",
+  "openInWindow": "Ouvrir dans une fenêtre",
+  "summary": {
+    "needsYou_one": "{{count}} vous attend",
+    "needsYou_other": "{{count}} vous attendent",
+    "inProgress_one": "{{count}} en cours",
+    "inProgress_other": "{{count}} en cours",
+    "today": "aujourd'hui {{cost}}",
+    "todayEstimated": "aujourd'hui ~{{cost}} (estimations incluses)",
+    "paused_one": "{{count}} en pause",
+    "paused_other": "{{count}} en pause"
+  },
+  "layout": {
+    "label": "Disposition",
+    "status": "Par état",
+    "mission": "Par mission"
+  },
+  "columns": {
+    "needs": "Vous attend",
+    "working": "En cours",
+    "decide": "À décider",
+    "done": "Terminé aujourd'hui",
+    "needsHint": "Le plus ancien en haut",
+    "doneHint": "Se vide à minuit"
+  },
+  "columnEmpty": {
+    "needs": "Rien ne vous attend.",
+    "working": "Rien n'est en cours.",
+    "decide": "Rien à décider.",
+    "done": "Rien n'est encore terminé aujourd'hui."
+  },
+  "filters": {
+    "label": "Filtres",
+    "project": "Projet",
+    "kind": "Type",
+    "engine": "Moteur",
+    "allProjects": "Tous les projets"
+  },
+  "kinds": {
+    "rail": "Rails",
+    "loop": "Boucles",
+    "intent": "Intent",
+    "job": "Jobs"
+  },
+  "kind": {
+    "rail": "Rail {{n}}",
+    "railUnknown": "Rail",
+    "loop": "Boucle",
+    "intent": "Intent",
+    "job": "Job"
+  },
+  "lane": {
+    "noMission": "Hors mission",
+    "noMissionHint": "Lancé depuis le tableau, une boucle ou un job",
+    "untitled": "Mission sans titre",
+    "mission": "mission",
+    "projects_one": "{{count}} projet",
+    "projects_other": "{{count}} projets",
+    "runs_one": "{{count}} exécution",
+    "runs_other": "{{count}} exécutions",
+    "today": "{{cost}} aujourd'hui"
+  },
+  "card": {
+    "now": "à l'instant",
+    "waiting": "en attente depuis {{age}}",
+    "queuedFor": "en file depuis {{age}}",
+    "queued": "En attente de démarrage",
+    "steps": "{{done}} étapes sur {{total}} terminées",
+    "open": "Ouvrir",
+    "openReview": "Ouvrir la revue",
+    "untitled": "Exécution sans titre",
+    "untitledIntent": "Session Intent",
+    "question": "Question",
+    "actionLabel": "{{action}} : {{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimation selon le barème, pas un coût facturé"
+  },
+  "empty": {
+    "title": "Rien n'est en cours",
+    "description": "Les exécutions de tous vos projets apparaissent ici dès qu'elles démarrent : rails, boucles, sessions Intent et jobs."
+  },
+  "emptyFiltered": {
+    "title": "Rien ne correspond à ces filtres",
+    "clear": "Effacer les filtres"
+  },
+  "error": {
+    "title": "Impossible de charger le tableau en direct",
+    "description": "L'application n'a pas pu lire vos projets. Réessayez dans un instant.",
+    "retry": "Réessayer"
+  }
+}

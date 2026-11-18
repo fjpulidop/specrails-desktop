@@ -54,6 +54,19 @@ Chaque nouvel état d'un élément de la boîte est annoncé une seule fois ; ap
 
 Choisissez ce qui vous est signalé dans **Réglages ▸ Notifications** : tout couper, choisir les catégories (questions et réponses, revues, échecs, limites de dépense, jobs terminés), ajouter un son, masquer le badge du Dock ou désactiver un projet. La cloche à côté du nom d'un projet dans la boîte le coupe aussi ; ses éléments restent dans la boîte.
 
+## Le tableau en direct {#live-board}
+
+Le **tableau en direct** réunit toutes les exécutions de tous vos projets : rails, boucles, sessions Intent et jobs. Ouvrez-le depuis **Tableau en direct** dans la barre latérale gauche, avec **Cmd+Shift+B** (**Ctrl+Shift+B** sous Windows et Linux) ou avec **Ouvrir le tableau en direct** dans la palette de commandes. C'est aussi un lien (`?live=1`) : **Retour** le ferme.
+
+Choisissez comment le lire avec le sélecteur de son en-tête (votre choix est mémorisé) :
+
+- **Par état** : quatre colonnes. **Vous attend** reprend exactement la boîte de réception (questions, échecs, exécutions bloquées, limites de dépense, mises à jour Jira), le plus ancien en haut. **En cours** contient ce qui s'exécute, puis ce qui attend dans la file. **À décider** contient le travail prêt pour votre revue. **Terminé aujourd'hui** contient ce qui s'est terminé, a été fusionné ou arrêté aujourd'hui, et se vide à minuit. Une exécution n'est jamais dans deux colonnes.
+- **Par mission** : une ligne par mission avec toutes les exécutions qu'elle a lancées, son projet, son moteur, le nombre d'exécutions et ce qu'elle a dépensé aujourd'hui. Les missions qui vous attendent passent en premier ; les exécutions qu'aucune mission n'a lancées ferment la liste sous **Hors mission**.
+
+Chaque carte indique l'état de l'exécution, le projet, le rail ou le type, le titre, ce qu'elle fait en ce moment, ses étapes quand elle en a, le moteur, depuis combien de temps elle tourne ou attend, et son coût quand il est connu. Une question affiche son texte. Le bouton de la carte est la même action que partout ailleurs : **Répondre**, **Ouvrir la revue**, **Reprendre**, **Réessayer**, **Relever le plafond** ou **Ouvrir**, qui ouvre la mission qui a lancé l'exécution, ou l'exécution elle-même. Filtrez par projet, par type (Rails, Boucles, Intent, Jobs) ou par moteur ; l'en-tête résume combien vous attendent, combien sont en cours et ce que vous avez dépensé aujourd'hui.
+
+Dans l'application de bureau, **Ouvrir dans une fenêtre** place le tableau dans sa propre fenêtre, pour un second écran. Ses boutons agissent dans la fenêtre principale, qui passe au premier plan.
+
 ## Quelques raccourcis bien pratiques {#shortcuts}
 
 - **Cmd/Ctrl+B** — épingler ou replier la barre latérale gauche ; **Option+Cmd+B** (**Ctrl+Alt+B**) fait de même pour la droite.

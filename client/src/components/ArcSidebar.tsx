@@ -1,4 +1,5 @@
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
+import { projectMonogram } from '../lib/project-monogram'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { isMacKeyboard } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
@@ -8,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
+import { FolderOpen, Plus, BarChart3, BookOpen, Columns3, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
@@ -84,9 +85,6 @@ function openCommandPalette(): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }))
 }
 
-/** A collapsed-rail project tile: the initials of its first two words
- *  ("specrails-desktop" → "SD"), or its first two letters/digits for a single
- *  word, so neighbouring projects stay distinguishable at 44px. */
 /**
  * Attention badge on a collapsed rail icon: pinned to the tile's top-right
  * corner, with a background-coloured cut-out so it reads as a badge instead
@@ -94,12 +92,7 @@ function openCommandPalette(): void {
  */
 const COLLAPSED_BADGE = 'pointer-events-none absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-background p-[2px] leading-none'
 
-export function projectMonogram(name: string): string {
-  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
-  const chars = (words[0] ?? '').match(/[\p{L}\p{N}]/gu) ?? []
-  return chars.slice(0, 2).join('').toUpperCase() || '?'
-}
+export { projectMonogram }
 
 /** Mission state rolled up over a group of conversations (a project, Home,
  *  Favorites) so a closed or collapsed group still shows what waits inside. */
@@ -381,6 +374,8 @@ interface ArcSidebarProps {
   onOpenLoops: () => void
   onOpenPlugins: () => void
   onOpenAnalytics: () => void
+  /** The live board (every run of every project); absent where there is none. */
+  onOpenLiveBoard?: () => void
   onOpenDocs: () => void
   onOpenCompanion?: () => void
   onOpenSettings: () => void
@@ -779,6 +774,7 @@ export function ArcSidebar({
   onOpenLoops,
   onOpenPlugins,
   onOpenAnalytics,
+  onOpenLiveBoard,
   onOpenDocs,
   onOpenSettings,
   onOpenCompanion,
@@ -1049,6 +1045,7 @@ export function ArcSidebar({
   }
 
   const navItems = [
+    ...(onOpenLiveBoard ? [{ label: t('arcSidebar.liveBoard'), icon: Columns3, action: onOpenLiveBoard }] : []),
     { label: t('arcSidebar.analytics'), icon: BarChart3, action: onOpenAnalytics },
     { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
     ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),

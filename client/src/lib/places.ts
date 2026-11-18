@@ -24,6 +24,8 @@ export const JOB_PARAM = 'job'
 export const MISSION_PARAM = 'mission'
 /** `?inbox=1` — the "Needs you" inbox panel, over whatever place the person is on. */
 export const INBOX_PARAM = 'inbox'
+/** `?live=1` — the live board (every run of every project), over whatever place the person is on. */
+export const LIVE_BOARD_PARAM = 'live'
 /** `?overlay=loops|plugins|docs|analytics` — a full-page modal. */
 export const OVERLAY_PARAM = 'overlay'
 /**
@@ -96,7 +98,7 @@ export function placeKey(entry: PlaceLocation & { projectId?: string | null }, m
   else if (path.startsWith('/plugins')) overlay = 'plugins'
   const project = entry.projectId ?? ''
   // Appended only while open, so the key of every other place keeps its shape.
-  const inbox = params.get(INBOX_PARAM) === '1' ? '|i=1' : ''
+  const inbox = (params.get(INBOX_PARAM) === '1' ? '|i=1' : '') + (params.get(LIVE_BOARD_PARAM) === '1' ? '|l=1' : '')
 
   if (mode === 'kanban') {
     // Param-form overlays that only exist as modals in Mission mode collapse onto their route.

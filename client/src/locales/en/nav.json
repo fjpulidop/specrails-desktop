@@ -58,7 +58,8 @@
       "label": "Show only active missions",
       "tooltip": "Show only active missions",
       "empty": "No active missions"
-    }
+    },
+    "liveBoard": "Live board"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops are open in the mission window.",

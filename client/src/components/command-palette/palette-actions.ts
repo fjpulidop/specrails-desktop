@@ -23,6 +23,7 @@ import {
   Trash2,
   FolderOpen,
   Inbox,
+  Columns3,
   ListChecks,
   X,
   BookmarkPlus,
@@ -79,6 +80,8 @@ export interface PaletteContext {
   history: { canBack: boolean; canForward: boolean; back: () => void; forward: () => void } | null
   /** The "Needs you" inbox (null where no inbox exists, e.g. secondary windows). */
   inbox: { count: number; open: () => void } | null
+  /** The live board (null where there is none, e.g. secondary windows). */
+  liveBoard: { open: () => void } | null
   /** Label of what ⌘Z would undo right now. */
   undoLabel: string | null
   /** Labels of the left/right sidebar toggles. */
@@ -547,6 +550,13 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     resolveLabel: (ctx) => (ctx.inbox && ctx.inbox.count > 0 ? ctx.t('palette.actions.openInboxCount', { count: ctx.inbox.count }) : ctx.t('palette.actions.openInbox')),
     when: (ctx) => ctx.inbox !== null,
     run: (ctx) => ctx.inbox?.open(),
+  },
+  {
+    id: 'liveBoard.open', labelKey: 'palette.actions.openLiveBoard', group: 'global', icon: Columns3, shortcut: '⌘⇧B',
+    keywords: ['live board', 'board', 'runs', 'running', 'all projects', 'missions', 'dashboard', 'status', 'in progress'],
+    keywordsKey: 'palette.actions.openLiveBoardKeywords',
+    when: (ctx) => ctx.liveBoard !== null,
+    run: (ctx) => ctx.liveBoard?.open(),
   },
   {
     // Caps, projection and what-if all live in Analytics ▸ Budget: one action that opens it. `/budget` finds it too.

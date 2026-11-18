@@ -7,26 +7,17 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, Dia
 import { EmptyState } from '../../../components/ui/empty-state'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { compactRelativeTime } from '../../../lib/relative-time'
-import { formatUsd } from '../../../lib/format-usd'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
-import type { InboxItem } from '../lib/inbox-model'
+import { primaryLabelKey, type InboxItem } from '../lib/inbox-model'
 import { inboxKindRunState } from '../lib/inbox-run-state'
 import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { runStateLook } from '../../../components/ui/run-state/run-state'
-import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
+import { useInboxItemText } from '../hooks/useInboxItemText'
 import { useAttentionPrefs } from '../../../hooks/useAttentionPrefs'
 import { notifyError } from '../../../lib/notify-error'
 
-/** i18n key (inbox namespace) of the primary action's label. */
-export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'>): string {
-  if (item.action === 'raise-cap') return 'actions.raiseCap'
-  if (item.action === 'resume-run') return 'actions.resume'
-  if (item.action === 'retry-jira') return 'actions.retry'
-  if (item.kind === 'question') return 'actions.answer'
-  if (item.kind === 'review') return 'actions.openReview'
-  return 'actions.open'
-}
+export { primaryLabelKey } from '../lib/inbox-model'
 
 function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const { t } = useTranslation('inbox')
@@ -34,16 +25,8 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const state = inboxKindRunState(item.kind)
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
-  const kindLabel = item.action === 'raise-cap' ? t('kinds.capReached') : t(`kinds.${item.kind}`)
-  // A failed or blocked run says WHY in plain words (the same sentence as its diagnosis card); an unknown cause keeps the raw outcome.
-  const diagnosis = useDiagnosisText(item.diagnosis ?? { kind: 'unknown', confidence: 'low', phase: null, rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: [] })
-  const cause = item.diagnosis && item.diagnosis.kind !== 'unknown' ? diagnosis.headline : null
-  // A failure with no known cause says so in the app's language; the raw outcome (often English) stays on hover.
-  const rawNoCause = !cause && item.kind === 'failed'
-  // A reached cap is worded here, in the app's language, from the structured cap.
-  const cap = item.cap
-  const title = cap ? t(`cap.title.${cap.scope}.${cap.period}`) : item.title
-  const detailText = cap ? t('cap.detail', { spent: formatUsd(cap.spentUsd), budget: formatUsd(cap.budgetUsd) }) : cause ?? (rawNoCause ? t('kinds.failedNoCause') : item.detail)
+  // A failed or blocked run says WHY in plain words; an unknown cause says so, the raw outcome (often English) stays on hover.
+  const { title, kindLabel, detail: detailText, rawDetail } = useInboxItemText(item)
   const unseen = inbox.showsUnseen(item)
   return (
     <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind} data-unseen={unseen || undefined}>
@@ -61,7 +44,7 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
           </p>
           <p className="truncate text-caption text-muted-foreground">
             <span className={runStateLook(state).text}>{kindLabel}</span>
-            {detailText && <span title={rawNoCause && item.detail ? item.detail : undefined}>{` · ${detailText}`}</span>}
+            {detailText && <span title={rawDetail ?? undefined}>{` · ${detailText}`}</span>}
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>
         </div>

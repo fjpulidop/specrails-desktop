@@ -130,6 +130,7 @@ navigation history and every place is a link. Do not invent a second history.
 | Job detail over a mission | `?job=<jobId>` (Board mode: `/jobs/:id`) | `missions/components/AgentModeJobsPane.tsx` |
 | Project switch | `?p=<projectId>` on the pushed entry | `useProjectRouteMemory` in `App.tsx` |
 | "Needs you" inbox | `?inbox=1` | [`features/inbox`](inbox/README.md) (`InboxProvider`; opening a row replaces this entry with the place it leads to) |
+| Live board | `?live=1` | [`features/live-board`](live-board/README.md) (`LiveBoardProvider`; opening a card replaces this entry with the place it leads to) |
 
 Rules:
 

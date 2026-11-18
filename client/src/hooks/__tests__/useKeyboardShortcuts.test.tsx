@@ -303,6 +303,57 @@ describe('Inbox chord', () => {
   })
 })
 
+describe('Live board chord', () => {
+  const chordB = (opts: KeyboardEventInit, target: EventTarget = window) => {
+    const e = new KeyboardEvent('keydown', { code: 'KeyB', key: 'B', bubbles: true, cancelable: true, ...opts })
+    target.dispatchEvent(e)
+    return e
+  }
+  const asPlatform = (platform: string) => vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue(platform)
+  afterEach(() => vi.restoreAllMocks())
+
+  it('⌘⇧B toggles the live board on macOS, even from a text field, and never the left sidebar', () => {
+    asPlatform('MacIntel')
+    const onToggleLiveBoard = vi.fn()
+    const onToggleLeftSidebar = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleLiveBoard, onToggleLeftSidebar }), { wrapper })
+    expect(chordB({ metaKey: true, shiftKey: true }).defaultPrevented).toBe(true)
+    const input = document.body.appendChild(document.createElement('input'))
+    chordB({ metaKey: true, shiftKey: true }, input)
+    expect(onToggleLiveBoard).toHaveBeenCalledTimes(2)
+    expect(onToggleLeftSidebar).not.toHaveBeenCalled()
+    // ⌘B alone still toggles the left sidebar.
+    chordB({ metaKey: true })
+    expect(onToggleLeftSidebar).toHaveBeenCalledTimes(1)
+    expect(onToggleLiveBoard).toHaveBeenCalledTimes(2)
+    input.remove()
+  })
+
+  it('is Ctrl+Shift+B on Windows and Linux; ⌥⌘B keeps the right sidebar', () => {
+    asPlatform('Win32')
+    const onToggleLiveBoard = vi.fn()
+    const onToggleRightSidebar = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleLiveBoard, onToggleRightSidebar }), { wrapper })
+    expect(chordB({ ctrlKey: true, shiftKey: true }).defaultPrevented).toBe(true)
+    chordB({ ctrlKey: true, altKey: true })
+    expect(onToggleLiveBoard).toHaveBeenCalledTimes(1)
+    expect(onToggleRightSidebar).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the chord alone without a handler or inside a dialog, and is in the cheatsheet', () => {
+    asPlatform('MacIntel')
+    const onToggleLiveBoard = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleLiveBoard }), { wrapper })
+    const dialog = document.body.appendChild(document.createElement('div'))
+    dialog.setAttribute('role', 'dialog')
+    const button = dialog.appendChild(document.createElement('button'))
+    chordB({ metaKey: true, shiftKey: true }, button)
+    expect(onToggleLiveBoard).not.toHaveBeenCalled()
+    dialog.remove()
+    expect(SHORTCUTS.find((s) => s.keys === '⌘⇧B')).toMatchObject({ descriptionKey: 'shortcuts.items.openLiveBoard' })
+  })
+})
+
 describe('useCheatsheetState', () => {
   it('starts closed and can be opened', () => {
     const { result } = renderHook(() => useCheatsheetState())

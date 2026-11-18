@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "PR-Beschreibung für #{{id}} kopieren",
       "exportHandoff": "Übergabe exportieren",
       "copyPrDescription": "PR-Beschreibung kopieren",
-      "moveFocusedSpec": "Fokussierte Spec verschieben…"
+      "moveFocusedSpec": "Fokussierte Spec verschieben…",
+      "openLiveBoard": "Live-Board öffnen",
+      "openLiveBoardKeywords": "board, live, läufe, laufend, alle projekte, missionen, status"
     },
     "scopes": {
       "remove": "Bereich entfernen",
@@ -430,7 +432,8 @@
       "boardSelectClick": "Board: Klick wählt eine Spec an oder ab, Umschalt+Klick wählt einen Bereich",
       "boardSelectColumn": "Board: alle Specs der Spalte auswählen",
       "boardClearSelection": "Board: Auswahl aufheben",
-      "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)"
+      "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)",
+      "openLiveBoard": "Live-Board öffnen (jeder Lauf in jedem Projekt)"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",

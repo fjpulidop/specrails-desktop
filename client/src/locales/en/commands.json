@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "Copy PR description for #{{id}}",
       "exportHandoff": "Export hand-off",
       "copyPrDescription": "Copy PR description",
-      "moveFocusedSpec": "Move focused spec…"
+      "moveFocusedSpec": "Move focused spec…",
+      "openLiveBoard": "Open live board",
+      "openLiveBoardKeywords": "live board, board, runs, running, all projects, missions, status"
     },
     "scopes": {
       "remove": "Remove scope",
@@ -430,7 +432,8 @@
       "boardSelectClick": "Board: click toggles a spec, Shift+click selects a range",
       "boardSelectColumn": "Board: select every spec in the column",
       "boardClearSelection": "Board: clear the selection",
-      "boardMove": "Board: move the focused spec (status or rail)"
+      "boardMove": "Board: move the focused spec (status or rail)",
+      "openLiveBoard": "Open the live board (every run of every project)"
     },
     "searchLabel": "Search shortcuts and guides",
     "searchPlaceholder": "Search shortcuts and guides…",

@@ -54,6 +54,19 @@ Cada novo estado de um item é anunciado uma vez; depois de reiniciar, nada anti
 
 Escolha do que ser avisado em **Configurações ▸ Notificações**: desative tudo, escolha as categorias (perguntas e respostas, revisões, falhas, limites de gasto, jobs concluídos), adicione um som, oculte o selo do Dock ou desative um projeto. O sino ao lado do nome de um projeto na caixa de entrada também o silencia; os itens dele continuam na caixa de entrada.
 
+## O quadro ao vivo {#live-board}
+
+O **quadro ao vivo** mostra num só lugar todas as execuções de todos os seus projetos: rails, loops, sessões de Intent e jobs. Abra-o em **Quadro ao vivo** na barra lateral esquerda, com **Cmd+Shift+B** (**Ctrl+Shift+B** no Windows e no Linux) ou com **Abrir quadro ao vivo** na paleta de comandos. Ele também é um link (`?live=1`), então **Voltar** o fecha.
+
+Escolha como lê-lo com o seletor no cabeçalho (sua escolha fica salva):
+
+- **Por estado**: quatro colunas. **Precisa de você** é exatamente o que a caixa de entrada lista (perguntas, falhas, execuções bloqueadas, limites de gasto, atualizações do Jira), do mais antigo para o mais novo. **Em andamento** reúne o que está rodando e depois o que espera na fila. **Para decidir** reúne o trabalho pronto para sua revisão. **Concluído hoje** reúne o que terminou, foi mesclado ou parado hoje, e se esvazia à meia-noite. Uma execução fica sempre em uma única coluna.
+- **Por missão**: uma linha por missão com todas as execuções que ela iniciou, seu projeto, motor, número de execuções e o gasto de hoje. As missões que precisam de você vêm primeiro; as execuções que nenhuma missão iniciou fecham a lista em **Fora de uma missão**.
+
+Cada cartão mostra o estado da execução, o projeto, o rail ou o tipo, o título, o que ela está fazendo agora, suas etapas quando existem, o motor, há quanto tempo roda ou espera e o custo quando conhecido. Uma pergunta mostra seu texto. O botão do cartão é a mesma ação do resto do app: **Responder**, **Abrir revisão**, **Retomar**, **Tentar novamente**, **Aumentar limite** ou **Abrir**, que abre a missão que iniciou a execução ou a própria execução. Filtre por projeto, por tipo (Rails, Loops, Intent, Jobs) ou por motor; o cabeçalho resume quantas precisam de você, quantas estão em andamento e quanto você gastou hoje.
+
+No app para desktop, **Abrir em janela** leva o quadro para uma janela própria, para uma segunda tela. Os botões dele agem na janela principal, que vem para a frente.
+
 ## Alguns atalhos úteis {#shortcuts}
 
 - **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.

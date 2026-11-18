@@ -58,7 +58,8 @@
       "label": "実行中のミッションのみ表示",
       "tooltip": "実行中のミッションのみ表示",
       "empty": "実行中のミッションはありません"
-    }
+    },
+    "liveBoard": "ライブボード"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のウィンドウで開いています。",

@@ -35,6 +35,8 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: '⌘⇧I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'mac' },
   // Ctrl+Shift+I opens DevTools in WebView2 / Chromium, so Windows and Linux use Ctrl+Alt+I.
   { keys: 'Ctrl+Alt+I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'other' },
+  // ⌘⇧B / Ctrl+Shift+B: no DevTools chord in WebView2, Chromium or WebKit (unlike ⌘⇧I), same on every OS.
+  { keys: '⌘⇧B', descriptionKey: 'shortcuts.items.openLiveBoard', category: 'general' },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
   // ⌘K palette open, nothing typed: the "Jump back in" rows (components/CommandPalette.tsx).
   { keys: '⌘1–6', descriptionKey: 'shortcuts.items.paletteJumpBackIn', category: 'general' },
@@ -147,6 +149,8 @@ interface UseKeyboardShortcutsOptions {
   onToggleAgentChat?: () => void
   /** Toggle the "Needs you" inbox (Cmd+Shift+I on macOS, Ctrl+Alt+I elsewhere) */
   onToggleInbox?: () => void
+  /** Toggle the live board (Cmd+Shift+B on macOS, Ctrl+Shift+B elsewhere) */
+  onToggleLiveBoard?: () => void
   /** Back / Forward through places (⌘[ ⌘] · Ctrl+[ ⌘] · Alt+← Alt+→). */
   onNavigateBack?: () => void
   onNavigateForward?: () => void
@@ -162,6 +166,7 @@ export function useKeyboardShortcuts({
   onToggleTerminalPanel,
   onToggleAgentChat,
   onToggleInbox,
+  onToggleLiveBoard,
   onNavigateBack,
   onNavigateForward,
 }: UseKeyboardShortcutsOptions) {
@@ -189,6 +194,8 @@ export function useKeyboardShortcuts({
   onToggleAgentChatRef.current = onToggleAgentChat
   const onToggleInboxRef = useRef(onToggleInbox)
   onToggleInboxRef.current = onToggleInbox
+  const onToggleLiveBoardRef = useRef(onToggleLiveBoard)
+  onToggleLiveBoardRef.current = onToggleLiveBoard
   const onNavigateBackRef = useRef(onNavigateBack)
   onNavigateBackRef.current = onNavigateBack
   const onNavigateForwardRef = useRef(onNavigateForward)
@@ -229,6 +236,18 @@ export function useKeyboardShortcuts({
         return
       }
 
+      // ⌘⇧B (macOS) / Ctrl+Shift+B → the live board ("B" for Board). Opens from anywhere, like the inbox;
+      // inside the board's own dialog Esc closes it instead. Checked before ⌘B, which must not see Shift.
+      const boardChord = isMacKeyboard()
+        ? e.metaKey && !e.ctrlKey && e.shiftKey && !e.altKey
+        : e.ctrlKey && !e.metaKey && e.shiftKey && !e.altKey
+      if (boardChord && e.code === 'KeyB') {
+        if (isInsideDialog(e) || !onToggleLiveBoardRef.current) return
+        e.preventDefault()
+        onToggleLiveBoardRef.current()
+        return
+      }
+
       // Never intercept when typing in inputs or when an xterm has focus
       if (isEditableTarget(e)) return
       if (isInsideXterm(e)) return
@@ -250,7 +269,7 @@ export function useKeyboardShortcuts({
 
       // ⌘B → toggle LEFT sidebar, ⌥⌘B → toggle RIGHT sidebar (the VS Code /
       // Cursor convention). e.code avoids Option-layer chars like '∫'.
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code === 'KeyB') {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyB') {
         e.preventDefault()
         onToggleLeftSidebarRef.current?.()
         return

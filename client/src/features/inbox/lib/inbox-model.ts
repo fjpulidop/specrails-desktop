@@ -178,6 +178,16 @@ export function groupByProject(items: readonly InboxItem[]): InboxGroup[] {
 
 // ── Where an item leads ──────────────────────────────────────────────────────
 
+/** i18n key (inbox namespace) of the primary action's label. */
+export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'>): string {
+  if (item.action === 'raise-cap') return 'actions.raiseCap'
+  if (item.action === 'resume-run') return 'actions.resume'
+  if (item.action === 'retry-jira') return 'actions.retry'
+  if (item.kind === 'question') return 'actions.answer'
+  if (item.kind === 'review') return 'actions.openReview'
+  return 'actions.open'
+}
+
 export interface InboxTarget {
   pathname: string
   search: string
@@ -190,7 +200,7 @@ export interface InboxTarget {
  * mode keeps the mission and layers `?review=` / `?job=` over it; Board mode
  * uses the routed `/review/:id` and `/jobs/:id`.
  */
-export function inboxTarget(item: InboxItem, mode: 'kanban' | 'agent'): InboxTarget {
+export function inboxTarget(item: Pick<InboxItem, 'action' | 'subjectId' | 'conversationId'>, mode: 'kanban' | 'agent'): InboxTarget {
   const review = item.action === 'open-review'
   if (mode === 'kanban') {
     return review

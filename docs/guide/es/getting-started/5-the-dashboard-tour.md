@@ -54,6 +54,19 @@ Cada estado nuevo de un elemento de la bandeja se anuncia una sola vez; tras rei
 
 Elige de qué te avisa en **Ajustes ▸ Notificaciones**: desactívalo todo, elige las categorías (preguntas y respuestas, revisiones, fallos, límites de gasto, trabajos terminados), añade un sonido, oculta la insignia del Dock o desactiva un proyecto. La campana junto al nombre de un proyecto en la bandeja también lo silencia; sus elementos siguen en la bandeja.
 
+## El tablero en vivo {#live-board}
+
+El **tablero en vivo** muestra en un solo sitio todas las ejecuciones de todos tus proyectos: rails, loops, sesiones de Intent y trabajos. Ábrelo desde **Tablero en vivo** en la barra lateral izquierda, con **Cmd+Shift+B** (**Ctrl+Shift+B** en Windows y Linux) o con **Abrir tablero en vivo** en la paleta de comandos. También es un enlace (`?live=1`), así que **Atrás** lo cierra.
+
+Elige cómo leerlo con el selector de su cabecera (se recuerda tu elección):
+
+- **Por estado**: cuatro columnas. **Te necesita** es exactamente lo que lista la bandeja (preguntas, fallos, ejecuciones bloqueadas, límites de gasto, actualizaciones de Jira), con lo más antiguo arriba. **En curso** reúne lo que se está ejecutando y después lo que espera en la cola. **Para decidir** reúne el trabajo listo para tu revisión. **Terminado hoy** reúne lo que acabó, se fusionó o se detuvo hoy, y se vacía a medianoche. Una ejecución está siempre en una sola columna.
+- **Por misión**: una fila por misión con todas las ejecuciones que lanzó, su proyecto, motor, número de ejecuciones y lo que gastó hoy. Primero van las misiones que te necesitan; las ejecuciones que no lanzó ninguna misión cierran la lista en **Fuera de una misión**.
+
+Cada tarjeta muestra el estado de la ejecución, el proyecto, el rail o el tipo, el título, lo que está haciendo ahora, sus pasos cuando los tiene, el motor, cuánto lleva en marcha o esperando y su coste cuando se conoce. Una pregunta muestra su texto. El botón de la tarjeta es la misma acción que en el resto de la app: **Responder**, **Abrir revisión**, **Reanudar**, **Reintentar**, **Subir límite** o **Abrir**, que abre la misión que lanzó la ejecución o la propia ejecución. Filtra por proyecto, por tipo (Rails, Loops, Intent, Trabajos) o por motor; la cabecera resume cuántas te necesitan, cuántas están en curso y lo que gastaste hoy.
+
+En la app de escritorio, **Abrir en ventana** lleva el tablero a una ventana propia, para una segunda pantalla. Sus botones actúan en la ventana principal, que pasa al frente.
+
 ## Algunos atajos prácticos {#shortcuts}
 
 - **Cmd/Ctrl+B** — ancla o contrae la barra lateral izquierda; **Option+Cmd+B** (**Ctrl+Alt+B**) hace lo mismo con la derecha.

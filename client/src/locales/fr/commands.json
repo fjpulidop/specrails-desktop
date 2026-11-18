@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "Copier la description de PR de #{{id}}",
       "exportHandoff": "Exporter la passation",
       "copyPrDescription": "Copier la description de PR",
-      "moveFocusedSpec": "Déplacer la spec ciblée…"
+      "moveFocusedSpec": "Déplacer la spec ciblée…",
+      "openLiveBoard": "Ouvrir le tableau en direct",
+      "openLiveBoardKeywords": "tableau, direct, exécutions, en cours, tous les projets, missions, état"
     },
     "scopes": {
       "remove": "Retirer le périmètre",
@@ -430,7 +432,8 @@
       "boardSelectClick": "Tableau : un clic bascule une spec, Maj+clic sélectionne une plage",
       "boardSelectColumn": "Tableau : sélectionner toutes les specs de la colonne",
       "boardClearSelection": "Tableau : effacer la sélection",
-      "boardMove": "Tableau : déplacer la spec ciblée (statut ou rail)"
+      "boardMove": "Tableau : déplacer la spec ciblée (statut ou rail)",
+      "openLiveBoard": "Ouvrir le tableau en direct (toutes les exécutions de tous les projets)"
     },
     "searchLabel": "Rechercher des raccourcis et des guides",
     "searchPlaceholder": "Rechercher des raccourcis et des guides…",

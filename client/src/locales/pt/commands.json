@@ -150,7 +150,9 @@
       "copyPrDescriptionN": "Copiar descrição de PR de #{{id}}",
       "exportHandoff": "Exportar passagem",
       "copyPrDescription": "Copiar descrição de PR",
-      "moveFocusedSpec": "Mover a spec em foco…"
+      "moveFocusedSpec": "Mover a spec em foco…",
+      "openLiveBoard": "Abrir quadro ao vivo",
+      "openLiveBoardKeywords": "quadro, ao vivo, execuções, em andamento, todos os projetos, missões, estado"
     },
     "scopes": {
       "remove": "Remover escopo",
@@ -430,7 +432,8 @@
       "boardSelectClick": "Quadro: clique alterna uma spec, Shift+clique seleciona um intervalo",
       "boardSelectColumn": "Quadro: selecionar todas as specs da coluna",
       "boardClearSelection": "Quadro: limpar a seleção",
-      "boardMove": "Quadro: mover a spec em foco (estado ou rail)"
+      "boardMove": "Quadro: mover a spec em foco (estado ou rail)",
+      "openLiveBoard": "Abrir o quadro ao vivo (todas as execuções de todos os projetos)"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",

@@ -282,7 +282,8 @@
       "specTimeline": "la chronologie et la passation d’une spec",
       "accessibility": "l'accessibilité et la personnalisation",
       "prDecision": "les options de livraison",
-      "attention": "Notifications"
+      "attention": "Notifications",
+      "liveBoard": "le tableau en direct"
     }
   },
   "forecast": {

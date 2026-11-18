@@ -11,6 +11,7 @@
  */
 import { Router } from 'express'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
+import { registerLiveBoardRoutes } from './modules/live-board/adapters/http'
 import { registerAppResourceRoutes } from './app-resources-router'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
@@ -42,6 +43,8 @@ export function createDesktopRouter(
   if (usageService) registerUsageRoutes(router, usageService)
   // "Needs you" inbox: read-only projection across projects (modules/inbox).
   registerInboxRoutes(router, registry)
+  // Live board: every run across every project, read-only (modules/live-board).
+  registerLiveBoardRoutes(router, registry)
   // App-wide Resources (status bar): CPU/memory of everything the server launched.
   registerAppResourceRoutes(router, registry)
   // Sample-project first run (modules/onboarding). Registered before the

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1626 source/build files. Nearby tests are linked where names
+Includes 1645 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -447,6 +447,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/inbox/hooks
 
 - [useInboxAttention.ts](../../client/src/features/inbox/hooks/useInboxAttention.ts)
+- [useInboxItemText.ts](../../client/src/features/inbox/hooks/useInboxItemText.ts)
 
 ## client/src/features/inbox/lib
 
@@ -556,6 +557,27 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [JobDetailPage.tsx](../../client/src/features/jobs/pages/JobDetailPage.tsx) · [test](../../client/src/features/jobs/pages/__tests__/JobDetailPage.test.tsx)
 - [JobsPage.tsx](../../client/src/features/jobs/pages/JobsPage.tsx)
+
+## client/src/features/live-board/components
+
+- [LiveBoardCard.tsx](../../client/src/features/live-board/components/LiveBoardCard.tsx)
+- [LiveBoardDialog.tsx](../../client/src/features/live-board/components/LiveBoardDialog.tsx)
+- [LiveBoardPanel.tsx](../../client/src/features/live-board/components/LiveBoardPanel.tsx)
+- [LiveBoardWindow.tsx](../../client/src/features/live-board/components/LiveBoardWindow.tsx)
+
+## client/src/features/live-board/context
+
+- [LiveBoardContext.tsx](../../client/src/features/live-board/context/LiveBoardContext.tsx)
+
+## client/src/features/live-board/hooks
+
+- [useLiveBoardData.ts](../../client/src/features/live-board/hooks/useLiveBoardData.ts)
+
+## client/src/features/live-board/lib
+
+- [live-board-api.ts](../../client/src/features/live-board/lib/live-board-api.ts)
+- [live-board-model.ts](../../client/src/features/live-board/lib/live-board-model.ts)
+- [live-board-run-state.ts](../../client/src/features/live-board/lib/live-board-run-state.ts)
 
 ## client/src/features/loops/components
 
@@ -1176,6 +1198,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [keyboard-label.ts](../../client/src/lib/keyboard-label.ts) · [test](../../client/src/lib/__tests__/keyboard-label.test.ts)
 - [launch-forecast.ts](../../client/src/lib/launch-forecast.ts) · [test](../../client/src/lib/__tests__/launch-forecast.test.ts)
 - [layers.ts](../../client/src/lib/layers.ts)
+- [live-board-events.ts](../../client/src/lib/live-board-events.ts)
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
@@ -1188,6 +1211,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
 - [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
 - [pr-status-detail.ts](../../client/src/lib/pr-status-detail.ts) · [test](../../client/src/lib/__tests__/pr-status-detail.test.ts)
+- [project-monogram.ts](../../client/src/lib/project-monogram.ts)
 - [reconnect-backoff.ts](../../client/src/lib/reconnect-backoff.ts) · [test](../../client/src/lib/__tests__/reconnect-backoff.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
@@ -1897,6 +1921,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [bindings.ts](../../server/modules/intent/adapters/bindings.ts)
 - [http.ts](../../server/modules/intent/adapters/http.ts)
 - [sqlite.ts](../../server/modules/intent/adapters/sqlite.ts)
+
+## server/modules/live-board
+
+- [application.ts](../../server/modules/live-board/application.ts)
+- [domain.ts](../../server/modules/live-board/domain.ts)
+- [index.ts](../../server/modules/live-board/index.ts)
+- [ports.ts](../../server/modules/live-board/ports.ts)
+
+## server/modules/live-board/adapters
+
+- [http.ts](../../server/modules/live-board/adapters/http.ts)
+- [missions.ts](../../server/modules/live-board/adapters/missions.ts)
+- [project-source.ts](../../server/modules/live-board/adapters/project-source.ts)
 
 ## server/modules/loops/runtime
 
