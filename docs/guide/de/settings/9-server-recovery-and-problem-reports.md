@@ -4,7 +4,7 @@ Specrails betreibt auf Ihrem Computer einen kleinen Server, der Ihre Projekte, R
 
 ## Was passiert, wenn der Server stoppt
 
-- **Specrails startet ihn für Sie neu.** Der Server kommt unter derselben Adresse zurück und offene Fenster verbinden sich von selbst neu; die Statusleiste zeigt einige Sekunden lang **verbinde neu…**.
+- **Specrails startet ihn für Sie neu.** Der Server kommt unter derselben Adresse zurück und offene Fenster verbinden sich von selbst neu; die Statusleiste zeigt einige Sekunden lang **Verbinde neu…**.
 - **Ein Banner erklärt, was passiert ist**: wann der Server gestoppt hat und warum (ein Exit-Code oder ein Signal). Arbeit, die in diesem Moment lief, wurde möglicherweise unterbrochen: Prüfen Sie ihren Status und starten Sie sie bei Bedarf erneut.
 - **Höchstens drei Neustarts pro Minute.** Stoppt der Server immer wieder, hört Specrails mit den Neustarts auf, um kein Problem zu verdecken, und zeigt einen Dialog. Wählen Sie **Try again**, um ihn jetzt zu starten, oder beenden Sie Specrails und öffnen Sie es erneut. Ihre gespeicherten Projekte bleiben auf der Festplatte.
 - **Auch der nächste Start erklärt es.** Wurde Specrails geschlossen, während der Server gestoppt war, erscheint das Banner beim nächsten Öffnen.
@@ -38,4 +38,4 @@ Tokens, API-Schlüssel, Passwörter, private Schlüssel und Zugangsdaten in URLs
 
 ## Reaktionsfähigkeit {#responsiveness}
 
-Das Popover **Ressourcen** in der Statusleiste zeigt auch die **Reaktionsfähigkeit**: wie oft der Server 200 ms oder länger nicht antworten konnte, den längsten dieser Momente und was er gerade tat. Häufige lange Hänger sind einen Bericht wert.
+Das Popover **App-Ressourcen** in der Statusleiste zeigt auch die **Reaktionsfähigkeit**: wie viele Verzögerungen es gab (Momente von 200 ms oder mehr, in denen die App nicht reagieren konnte), die längste davon und wann die letzte auftrat. Häufige lange Verzögerungen sind einen Problembericht wert; er enthält die technischen Details.

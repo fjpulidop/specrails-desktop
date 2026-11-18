@@ -10,6 +10,8 @@ I file di Specrails — i suoi database, lo stato per progetto, le definizioni d
 ~/.specrails/
 ```
 
+**Impostazioni ▸ Informazioni** mostra la posizione esatta del database e la versione dell'app che stai usando.
+
 Quella cartella è il workspace privato dell'app. È dove vivono il registro dei progetti, i database per progetto, gli strumenti integrati e tutte le parti operative. I tuoi repository di codice veri e propri non vengono mai usati come discarica per nulla di tutto ciò.
 
 Questo significa che:
@@ -51,7 +53,7 @@ Quando rimuovi un progetto da Specrails, l'app fa pulizia del proprio stato per 
 
 Ogni esecuzione di un rail lavora nel proprio worktree Git in `~/.specrails/projects/<progetto>/worktrees/`. Quando un'esecuzione termina, Specrails rimuove quel worktree, ma solo se può dimostrare che non si perderà nulla. Se non può (modifiche non committate, file che esistono solo lì o una rimozione non riuscita), lo conserva. Col tempo si accumulano.
 
-**Impostazioni ▸ Archiviazione** li elenca per tutti i progetti. Puoi arrivarci anche dal popover **Risorse** nella barra di stato. Ogni worktree mostra la sua dimensione (misurata in background), da quanto è inattivo, la sua PR e cosa si perderebbe rimuovendolo:
+**Impostazioni ▸ Archiviazione** li elenca per tutti i progetti. Puoi arrivarci anche dal popover **Risorse dell'app** nella barra di stato. Ogni worktree mostra la sua dimensione (misurata in background), da quanto è inattivo, la sua PR e cosa si perderebbe rimuovendolo:
 
 - **Niente da perdere**: nessuna modifica non committata, e ogni file ignorato è rigenerabile (`node_modules`), un link o identico allo stesso file nel checkout principale (ad esempio un `.env` copiato). Ogni commit del suo branch è su un remote o su un altro branch, oppure la sua consegna è stata unita.
 - **Ti aspetta**: qualcosa ha ancora bisogno di te. Ogni motivo è indicato: modifiche non committate, file ignorati che esistono solo lì, commit solo su questo branch, una consegna che attende la tua decisione, attività recente (l'ultima ora) o Git non è riuscito a verificarlo. Un worktree che Git non riesce a verificare non è mai considerato pulito.

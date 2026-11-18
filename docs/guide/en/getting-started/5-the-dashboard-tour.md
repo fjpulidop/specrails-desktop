@@ -31,11 +31,12 @@ The right sidebar is your switchboard for the current project. Hover it to expan
 
 ## The status bar
 
-A thin strip runs along the very bottom of the window. It's small but handy:
+A thin strip runs along the very bottom of the window. It looks the same in Mission and Board mode, and it stays quiet: when there is nothing to say, a spot is simply empty.
 
-- **Connection indicator** (left) — a coloured dot and label showing the app is live: green for *connected*, amber while *reconnecting*, blue while *syncing* just after a reconnect. You'll rarely need it, but it's reassuring when you do.
-- **Total spend** (right) — a running total of what you've spent, so cost is always one glance away.
-- **Resources** (right) — how much CPU and memory everything Specrails launched is using right now, and how many processes. Click it for the totals, a memory trend and the split by source: missions and chats, rails, loops and jobs, background processes, terminals, agent CLIs, MCP and runners, Git and the Specrails server itself. Expand a source to see its processes. Below the sources, **Ports of run worktrees** lists the ports each rail's dev or test server is serving (rail, spec, project and process), and warns when another process sits in a rail's assigned ports.
+- **Connection** (left) — empty while everything is fine. It reads *Reconnecting…* (amber) or *Offline* (red) only when the app loses its local server, and *Syncing…* for a moment after it reconnects.
+- **Update** (right) — appears when a new version is ready and the app has been idle for about half a minute. Click it for the update card (see [Updates](../settings/6-updates.md)).
+- **Plan usage** (right) — one meter for the provider closest to its limit. It stays neutral until 80 %, turns amber with the provider's name from 80 % and red from 90 %, and shows *limit · resets 15:00* when the provider refuses requests. Hover or click it for every provider's windows and today's spend in this project.
+- **App resources** (right) — an icon and the number of processes, only while work runs. Click it for CPU and memory, a memory trend and the split by source: missions and chats, rails, loops and jobs, background processes, terminals, agent CLIs, MCP and runners, Git and the Specrails server itself. Expand a source to see its processes. Below the sources, **Ports of run worktrees** lists the ports each rail's dev or test server is serving (rail, spec, project and process), and warns when another process sits in a rail's assigned ports. In the desktop app, **Keep computer awake** is also here; while it is on, a cup icon in the status bar says so (click it to allow sleep again).
 - **Terminal toggle** (far right) — open the built-in terminal panel. Press **Cmd+J** (macOS) or **Ctrl+J** (Windows/Linux) to toggle it any time. It's a full shell, opened right in your project folder.
 
 ## Windows of their own
@@ -46,7 +47,7 @@ In the desktop app, some screens open as real windows instead of panels inside t
 
 Specrails tells you when something needs you: a question or a mission reply, a review ready to decide, a run that failed, got blocked or stopped moving, a spending limit, and a finished job. How depends on where you are:
 
-- **Away from the app** — a system notification, naming the project and the cause. In the desktop app it cannot be clicked through, so when you come back a toast sums it up (**3 things need you**) and opens the item, or the inbox when there are several.
+- **Away from the app** — a system notification, naming the project and the cause. In the desktop app it cannot be clicked through, so when you come back a toast sums it up (**3 things need you**) and opens the item, or the inbox when there are several. Toasts that arrive while **Pick up where you left off** or the product tour is open wait until you close it, and then arrive as one.
 - **In the app, somewhere else** — a small toast with **Open**.
 - **Already looking at it** — nothing. A mission you are watching never notifies its own replies; a stuck run is the exception and always alerts.
 

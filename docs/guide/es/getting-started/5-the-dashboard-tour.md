@@ -31,11 +31,12 @@ La barra lateral derecha es tu cuadro de mandos para el proyecto actual. Pasa el
 
 ## La barra de estado
 
-Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil:
+Una fina franja recorre la parte inferior de la ventana. Es igual en el modo Misión y en el Tablero, y es discreta: cuando no hay nada que decir, ese hueco simplemente queda vacío.
 
-- **Indicador de conexión** (izquierda) — un punto de color y una etiqueta que muestran que la app está activa: verde para *conectado*, ámbar mientras *reconecta*, azul mientras *sincroniza* justo después de una reconexión. Rara vez lo necesitarás, pero tranquiliza tenerlo.
-- **Gasto total** (derecha) — un total acumulado de lo que has gastado, para que el coste esté siempre a un solo vistazo.
-- **Recursos** (derecha) — cuánta CPU y memoria está usando ahora mismo todo lo que Specrails ha lanzado, y cuántos procesos. Haz clic para ver los totales, una tendencia de la memoria y el reparto por origen: misiones y chats, rails, loops y trabajos, procesos en segundo plano, terminales, CLIs de agentes, MCP y runners, Git y el propio servidor de Specrails. Despliega un origen para ver sus procesos. Bajo los orígenes, **Puertos de los worktrees de ejecución** muestra los puertos que sirve el servidor de desarrollo o de pruebas de cada rail (rail, spec, proyecto y proceso) y avisa cuando otro proceso ocupa los puertos asignados a un rail.
+- **Conexión** (izquierda) — vacía mientras todo va bien. Muestra *Reconectando…* (ámbar) o *Sin conexión* (rojo) solo cuando la app pierde su servidor local, y *Sincronizando…* durante un momento después de reconectar.
+- **Actualizar** (derecha) — aparece cuando hay una versión nueva lista y la app lleva inactiva cerca de medio minuto. Haz clic para ver la tarjeta de actualización (consulta [Actualizaciones](../settings/6-updates.md)).
+- **Uso del plan** (derecha) — un único medidor para el proveedor más cerca de su límite. Se mantiene neutro hasta el 80 %, se vuelve ámbar con el nombre del proveedor a partir del 80 % y rojo a partir del 90 %, y muestra *límite · se restablece 15:00* cuando el proveedor rechaza peticiones. Pasa el cursor por encima o haz clic para ver las ventanas de cada proveedor y el gasto de hoy en este proyecto.
+- **Recursos de la app** (derecha) — un icono y el número de procesos, solo mientras hay trabajo en marcha. Haz clic para ver la CPU y la memoria, una tendencia de la memoria y el reparto por origen: misiones y chats, rails, loops y trabajos, procesos en segundo plano, terminales, CLIs de agentes, MCP y runners, Git y el propio servidor de Specrails. Despliega un origen para ver sus procesos. Bajo los orígenes, **Puertos de los worktrees de ejecución** muestra los puertos que sirve el servidor de desarrollo o de pruebas de cada rail (rail, spec, proyecto y proceso) y avisa cuando otro proceso ocupa los puertos asignados a un rail. En la app de escritorio, aquí también está **Mantener el ordenador despierto**; mientras está activado, un icono de taza en la barra de estado lo indica (haz clic en él para volver a permitir la suspensión).
 - **Botón de terminal** (extremo derecho) — abre el panel de terminal integrado. Pulsa **Cmd+J** (macOS) o **Ctrl+J** (Windows/Linux) para alternarlo en cualquier momento. Es una shell completa, abierta directamente en la carpeta de tu proyecto.
 
 ## Ventanas propias
@@ -46,7 +47,7 @@ En la app de escritorio, algunas pantallas se abren como ventanas reales en luga
 
 Specrails te avisa cuando algo te necesita: una pregunta o una respuesta de una misión, una revisión lista para decidir, una ejecución que falló, se bloqueó o dejó de avanzar, un límite de gasto y un trabajo terminado. Cómo te avisa depende de dónde estés:
 
-- **Fuera de la app**: una notificación del sistema con el proyecto y la causa. En la app de escritorio no se puede pulsar, así que al volver un aviso lo resume (**3 cosas te necesitan**) y abre el elemento, o la bandeja **Pendientes** si son varios.
+- **Fuera de la app**: una notificación del sistema con el proyecto y la causa. En la app de escritorio no se puede pulsar, así que al volver un aviso lo resume (**3 cosas te necesitan**) y abre el elemento, o la bandeja **Pendientes** si son varios. Los avisos que llegan mientras **Retoma donde lo dejaste** o el tour de la plataforma están abiertos esperan a que lo cierres y luego llegan como uno solo.
 - **En otra parte de la app**: un aviso pequeño con **Abrir**.
 - **Ya lo estás viendo**: nada. Una misión que estás mirando no avisa de sus propias respuestas; una ejecución atascada es la excepción y siempre avisa.
 

@@ -167,6 +167,11 @@ Client:
   uses the Inbox's Resume (`POST /loop-runs/:id/resume`), so rail restart-pause
   semantics are unchanged. "Not now" dismisses the offers; runs stay in the Inbox.
   Pending messages still show their `interrupted` receipt; they are never replayed.
+- Launch order is owned by `client/src/lib/startup-queue.ts`: crash banner (not
+  modal) → this dialog (the only launch modal; it holds the queue) → product tour
+  (clean first launch only; deferred after a crash or with offers) → the update
+  offer (a status-bar chip after ~30 s idle with no dialog open) → attention
+  toasts held during a launch modal, then grouped.
 - The update card asks `/active-work` before restarting. Busy → it says what would
   stop and offers **Install when nothing is running** (polls every 5 s, restarts at
   zero) or **Restart now**. Every restart first posts the `update` intent.

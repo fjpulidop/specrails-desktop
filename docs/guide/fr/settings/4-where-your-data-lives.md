@@ -10,6 +10,8 @@ Les fichiers propres à Specrails — ses bases de données, l'état par projet,
 ~/.specrails/
 ```
 
+**Réglages ▸ À propos** indique l'emplacement exact de la base de données et la version de l'application que vous utilisez.
+
 Ce dossier est l'espace de travail privé de l'application. C'est là que résident le registre des projets, les bases de données par projet, l'outillage embarqué et tous les rouages opérationnels. Vos véritables dépôts de code ne servent jamais de décharge pour quoi que ce soit de tout cela.
 
 Cela signifie :
@@ -51,7 +53,7 @@ Quand vous retirez un projet de Specrails, l'application nettoie son propre éta
 
 Chaque exécution de rail travaille dans son propre worktree Git sous `~/.specrails/projects/<projet>/worktrees/`. Quand une exécution se termine, Specrails supprime ce worktree, mais seulement s'il peut prouver que rien ne sera perdu. Sinon (modifications non commitées, fichiers qui n'existent que là, ou suppression qui a échoué), il le conserve. Avec le temps, ils s'accumulent.
 
-**Réglages ▸ Stockage** les liste pour tous les projets. Vous pouvez aussi y accéder depuis la fenêtre **Ressources** de la barre d'état. Chaque worktree affiche sa taille (mesurée en arrière-plan), depuis combien de temps il est inutilisé, sa PR et ce que sa suppression ferait perdre :
+**Réglages ▸ Stockage** les liste pour tous les projets. Vous pouvez aussi y accéder depuis la fenêtre **Ressources de l'app** de la barre d'état. Chaque worktree affiche sa taille (mesurée en arrière-plan), depuis combien de temps il est inutilisé, sa PR et ce que sa suppression ferait perdre :
 
 - **Rien à perdre** : aucune modification non commitée, et chaque fichier ignoré est régénérable (`node_modules`), un lien ou identique au même fichier de votre checkout principal (un `.env` copié, par exemple). Chaque commit de sa branche est sur un remote ou sur une autre branche, ou sa livraison a été fusionnée.
 - **Vous attend** : quelque chose a encore besoin de vous. Chaque raison est indiquée : modifications non commitées, fichiers ignorés qui n'existent que là, commits uniquement sur cette branche, livraison qui attend votre décision, activité récente (la dernière heure), ou Git n'a pas pu le vérifier. Un worktree que Git ne peut pas vérifier n'est jamais considéré comme propre.

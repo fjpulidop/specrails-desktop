@@ -4,7 +4,7 @@ Specrails exécute sur votre ordinateur un petit serveur qui fait tourner vos pr
 
 ## Ce qui se passe quand le serveur s’arrête
 
-- **Specrails le redémarre pour vous.** Le serveur revient à la même adresse et les fenêtres ouvertes se reconnectent seules ; la barre d’état affiche **Reconnexion** pendant quelques secondes.
+- **Specrails le redémarre pour vous.** Le serveur revient à la même adresse et les fenêtres ouvertes se reconnectent seules ; la barre d’état affiche **Reconnexion…** pendant quelques secondes.
 - **Un bandeau explique ce qui s’est passé** : quand le serveur s’est arrêté et pourquoi (un code de sortie ou un signal). Le travail en cours à ce moment a pu être interrompu : vérifiez son état et relancez-le si nécessaire.
 - **Trois redémarrages par minute au maximum.** Si le serveur continue de s’arrêter, Specrails cesse de le redémarrer pour ne pas masquer un problème et affiche une boîte de dialogue. Choisissez **Try again** pour le démarrer maintenant, ou quittez puis rouvrez Specrails. Vos projets enregistrés restent sur le disque.
 - **Le démarrage suivant l’explique aussi.** Si Specrails a été fermé pendant que le serveur était arrêté, le bandeau apparaît à la prochaine ouverture.
@@ -38,4 +38,4 @@ Les jetons, clés d’API, mots de passe, clés privées et identifiants dans le
 
 ## Réactivité {#responsiveness}
 
-Le panneau **Ressources** de la barre d’état affiche aussi la **Réactivité** : combien de fois le serveur n’a pas pu répondre pendant 200 ms ou plus, le plus long de ces moments et ce qu’il faisait alors. Des blocages longs et fréquents méritent un rapport.
+Le panneau **Ressources de l’app** de la barre d’état affiche aussi la **Réactivité** : combien de ralentissements il y a eu (des moments de 200 ms ou plus où l’application n’a pas pu répondre), le plus long et quand le dernier s’est produit. Des ralentissements longs et fréquents méritent un rapport de problème, qui inclut le détail technique.

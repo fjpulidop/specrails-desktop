@@ -30,7 +30,7 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 | --- | --- | --- |
 | Crash banner | Above the main content, after a reconnect or on the next start, when the host left crash markers the person has not dismissed | [ServerRecoveryBanner](components/ServerRecoveryBanner.tsx), [useServerCrashNotices](hooks/useServerCrashNotices.ts) |
 | Report a problem | The banner, Settings ▸ About and ⌘K (`reportProblem`) | [ReportProblemDialog](components/ReportProblemDialog.tsx) |
-| Responsiveness | Resources popover in the status bar | [ServerResponsiveness](components/ServerResponsiveness.tsx) |
+| Responsiveness | App resources popover in the status bar (plain language, no request names) | [ServerResponsiveness](components/ServerResponsiveness.tsx) |
 
 ## Rules
 

@@ -79,7 +79,9 @@ and longest) and logged as `[event-loop] stall of N ms during <operation>` at
 most every 10 s. `operationTiming()` measures each HTTP request's synchronous
 handler time (two `performance.now()` calls) and names the request when it
 caused the stall; ids, hashes and query strings are removed from the label.
-Stalls from timers or sockets show no operation.
+Stalls from timers or sockets show no operation. The operation name stays in
+the log and the problem report; the App resources popover only says how long the
+app took to respond.
 
 ## Problem report
 

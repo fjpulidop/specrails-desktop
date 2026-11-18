@@ -267,6 +267,12 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Style:** 32 px, control radius, hairline input border on Night Ink.
 - **Focus:** primary ring; placeholder in Muted Ink; disabled at 50%.
 
+### Status bar
+One skeleton in Mission and Board mode (`components/StatusBar.tsx`), 28 px, caption text, tabular numerals.
+- **Left:** empty while healthy. Only a connection problem speaks: *Reconnecting…* (warning), *Offline* (destructive), *Syncing…* (info) for a moment after a reconnect.
+- **Right, in order:** the update offer chip (after ~30 s idle, see the startup queue), ONE plan-usage meter for the most-loaded provider (neutral below 80 %; named and amber from 80 %, red from 90 % or on a refusal; every provider and today's spend live in its popover), App resources (icon and work-process count only while work runs; memory, CPU and Keep awake in its popover), Keep awake (an icon only while on), the terminal toggle.
+- **No placeholders:** a missing figure renders nothing, never a "—". Popovers speak plain language; internal names (routes, request labels) stay in logs and the problem report.
+
 ### Rail track and RailMark (signature)
 - **RailTrack:** a hairline with an optional gradient pill (cyan to the theme's rail end) and station lamps (pending, active, done, failed). Indeterminate it travels with `--ease-rail`; determinate it sits at progress. It replaces spinners wherever work is in flight.
 - **RailMark:** the brand glyph with the same gradient; the identity of Mission Control, the boot splash and the shell.

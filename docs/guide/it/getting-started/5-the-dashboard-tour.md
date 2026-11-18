@@ -31,11 +31,12 @@ La barra laterale destra è il tuo centralino per il progetto corrente. Passaci 
 
 ## La barra di stato
 
-Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola ma utile:
+Una sottile striscia corre lungo il bordo inferiore della finestra. È uguale in modalità Missione e Board, e resta discreta: quando non c'è niente da dire, uno spazio resta semplicemente vuoto.
 
-- **Indicatore di connessione** (a sinistra) — un pallino colorato e un'etichetta che mostrano che l'app è attiva: verde per *connesso*, ambra durante la *riconnessione*, blu durante la *sincronizzazione* subito dopo una riconnessione. Raramente ne avrai bisogno, ma è rassicurante quando serve.
-- **Spesa totale** (a destra) — un totale aggiornato di quanto hai speso, così il costo è sempre a portata di sguardo.
-- **Risorse** (a destra) — quanta CPU e memoria sta usando in questo momento tutto ciò che Specrails ha avviato, e quanti processi. Cliccaci per vedere i totali, l'andamento della memoria e la suddivisione per origine: missioni e chat, rail, loop e job, processi in background, terminali, CLI degli agenti, MCP e runner, Git e il server Specrails stesso. Espandi un'origine per vederne i processi. Sotto le origini, **Porte dei worktree di esecuzione** elenca le porte servite dal server di sviluppo o di test di ogni rail (rail, spec, progetto e processo) e avvisa quando un altro processo occupa le porte assegnate a una rail.
+- **Connessione** (a sinistra) — vuota finché va tutto bene. Mostra *Riconnessione…* (ambra) o *Offline* (rosso) solo quando l'app perde il suo server locale, e *Sincronizzazione…* per un momento dopo la riconnessione.
+- **Aggiorna** (a destra) — compare quando una nuova versione è pronta e l'app è inattiva da circa mezzo minuto. Cliccaci per aprire la scheda di aggiornamento (vedi [Aggiornamenti](../settings/6-updates.md)).
+- **Uso del piano** (a destra) — un solo indicatore per il provider più vicino al suo limite. Resta neutro fino all'80%, diventa ambra con il nome del provider dall'80% e rosso dal 90%, e mostra *limite · si azzera 15:00* quando il provider rifiuta le richieste. Passaci sopra o cliccaci per vedere le finestre di ogni provider e la spesa di oggi in questo progetto.
+- **Risorse dell'app** (a destra) — un'icona e il numero di processi, solo mentre c'è lavoro in corso. Cliccaci per vedere CPU e memoria, l'andamento della memoria e la suddivisione per origine: missioni e chat, rail, loop e job, processi in background, terminali, CLI degli agenti, MCP e runner, Git e il server Specrails stesso. Espandi un'origine per vederne i processi. Sotto le origini, **Porte dei worktree di esecuzione** elenca le porte servite dal server di sviluppo o di test di ogni rail (rail, spec, progetto e processo) e avvisa quando un altro processo occupa le porte assegnate a una rail. Nell'app desktop qui trovi anche **Mantieni il computer attivo**; finché è attivo, un'icona a forma di tazza nella barra di stato lo segnala (cliccaci per consentire di nuovo la sospensione).
 - **Interruttore del terminale** (all'estrema destra) — apre il pannello del terminale integrato. Premi **Cmd+J** (macOS) o **Ctrl+J** (Windows/Linux) per aprirlo o chiuderlo in qualsiasi momento. È una shell completa, aperta direttamente nella cartella del tuo progetto.
 
 ## Finestre proprie
@@ -46,7 +47,7 @@ Nell'app desktop alcune schermate si aprono come vere finestre invece che come p
 
 Specrails ti avvisa quando qualcosa ti aspetta: una domanda o la risposta di una missione, una revisione pronta da decidere, un'esecuzione fallita, bloccata o ferma, un limite di spesa e un job terminato. Il modo dipende da dove sei:
 
-- **Fuori dall'app** — una notifica di sistema con il progetto e la causa. Nell'app desktop non si può cliccare, quindi al tuo ritorno un avviso riassume (**3 cose ti aspettano**) e apre l'elemento, o **Da gestire** se sono più di uno.
+- **Fuori dall'app** — una notifica di sistema con il progetto e la causa. Nell'app desktop non si può cliccare, quindi al tuo ritorno un avviso riassume (**3 cose ti aspettano**) e apre l'elemento, o **Da gestire** se sono più di uno. Gli avvisi che arrivano mentre **Riprendi da dove avevi lasciato** o il tour della piattaforma sono aperti aspettano che tu li chiuda, e poi arrivano tutti insieme.
 - **Altrove nell'app** — un piccolo avviso con **Apri**.
 - **Lo stai già guardando** — niente. Una missione che stai seguendo non segnala le proprie risposte; un'esecuzione bloccata è l'eccezione e avvisa sempre.
 

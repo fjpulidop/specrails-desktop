@@ -15,7 +15,7 @@ Su Stabile, se nessuna versione è stata ancora promossa, **Cerca aggiornamenti*
 
 ## Come arrivano gli aggiornamenti
 
-- **Specrails Desktop** controlla all'avvio e ogni 6 ore. Quando c'è un aggiornamento compare una scheda da cui scaricare, installare e riavviare. Puoi anche fare clic su **Cerca aggiornamenti**.
+- **Specrails Desktop** controlla all'avvio e ogni 6 ore. Quando c'è un aggiornamento, nella barra di stato compare un piccolo pulsante **Aggiorna** dopo che l'app è rimasta inattiva per circa 30 secondi, mai sopra una finestra o una finestra di dialogo aperta. Fai clic per aprire la scheda di aggiornamento: da lì scarichi, installi e riavvii. **Ignora** salta quella versione. Puoi anche fare clic su **Cerca aggiornamenti** qui; la scheda compare allora direttamente nelle Impostazioni.
 - **specrails-core** non si aggiorna mai da solo. Fai clic su **Cerca aggiornamenti** nella scheda di Core e poi su **Aggiorna**. I tuoi progetti passano al nuovo framework senza riavviare l'app.
 
 ## Da sapere
@@ -32,4 +32,6 @@ La scheda di aggiornamento controlla cosa interromperebbe un riavvio. Se ci sono
 
 ## Dopo un riavvio
 
-Se Specrails si chiude, si riavvia per un aggiornamento o si ferma in modo imprevisto mentre c’è lavoro in corso, l’avvio successivo mostra **Riprendi da dove avevi lasciato**: le missioni che erano a metà turno e le esecuzioni messe in pausa dal riavvio, ognuna con la sua casella. Nulla riprende da solo. Le missioni continuano nella propria sessione (con una breve nota sul riavvio); le esecuzioni usano il loro solito Riprendi. **Non ora** scarta l’elenco; le esecuzioni in pausa restano nella posta in arrivo.
+Se Specrails si chiude, si riavvia per un aggiornamento o si ferma in modo imprevisto mentre c’è lavoro in corso, l’avvio successivo mostra **Riprendi da dove avevi lasciato**: le missioni che erano a metà turno e le esecuzioni messe in pausa dal riavvio, ognuna con la sua casella. Nulla riprende da solo. Le missioni continuano nella propria sessione (con una breve nota sul riavvio); le esecuzioni usano il loro solito Riprendi. **Non ora** scarta l’elenco; le esecuzioni in pausa restano nella posta in arrivo. Esc o un clic fuori la nascondono soltanto: ricompare all’avvio successivo.
+
+È l’unica finestra che si apre da sola all’avvio. Se l’app si era anche fermata in modo imprevisto, la spiegazione compare come una barra in cima alla finestra (non ti blocca mai). Alla prima installazione, il tour della piattaforma aspetta un avvio senza nessuna delle due.

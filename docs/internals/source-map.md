@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1755 source/build files. Nearby tests are linked where names
+Includes 1759 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -35,6 +35,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
 - [ArchiveScopeFilter.tsx](../../client/src/components/ArchiveScopeFilter.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
+- [DesktopUpdateChip.tsx](../../client/src/components/DesktopUpdateChip.tsx)
 - [HelpHint.tsx](../../client/src/components/HelpHint.tsx) · [test](../../client/src/components/__tests__/HelpHint.test.tsx)
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)
 - [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
@@ -1183,6 +1184,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [store.ts](../../client/src/features/subscription-usage/lib/store.ts)
 - [types.ts](../../client/src/features/subscription-usage/lib/types.ts)
+- [usage-meter.ts](../../client/src/features/subscription-usage/lib/usage-meter.ts)
 - [useSubscriptionUsage.ts](../../client/src/features/subscription-usage/lib/useSubscriptionUsage.ts)
 
 ## client/src/features/terminals/components/terminal
@@ -1234,6 +1236,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useResizableSidebar.ts](../../client/src/hooks/useResizableSidebar.ts)
 - [useSharedWebSocket.tsx](../../client/src/hooks/useSharedWebSocket.tsx) · [test](../../client/src/hooks/__tests__/useSharedWebSocket.test.tsx)
 - [useSidebarHoverIntent.ts](../../client/src/hooks/useSidebarHoverIntent.ts)
+- [useStartupQueue.ts](../../client/src/hooks/useStartupQueue.ts)
 - [useSuppressNativeContextMenu.ts](../../client/src/hooks/useSuppressNativeContextMenu.ts) · [test](../../client/src/hooks/__tests__/useSuppressNativeContextMenu.test.ts)
 - [useTrayLabels.tsx](../../client/src/hooks/useTrayLabels.tsx) · [test](../../client/src/hooks/__tests__/useTrayLabels.test.tsx)
 - [useUndo.tsx](../../client/src/hooks/useUndo.tsx) · [test](../../client/src/hooks/__tests__/useUndo.test.tsx)
@@ -1292,6 +1295,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [shared-fetch.ts](../../client/src/lib/shared-fetch.ts) · [test](../../client/src/lib/__tests__/shared-fetch.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
+- [startup-queue.ts](../../client/src/lib/startup-queue.ts) · [test](../../client/src/lib/__tests__/startup-queue.test.ts)
 - [surface-toasts.ts](../../client/src/lib/surface-toasts.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
