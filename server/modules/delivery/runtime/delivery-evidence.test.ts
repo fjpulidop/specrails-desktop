@@ -600,6 +600,14 @@ describe('Core definition delivery evidence', () => {
     expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ outcome: 'passed' }] })
   })
 
+  it('projects the verify command line, its measured duration and its output tail', () => {
+    const probe = definitionProbe([{ nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'succeeded', attemptId: 'a3',
+      output: { receiptId: 'receipt', commands: [{ command: 'node', args: ['--test', 'test/'], exitCode: 0, durationMs: 1840, output: '# pass 4\n# fail 0\n' }] } }])
+    expect(projectDefinitionRuntimeEvidence(probe)?.commands).toEqual([
+      { label: 'node --test test/', outcome: 'passed', exitCode: 0, durationMs: 1840, required: true, hostRun: true, outputTail: '# pass 4\n# fail 0' },
+    ])
+  })
+
   it('projects confirmed verification commands and implementation review without inventing durations or output', () => {
     const probe = definitionProbe([scopedReview, { nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'failed', attemptId: 'a2', output: { receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 1 }] } }])
     expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ label: 'npm test', exitCode: 1, outcome: 'failed', hostRun: true, durationMs: null, outputTail: null }] })
