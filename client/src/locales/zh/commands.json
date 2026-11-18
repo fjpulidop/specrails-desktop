@@ -506,6 +506,10 @@
       "runs_one": "{{count}} 个运行",
       "runs_other": "{{count}} 个运行",
       "something": "正在进行的工作"
+    },
+    "chip": {
+      "text": "更新",
+      "label": "Specrails {{version}} 可用。查看更新"
     }
   },
   "notifications": {

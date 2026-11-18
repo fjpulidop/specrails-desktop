@@ -9,6 +9,7 @@ import { attentionPrefsStore } from './attention-prefs-store'
 import { showNativeNotification } from './native-notify'
 import { readWindowFocus } from './window-focus'
 import { requestOpenInbox } from '../inbox-events'
+import { setGroupToast, startupQueue } from '../startup-queue'
 
 export const appAttention = createAttentionCenter({
   prefs: () => attentionPrefsStore.ready(),
@@ -20,6 +21,7 @@ export const appAttention = createAttentionCenter({
     tag: 'attention:summary',
     onClick: () => { requestOpenInbox() },
   }),
+  deliver: (show) => startupQueue.deliver(show),
   toast: (event) => {
     toast(event.title, {
       id: `attention:${event.key}`,
@@ -27,4 +29,13 @@ export const appAttention = createAttentionCenter({
       action: event.open ? { label: i18n.t('commands:notifications.attention.open'), onClick: event.open } : undefined,
     })
   },
+})
+
+// Attention toasts held while a startup modal was open arrive as one.
+setGroupToast((count) => {
+  toast(i18n.t('commands:notifications.attention.away', { count }), {
+    id: 'attention-away',
+    duration: 15_000,
+    action: { label: i18n.t('commands:notifications.attention.openInbox'), onClick: requestOpenInbox },
+  })
 })

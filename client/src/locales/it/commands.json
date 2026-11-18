@@ -506,6 +506,10 @@
       "runs_one": "{{count}} esecuzione",
       "runs_other": "{{count}} esecuzioni",
       "something": "il lavoro in corso"
+    },
+    "chip": {
+      "text": "Aggiorna",
+      "label": "Specrails {{version}} è disponibile. Mostra l'aggiornamento"
     }
   },
   "notifications": {

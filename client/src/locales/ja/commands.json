@@ -506,6 +506,10 @@
       "runs_one": "実行 {{count}} 件",
       "runs_other": "実行 {{count}} 件",
       "something": "進行中の作業"
+    },
+    "chip": {
+      "text": "アップデート",
+      "label": "Specrails {{version}} が利用できます。アップデートを表示"
     }
   },
   "notifications": {

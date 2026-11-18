@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater'
 import { checkAppUpdate } from '../lib/app-updater'
@@ -8,9 +8,9 @@ import { toast } from 'sonner'
 import { DownloadCloud, Cog, Check, AlertTriangle, Hourglass } from 'lucide-react'
 import i18n from '../lib/i18n'
 import { fetchActiveWork, noteUpdateRestart, type ActiveWork } from '../lib/continuity-api'
+import { whenIdle } from '../lib/startup-queue'
 
 const DISMISSED_UPDATE_KEY = 'specrails-desktop:dismissedDesktopUpdateVersion'
-const UPDATE_TOAST_ID = 'specrails-desktop-desktop-update'
 const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6h — surface releases published mid-session
 /** "Install when nothing is running": how often the card re-checks for active work. */
 export const IDLE_POLL_MS = 5_000
@@ -77,9 +77,8 @@ function dismissVersion(version: string): void {
   try {
     localStorage.setItem(DISMISSED_UPDATE_KEY, version)
   } catch {
-    // non-fatal; the current toast still dismisses
+    // non-fatal; the offer still goes away for this session
   }
-  toast.dismiss(UPDATE_TOAST_ID)
 }
 
 // Per-state accent token (semantic theme tokens only — never brand-named).
@@ -158,9 +157,13 @@ function describeWork(t: (key: string, options?: Record<string, unknown>) => str
 export function DesktopUpdateToast({
   update,
   onClose,
+  onDismiss,
 }: {
   update: DesktopUpdate
+  /** Hide the card for now (Later, or after a mock restart). */
   onClose?: () => void
+  /** This version was dismissed: the offer goes away for good. */
+  onDismiss?: () => void
 }) {
   const { t } = useTranslation('commands')
   const [state, setState] = useState<UpdateToastState>('available')
@@ -200,7 +203,7 @@ export function DesktopUpdateToast({
   async function restartNow() {
     if (update.isMock) {
       toast.success(t('update.mockReady'), { duration: 2500 })
-      toast.dismiss(UPDATE_TOAST_ID)
+      onDismiss?.()
       onClose?.()
       return
     }
@@ -372,10 +375,7 @@ export function DesktopUpdateToast({
             <button
               type="button"
               className="h-7 rounded-lg px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
-              onClick={() => {
-                toast.dismiss(UPDATE_TOAST_ID)
-                onClose?.()
-              }}
+              onClick={() => onClose?.()}
             >
               {t('update.actions.later')}
             </button>
@@ -396,6 +396,7 @@ export function DesktopUpdateToast({
               disabled={busy}
               onClick={() => {
                 dismissVersion(update.version)
+                onDismiss?.()
                 onClose?.()
               }}
             >
@@ -408,57 +409,64 @@ export function DesktopUpdateToast({
   )
 }
 
-/** Surface the standard update card for an already-checked update. Used by the
- *  Settings ▸ Updates manual check — an explicit user action, so it bypasses the
- *  dismissed-version gate (the fixed toast id keeps it idempotent). */
-export function showDesktopUpdateToast(update: DesktopUpdate): void {
-  toast.custom(() => <DesktopUpdateToast update={update} />, {
-    id: UPDATE_TOAST_ID,
-    duration: Infinity,
-    dismissible: false,
-    unstyled: true,
-    closeButton: false,
-  })
+// ─── The discreet update offer ──────────────────────────────────────────────
+// A found update is an OFFER held here; the status bar shows it as a small
+// chip (`components/DesktopUpdateChip.tsx`) that opens this card. Never a
+// toast that stays forever, never over a modal (lib/startup-queue.ts).
+
+let offer: DesktopUpdate | null = null
+const offerListeners = new Set<() => void>()
+
+export const desktopUpdateOffer = {
+  get: (): DesktopUpdate | null => offer,
+  set(next: DesktopUpdate | null): void {
+    offer = next
+    offerListeners.forEach((listener) => listener())
+  },
+  subscribe(listener: () => void): () => void {
+    offerListeners.add(listener)
+    return () => { offerListeners.delete(listener) }
+  },
 }
 
+export function useDesktopUpdateOffer(): DesktopUpdate | null {
+  return useSyncExternalStore(desktopUpdateOffer.subscribe, desktopUpdateOffer.get)
+}
+
+/**
+ * Checks for a desktop update at launch and every 6 h. A found update is
+ * offered only once the app has been quiet ~30 s with no modal open
+ * (`whenIdle`), then waits in the status bar until the person opens it.
+ */
 export function useDesktopUpdateNotifier() {
   useEffect(() => {
     const useMockUpdate = isMockUpdateEnabled()
     if (!useMockUpdate && !isTauriRuntime()) return
 
-    let cancelled = false
-    const shown = { current: false }
+    const controller = new AbortController()
 
     async function checkForUpdate() {
-      if (cancelled || shown.current) return
+      if (controller.signal.aborted || desktopUpdateOffer.get()) return
       try {
         const update = useMockUpdate ? createMockUpdate() : await checkAppUpdate()
-        if (cancelled || !update || readDismissedVersion() === update.version) return
-        shown.current = true
-        toast.custom(() => <DesktopUpdateToast update={update} onClose={() => { shown.current = false }} />, {
-          id: UPDATE_TOAST_ID,
-          duration: Infinity,
-          dismissible: false,
-          unstyled: true,
-          closeButton: false,
-          onDismiss: () => { shown.current = false },
-          onAutoClose: () => { shown.current = false },
-        })
+        if (controller.signal.aborted || !update || readDismissedVersion() === update.version) return
+        await whenIdle(controller.signal)
+        if (!desktopUpdateOffer.get()) desktopUpdateOffer.set(update)
       } catch (err) {
+        if (controller.signal.aborted) return
         console.warn('[desktop-update] update check failed:', err)
-        // leave shown=false so the next interval tick retries
+        // no offer: the next interval tick retries
       }
     }
 
     void checkForUpdate()
     // Periodic re-check: recovers from a transient failure at launch and surfaces
-    // releases published while the app stays open. The fixed toast id + the
-    // dismissed-version gate keep this idempotent; `shown` avoids disrupting an
-    // in-progress download.
+    // releases published while the app stays open. An existing offer is kept
+    // (never disrupts an in-progress download).
     const interval = setInterval(() => void checkForUpdate(), RECHECK_INTERVAL_MS)
 
     return () => {
-      cancelled = true
+      controller.abort()
       clearInterval(interval)
     }
   }, [])

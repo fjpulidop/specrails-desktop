@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isTauri } from '../../../lib/tauri-shell'
 import { acknowledgeCrashes, getCrashNotices, type CrashNotice } from '../lib/diagnostics-api'
+import { startupQueue } from '../../../lib/startup-queue'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
@@ -18,11 +19,17 @@ export function useServerCrashNotices(connectionStatus: ConnectionStatus) {
   const { t } = useTranslation('diagnostics')
   const [notices, setNotices] = useState<CrashNotice[]>([])
   const request = useRef(0)
+  const reported = useRef(false)
 
   const refresh = useCallback(() => {
     const id = ++request.current
     getCrashNotices()
-      .then(list => { if (request.current === id) setNotices(list.notices) })
+      .then(list => {
+        if (request.current !== id) return
+        setNotices(list.notices)
+        // The launch's first answer decides the startup queue (a later acknowledge must not un-defer the tour).
+        if (!reported.current) { reported.current = true; startupQueue.report('crash', list.notices.length > 0) }
+      })
       .catch(() => { /* the server is still coming back; the next reconnect retries */ })
   }, [])
 

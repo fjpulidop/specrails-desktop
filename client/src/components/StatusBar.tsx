@@ -1,6 +1,7 @@
 import { KeepAwakeIndicator, KeepAwakeSwitch, useKeepAwake } from './KeepAwakeControl'
 import { SubscriptionUsageFooter } from '../features/subscription-usage/components/SubscriptionUsageFooter'
 import { AppResourcesFooter } from '../features/background/components/AppResourcesFooter'
+import { DesktopUpdateChip } from './DesktopUpdateChip'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -68,7 +69,7 @@ interface StatusBarProps {
 
 /**
  * One status bar for both modes (DESIGN.md › Status bar). Left: nothing while
- * healthy, only a connection problem. Right: the busiest plan-usage meter,
+ * healthy, only a connection problem. Right: an update offer, the busiest plan-usage meter,
  * app resources while work runs, keep-awake while it is on, the terminal
  * toggle. A missing figure renders nothing, never a placeholder dash.
  */
@@ -132,6 +133,7 @@ export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
       </div>
 
       <div className="flex items-center gap-1">
+        <DesktopUpdateChip />
         <SubscriptionUsageFooter details={<TodaySpend />} />
         <AppResourcesFooter extra={<KeepAwakeSwitch keepAwake={keepAwake} />} />
         <KeepAwakeIndicator keepAwake={keepAwake} />

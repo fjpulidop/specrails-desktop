@@ -10,7 +10,8 @@ import {
   createMockUpdate,
   isMockUpdateEnabled,
   isTauriRuntime,
-  showDesktopUpdateToast,
+  DesktopUpdateToast,
+  type DesktopUpdate,
 } from '../../../hooks/useDesktopUpdateNotifier'
 
 import { notifyError } from '../../../lib/notify-error'
@@ -20,7 +21,7 @@ type CheckResult = 'up-to-date' | 'update-available' | null
  * Manual "Check for updates" for Specrails Desktop itself. The automatic
  * notifier (useDesktopUpdateNotifier) already checks at launch + every 6h; this
  * is the explicit user action in Settings ▸ Updates. A found update opens the
- * SAME standard update card (download/install/restart), bypassing the
+ * SAME standard update card (download/install/restart) inline, bypassing the
  * dismissed-version gate because the user asked. Mirrors CoreUpdateSection's
  * layout so the Updates pane reads as one family.
  */
@@ -32,6 +33,9 @@ export function AppUpdateSection() {
   const [checking, setChecking] = useState(false)
   const [result, setResult] = useState<CheckResult>(null)
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
+  // The card the check found, shown right here (Settings may be its own window,
+  // which has no toaster): the same download / install / restart card.
+  const [found, setFound] = useState<DesktopUpdate | null>(null)
 
   useEffect(() => {
     if (!isTauriRuntime()) return
@@ -50,8 +54,9 @@ export function AppUpdateSection() {
       if (update) {
         setResult('update-available')
         setLatestVersion(update.version)
-        showDesktopUpdateToast(update)
+        setFound(update)
       } else {
+        setFound(null)
         setResult('up-to-date')
         toast.success(t('appUpdate.toastUpToDate'))
       }
@@ -100,6 +105,11 @@ export function AppUpdateSection() {
                 {checking ? t('appUpdate.checking') : t('appUpdate.check')}
               </Button>
             </div>
+            {found && (
+              <div data-testid="app-update-card" className="mt-3 rounded-card border border-border bg-card p-3">
+                <DesktopUpdateToast update={found} onClose={() => setFound(null)} onDismiss={() => setFound(null)} />
+              </div>
+            )}
           </>
         )}
     </SettingsCard>
