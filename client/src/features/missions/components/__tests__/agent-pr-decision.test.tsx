@@ -263,6 +263,9 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
     const note = screen.getByTestId('agent-pr-ci-status')
     expect(note).toHaveAttribute('data-state', 'red')
+    // CI not green: blocked (warning triangle), never the failed glyph.
+    expect(note).toHaveAttribute('data-run-state', 'blocked')
+    expect(note).toHaveClass('text-accent-warning')
     expect(note.textContent).toContain('flaky: test X keeps failing')
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
     expect(screen.queryByText(/Implementation failed/i)).toBeNull()
@@ -270,6 +273,22 @@ describe('AgentPrDecisionCard states', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', loopId: 'factory:pr-ci', statusCode: 'ci_green', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
     expect(screen.getByText('PR ready — CI is green')).toBeInTheDocument()
     expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'green')
+    expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-run-state', 'done')
+  })
+
+  it('pending CI is the working lamp, never a spinner', async () => {
+    const original = global.fetch
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
+      ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'pending', total: 4, pending: 2, failing: [] }] }), { status: 200 })
+      : new Response('{}', { status: 200 })) as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+      const note = await screen.findByTestId('agent-pr-ci-status')
+      expect(note).toHaveAttribute('data-run-state', 'working')
+      expect(note).toHaveClass('text-accent-info')
+      expect(note.querySelector('.animate-spin')).toBeNull()
+      expect(note.querySelector('.bg-accent-info')).toBeInTheDocument()
+    } finally { global.fetch = original }
   })
 
   it('a ready PR whose CI is red says so, read live from GitHub without any CI loop', async () => {
@@ -346,6 +365,12 @@ describe('AgentPrDecisionCard states', () => {
   it('pr_ready: Verify PR + Discard + link', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created' })} />)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()
+    // Ready to decide on an open PR: the PR glyph in the review tone, never the merge glyph.
+    const glyph = screen.getByTestId('agent-pr-decision-glyph')
+    expect(glyph).toHaveAttribute('data-run-state', 'review')
+    expect(glyph).toHaveClass('text-accent-review')
+    expect(glyph.querySelector('.lucide-git-merge')).toBeNull()
+    expect(glyph.querySelector('.lucide-git-pull-request')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
     expect(getAction('Discard')).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveTextContent('#12')

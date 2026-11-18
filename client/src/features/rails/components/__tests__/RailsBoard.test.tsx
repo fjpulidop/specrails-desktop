@@ -119,6 +119,14 @@ describe('RailsBoard toolbar', () => {
     expect(screen.getByTestId('rails-summary-ready')).toHaveTextContent('2 ready')
     expect(screen.getByTestId('rails-summary-failed')).toHaveTextContent('1 failed')
     expect(screen.getByTestId('rails-summary-total')).toHaveTextContent('4 rails')
+    // Running is the pulsing info lamp; ready is queued (primary is not a state colour).
+    const runningDot = screen.getByTestId('rails-summary-running').querySelector('[data-run-state]')!
+    expect(runningDot).toHaveAttribute('data-run-state', 'working')
+    expect(runningDot.innerHTML).toContain('bg-accent-info')
+    expect(runningDot.innerHTML).not.toContain('accent-success')
+    expect(screen.getByTestId('rails-summary-ready').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'queued')
+    expect(screen.getByTestId('rails-summary-ready').innerHTML).not.toContain('accent-primary')
+    expect(screen.getByTestId('rails-summary-failed').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'failed')
   })
 
   it('omits zero summary items but always shows the total', () => {

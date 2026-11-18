@@ -24,6 +24,7 @@ describe('MilestoneProgressBar', () => {
     render(<MilestoneProgressBar counts={{ total: 8, done: 2, onReview: 3, inProgress: 1, todo: 2, failed: 1 }} />)
     const bar = screen.getByTestId('milestone-progress-bar')
     const segs = Array.from(bar.querySelectorAll('[data-segment]')).map((el) => el.getAttribute('data-segment'))
+    expect(bar.querySelector('.animate-pulse, [class*="animate-pulse"]')).toBeNull()
     expect(segs).toEqual(['done', 'onReview', 'inProgress', 'failed', 'todo'])
     expect(bar.getAttribute('aria-label')).toBe('5 of 8 delivered · 2 done')
   })
@@ -33,6 +34,8 @@ describe('MilestoneCard', () => {
   it('reads a delivered milestone honestly — delivered / awaiting review, never done', () => {
     render(<MilestoneCard progress={progress({ state: 'delivered', counts: { total: 8, done: 0, onReview: 8, inProgress: 0, todo: 0, failed: 0 } })} />)
     expect(screen.getByTestId('milestone-state-pill')).toHaveTextContent('Delivered — awaiting review')
+    // Awaiting review is the review state, never amber.
+    expect(screen.getByTestId('milestone-state-pill')).toHaveAttribute('data-run-state', 'review')
     expect(screen.getByTestId('milestone-counts')).toHaveTextContent('8 of 8 delivered · 0 done')
     expect(screen.queryByText(/complete/i)).not.toBeInTheDocument()
     expect(screen.queryByTestId('milestone-failed-note')).not.toBeInTheDocument()

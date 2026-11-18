@@ -52,7 +52,7 @@ import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 import { announce } from '../../../lib/announce'
 import { sharedFetch } from '../../../lib/shared-fetch'
 
@@ -1204,7 +1204,8 @@ export function AgentRailLaunchPending() {
   const { t } = useTranslation('agent')
   return (
     <div data-testid="agent-rail-launch-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-caption text-accent-primary">
-      <LiveDot tone="primary" size="xs" aria-hidden />
+      {/* The block is still streaming in: work in progress. */}
+      <RunStateDot state="working" />
       {t('railCard.pending')}
     </div>
   )

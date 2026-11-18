@@ -1,10 +1,12 @@
 import { Fragment, memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Check, X, RotateCw, ArrowRight, Repeat } from 'lucide-react'
+import { ChevronRight, RotateCw, ArrowRight, Repeat } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { NodeChip } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT, LOOP_NODE_BORDER_ACCENT } from './loop-node-visuals'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
+import { loopChipRunState } from '../../lib/loop-run-state'
 
 export interface LoopOverviewStripProps {
   chips: NodeChip[]
@@ -39,6 +41,7 @@ function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, varia
         const label =
           chip.label ?? t(`loops:builder.nodes.${chip.kind}`, { defaultValue: chip.kind })
         const clickable = chip.latestSegmentKey != null
+        const runState = loopChipRunState(chip.state)
         return (
           <Fragment key={chip.key}>
             {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
@@ -47,6 +50,7 @@ function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, varia
               role="listitem"
               data-testid="loop-node-chip"
               data-state={chip.state}
+              data-run-state={runState}
               data-kind={chip.kind}
               data-decision={chip.decision}
               aria-label={`${label} — ${chip.state}`}
@@ -61,7 +65,7 @@ function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, varia
               )}
             >
               {chip.state === 'running' && (
-                <LiveDot tone="info" size="xs" className="absolute -right-0.5 -top-0.5" aria-hidden />
+                <RunStateDot state="working" className="absolute -right-0.5 -top-0.5" />
               )}
               <Icon className={cn('w-3 h-3 shrink-0', textAccent)} />
               <span
@@ -74,8 +78,7 @@ function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, varia
                 {label}
               </span>
               {chip.state === 'paused' && <span className="text-accent-warning">{t('loopExplorer.paused')}</span>}
-              {chip.state === 'ok' && <Check className="w-3 h-3 text-accent-success shrink-0" />}
-              {chip.state === 'failed' && <X className="w-3 h-3 text-destructive shrink-0" />}
+              {(runState === 'done' || runState === 'failed' || runState === 'paused') && <RunStateGlyph state={runState} size="xs" />}
               {chip.decision === 'continue' && (
                 <RotateCw className="w-3 h-3 text-accent-highlight shrink-0" />
               )}

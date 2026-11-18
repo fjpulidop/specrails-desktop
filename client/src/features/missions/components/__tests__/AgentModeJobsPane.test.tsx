@@ -129,6 +129,22 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
+  it('reads every job status through the shared vocabulary (one working lamp, skipped is stopped)', () => {
+    mockJobs = [
+      job('j1', 'running', 'a'),
+      job('j2', 'skipped', 'b'),
+      job('j3', 'zombie_terminated', 'c'),
+    ]
+    const { container } = renderPane()
+    const states = screen.getAllByTestId('agent-job-status').map((pill) => pill.getAttribute('data-run-state'))
+    expect(states).toEqual(['working', 'stopped', 'failed'])
+    expect(screen.getByText('Skipped')).toBeInTheDocument()
+    expect(screen.getByText('Zombie')).toBeInTheDocument()
+    // The running job has its own lamp only: no second (primary) dot next to it.
+    expect(container.querySelectorAll('[data-live-ring]')).toHaveLength(1)
+    expect(container.querySelector('.bg-accent-primary')).toBeNull()
+  })
+
   it('opens the near-fullscreen execution modal on job click and closes it', async () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
     renderPane('mission-project')

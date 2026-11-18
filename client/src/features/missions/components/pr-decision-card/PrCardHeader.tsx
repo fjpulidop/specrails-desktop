@@ -2,53 +2,19 @@
  * Header of a settled PR decision card: the state icon and title (flow, CI and
  * delivery outcomes named precisely), the help hint, project and rail badge.
  */
-import {
-  GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle, CheckCircle2,
-  MessageSquareWarning, Undo2, CircleStop,
-} from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { HelpHint } from '../../../../components/HelpHint'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
 import { FLOW_SPEC_LOOP_ID } from '../../../delivery/components/LoopChip'
-import type { AgentPrDecisionEnvelope } from '../../lib/agent-api'
+import { deliveryLook, deliveryOverrideOf } from '../../../delivery/lib/delivery-run-state'
 import type { PrDecisionCardModel } from './usePrDecisionCardModel'
 
-const HEADER_ICON: Record<AgentPrDecisionEnvelope['decision'], typeof GitBranch> = {
-  building: GitBranch,
-  on_review: GitBranch,
-  pr_draft: GitPullRequest,
-  pr_ready: GitPullRequest,
-  no_changes: CheckCircle2,
-  completed: CheckCircle2,
-  pr_closed: XCircle,
-  superseded: GitPullRequest,
-  implementation_failed: AlertTriangle,
-  pr_failed: AlertTriangle,
-  merged: GitMerge,
-  discarded: XCircle,
-}
-
-const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
-  building: 'text-accent-primary',
-  on_review: 'text-accent-review',
-  pr_draft: 'text-accent-info',
-  pr_ready: 'text-accent-info',
-  no_changes: 'text-accent-success',
-  completed: 'text-accent-success',
-  pr_closed: 'text-accent-warning',
-  superseded: 'text-muted-foreground',
-  implementation_failed: 'text-destructive',
-  pr_failed: 'text-destructive',
-  merged: 'text-accent-success',
-  discarded: 'text-muted-foreground',
-}
-
-/** The settled card's icon, its tone and the title line. */
+/** The settled card's state (status vocabulary), its object glyph and the title line. */
 export function settledCardHeading(model: PrDecisionCardModel) {
   const { t, envelope, decision, flowOutcome, presentation, ciShown, degradedDraft } = model
-  // A person stopped the run: a neutral stop, not the failure triangle.
-  const stoppedHeader = decision === 'implementation_failed' && envelope.statusCode === 'run_stopped'
-  const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : stoppedHeader ? CircleStop : HEADER_ICON[decision]
-  const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : stoppedHeader ? 'text-muted-foreground' : HEADER_ICON_TONE[decision]
+  // A person stopped the run: a neutral stop, not a failure; Intent → Spec
+  // outcomes (changes requested, returned, crashed) say more than the decision.
+  const { state, objectIcon } = deliveryLook(decision, deliveryOverrideOf({ decision, statusCode: envelope.statusCode ?? null, flowOutcome }))
   // Intent → Spec names itself where the title would otherwise be generic.
   const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
   const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
@@ -84,7 +50,7 @@ export function settledCardHeading(model: PrDecisionCardModel) {
                 ? t('prCard.title.existing_pr_updated')
                 : degradedDraft ? t('prCard.title.pr_draft_degraded')
                   : flowSpecDelivered ? t('prCard.title.flowSpecDelivered') : t(`prCard.title.${decision}`)
-  return { Icon, iconTone, title }
+  return { state, objectIcon, title }
 }
 
 export function PrCardHeader({ model, shouldAnnounce, announceExtra }: {
@@ -93,10 +59,10 @@ export function PrCardHeader({ model, shouldAnnounce, announceExtra }: {
   announceExtra: string
 }) {
   const { t, envelope, decision, terminal, projectName } = model
-  const { Icon, iconTone, title } = settledCardHeading(model)
+  const { state, objectIcon, title } = settledCardHeading(model)
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <Icon className={cn('h-4 w-4 shrink-0', iconTone)} aria-hidden />
+      <RunStateGlyph state={state} objectIcon={objectIcon} size="md" data-testid="agent-pr-decision-glyph" />
       <span
         className={cn('min-w-0 flex-1 basis-[12rem] truncate text-sm font-medium', decision === 'discarded' ? 'text-muted-foreground' : 'text-foreground')}
         title={title}

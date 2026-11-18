@@ -70,3 +70,26 @@ describe('on_review lamp canon', () => {
     expect(badge.container.innerHTML).not.toContain('accent-warning')
   })
 })
+
+describe('run-state vocabulary', () => {
+  it('draws a cancelled spec as stopped (muted slash), never a red X', () => {
+    const { container } = render(<TicketStatusDot status="cancelled" />)
+    expect(container.querySelector('[data-run-state="stopped"]')).not.toBeNull()
+    expect(container.querySelector('.lucide-circle-slash')).not.toBeNull()
+    expect(container.innerHTML).not.toContain('destructive')
+    const badge = render(<TicketStatusBadge status="cancelled" />)
+    expect(badge.container.innerHTML).toContain('text-muted-foreground')
+    expect(badge.container.innerHTML).not.toContain('destructive')
+  })
+
+  it('draws a done spec with the success CheckCircle2', () => {
+    const { container } = render(<TicketStatusDot status="done" />)
+    expect(container.querySelector('[data-run-state="done"]')).toHaveClass('text-accent-success')
+  })
+
+  it('pulses an in-progress spec with the info lamp', () => {
+    const { container } = render(<TicketStatusDot status="in_progress" />)
+    expect(container.querySelector('[data-live-ring]')).not.toBeNull()
+    expect(container.innerHTML).toContain('bg-accent-info')
+  })
+})

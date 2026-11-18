@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, CircleHelp, Crosshair, Maximize2, Minimize2, PauseCircle, Route, Scan, XCircle } from 'lucide-react'
+import { Crosshair, Maximize2, Minimize2, Route, Scan } from 'lucide-react'
 import { ReactFlow, Background, Controls, MarkerType, type Edge, type Node, type ReactFlowInstance } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '../../../../components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../../components/ui/dialog'
 import { cn } from '../../../../lib/utils'
-import { LiveDot, type LiveDotTone } from '../../../../components/ui/live-dot'
+import { runStateLook } from '../../../../components/ui/run-state/run-state'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
+import { loopStepRunState } from '../../lib/loop-run-state'
 import { useActiveTheme } from '../../../settings/context/ThemeContext'
 import { layoutLoop } from '../../lib/loop-layout'
 import type { LoopNodeData } from '../../lib/loop-graph-rf'
@@ -27,16 +30,11 @@ function savePathOnly(value: boolean) {
   try { localStorage.setItem(RUNTIME_GRAPH_PATH_ONLY_KEY, String(value)) } catch { /* session-local choice still applies */ }
 }
 
-function stateTone(state: GraphState): LiveDotTone {
-  if (state === 'running') return 'info'
-  if (state === 'ok') return 'success'
-  if (state === 'failed') return 'destructive'
-  if (state === 'paused' || state === 'stalled' || state === 'interrupted') return 'warning'
-  return 'muted'
-}
+/** A graph state in the run-state vocabulary (one table for lamps, glyphs and strokes). */
+const graphRunState = (state: GraphState) => loopStepRunState(state)
 /** A state lamp: live (soft ring) only while the step runs. */
 function StateLamp({ state }: { state: GraphState }) {
-  return <LiveDot tone={stateTone(state)} pulsing={state === 'running'} size="sm" aria-hidden />
+  return <RunStateDot state={graphRunState(state)} size="sm" />
 }
 
 function formatDuration(ms: number | null | undefined): string | null {
@@ -48,19 +46,9 @@ function formatDuration(ms: number | null | undefined): string | null {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
 
+/** Stroke / tint of a node. An unvisited node keeps the neutral hairline (dashed), never a state colour. */
 function stateColor(state: GraphState): string {
-  if (state === 'running') return 'var(--color-accent-info)'
-  if (state === 'ok') return 'var(--color-accent-success)'
-  if (state === 'failed') return 'var(--color-destructive)'
-  if (state === 'paused' || state === 'stalled' || state === 'interrupted') return 'var(--color-accent-warning)'
-  return 'var(--color-border)'
-}
-function stateIcon(state: GraphState) {
-  if (state === 'ok') return CheckCircle2
-  if (state === 'failed') return XCircle
-  if (state === 'paused' || state === 'stalled' || state === 'interrupted') return PauseCircle
-  if (state === 'unknown') return CircleHelp
-  return Circle
+  return quiet(state) ? 'var(--color-border)' : runStateLook(graphRunState(state)).color
 }
 const quiet = (state: GraphState) => state === 'pending' || state === 'unknown'
 
@@ -128,7 +116,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
       if (target === null || !shown(node.id) || !shown(target)) return []
       const walked = visited(node.id) && visited(target)
       const live = walked && states.get(target)?.state === 'running'
-      const stroke = live ? 'var(--color-accent-info)' : walked ? 'var(--color-accent-success)' : 'var(--color-border)'
+      const stroke = live ? runStateLook('working').color : walked ? runStateLook('done').color : 'var(--color-border)'
       return [{
         id: `${node.id}:${outcome}`, source: node.id, target, label: outcome, animated: live,
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
@@ -141,14 +129,11 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
     const nodes = view.body.nodes.filter(node => shown(node.id)).map(node => {
       const { state, attempts: count } = states.get(node.id) ?? { state: 'pending' as GraphState, attempts: 0 }
       const color = stateColor(state)
-      const Icon = stateIcon(state)
       const unvisited = quiet(state)
       return { id: node.id, type: 'default', position: { x: 0, y: 0 }, data: { kind: 'core', label: (
         <span className="block text-left" data-state={state}>
           <strong className={cn('flex items-center gap-2 text-body leading-tight', unvisited ? 'font-medium text-muted-foreground' : 'text-foreground')}>
-            {state === 'running'
-              ? <LiveDot tone="info" size="sm" className="mx-0.5" aria-hidden />
-              : <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color: unvisited ? 'var(--color-muted-foreground)' : color }} />}
+            <RunStateGlyph state={graphRunState(state)} size="md" />
             <span className="min-w-0 break-words">{node.label}</span>
           </strong>
           <span className="mt-1 flex items-center gap-1.5 text-caption text-muted-foreground">
@@ -251,7 +236,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
       {trail.length > 0 && <code>{view.path}</code>}
       {!expanded && leading}
       <ul className="ml-auto flex flex-wrap items-center gap-3 text-caption text-muted-foreground" aria-label={t('loopExplorer.graphLegend')}>
-        {LEGEND.map(state => <li key={state} className="flex items-center gap-1.5"><LiveDot tone={stateTone(state)} pulsing={false} size="xs" aria-hidden />{t(`loopExplorer.graphState.${state}`)}</li>)}
+        {LEGEND.map(state => <li key={state} className="flex items-center gap-1.5"><RunStateDot state={graphRunState(state)} quiet />{t(`loopExplorer.graphState.${state}`)}</li>)}
       </ul>
       <span className="flex items-center gap-1">
         <Button size="sm" variant={pathOnly ? 'secondary' : 'ghost'} aria-pressed={pathOnly} data-testid="runtime-graph-path-only" onClick={() => { setPathOnly(!pathOnly); savePathOnly(!pathOnly) }}>

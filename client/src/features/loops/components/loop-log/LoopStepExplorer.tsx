@@ -36,7 +36,7 @@ import { LoopStepSection, LoopSetupSection, SETUP_KEY } from './LoopStepSection'
 import { useLogTicketActions } from '../../../jobs/hooks/useLogTicketActions'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useDefinitionFork } from '../../hooks/useDefinitionFork'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 
 import { notifyError } from '../../../../lib/notify-error'
 export interface LoopStepExplorerProps {
@@ -63,10 +63,9 @@ export interface LoopStepExplorerProps {
   toolbarLeading?: ReactNode
 }
 
+/** The run is live: the working lamp (info, pulsing; static under reduced motion). */
 function PulseDot() {
-  return (
-    <LiveDot size="xs" />
-  )
+  return <RunStateDot state="working" />
 }
 
 export function LoopStepExplorer({

@@ -9,7 +9,8 @@ import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertTriangle } from 'lucide-react'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { cn } from '../../../lib/utils'
 import { modeAccent, type MissionModeBadge as Badge } from '../context/MissionExtensionsContext'
 
@@ -49,16 +50,16 @@ export function MissionModeRowMark({ badge }: { badge: Badge }) {
 }
 
 /** A mission list row's attention mark with its words — a waiting decision
- *  (a dot: "Waiting for your decision") or a failed run (a warning triangle:
- *  "Needs attention: a run failed"), told apart by shape, never by color alone. */
+ *  (the review dot: "Waiting for your decision") or a failed run (the failed
+ *  glyph: "Needs attention: a run failed"), told apart by shape, never by color alone. */
 export function MissionAttentionMark({ kind = 'decision' }: { kind?: 'decision' | 'failed' }) {
   const { t } = useTranslation('agent')
   const words = kind === 'failed' ? t('runStrip.attention.failed') : t('runStrip.decision.generic')
   return (
     <span className="inline-flex shrink-0 items-center leading-none" title={words} data-testid="mission-attention-mark" data-kind={kind}>
       {kind === 'failed'
-        ? <AlertTriangle aria-hidden className="h-3 w-3 text-destructive" />
-        : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary ring-2 ring-accent-primary/20" />}
+        ? <RunStateGlyph state="failed" size="xs" />
+        : <RunStateDot state="review" size="xs" />}
       <span className="sr-only">{words}</span>
     </span>
   )

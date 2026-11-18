@@ -111,7 +111,10 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     const spec = screen.getByTestId('agent-flow-delivered-spec')
     expect(spec).toHaveAttribute('data-lamp', 'pending')
     expect(spec).toHaveTextContent('Rewriting the spec from what you built…')
-    expect(spec.className).toContain('animate-pulse')
+    // Still being done: the working lamp, not a pulsing line.
+    expect(spec).toHaveAttribute('data-run-state', 'working')
+    expect(spec.className).not.toContain('animate-pulse')
+    expect(spec.querySelector('[data-live-ring]')).toBeInTheDocument()
     expect(spec.querySelector('button')).toBeNull()
     expect(screen.getByTestId('agent-flow-delivered-jira')).toHaveAttribute('data-lamp', 'pending')
     // Nothing priced yet: a dash, never an estimate, with the unpriced turns said.

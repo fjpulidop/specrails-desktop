@@ -159,6 +159,7 @@ describe('run-only card (shared-cwd launch)', () => {
     runtime.state.runs = [{ runId: 'r1', status: 'running', nextStep: 'developer', recoverableSteps: [], active: true, canResume: false, canCancel: true }]
     render(<AgentPrDecisionCard envelope={env({ runtime: failed })} />)
     expect(screen.getByTestId('mission-run-status').getAttribute('data-status')).toBe('running')
+    expect(screen.getByTestId('mission-run-status')).toHaveAttribute('data-run-state', 'working')
     expect(screen.getByTestId('mission-run-phase').textContent).toContain('developer')
     expect(screen.queryByTestId('mission-run-resume')).toBeNull()
     expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()

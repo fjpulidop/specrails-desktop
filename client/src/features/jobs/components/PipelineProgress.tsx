@@ -1,9 +1,10 @@
-import { CheckCircle2, XCircle, Circle } from 'lucide-react'
-import { RailTrack } from '../../../components/brand/RailTrack'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
+import { LiveDot } from '../../../components/ui/live-dot'
+import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { cn } from '../../../lib/utils'
 import type { PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
+import { phaseRunState } from '../lib/job-run-state'
 
 interface PipelineProgressProps {
   phases: PhaseMap
@@ -21,6 +22,7 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
           idx < phaseDefinitions.length - 1
             ? (phases[phaseDefinitions[idx + 1].key] ?? 'idle')
             : null
+        const look = runStateLook(phaseRunState(state))
 
         return (
           <div key={phaseDef.key} className="flex items-center">
@@ -28,18 +30,7 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
               <TooltipTrigger asChild>
                 <div className="flex flex-col items-center gap-1.5 cursor-default px-4">
                   <PhaseNode state={state} />
-                  <span
-                    className={cn(
-                      'text-label transition-colors',
-                      state === 'running'
-                        ? 'text-accent-info'
-                        : state === 'done'
-                          ? 'text-accent-success'
-                          : state === 'error'
-                            ? 'text-destructive'
-                            : 'text-muted-foreground',
-                    )}
-                  >
+                  <span className={cn('text-label transition-colors', look.text)}>
                     {phaseDef.label}
                   </span>
                 </div>
@@ -69,24 +60,26 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
   )
 }
 
+const NODE_FILL: Record<PhaseState, string> = {
+  idle: 'bg-muted/20',
+  running: 'bg-accent-info/10 ring-1 ring-accent-info/30',
+  done: 'bg-accent-success/10',
+  error: 'bg-destructive/10',
+}
+
+/** A phase's lamp: the running phase is the pulsing info LiveDot (never a pulsing node); the rest show their state's glyph. */
 function PhaseNode({ state }: { state: PhaseState }) {
+  const runState = phaseRunState(state)
+  const look = runStateLook(runState)
+  const Icon = look.icon
   return (
     <div
-      className={cn(
-        'flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200',
-        state === 'running'
-          ? 'bg-accent-info/10 ring-1 ring-accent-info/30 motion-safe:animate-pulse'
-          : state === 'done'
-            ? 'bg-accent-success/10'
-            : state === 'error'
-              ? 'bg-destructive/10'
-              : 'bg-muted/20',
-      )}
+      data-run-state={runState}
+      className={cn('flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200', NODE_FILL[state])}
     >
-      {state === 'running' && <span aria-hidden><RailTrack running className="w-6" /></span>}
-      {state === 'done' && <CheckCircle2 className="w-6 h-6 text-accent-success" />}
-      {state === 'error' && <XCircle className="w-6 h-6 text-destructive" />}
-      {state === 'idle' && <Circle className="w-6 h-6 text-muted-foreground opacity-20" />}
+      {Icon
+        ? <Icon aria-hidden className={cn('w-6 h-6', look.text, state === 'idle' && 'opacity-20')} />
+        : <LiveDot size="md" dotClassName={look.dot} aria-hidden />}
     </div>
   )
 }

@@ -59,6 +59,28 @@
     "draft": "Bozza",
     "onReview": "In revisione"
   },
+  "runState": {
+    "queued": "In coda",
+    "working": "In corso",
+    "needs-input": "Serve una risposta",
+    "review": "Pronto per la revisione",
+    "paused": "In pausa",
+    "blocked": "Bloccato",
+    "failed": "Non riuscito",
+    "done": "Completato",
+    "stopped": "Interrotto",
+    "hint": {
+      "queued": "In attesa di iniziare",
+      "working": "Il lavoro è in corso",
+      "needs-input": "Un agente aspetta la tua risposta",
+      "review": "Un risultato aspetta la tua decisione",
+      "paused": "In pausa: riprendilo per continuare",
+      "blocked": "Non può continuare finché qualcosa all'esterno non cambia",
+      "failed": "Terminato con un errore",
+      "done": "Terminato correttamente",
+      "stopped": "Terminato senza completarsi: annullato, saltato o sostituito"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implementazione in corso",
     "implementation_failed": "Implementazione non riuscita",

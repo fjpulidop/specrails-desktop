@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, BellOff, CircleCheck, ClipboardCheck, Inbox, MessageCircleQuestion, OctagonAlert, RefreshCw, Wallet, XCircle, type LucideIcon } from 'lucide-react'
+import { Bell, BellOff, CircleCheck, Inbox, OctagonAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
@@ -10,20 +10,13 @@ import { compactRelativeTime } from '../../../lib/relative-time'
 import { formatUsd } from '../../../lib/format-usd'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
-import type { InboxItem, InboxKind } from '../lib/inbox-model'
+import type { InboxItem } from '../lib/inbox-model'
+import { inboxKindRunState } from '../lib/inbox-run-state'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
+import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
 import { useAttentionPrefs } from '../../../hooks/useAttentionPrefs'
 import { notifyError } from '../../../lib/notify-error'
-
-/** Kind → icon and lamp colour (the same tokens the review lamp, failures and warnings use elsewhere). */
-const KIND_LOOK: Record<InboxKind, { icon: LucideIcon; tone: string }> = {
-  review: { icon: ClipboardCheck, tone: 'text-accent-review' },
-  question: { icon: MessageCircleQuestion, tone: 'text-accent-primary' },
-  failed: { icon: XCircle, tone: 'text-destructive' },
-  blocked: { icon: OctagonAlert, tone: 'text-accent-warning' },
-  budget: { icon: Wallet, tone: 'text-accent-warning' },
-  jira: { icon: RefreshCw, tone: 'text-accent-warning' },
-}
 
 /** i18n key (inbox namespace) of the primary action's label. */
 export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'>): string {
@@ -38,8 +31,7 @@ export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'>): strin
 function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const { t } = useTranslation('inbox')
   const [snoozing, setSnoozing] = useState(false)
-  const look = KIND_LOOK[item.kind]
-  const Icon = look.icon
+  const state = inboxKindRunState(item.kind)
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
   const kindLabel = item.action === 'raise-cap' ? t('kinds.capReached') : t(`kinds.${item.kind}`)
@@ -56,7 +48,8 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   return (
     <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind} data-unseen={unseen || undefined}>
       <div className="flex items-start gap-2.5">
-        <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', look.tone)} aria-hidden />
+        {/* The kind's state in the status vocabulary (its words are the kind label). */}
+        <RunStateGlyph state={state} size="md" className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-body text-foreground">
             {unseen && (
@@ -67,7 +60,7 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
             <span className="truncate" title={title}>{title}</span>
           </p>
           <p className="truncate text-caption text-muted-foreground">
-            <span className={look.tone}>{kindLabel}</span>
+            <span className={runStateLook(state).text}>{kindLabel}</span>
             {detailText && <span title={rawNoCause && item.detail ? item.detail : undefined}>{` · ${detailText}`}</span>}
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>

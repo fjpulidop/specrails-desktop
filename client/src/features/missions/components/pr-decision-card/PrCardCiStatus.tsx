@@ -3,17 +3,21 @@
  * needs attention / merge conflict) with the failing checks per PR. The PR
  * stays the deliverable.
  */
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
+import { runStateLook } from '../../../../components/ui/run-state/run-state'
+import { ciRunState } from '../../../delivery/lib/delivery-run-state'
 import type { PrDecisionCardModel } from './usePrDecisionCardModel'
 
 export function PrCardCiStatus({ model }: { model: PrDecisionCardModel }) {
   const { t, envelope, ciShown, ciLive } = model
   if (!ciShown) return null
+  // Checks still running are work in progress (the lamp), never a spinner.
+  const state = ciRunState(ciShown)
   return (
-    <div data-testid="agent-pr-ci-status" data-state={ciShown}
-      className={cn('mt-2 flex items-start gap-1.5 text-xs leading-4', ciShown === 'green' ? 'text-accent-success' : ciShown === 'pending' ? 'text-accent-info' : 'text-accent-warning')}>
-      {ciShown === 'green' ? <CheckCircle2 className="mt-px h-3 w-3 shrink-0" /> : ciShown === 'pending' ? <Loader2 className="mt-px h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" /> : <AlertTriangle className="mt-px h-3 w-3 shrink-0" />}
+    <div data-testid="agent-pr-ci-status" data-state={ciShown} data-run-state={state}
+      className={cn('mt-2 flex items-start gap-1.5 text-xs leading-4', runStateLook(state).text)}>
+      <RunStateGlyph state={state} size="xs" className="mt-px" />
       <div className="min-w-0">
         <p>{ciShown === 'green' ? t('prCard.ci.green') : ciShown === 'pending' ? t('prCard.ci.pending', { count: ciLive?.pending ?? 0 }) : ciShown === 'conflict' ? t('prCard.ci.conflict') : t('prCard.ci.notGreen')}</p>
         {ciShown === 'red' && ciLive?.failing.map((entry) => (

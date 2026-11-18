@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, ShieldAlert } from 'lucide-react'
-import { Badge } from '../../../../components/ui/badge'
+import { Check, Copy } from 'lucide-react'
+import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
 import { blockerCommandLine, type LoopCompletion, type LoopHostBlocker } from './completion-model'
 
 /** Premium blocked state: the host could not satisfy a precondition, so the run stopped before any correction round. */
@@ -20,7 +21,7 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
   }
   return <div data-testid="loop-completion-blocker" className="rounded-md border border-accent-warning/40 bg-accent-warning/5 px-3 py-2.5 space-y-1.5">
     <p className="flex items-center gap-1.5 font-medium text-accent-warning">
-      <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <RunStateGlyph state="blocked" size="sm" />
       <span>{t('core.hostBlocked')}</span>
       <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-xs font-semibold">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
     </p>
@@ -48,9 +49,9 @@ export function LoopCompletionSummary({ result, compact = false }: { result: Loo
   return <section aria-label={t('completion.title')} className={compact ? 'min-w-0 text-xs space-y-1' : 'border-b border-border/40 px-3 py-2 text-xs space-y-2'} data-testid="loop-completion">
     {result.completion && compact ? <div className="flex flex-wrap items-center gap-1.5">
       {/* The status badge already says how the run ended: only the verdicts. */}
-      <Badge variant={result.completion.ok ? 'success' : 'warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</Badge>
-      <Badge variant={result.completion.verified ? 'success' : 'queued'}>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</Badge>
-      {result.completion.blocker && <Badge variant="warning" title={result.completion.blocker.reason || undefined}>{tl('core.hostBlocked')}: {tl(`core.blockerKind.${result.completion.blocker.kind}`, { defaultValue: result.completion.blocker.kind })}</Badge>}
+      <RunStatePill state={result.completion.ok ? 'done' : 'blocked'} label={<>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</>} />
+      <RunStatePill state={result.completion.verified ? 'done' : 'queued'} label={<>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</>} />
+      {result.completion.blocker && <RunStatePill state="blocked" title={result.completion.blocker.reason || undefined} label={<>{tl('core.hostBlocked')}: {tl(`core.blockerKind.${result.completion.blocker.kind}`, { defaultValue: result.completion.blocker.kind })}</>} />}
     </div> : result.completion ? <div className="space-y-1.5">
       {/* One line: what happened, whether it was accepted, whether it was verified. */}
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">

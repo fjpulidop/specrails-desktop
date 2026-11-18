@@ -8,9 +8,9 @@ import { cn } from '../../../../lib/utils'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
 import type { PhaseMap } from '../../hooks/usePipeline'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
-import { Badge } from '../../../../components/ui/badge'
+import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
 import { Button } from '../../../../components/ui/button'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { RailMark } from '../../../../components/brand/RailMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { PipelineProgress } from '../PipelineProgress'
@@ -33,18 +33,7 @@ import {
   type JobRunSurface,
   type PipelineTotals,
 } from './job-run-model'
-
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
-
-const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
-  running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
-  failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
-  canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
-  queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queued' },
-  zombie_terminated: { variant: 'failed', labelKey: 'statusLabel.zombie', tooltipKey: 'statusTooltip.zombie' },
-  skipped: { variant: 'queued', labelKey: 'statusLabel.skipped', tooltipKey: 'statusTooltip.skipped' },
-}
+import { jobStatusLook } from '../../lib/job-run-state'
 
 export interface JobRunDetailsContext {
   diagnosis: FailureDiagnosis | null
@@ -106,7 +95,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const isRunning = job.status === 'running'
   const isQueued = job.status === 'queued'
   const isLoopJob = job.command.startsWith('loop:')
-  const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
+  const statusInfo = jobStatusLook(job.status)
 
   // Live wall-clock tick (1 s) while running — the only genuinely live number.
   const now = useNow(1000, isRunning)
@@ -307,7 +296,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const statusLead = (<>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div><Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge></div>
+            <div><RunStatePill state={statusInfo.state} label={t(statusInfo.labelKey)} data-testid="job-status" /></div>
           </TooltipTrigger>
           <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
         </Tooltip>
@@ -317,7 +306,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           // plays once per mount (static under reduced motion).
           <span data-testid="job-run-outcome" className="inline-flex items-center gap-2.5" title={t('statusPanel.duration')}>
             <RailMark size={34} state="arrive" />
-            <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
+            <RunStateDot state="done" size="sm" />
             <span className="text-display num leading-none text-foreground">{elapsed}</span>
             {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
           <span className="sr-only"> ({t('statusPanel.duration')})</span></span>
@@ -326,7 +315,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
         >
-          {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
+          {isRunning && <RunStateDot state="working" />}
           {elapsed}
         {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
         )}

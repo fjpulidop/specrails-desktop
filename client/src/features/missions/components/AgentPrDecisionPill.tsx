@@ -1,34 +1,19 @@
 import { useTranslation } from 'react-i18next'
-import { cn } from '../../../lib/utils'
+import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
+import { deliveryLook } from '../../delivery/lib/delivery-run-state'
 import type { AgentPrDecisionValue } from '../lib/agent-api'
 
-const PILL_TONE: Record<AgentPrDecisionValue, string> = {
-  building: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
-  on_review: 'border-accent-review/40 bg-accent-review/10 text-accent-review',
-  pr_draft: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
-  pr_ready: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
-  no_changes: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
-  completed: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
-  pr_closed: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
-  superseded: 'border-border/60 bg-surface/60 text-muted-foreground',
-  implementation_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
-  pr_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
-  merged: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
-  discarded: 'border-border/60 bg-surface/60 text-muted-foreground',
-}
-
-/** Compact decision-state pill (the project builder's milestone rows). */
+/** Compact decision-state pill (the project builder's milestone rows), in the status vocabulary. */
 export function PrDecisionPill({ decision }: { decision: AgentPrDecisionValue }) {
   const { t } = useTranslation('agent')
+  const look = deliveryLook(decision)
   return (
-    <span
+    <RunStatePill
       data-testid="pr-decision-pill"
-      className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-medium',
-        PILL_TONE[decision],
-      )}
-    >
-      {t(`prCard.pinned.state.${decision}`)}
-    </span>
+      state={look.state}
+      objectIcon={look.objectIcon}
+      label={t(`prCard.pinned.state.${decision}`)}
+      className="px-1.5 py-px"
+    />
   )
 }

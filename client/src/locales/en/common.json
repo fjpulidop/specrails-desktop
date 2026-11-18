@@ -59,6 +59,28 @@
     "draft": "Draft",
     "onReview": "On Review"
   },
+  "runState": {
+    "queued": "Queued",
+    "working": "Running",
+    "needs-input": "Needs input",
+    "review": "Ready for review",
+    "paused": "Paused",
+    "blocked": "Blocked",
+    "failed": "Failed",
+    "done": "Done",
+    "stopped": "Stopped",
+    "hint": {
+      "queued": "Waiting to start",
+      "working": "Work is in progress",
+      "needs-input": "An agent is waiting for your answer",
+      "review": "A result is waiting for your decision",
+      "paused": "Paused: resume it to continue",
+      "blocked": "Can't continue until something outside it changes",
+      "failed": "Ended with an error",
+      "done": "Finished successfully",
+      "stopped": "Ended without finishing: cancelled, skipped or superseded"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implementation running",
     "implementation_failed": "Implementation failed",

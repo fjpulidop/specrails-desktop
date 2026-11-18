@@ -14,9 +14,9 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { jobActivityTimestamp, parseJobTimestamp } from '../../jobs/lib/job-time'
-import { Badge } from '../../../components/ui/badge'
+import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
+import { jobStatusLook } from '../../jobs/lib/job-run-state'
 import type { JobSummary } from '../../../types'
-import { LiveDot } from '../../../components/ui/live-dot'
 
 // Loads with the first opened job, like the mission cards' run-log chips:
 // the log explorer stack (highlighting, runtime graph) stays out of the shell.
@@ -26,15 +26,6 @@ const JobDetailModal = lazy(() =>
 
 const MIN_PANE = 360
 const DEFAULT_PANE = 480
-
-type BadgeVariant = 'success' | 'running' | 'queued' | 'failed' | 'canceled'
-const STATUS_VARIANT: Record<string, BadgeVariant> = {
-  running: 'running',
-  completed: 'success',
-  failed: 'failed',
-  canceled: 'canceled',
-  queued: 'queued',
-}
 
 /**
  * Agent-Mode inline Jobs pane (same split chrome as `AgentModeCodePane`): the
@@ -201,10 +192,10 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <Badge variant={STATUS_VARIANT[job.status] ?? 'queued'}>
-                      {tJobs(`statusLabel.${job.status in STATUS_VARIANT ? job.status : 'queued'}`)}
-                    </Badge>
-                    {job.status === 'running' && <LiveDot tone="primary" size="xs" aria-hidden />}
+                    {(() => {
+                      const look = jobStatusLook(job.status)
+                      return <RunStatePill state={look.state} label={tJobs(look.labelKey)} data-testid="agent-job-status" />
+                    })()}
                     <span className="ml-auto text-caption text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))

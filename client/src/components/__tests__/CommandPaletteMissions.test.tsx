@@ -107,6 +107,9 @@ describe('CommandPalette — missions', () => {
     expect(screen.getByText('Tetris rewrite')).toBeInTheDocument()
     expect(screen.getByText('Revisar la misión de deploy')).toBeInTheDocument()
     expect(screen.getByTestId('palette-mission-live-c-tetris')).toBeInTheDocument()
+    // A live mission is the working lamp (info), not the primary tone.
+    expect(screen.getByTestId('palette-mission-live-c-tetris')).toHaveAttribute('data-run-state', 'working')
+    expect(screen.getByTestId('palette-mission-live-c-tetris').querySelector('.bg-accent-info')).toBeInTheDocument()
     expect(searchMissions).not.toHaveBeenCalled()
   })
 

@@ -7,7 +7,7 @@ import { getDateFnsLocale } from '../../../lib/i18n'
 import { formatDistanceToNow } from 'date-fns'
 import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '../../../components/ui/badge'
+import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
 import { Button } from '../../../components/ui/button'
 import { EmptyState } from '../../../components/ui/empty-state'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
@@ -19,21 +19,10 @@ import { humaniseCommand } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
+import { jobStatusLook } from '../lib/job-run-state'
 import { DateInput } from '../../../components/ui/date-input'
 
 import { notifyError } from '../../../lib/notify-error'
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
-
-const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
-  running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
-  failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
-  canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
-  queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queuedToRun' },
-  zombie_terminated: { variant: 'failed', labelKey: 'statusLabel.zombie', tooltipKey: 'statusTooltip.zombie' },
-  skipped: { variant: 'warning', labelKey: 'statusLabel.skipped', tooltipKey: 'statusTooltip.skipped' },
-}
-
 const ALL_STATUSES: JobStatus[] = ['running', 'completed', 'failed', 'canceled', 'zombie_terminated', 'queued', 'skipped']
 
 const PRIORITY_STYLES: Record<JobPriority, { className: string; labelKey: string }> = {
@@ -367,7 +356,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
       {/* Job rows */}
       <div className="space-y-0.5">
         {filteredJobs.slice(0, displayLimit).map((job) => {
-          const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
+          const statusInfo = jobStatusLook(job.status)
           const duration = formatWallDuration(job.started_at, job.finished_at)
           const tokens = formatTokens(
             ((job.tokens_in ?? 0) +
@@ -418,7 +407,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge>
+                    <RunStatePill state={statusInfo.state} label={t(statusInfo.labelKey)} data-testid="job-status" />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>

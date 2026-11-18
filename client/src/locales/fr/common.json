@@ -59,6 +59,28 @@
     "draft": "Brouillon",
     "onReview": "En révision"
   },
+  "runState": {
+    "queued": "En file",
+    "working": "En cours",
+    "needs-input": "Réponse attendue",
+    "review": "Prêt à relire",
+    "paused": "En pause",
+    "blocked": "Bloqué",
+    "failed": "Échec",
+    "done": "Terminé",
+    "stopped": "Arrêté",
+    "hint": {
+      "queued": "En attente de démarrage",
+      "working": "Le travail est en cours",
+      "needs-input": "Un agent attend votre réponse",
+      "review": "Un résultat attend votre décision",
+      "paused": "En pause : reprenez-le pour continuer",
+      "blocked": "Ne peut pas continuer tant que quelque chose d'extérieur ne change pas",
+      "failed": "Terminé avec une erreur",
+      "done": "Terminé avec succès",
+      "stopped": "Terminé sans aboutir : annulé, ignoré ou remplacé"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implémentation en cours",
     "implementation_failed": "Échec de l’implémentation",

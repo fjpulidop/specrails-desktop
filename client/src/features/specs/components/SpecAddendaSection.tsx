@@ -19,6 +19,8 @@ import {
   type SpecAddendumStatus,
 } from '../lib/spec-addenda-core'
 import { Button } from '../../../components/ui/button'
+import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 import { notifyError } from '../../../lib/notify-error'
 // ─── Spec addenda section (spec-addenda) ─────────────────────────────────────
@@ -41,12 +43,14 @@ const KIND_ICON: Record<SpecAddendumKind, typeof Layers> = {
   constraint: ShieldAlert,
 }
 
-const STATUS_PILL: Record<SpecAddendumStatus, string> = {
-  open: 'border-accent-primary/50 bg-accent-primary/10 text-accent-primary',
-  in_flight: 'border-accent-info/50 bg-accent-info/10 text-accent-info motion-safe:animate-pulse',
-  applied: 'border-accent-success/50 bg-accent-success/10 text-accent-success',
-  dismissed: 'border-border bg-muted/30 text-muted-foreground',
-}
+/** An addendum's lifecycle in the run-state vocabulary: an open note waits for
+ *  the next run to pick it up, an in-flight one is being applied. */
+const STATUS_RUN_STATE = {
+  open: 'queued',
+  in_flight: 'working',
+  applied: 'done',
+  dismissed: 'stopped',
+} as const satisfies Record<SpecAddendumStatus, RunState>
 
 const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground text-xs'
 
@@ -205,7 +209,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
           {addenda.length > 0 && (
             <span
               data-testid="spec-addenda-open-count"
-              className={`rounded-full border px-1.5 py-px text-caption font-semibold normal-case tracking-normal ${openCount > 0 ? STATUS_PILL.open : 'border-border text-muted-foreground'}`}
+              className={`rounded-full border px-1.5 py-px text-caption font-semibold normal-case tracking-normal ${openCount > 0 ? 'border-border text-foreground' : 'border-border text-muted-foreground'}`}
             >
               {openCount > 0 ? t('addenda.openCount', { count: openCount }) : addenda.length}
             </span>
@@ -260,9 +264,13 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className={`text-label text-foreground ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
                           <span className="rounded-full border border-border/50 px-1.5 py-px text-caption text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
-                          <span className={`rounded-full border px-1.5 py-px text-caption font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
-                            {t(`addenda.status.${a.status}`)}
-                          <span className="sr-only"> ({t(`addenda.statusHint.${a.status}`)})</span></span>
+                          <RunStatePill
+                            state={STATUS_RUN_STATE[a.status]}
+                            className="px-1.5 py-px"
+                            title={t(`addenda.statusHint.${a.status}`)}
+                            data-testid="spec-addendum-status"
+                            label={<>{t(`addenda.status.${a.status}`)}<span className="sr-only"> ({t(`addenda.statusHint.${a.status}`)})</span></>}
+                          />
                         </div>
                         {!isOpen && (
                           <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-muted-foreground">{a.body}</p>

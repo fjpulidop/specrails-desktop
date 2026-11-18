@@ -59,6 +59,28 @@
     "draft": "下書き",
     "onReview": "レビュー中"
   },
+  "runState": {
+    "queued": "待機中",
+    "working": "実行中",
+    "needs-input": "回答が必要",
+    "review": "レビュー待ち",
+    "paused": "一時停止中",
+    "blocked": "ブロック中",
+    "failed": "失敗",
+    "done": "完了",
+    "stopped": "停止",
+    "hint": {
+      "queued": "開始を待っています",
+      "working": "作業を進めています",
+      "needs-input": "エージェントがあなたの回答を待っています",
+      "review": "結果があなたの判断を待っています",
+      "paused": "一時停止中：再開すると続行します",
+      "blocked": "外部の状況が変わるまで続行できません",
+      "failed": "エラーで終了しました",
+      "done": "正常に完了しました",
+      "stopped": "完了せずに終了しました：キャンセル、スキップ、または置き換え"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "実装を実行中",
     "implementation_failed": "実装に失敗",

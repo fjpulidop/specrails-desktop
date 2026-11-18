@@ -1,8 +1,9 @@
-import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { TicketStatus } from '../../../types'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
+import { runStateLook, type RunState } from '../../../components/ui/run-state/run-state'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,17 @@ interface StatusConfig {
   /** i18n key (resolved with the `specs` namespace as default). */
   labelKey: string
   pulsing: boolean
+}
+
+/**
+ * The workflow statuses that are run states (components/ui/run-state). Draft
+ * and todo are board columns, not runs: they keep their own workflow dots.
+ */
+const STATUS_RUN_STATE: Partial<Record<TicketStatus, RunState>> = {
+  in_progress: 'working',
+  on_review: 'review',
+  done: 'done',
+  cancelled: 'stopped',
 }
 
 const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
@@ -28,26 +40,26 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     pulsing: false,
   },
   in_progress: {
-    dotClass: 'bg-accent-info',
+    dotClass: runStateLook('working').dot,
     textClass: 'text-foreground font-semibold',
     labelKey: 'status.inProgress',
     pulsing: true,
   },
   on_review: {
-    dotClass: 'bg-accent-review',
-    textClass: 'text-accent-review',
+    dotClass: runStateLook('review').dot,
+    textClass: runStateLook('review').text,
     labelKey: 'status.onReview',
     pulsing: false,
   },
   done: {
-    dotClass: 'text-accent-success',
-    textClass: 'text-accent-success',
+    dotClass: runStateLook('done').dot,
+    textClass: runStateLook('done').text,
     labelKey: 'status.done',
     pulsing: false,
   },
   cancelled: {
-    dotClass: 'text-destructive',
-    textClass: 'text-muted-foreground',
+    dotClass: runStateLook('stopped').dot,
+    textClass: runStateLook('stopped').text,
     labelKey: 'status.cancelled',
     pulsing: false,
   },
@@ -70,20 +82,14 @@ export function TicketStatusDot({ status, className, pulsing = true }: TicketSta
   const { t } = useTranslation('specs')
   const cfg = STATUS_CONFIG[status]
 
-  if (status === 'done') {
+  // A finished or cancelled spec shows its state's glyph (CheckCircle2 / CircleSlash).
+  if (status === 'done' || status === 'cancelled') {
     return (
-      <Check
-        className={cn('w-3.5 h-3.5 shrink-0', cfg.dotClass, className)}
-        aria-label={t('status.done')}
-      />
-    )
-  }
-
-  if (status === 'cancelled') {
-    return (
-      <X
-        className={cn('w-3.5 h-3.5 shrink-0', cfg.dotClass, className)}
-        aria-label={t('status.cancelled')}
+      <RunStateGlyph
+        state={status === 'done' ? 'done' : 'stopped'}
+        size="sm"
+        className={className}
+        label={t(cfg.labelKey)}
       />
     )
   }
@@ -121,16 +127,14 @@ export interface TicketStatusBadgeProps {
 export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps) {
   const { t } = useTranslation('specs')
   const cfg = STATUS_CONFIG[status]
+  const runState = STATUS_RUN_STATE[status]
 
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-medium border',
         status === 'todo' && 'bg-muted border-border text-muted-foreground',
-        status === 'in_progress' && 'bg-accent-info/10 border-accent-info/30 text-accent-info',
-        status === 'on_review' && 'bg-accent-review/10 border-accent-review/30 text-accent-review',
-        status === 'done' && 'bg-accent-success/10 border-accent-success/30 text-accent-success',
-        status === 'cancelled' && 'bg-destructive/10 border-destructive/30 text-destructive',
+        runState && [runStateLook(runState).text, runStateLook(runState).border],
         className
       )}
     >

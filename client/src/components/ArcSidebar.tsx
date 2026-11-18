@@ -24,6 +24,7 @@ import { useAgentChat } from '../features/missions/context/AgentChatContext'
 import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
 import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
 import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
+import { RunStateDot } from './ui/run-state/run-state-dot'
 import { motion } from 'motion/react'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
@@ -284,8 +285,8 @@ function ConversationRow({
           className={cn(
             'w-3.5 h-3.5 flex-shrink-0',
             active && 'text-accent-primary',
-            // Secondary live cue alongside the title shimmer.
-            streaming && !unread && 'text-accent-primary motion-safe:animate-pulse',
+            // Secondary live cue alongside the title shimmer: the running tone (its lamp sits at the row's end).
+            streaming && !unread && 'text-accent-info',
             unread && 'conversation-unread-glow',
           )}
         />
@@ -308,6 +309,7 @@ function ConversationRow({
             {conversation.archivedAt && chat.archiveScope === 'all' && <span className="text-caption text-muted-foreground">{t('nav:missionArchive.archived')}</span>}
             {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
             <span className="flex-1" aria-hidden />
+            {streaming && <RunStateDot state="working" data-testid="conversation-live-dot" />}
             {modeMark && <MissionModeRowMark badge={modeMark} />}
             {attention && <MissionAttentionMark kind={attentionKind} />}
             {unread && <span className="sr-only">{t('unread')}</span>}
@@ -517,7 +519,8 @@ function ProjectItem({
       aria-hidden
       className={cn(
         'flex-shrink-0 w-4 h-4',
-        (isActive || liveCue) && 'text-accent-primary',
+        // Live work inside a closed tree takes the running tone; otherwise the selection's.
+        liveCue ? 'text-accent-info' : isActive && 'text-accent-primary',
       )}
     />
   ) : (
@@ -527,7 +530,7 @@ function ProjectItem({
       className={cn(
         'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-caption font-semibold leading-none',
         isActive ? 'text-foreground' : 'bg-muted text-foreground',
-        liveCue && 'text-accent-primary',
+        liveCue && 'text-accent-info',
       )}
       style={isActive ? { background: 'color-mix(in srgb, var(--color-accent-primary) 15%, transparent)' } as CSSProperties : undefined}
     >
@@ -609,13 +612,11 @@ function ProjectItem({
         {assembleStatus === 'assembling' && (
           <span
             role="status"
-            className={cn(
-              'flex-shrink-0 h-1.5 w-1.5 rounded-full bg-accent-info motion-safe:animate-pulse',
-              !expanded && 'absolute bottom-1 right-1',
-            )}
+            className={cn('inline-flex flex-shrink-0', !expanded && 'absolute bottom-1 right-1')}
             title={t('projects.assembling')}
             data-testid="assemble-indicator"
           >
+            <RunStateDot state="working" />
             <span className="sr-only">{t('projects.assembling')}</span>
           </span>
         )}
@@ -753,13 +754,13 @@ function GroupHeader({
         {expanded
           ? (
               <>
-                {icon(cn('h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0', rollup.isLive && !treeVisible && 'text-accent-primary'))}
+                {icon(cn('h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0', rollup.isLive && !treeVisible && 'text-accent-info'))}
                 <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
                   {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                 </span>
               </>
             )
-          : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-primary'))}
+          : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-info'))}
         {!expanded && rollup.needsAttention && (
           <span className={COLLAPSED_BADGE}>
             <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />

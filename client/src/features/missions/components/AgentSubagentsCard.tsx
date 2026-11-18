@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertCircle, Bot, CheckCircle2, ChevronRight, CircleSlash, RotateCcw, Square, Terminal } from 'lucide-react'
+import { Bot, ChevronRight, RotateCcw, Square, Terminal } from 'lucide-react'
 
 import { cn } from '../../../lib/utils'
 import { formatElapsed } from '../../../lib/format-duration'
@@ -14,7 +14,9 @@ import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
 import { resultPreview } from '../lib/subagent-result'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { formatUsd } from '../../analytics/lib/format'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
+import { subagentRunState } from '../lib/mission-run-state'
 import { useNow } from '../../../hooks/useNow'
 
 /** Live elapsed time while running; the final duration once it ended. */
@@ -26,14 +28,7 @@ export function useElapsed(node: AgentSubagent): string {
 }
 
 export function PhaseGlyph({ node }: { node: AgentSubagent }) {
-  if (isLiveSubagent(node)) {
-    return (
-      <LiveDot size="sm" aria-hidden />
-    )
-  }
-  if (node.phase === 'idle') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
-  if (node.phase === 'failed') return <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
-  return <CircleSlash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+  return <RunStateGlyph state={subagentRunState(node.phase)} size="sm" />
 }
 
 function lastSeqOf(events: AgentSubagentEvent[] | null): number {
@@ -292,10 +287,10 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
           data-testid="agent-subagents-summary"
           className={cn(
             'inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
-            working > 0 ? 'border-accent-primary/40 bg-accent-primary/[0.07] text-foreground' : 'border-border/50 bg-surface/60 text-muted-foreground hover:border-border hover:text-foreground',
+            working > 0 ? 'border-accent-info/40 bg-accent-info/[0.07] text-foreground' : 'border-border/50 bg-surface/60 text-muted-foreground hover:border-border hover:text-foreground',
           )}
         >
-          {working > 0 ? <LiveDot tone="primary" size="xs" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />}
+          {working > 0 ? <RunStateDot state="working" /> : <Bot className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
           {/* No second live region inside the role=log transcript; the strip announces. */}
           <span className="min-w-0 truncate text-muted-foreground">{status}</span>

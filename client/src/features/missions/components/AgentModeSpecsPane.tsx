@@ -8,7 +8,10 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ArrowUpRight, ChevronRight, ListChecks, Maximize2, Minimize2, X } from 'lucide-react'
 import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
-import { deriveSpecActivity, type SpecActivity, type MissionFacts, type SpecActivityEntry, type SpecActivityPhase } from '../lib/spec-activity'
+import { deriveSpecActivity, type SpecActivity, type MissionFacts, type SpecActivityEntry } from '../lib/spec-activity'
+import { specActivityRunState } from '../lib/mission-run-state'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { focusPrCard, requestMissionOpenRun } from './agent-run-failure'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useOpenMission } from '../hooks/useOpenMission'
@@ -37,20 +40,6 @@ export function groupSpecs(tickets: readonly LocalTicket[]): { open: LocalTicket
     .sort((a, b) => rank(a.status) - rank(b.status) || b.id - a.id)
   const closed = tickets.filter((ticket) => CLOSED.has(ticket.status)).sort((a, b) => b.id - a.id)
   return { open, closed }
-}
-
-const ACTIVITY_FRAME: Record<SpecActivityPhase, string> = {
-  running: 'border-accent-primary/50 bg-accent-primary/[0.06]',
-  waiting: 'border-accent-warning/50 bg-accent-warning/[0.05]',
-  failed: 'border-destructive/50 bg-destructive/[0.05]',
-  paused: 'border-border bg-surface/30',
-}
-
-const ACTIVITY_DOT: Record<SpecActivityPhase, string> = {
-  running: 'bg-accent-primary motion-safe:animate-pulse',
-  waiting: 'bg-accent-warning motion-safe:animate-pulse',
-  failed: 'bg-destructive',
-  paused: 'bg-muted-foreground',
 }
 
 function activityLabel(t: TFunction<'agent'>, activity: SpecActivity): string {
@@ -96,7 +85,8 @@ function SpecRow({ ticket, onOpen, projectId, draftKey, fresh, entry, currentCon
       data-spec-activity={activity?.phase}
       className={cn(
         'relative flex items-center overflow-hidden rounded-lg border transition-colors',
-        activity ? ACTIVITY_FRAME[activity.phase] : 'border-border/50 bg-surface/30',
+        // A spec with live activity is outlined in its state's tone (status vocabulary).
+        activity ? cn(runStateLook(specActivityRunState(activity.phase)).border, 'bg-surface/30') : 'border-border/50 bg-surface/30',
         'hover:border-accent-primary/40 hover:bg-surface/60',
       )}
       animate={fresh && !reduceMotion ? {
@@ -118,7 +108,7 @@ function SpecRow({ ticket, onOpen, projectId, draftKey, fresh, entry, currentCon
         className="flex min-w-0 flex-1 cursor-grab items-center gap-2 px-2.5 py-2 text-left active:cursor-grabbing"
       >
         {activity && label && (
-          <span aria-hidden title={label} className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ACTIVITY_DOT[activity.phase])} />
+          <RunStateDot state={specActivityRunState(activity.phase)} title={label} />
         )}
         <span className="shrink-0 font-mono text-caption text-muted-foreground">#{ticket.id}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={ticket.title}>{ticket.title}</span>

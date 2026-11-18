@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import { ScrollText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../../lib/utils'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { useRunVitals, formatRunElapsed } from '../../../jobs/hooks/useRunVitals'
 import { dailyBudgetPausedMessage } from '../../../../lib/daily-budget'
 import { formatUsd } from '../../../analytics/lib/format'
@@ -66,7 +66,7 @@ export function RunLogChip({
       )}
     >
       {(vitals.paused || (vitals.running && live)) && (
-        <LiveDot size="xs" tone={vitals.paused ? 'warning' : 'info'} pulsing={!vitals.paused} aria-hidden />
+        <RunStateDot state={vitals.paused ? 'paused' : 'working'} />
       )}
       <span className="max-w-[160px] truncate">{label}</span>
       {dot}

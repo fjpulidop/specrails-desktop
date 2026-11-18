@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
+import { LiveDot } from './live-dot'
 
 const badgeVariants = cva(
   'inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium transition-colors duration-[var(--duration-fast)]',
@@ -13,7 +14,8 @@ const badgeVariants = cva(
         outline: 'text-foreground',
         success: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-success border-accent-success/30',
         warning: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-warning border-accent-warning/30',
-        running: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-info border-accent-info/30',
+        // Running work pulses: its lamp is the LiveDot (rendered below), not a static dot.
+        running: 'gap-1.5 bg-transparent text-accent-info border-accent-info/30',
         queued: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-muted-foreground border-border',
         review: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-review border-accent-review/30',
         failed: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-destructive border-destructive/30',
@@ -30,8 +32,15 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />
+/** A pill label. Status variants carry a 6px lamp; for a run's state prefer
+ *  `RunStatePill` (components/ui/run-state), which follows the status vocabulary. */
+function Badge({ className, variant, children, ...props }: BadgeProps) {
+  return (
+    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+      {variant === 'running' && <LiveDot tone="info" size="xs" data-badge-lamp="" aria-hidden />}
+      {children}
+    </div>
+  )
 }
 
 export { Badge, badgeVariants }

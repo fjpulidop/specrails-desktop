@@ -467,6 +467,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
 
         {/* Status line */}
         <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
+          {/* Page health (loading / loaded), not a run state: its own lamp semantics. */}
           <LiveDot tone={loading ? 'warning' : 'success'} pulsing={loading} aria-hidden />
           <span className="truncate">{title || currentUrl}</span>
           <span data-chip="" className="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 text-caption font-medium">

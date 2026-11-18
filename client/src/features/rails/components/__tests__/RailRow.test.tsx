@@ -111,6 +111,21 @@ describe('RailRow', () => {
     expect(onDelete).toHaveBeenCalled()
   })
 
+  it('shows a running rail with the pulsing info lamp and an info card border, never success', () => {
+    const { container } = renderRailRow({ ...defaultProps, status: 'running', density: 'compact' } as any)
+    const dot = screen.getByRole('img', { name: /running/i })
+    expect(dot).toHaveAttribute('data-run-state', 'working')
+    expect(dot.querySelector('[data-live-ring]')).not.toBeNull()
+    const card = container.querySelector('[data-testid="rail-row-compact-rail-1"]')!
+    expect(card.className).toContain('border-accent-info/40')
+    expect(container.innerHTML).not.toContain('bg-accent-success')
+  })
+
+  it('shows an idle rail as a hollow queued lamp', () => {
+    renderRailRow({ ...defaultProps, status: 'idle' })
+    expect(screen.getByRole('img', { name: /idle/i })).toHaveAttribute('data-run-state', 'queued')
+  })
+
   it('running status disables delete', () => {
     renderRailRow({ ...defaultProps, status: 'running', jiggleMode: true })
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()

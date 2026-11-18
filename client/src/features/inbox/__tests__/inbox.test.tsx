@@ -128,9 +128,12 @@ describe('Inbox panel', () => {
     const rows = within(dialog).getAllByTestId('inbox-row')
     const limited = rows.find((r) => r.getAttribute('data-item-id') === 'p1:blocked:r1')!
     expect(limited).toHaveAttribute('data-cause', 'provider_limit')
+    // Kinds read in the status vocabulary: blocked is the warning triangle, failed the destructive XCircle.
+    expect(limited.querySelector('[data-run-state="blocked"]')).toHaveClass('text-accent-warning')
     expect(limited).toHaveTextContent("The AI provider's usage limit was reached")
     // An unknown cause keeps the raw outcome instead of a made-up reason.
     const unknown = rows.find((r) => r.getAttribute('data-item-id') === 'p1:failed:r2')!
+    expect(unknown.querySelector('[data-run-state="failed"]')).toHaveClass('text-destructive')
     expect(unknown).not.toHaveTextContent('usage limit')
     // No known cause: a calm localized line, with the raw outcome (often English) kept for hover.
     expect(unknown).toHaveTextContent('Stopped before delivery')

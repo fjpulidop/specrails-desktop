@@ -209,6 +209,12 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         renderRail(snapshot({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/5', prNumber: 5, prState: 'pr-created' }), density)
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByText('PR ready')).toBeInTheDocument()
+        // Ready to decide: an open PR in the review tone — GitMerge means merged only.
+        const pill = within(strip).getByText('PR ready').closest('[data-run-state]')!
+        expect(pill).toHaveAttribute('data-run-state', 'review')
+        expect(pill.className).toContain('text-accent-review')
+        expect(pill.querySelector('.lucide-git-pull-request')).not.toBeNull()
+        expect(pill.querySelector('.lucide-git-merge')).toBeNull()
         expect(within(strip).getByTestId('rail-pr-link')).toHaveTextContent('#5')
         expect(within(strip).getByTestId('rail-pr-poll')).toHaveTextContent('Verify PR')
         expect(menuItem('rail-pr-discard')).toBeInTheDocument()
@@ -218,6 +224,12 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         renderRail(snapshot({ decision: 'pr_failed' }), density)
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByText('PR failed')).toBeInTheDocument()
+        // A failure is XCircle in the destructive tone; AlertTriangle is reserved for blocked.
+        const pill = within(strip).getByText('PR failed').closest('[data-run-state]')!
+        expect(pill).toHaveAttribute('data-run-state', 'failed')
+        expect(pill.className).toContain('text-destructive')
+        expect(pill.querySelector('.lucide-circle-x')).not.toBeNull()
+        expect(pill.querySelector('.lucide-triangle-alert')).toBeNull()
         expect(within(strip).getByTestId('rail-pr-create')).toHaveTextContent('Retry')
         expect(menuItem('rail-pr-discard')).toBeInTheDocument()
       })
@@ -237,6 +249,8 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByTestId('rail-pr-run-stopped')).toHaveTextContent('Stopped')
         expect(within(strip).getByTestId('rail-pr-run-stopped').className).not.toContain('destructive')
+        expect(within(strip).getByTestId('rail-pr-run-stopped')).toHaveAttribute('data-run-state', 'stopped')
+        expect(within(strip).getByTestId('rail-pr-run-stopped').querySelector('.lucide-circle-slash')).not.toBeNull()
         expect(within(strip).queryByText('Implementation failed')).toBeNull()
         // The status-code chip would only repeat the pill.
         expect(within(strip).queryByTestId('rail-pr-status-code')).toBeNull()

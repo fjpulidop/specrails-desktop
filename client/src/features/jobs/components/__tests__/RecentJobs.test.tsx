@@ -321,6 +321,22 @@ describe('RecentJobs', () => {
       }
       render(<RecentJobs jobs={[zombieJob]} />)
       expect(screen.getByText('Zombie')).toBeInTheDocument()
+      // A zombie is a failure: the failed state's look, with the job's own word.
+      expect(screen.getByText('Zombie').closest('[data-run-state]')).toHaveAttribute('data-run-state', 'failed')
+    })
+
+    it('shows a skipped job as stopped and a running job with a pulsing info lamp', () => {
+      const now = new Date().toISOString()
+      const jobs: JobSummary[] = [
+        { id: 'skip-1', command: '/specrails:test', started_at: now, status: 'skipped' },
+        { id: 'run-1', command: '/specrails:test', started_at: now, status: 'running' },
+      ]
+      render(<RecentJobs jobs={jobs} />)
+      expect(screen.getByText('Skipped').closest('[data-run-state]')).toHaveAttribute('data-run-state', 'stopped')
+      const running = screen.getByText('Running', { selector: '[data-run-state] *, [data-run-state]' }).closest('[data-run-state="working"]')
+      expect(running).not.toBeNull()
+      expect(running!.querySelector('[data-live-ring]')).toBeInTheDocument()
+      expect(running!.className).toContain('text-accent-info')
     })
   })
 

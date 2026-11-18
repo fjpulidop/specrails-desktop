@@ -7,7 +7,9 @@ import { cn } from '../../../../lib/utils'
 import { formatElapsed } from '../../../../lib/format-duration'
 import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
 import type { AgentPrDecisionValue } from '../../../missions/lib/agent-api'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
+import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
+import { runStateLook, type RunState } from '../../../../components/ui/run-state/run-state'
 import { useNow } from '../../../../hooks/useNow'
 import {
   chainAtCheckpoint,
@@ -31,21 +33,29 @@ import {
 // is unmerged), one row per milestone rail with its decision + Review, and the
 // launch chain's row (k of n, waiting / paused reason, Resume / Cancel).
 
-const SEGMENT_TONE: Record<SegmentKey, string> = {
-  done: 'bg-accent-success',
-  onReview: 'bg-accent-warning',
-  inProgress: 'bg-accent-info motion-safe:animate-pulse',
-  failed: 'bg-destructive',
-  todo: 'bg-muted-foreground/25',
+// Spec states and milestone states read in the status vocabulary
+// (components/ui/run-state): in progress is the working tone (no pulse on a bar
+// segment; RailTrack and LiveDot are the only motion), waiting for review is the
+// review tone, never amber.
+const SEGMENT_RUN_STATE = {
+  done: 'done',
+  onReview: 'review',
+  inProgress: 'working',
+  failed: 'failed',
+} as const satisfies Record<Exclude<SegmentKey, 'todo'>, RunState>
+
+function segmentFill(key: SegmentKey): string {
+  return key === 'todo' ? 'bg-muted-foreground/25' : runStateLook(SEGMENT_RUN_STATE[key]).dot
 }
 
-const STATE_TONE: Record<MilestoneState, string> = {
-  planned: 'border-border/60 bg-surface/60 text-muted-foreground',
-  committed: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
-  running: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
-  delivered: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
-  done: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
-}
+/** A committed milestone waits to run (queued); a delivered one waits for its review and merge. */
+const MILESTONE_RUN_STATE = {
+  planned: 'queued',
+  committed: 'queued',
+  running: 'working',
+  delivered: 'review',
+  done: 'done',
+} as const satisfies Record<MilestoneState, RunState>
 
 export function MilestoneProgressBar({ counts, className }: { counts: MilestoneCounts; className?: string }) {
   const { t } = useTranslation('builder')
@@ -61,7 +71,7 @@ export function MilestoneProgressBar({ counts, className }: { counts: MilestoneC
         <div
           key={s.key}
           data-segment={s.key}
-          className={cn('h-full transition-all duration-200', SEGMENT_TONE[s.key])}
+          className={cn('h-full transition-all duration-200', segmentFill(s.key))}
           style={{ width: `${s.pct}%` }}
           title={`${t(`milestoneProgress.legend.${s.key}`)} · ${s.count}`}
         />
@@ -73,17 +83,15 @@ export function MilestoneProgressBar({ counts, className }: { counts: MilestoneC
 export function MilestoneStatePill({ state }: { state: MilestoneState }) {
   const { t } = useTranslation('builder')
   return (
-    <span
+    <RunStatePill
       data-testid="milestone-state-pill"
       data-state={state}
-      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-semibold', STATE_TONE[state])}
-    >
-      {t(`milestoneProgress.state.${state}`)}
-    </span>
+      state={MILESTONE_RUN_STATE[state]}
+      label={t(`milestoneProgress.state.${state}`)}
+      className="px-1.5 py-px"
+    />
   )
 }
-
-
 
 export interface MilestoneRailRowProps {
   rail: MilestoneRail
@@ -119,7 +127,7 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
       </button>
       {rail.active ? (
         <span className="flex shrink-0 items-center gap-1 text-caption text-accent-info" data-testid="milestone-rail-running">
-          <LiveDot tone="info" size="xs" aria-hidden />
+          <RunStateDot state="working" />
           {elapsed != null ? t('milestoneProgress.rail.running', { elapsed: formatElapsed(elapsed) }) : t('milestoneProgress.state.running')}
         </span>
       ) : decision ? (

@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Copy, Check, X, Play, Info } from 'lucide-react'
+import { ChevronRight, Copy, Check, Play, Info } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { LogLine, type FormattedLine } from '../../../jobs/components/LogViewer'
 import {
@@ -10,15 +10,10 @@ import {
   type SegmentStatus,
 } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT } from './loop-node-visuals'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
+import { loopStepRunState } from '../../lib/loop-run-state'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
-
-function PulseDot({ className }: { className?: string }) {
-  return (
-    <LiveDot size="sm" className={className} />
-  )
-}
 
 function visibleLinesFor(lines: FormattedLine[], filter: string): FormattedLine[] {
   if (!filter) return lines
@@ -114,6 +109,8 @@ function LoopStepSectionInner({
   const accent = LOOP_NODE_TEXT_ACCENT[meta.kind] ?? 'text-foreground'
   const visible = visibleLinesFor(lines, filter)
   const isRunning = status === 'running'
+  // One state per attempt: a provider-limit failure is blocked, a stalled or interrupted step paused.
+  const runState = loopStepRunState(status, end?.reason)
   // Template/Command detail (payload-borne since the log-hygiene change; the
   // old flat-log lines are gone). Collapsed by default; local state — the memo
   // never blocks a state-driven re-render.
@@ -125,14 +122,15 @@ function LoopStepSectionInner({
       ref={(el) => setRef(segment.key, el)}
       data-testid="loop-step-section"
       data-status={status}
+      data-run-state={runState}
       data-step-index={meta.index}
       className={cn(
         'mt-3 rounded-md overflow-hidden border u-fade',
-        status === 'running' && 'border-accent-primary/40',
-        status === 'failed' && 'border-destructive/30',
-        status === 'stalled' && 'border-dashed border-destructive/40',
-        (status === 'interrupted' || status === 'paused') && 'border-dashed border-accent-warning/40',
-        (status === 'ok' || status === 'unknown') && 'border-border/20',
+        runState === 'working' && 'border-accent-info/40',
+        runState === 'failed' && 'border-destructive/30',
+        runState === 'blocked' && 'border-accent-warning/40',
+        runState === 'paused' && 'border-dashed border-accent-warning/40',
+        (runState === 'done' || runState === 'queued') && 'border-border/20',
       )}
     >
       {/* Header row: toggle button (flex-1) + copy button — the copy control
@@ -140,7 +138,7 @@ function LoopStepSectionInner({
       <div
         className={cn(
           'flex items-stretch bg-primary/5 border-b',
-          status === 'failed' || status === 'stalled' ? 'border-destructive/20' : 'border-primary/20',
+          runState === 'failed' ? 'border-destructive/20' : 'border-primary/20',
         )}
       >
         <button
@@ -172,7 +170,7 @@ function LoopStepSectionInner({
           {/* Status zone */}
           {isRunning && (
             <span className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[40%]">
-              <PulseDot />
+              <RunStateGlyph state="working" size="sm" />
               {lastActivity && (
                 <span className="title-shimmer text-caption truncate">
                   {t(`statusPanel.activity.${lastActivity.actionKey}`, {
@@ -182,20 +180,18 @@ function LoopStepSectionInner({
               )}
             </span>
           )}
-          {status === 'ok' && <Check className="w-3.5 h-3.5 text-accent-success shrink-0" />}
-          {status === 'failed' && end?.reason === 'provider_limit' && (
+          {runState === 'blocked' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
+              className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning"
               title={t('loopExplorer.providerLimitHint')}
               data-testid="loop-step-provider-limit"
             >
               {t('loopExplorer.providerLimit')}
             <span className="sr-only"> ({t('loopExplorer.providerLimitHint')})</span></span>
           )}
-          {status === 'failed' && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
           {status === 'stalled' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
+              className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning"
               title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
             >
               {t('loopExplorer.stalled')}
@@ -206,6 +202,8 @@ function LoopStepSectionInner({
               {t('loopExplorer.interrupted')}
             </span>
           )}
+          {/* The attempt's shape (never colour alone); a legacy step without an outcome shows none. */}
+          {!isRunning && status !== 'unknown' && <RunStateGlyph state={runState} size="sm" />}
 
           <span className="flex-1" />
 

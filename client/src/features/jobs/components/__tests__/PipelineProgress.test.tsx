@@ -35,11 +35,22 @@ describe('PipelineProgress', () => {
     expect(anySpinning).toBe(false)
   })
 
-  it('shows the travelling rail pill (not a spinner) for the running phase', () => {
+  it('shows the pulsing info lamp (not a spinner or a pulsing node) for the running phase', () => {
     const phases: PhaseMap = { architect: 'running' }
     render(<PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />)
-    expect(document.querySelector('[data-testid="rail-track"]')).toBeInTheDocument()
+    const node = document.querySelector('[data-run-state="working"]')
+    expect(node).toBeInTheDocument()
+    expect(node!.querySelector('[data-live-ring]')).toBeInTheDocument()
+    expect(node!.querySelector('.bg-accent-info')).toBeInTheDocument()
     expect(document.querySelector('.animate-spin')).toBeNull()
+    expect(document.querySelector('.animate-pulse')).toBeNull()
+  })
+
+  it('shows a failed phase with the destructive failed glyph', () => {
+    render(<PipelineProgress phases={{ architect: 'error' }} phaseDefinitions={phaseDefinitions} />)
+    const node = document.querySelector('[data-run-state="failed"]')
+    expect(node).toBeInTheDocument()
+    expect(node!.querySelector('svg.text-destructive')).toBeInTheDocument()
   })
 
   it('renders connector lines between phases', () => {

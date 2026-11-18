@@ -20,7 +20,8 @@ import { RailModelSelector } from '../../agents/components/RailModelSelector'
 import { RailLoopSelector } from '../../agents/components/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from '../../agents/components/RailEffortSelector'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { railRunState } from '../lib/rail-run-state'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { RailPrDecisionStrip } from '../../delivery/components/RailPrDecisionStrip'
@@ -451,7 +452,7 @@ export function RailRow({
             : ticketDragActive
               ? 'border-dashed border-accent-info/35'
               : isRunning
-                ? 'border-accent-success/40 shadow-sm'
+                ? 'border-accent-info/40 shadow-sm'
                 : 'border-border/40 hover:border-accent-info/30 hover:shadow-md'
         } ${jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''}`}
       >
@@ -466,14 +467,7 @@ export function RailRow({
           >
             <GripVertical className="w-3 h-3" />
           </button>
-          <LiveDot
-            size="xs"
-            tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
-            pulsing={isRunning}
-            className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
-            role="img"
-            aria-label={t(`railRow.status.${status}`)}
-          />
+          <RunStateDot state={railRunState(status)} label={t(`railRow.status.${status}`)} />
           {editing ? (
             <form
               className="flex items-center gap-0.5 min-w-0 flex-1"
@@ -723,14 +717,7 @@ export function RailRow({
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <LiveDot
-              size="xs"
-              tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
-              pulsing={isRunning}
-              className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
-              role="img"
-              aria-label={t(`railRow.status.${status}`)}
-            />
+            <RunStateDot state={railRunState(status)} label={t(`railRow.status.${status}`)} />
             {editing ? (
               <form
                 className="flex items-center gap-0.5"

@@ -174,3 +174,18 @@ it('keeps the full graph by default, mutes unvisited steps and offers "Only the 
   expect(screen.queryByTestId('node-d')).not.toBeInTheDocument()
   localStorage.clear()
 })
+
+it('draws node states from the run-state vocabulary: failed glyph and stroke, legend lamps, neutral unvisited hairline', async () => {
+  const user = userEvent.setup()
+  render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed')]} settled onFocus={vi.fn()} />)
+  await user.click(await screen.findByTestId('node-map'))
+  await user.click(screen.getByRole('button', { name: 'Open component' }))
+  const read = screen.getByTestId('node-read')
+  expect(read).toHaveAttribute('data-border', 'var(--color-destructive)')
+  expect(read.querySelector('[data-run-state="failed"]')).toBeInTheDocument()
+  const legend = screen.getByRole('list', { name: 'Graph legend' })
+  expect(legend.querySelectorAll('[data-run-state]')).toHaveLength(4)
+  expect(legend.querySelector('[data-run-state="working"] .bg-accent-info')).toBeInTheDocument()
+  // Legend lamps never pulse.
+  expect(legend.querySelector('[data-live-ring]')).toBeNull()
+})

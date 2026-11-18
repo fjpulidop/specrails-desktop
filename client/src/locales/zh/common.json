@@ -59,6 +59,28 @@
     "draft": "草稿",
     "onReview": "评审中"
   },
+  "runState": {
+    "queued": "排队中",
+    "working": "运行中",
+    "needs-input": "需要回复",
+    "review": "待审阅",
+    "paused": "已暂停",
+    "blocked": "受阻",
+    "failed": "失败",
+    "done": "完成",
+    "stopped": "已停止",
+    "hint": {
+      "queued": "等待开始",
+      "working": "工作正在进行",
+      "needs-input": "有代理在等待你的回答",
+      "review": "有结果在等待你的决定",
+      "paused": "已暂停：恢复后继续",
+      "blocked": "需要外部情况改变后才能继续",
+      "failed": "以错误结束",
+      "done": "已成功完成",
+      "stopped": "未完成即结束：已取消、已跳过或已被取代"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "实现进行中",
     "implementation_failed": "实现失败",

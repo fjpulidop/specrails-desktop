@@ -44,6 +44,7 @@ import { createContext, useContext, type ComponentType, type ReactNode } from 'r
 import type { TFunction } from 'i18next'
 import type { AgentMessageIntent } from '../lib/agent-api'
 import type { SpecIntent } from '../../specs/lib/spec-intent'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 export interface MissionFenceCardProps {
   /** The fence tag the card was registered for. */
@@ -154,6 +155,9 @@ export interface MissionLiveRun {
   /** The switcher's name for the run ("Intent"). */
   label: string
   tone: MissionLiveRunTone
+  /** The run's state in the status vocabulary when the tone alone does not say it
+   *  (a calm `info` tone otherwise shows as stopped). The tone still ranks urgency. */
+  state?: RunState
   /** A running run with no current activity sets false: its mark stops pulsing. */
   working?: boolean
   /** Plain words, inside the expand toggle. */

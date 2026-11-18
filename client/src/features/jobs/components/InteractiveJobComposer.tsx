@@ -1,7 +1,7 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Hourglass, MessageCircleQuestion, Send } from 'lucide-react'
+import { CheckCircle2, Send } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
@@ -9,6 +9,8 @@ import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { formatUsd } from '../../../lib/format-usd'
 
 import { notifyError } from '../../../lib/notify-error'
@@ -295,18 +297,20 @@ export function InteractiveJobComposer({
       <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
         <span className="flex min-w-0 items-center gap-2">
           {questionRun ? (
-            <span className="inline-flex items-center gap-1.5 text-accent-warning">
-              <MessageCircleQuestion className="h-3 w-3" aria-hidden />
+            // The run waits for the person's answer: needs-input (its words stay the runtime's).
+            <span className="inline-flex items-center gap-1.5 text-accent-primary" data-run-state="needs-input">
+              <RunStateGlyph state="needs-input" size="xs" />
               {tRuntime('runs.status.paused')}
             </span>
           ) : waiting ? (
             <span className="inline-flex items-center gap-1.5">
-              <Hourglass className="h-3 w-3 motion-safe:animate-pulse" />
+              {/* Waiting for the next step to start: queued, not a pulsing icon. */}
+              <RunStateGlyph state="queued" size="xs" />
               {t('detail.interactive.waitingForStepShort')}
             </span>
           ) : state.streaming ? (
             <span className="inline-flex items-center gap-1.5">
-              <LiveDot tone="primary" size="xs" aria-hidden />
+              <RunStateDot state="working" />
               <span className="relative">
                 {workingLabel}
                 <span aria-hidden className="title-shimmer pointer-events-none absolute inset-0">
@@ -316,7 +320,8 @@ export function InteractiveJobComposer({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
-              <LiveDot tone="success" size="xs" aria-hidden />
+              {/* Session health, not a run outcome: the session is idle and accepts input. */}
+              <LiveDot tone="success" pulsing={false} size="xs" aria-hidden />
               {t('detail.interactive.ready')}
             </span>
           )}

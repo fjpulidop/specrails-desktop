@@ -14,7 +14,6 @@
     "failed": "Le job s'est terminé avec un code de sortie non nul",
     "canceled": "Le job a été annulé manuellement",
     "queued": "Le job attend dans la file",
-    "queuedToRun": "Le job attend de s'exécuter",
     "zombie": "Le job a été arrêté automatiquement après une inactivité prolongée",
     "skipped": "Le job a été ignoré car un job parent du pipeline a échoué"
   },

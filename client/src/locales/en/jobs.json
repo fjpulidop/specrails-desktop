@@ -14,7 +14,6 @@
     "failed": "Job exited with a non-zero exit code",
     "canceled": "Job was manually canceled",
     "queued": "Job is waiting in the queue",
-    "queuedToRun": "Job is waiting to run",
     "zombie": "Job was auto-terminated after prolonged inactivity",
     "skipped": "Job was skipped because a parent job in the pipeline failed"
   },

@@ -14,7 +14,6 @@
     "failed": "El trabajo terminó con un código de salida distinto de cero",
     "canceled": "El trabajo se canceló manualmente",
     "queued": "El trabajo está esperando en la cola",
-    "queuedToRun": "El trabajo está esperando para ejecutarse",
     "zombie": "El trabajo se terminó automáticamente tras una inactividad prolongada",
     "skipped": "El trabajo se omitió porque falló un trabajo padre del pipeline"
   },

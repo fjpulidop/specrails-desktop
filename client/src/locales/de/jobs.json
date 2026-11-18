@@ -14,7 +14,6 @@
     "failed": "Job wurde mit einem Exit-Code ungleich null beendet",
     "canceled": "Job wurde manuell abgebrochen",
     "queued": "Job wartet in der Warteschlange",
-    "queuedToRun": "Job wartet auf Ausführung",
     "zombie": "Job wurde nach längerer Inaktivität automatisch beendet",
     "skipped": "Job wurde übersprungen, weil ein übergeordneter Job in der Pipeline fehlgeschlagen ist"
   },

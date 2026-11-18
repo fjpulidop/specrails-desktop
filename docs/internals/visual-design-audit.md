@@ -87,10 +87,8 @@ Prereq (fix #1): `npm i tw-animate-css` + `@import "tw-animate-css";` in `global
 | Spec/ticket entity | `Ticket` | accent-primary |
 | Rails / execution lane | `Layers` (exclusive — epic filter → `FolderTree`, batch → `ListChecks`) | accent-secondary |
 | Job | `Briefcase` | accent-info |
-| Job running / in-flight action | `Loader2` spin | accent-info |
-| Job success | `CheckCircle2` | accent-success |
-| Job failed | `XCircle` | destructive |
-| Job canceled | `Ban` | muted-foreground |
+| Job / run state (running, done, failed, stopped…) | the [status vocabulary](../../DESIGN.md#status-vocabulary) (`RunStateGlyph`, `RunStateDot`, `RunStatePill`) | per state |
+| In-flight action the person just triggered (busy button) | `Loader2` spin | — |
 | App agent (chat/mode) | `RailMark` (brand glyph, `components/brand`) | accent-primary |
 | Pipeline agents/profiles | `BrainCircuit` | accent-primary |
 | MCP | `Plug` | accent-info |

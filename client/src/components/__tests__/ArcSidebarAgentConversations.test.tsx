@@ -388,6 +388,8 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     const overlay = document.querySelector('.title-shimmer')
     expect(icon.className.baseVal).toContain('conversation-unread-glow')
     expect(icon.className.baseVal).not.toContain('animate-pulse')
+    // Running is the working lamp at the row's end, never a pulsing icon.
+    expect(screen.getByTestId('conversation-live-dot')).toHaveAttribute('data-run-state', 'working')
     expect(overlay).toBeInTheDocument()
     expect(overlay?.textContent).toBe('Fix the build')
     expect(overlay?.className).toContain('opacity-100')

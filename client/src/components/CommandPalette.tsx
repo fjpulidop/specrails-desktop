@@ -95,7 +95,9 @@ import {
   type PaletteGroup,
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
-import { LiveDot, type LiveDotTone } from './ui/live-dot'
+import { RunStateDot } from './ui/run-state/run-state-dot'
+import { runStateLook } from './ui/run-state/run-state'
+import { jobStatusLook } from '../features/jobs/lib/job-run-state'
 import { Kbd } from './ui/kbd'
 import { replayTour } from '../lib/onboarding-events'
 import { RailTrack } from './brand/RailTrack'
@@ -125,7 +127,6 @@ const EMPTY_HITS: MissionSearchHit[] = []
 function jobLabel(job: JobSummary): string {
   return job.ticketTitle ? `#${job.ticketId} ${job.ticketTitle}` : job.command
 }
-const JOB_LAMP: Partial<Record<JobSummary['status'], LiveDotTone>> = { completed: 'success', failed: 'destructive', running: 'info', queued: 'muted' }
 /** Rows per group (missions, jobs) while nothing is typed: the empty palette stays scannable. */
 const EMPTY_LIST_MAX = 5
 
@@ -773,9 +774,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{conversation.title?.trim() || untitledMission}</span>
                   {streaming && (
-                    <LiveDot
-                      size="xs"
-                      aria-label={tAgent('mission.working')}
+                    <RunStateDot
+                      state="working"
+                      label={tAgent('mission.working')}
                       data-testid={`palette-mission-live-${conversation.id}`}
                     />
                   )}
@@ -855,16 +856,15 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           >
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
             <span className="flex-1 truncate">{jobLabel(job)}</span>
-            <span className={cn(
-              'inline-flex items-center gap-1.5 text-caption font-medium',
-              job.status === 'completed' && 'text-accent-success',
-              job.status === 'failed' && 'text-destructive',
-              job.status === 'running' && 'text-accent-info',
-              job.status === 'queued' && 'text-muted-foreground',
-            )}>
-              <LiveDot size="xs" tone={JOB_LAMP[job.status] ?? 'muted'} pulsing={job.status === 'running'} aria-hidden />
-              {t(`common:status.${job.status}`, { defaultValue: job.status })}
-            </span>
+            {(() => {
+              const look = jobStatusLook(job.status)
+              return (
+                <span data-run-state={look.state} className={cn('inline-flex items-center gap-1.5 text-caption font-medium', runStateLook(look.state).text)}>
+                  <RunStateDot state={look.state} />
+                  {t(`jobs:${look.labelKey}`)}
+                </span>
+              )
+            })()}
           </Command.Item>
         ))}
       </Command.Group>

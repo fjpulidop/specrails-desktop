@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1615 source/build files. Nearby tests are linked where names
+Includes 1625 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -94,6 +94,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
 - [technical-detail.tsx](../../client/src/components/ui/technical-detail.tsx)
 - [tooltip.tsx](../../client/src/components/ui/tooltip.tsx)
+
+## client/src/components/ui/run-state
+
+- [run-state-dot.tsx](../../client/src/components/ui/run-state/run-state-dot.tsx)
+- [run-state-glyph.tsx](../../client/src/components/ui/run-state/run-state-glyph.tsx)
+- [run-state-pill.tsx](../../client/src/components/ui/run-state/run-state-pill.tsx)
+- [run-state.ts](../../client/src/components/ui/run-state/run-state.ts)
 
 ## client/src/context
 
@@ -403,6 +410,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/delivery/lib
 
 - [changes-model.ts](../../client/src/features/delivery/lib/changes-model.ts) · [test](../../client/src/features/delivery/lib/__tests__/changes-model.test.ts)
+- [delivery-run-state.ts](../../client/src/features/delivery/lib/delivery-run-state.ts) · [test](../../client/src/features/delivery/lib/__tests__/delivery-run-state.test.ts)
 - [packet-verbs.ts](../../client/src/features/delivery/lib/packet-verbs.ts) · [test](../../client/src/features/delivery/lib/__tests__/packet-verbs.test.ts)
 - [pr-ci.ts](../../client/src/features/delivery/lib/pr-ci.ts)
 - [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
@@ -443,6 +451,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [inbox-api.ts](../../client/src/features/inbox/lib/inbox-api.ts)
 - [inbox-model.ts](../../client/src/features/inbox/lib/inbox-model.ts)
+- [inbox-run-state.ts](../../client/src/features/inbox/lib/inbox-run-state.ts)
 
 ## client/src/features/integrations/components/jira
 
@@ -538,6 +547,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [humanise-command.ts](../../client/src/features/jobs/lib/humanise-command.ts) · [test](../../client/src/features/jobs/lib/__tests__/humanise-command.test.ts)
 - [job-event-buffer.ts](../../client/src/features/jobs/lib/job-event-buffer.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-event-buffer.test.ts)
 - [job-log-mode.ts](../../client/src/features/jobs/lib/job-log-mode.ts)
+- [job-run-state.ts](../../client/src/features/jobs/lib/job-run-state.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-run-state.test.ts)
 - [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
 - [log-lines.ts](../../client/src/features/jobs/lib/log-lines.ts)
 
@@ -565,7 +575,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopCompletionSummary.tsx](../../client/src/features/loops/components/loop-log/LoopCompletionSummary.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopCompletionSummary.test.tsx)
 - [LoopOverviewStrip.tsx](../../client/src/features/loops/components/loop-log/LoopOverviewStrip.tsx)
 - [LoopStepExplorer.tsx](../../client/src/features/loops/components/loop-log/LoopStepExplorer.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopStepExplorer.test.tsx)
-- [LoopStepSection.tsx](../../client/src/features/loops/components/loop-log/LoopStepSection.tsx)
+- [LoopStepSection.tsx](../../client/src/features/loops/components/loop-log/LoopStepSection.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopStepSection.test.tsx)
 - [NarratedProgress.tsx](../../client/src/features/loops/components/loop-log/NarratedProgress.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/NarratedProgress.test.tsx)
 - [RuntimeGraphExplorer.tsx](../../client/src/features/loops/components/loop-log/RuntimeGraphExplorer.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/RuntimeGraphExplorer.test.tsx)
 - [completion-model.ts](../../client/src/features/loops/components/loop-log/completion-model.ts)
@@ -589,6 +599,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-layout.ts](../../client/src/features/loops/lib/loop-layout.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-layout.test.ts)
 - [loop-role-agents.ts](../../client/src/features/loops/lib/loop-role-agents.ts)
 - [loop-run-models.ts](../../client/src/features/loops/lib/loop-run-models.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-run-models.test.ts)
+- [loop-run-state.ts](../../client/src/features/loops/lib/loop-run-state.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-run-state.test.ts)
 - [loop-template-filter.ts](../../client/src/features/loops/lib/loop-template-filter.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-template-filter.test.ts)
 - [loop-ticket-need.ts](../../client/src/features/loops/lib/loop-ticket-need.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-ticket-need.test.ts)
 - [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
@@ -759,6 +770,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
 - [agent-spec-drag.ts](../../client/src/features/missions/lib/agent-spec-drag.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-spec-drag.test.ts)
 - [live-store.ts](../../client/src/features/missions/lib/live-store.ts) · [test](../../client/src/features/missions/lib/__tests__/live-store.test.ts)
+- [mission-run-state.ts](../../client/src/features/missions/lib/mission-run-state.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-run-state.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
 - [mission-sessions.ts](../../client/src/features/missions/lib/mission-sessions.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-sessions.test.ts)
 - [mission-split-layout.ts](../../client/src/features/missions/lib/mission-split-layout.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-layout.test.ts)
@@ -862,6 +874,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-launch-draft.ts](../../client/src/features/rails/lib/rail-launch-draft.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-launch-draft.test.ts)
 - [rail-launch-intents.ts](../../client/src/features/rails/lib/rail-launch-intents.ts)
 - [rail-loops.ts](../../client/src/features/rails/lib/rail-loops.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-loops.test.ts)
+- [rail-run-state.ts](../../client/src/features/rails/lib/rail-run-state.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-run-state.test.ts)
 - [worktree-progress.ts](../../client/src/features/rails/lib/worktree-progress.ts) · [test](../../client/src/features/rails/lib/__tests__/worktree-progress.test.ts)
 
 ## client/src/features/recovery/components
