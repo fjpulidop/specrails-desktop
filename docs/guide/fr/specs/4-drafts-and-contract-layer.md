@@ -78,4 +78,4 @@ Pas toujours. Pour une petite spec autonome, l'IA peut très bien la mettre en �
 
 - [Ajouter une spec — mode Explore](add-spec-explore-mode.md) — d'où viennent les brouillons.
 - [Ajouter une spec — mode Quick](add-spec-quick-mode.md) — l'interrupteur Contract Layer en mode Quick.
-- [Exécuter les pipelines](running-pipelines.md) — mettez une spec en œuvre une fois qu'elle est prête.
+- [Exécuter les pipelines](../pipeline/rails-and-jobs) — mettez une spec en œuvre une fois qu'elle est prête.

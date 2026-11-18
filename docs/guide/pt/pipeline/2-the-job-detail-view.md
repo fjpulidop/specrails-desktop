@@ -1,12 +1,18 @@
 # A vista de detalhe do job
 
-Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de uma única execução de rail. Foi construída em torno de uma promessa — **os números ao vivo que vê são reais, nunca estimativas.** Esta página percorre as fases, as métricas ao vivo, os cartões de ticket — e o compositor que lhe permite **falar com o job em execução**.
+Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de uma única execução de rail. Foi construída em torno de uma promessa — **os números ao vivo que vê são reais, nunca estimativas.** Esta página percorre as fases, as métricas ao vivo, os cartões de spec — e o compositor que lhe permite **falar com o job em execução**.
 
 ## O layout
 
-O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. **Motivos da falha** abre selecionado nas execuções falhadas ou canceladas com diagnóstico; as restantes abrem **Registo**. Uma pergunta pendente que possa ser respondida também disponibiliza esse separador: o botão da pergunta abre Detalhes para responder, mesmo sem diagnóstico.
+O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. Logo abaixo, **uma única linha de navegação** reúne tudo o que pode consultar:
 
-Motivos da falha reúne causa, soluções e **Detalhes** num painel limitado com deslocamento interno. Caso contrário, Detalhes permanece em Registo. Os loops oferecem **Grafo de execução** e **Detalhe do registo**; os restantes jobs apenas o detalhe. A secção e a expansão de Detalhes são guardadas separadamente para página e modal de missão; o separador principal reinicia em cada visita. O compositor permanece abaixo.
+- **Motivos da falha** — presente numa execução falhada ou cancelada com diagnóstico, e selecionado primeiro. Uma pergunta pendente que possa ser respondida também o disponibiliza: clique no botão da pergunta no cabeçalho para abrir Detalhes e responder, mesmo sem diagnóstico.
+- **Grafo de execução** e **Detalhe do registo** — nas execuções de loop, o grafo do workflow e o registo passo a passo.
+- **Registo** — nos jobs simples, o log em streaming.
+
+O painel limitado **Detalhes** (valores reais e controlos de execução) fica junto de Motivos da falha quando esse separador existe, e junto do log caso contrário. A secção do log que escolheu por último e se Detalhes está expandido são memorizados separadamente para a página e para a janela da missão; o separador selecionado reinicia em cada visita. O compositor permanece abaixo das evidências.
+
+Na app de desktop, um job aberto a partir de uma missão aparece **na sua própria janela**, uma janela por job. Carregue em **Escape** ou feche a janela para voltar; a versão de browser mostra o mesmo conteúdo num modal.
 
 ## Fases do pipeline
 
@@ -42,18 +48,18 @@ O princípio de design: **nada de números aproximados ou estimados a meio da ex
 
 A etiqueta e o ícone do cabeçalho correspondem ao estado do job, e o painel é renderizado para jobs `running`, `completed` e `failed` por igual — por isso a vista de detalhe de um job terminado mostra as mesmas métricas congeladas nos seus valores finais.
 
-## Os cartões de ticket
+## Os cartões de spec
 
-O **cabeçalho de tickets** fica entre o cabeçalho de estado e o log. É um cartão de identidade premium que mostra um chip por cada spec que o job tocou — correspondidos a partir do comando lançado, por isso reflete exatamente quais os tickets de que esta execução tratou.
+O **cabeçalho de specs** fica entre o cabeçalho de estado e o log. É um cartão de identidade premium que mostra um chip por cada spec que o job tocou — correspondidas a partir do comando lançado, por isso reflete exatamente quais as specs de que esta execução tratou.
 
-- **2–3 tickets** — mostrados como uma lista de chips.
+- **2–3 specs** — mostradas como uma lista de chips.
 - **4 ou mais** — colapsam num modo compacto `+ N more` com um chevron para expandir, para o cabeçalho ficar arrumado.
 
-Clicar num chip abre o detalhe dessa spec **por cima da página do job** — não perde o seu lugar nem muda de rota. É uma forma rápida de reler o que um job deve entregar enquanto o vê trabalhar. (Em ecrãs com largura de tablet pode até arrastar uma modal de ticket para o lado e comparar duas specs lado a lado.)
+Clicar num chip abre o detalhe dessa spec **por cima da página do job** — não perde o seu lugar nem muda de rota. É uma forma rápida de reler o que um job deve entregar enquanto o vê trabalhar. (Em ecrãs com largura de tablet pode até arrastar uma modal de spec para o lado e comparar duas specs lado a lado.)
 
 ## O log em streaming
 
-Abra **Registo → Detalhe do registo** para o log em direto, ou Story se a narração estiver ativa. A saída chega em tempo real por WebSocket:
+Abra **Registo** (jobs simples) ou **Detalhe do registo** (execuções de loop) para o log em streaming, ou escolha Story quando a narração estiver ativa. A saída chega em tempo real por WebSocket:
 
 - **Auto-scroll** mantém o output mais recente à vista (faça scroll para cima e pausa, para poder ler).
 - **Pesquisa** para saltar para uma frase.
@@ -61,16 +67,23 @@ Abra **Registo → Detalhe do registo** para o log em direto, ou Story se a narr
 
 Esta é a verdade crua do que a IA está a fazer — cada chamada de ferramenta, cada edição de ficheiro, cada execução de teste.
 
-## Execuções de loop: o explorador de passos
+## Execuções de loop: o grafo e o registo de passos
 
-Numa **execução de loop** (ver [O Loop Builder](the-loop-builder)), **Registo → Grafo de execução** mostra o **explorador de passos**. Detalhe do registo oferece separadamente o log e, se ativa, a narração:
+Numa **execução de loop** (ver [O Loop Builder](the-loop-builder)), dois separadores mostram as evidências.
 
-- **A faixa de visão geral** no topo é o mapa ao vivo do loop — um chip por nó (Passo de IA, Shell, Decisor do Loop…), na ordem em que o grafo flui. Os chips vão acendendo à medida que a execução avança: esmaecidos enquanto esperam, pulsando enquanto correm, e depois um visto ou uma cruz. O chip de um Decisor mostra ainda o veredicto pelo qual encaminhou — voltar ao início ou seguir em frente — e um contador de iterações (`Iteração 3/10`) mantém a conta à direita. Clique em qualquer chip para saltar direto ao passo mais recente daquele nó.
+**Grafo de execução** é o workflow tal como correu. Está sempre expandido e acompanha o passo em execução, ou o que falhou:
+
+- **O caminho percorrido é sólido.** Os passos por onde a execução passou são desenhados a cheio; os que nunca alcançou ficam tracejados e esbatidos. Ative **Só o caminho percorrido** para ocultar o resto. A legenda fica em linha.
+- **Inspecionar um passo.** Selecione um nó para listar as suas tentativas com o estado e a duração. Clique numa tentativa para abrir o seu log em Detalhe do registo. **Repetir a partir daqui** fica na linha de cada tentativa terminada, para que uma execução ligada comece exatamente na tentativa que escolheu. Os ids técnicos estão em **Rastreio**.
+
+**Detalhe do registo** reúne o rasto de passos e o log, e abre no passo que falhou:
+
+- **A faixa de passos** no topo lista apenas os passos que a execução alcançou, por ordem, com um contador de iterações (`Iteração 3/10`) à direita. Os chips ficam esmaecidos enquanto esperam, pulsam enquanto correm, e depois mostram um visto ou uma cruz; o chip de um Decisor mostra ainda o veredicto pelo qual encaminhou. Clique num chip para saltar para esse passo.
 - **Uma caixa recolhível por passo.** Cada passagem por um nó vira a sua própria secção, com o número do passo, o nome, um selo de iteração, a duração ao terminar — e o seu próprio botão de copiar, para levar exatamente a saída de um passo. (O copiar da barra de ferramentas continua a levar o log inteiro.) Tudo o que foi impresso antes do primeiro passo — o banner de arranque, o aviso de worktree — fica arrumado numa secção de **Preparação**.
 - **O modo de acompanhamento** vem ligado por defeito: o passo em execução permanece aberto e com auto-scroll enquanto os anteriores se recolhem. No momento em que sobe o scroll ou abre um passo antigo, o acompanhamento pausa para poder ler — uma pílula flutuante **Retomar acompanhamento** devolve-o ao direto. **Expandir tudo / Recolher tudo** vivem na barra de ferramentas, e escrever na pesquisa procura em todos os passos ao mesmo tempo.
 - **Os passos interrompidos também são honestos.** Um passo que nunca chegou a reportar o seu desfecho — a execução foi cancelada ou a app fechou a meio do passo — é marcado como **Interrompido** com uma borda tracejada, em vez de fingir que terminou.
 
-A exploração do grafo e a posição pausada do log são preservadas ao mudar de secção. Os jobs sem loop mostram o detalhe sem controlo de grafo.
+A Story, quando a narração está ativa, é oferecida dentro de Detalhe do registo. A exploração do grafo e a posição pausada do log são preservadas ao mudar de separador.
 
 ## Fale com o job em execução
 
@@ -85,7 +98,7 @@ Algumas coisas que vale a pena saber:
 
 ## Exportação de diagnóstico
 
-Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um botão **Exportar diagnóstico** no cabeçalho. Descarrega um ZIP que contém:
+Se a [telemetria](../settings/pipeline-telemetry-and-diagnostics) estava ativada para o job, aparece um botão **Exportar diagnóstico** no cabeçalho. Descarrega um ZIP que contém:
 
 - `job-metadata.json` — comando, estado, perfil, plugins.
 - `telemetry.ndjson` — sinais OTLP/JSON não comprimidos.
@@ -97,7 +110,7 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 
 ## Quando uma execução falha
 
-Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre o **cartão de diagnóstico** com a causa e os motivos conhecidos. Não existe um resumo da causa acima dos separadores:
+Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com o **cartão de diagnóstico**, que explica a causa e porque aconteceu, quando se sabe. Quando o runtime registou que passo falhou, o cartão indica-o: o passo, a tentativa, a iteração e a hora. As causas:
 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
 - **Limite do provedor**: o limite de uso do provedor de IA foi atingido. O cartão cita quando ele é redefinido, com as palavras do próprio provedor.
@@ -107,10 +120,16 @@ Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre o **
 
 Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui: **Retomar a partir de** a fase que parou, **Executar novamente**, **Editar a spec e relançar** (os adendos da spec levam sua mudança para a próxima execução), **Corrigir o ambiente** e **Abrir o registro na falha**. A mesma causa aparece como um rótulo de uma linha na [lista de pendências](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
 
+### Análise de IA {#ai-failure-analysis}
+
+Por baixo do cartão, uma **Análise de IA** lê o log e explica porque a execução parou: a causa, **O que fazer**, e as linhas **Do log** em que se baseou, citadas palavra por palavra. Corre com o mesmo fornecedor e modelo que executaram o job, por isso a sua conta consegue sempre executá-la. Arranca sozinha, exceto quando a causa foi o limite do fornecedor; nesse caso carregue em **Analisar com IA**. A análise fica guardada com o job. Se o log mudar depois, ela indica-o e oferece **Analisar novamente**.
+
+A análise está identificada como uma leitura de IA e nunca substitui o cartão: o diagnóstico, a sua causa e os seus remédios continuam a ser o que a app registou. Confira as linhas que cita antes de agir com base nela. O seu custo conta na categoria **Suporte** em [Analytics](../insights/analytics-and-cost-tracking).
+
 ## Para onde ir a seguir
 
 - [Rails e jobs](rails-and-jobs) — lançar e enfileirar.
-- [Acompanhar o custo](../analytics/tracking-cost) — transformar os custos por job em analytics do projeto.
+- [Acompanhar o custo](../insights/analytics-and-cost-tracking) — transformar os custos por job em analytics do projeto.
 
 ## Após reiniciar um workflow
 

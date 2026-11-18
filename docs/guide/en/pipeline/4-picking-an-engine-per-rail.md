@@ -14,6 +14,6 @@ Claude and Codex have different adapters. Unsupported combinations should fail b
 
 A rail's provider/model choice controls its execution. The Freestyle loop from the gallery runs on every CLI provider and local engine; only Claude adds the interactive in-job chat. Role profiles and per-agent routing depend on the provider and on the Core workflow Desktop installed in the project; inspect the effective configuration rather than assuming a profile changes every call.
 
-When comparing runs, keep the same spec, repository revision and verification criteria. Treat reported, estimated and unavailable cost separately. See [profiles](/docs/agents-profiles-and-the-balanced-default) and [usage](/docs/insights-analytics-and-cost-tracking).
+When comparing runs, keep the same spec, repository revision and verification criteria. Treat reported, estimated and unavailable cost separately. See [profiles](../agents/profiles-and-the-balanced-default) and [usage](../insights/analytics-and-cost-tracking).
 
 For a mission launch, loop steps inherit the mission provider, model and effort unless an agent explicitly overrides them in the loop editor. General settings manage provider connections; the previous Provider defaults block and the Roles selector are no longer offered.

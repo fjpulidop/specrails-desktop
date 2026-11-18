@@ -14,6 +14,6 @@ Claude y Codex usan adaptadores distintos. Las combinaciones incompatibles deben
 
 El proveedor y modelo del rail controlan su ejecución. El loop Freestyle de la galería funciona con todos los proveedores CLI y motores locales; solo Claude añade el chat interactivo dentro del trabajo. Los perfiles y el enrutado por rol dependen del proveedor y del flujo de Core que Desktop instaló en el proyecto: revisa la configuración efectiva.
 
-Para comparar ejecuciones, conserva spec, revisión y criterios de verificación. Distingue costes reportados, estimados y no disponibles. Consulta [perfiles](/docs/agents-profiles-and-the-balanced-default) y [consumo](/docs/insights-analytics-and-cost-tracking).
+Para comparar ejecuciones, conserva spec, revisión y criterios de verificación. Distingue costes reportados, estimados y no disponibles. Consulta [perfiles](../agents/profiles-and-the-balanced-default) y [consumo](../insights/analytics-and-cost-tracking).
 
 Al lanzar desde una misión, los pasos del loop heredan su proveedor, modelo y esfuerzo salvo que se indiquen otros explícitamente en el editor del loop. Los ajustes generales gestionan las conexiones; ya no se ofrecen el bloque Valores por defecto del proveedor ni la opción Roles.

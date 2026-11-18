@@ -35,7 +35,12 @@ Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil
 
 - **Indicador de conexión** (izquierda) — un punto de color y una etiqueta que muestran que la app está activa: verde para *conectado*, ámbar mientras *reconecta*, azul mientras *sincroniza* justo después de una reconexión. Rara vez lo necesitarás, pero tranquiliza tenerlo.
 - **Gasto total** (derecha) — un total acumulado de lo que has gastado, para que el coste esté siempre a un solo vistazo.
+- **Recursos** (derecha) — cuánta CPU y memoria está usando ahora mismo todo lo que Specrails ha lanzado, y cuántos procesos. Haz clic para ver los totales, una tendencia de la memoria y el reparto por origen: misiones y chats, rails, loops y trabajos, procesos en segundo plano, terminales, CLIs de agentes, MCP y runners, Git y el propio servidor de Specrails. Despliega un origen para ver sus procesos.
 - **Botón de terminal** (extremo derecho) — abre el panel de terminal integrado. Pulsa **Cmd+J** (macOS) o **Ctrl+J** (Windows/Linux) para alternarlo en cualquier momento. Es una shell completa, abierta directamente en la carpeta de tu proyecto.
+
+## Ventanas propias
+
+En la app de escritorio, algunas pantallas se abren como ventanas reales en lugar de paneles dentro de la ventana principal: **Ajustes de la app**, el detalle de un trabajo abierto desde una misión, y **Loops** y **Plugins** en el modo Misión. Puedes moverlas a otra pantalla y seguir trabajando en la ventana principal. Cada una usa los controles de ventana del propio sistema; los Ajustes y la ventana del trabajo también se cierran con **Escape**. Los cambios que hagas ahí, como el tema o el idioma, se aplican a la ventana principal al momento. En la versión de navegador estas pantallas se abren como paneles.
 
 ## Algunos atajos prácticos {#shortcuts}
 

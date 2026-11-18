@@ -43,7 +43,7 @@ Wenn du feinere Kontrolle möchtest, klicke auf **Feinabstimmung**, um die zugru
 
 - **Spec erstellen** – befördert den Live-Entwurf zu einer echten Spec mit Status **To-do**. (Wenn du eine bestehende Spec bearbeitest, heißt diese Schaltfläche stattdessen **Spec aktualisieren** und patcht die Spec an Ort und Stelle.)
 - **Prüfen →** – öffnet ein Prüf-Overlay, das die vorgeschlagene Spec vor dem Commit gegen die Ausgangsbasis abgleicht, damit es keine Überraschungen gibt.
-- **Als Entwurf speichern** – speichert die Unterhaltung als Entwurfsticket, damit du sie später aufgreifen kannst. Verfügbar, sobald du mindestens eine Nachricht gesendet hast. Siehe unten.
+- **Als Entwurf speichern** – speichert die Unterhaltung als Entwurfs-Spec, damit du sie später aufgreifen kannst. Verfügbar, sobald du mindestens eine Nachricht gesendet hast. Siehe unten.
 - **Minimieren** – parkt die Unterhaltung als Chip im Dock der minimierten Chats unten links. Klicke jederzeit auf den Chip, um direkt in die Unterhaltung zurückzuspringen – nichts geht verloren.
 - **Verwerfen** – wirft die Unterhaltung weg (fragt vorher nach Bestätigung).
 
@@ -65,4 +65,4 @@ Wenn in deinem Projekt mehr als ein KI-Provider installiert ist, lässt dich ein
 
 - [Entwürfe & der Contract Layer](drafts-and-contract-layer.md) – Arbeit zwischenspeichern und Specs für die Pipeline anreichern.
 - [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md) – wenn die Idee schon klar ist.
-- [Pipelines ausführen](running-pipelines.md) – setze deine Spec um, sobald sie bereit ist.
+- [Pipelines ausführen](../pipeline/rails-and-jobs) – setze deine Spec um, sobald sie bereit ist.

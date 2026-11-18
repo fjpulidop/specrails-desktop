@@ -4,9 +4,15 @@ Pulsa cualquier tarjeta de trabajo en la página **Trabajos** y aterrizas aquí:
 
 ## La distribución
 
-La cabecera compacta conserva estado, duración, fase, acciones y chips del pipeline. Debajo, **Motivos del fallo** se selecciona al abrir una ejecución fallida o cancelada con diagnóstico; las demás abren **Registro**. Una pregunta pendiente que admita respuesta también habilita Motivos del fallo: pulsa el botón de pregunta de la cabecera para abrir Detalles y responder, incluso sin diagnóstico.
+La cabecera compacta conserva estado, duración, fase, acciones y chips del pipeline. Justo debajo, **una única fila de navegación** reúne todo lo que puedes consultar:
 
-Motivos del fallo contiene causa, soluciones y **Detalles** en un panel acotado con desplazamiento interno. Si esa pestaña no está disponible, Detalles permanece en Registro. Los loops ofrecen **Grafo de ejecución** y **Detalle del registro**; los demás trabajos solo el detalle. La sección y la expansión de Detalles se recuerdan por separado para página y modal de misión; la pestaña principal se restablece en cada visita. El compositor permanece debajo.
+- **Motivos del fallo** — presente en una ejecución fallida o cancelada con diagnóstico, y seleccionada primero. Una pregunta pendiente que admita respuesta también la habilita: pulsa el botón de pregunta de la cabecera para abrir Detalles y responder, incluso sin diagnóstico.
+- **Grafo de ejecución** y **Detalle del registro** — en las ejecuciones de loop, el grafo del workflow y el registro paso a paso.
+- **Registro** — en los trabajos normales, el log en streaming.
+
+El desplegable acotado **Detalles** (cifras reales y controles de ejecución) acompaña a Motivos del fallo cuando esa pestaña existe, y al registro en caso contrario. La última sección del registro que elegiste y si Detalles está expandido se recuerdan por separado para la página y para la ventana de la misión; la pestaña seleccionada se restablece en cada visita. El compositor permanece debajo de la evidencia.
+
+En la app de escritorio, un trabajo abierto desde una misión se muestra en **su propia ventana**, una ventana por trabajo. Pulsa **Escape** o cierra la ventana para volver; la versión de navegador muestra el mismo contenido en un modal.
 
 ## Fases del pipeline
 
@@ -53,7 +59,7 @@ Pulsar un chip abre el detalle de esa spec **sobre la página del trabajo** — 
 
 ## El log en streaming
 
-Abre **Registro → Detalle del registro** para ver el log en streaming, o Story si la narración está habilitada. La salida llega en tiempo real por WebSocket:
+Abre **Registro** (trabajos normales) o **Detalle del registro** (ejecuciones de loop) para ver el log en streaming, o elige Story si la narración está habilitada. La salida llega en tiempo real por WebSocket:
 
 - **Auto-scroll** mantiene a la vista la salida más reciente (sube el scroll y se pausa para que puedas leer).
 - **Búsqueda** para saltar a una frase.
@@ -61,16 +67,23 @@ Abre **Registro → Detalle del registro** para ver el log en streaming, o Story
 
 Esta es la verdad en bruto de lo que está haciendo la IA — cada llamada a una herramienta, cada edición de archivo, cada ejecución de tests.
 
-## Ejecuciones de loop: el explorador de pasos
+## Ejecuciones de loop: el grafo y el registro por pasos
 
-En una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), **Registro → Grafo de ejecución** muestra el **explorador de pasos**. Detalle del registro ofrece por separado el log y, si está habilitada, la narración:
+En una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), dos pestañas muestran la evidencia.
 
-- **La franja de resumen** de arriba es el mapa en vivo del loop — un chip por nodo (Paso de IA, Shell, Loop Decider…), en el orden en que fluye el grafo. Los chips se van encendiendo según avanza la ejecución: atenuados mientras esperan, con pulso mientras corren, y después un check o una cruz. El chip de un Decider muestra además el veredicto por el que enrutó — volver atrás o seguir adelante — y un contador de iteraciones (`Iteración 3/10`) lleva la cuenta a la derecha. Pulsa cualquier chip para saltar directo al último paso de ese nodo.
+**Grafo de ejecución** es el workflow tal como se ejecutó. Siempre está expandido y sigue el paso en ejecución, o el que falló:
+
+- **El camino recorrido es continuo.** Los pasos por los que pasó la ejecución se dibujan con trazo continuo; los que nunca alcanzó, discontinuos y atenuados. Activa **Solo el camino recorrido** para ocultar el resto. Una leyenda aparece en línea.
+- **Inspecciona un paso.** Selecciona un nodo para listar sus intentos con su estado y su duración. Pulsa un intento para abrir su log en Detalle del registro. **Repetir desde aquí** está en la fila de cada intento terminado, así que una ejecución enlazada arranca exactamente desde el intento que elegiste. Los ids técnicos están en **Traza**.
+
+**Detalle del registro** reúne el recorrido de pasos y el log, y se abre en el paso que falló:
+
+- **La franja de pasos** de arriba lista solo los pasos que alcanzó la ejecución, en orden, con un contador de iteraciones (`Iteración 3/10`) a la derecha. Los chips están atenuados mientras esperan, laten mientras corren y después muestran un check o una cruz; el chip de un Decider muestra además el veredicto por el que enrutó. Pulsa un chip para saltar a ese paso.
 - **Una caja plegable por paso.** Cada pasada sobre un nodo se convierte en su propia sección, con el número de paso, su nombre, una insignia de iteración, su duración al terminar — y su propio botón de copiar, para que te lleves exactamente la salida de un paso. (El copiar de la barra superior sigue llevándose el log entero.) Todo lo impreso antes del primer paso — el banner de arranque, el aviso de worktree — queda recogido en una sección de **Preparación**.
 - **El modo seguimiento** viene activado por defecto: el paso en ejecución permanece abierto y con auto-scroll mientras los anteriores se pliegan para no estorbar. En cuanto subes el scroll o abres un paso antiguo, el seguimiento se pausa para que puedas leer — una píldora flotante **Reanudar seguimiento** te devuelve al directo. **Expandir todo / Contraer todo** viven en la barra superior, y escribir en el buscador busca en todos los pasos a la vez.
 - **Los pasos interrumpidos también son honestos.** Un paso que nunca llegó a reportar su resultado — la ejecución se canceló o la app se cerró a mitad de paso — se marca como **Interrumpido** con un borde discontinuo, en lugar de fingir que terminó.
 
-La exploración del grafo y el desplazamiento pausado del log se conservan al cambiar de sección. Los trabajos sin loop muestran el detalle sin control de grafo.
+Story, si la narración está habilitada, se ofrece dentro de Detalle del registro. La exploración del grafo y el desplazamiento pausado del log se conservan al cambiar de pestaña.
 
 ## Habla con el trabajo en marcha
 
@@ -85,7 +98,7 @@ Algunas cosas que conviene saber:
 
 ## Exportar diagnóstico
 
-Si la [telemetría](../settings/customizing) estaba activada para el trabajo, aparece un botón **Exportar diagnóstico** en la cabecera. Descarga un ZIP que contiene:
+Si la [telemetría](../settings/pipeline-telemetry-and-diagnostics) estaba activada para el trabajo, aparece un botón **Exportar diagnóstico** en la cabecera. Descarga un ZIP que contiene:
 
 - `job-metadata.json` — comando, estado, perfil, plugins.
 - `telemetry.ndjson` — señales OTLP/JSON sin comprimir.
@@ -97,7 +110,7 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 
 ## Cuando una ejecución falla
 
-En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre la **tarjeta de diagnóstico** con la causa y, cuando se conoce, el motivo. No aparece un resumen de causa encima de las pestañas:
+En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre con la **tarjeta de diagnóstico**, que explica la causa y, cuando se conoce, por qué ocurrió. Cuando la ejecución registró qué paso falló, la tarjeta lo indica: el paso, el intento, la iteración y la hora. Las causas:
 
 - **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
 - **Límite del proveedor**: se alcanzó el límite de uso del proveedor de IA. La tarjeta cita cuándo se restablece, con las palabras del propio proveedor.
@@ -107,10 +120,16 @@ En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre l
 
 Bajo el diagnóstico hay hasta tres remedios ordenados, y solo los que pueden funcionar aquí: **Reanudar desde** la fase que se detuvo, **Ejecutar de nuevo**, **Editar la spec y relanzar** (los anexos de la spec llevan tu cambio a la siguiente ejecución), **Arreglar el entorno** y **Abrir el registro en el fallo**. La misma causa aparece como una etiqueta de una línea en la [lista de pendientes](../getting-started/the-dashboard-tour) y la tarjeta de ejecución de la misión muestra la misma tarjeta.
 
+### Análisis de IA {#ai-failure-analysis}
+
+Bajo la tarjeta, un **Análisis de IA** lee el registro y explica por qué se detuvo la ejecución: la causa, **Qué hacer** y las líneas **Del registro** en las que se basó, citadas palabra por palabra. Se ejecuta con el mismo proveedor y modelo que ejecutaron el trabajo, así que tu cuenta siempre puede ejecutarlo. Arranca solo, salvo cuando la causa fue el límite del proveedor; en ese caso pulsa **Analizar con IA**. El análisis se guarda con el trabajo. Si después cambia el registro, lo indica y ofrece **Analizar de nuevo**.
+
+El análisis se etiqueta como una lectura de la IA y nunca sustituye a la tarjeta: el diagnóstico, su causa y sus remedios siguen siendo lo que registró la app. Revisa las líneas que cita antes de actuar. Su coste cuenta en **Soporte** dentro de [Analíticas](../insights/analytics-and-cost-tracking).
+
 ## A dónde ir después
 
 - [Rails y trabajos](rails-and-jobs) — lanzamiento y encolado.
-- [Seguimiento de costes](../analytics/tracking-cost) — convierte los costes por trabajo en analíticas de proyecto.
+- [Seguimiento de costes](../insights/analytics-and-cost-tracking) — convierte los costes por trabajo en analíticas de proyecto.
 
 ## Después de reiniciar un workflow
 

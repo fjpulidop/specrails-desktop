@@ -84,6 +84,16 @@ independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 <!-- audit-client-features:end -->
 
+## Structure of the large surfaces
+
+[AgentChatContext](context/AgentChatContext.tsx) is a thin provider that composes focused hooks in
+[context/agent-chat/](context/agent-chat/) (core state, sending, WebSocket events, resync, conversation
+list/loader/actions/settings, unread and attention marks, compose drafts); its context value and memo
+dependencies are part of the contract. [AgentPrDecisionCard](components/AgentPrDecisionCard.tsx) renders from
+`usePrDecisionCardModel` in [components/pr-decision-card/](components/pr-decision-card/), which composes action,
+CI-fix, run-control, confirm and focus hooks with one section component per card state; the card keeps one root
+element so its DOM node and focus survive state changes.
+
 ## Runs in a mission: one strip, a history of events
 
 A mission shows its live runs in ONE place: the run strip above the composer

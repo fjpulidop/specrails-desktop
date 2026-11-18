@@ -408,8 +408,8 @@ Relaunch and `stoppedDelivery` reads the findings; Back to Intent closes parent
 and child in the same transaction. The settlement reads the derived change
 from the Intent repository.
 
-See [Intent → Spec loop](#flow--spec-loop) and [Settlement](#settlement) for
-what happens after the hand-off, and [Back to Intent](#back-to-flow-and-relaunch)
+See [Intent → Spec loop](#intent--spec-loop) and [Settlement](#settlement) for
+what happens after the hand-off, and [Back to Intent](#back-to-intent-and-relaunch)
 for a run that stopped with requested changes.
 
 ### Mode boundaries

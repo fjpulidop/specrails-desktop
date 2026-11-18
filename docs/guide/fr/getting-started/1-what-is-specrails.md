@@ -8,7 +8,7 @@ Au lieu de copier-coller des prompts dans tous les sens, vous décrivez ce que v
 
 Le cœur de specrails repose sur une idée simple : **la meilleure façon d'obtenir du bon code d'une IA, c'est de partir d'une spec claire.**
 
-Une *spec*, c'est une description courte et structurée d'un seul morceau de travail — une fonctionnalité, un correctif, un refactoring. Vous pouvez en rédiger une en quelques secondes, ou la façonner au fil d'un chat guidé qui pose les bonnes questions et la rédige pour vous. Chaque spec devient un **ticket** sur le tableau de votre projet, tout comme une tâche dans n'importe quel outil de suivi.
+Une *spec*, c'est une description courte et structurée d'un seul morceau de travail — une fonctionnalité, un correctif, un refactoring. Vous pouvez en rédiger une en quelques secondes, ou la façonner au fil d'un chat guidé qui pose les bonnes questions et la rédige pour vous. Chaque spec devient une **spec** sur le tableau de votre projet, tout comme une tâche dans n'importe quel outil de suivi.
 
 À partir de là, vous confiez la spec au pipeline et vous laissez l'IA faire le gros du travail.
 

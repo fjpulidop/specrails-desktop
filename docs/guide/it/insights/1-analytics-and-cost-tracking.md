@@ -6,74 +6,80 @@ Aprila dalla barra laterale destra (è etichettata **Analytics**). Tutto ciò ch
 
 ## Cosa conta come spesa
 
-Specrails etichetta ogni esecuzione AI con un'*origine*: la parte dell'app che ha generato la spesa. Le origini principali hanno ciascuna un colore fisso e un proprio chip di filtro, così le riconosci a colpo d'occhio:
+Conta ogni chiamata AI del progetto: i job della pipeline e i passi dei loop, la scrittura delle spec, i riepiloghi dei file, le chat laterali, la diagnosi dei fallimenti, e le missioni e i turni Intent che esegui con l'agente mentre è fissato a questo progetto. Le missioni nella Home (senza progetto fissato) non appartengono a nessun progetto e qui non vengono contate.
 
-- **Job** — un job della pipeline messo in coda (Architect → Developer → Reviewer → Ship), comprese le esecuzioni Freestyle.
-- **Loop** — ogni passo AI di un'esecuzione di loop. I rail girano come loop per impostazione predefinita, quindi gran parte della spesa dei rail finisce qui.
-- **Quick** — una spec generata tramite il percorso rapido di Add Spec.
-- **Explore** — una conversazione Explore in cui dai forma a una spec chiacchierando.
-- **Raffinamento** — un raffinamento assistito dall'AI su un agente o su un file.
-- **SMASH** — la suddivisione di una spec epica in spec più piccole.
-- **Riepiloghi file** — i riepiloghi in linguaggio semplice e le storie dei file che alimentano il Code explorer.
+Ogni chiamata è etichettata con l'*origine* che l'ha generata, e ogni origine appartiene a una di cinque **categorie** che dicono *perché* sono stati spesi i soldi:
 
-Vengono tracciate anche origini minori, senza un chip proprio: la chat nella barra laterale, il launcher di spec OpenSpec, le proposte di spec, Agent Studio e la vecchia chat di setup. Anche le missioni fissate al progetto contano nella sua spesa. Nulla di ciò che esegue una CLI AI viene escluso, quindi i totali riflettono tutta l'attività AI del progetto.
+- **Implementazione** — costruire spec con rail, loop e job.
+- **Missioni** — parlare con l'agente e modalità Intent (turni di missione, turni Intent e la riscrittura della spec di Intent).
+- **Spec** — scrivere e rifinire spec: spec Quick ed Explore, raffinamento, suddivisione, l'avvio spec, le proposte e il triage.
+- **Codice** — spiegare il codice: riepiloghi dei file e storie dei file.
+- **Supporto** — configurazione, diagnosi e chat laterali: analisi dei fallimenti, configurazione, Agent Studio e la chat nella barra laterale.
 
 ## Leggere la dashboard
 
-La pagina è composta da una manciata di blocchi, dall'alto verso il basso:
+La pagina si legge dall'alto verso il basso come *quanto → in cosa e perché → quando → con quali modelli → le singole chiamate*.
 
-### Il meter di consumo (Hero)
+### Quanto (Hero)
 
-Il grande numero in cima è la tua spesa totale per il periodo selezionato, con un delta **vs prec.** che ti permette di capire al volo se la tendenza è in salita o in discesa rispetto alla finestra precedente. Se hai appena iniziato a usare un progetto, lo stato vuoto ti dice quando è cominciato il tracciamento ("Tracciamento iniziato il YYYY-MM-DD") — non c'è alcun recupero dei dati storici, quindi il meter conosce solo le esecuzioni avvenute mentre eri su questa versione.
+Il grande numero in cima è la tua spesa totale per il periodo selezionato, con un delta **vs prec.** che ti permette di capire al volo se la tendenza è in salita o in discesa rispetto alla finestra precedente. Quando ogni motore è su un piano in abbonamento, la cifra è indicata come *Stima equivalente in API*: quanto costerebbero le chiamate ai prezzi delle API, non denaro effettivamente addebitato. Se hai appena iniziato a usare un progetto, lo stato vuoto ti dice quando è cominciato il tracciamento.
+
+### Dove sono finiti i soldi
+
+Una riga per categoria con il suo costo, la sua quota del totale, il numero di chiamate e di token e un motivo in una riga. La parte tratteggiata di una barra è costo stimato (motori che non riportano il costo in modo nativo). Apri una categoria per vedere le origini che la compongono, e clicca su una per filtrare l'intera pagina su di essa. La categoria Missioni elenca anche le tue conversazioni più costose.
 
 ### Timeline giornaliera
 
-Un grafico a barre impilate della spesa per giorno, suddivisa per origine. I giorni senza attività sono mostrati come zero anziché saltati, così la forma della tua settimana resta onesta. È il modo più rapido per vedere *quando* è stato eseguito un batch costoso.
+Un grafico a barre impilate della spesa per giorno, suddivisa per origine, con le missioni nel loro colore. I giorni senza attività sono mostrati come zero anziché saltati. È il modo più rapido per vedere *quando* è stato eseguito un batch costoso.
 
-### Quick vs Explore
+### Budget
 
-Una scheda affiancata che confronta i tuoi due stili di creazione delle spec. Se hai eseguito meno di cinque sessioni Explore, mostra un gentile invito all'azione invece di medie fuorvianti — i campioni piccoli non danno confronti affidabili.
+I tuoi limiti giornaliero, settimanale, mensile e per esecuzione, la proiezione a fine mese e il ricalcolo "e se" (vedi sotto).
 
-### Per modello
+### Motori e modelli
 
-I tuoi modelli più costosi per spesa (fino a dieci). Clicca un modello qualsiasi per filtrare l'intera dashboard solo su quel modello — comodo quando vuoi sapere quanto ti sta costando davvero un particolare modello di fascia alta.
+La spesa per motore (nei progetti con più di uno) e i tuoi modelli principali per spesa. Clicca un modello qualsiasi per filtrare l'intera dashboard solo su quel modello.
 
-### Dispersione Costo vs Turni
+### Top spec
 
-Ogni punto è un'invocazione, che mette in relazione il costo con il numero di turni. I valori anomali — le esecuzioni costose e con molti turni — saltano subito all'occhio. (La dispersione mostra i tuoi 500 punti più recenti per restare reattiva.)
-
-### Top ticket
-
-I dieci ticket più costosi su *tutte* le origini messe insieme, così un ticket che è costato poco in Explore e molto in un job mostra il suo totale reale. I ticket eliminati e le esecuzioni non attribuite hanno i loro contenitori dedicati, così nulla scompare silenziosamente dai totali.
+Le tue dieci spec più costose su *tutte* le origini messe insieme, così una spec che è costata poco in Explore e molto in un job mostra il suo totale reale. I turni di missione non hanno una spec, quindi qui non compaiono.
 
 ### Tabella delle invocazioni grezze
 
-La verità di base: una riga per invocazione. Questo blocco ha i propri filtri secondari, che agiscono solo sulla tabella, così puoi approfondire senza disturbare i grafici sopra.
+La verità di base: una riga per chiamata. La colonna **Motivo** mostra l'origine e la sua categoria; le righe di missione e Intent mostrano la conversazione a cui appartengono. Questo blocco ha i propri filtri secondari, che agiscono solo sulla tabella.
+
+### Altre ripartizioni
+
+Compresse per impostazione predefinita: tempo alla decisione e al merge, economia per loop, la dispersione costo vs turni e il confronto Quick vs Explore.
 
 ## Filtri
 
-L'intestazione fissa in cima porta i due filtri principali — **periodo** e **origine** — ed entrambi vengono salvati nell'URL della pagina. Questo significa che puoi aggiungere ai segnalibri o condividere una vista filtrata ("ultimi 30 giorni, solo job") e si riaprirà esattamente come l'avevi lasciata. I filtri della tabella grezza sono separati e restano locali a quel blocco.
+L'intestazione fissa porta i filtri principali — **periodo**, **categoria** e (nei progetti con più motori) **motore** — e tutti vengono salvati nell'URL della pagina, così puoi aggiungere ai segnalibri o condividere una vista filtrata ("ultimi 30 giorni, solo missioni"). Passa il cursore su un chip di categoria per vedere cosa comprende. Una singola origine si può selezionare dalla scheda *Dove sono finiti i soldi* (o con `?surface=` nell'URL); un chip rimovibile nell'intestazione la mostra. I filtri della tabella grezza sono separati e restano locali a quel blocco.
 
 Una nota sull'accuratezza: le esecuzioni fallite e interrotte vengono tenute fuori dalle *medie di costo* (distorcerebbero i numeri per esecuzione), ma contano comunque nel conteggio totale delle esecuzioni e nel tasso di fallimento. Così le medie restano pulite e il quadro sull'affidabilità resta completo.
 
-## Costo per ticket
+## Costo per spec
 
-Non devi venire alla pagina Analytics per vedere quanto è costata una spec. Apri un ticket qualsiasi e, se ha una spesa associata, vedrai un riepilogo su una riga proprio sotto il titolo:
+Non devi venire alla pagina Analytics per vedere quanto è costata una spec. Apri una spec qualsiasi e, se ha una spesa associata, vedrai un riepilogo su una riga proprio sotto il titolo:
 
 > $0.42 · 6 turni · 1m 12s attivi · dettaglio
 
-Cliccaci e atterri sulla pagina Analytics già filtrata su quel ticket. È il percorso più rapido da "quanto mi è costata questa funzionalità?" al dettaglio completo.
+Cliccaci e atterri sulla pagina Analytics già filtrata su quella spec. È il percorso più rapido da "quanto mi è costata questa funzionalità?" al dettaglio completo.
+
+## Tutti i progetti {#all-projects}
+
+Per il quadro di tutti i progetti, apri **Analytics** dalla barra laterale sinistra o dalla palette dei comandi. Mostra costo totale, job e tasso di successo, il costo nel tempo e una riga per progetto, e usa le stesse cinque categorie e gli stessi colori della pagina del progetto. I turni di missione e Intent contano in ogni cifra. I turni che non appartengono a nessun progetto caricato, come le missioni nella Home e le chat di Blueprint o Builder, sono raggruppati in un'unica riga **Home e Blueprint**, contata in turni dell'agente invece che in job. Il costo stimato è indicato con `~`, come nella pagina del progetto.
 
 ## Esportare i tuoi dati
 
 Quando ti servono i numeri fuori dall'app — un foglio di calcolo, un report finanziario, la tua analisi — usa il menu a tendina **Export**. Offre quattro formati:
 
-- **CSV riepilogo** — un file multi-sezione con totali, timeline giornaliera, per origine, per modello e top ticket.
+- **CSV riepilogo** — un file multi-sezione con totali, timeline giornaliera, per categoria, per origine, per modello e top spec.
 - **JSON riepilogo** — lo stesso riepilogo, strutturato.
 - **CSV raw** — ogni riga di invocazione (fino a 10.000; segnala se ha dovuto troncare).
 - **JSON raw** — le stesse righe grezze, strutturate.
 
-Le esportazioni rispettano i filtri di periodo e origine che hai attualmente applicato, e i file vengono nominati in modo da ordinarsi in modo sensato: `<project>-analytics-<period>-<date>.csv`. Il pulsante è disabilitato quando non c'è nulla da esportare, e riceverai un chiaro toast di errore se un download fallisce.
+Le esportazioni rispettano i filtri di periodo, categoria e origine che hai attualmente applicato, e i file vengono nominati in modo da ordinarsi in modo sensato: `<project>-analytics-<period>-<date>.csv`. Il pulsante è disabilitato quando non c'è nulla da esportare, e riceverai un chiaro toast di errore se un download fallisce.
 
 ## Sempre aggiornato
 
@@ -85,7 +91,7 @@ Imposta un budget giornaliero per limitare quanto può costare una giornata. Tut
 
 Quando la spesa registrata della giornata raggiunge un budget, la coda si mette in pausa da sola, i rail e le esecuzioni dei loop non partono e mostrano *Budget giornaliero raggiunto*, e un’esecuzione di loop in corso si ferma tra un passo e l’altro, in pausa per il budget. Aumenta o rimuovi il budget, oppure attendi il reset giornaliero, poi riprendi.
 
-Il budget del progetto conta la tua giornata locale; quello dell’intera app conta la giornata UTC. L’avviso di costo per job è un’impostazione separata.
+Entrambi i budget contano la tua giornata locale ed entrambi includono la spesa delle missioni: il budget di un progetto conta i turni fissati a quel progetto, quello dell’intera app conta ogni turno. "Oggi" indica la tua giornata locale ovunque nell’app, nella barra di stato, in Analytics e nei budget. L’avviso di costo per job è un’impostazione separata.
 
 **Limiti settimanali, mensili e per esecuzione.** I limiti più lunghi funzionano allo stesso modo. Apri **Analisi → Budget** per impostare un limite **settimanale** e uno **mensile**, per progetto e per l’intera app, e un **limite morbido per esecuzione** (*metti in pausa e chiedi a $X*). Le settimane iniziano il lunedì e i mesi il giorno 1, nel tuo fuso orario locale. Un limite settimanale o mensile mette in pausa le code, rifiuta gli avvii e ferma i loop in corso esattamente come il budget giornaliero; aumentalo o rimuovilo lì, oppure aspetta il ripristino. Quando il costo riportato di un’esecuzione raggiunge il limite per esecuzione, si mette in pausa e **Riprendi** chiede se continuare senza il limite o aumentarlo. Raggiungere un limite aggiunge anche un elemento **Aumenta limite** alla posta in arrivo.
 

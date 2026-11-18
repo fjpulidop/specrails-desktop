@@ -151,12 +151,13 @@ Click a card to open the **Job Detail page**.
 
 ### Job Detail page
 
-Two panels sit above the streaming log:
+A compact status header (status, live duration, current activity, steps and actions) and the spec chips sit above one navigation row:
 
-- **Status header** — a status icon and a live duration timer (the one genuinely live number), plus an activity line showing what the job is doing right now and a count of steps taken. Cost, turns, and tokens are deliberately **not** estimated mid-run — they show as pending and are revealed with their final, authoritative values when the job exits.
-- **Ticket header** — chips for every spec the job touched (matched from the launched command). Click a chip to open that spec's detail over the job page without leaving it. With four or more tickets, the chips collapse into a `+N more` mode you can expand.
+- **Failure reasons** — for a failed or canceled run with a diagnosis (or a pending question): the diagnosis card with ranked remedies and an **AI analysis** of the log on the job's own provider and model, with verbatim evidence.
+- **Execution graph** and **Log detail** — for loop runs: the workflow graph with the path taken, attempts and **Repeat from here**, and the step-by-step log that opens on the failed step.
+- **Log** — for plain jobs: the streaming log with auto-scroll, search and copy.
 
-Below: the full streaming log with auto-scroll, search, and copy.
+Cost, turns and tokens are deliberately **not** estimated mid-run; the bounded **Details** disclosure shows them once the provider reports them. In the desktop app, a job opened from a mission shows in its own window. The [guide page](guide/en/pipeline/2-the-job-detail-view.md) describes each view.
 
 ### Cancelling a job
 

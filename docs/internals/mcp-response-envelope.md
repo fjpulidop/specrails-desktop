@@ -208,6 +208,4 @@ characters), using the recovery module's `logLinesFromEvents`.
   the detail instead.
 - `spendToday` and `specrails_spend(period:"today")` ask the analytics route for
   the local day as exact UTC instants.
-- The in-app mission prompts still name the legacy `specrails_jobs(runtime_*)`
-  and `specrails_jobs(background_*)` actions; they run through the aliases.
 - `specrails_runs` has no `fork`: the runtime exposes no fork route.

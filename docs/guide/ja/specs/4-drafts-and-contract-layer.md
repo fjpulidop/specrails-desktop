@@ -78,4 +78,4 @@ Contract Layer を適用する方法は 3 つあります。
 
 - [スペックを追加 — Explore モード](add-spec-explore-mode.md) — 下書きはここから生まれます。
 - [スペックを追加 — クイックモード](add-spec-quick-mode.md) — クイックモードの Contract Layer トグル。
-- [パイプラインを実行する](running-pipelines.md) — スペックが整ったら実装する。
+- [パイプラインを実行する](../pipeline/rails-and-jobs) — スペックが整ったら実装する。

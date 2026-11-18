@@ -32,6 +32,12 @@ Une exécution terminée ne vous demande qu'une chose : que faire de son résult
 
 Si une action échoue, la notification dit ce qui n'a pas pu être fait et propose **Réessayer**.
 
+## Laisser Specrails garder la PR au vert {#pr-ci}
+
+Après avoir créé une PR depuis une mission, la conversation propose **Surveiller et corriger la CI de la PR #N**. C'est facultatif et cela ne démarre jamais tout seul. Choisissez **Démarrer** et Specrails attend les checks de la PR, corrige ceux qui échouent, résout les conflits avec la branche de base en la fusionnant, vérifie le résultat sur votre ordinateur et pousse la correction dans la même PR, jusqu'à ce que les checks soient au vert. Vous pouvez suivre l'avancement dans le bandeau d'exécution (« En attente de la CI », « Correction des checks en échec », « Envoi de la correction dans la PR »).
+
+Il ne fait jamais de force-push, ne réécrit jamais la branche, n'affaiblit jamais un check, et ne publie, ne fusionne ni ne ferme jamais la PR : ces décisions restent les vôtres. S'il ne peut pas terminer (les checks continuent d'échouer, un check requis ne remonte jamais, il lui faut un secret que vous seul pouvez fournir), il s'arrête et dit pourquoi. **Pas maintenant** masque la proposition pour cette livraison. Vous pouvez la lancer plus tard avec **Corriger CI / Conflits** dans **Plus d'actions** sur la carte de la PR ou sur le rail.
+
 ## Clavier
 
 | Touche | Action |

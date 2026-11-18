@@ -78,4 +78,4 @@ Nem sempre. Para uma spec pequena e autocontida, a IA consegue implementá-la be
 
 - [Adicionar Spec — modo Explore](add-spec-explore-mode.md) — de onde vêm os rascunhos.
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — o interruptor do Contract Layer no modo Quick.
-- [Executar pipelines](running-pipelines.md) — implemente uma spec assim que estiver pronta.
+- [Executar pipelines](../pipeline/rails-and-jobs) — implemente uma spec assim que estiver pronta.

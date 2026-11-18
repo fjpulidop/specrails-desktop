@@ -32,6 +32,12 @@ Un'esecuzione conclusa ti chiede una sola cosa: cosa fare del risultato. La sche
 
 Se un'azione fallisce, l'avviso dice cosa non è andato a buon fine e offre **Riprova**.
 
+## Lascia che Specrails tenga verde la PR {#pr-ci}
+
+Dopo che hai creato una PR da una missione, la conversazione offre **Monitora e correggi la CI della PR #N**. È facoltativo e non parte mai da solo. Scegli **Avvia** e Specrails attende i check della PR, corregge quelli che falliscono, risolve i conflitti con il branch di base facendone il merge, verifica il risultato sul tuo computer e invia la correzione alla stessa PR, finché i check non sono verdi. Puoi seguirlo nella striscia delle esecuzioni («In attesa della CI», «Correzione dei check che falliscono», «Invio della correzione alla PR»).
+
+Non fa mai force push, non riscrive mai il branch, non indebolisce mai un check e non pubblica, non fa il merge né chiude la PR: queste decisioni restano tue. Se non riesce a finire (i check continuano a fallire, un check obbligatorio non riporta mai, serve un segreto che solo tu puoi fornire), si ferma e dice perché. **Non ora** nasconde l'offerta per questa consegna. Puoi avviarlo più tardi con **Correggi CI** in **Altre azioni** sulla scheda della PR o sul rail.
+
 ## Tastiera
 
 | Tasto | Azione |

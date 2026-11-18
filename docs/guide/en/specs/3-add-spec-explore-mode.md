@@ -65,4 +65,4 @@ If your project has more than one AI provider installed, an engine selector lets
 
 - [Drafts & the Contract Layer](drafts-and-contract-layer.md) — saving work in progress and enriching specs for the pipeline.
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — when the idea is already clear.
-- [Running pipelines](running-pipelines.md) — implement your spec once it's ready.
+- [Running pipelines](../pipeline/rails-and-jobs) — implement your spec once it's ready.

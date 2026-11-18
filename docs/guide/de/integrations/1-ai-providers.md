@@ -1,38 +1,19 @@
-# KI-Anbieter (Claude, Codex) {#ai-providers}
+<!-- guide-revision: mission-first-v1 -->
 
-## Die zwei Anbieter
+# Einen KI-Anbieter verbinden {#ai-providers}
 
-| Anbieter | CLI | Hersteller | Hinweise |
-|---|---|---|---|
-| **Claude** | `claude` | Anthropic | Native Kosten und persistenter interaktiver Transport. |
-| **Codex** | `codex` | OpenAI | Benötigt codex `0.128.0+`. Liest seine MCP-Server aus deiner globalen `~/.codex/config.toml`. |
+Specrails koordiniert dein angemeldetes Claude- oder Codex-CLI. Die Installation des Anbieters, der Kontozugang und die Abrechnung der Modelle bleiben von der Anwendung getrennt.
 
-## Anbieter werden automatisch erkannt
+## Verbinden und prüfen
 
-Wenn ein gewünschter Anbieter nirgends auftaucht, liegt es fast immer daran,
-dass das CLI nicht installiert oder nicht im `PATH` ist. Installiere es, melde
-dich an und wechsle zurück zur App — die Erkennung läuft beim Fokussieren
-erneut und der Anbieter erscheint von selbst überall, seine Workspace-Oberfläche
-wird im Hintergrund zusammengebaut. Ein installierter, aber nicht angemeldeter
-Anbieter erscheint trotzdem, mit einem *Nicht angemeldet*-Badge in den
-Engine-Auswahlmenüs.
+Installiere das gewünschte CLI nach seiner offiziellen Anleitung und melde dich mit dem Konto an, das du nutzen möchtest. Prüfe die Verfügbarkeit in Specrails und wähle dann ein unterstütztes Modell und die Einstellungen für die Mission oder das Rail.
 
-Wissenswertes zu Maschinen mit mehreren Anbietern:
+Eine erfolgreiche Erkennung garantiert weder Kontingent noch Netzwerkverfügbarkeit für den nächsten Aufruf. Behebe Anmelde- und Kompatibilitätsfehler, bevor du eine Umsetzung erneut versuchst.
 
-- **Ein einzelner Anbieter verhält sich exakt wie zuvor.** Wird nur einer erkannt, siehst du nirgendwo einen Anbieter-Picker — die App bleibt schlicht und einfach.
-- **Nichts ist fixiert.** Das Installieren oder Entfernen eines Anbieter-CLIs
-  aktualisiert alle Projekte automatisch — es gibt keine Anbieter-Einstellung pro
-  Projekt zu verwalten.
+## Die Grenze verstehen
 
-## Pro Aufruf einen Anbieter wählen
+Die App speichert Projektdaten lokal, während Modellanfragen und eingerichtete Integrationen Kontext außerhalb deines Rechners senden können. Wähle die Referenzen und Anhänge, die du mitgibst, mit diesem Wissen aus.
 
-Der eigentliche Gewinn eines Multi-Anbieter-Projekts liegt darin, für jede Aufgabe die richtige KI zu wählen — ohne irgendeine globale Einstellung zu ändern. Überall dort, wo eine KI läuft, erscheint eine kleine Anbieterauswahl (nur, wenn das Projekt mehr als einen Anbieter hat):
+Die Fähigkeiten unterscheiden sich: Reasoning-Einstellungen, strukturierte Antworten, Subagenten und das Steuern einer laufenden Runde sind zwischen Anbietern nicht austauschbar. Siehe [Ausführungseinstellungen des Anbieters](../pipeline/picking-an-engine-per-rail) und [Steuern](../pipeline/the-job-detail-view).
 
-- **Rail-Kopf** — wähle die Engine für genau diese Rail, bevor du sie startest.
-- **Terminal** — der „Open AI CLI“-Button (Sparkles) öffnet ein Anbietermenü, über das du in jede installierte CLI im Verzeichnis dieses Projekts springen kannst.
-
-Deine Wahl wird pro Projekt gemerkt und fällt standardmäßig auf den primären Anbieter zurück — du musst also nicht jedes Mal neu wählen.
-
-## Fehlerbehebung
-
-- **Codex-MCP-Server werden im Chat nicht geladen.** Codex liest MCP-Server aus deiner globalen `~/.codex/config.toml` — registriere sie dort mit `codex mcp add`.
+Die Auswahl Sonnet führt Claude Sonnet 5.5 (`claude-sonnet-5-5`) aus. [Anthropic](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).

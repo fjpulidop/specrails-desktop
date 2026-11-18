@@ -314,8 +314,8 @@ A disabled provider stops appearing in Add Project and is rejected by the create
 Provider credentials are not stored by Desktop. Each CLI authenticates on its
 own: Claude through its login/config, Codex via `codex login`, Gemini through
 its native key/config, and Kimi via `kimi login` or user-managed
-`~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
-[Gemini](../gemini.md).
+`~/.kimi-code/config.toml`. See [Codex](../codex.md) and the
+[provider adapters](../../server/providers/).
 
 ### Mission read-only policy
 
@@ -479,7 +479,6 @@ rm -rf ~/.specrails/desktop.sqlite ~/.specrails/projects/
 - [CLI reference](../cli.md) — every command and flag in detail
 - [Customising the app](../customizing.md) — feature flags, env vars, keybindings
 - [Codex](../codex.md) — using the Codex CLI provider
-- [Gemini](../gemini.md) — using the Gemini CLI provider
 - [Adding a provider](adding-a-provider.md) — wiring a new AI CLI adapter
 
 ## Spend caps (daily, weekly, monthly, per run)

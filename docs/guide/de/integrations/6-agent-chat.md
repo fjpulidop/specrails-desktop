@@ -1,6 +1,6 @@
 # Specrails per Chat steuern (Agent Chat)
 
-Der **Agent Chat** ist ein Copilot, der *innerhalb* von Specrails lebt und die gesamte App für dich steuern kann. Statt dich durch Projekte, Specs, Rails und Analytics zu klicken, fragst du einfach: *„Wie viele Jobs waren diese Woche erfolgreich?“*, *„Erstelle eine Spec für Social Login im API-Projekt“*, *„Starte die drei Tickets mit der höchsten Priorität und sag mir Bescheid, wenn sie fertig sind“*. Er erledigt die Arbeit, indem er Specrails' eigene Werkzeuge aufruft — dieselben, die der [MCP-Server](./5-mcp-server.md) bereitstellt — während du das Dashboard dahinter live aktualisieren siehst.
+Der **Agent Chat** ist ein Copilot, der *innerhalb* von Specrails lebt und die gesamte App für dich steuern kann. Statt dich durch Projekte, Specs, Rails und Analytics zu klicken, fragst du einfach: *„Wie viele Jobs waren diese Woche erfolgreich?“*, *„Erstelle eine Spec für Social Login im API-Projekt“*, *„Starte die drei Specs mit der höchsten Priorität und sag mir Bescheid, wenn sie fertig sind“*. Er erledigt die Arbeit, indem er Specrails' eigene Werkzeuge aufruft — dieselben, die der [MCP-Server](mcp-server) bereitstellt — während du das Dashboard dahinter live aktualisieren siehst.
 
 > **Nicht mit den Pipeline-Agenten zu verwechseln.** Der Abschnitt *Agenten* (Architect → Developer → Reviewer) geht darum, *wie ein Rail eine Spec umsetzt*. Der **Agent Chat** ist ein einzelner Assistent, der *die App selbst bedient*. Zwei verschiedene Dinge, dasselbe Wort.
 
@@ -10,13 +10,41 @@ Am unteren Rand des Fensters schwebt eine **Blase** — klicke sie an, um das Pa
 
 Es ist **bewusst nicht-modal**: Das Dashboard dahinter bleibt lebendig, sodass du in Echtzeit siehst, wenn der Agent ein Rail startet oder eine Spec erstellt — du blickst nicht auf einen eingefrorenen Bildschirm.
 
+## Markierten Text wiederverwenden
+
+Markiere Text in einem Missionsgespräch, um sein Kontextmenü zu öffnen.
+
+**Dazu fragen** öffnet ein Nebengespräch über die Auswahl, wie eine kurze Zwischenfrage. Tippe eine Frage ein oder drücke bei leerem Feld Enter, um den Text im Kontext dieser Mission erklären zu lassen. Die Antwort nutzt das bisherige Gespräch der Mission, und du kannst Folgefragen stellen. Nichts wird gespeichert: Die Mission, ihr Eingabefeld und ihre Agentensitzung bleiben unberührt, und das Schließen des Fensters verwirft das Nebengespräch. Die Fußzeile nennt das Modell, das geantwortet hat.
+
+**Zur Mission hinzufügen**
+schickt sie an dieselbe Mission, über ihre normale Warteschlange, falls sie beschäftigt ist, und behält
+deinen unfertigen Entwurf im Eingabefeld.
+
+**Separate Mission starten** bietet **Von vorne** (nur die Auswahl) und
+**Mit Kontext · Fork** (inklusive Verlauf und seiner Anhänge bis zur letzten Nachricht,
+die die Auswahl abdeckt). Beide fügen einen geteilten Bereich hinzu, behalten die bestehenden
+Bereiche und legen den markierten Text zum Bearbeiten ins neue Eingabefeld. Drücke Enter,
+wenn du bereit bist; das Öffnen der Mission sendet nichts. Der Fork nutzt eine eigene
+Agentensitzung und Kopien der Dateien und zeigt den Titel der ursprünglichen Mission.
+Übernommene Karten sind schreibgeschützte Aufzeichnungen; ihre Aktionen werden nicht wiederholt.
+
+Du kannst auch mit der rechten Maustaste auf die Auswahl klicken oder **Shift+F10** drücken. Mit den Pfeiltasten
+bewegst du dich durch das Menü, **Escape** schließt es. Markiere abgeschlossene Nachrichten;
+Text, der noch gestreamt wird oder in der Warteschlange wartet, ist noch nicht verfügbar.
+
+## Wie voll der Kontext ist {#context-ring}
+
+Ein kleiner Ring neben dem Nachrichtenfeld zeigt, wie viel vom Kontextfenster der Mission die Anbietersitzung belegt hat, so wie der Anbieter es meldet. Klicke darauf für die verwendeten Tokens, die Fenstergröße und das Modell. Meldet der Anbieter das Fenster nicht oder hat er den Kontext gerade komprimiert, bleibt der Ring leer und sagt, was unbekannt ist. Anbieter komprimieren den Kontext von selbst, wenn er voll wird.
+
+**Neu beginnen mit Zusammenfassung.** Über das Popover des Rings (der Hauptknopf, sobald der Kontext zu 75 % voll ist) schreibt Specrails eine Zusammenfassung der Mission: Ziel, Entscheidungen, aktueller Stand und nächste Schritte. Deine nächste Nachricht startet dann eine neue Anbietersitzung, die nur diese Zusammenfassung kennt. Das Gespräch bleibt im Verlauf, und eine eingeklappte Zeile **Sitzung erneuert · Zusammenfassung** zeigt, was die neue Sitzung weiß. Specrails fragt vorher nach einer Bestätigung, und die Funktion ist nicht verfügbar, solange ein Durchlauf läuft oder die Mission in Intent ist, das in einer eigenen Sitzung läuft.
+
 ## Voraussetzung: der MCP-Server
 
-Der Agent Chat steuert die App über den eingebetteten **Specrails-MCP-Server**, der also aktiv sein muss. Ist er es nicht, öffnet sich das Panel mit einem Ein-Klick-Banner **Specrails MCP aktivieren** — drück drauf und du bist startklar (ohne Neustart). Details findest du unter [Specrails von jeder KI aus steuern](./5-mcp-server.md); es wird nichts installiert, alles läuft lokal auf deinem Rechner.
+Der Agent Chat steuert die App über den eingebetteten **Specrails-MCP-Server**, der also aktiv sein muss. Ist er es nicht, öffnet sich das Panel mit einem Ein-Klick-Banner **Specrails MCP aktivieren** — drück drauf und du bist startklar (ohne Neustart). Details findest du unter [Specrails von jeder KI aus steuern](mcp-server); es wird nichts installiert, alles läuft lokal auf deinem Rechner.
 
 ## Auswählen, woran er arbeitet
 
-Die Kopfzeile hat einen **Projekt-Selektor** (wie bei Cursor). Wähle ein Projekt aus, und alles, was du fragst, bezieht sich darauf — *„Starte die mit hoher Priorität“* wird gegen dieses Projekt aufgelöst. Belässt du ihn auf **Start**, arbeitet der Agent über dein gesamtes Setup hinweg: Er kann Projekte auflisten oder anlegen und Fragen beantworten, die alles umfassen. Fragst du auf Start etwas Projektspezifisches, fragt er dich nach dem Projekt (oder bietet an, eins anzulegen), statt zu raten.
+Die Kopfzeile hat einen **Projekt-Selektor**. Wähle ein Projekt aus, und alles, was du fragst, bezieht sich darauf — *„Starte die mit hoher Priorität“* wird gegen dieses Projekt aufgelöst. Belässt du ihn auf **Start**, arbeitet der Agent über dein gesamtes Setup hinweg: Er kann Projekte auflisten oder anlegen und Fragen beantworten, die alles umfassen. Fragst du auf Start etwas Projektspezifisches, fragt er dich nach dem Projekt (oder bietet an, eins anzulegen), statt zu raten.
 
 Ein Projekt hier auszuwählen **verschiebt** dein Dashboard **nicht** — das Ziel des Agenten und das, was du gerade ansiehst, sind unabhängig voneinander.
 
@@ -53,7 +81,6 @@ Codeblöcke zeigen ihre Sprache und haben einen eigenen **Kopieren**-Button. Scr
 
 ## Praktische Feinheiten
 
-- **Super-Specs aus einem Gespräch.** Bitte den Agenten, eine Spec mit dir zu *formen*, statt sie in einem Schuss zu erzeugen: Er liest zuerst den echten Code, stellt dir kurz Fragen und zeigt den wachsenden Entwurf als Live-Karte direkt im Gespräch. Auf dein Ja erstellt er die Spec und reichert sie — standardmäßig — im Hintergrund mit einem **Contract Layer** an (exakte Dateipfade, Datenformen, Invarianten), damit die implementierenden Agenten nicht improvisieren. Sage „ohne Contract Layer“, um die Anreicherung zu überspringen.
 - **Klicke an, was er erwähnt.** In einer an ein Projekt gepinnten Mission sind Spec-Nummern (`#12`) und Job-/Run-Ids in den Antworten des Agenten klickbare Chips — eine Spec öffnet das Detail-Modal des Boards, eine Job-Id die Live-Job-Ansicht. Existiert die Referenz nicht mehr, erscheint ein dezenter „nicht gefunden“-Hinweis.
 - **Ein Streifen für deine Läufe.** Startet der Agent Arbeit, verfolgt sie ein einziger Streifen direkt über dem Eingabefeld: was der Lauf gerade tut, in klaren Worten („Spec wird aus deinen Änderungen geschrieben“), wie viele Läufe fertig sind, die Zeit und die bisher echten Kosten (`—`, bis der Anbieter abrechnet). Braucht ein Lauf dich (PR erstellen, erneut versuchen, zurück zum Intent), sagt der Streifen das mit Symbol und Worten und bietet genau diese eine Aktion an; ein Klick auf den Streifen öffnet die vollständige Karte des Laufs direkt darüber (Esc schließt sie). Bei mehreren Läufen zeigt der Streifen zuerst den, der dich braucht, und einen kleinen Umschalter („Rail 1 · Rail 2 · +1“). Die Unterhaltung behält nur, was passiert ist („Auf Rail 1 gestartet“, „Rail 1 fehlgeschlagen: …“, „Ausgeliefert: PR #812“), und jede Zeile öffnet ihren Lauf. Missionen, die auf deine Entscheidung warten, zeigen in der Missionsliste einen Punkt. Aktionen, die einen neuen kostenpflichtigen Lauf starten (**Neu starten**, **Wiederherstellen und erneut versuchen**) oder die andere sehen (PR erstellen, Veröffentlichen), löst der Streifen nie selbst aus: Er öffnet die Karte mit dem Fokus auf diesem Knopf, damit du dort bestätigen kannst.
 - **Der Streifen per Tastatur.** **⌥R** (**Alt+R** unter Windows/Linux) springt vom Nachrichtenfeld zum Streifen der Mission, in der du bist; erneut gedrückt blendet es die Details des Laufs ein oder aus, und **Esc** bringt dich dorthin zurück, wo du warst. Außerhalb eines Textfelds wechseln **⌥[** und **⌥]** zwischen den Läufen. Solange der Streifen den Fokus hat, pausiert oder setzt **P** einen Intent fort und **H** übergibt ihn; anderswo bewirken diese Buchstaben nichts. Drücke **?** für die vollständige Liste.

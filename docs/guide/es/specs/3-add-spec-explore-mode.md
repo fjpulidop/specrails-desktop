@@ -65,4 +65,4 @@ Si tu proyecto tiene instalado más de un proveedor de IA, un selector de motor 
 
 - [Borradores y la Contract Layer](drafts-and-contract-layer.md): guardar el trabajo en curso y enriquecer las specs para el pipeline.
 - [Añadir spec — Modo Quick](add-spec-quick-mode.md): cuando la idea ya está clara.
-- [Ejecutar pipelines](running-pipelines.md): implementa tu spec una vez esté lista.
+- [Ejecutar pipelines](../pipeline/rails-and-jobs): implementa tu spec una vez esté lista.

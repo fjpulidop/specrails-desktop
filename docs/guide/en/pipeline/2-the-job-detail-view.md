@@ -4,9 +4,15 @@ Click any job card on the **Jobs** page and you land here: the cockpit for a sin
 
 ## The layout
 
-The compact header keeps status, elapsed time, phase, actions and pipeline chips. Below it, **Failure reasons** is initially selected for failed or canceled runs with a diagnosis; other runs open on **Log**. An answerable pending question also makes Failure reasons available: click the header’s question button to open Details and answer it, even without a diagnosis.
+The compact header keeps status, elapsed time, phase, actions and pipeline chips. Right below it, **one navigation row** holds everything you can look at:
 
-Failure reasons holds the cause, remedies and **Details** in a bounded panel that scrolls internally. When that tab is unavailable, Details remains in Log. Loop jobs offer **Execution graph** and **Log detail** inside Log; other jobs show Log detail alone. Log section and Details expansion are remembered independently for page and mission modal, while the top-level tab resets on each visit. The composer remains below the evidence.
+- **Failure reasons** — present for a failed or canceled run with a diagnosis, and selected first. An answerable pending question also makes it available: click the header's question button to open Details and answer it, even without a diagnosis.
+- **Execution graph** and **Log detail** — for loop runs, the graph of the workflow and the step-by-step log.
+- **Log** — for plain jobs, the streaming log.
+
+The bounded **Details** disclosure (real figures and runtime controls) sits with Failure reasons when that tab exists, and with the log otherwise. The log section you last chose and whether Details is expanded are remembered separately for the page and the mission window; the selected tab resets on each visit. The composer remains below the evidence.
+
+In the desktop app, a job opened from a mission shows in **its own window**, one window per job. Press **Escape** or close the window to return; the browser version shows the same content in a modal.
 
 ## Pipeline phases
 
@@ -53,7 +59,7 @@ Clicking a chip opens that spec's detail **over the job page** — you don't los
 
 ## The streaming log
 
-Open **Log → Log detail** for the streaming log, or choose Story when narration is enabled. Raw output streams in real time over the WebSocket:
+Open **Log** (plain jobs) or **Log detail** (loop runs) for the streaming log, or choose Story when narration is enabled. Raw output streams in real time over the WebSocket:
 
 - **Auto-scroll** keeps the newest output in view (scroll up and it pauses so you can read).
 - **Search** to jump to a phrase.
@@ -61,16 +67,23 @@ Open **Log → Log detail** for the streaming log, or choose Story when narratio
 
 This is the raw truth of what the AI is doing — every tool call, every file edit, every test run.
 
-## Loop runs: the step explorer
+## Loop runs: the graph and the step log
 
-For a **loop run** (see [The Loop Builder](the-loop-builder)), **Log → Execution graph** shows the **step explorer**. **Log detail** separately offers the raw log and, when enabled, Story:
+For a **loop run** (see [The Loop Builder](the-loop-builder)), two tabs show the evidence.
 
-- **The overview strip** at the top is the loop's live map — one chip per node (AI Step, Shell, Loop Decider…), laid out in the order the graph flows. Chips light up as the run progresses: dimmed while pending, pulsing while running, then a check or a cross. A Decider chip also shows the verdict it routed by — loop back or move on — and an iteration counter (`Iteration 3/10`) keeps score on the right. Click any chip to jump straight to that node's latest step.
+**Execution graph** is the workflow as it ran. It is always expanded and follows the step that is running, or the one that failed:
+
+- **The path taken is solid.** Steps the run went through are drawn solid; steps it never reached are dashed and muted. Turn on **Only the path taken** to hide the rest. A legend sits inline.
+- **Inspect a step.** Select a node to list its attempts with their state and duration. Click an attempt to open its log in Log detail. **Repeat from here** sits on each finished attempt's row, so a linked run starts from exactly the attempt you picked. Technical ids are under **Trace**.
+
+**Log detail** holds the step trail and the log, and opens on the step that failed:
+
+- **The step strip** at the top lists only the steps the run reached, in order, with an iteration counter (`Iteration 3/10`) on the right. Chips are dimmed while pending, pulse while running, then show a check or a cross; a Decider chip also shows the verdict it routed by. Click a chip to jump to that step.
 - **One collapsible box per step.** Every pass over a node becomes its own section, with the step number, its name, an iteration badge, its duration once it finishes — and its own copy button, so you can grab exactly one step's output. (The toolbar copy still takes the whole log.) Anything printed before the first step — the run banner, the worktree notice — is tucked into a **Setup** section.
 - **Follow mode** is on by default: the running step stays open and auto-scrolls while earlier steps fold out of the way. The moment you scroll up or open an older step, following pauses so you can read — a floating **Resume follow** pill takes you back to live. **Expand all / collapse all** sit in the toolbar, and typing in the search box looks across every step at once.
 - **Interrupted steps are honest too.** A step that never got to report an outcome — the run was cancelled or the app went down mid-step — is marked **Interrupted** with a dashed border, rather than pretending it finished.
 
-Graph exploration and paused log scroll survive section switching. Non-loop jobs show Log detail without a graph control.
+Story, when narration is enabled, is offered inside Log detail. Graph exploration and a paused log scroll survive switching tabs.
 
 ## Talk to the running job
 
@@ -85,7 +98,7 @@ A few things worth knowing:
 
 ## Diagnostic export
 
-If [telemetry](../settings/customizing) was enabled for the job, an **Export diagnostic** button appears in the header. It downloads a ZIP containing:
+If [telemetry](../settings/pipeline-telemetry-and-diagnostics) was enabled for the job, an **Export diagnostic** button appears in the header. It downloads a ZIP containing:
 
 - `job-metadata.json` — command, status, profile, plugins.
 - `telemetry.ndjson` — uncompressed OTLP/JSON signals.
@@ -97,7 +110,7 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 
 ## When a run fails
 
-For a failed or canceled job with a diagnosis, **Failure reasons** opens with the existing **diagnosis card** explaining the cause and why it happened when known. There is no separate cause summary above the tabs:
+For a failed or canceled job with a diagnosis, **Failure reasons** opens with the **diagnosis card** explaining the cause and why it happened when known. When the runtime recorded which step failed, the card says so: the step, the attempt, the iteration and the time. The causes:
 
 - **Tests failed** — the checks still fail after the correction rounds.
 - **Provider limit** — the AI provider's usage limit was reached. The card quotes when it resets, in the provider's own words.
@@ -107,10 +120,16 @@ For a failed or canceled job with a diagnosis, **Failure reasons** opens with th
 
 Under the diagnosis you get up to three ranked remedies, and only the ones that can work here: **Resume from** the phase that stopped, **Run again**, **Edit spec and relaunch** (the spec's addenda carry your change into the next run), **Fix the environment** and **Open logs at the failure**. The same cause appears as a one-line label in the [inbox](../getting-started/the-dashboard-tour), and the mission's run card shows the same card.
 
+### AI analysis {#ai-failure-analysis}
+
+Below the card, an **AI analysis** reads the log and explains why the run stopped: the cause, **What to do**, and the lines **From the log** it relied on, quoted word for word. It runs on the same provider and model that ran the job, so your account can always run it. It starts on its own, except when the provider's limit was the cause; then press **Analyze with AI**. The analysis is saved with the job. If the log changes afterwards, it says so and offers **Analyze again**.
+
+The analysis is labelled as an AI reading and never replaces the card: the diagnosis, its cause and its remedies stay what the app recorded. Check the lines it cites before acting on it. Its cost counts under **Support** in [Analytics](../insights/analytics-and-cost-tracking).
+
 ## Where to go next
 
 - [Rails & jobs](rails-and-jobs) — launching and queueing.
-- [Tracking cost](../analytics/tracking-cost) — turn per-job costs into project analytics.
+- [Analytics & cost tracking](../insights/analytics-and-cost-tracking) — turn per-job costs into project analytics.
 
 ## After a workflow restart
 

@@ -10,7 +10,7 @@ Aprila dalla barra laterale destra (**Code**) e, come tutto il resto, è circosc
 
 Il riquadro di sinistra è un albero virtualizzato dei file del tuo progetto — veloce anche su repo di grandi dimensioni. Rispetta il tuo `.gitignore` e una deny-list integrata, così vedi i file che contano, non un mare di artefatti di build e `node_modules`.
 
-Accanto ai file noterai dei **marcatori di provenienza** — piccoli indicatori che ti dicono che un file è stato *toccato dall'AI*. È questo il cuore del Code explorer: Specrails registra quali file ogni job della pipeline ha creato o modificato, e li ricollega al ticket che ha avviato il lavoro. Così puoi rispondere, a colpo d'occhio, a "l'ha scritto l'AI, o l'ho fatto io?".
+Accanto ai file noterai dei **marcatori di provenienza** — piccoli indicatori che ti dicono che un file è stato *toccato dall'AI*. È questo il cuore del Code explorer: Specrails registra quali file ogni job della pipeline ha creato o modificato, e li ricollega alla spec che ha avviato il lavoro. Così puoi rispondere, a colpo d'occhio, a "l'ha scritto l'AI, o l'ho fatto io?".
 
 In cima all'albero c'è un filtro:
 
@@ -39,17 +39,17 @@ Puoi anche scegliere la **lingua dei riepiloghi** (inglese o spagnolo) nelle imp
 
 ## La storia di costruzione
 
-Sotto il visualizzatore di codice vive la **storia di costruzione**: una linea temporale cronologica di ogni spec e di ogni job che hanno costruito il file che stai guardando. Ogni capitolo è una scheda: quale spec è intervenuta (con il suo stato attuale), quando, se il file è stato creato, modificato o eliminato, e quanto è stato grande il cambiamento (righe aggiunte e rimosse). Fai clic su una scheda per aprire il dettaglio di quella spec. Anche i rail basati sui loop registrano i file che toccano, quindi il lavoro svolto in worktree isolati compare nella storia come i normali job della pipeline.
+Sotto il visualizzatore di codice vive la **storia di costruzione**: una linea temporale cronologica di ogni spec e di ogni job che hanno costruito il file che stai guardando. Ogni capitolo è una scheda: quale spec è intervenuta (con il suo stato attuale), quando, se il file è stato creato, modificato o eliminato, e quanto è stato grande il cambiamento (righe aggiunte e rimosse). Fai clic su una scheda spec per aprire il dettaglio di quella spec. Anche i rail basati sui loop registrano i file che toccano, quindi il lavoro svolto in worktree isolati compare nella storia come i normali job della pipeline.
 
 Per qualsiasi capitolo puoi chiedere una spiegazione in linguaggio semplice: premi **Spiega questa modifica** e l'app scrive da una a tre frasi che descrivono cosa quel cambiamento specifico ha apportato al file — senza codice, senza gergo. Le spiegazioni condividono lo stesso budget mensile dei riepiloghi dei file e, finché non ne viene generata una, la scheda si affida ai fatti che conosce: il tipo di modifica, la spec e la data. Preferisci i dati grezzi? Un selettore **Storia / Registro** passa alla classica lista delle modifiche con diff su richiesta. Lo stesso pannello compare nella vista **Files** della modalità Agente.
 
 ## Collegare il codice alle spec
 
-Il legame di provenienza funziona in entrambe le direzioni. All'interno del Code explorer, cliccare il chip di un ticket su un file apre il dettaglio di quel ticket. E dall'altro lato, la vista di **dettaglio del ticket** ha una sezione *File toccati da questo ticket* — clicca un file lì e salti dritto nel Code explorer con quel file aperto. Chiude il cerchio tra "ecco la spec che abbiamo scritto" ed "ecco il codice che ne è uscito".
+Il legame di provenienza funziona in entrambe le direzioni. All'interno del Code explorer, cliccare il chip di una spec su un file apre il dettaglio di quella spec. E dall'altro lato, la vista di **dettaglio della spec** ha una sezione *File toccati da questa spec* — clicca un file lì e salti dritto nel Code explorer con quel file aperto. Chiude il cerchio tra "ecco la spec che abbiamo scritto" ed "ecco il codice che ne è uscito".
 
 ## Cosa non fa (ancora)
 
-Per fissare le aspettative con chiarezza, questa prima versione lascia di proposito fuori alcune cose: la modifica all'interno dell'app, i riepiloghi per simbolo o a livello di directory, una vista diff narrativa e il "chiedi all'AI di questo file" in forma conversazionale. La provenienza attribuisce un file solo al suo ticket principale. Sono il genere di cose che potrebbero crescere nel tempo.
+Per fissare le aspettative con chiarezza, questa prima versione lascia di proposito fuori alcune cose: la modifica all'interno dell'app, i riepiloghi per simbolo o a livello di directory, una vista diff narrativa e il "chiedi all'AI di questo file" in forma conversazionale. La provenienza attribuisce un file solo alla sua spec principale. Sono il genere di cose che potrebbero crescere nel tempo.
 
 ## Disattivarlo
 

@@ -10,7 +10,7 @@ Abra-a a partir da barra lateral direita (**Code**) e, como tudo o resto, diz re
 
 O painel da esquerda é uma árvore virtualizada dos ficheiros do seu projeto — rápida mesmo em repositórios grandes. Respeita o seu `.gitignore` e uma lista de exclusão incorporada, por isso vê os ficheiros que interessam, e não um mar de artefactos de build e `node_modules`.
 
-Junto aos ficheiros vai reparar em **etiquetas de proveniência** — pequenos marcadores que lhe dizem que um ficheiro foi *alterado por IA*. É este o coração do Code explorer: o Specrails regista que ficheiros cada job de pipeline criou ou modificou, e liga-os de volta ao ticket que motivou o trabalho. Assim consegue responder, num relance, a "foi a IA que escreveu isto, ou fui eu?".
+Junto aos ficheiros vai reparar em **etiquetas de proveniência** — pequenos marcadores que lhe dizem que um ficheiro foi *alterado por IA*. É este o coração do Code explorer: o Specrails regista que ficheiros cada job de pipeline criou ou modificou, e liga-os de volta à spec que motivou o trabalho. Assim consegue responder, num relance, a "foi a IA que escreveu isto, ou fui eu?".
 
 No topo da árvore há um filtro:
 
@@ -45,11 +45,11 @@ Para qualquer capítulo podes pedir uma explicação em linguagem simples: carre
 
 ## Ligar o código de volta às specs
 
-A ligação de proveniência funciona nos dois sentidos. Dentro do Code explorer, clicar na etiqueta de um ticket num ficheiro abre o detalhe desse ticket. E no sentido inverso, a vista de **detalhe do ticket** tem uma secção *Ficheiros alterados por este ticket* — clique aí num ficheiro e salta diretamente para o Code explorer com ele aberto. Fecha o ciclo entre "aqui está a spec que escrevemos" e "aqui está o código que daí saiu".
+A ligação de proveniência funciona nos dois sentidos. Dentro do Code explorer, clicar na etiqueta de uma spec num ficheiro abre o detalhe dessa spec. E no sentido inverso, a vista de **detalhe da spec** tem uma secção *Ficheiros alterados por esta spec* — clique aí num ficheiro e salta diretamente para o Code explorer com ele aberto. Fecha o ciclo entre "aqui está a spec que escrevemos" e "aqui está o código que daí saiu".
 
 ## O que (ainda) não faz
 
-Para deixar as expectativas claras, esta primeira versão deixa de fora, de propósito, algumas coisas: edição dentro da aplicação, resumos ao nível do símbolo ou da pasta, uma vista de diff narrativa e o "pergunte à IA sobre este ficheiro" em modo de conversa. A proveniência atribui um ficheiro apenas ao seu ticket principal. São o tipo de coisas que podem crescer com o tempo.
+Para deixar as expectativas claras, esta primeira versão deixa de fora, de propósito, algumas coisas: edição dentro da aplicação, resumos ao nível do símbolo ou da pasta, uma vista de diff narrativa e o "pergunte à IA sobre este ficheiro" em modo de conversa. A proveniência atribui um ficheiro apenas à sua spec principal. São o tipo de coisas que podem crescer com o tempo.
 
 ## Desligá-lo
 

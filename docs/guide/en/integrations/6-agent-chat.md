@@ -1,6 +1,6 @@
 # Operate Specrails by chatting (Agent Chat)
 
-The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority specs and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](./5-mcp-server.md) exposes — while you watch the dashboard update live behind it.
+The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority specs and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](mcp-server) exposes — while you watch the dashboard update live behind it.
 
 > **Not to be confused with the pipeline agents.** The *Agents* section (Architect → Developer → Reviewer) is about *how a rail implements a spec*. The **Agent Chat** is a single assistant that *operates the app itself*. Different thing, same word.
 
@@ -12,7 +12,11 @@ It's **non-modal on purpose**: the dashboard behind it stays live, so when the a
 
 ## Reuse selected text
 
-Select text in a mission conversation to open its context menu. **Add to mission**
+Select text in a mission conversation to open its context menu.
+
+**Ask about this** opens a side conversation about the selection, like a quick "by the way" question. Type a question, or press Enter on an empty box to have the text explained in this mission's context. The answer uses the mission's earlier conversation, and you can ask follow-ups. Nothing is saved: the mission, its composer and its agent session are not touched, and closing the window discards the side conversation. The footer names the model that answered.
+
+**Add to mission**
 sends it to that same mission, using its normal queue if it is busy, and keeps
 your unfinished composer draft.
 
@@ -28,13 +32,19 @@ You can also right-click the selection or press **Shift+F10**. Use arrow keys to
 move through the menu and **Escape** to close it. Select committed messages;
 text still streaming or waiting in the queue is not available yet.
 
+## How full the context is {#context-ring}
+
+A small ring next to the message box shows how much of the mission's context window the provider session has used, as the provider reports it. Click it for the tokens used, the window size and the model. When the provider does not report the window, or has just compacted the context, the ring stays empty and says what is unknown. Providers compact the context on their own when it fills up.
+
+**Start fresh with a summary.** From the ring's popover (the main button once the context is 75 % full), Specrails writes a summary of the mission: goal, decisions, current state and next steps. Your next message then starts a new provider session that knows only that summary. The conversation stays in the history, and a collapsed **Session renewed · summary** line shows what the new session knows. It asks you to confirm first, and it is not available while a turn is running or while the mission is in Intent, which runs in its own session.
+
 ## Prerequisite: the MCP server
 
-The Agent Chat drives the app through the embedded **Specrails MCP server**, so that has to be on. If it isn't, the panel opens with a one-click **Enable Specrails MCP** banner — press it and you're ready (no restart). See [Control Specrails from any AI](./5-mcp-server.md) for the details; nothing is installed, it's all local to your machine.
+The Agent Chat drives the app through the embedded **Specrails MCP server**, so that has to be on. If it isn't, the panel opens with a one-click **Enable Specrails MCP** banner — press it and you're ready (no restart). See [Control Specrails from any AI](mcp-server) for the details; nothing is installed, it's all local to your machine.
 
 ## Choosing what it works on
 
-The header has a **project selector** (like Cursor's). Pick a project and everything you ask is scoped to it — *"launch the high-priority ones"* resolves against that project. Leave it on **Home** and the agent works across your whole setup: it can list or create projects and answer questions that span everything. If you ask something project-specific while on Home, it will ask you which project (or offer to create one) rather than guess.
+The header has a **project selector**. Pick a project and everything you ask is scoped to it — *"launch the high-priority ones"* resolves against that project. Leave it on **Home** and the agent works across your whole setup: it can list or create projects and answer questions that span everything. If you ask something project-specific while on Home, it will ask you which project (or offer to create one) rather than guess.
 
 Picking a project here **does not** move your dashboard — the agent's target and what you're looking at are independent.
 

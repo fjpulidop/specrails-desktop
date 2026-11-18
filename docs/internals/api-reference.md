@@ -8,7 +8,7 @@ The app registers four AI provider CLIs — **Claude, Codex, Gemini, and Kimi**
 — all enabled by default. Endpoints that accept `provider` / `aiEngine` take
 `claude`, `codex`, `gemini`, or `kimi`, validate project membership, then
 enforce the requested surface's adapter capabilities. See the
-[Kimi guide](../kimi.md) for its exact matrix.
+[Kimi adapter](../../server/providers/kimi-adapter.ts) for its exact matrix.
 
 ## Authentication
 
@@ -729,7 +729,7 @@ Claude/Kimi profiles do not collide.
 > (Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, Project Builder
 > generation, Loop Decider, Code Explorer AI, and Agent Studio automation)
 > reject Kimi before spawn. Kimi tokens/USD cost remain null. See the
-> [Kimi guide](../kimi.md).
+> [Kimi adapter](../../server/providers/kimi-adapter.ts).
 
 ### Profile CRUD
 

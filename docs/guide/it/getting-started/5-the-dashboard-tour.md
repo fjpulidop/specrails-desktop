@@ -14,8 +14,8 @@ La finestra è divisa in tre zone:
 
 È qui che avviene il lavoro. La dashboard mostra:
 
-- **Le tue spec** — i ticket che hai creato, organizzati per stato (da Backlog/Da fare fino a Completato). Puoi visualizzarle come elenco, come griglia o come schede tipo post-it, a seconda di cosa preferisci.
-- **Un modo per aggiungere una spec** — avvia un nuovo intervento. Puoi scrivere una spec rapida direttamente, oppure aprire una chat guidata **Explore** che ti aiuta a darle forma attraverso la conversazione e redige il ticket al posto tuo.
+- **Le tue spec** — le spec che hai creato, organizzati per stato (da Backlog/Da fare fino a Completato). Puoi visualizzarle come elenco, come griglia o come schede tipo post-it, a seconda di cosa preferisci.
+- **Un modo per aggiungere una spec** — avvia un nuovo intervento. Puoi scrivere una spec rapida direttamente, oppure aprire una chat guidata **Explore** che ti aiuta a darle forma attraverso la conversazione e redige la spec al posto tuo.
 - **I rail** — sono le corsie in cui le spec vengono costruite. Trascina una spec su un rail e avviala per farla passare attraverso la pipeline Architect → Developer → Reviewer → Ship. Più rail possono essere eseguiti contemporaneamente, così puoi lavorare a più cose in parallelo.
 
 Quando una spec è in esecuzione, ne vedrai l'avanzamento nella pipeline e i log in tempo reale — l'output istantaneo dell'AI mentre progetta, scrive il codice e revisiona la tua modifica.
@@ -35,7 +35,12 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 
 - **Indicatore di connessione** (a sinistra) — un pallino colorato e un'etichetta che mostrano che l'app è attiva: verde per *connesso*, ambra durante la *riconnessione*, blu durante la *sincronizzazione* subito dopo una riconnessione. Raramente ne avrai bisogno, ma è rassicurante quando serve.
 - **Spesa totale** (a destra) — un totale aggiornato di quanto hai speso, così il costo è sempre a portata di sguardo.
+- **Risorse** (a destra) — quanta CPU e memoria sta usando in questo momento tutto ciò che Specrails ha avviato, e quanti processi. Cliccaci per vedere i totali, l'andamento della memoria e la suddivisione per origine: missioni e chat, rail, loop e job, processi in background, terminali, CLI degli agenti, MCP e runner, Git e il server Specrails stesso. Espandi un'origine per vederne i processi.
 - **Interruttore del terminale** (all'estrema destra) — apre il pannello del terminale integrato. Premi **Cmd+J** (macOS) o **Ctrl+J** (Windows/Linux) per aprirlo o chiuderlo in qualsiasi momento. È una shell completa, aperta direttamente nella cartella del tuo progetto.
+
+## Finestre proprie
+
+Nell'app desktop alcune schermate si aprono come vere finestre invece che come pannelli dentro la finestra principale: **Impostazioni app**, il dettaglio di un job aperto da una missione, e **Loops** e **Plugin** in modalità Missione. Puoi spostarle su un altro schermo e continuare a lavorare nella finestra principale. Ognuna usa i controlli di finestra del sistema; le Impostazioni e la finestra del job si chiudono anche con **Escape**. Le modifiche che fai lì, come il tema o la lingua, si applicano subito alla finestra principale. Nella versione browser queste schermate si aprono come pannelli.
 
 ## Qualche scorciatoia utile {#shortcuts}
 

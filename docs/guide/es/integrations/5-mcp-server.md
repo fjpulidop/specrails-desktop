@@ -21,9 +21,13 @@ Los cuatro niveles vienen concedidos de serie, así que un asistente conectado p
 
 ## Exclusivamente para agentes: conecta tu cliente
 
-Cuando una persona pida al agente conectarse, consulta el [procedimiento de conexión MCP para agentes](../../../agents/mcp.md). Cubre Claude Code y Codex CLI y escritorio: localizar el puente incluido, conservar la configuración, verificar la conexión real y diagnosticar fallos. La versión web es Markdown y no necesita JavaScript.
+Cuando una persona pida al agente conectarse, consulta el [procedimiento de conexión MCP para agentes](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Cubre Claude Code y Codex CLI y escritorio: localizar el puente incluido, conservar la configuración, verificar la conexión real y diagnosticar fallos. La versión web es Markdown y no necesita JavaScript.
 
 Mantén Specrails en ejecución y abre **Ajustes ▸ MCP ▸ Copiar configuración de cliente**. Algunas versiones devuelven solo `specrails-mcp`, que puede no estar en PATH; el procedimiento explica cómo localizar ejecutable y script. El puente lee el token localmente: no lo copies en la configuración. Registrar no demuestra conexión: completa `initialize`, `tools/list` y una llamada de lectura a `specrails_projects` con `{"action":"list"}`.
+
+Para ver todo de un vistazo, el asistente puede llamar a `specrails_status`: qué está en ejecución, qué espera por ti, los fallos recientes, el gasto de hoy y la CPU y la memoria de la máquina, en una sola llamada. `specrails_inbox` lee y responde la bandeja **Pendientes**, `specrails_missions` lista tus misiones y les envía mensajes, `specrails_board` muestra el backlog y los rails de un proyecto, `specrails_spend` tu gasto y tus límites, y `specrails_resources` lo que Specrails ha lanzado. Un trabajo fallido viene con su diagnóstico, el análisis de IA guardado y el final de su log.
+
+Cada respuesta empieza con un breve resumen en lenguaje sencillo y sugiere las siguientes llamadas, y los errores dicen qué falló y si sirve de algo reintentar. Una llamada destructiva de un asistente externo nunca se ejecuta al primer intento: Specrails responde que necesita confirmación y el asistente tiene que volver a enviar la llamada con `confirm: true`. También puede hacer antes una simulación para ver qué pasaría.
 
 Antes de actuar, el asistente puede usar `specrails_context` para consultar el estado actual del proyecto, las specs, las ejecuciones y Git. Las secciones no disponibles se indican expresamente; no significan que el proyecto esté vacío. `specrails_code(search)` busca texto en el código y `read_file` lee rangos concretos de líneas, indicando cómo continuar cuando queda contenido.
 
@@ -64,7 +68,7 @@ Como tu asistente lee primero la guía incorporada, rara vez necesitas nombrar h
 
 - **Specrails tiene que estar en ejecución.** El servidor MCP vive dentro de la app, así que tu asistente solo puede alcanzarlo mientras Specrails esté abierto. Gracias al icono de la bandeja, cerrar la ventana lo mantiene en ejecución en segundo plano — solo **Salir** desde la bandeja (barra de menú de Mac / bandeja del sistema de Windows) lo detiene de verdad.
 - **Las acciones largas se transmiten.** Lanzar un rail o generar una spec devuelve el control de inmediato y termina en segundo plano; tu asistente puede "vigilarlo" e informarte cuando se resuelva.
-- **Seguridad.** El MCP usa su propio token de acceso, separado de todo lo demás, y solo escucha en tu propia máquina (loopback). Puedes copiar o regenerar ese token en cualquier momento desde el panel.
-- **No expuesto (v1).** Por seguridad, unas pocas capacidades de alto riesgo se dejan fuera a propósito: ejecutar comandos de shell en la terminal, el navegador integrado, la edición de archivos dentro de la app y la instalación de prerrequisitos del sistema. Todo lo que *gestiona* Specrails está disponible; el acceso directo a la máquina, no.
+- **Seguridad.** El MCP usa su propio token de acceso, separado de todo lo demás, y solo escucha en tu propia máquina (loopback). El token no puede hacerse pasar por el modo Agente aportando cabeceras de nivel, proyecto o conversación: el agente integrado usa una capacidad privada, de corta duración y emitida por el servidor. Puedes copiar o regenerar el token acotado en cualquier momento desde el panel.
+- **No expuesto (v1).** Por seguridad, los clientes MCP externos no pueden ejecutar comandos de shell en bruto en la terminal, usar el navegador integrado, editar archivos dentro de la app ni instalar prerrequisitos del sistema. El modo Agente tiene una vía autenticada aparte para comandos largos en segundo plano confirmados con el permiso Autónomo; los clientes externos no pueden obtenerla activando Destructivo. Todo lo demás que *gestiona* Specrails está disponible.
 
 Puedes desactivar MCP en cualquier momento desde el mismo panel — tu asistente simplemente pierde el acceso y nada más cambia.

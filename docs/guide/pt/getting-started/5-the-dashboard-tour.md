@@ -14,8 +14,8 @@ A janela tem três zonas:
 
 É aqui que o trabalho acontece. O dashboard mostra:
 
-- **As suas specs** — os tickets que criou, organizados por estado (de Backlog / Por fazer até Concluído). Pode vê-los como uma lista, uma grelha ou cartões tipo post-it, conforme preferir.
-- **Uma forma de adicionar uma spec** — comece um novo trabalho. Pode escrever uma spec rápida diretamente, ou abrir um chat **Explorar** guiado que o ajuda a moldá-la através de conversa e redige o ticket por si.
+- **As suas specs** — as specs que criou, organizadas por estado (de Backlog / Por fazer até Concluído). Pode vê-las como uma lista, uma grelha ou cartões tipo post-it, conforme preferir.
+- **Uma forma de adicionar uma spec** — comece um novo trabalho. Pode escrever uma spec rápida diretamente, ou abrir um chat **Explorar** guiado que o ajuda a moldá-la através de conversa e redige a spec por si.
 - **Rails** — estas são as pistas onde as specs são construídas. Largue uma spec num rail e lance-o para a enviar pelo pipeline Arquiteto → Developer → Revisor → Ship. Vários rails podem correr ao mesmo tempo, por isso pode trabalhar em várias coisas em paralelo.
 
 Quando uma spec está em execução, vai ver o progresso do seu pipeline e os logs em direto — a saída em tempo real da IA enquanto desenha, programa e revê a sua alteração.
@@ -35,7 +35,12 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 
 - **Indicador de ligação** (à esquerda) — um ponto colorido e uma etiqueta a mostrar que a app está ativa: verde para *ligado*, âmbar enquanto *reconecta*, azul enquanto *sincroniza* logo após uma reconexão. Raramente vai precisar dele, mas é tranquilizador quando precisa.
 - **Gasto total** (à direita) — um total acumulado do que gastou, para que o custo esteja sempre a um relance de distância.
+- **Recursos** (à direita) — quanto CPU e memória está a usar neste momento tudo o que o Specrails iniciou, e quantos processos. Clique para ver os totais, uma tendência da memória e a divisão por origem: missões e chats, rails, loops e jobs, processos em segundo plano, terminais, CLIs de agentes, MCP e runners, Git e o próprio servidor do Specrails. Expanda uma origem para ver os seus processos.
 - **Botão do terminal** (à direita ao fundo) — abre o painel de terminal integrado. Carregue em **Cmd+J** (macOS) ou **Ctrl+J** (Windows/Linux) para o alternar a qualquer momento. É uma shell completa, aberta diretamente na pasta do seu projeto.
+
+## Janelas próprias
+
+Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis dentro da janela principal: **Definições da app**, o detalhe de um job aberto a partir de uma missão, e **Loops** e **Plugins** no modo Missão. Pode movê-las para outro ecrã e continuar a trabalhar na janela principal. Cada uma usa os controlos de janela do próprio sistema; as Definições e a janela do job também fecham com **Escape**. As alterações que fizer aí, como o tema ou o idioma, aplicam-se de imediato à janela principal. Na versão de browser, estes ecrãs abrem como painéis.
 
 ## Alguns atalhos úteis {#shortcuts}
 

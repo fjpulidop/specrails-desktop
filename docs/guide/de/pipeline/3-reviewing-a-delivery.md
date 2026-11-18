@@ -32,6 +32,12 @@ Ein abgeschlossener Lauf fragt dich nur eines: Was soll mit dem Ergebnis passier
 
 Schlägt eine Aktion fehl, nennt die Meldung, was nicht geklappt hat, und bietet **Wiederholen** an.
 
+## Specrails den PR grün halten lassen {#pr-ci}
+
+Nachdem du aus einer Mission einen PR erstellt hast, bietet das Gespräch **CI von PR #N überwachen und reparieren** an. Das ist optional und startet nie von selbst. Wähle **Starten**, und Specrails wartet auf die Checks des PR, behebt die fehlschlagenden, löst Konflikte mit dem Basis-Branch, indem es ihn einmergt, prüft das Ergebnis auf deinem Rechner und pusht die Korrektur in denselben PR, bis die Checks grün sind. Du kannst das im Lauf-Streifen verfolgen („Warte auf die CI“, „Behebe fehlschlagende Checks“, „Pushe die Korrektur in den PR“).
+
+Es macht nie einen Force-Push, schreibt den Branch nie um, schwächt nie einen Check ab und veröffentlicht, mergt oder schließt den PR nie: Diese Entscheidungen bleiben deine. Kann es nicht abschließen (die Checks schlagen weiter fehl, ein erforderlicher Check meldet sich nie, es braucht ein Secret, das nur du liefern kannst), hält es an und sagt, warum. **Nicht jetzt** blendet das Angebot für diese Lieferung aus. Du kannst es später mit **CI / Konflikte reparieren** unter **Weitere Aktionen** auf der PR-Karte oder am Rail starten.
+
 ## Tastatur
 
 | Taste | Aktion |

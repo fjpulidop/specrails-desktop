@@ -14,10 +14,10 @@ No hay ahorro de IA demostrado todavía. La validación local comprobará la mec
 
 | Documento | Uso |
 |---|---|
-| [Core: propuesta](../../../specrails-core/openspec/changes/implementation-efficiency/proposal.md) | Alcance y motivación |
-| [Core: diseño](../../../specrails-core/openspec/changes/implementation-efficiency/design.md) | Decisiones del runtime, reanudación, evidencias y evaluación |
-| [Core: contrato compartido](../../../specrails-core/openspec/changes/implementation-efficiency/contracts.md) | Fuente única de campos, versiones, herramientas y semántica entre repositorios |
-| [Core: tareas](../../../specrails-core/openspec/changes/implementation-efficiency/tasks.md) | Bloques C0–C7 y pruebas de aceptación |
+| Core: propuesta (`specrails-core/openspec/changes/implementation-efficiency/proposal.md`) | Alcance y motivación |
+| Core: diseño (`specrails-core/openspec/changes/implementation-efficiency/design.md`) | Decisiones del runtime, reanudación, evidencias y evaluación |
+| Core: contrato compartido (`specrails-core/openspec/changes/implementation-efficiency/contracts.md`) | Fuente única de campos, versiones, herramientas y semántica entre repositorios |
+| Core: tareas (`specrails-core/openspec/changes/implementation-efficiency/tasks.md`) | Bloques C0–C7 y pruebas de aceptación |
 | [Desktop: propuesta](../../openspec/changes/implementation-efficiency/proposal.md) | Alcance del producto |
 | [Desktop: diseño](../../openspec/changes/implementation-efficiency/design.md) | Configuración, logs, historial y compatibilidad |
 | [Desktop: tareas](../../openspec/changes/implementation-efficiency/tasks.md) | Bloques D0–D5 y pruebas de aceptación |

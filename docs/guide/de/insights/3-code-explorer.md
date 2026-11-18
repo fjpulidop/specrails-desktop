@@ -10,7 +10,7 @@ Du öffnest ihn über die rechte Seitenleiste (**Code**), und wie alles andere b
 
 Der linke Bereich ist ein virtualisierter Baum der Dateien deines Projekts – schnell selbst bei großen Repos. Er respektiert deine `.gitignore` sowie eine eingebaute Sperrliste, sodass du die Dateien siehst, die zählen, und nicht ein Meer aus Build-Artefakten und `node_modules`.
 
-Neben Dateien fallen dir **Herkunfts-Chips** auf – kleine Markierungen, die dir sagen, dass eine Datei *von der KI bearbeitet* wurde. Das ist das Herzstück des Code-Explorers: Specrails hält fest, welche Dateien jeder Pipeline-Job erstellt oder verändert hat, und verknüpft sie mit dem Ticket, das die Arbeit ausgelöst hat. So kannst du auf einen Blick die Frage beantworten: „Hat die KI das geschrieben oder ich?“
+Neben Dateien fallen dir **Herkunfts-Chips** auf – kleine Markierungen, die dir sagen, dass eine Datei *von der KI bearbeitet* wurde. Das ist das Herzstück des Code-Explorers: Specrails hält fest, welche Dateien jeder Pipeline-Job erstellt oder verändert hat, und verknüpft sie mit der Spec, die die Arbeit ausgelöst hat. So kannst du auf einen Blick die Frage beantworten: „Hat die KI das geschrieben oder ich?“
 
 Oben im Baum gibt es einen Filter:
 
@@ -39,17 +39,17 @@ Du kannst außerdem die **Sprache der Zusammenfassungen** (Englisch oder Spanisc
 
 ## Die Baugeschichte
 
-Unter dem Code-Viewer lebt die **Baugeschichte** — eine chronologische Zeitleiste jeder Spec und jedes Jobs, die die gerade betrachtete Datei aufgebaut haben. Jedes Kapitel ist eine Karte: welche Spec eingegriffen hat (mit ihrem aktuellen Status), wann, ob die Datei erstellt, geändert oder gelöscht wurde, und wie groß die Änderung war (hinzugefügte und entfernte Zeilen). Ein Klick auf eine Karte öffnet die Detailansicht dieser Spec. Auch Loop-basierte Rails zeichnen ihre Dateiberührungen auf — Arbeit in isolierten Worktrees erscheint in der Geschichte genau wie reguläre Pipeline-Jobs.
+Unter dem Code-Viewer lebt die **Baugeschichte** — eine chronologische Zeitleiste jeder Spec und jedes Jobs, die die gerade betrachtete Datei aufgebaut haben. Jedes Kapitel ist eine Karte: welche Spec eingegriffen hat (mit ihrem aktuellen Status), wann, ob die Datei erstellt, geändert oder gelöscht wurde, und wie groß die Änderung war (hinzugefügte und entfernte Zeilen). Ein Klick auf eine Spec-Karte öffnet die Detailansicht dieser Spec. Auch Loop-basierte Rails zeichnen ihre Dateiberührungen auf — Arbeit in isolierten Worktrees erscheint in der Geschichte genau wie reguläre Pipeline-Jobs.
 
 Für jedes Kapitel kannst du eine Erklärung in einfacher Sprache anfordern: Drücke **Diese Änderung erklären**, und die App schreibt ein bis drei Sätze darüber, was diese konkrete Änderung zur Datei beigetragen hat — ohne Code, ohne Fachjargon. Erklärungen teilen sich dasselbe Monatsbudget wie die Dateizusammenfassungen; solange noch keine erzeugt wurde, zeigt die Karte die ehrlichen Fakten, die sie kennt: die Art der Änderung, die Spec und das Datum. Lieber Rohdaten? Ein **Geschichte / Protokoll**-Umschalter wechselt zur klassischen Änderungsliste mit Diffs auf Abruf. Dasselbe Panel erscheint im **Files**-Bereich des Agentenmodus.
 
 ## Code zurück mit Specs verbinden
 
-Die Herkunftsverknüpfung funktioniert in beide Richtungen. Innerhalb des Code-Explorers öffnet ein Klick auf den Ticket-Chip einer Datei die Detailansicht dieses Tickets. Und aus der anderen Richtung hat die **Ticket-Detailansicht** einen Abschnitt *Von diesem Ticket bearbeitete Dateien* – klicke dort auf eine Datei und du springst direkt in den Code-Explorer, mit der Datei geöffnet. Das schließt den Kreis zwischen „hier ist die Spec, die wir geschrieben haben“ und „hier ist der Code, der dabei herausgekommen ist“.
+Die Herkunftsverknüpfung funktioniert in beide Richtungen. Innerhalb des Code-Explorers öffnet ein Klick auf den Spec-Chip einer Datei die Detailansicht dieser Spec. Und aus der anderen Richtung hat die **Spec-Detailansicht** einen Abschnitt *Von dieser Spec bearbeitete Dateien* – klicke dort auf eine Datei und du springst direkt in den Code-Explorer, mit der Datei geöffnet. Das schließt den Kreis zwischen „hier ist die Spec, die wir geschrieben haben“ und „hier ist der Code, der dabei herausgekommen ist“.
 
 ## Was er (noch) nicht kann
 
-Um die Erwartungen klar zu setzen: Diese erste Version lässt absichtlich ein paar Dinge weg: das Bearbeiten in der App, Zusammenfassungen pro Symbol oder pro Verzeichnis, eine erzählende Diff-Ansicht und das dialogorientierte „Frag die KI zu dieser Datei“. Die Herkunft ordnet eine Datei nur ihrem primären Ticket zu. Das sind die Art von Dingen, die mit der Zeit wachsen könnten.
+Um die Erwartungen klar zu setzen: Diese erste Version lässt absichtlich ein paar Dinge weg: das Bearbeiten in der App, Zusammenfassungen pro Symbol oder pro Verzeichnis, eine erzählende Diff-Ansicht und das dialogorientierte „Frag die KI zu dieser Datei“. Die Herkunft ordnet eine Datei nur ihrer primären Spec zu. Das sind die Art von Dingen, die mit der Zeit wachsen könnten.
 
 ## Ausschalten
 

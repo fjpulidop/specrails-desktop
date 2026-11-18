@@ -66,6 +66,10 @@ You don't have to come to the Analytics page to see what a spec cost. Open any s
 
 Click it and you land on the Analytics page already filtered to that spec. It's the quickest path from "what did this feature cost me?" to the full breakdown.
 
+## All projects {#all-projects}
+
+For the picture across every project, open **Analytics** from the left sidebar or the command palette. It shows total cost, jobs and success rate, the cost over time and one row per project, and it uses the same five categories and colours as the project page. Mission and Intent turns count in every figure. Turns that belong to no loaded project, such as missions on Home and Blueprint or Builder chats, are grouped in one **Home & Blueprint** row, counted in agent turns instead of jobs. Estimated cost is marked with `~`, as on the project page.
+
 ## Exporting your data
 
 When you need the numbers outside the app — a spreadsheet, a finance report, your own analysis — use the **Export** dropdown. It offers four formats:
@@ -87,7 +91,7 @@ Set a daily limit to cap what a day can cost. Every cap, daily, weekly, monthly 
 
 When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume.
 
-Both limits count your local day, and both include mission spend. The per-job cost alert is a separate setting.
+Both limits count your local day, and both include mission spend: a project's limit counts the turns pinned to that project, the app-wide limit counts every turn. "Today" means your local day everywhere in the app, in the status bar, Analytics and the limits. The per-job cost alert is a separate setting.
 
 **Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
 

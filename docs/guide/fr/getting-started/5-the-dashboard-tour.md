@@ -14,8 +14,8 @@ La fenêtre comporte trois zones :
 
 C'est là que le travail se fait. Le tableau de bord affiche :
 
-- **Vos specs** — les tickets que vous avez créés, organisés par statut (Backlog/À faire jusqu'à Terminé). Vous pouvez les visualiser sous forme de liste, de grille ou de cartes type post-it, selon votre préférence.
-- **Un moyen d'ajouter une spec** — démarrez un nouveau morceau de travail. Vous pouvez rédiger une spec rapide directement, ou ouvrir un chat **Explore** guidé qui vous aide à la façonner par la conversation et rédige le ticket pour vous.
+- **Vos specs** — les specs que vous avez créées, organisés par statut (Backlog/À faire jusqu'à Terminé). Vous pouvez les visualiser sous forme de liste, de grille ou de cartes type post-it, selon votre préférence.
+- **Un moyen d'ajouter une spec** — démarrez un nouveau morceau de travail. Vous pouvez rédiger une spec rapide directement, ou ouvrir un chat **Explore** guidé qui vous aide à la façonner par la conversation et rédige la spec pour vous.
 - **Les rails** — ce sont les couloirs où les specs se construisent. Déposez une spec sur un rail et lancez-la pour la faire passer dans le pipeline Architect → Developer → Reviewer → Ship. Plusieurs rails peuvent tourner en même temps, vous pouvez donc travailler sur plusieurs choses en parallèle.
 
 Quand une spec s'exécute, vous voyez la progression de son pipeline et ses logs en direct — la sortie en temps réel de l'IA pendant qu'elle conçoit, code et relit votre modification.
@@ -35,7 +35,12 @@ Un fin bandeau court tout en bas de la fenêtre. Discret mais bien pratique :
 
 - **Indicateur de connexion** (à gauche) — un point coloré et un libellé qui montrent que l'application est en ligne : vert pour *connecté*, ambre pendant la *reconnexion*, bleu pendant la *synchronisation* juste après une reconnexion. Vous en aurez rarement besoin, mais c'est rassurant le moment venu.
 - **Dépense totale** (à droite) — un cumul en temps réel de ce que vous avez dépensé, pour que le coût soit toujours à portée de regard.
+- **Ressources** (à droite) — combien de CPU et de mémoire utilise en ce moment tout ce que Specrails a lancé, et combien de processus. Cliquez dessus pour voir les totaux, l'évolution de la mémoire et la répartition par source : missions et chats, rails, boucles et tâches, processus en arrière-plan, terminaux, CLI d'agents, MCP et runners, Git et le serveur Specrails lui-même. Dépliez une source pour voir ses processus.
 - **Bascule du terminal** (tout à droite) — ouvre le panneau de terminal intégré. Appuyez sur **Cmd+J** (macOS) ou **Ctrl+J** (Windows/Linux) pour l'afficher ou le masquer à tout moment. C'est un vrai shell, ouvert directement dans le dossier de votre projet.
+
+## Des fenêtres à part entière
+
+Dans l'application de bureau, certains écrans s'ouvrent dans de vraies fenêtres plutôt que dans des panneaux de la fenêtre principale : les **Paramètres de l'app**, le détail d'un job ouvert depuis une mission, ainsi que **Loops** et **Plugins** en mode Mission. Vous pouvez les déplacer sur un autre écran et continuer à travailler dans la fenêtre principale. Chacune utilise les contrôles de fenêtre du système ; les Paramètres et la fenêtre du job se ferment aussi avec **Échap**. Les changements que vous y faites, comme le thème ou la langue, s'appliquent immédiatement à la fenêtre principale. Dans la version navigateur, ces écrans s'ouvrent en panneaux.
 
 ## Quelques raccourcis bien pratiques {#shortcuts}
 

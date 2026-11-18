@@ -1,40 +1,19 @@
-# Scegliere un engine per ogni rail {#provider-capabilities}
+<!-- guide-revision: mission-first-v1 -->
 
-## Quando compare il selettore
+# Scegliere un provider e le sue capacità {#provider-capabilities}
 
-Il **selettore di engine** vive nell'intestazione del rail, proprio accanto al controllo della modalità. Viene mostrato solo quando il progetto ha installato **più di un** provider.
+Le impostazioni di esecuzione appartengono al provider scelto. Un nome di modello familiare non implica che ogni provider supporti gli stessi controlli di ragionamento, output strutturato o approvazione.
 
-> **I progetti con un solo provider si comportano in modo byte-identico.** Se un progetto ha un solo engine, non compare alcun selettore e nulla cambia nella selezione del provider — gira semplicemente su quell'engine. Il selettore è pensato esclusivamente per i progetti multi-provider.
+## Verifica prima la disponibilità
 
-Quando compare, la tua scelta è **per rail e per avvio** — rail diversi possono usare engine diversi, e la tua scelta viene ricordata per ogni progetto (con default sull'engine primario del progetto).
+Autentica la CLI del provider e conferma il suo stato in Specrails. Scegli tra i modelli e i valori di effort offerti dai controlli di quel provider. Una CLI installata può comunque fallire perché la sua sessione, la sua quota o il suo servizio remoto non sono disponibili.
 
-## Come scegliere un engine
+Claude e Codex hanno adattatori diversi. Le combinazioni non supportate dovrebbero fallire prima che un loop parta; ad esempio, non si può dare per scontato che un passo che richiede una risposta strutturata senza strumenti funzioni con ogni provider.
 
-L'engine selezionato esegue ogni fase della pipeline di quel rail. Se la CLI dell'engine scelto non è installata, l'avvio fallisce subito — non viene avviato nulla. Installa la CLI mancante e riprova.
+## Usa il giusto livello di controllo
 
-## In cosa è bravo ciascun engine
+La scelta di provider e modello di un rail ne controlla l'esecuzione. Il loop Freestyle della galleria gira su ogni provider CLI ed engine locale; solo Claude aggiunge la chat interattiva nel job. I profili di ruolo e il routing per agente dipendono dal provider e dal workflow Core che Desktop ha installato nel progetto; controlla la configurazione effettiva invece di presumere che un profilo cambi ogni chiamata.
 
-Tutti e quattro eseguono **Implement**:
+Quando confronti delle esecuzioni, mantieni la stessa spec, la stessa revisione del repository e gli stessi criteri di verifica. Tratta separatamente il costo riportato, quello stimato e quello non disponibile. Vedi [profili](../agents/profiles-and-the-balanced-default) e [consumi](../insights/analytics-and-cost-tracking).
 
-| Engine | Scegli questo quando… | Note |
-|--------|--------------------|-------|
-| **Claude** | Servono costi nativi, interazione persistente o tool policy rigorose. | Profili, Freestyle e transform strutturati. |
-| **Codex** | Preferisci la CLI Codex di OpenAI o vuoi confrontare le implementazioni tra provider diversi. | `codex` ≥ 0.128.0. Nessuna reportistica nativa dei costi — l'app ricava il costo dalla sua tabella prezzi. I profili non si applicano. Freestyle funziona, senza chat interattiva. |
-
-## Un flusso di lavoro pratico
-
-I progetti multi-provider danno il meglio quando vuoi **confrontare** o **ottimizzare i costi**:
-
-- **Confronta le implementazioni.** Metti la stessa spec su due rail, imposta uno su Claude e uno su Codex, avviali entrambi (su progetti diversi, oppure uno dopo l'altro nella coda dello stesso progetto), poi usa il pulsante **Confronta** nella pagina Job per mettere a confronto i risultati.
-- **Imposta un default sensato.** Imposta l'engine che usi più spesso come primario del progetto, così i rail partono da quello, e cambia per ogni rail solo quando una spec specifica vuole un engine diverso.
-
-## Cose da tenere a mente
-
-- **La selezione del provider è immutabile dopo la creazione del progetto** (v1). Scegli i provider installati quando aggiungi il progetto; non c'è alcun interruttore nelle Impostazioni per aggiungerne o rimuoverne uno in seguito.
-- **Il pulsante "Open AI CLI" del terminale** offre anch'esso un selettore di provider sui progetti multi-provider, se preferisci pilotare una CLI a mano.
-
-## Dove andare ora
-
-- [Usare Codex](../integrations/using-codex) — installazione e accesso.
-- [Rail e job](rails-and-jobs) — la coda e il flusso di avvio.
-- [Tracciare i costi](../analytics/tracking-cost) — ripartizione dei costi per engine.
+Per un avvio da missione, i passi del loop ereditano provider, modello ed effort della missione, a meno che un agente non li sovrascriva esplicitamente nell'editor del loop. Le impostazioni generali gestiscono le connessioni ai provider; il vecchio blocco dei default del provider e il selettore dei Ruoli non sono più offerti.

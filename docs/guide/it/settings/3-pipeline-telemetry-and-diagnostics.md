@@ -44,3 +44,12 @@ Questo è il bundle da prendere quando vuoi capire un'esecuzione complicata, con
 ## Come disattivarla
 
 Riporta l'interruttore su off in qualsiasi momento. I nuovi job smettono di registrare immediatamente. Tutto ciò che è già stato catturato resta su disco finché non viene compattato o non rimuovi il progetto — niente viene inviato da nessuna parte né perso alle tue spalle.
+
+
+## Prove di completamento
+
+La cronologia dei loop memorizza un risultato finale indipendentemente dalla telemetria facoltativa del provider.
+Separa l'esecuzione del processo dall'accettazione e dalla consegna di Core, e distingue
+passi, valutazioni del decisore e turni dell'agente. Durate e tentativi delle fasi provengono
+dal journal di Core; nessun costo per fase viene dedotto dal totale. I runtime più vecchi
+lasciano non disponibili le prove di accettazione.

@@ -53,7 +53,7 @@ Tests use vitest with `:memory:` SQLite databases.
       terminals/          # per-session shell-integration shims
 ```
 
-> **Artifact relocation + bundled framework (pre-release, branch `feat/relocate-artifacts-to-home`).** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See the **Artifact relocation + bundled framework** section in `CLAUDE.md` and the three internal docs: `global-artifacts-relocation-evaluation.md`, `global-artifacts-alignment-contract.md`, `bundled-framework-build-plan.md`.
+> **Artifact relocation + bundled framework.** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See [the relocation evaluation](global-artifacts-relocation-evaluation.md), [the alignment contract](global-artifacts-alignment-contract.md) and the historical [Artifact relocation notes](legacy-implementation-notes.md).
 
 The app SQLite (`desktop.sqlite`) stores only project metadata. All per-project data lives in an isolated `jobs.sqlite` under the project's slug directory — not just jobs and chat, but rails, tickets, agent profiles/versions, AI invocations (cost analytics), telemetry pointers, file provenance, terminal settings/marks, and more (see the `MIGRATIONS` array in `server/db/migrations.ts`). Projects can be removed and re-added without losing history, and the registry can be wiped without touching project data.
 
@@ -130,7 +130,7 @@ that need it, recovery last) and owns teardown in `removeProject`/`shutdown`.
 | `desktop-db.ts` | App-level SQLite: project registry CRUD, app settings |
 | `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext`; `_loadProjectContext` orchestrates the `project-context-*.ts` wiring (see below) |
 | `desktop-router.ts` | `/api/*` router composition; route groups live in `desktop-router-*.ts` (projects, providers, analytics, settings, agents/specrails-tech, webhooks, runtime providers, core update) |
-| `project-router.ts` | `/api/projects/:id/*` routes: all project-scoped operations |
+| `project-router.ts` | `/api/projects/:id/*` router composition: mounts `project-router-*.ts` groups (tickets split by sub-resource in `project-router-tickets-*.ts`, jobs, loop runs, spending, chat, git, settings, terminals, …) and module routers |
 | `db.ts`, `db/` | Stable persistence facade with separate connection, migrations and domain repositories; see [source boundaries](source-architecture.md) |
 | `modules/execution/runtime/queue-manager.ts` | Legacy job queue: spawn provider CLI processes serially per project |
 | `modules/loops/runtime/loop-run-manager.ts` | Loop runs: the default rail execution path, concurrent across rails |
@@ -159,7 +159,7 @@ Provider, terminal, profile, plugin, code-explorer, and explore subsystems each 
 client/src/
 ├── App.tsx                     # Mounts DesktopProvider + DesktopApp unconditionally
 ├── components/                 # App shell and shared primitives
-│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar (projects, Loops, Plugins, …) — see Sidebar shell
+│   ├── ArcSidebar.tsx          # Collapsible left sidebar (projects, Loops, Plugins, …) — see Sidebar shell
 │   ├── ProjectLayout.tsx       # Per-project three-panel wrapper
 │   ├── ProjectRightSidebar.tsx # Project nav (Jobs, Analytics, Agents, Code, …)
 │   ├── TitleBar.tsx            # Custom frameless titlebar (desktop)
@@ -292,7 +292,7 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 
 | Subsystem | Server modules | Notes |
 |-----------|---------------|-------|
-| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,kimi-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Four first-class providers — Claude, Codex, Gemini, and Kimi — enabled by default** behind a `ProviderAdapter` contract. Claude reports native cost and supports persistent stdin; Codex (`≥ 0.128.0`) and Gemini (`≥ 0.11.0`) expose estimated usage; Kimi (`≥ 0.27.0`) runs CLI-only prompt-mode JSONL, resumes through terminal hints, uses `.kimi-code` skills/MCP, and leaves absent cost/tokens unavailable. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by executable detection, Core target compatibility, and the existing Codex/Gemini emergency switches. See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), [`../gemini.md`](../gemini.md), and [`../kimi.md`](../kimi.md). |
+| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,kimi-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Four first-class providers — Claude, Codex, Gemini, and Kimi — enabled by default** behind a `ProviderAdapter` contract. Claude reports native cost and supports persistent stdin; Codex (`≥ 0.128.0`) and Gemini (`≥ 0.11.0`) expose estimated usage; Kimi (`≥ 0.27.0`) runs CLI-only prompt-mode JSONL, resumes through terminal hints, uses `.kimi-code` skills/MCP, and leaves absent cost/tokens unavailable. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by executable detection, Core target compatibility, and the existing Codex/Gemini emergency switches. See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), [`gemini-adapter.ts`](../../server/providers/gemini-adapter.ts), and [`kimi-adapter.ts`](../../server/providers/kimi-adapter.ts). |
 | **Spending analytics** | `server/modules/accounting/runtime/spending.ts`, `server/modules/accounting/runtime/ai-invocations.ts`, `server/modules/accounting/runtime/pricing.ts` | `recordInvocation` writes an `ai_invocations` row per AI CLI call across twelve surfaces (`job`, `loop`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`, `chat-sidebar`, `spec-launcher`, `proposal`, `agent-studio`, `setup`); mission turns record to the app-level `agent_invocations` ledger and are folded into a pinned project's spending. Powers the Analytics page and `spending.invalidated`. |
 | **Agent profiles** | `server/modules/agents/runtime/profile-manager.ts`, `server/modules/agents/runtime/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0` in general and the Core 4.12 Kimi target for Kimi roles (the app installs Core 6: `CORE_PACKAGE_SPEC` in `server/core-package.ts`). Claude and Kimi advertise profile support; other adapters force legacy/no-profile mode. |
 | **Plugins (Integrations)** | `server/plugin-manager.ts`, `server/plugins/` | Bundled-only, MCP-based, additivity invariant, surgical `.mcp.json` merge, `plugin.*` WS events. Serena ships today. |
@@ -368,6 +368,6 @@ macOS desktop builds are signed + notarized. Windows builds (x64 and arm64) ship
 - [Configuration](configuration.md) — env vars, feature flags, app/project settings
 - [Agent profiles](profiles.md) — profile schema, resolution order, snapshot-per-job
 - [Adding a provider](adding-a-provider.md) — the `ProviderAdapter` contract
-- [Codex](../codex.md) / [Gemini](../gemini.md) / [Kimi](../kimi.md) — per-provider user guides
+- [Codex](../codex.md) — Codex user guide; Gemini and Kimi are covered by their adapters and the [AI providers guide](../guide/en/integrations/1-ai-providers.md)
 - [OpenSpec workflow](openspec-workflow.md) — the spec-driven change lifecycle
 - [Operations runbook](operations-runbook.md) — running, upgrading, and recovering the app

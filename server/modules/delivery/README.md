@@ -17,7 +17,7 @@ closed on GitHub without anyone pressing Verify PR: per project, it reads the
 due open PRs of each repository in one GraphQL call (age back-off) and runs
 the same `poll-merge` decision only for a terminal PR.
 
-Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail-pr-decision.test.ts server/multi-repo-delivery.test.ts`.
+Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail-pr-decision.test.ts`.
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 

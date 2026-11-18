@@ -1,22 +1,50 @@
 # Gestisci Specrails conversando (Agent Chat)
 
-L'**Agent Chat** è un copilota che vive *dentro* Specrails e può pilotare l'intera app al posto tuo. Invece di navigare a clic tra progetti, spec, binari e analisi, basta che chiedi: *«quanti job sono andati a buon fine questa settimana?»*, *«crea una spec per il login social nel progetto API»*, *«lancia i tre ticket a priorità più alta e avvisami quando finiscono»*. Porta a termine il lavoro chiamando gli strumenti stessi di Specrails — gli stessi che espone il [server MCP](./5-mcp-server.md) — mentre vedi la dashboard aggiornarsi dal vivo dietro di lui.
+L'**Agent Chat** è un copilota che vive *dentro* Specrails e può pilotare l'intera app al posto tuo. Invece di navigare a clic tra progetti, spec, rail e analytics, basta che chiedi: *«quanti job sono andati a buon fine questa settimana?»*, *«crea una spec per il login social nel progetto API»*, *«lancia le tre spec a priorità più alta e avvisami quando finiscono»*. Porta a termine il lavoro chiamando gli strumenti stessi di Specrails — gli stessi che espone il [server MCP](mcp-server) — mentre vedi la dashboard aggiornarsi dal vivo dietro di lui.
 
-> **Da non confondere con gli agenti della pipeline.** La sezione *Agenti* (Architect → Developer → Reviewer) riguarda *come un binario implementa una spec*. L'**Agent Chat** è un unico assistente che *gestisce l'app stessa*. Cose diverse, stessa parola.
+> **Da non confondere con gli agenti della pipeline.** La sezione *Agenti* (Architect → Developer → Reviewer) riguarda *come un rail implementa una spec*. L'**Agent Chat** è un unico assistente che *gestisce l'app stessa*. Cose diverse, stessa parola.
 
 ## Come aprirlo
 
 C'è una **bolla** fluttuante in fondo alla finestra: cliccala per aprire il pannello, oppure premi **⌘⇧A** (**Ctrl+Shift+A** su Windows/Linux) da qualsiasi punto. Il pannello è una finestra vera che puoi spostare, ridimensionare, massimizzare e rimettere nella bolla; ricorda dove l'hai lasciato.
 
-È **non modale di proposito**: la dashboard dietro resta viva, così quando l'agente lancia un binario o crea una spec la vedi comparire in tempo reale — non stai guardando uno schermo congelato.
+È **non modale di proposito**: la dashboard dietro resta viva, così quando l'agente lancia un rail o crea una spec la vedi comparire in tempo reale — non stai guardando uno schermo congelato.
+
+## Riusare il testo selezionato
+
+Seleziona del testo in una conversazione di missione per aprirne il menu contestuale.
+
+**Chiedi su questo** apre una conversazione a parte sulla selezione, come una rapida domanda "a proposito". Scrivi una domanda, oppure premi Invio con la casella vuota per farti spiegare il testo nel contesto di questa missione. La risposta usa la conversazione precedente della missione, e puoi fare domande successive. Non viene salvato nulla: la missione, il suo compositore e la sua sessione dell'agente non vengono toccati, e chiudendo la finestra la conversazione a parte viene scartata. Il piè di pagina indica il modello che ha risposto.
+
+**Aggiungi alla missione**
+la invia a quella stessa missione, usando la sua coda normale se è occupata, e
+conserva la bozza non finita del tuo compositore.
+
+**Avvia una missione separata** offre **Da zero** (solo la selezione) e
+**Con contesto · Fork** (la cronologia e i suoi allegati fino all'ultimo messaggio
+coperto dalla selezione, incluso). Entrambe aggiungono un riquadro diviso, mantengono i
+riquadri esistenti e mettono il testo selezionato nel nuovo compositore per modificarlo. Premi Invio
+quando sei pronto; aprire la missione non invia nulla. Il fork usa una propria
+sessione dell'agente e copie dei file, e mostra il titolo della missione originale.
+Le card ereditate sono registri in sola lettura; le loro azioni non vengono ripetute.
+
+Puoi anche fare clic destro sulla selezione o premere **Shift+F10**. Usa le frecce per
+muoverti nel menu ed **Esc** per chiuderlo. Seleziona messaggi già confermati;
+il testo ancora in streaming o in attesa in coda non è ancora disponibile.
+
+## Quanto è pieno il contesto {#context-ring}
+
+Un piccolo anello accanto alla casella del messaggio mostra quanta parte della finestra di contesto della missione ha usato la sessione del provider, secondo quanto riportato dal provider. Cliccalo per vedere i token usati, la dimensione della finestra e il modello. Quando il provider non indica la finestra, o ha appena compattato il contesto, l'anello resta vuoto e dice cosa è sconosciuto. I provider compattano il contesto da soli quando si riempie.
+
+**Ricomincia con un riepilogo.** Dal popover dell'anello (il pulsante principale quando il contesto è pieno al 75 %), Specrails scrive un riepilogo della missione: obiettivo, decisioni, stato attuale e prossimi passi. Il tuo messaggio successivo avvia quindi una nuova sessione del provider che conosce solo quel riepilogo. La conversazione resta nella cronologia, e una riga compressa **Sessione rinnovata · riepilogo** mostra cosa sa la nuova sessione. Prima ti chiede conferma, e non è disponibile mentre un turno è in corso o mentre la missione è in Intent, che usa una sessione propria.
 
 ## Prerequisito: il server MCP
 
-L'Agent Chat gestisce l'app tramite il **server MCP di Specrails** integrato, quindi deve essere attivo. Se non lo è, il pannello si apre con un banner **Attiva Specrails MCP** con un clic: premilo e sei pronto (senza riavvio). Vedi [Controlla Specrails da qualsiasi IA](./5-mcp-server.md) per i dettagli; non viene installato nulla, è tutto locale sulla tua macchina.
+L'Agent Chat gestisce l'app tramite il **server MCP di Specrails** integrato, quindi deve essere attivo. Se non lo è, il pannello si apre con un banner **Attiva Specrails MCP** con un clic: premilo e sei pronto (senza riavvio). Vedi [Controlla Specrails da qualsiasi IA](mcp-server) per i dettagli; non viene installato nulla, è tutto locale sulla tua macchina.
 
 ## Scegliere su cosa lavora
 
-L'intestazione ha un **selettore di progetto** (come quello di Cursor). Scegli un progetto e tutto ciò che chiedi è circoscritto a esso — *«lancia quelli ad alta priorità»* si risolve su quel progetto. Lascialo su **Home** e l'agente lavora sull'intera configurazione: può elencare o creare progetti e rispondere a domande che abbracciano tutto. Se chiedi qualcosa di specifico di un progetto stando su Home, ti chiederà quale (o si offrirà di crearne uno) invece di indovinare.
+L'intestazione ha un **selettore di progetto**. Scegli un progetto e tutto ciò che chiedi è circoscritto a esso — *«lancia quelli ad alta priorità»* si risolve su quel progetto. Lascialo su **Home** e l'agente lavora sull'intera configurazione: può elencare o creare progetti e rispondere a domande che abbracciano tutto. Se chiedi qualcosa di specifico di un progetto stando su Home, ti chiederà quale (o si offrirà di crearne uno) invece di indovinare.
 
 Scegliere un progetto qui **non** sposta la tua dashboard: l'obiettivo dell'agente e ciò che stai guardando sono indipendenti.
 
@@ -27,8 +55,8 @@ L'agente può toccare tutta l'app, quindi decidi tu quanta libertà ha tramite u
 | Livello | Cosa può fare |
 |---|---|
 | 👀 **Osserva** | Sola lettura — elencare e ispezionare progetti, spec, job, analisi. Nulla cambia. |
-| ✍️ **Modifica** | Quanto sopra **+** creare e modificare (spec, impostazioni, configurazione dei binari) — modifiche reversibili. |
-| ⚡ **Opera** | Quanto sopra **+** avviare lavoro di IA che **costa denaro** (binari, generazione di spec). |
+| ✍️ **Modifica** | Quanto sopra **+** creare e modificare (spec, impostazioni, configurazione dei rail) — modifiche reversibili. |
+| ⚡ **Opera** | Quanto sopra **+** avviare lavoro di IA che **costa denaro** (rail, generazione di spec). |
 | 🔥 **Autonomo** | Quanto sopra **+** eliminare e fermare cose — azioni irreversibili. |
 
 Inizia da **Osserva** e alza il livello solo quando vuoi che l'agente agisca. Se prova qualcosa oltre il livello attuale, si ferma e ti dice esattamente quale livello attivare — non aggira mai il limite. Questo è distinto dai livelli di Impostazioni ▸ MCP, che regolano gli assistenti *esterni*; il livello qui riguarda solo questo agente interno all'app.
@@ -39,7 +67,7 @@ Alzare il livello **ad Autonomo** non avviene mai con un solo tasto: Shift+Tab d
 
 Una volta su **Opera**, prova:
 
-> *«Elenca ogni spec da fare nel progetto API, poi lancia le tre a priorità più alta su binari separati e tienile d'occhio.»*
+> *«Elenca ogni spec da fare nel progetto API, poi lancia le tre a priorità più alta su rail separati e tienile d'occhio.»*
 >
 > *«Quanto ho speso questa settimana, suddiviso per progetto?»*
 >
@@ -53,7 +81,6 @@ I blocchi di codice mostrano il linguaggio e hanno il proprio pulsante **copia**
 
 ## Dettagli pratici
 
-- **Super spec da una conversazione.** Chiedi all’agente di *dare forma* a una spec insieme a te invece di generarla in un colpo solo: prima legge il codice reale, ti fa qualche domanda e mostra la bozza che evolve come una card dal vivo nella conversazione. Al tuo sì crea la spec e — per impostazione predefinita — la arricchisce in background con un **Contract Layer** (percorsi file esatti, forme dei dati, invarianti) perché gli agenti che implementano non improvvisino. Di’ "senza contract layer" per saltare l’arricchimento.
 - **Clicca ciò che menziona.** In una missione fissata a un progetto, i numeri di spec (`#12`) e gli id di job/run nelle risposte dell'agente sono chip cliccabili: una spec apre il modale di dettaglio della board, un id di job apre la vista del job dal vivo. Se il riferimento non esiste più, compare una discreta nota "non trovato".
 - **Una striscia per le tue esecuzioni.** Quando l'agente avvia del lavoro, un'unica striscia appena sopra la casella del messaggio lo segue: cosa sta facendo l'esecuzione, in parole semplici («Scrittura della spec dalle tue modifiche»), quante esecuzioni sono terminate, il tempo e il costo reale finora (`—` finché il provider non fattura). Quando un'esecuzione ha bisogno di te — creare la PR, riprovare, tornare in Intent — la striscia lo dice con un'icona e a parole e offre quell'unica azione; fai clic sulla striscia per aprire la scheda completa dell'esecuzione appena sopra (Esc la chiude). Con più esecuzioni, la striscia mostra prima quella che ha bisogno di te e un piccolo selettore («Rail 1 · Rail 2 · +1»). La conversazione conserva solo ciò che è successo — «Avviato su Rail 1», «Rail 1 non riuscito: …», «Consegnato: PR #812» — e ogni riga apre la sua esecuzione. Le missioni in attesa della tua decisione mostrano un punto nell'elenco delle missioni. Le azioni che avviano una nuova esecuzione a pagamento (**Rilancia**, **Recupera e riprova**) o che altri vedono (Crea PR, Pubblica) non partono mai dalla striscia: apre la scheda con il focus su quel pulsante, così confermi lì.
 - **La striscia da tastiera.** **⌥R** (**Alt+R** su Windows/Linux) passa dalla casella del messaggio alla striscia della missione in cui ti trovi; premilo di nuovo per mostrare o nascondere i dettagli dell’esecuzione, e **Esc** ti riporta dov’eri. Fuori da un campo di testo, **⌥[** e **⌥]** passano da un’esecuzione all’altra. Con la striscia attiva, **P** sospende o riprende un Intent e **H** lo affida; queste lettere non fanno nulla altrove. Premi **?** per l’elenco completo.

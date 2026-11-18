@@ -1,37 +1,19 @@
-# Provider AI (Claude, Codex) {#ai-providers}
+<!-- guide-revision: mission-first-v1 -->
 
-## I due provider
+# Connettere un provider AI {#ai-providers}
 
-| Provider | CLI | Realizzato da | Note |
-|---|---|---|---|
-| **Claude** | `claude` | Anthropic | Costo nativo e trasporto interattivo persistente. |
-| **Codex** | `codex` | OpenAI | Richiede codex `0.128.0+`. Legge i suoi server MCP dal file globale `~/.codex/config.toml`. |
+Specrails coordina la tua CLI Claude o Codex autenticata. L'installazione del provider, l'accesso all'account e la fatturazione dei modelli restano separati dall'applicazione.
 
-## I provider vengono rilevati automaticamente
+## Connettere e verificare
 
-Se un provider che vuoi non compare da nessuna parte, è quasi sempre perché la
-CLI non è installata o non è nel tuo `PATH`. Installala, accedi e torna
-sull'app — il rilevamento si riesegue al focus della finestra e il provider
-appare ovunque da solo, con la sua superficie di workspace assemblata in
-background. Un provider installato ma non connesso appare comunque, con un
-badge *Non connesso* nei selettori di engine.
+Installa la CLI che vuoi seguendo le sue istruzioni ufficiali e accedi con l'account che intendi usare. Controlla la disponibilità in Specrails, poi seleziona un modello supportato e le impostazioni per la missione o il rail.
 
-Alcune cose utili sulle macchine multi-provider:
+Un controllo di rilevamento riuscito non garantisce la disponibilità di quota o di rete per la chiamata successiva. Risolvi gli errori di autenticazione e di compatibilità prima di riprovare un'implementazione.
 
-- **Un solo provider si comporta esattamente come prima.** Se ne viene rilevato uno solo, non vedrai mai un selettore di provider — l'app resta pulita e semplice.
-- **Niente è bloccato.** Installare o rimuovere una CLI di provider aggiorna
-  tutti i progetti automaticamente — non c'è alcuna impostazione di provider per
-  progetto da gestire.
+## Capire il confine
 
-## Scegliere un provider per ogni invocazione
+L'app conserva i dati del progetto in locale, mentre le richieste ai modelli e le integrazioni configurate possono inviare contesto fuori dalla tua macchina. Scegli quali riferimenti e allegati fornire tenendone conto.
 
-Il vero vantaggio di un progetto multi-provider è poter scegliere l'AI giusta per ciascun task — senza toccare alcuna impostazione globale. Ovunque venga eseguita un'AI compare un piccolo selettore di provider (solo quando il progetto ne ha più di uno):
+Le capacità variano: i controlli di ragionamento, le risposte strutturate, i subagenti e la guida durante il turno attivo non sono intercambiabili tra provider. Vedi [impostazioni di esecuzione del provider](../pipeline/picking-an-engine-per-rail) e [guida in corsa](../pipeline/the-job-detail-view).
 
-- **Intestazione del rail** — scegli il motore per quello specifico rail prima di avviarlo.
-- **Terminale** — il pulsante "Open AI CLI" (Sparkles) apre un menu dei provider così puoi entrare in una qualsiasi CLI installata nella cartella di quel progetto.
-
-La tua scelta viene ricordata per progetto, con il provider primario come default, così non devi riselezionarla ogni volta.
-
-## Risoluzione dei problemi
-
-- **I server MCP di Codex non si caricano in chat.** Codex legge i server MCP dal file globale `~/.codex/config.toml` — registrali lì con `codex mcp add`.
+La selezione Sonnet esegue Claude Sonnet 5.5 (`claude-sonnet-5-5`). [Anthropic](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).

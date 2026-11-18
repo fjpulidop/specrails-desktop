@@ -78,4 +78,4 @@ Not always. For a small, self-contained spec the AI can implement fine without i
 
 - [Add Spec — Explore mode](add-spec-explore-mode.md) — where drafts come from.
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — the Contract Layer toggle in Quick mode.
-- [Running pipelines](running-pipelines.md) — implement a spec once it's ready.
+- [Running pipelines](../pipeline/rails-and-jobs) — implement a spec once it's ready.

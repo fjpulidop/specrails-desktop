@@ -42,9 +42,12 @@ specrails-desktop/
 ├── cli/          # CLI bridge (specrails-desktop command)
 ├── client/       # Web UI (Vite + React + Tailwind v4)
 ├── server/       # Express server (API + WebSocket + SQLite)
+├── mcp-bridge/   # stdio bridge for external MCP clients
+├── local-runner/ # Agent runner for local OpenAI-compatible engines
 ├── src-tauri/    # Tauri v2 desktop shell (Rust host + bundling)
-├── docs/         # Documentation portal source
-├── CLAUDE.md     # Claude Code project instructions
+├── docs/         # User guide (docs/guide/<lang>/), user docs and internals
+├── AGENTS.md     # Shared contributor/AI working guide (feature map, invariants)
+├── CLAUDE.md     # Claude Code entry point; imports AGENTS.md
 └── CONTRIBUTING.md
 ```
 
@@ -138,6 +141,7 @@ Tip: `npm run ci` runs typecheck + tests + both coverage gates in one shot.
 - **API calls in client:** always use `getApiBase()` from `lib/api.ts`, never hardcode `/api/...`
 - **State per project:** never use module-level caches that could bleed between projects — use `useProjectCache` or per-project Maps in refs
 - **WS handlers:** always filter `msg.projectId` against active project via ref, not stale closure
+- **User guide:** a visible behaviour change updates `docs/guide/en/` and the same page in the other seven locales (same headings and `{#anchor}`s); the client `src/lib/__tests__/help-topics.test.ts` checks that in-app help anchors resolve in every locale
 
 ## API changes and deprecations
 

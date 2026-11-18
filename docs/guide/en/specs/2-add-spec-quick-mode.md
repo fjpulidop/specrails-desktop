@@ -42,4 +42,4 @@ A spec created in Quick mode is a fully normal spec: you can later open it and *
 
 - [Add Spec — Explore mode](add-spec-explore-mode.md) — for specs that need shaping.
 - [Drafts & the Contract Layer](drafts-and-contract-layer.md) — the Contract Layer enrichment explained.
-- [Running pipelines](running-pipelines.md) — drag your new spec onto a rail and implement it.
+- [Running pipelines](../pipeline/rails-and-jobs) — drag your new spec onto a rail and implement it.

@@ -1,40 +1,19 @@
-# Choisir un moteur par rail {#provider-capabilities}
+<!-- guide-revision: mission-first-v1 -->
 
-## Quand le sélecteur apparaît
+# Choisir un fournisseur et ses capacités {#provider-capabilities}
 
-Le **sélecteur de moteur** se trouve dans l'en-tête du rail, juste à côté du contrôle de mode. Il ne s'affiche que lorsque le projet possède **plus d'un** fournisseur installé.
+Les réglages d'exécution appartiennent au fournisseur choisi. Un nom de modèle familier ne signifie pas que chaque fournisseur prend en charge les mêmes réglages de raisonnement, de sortie structurée ou d'approbation.
 
-> **Les projets mono-fournisseur se comportent de manière strictement identique.** Si un projet n'a qu'un seul moteur, aucun sélecteur n'apparaît et rien ne change quant à la sélection du fournisseur — il s'exécute simplement sur ce moteur. Le sélecteur est purement réservé aux projets multi-fournisseurs.
+## Vérifier d'abord la disponibilité
 
-Quand il apparaît, votre choix se fait **par rail et par lancement** — différents rails peuvent exécuter différents moteurs, et votre choix est mémorisé par projet (avec, par défaut, le moteur principal du projet).
+Authentifiez la CLI du fournisseur et confirmez son statut dans Specrails. Choisissez parmi les modèles et les niveaux d'effort proposés par les contrôles de ce fournisseur. Une CLI installée peut quand même échouer si sa session, son quota ou son service distant est indisponible.
 
-## Comment choisir un moteur
+Claude et Codex ont des adaptateurs différents. Les combinaisons non prises en charge doivent échouer avant le démarrage d'un loop ; par exemple, on ne peut pas supposer qu'une étape exigeant une réponse structurée sans outils fonctionne avec tous les fournisseurs.
 
-Le moteur sélectionné exécute chaque phase du pipeline de ce rail. Si la CLI du moteur choisi n'est pas installée, le lancement échoue immédiatement — rien ne démarre. Installez la CLI manquante et réessayez.
+## Utiliser le bon niveau de contrôle
 
-## Les points forts de chaque moteur
+Le choix fournisseur/modèle d'un rail contrôle son exécution. Le loop Freestyle de la galerie tourne avec tous les fournisseurs CLI et moteurs locaux ; seul Claude ajoute le chat interactif dans le job. Les profils de rôles et le routage par agent dépendent du fournisseur et du workflow Core que Desktop a installé dans le projet ; examinez la configuration effective plutôt que de supposer qu'un profil modifie chaque appel.
 
-Les quatre exécutent **Implement** :
+Pour comparer des exécutions, gardez la même spec, la même révision du dépôt et les mêmes critères de vérification. Traitez séparément les coûts déclarés, estimés et indisponibles. Voir [les profils](../agents/profiles-and-the-balanced-default) et [l'usage](../insights/analytics-and-cost-tracking).
 
-| Moteur | À privilégier quand… | Notes |
-|--------|--------------------|-------|
-| **Claude** | Vous avez besoin du coût natif, de l'interaction persistante ou de politiques d'outils strictes. | Profils, Freestyle et transforms structurés. |
-| **Codex** | Vous préférez la CLI Codex d'OpenAI ou vous voulez comparer les implémentations entre fournisseurs. | `codex` ≥ 0.128.0. Pas de rapport de coût natif — l'application complète le coût à partir de sa table de tarifs. Les profils ne s'appliquent pas. Freestyle fonctionne, sans chat interactif. |
-
-## Un flux de travail pratique
-
-Les projets multi-fournisseurs brillent lorsque vous voulez **comparer** ou **optimiser les coûts** :
-
-- **Comparer les implémentations.** Mettez la même spec sur deux rails, réglez l'un sur Claude et l'autre sur Codex, lancez les deux (entre projets, ou l'un après l'autre dans la file du même projet), puis utilisez le bouton **Comparer** sur la page Jobs pour comparer les résultats.
-- **Définir un défaut judicieux.** Désignez votre moteur le plus utilisé comme moteur principal du projet pour que les rails l'utilisent par défaut, et ne changez par rail que lorsqu'une spec particulière demande un moteur différent.
-
-## Points à garder en tête
-
-- **La sélection des fournisseurs est immuable après la création du projet** (v1). Vous choisissez les fournisseurs installés au moment d'ajouter le projet ; il n'y a aucun réglage dans les Paramètres pour en ajouter ou en retirer un plus tard.
-- **Le bouton « Open AI CLI » du terminal** propose également un sélecteur de fournisseur sur les projets multi-fournisseurs, si vous préférez piloter une CLI à la main.
-
-## Où aller ensuite
-
-- [Utiliser Codex](../integrations/using-codex) — installation et connexion.
-- [Rails et jobs](rails-and-jobs) — la file d'attente et le flux de lancement.
-- [Suivre le coût](../analytics/tracking-cost) — répartition du coût par moteur.
+Pour un lancement depuis une mission, les étapes du loop héritent du fournisseur, du modèle et de l'effort de la mission, sauf si un agent les remplace explicitement dans l'éditeur de loop. Les réglages généraux gèrent les connexions aux fournisseurs ; l'ancien bloc des valeurs par défaut des fournisseurs et le sélecteur de rôles ne sont plus proposés.

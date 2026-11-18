@@ -400,9 +400,10 @@ papering over it with another manager-level branch.
 
 ## See also
 
-- [`docs/codex.md`](../codex.md) and [`docs/gemini.md`](../gemini.md) — the
-  user-facing guides for the two non-Claude providers; `gemini.md` is the most
-  recent worked example end-to-end.
+- [`docs/codex.md`](../codex.md) — the user-facing guide for Codex;
+  [`gemini-adapter.ts`](../../server/providers/gemini-adapter.ts) and
+  [`kimi-adapter.ts`](../../server/providers/kimi-adapter.ts) are the most recent
+  worked examples end-to-end.
 
 ## Dynamic (non-CLI) adapters
 

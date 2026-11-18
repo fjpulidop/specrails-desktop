@@ -1,6 +1,6 @@
 # Pilotez Specrails en discutant (Agent Chat)
 
-L'**Agent Chat** est un copilote qui vit *à l'intérieur* de Specrails et peut piloter toute l'application à votre place. Au lieu de cliquer à travers projets, specs, rails et analyses, il vous suffit de demander : *« combien de jobs ont réussi cette semaine ? »*, *« crée une spec pour la connexion sociale dans le projet API »*, *« lance les trois tickets les plus prioritaires et préviens-moi quand ils sont finis »*. Il exécute le travail en appelant les propres outils de Specrails — les mêmes que ceux exposés par le [serveur MCP](./5-mcp-server.md) — pendant que vous voyez le tableau de bord se mettre à jour en direct derrière lui.
+L'**Agent Chat** est un copilote qui vit *à l'intérieur* de Specrails et peut piloter toute l'application à votre place. Au lieu de cliquer à travers projets, specs, rails et analyses, il vous suffit de demander : *« combien de jobs ont réussi cette semaine ? »*, *« crée une spec pour la connexion sociale dans le projet API »*, *« lance les trois specs les plus prioritaires et préviens-moi quand ils sont finis »*. Il exécute le travail en appelant les propres outils de Specrails — les mêmes que ceux exposés par le [serveur MCP](mcp-server) — pendant que vous voyez le tableau de bord se mettre à jour en direct derrière lui.
 
 > **À ne pas confondre avec les agents du pipeline.** La section *Agents* (Architect → Developer → Reviewer) concerne *la manière dont un rail implémente une spec*. L'**Agent Chat** est un unique assistant qui *pilote l'application elle-même*. Deux choses différentes, un même mot.
 
@@ -10,13 +10,41 @@ Une **bulle** flottante se trouve en bas de la fenêtre : cliquez dessus pour ou
 
 Il est **non modal, volontairement** : le tableau de bord derrière lui reste vivant, donc quand l'agent lance un rail ou crée une spec vous le voyez apparaître en temps réel — vous ne regardez pas un écran figé.
 
+## Réutiliser le texte sélectionné
+
+Sélectionnez du texte dans une conversation de mission pour ouvrir son menu contextuel.
+
+**Poser une question** ouvre une conversation à part sur la sélection, comme une petite question en passant. Tapez une question, ou appuyez sur Entrée dans une zone vide pour faire expliquer le texte dans le contexte de cette mission. La réponse s'appuie sur la conversation précédente de la mission, et vous pouvez poser d'autres questions. Rien n'est enregistré : la mission, sa zone de saisie et sa session d'agent ne sont pas touchées, et fermer la fenêtre efface la conversation à part. Le pied de page indique le modèle qui a répondu.
+
+**Ajouter à la mission**
+l'envoie à cette même mission, via sa file normale si elle est occupée, et conserve
+le brouillon inachevé de votre zone de saisie.
+
+**Démarrer une autre mission** propose **À partir de zéro** (seulement la sélection) et
+**Avec le contexte · Fork** (l'historique et ses pièces jointes jusqu'au dernier message
+couvert par la sélection, inclus). Les deux ajoutent un volet divisé, conservent les volets
+existants et placent le texte sélectionné dans la nouvelle zone de saisie pour que vous le modifiiez. Appuyez sur Entrée
+quand vous êtes prêt ; ouvrir la mission n'envoie rien. Le fork utilise sa propre
+session d'agent et des copies des fichiers, et affiche le titre de la mission d'origine.
+Les cartes héritées sont des enregistrements en lecture seule ; leurs actions ne sont pas répétées.
+
+Vous pouvez aussi faire un clic droit sur la sélection ou appuyer sur **Shift+F10**. Utilisez les flèches pour
+parcourir le menu et **Échap** pour le fermer. Sélectionnez des messages terminés ;
+le texte encore en cours de diffusion ou en attente dans la file n'est pas encore disponible.
+
+## Le remplissage du contexte {#context-ring}
+
+Un petit anneau à côté de la zone de message indique quelle part de la fenêtre de contexte de la mission la session du fournisseur a utilisée, telle que le fournisseur la signale. Cliquez dessus pour voir les tokens utilisés, la taille de la fenêtre et le modèle. Quand le fournisseur ne signale pas la fenêtre, ou vient de compacter le contexte, l'anneau reste vide et indique ce qui est inconnu. Les fournisseurs compactent le contexte d'eux-mêmes quand il se remplit.
+
+**Repartir de zéro avec un résumé.** Depuis la fenêtre contextuelle de l'anneau (le bouton principal une fois le contexte rempli à 75 %), Specrails rédige un résumé de la mission : objectif, décisions, état actuel et prochaines étapes. Votre prochain message démarre alors une nouvelle session du fournisseur qui ne connaît que ce résumé. La conversation reste dans l'historique, et une ligne repliée **Session renouvelée · résumé** montre ce que sait la nouvelle session. Specrails vous demande d'abord de confirmer, et ce n'est pas disponible pendant qu'un tour est en cours ni quand la mission est en Intent, qui tourne dans sa propre session.
+
 ## Prérequis : le serveur MCP
 
-L'Agent Chat pilote l'application via le **serveur MCP Specrails** intégré, il faut donc que celui-ci soit actif. S'il ne l'est pas, le panneau s'ouvre avec une bannière **Activer Specrails MCP** en un clic : appuyez dessus et c'est prêt (sans redémarrage). Voir [Contrôlez Specrails depuis n'importe quelle IA](./5-mcp-server.md) pour les détails ; rien n'est installé, tout est local sur votre machine.
+L'Agent Chat pilote l'application via le **serveur MCP Specrails** intégré, il faut donc que celui-ci soit actif. S'il ne l'est pas, le panneau s'ouvre avec une bannière **Activer Specrails MCP** en un clic : appuyez dessus et c'est prêt (sans redémarrage). Voir [Contrôlez Specrails depuis n'importe quelle IA](mcp-server) pour les détails ; rien n'est installé, tout est local sur votre machine.
 
 ## Choisir ce sur quoi il travaille
 
-L'en-tête comporte un **sélecteur de projet** (comme celui de Cursor). Choisissez un projet et tout ce que vous demandez s'y rapporte : *« lance ceux qui sont hautement prioritaires »* se résout pour ce projet. Laissez-le sur **Accueil** et l'agent travaille sur l'ensemble de votre configuration : il peut lister ou créer des projets et répondre à des questions qui embrassent tout. Si vous demandez quelque chose de spécifique à un projet en étant sur Accueil, il vous demandera lequel (ou proposera d'en créer un) plutôt que de deviner.
+L'en-tête comporte un **sélecteur de projet**. Choisissez un projet et tout ce que vous demandez s'y rapporte : *« lance ceux qui sont hautement prioritaires »* se résout pour ce projet. Laissez-le sur **Accueil** et l'agent travaille sur l'ensemble de votre configuration : il peut lister ou créer des projets et répondre à des questions qui embrassent tout. Si vous demandez quelque chose de spécifique à un projet en étant sur Accueil, il vous demandera lequel (ou proposera d'en créer un) plutôt que de deviner.
 
 Choisir un projet ici **ne déplace pas** votre tableau de bord : la cible de l'agent et ce que vous regardez sont indépendants.
 
@@ -53,7 +81,6 @@ Les blocs de code affichent leur langage et ont leur propre bouton **copier**. S
 
 ## Petits plus pratiques
 
-- **Des super specs depuis une conversation.** Demandez à l’agent de *façonner* une spec avec vous au lieu de la générer d’un coup : il lit d’abord le vrai code, vous pose quelques questions et affiche le brouillon qui évolue sous forme de carte en direct dans la conversation. Quand vous dites oui, il crée la spec et — par défaut — l’enrichit en arrière-plan d’une **Contract Layer** (chemins de fichiers exacts, formes de données, invariants) pour que les agents qui implémentent n’improvisent pas. Dites « sans contract layer » pour sauter l’enrichissement.
 - **Cliquez sur ce qu'il mentionne.** Dans une mission épinglée à un projet, les numéros de spec (`#12`) et les ids de job/run dans les réponses de l'agent sont des puces cliquables : une spec ouvre la fenêtre de détail du tableau, un id de job ouvre la vue du job en direct. Si la référence n'existe plus, une discrète note « introuvable » s'affiche.
 - **Un bandeau pour vos exécutions.** Quand l'agent lance du travail, un seul bandeau juste au-dessus de la zone de message le suit : ce que fait l'exécution, en mots simples (« Rédaction de la spec à partir de vos modifications »), combien d'exécutions sont terminées, le temps et le coût réel jusqu'ici (`—` tant que le fournisseur n'a rien facturé). Quand une exécution a besoin de vous (créer la PR, réessayer, revenir dans Intent), le bandeau le dit avec une icône et des mots et propose cette seule action ; cliquez sur le bandeau pour ouvrir la carte complète de l'exécution juste au-dessus (Échap la ferme). Avec plusieurs exécutions, le bandeau montre d'abord celle qui a besoin de vous et un petit sélecteur (« Rail 1 · Rail 2 · +1 »). La conversation ne garde que ce qui s'est passé (« Lancé sur Rail 1 », « Rail 1 a échoué : … », « Livré : PR #812 ») et chaque ligne ouvre son exécution. Les missions qui attendent votre décision affichent un point dans la liste des missions. Les actions qui lancent une nouvelle exécution payante (**Relancer**, **Récupérer et réessayer**) ou que d'autres voient (Créer la PR, Publier) ne partent jamais du bandeau : il ouvre la carte avec le focus sur ce bouton, pour que vous confirmiez depuis la carte.
 - **Le bandeau au clavier.** **⌥R** (**Alt+R** sous Windows/Linux) passe de la zone de message au bandeau de la mission où vous êtes ; appuyez à nouveau pour afficher ou masquer les détails de l’exécution, et **Échap** vous ramène où vous étiez. Hors d’un champ de texte, **⌥[** et **⌥]** passent d’une exécution à l’autre. Quand le bandeau a le focus, **P** suspend ou reprend un Intent et **H** le remet ; ces lettres n’agissent nulle part ailleurs. Appuyez sur **?** pour la liste complète.
