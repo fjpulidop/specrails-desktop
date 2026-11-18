@@ -27,10 +27,11 @@ Failure recovery cockpit: the **diagnosis card** at the top of a failed or block
 
 A run that failed, stalled or was blocked is explained by ONE typed record, the
 *diagnosis*, produced by the server ([recovery module](../../../../server/modules/recovery/README.md)):
-`kind` (`tests_failed`, `provider_limit`, `environment`, `blocked`, `timeout`, `tool_inactivity`,
+`kind` (`tests_failed`, `provider_limit`, `environment`, `port_in_use`, `blocked`, `timeout`, `tool_inactivity`,
 `crash`, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
-`resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, and the
-server-ranked `remedies`.
+`resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, the contested
+`port` (`port_in_use`, when the output named it; amber like the other causes the host can unblock),
+and the server-ranked `remedies`.
 
 - **Where it appears.** Job Detail (page and modal, through the shared `JobRunHeader`), the mission
   run card (`AgentPrDecisionCard`, which the run strip opens as its panel) and, as a plain

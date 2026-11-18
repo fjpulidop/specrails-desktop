@@ -8,7 +8,7 @@
  */
 import { classifyProviderLimit } from '../../provider-limit'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 export type FailureConfidence = 'high' | 'low'
 export type FailureSource = 'core' | 'desktop'
@@ -42,6 +42,8 @@ export interface FailureDiagnosis {
   resumablePhase: string | null
   /** `environment`: what the host must do, when Core named it. */
   blocker: FailureBlocker | null
+  /** `port_in_use`: the contested port, when the message named it. */
+  port?: number | null
   source: FailureSource
 }
 
@@ -57,6 +59,10 @@ export function oneSentence(value: unknown, max = DETAIL_LIMIT): string | null {
   const flat = value.replace(/\s+/g, ' ').trim()
   if (!flat) return null
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+function validPort(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65535 ? value : null
 }
 
 function optionalText(value: unknown, max: number): string | null {
@@ -96,6 +102,7 @@ export function parseCoreFailure(raw: unknown): FailureDiagnosis | null {
     detail: oneSentence(value.detail),
     resumablePhase: optionalText(value.resumablePhase, 200),
     blocker: parseBlocker(value.blocker),
+    ...(kind === 'port_in_use' ? { port: validPort(value.port) } : {}),
     source: 'core',
   }
 }
@@ -116,6 +123,9 @@ export interface DeriveInput {
   blockedReason?: string | null
   /** Core's structured host blocker (`completion.blocker`): the cause is the environment. */
   hostBlocker?: unknown
+  /** A port collision (`EADDRINUSE`, "address already in use") seen in the run's own output,
+   *  with the step that printed it. */
+  portConflict?: { port: number | null; line: string; stepId: string | null } | null
 }
 
 const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
@@ -129,6 +139,14 @@ const HOST_PRECONDITION = /Verification cannot run in this environment/i
  */
 export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   const core = parseCoreFailure(input.core)
+  const conflict = portConflictOf(input)
+  const portInUse = (base: FailureDiagnosis | null): FailureDiagnosis => ({
+    kind: 'port_in_use', confidence: 'high', phase: base?.phase ?? input.stepId ?? null, rounds: base?.rounds ?? null, resetAt: null,
+    detail: conflict!.line, resumablePhase: base?.resumablePhase ?? null, blocker: null, port: conflict!.port, source: base ? base.source : 'desktop',
+  })
+  // A check whose own step could not bind its port did not fail on the change: the collision is
+  // the certain cause, whatever the checks' exit code made Core call it. Core's other causes win.
+  if (core && conflict && (core.kind === 'tests_failed' || core.kind === 'unknown')) return portInUse(core)
   if (core) return { ...core, phase: core.phase ?? input.stepId ?? null }
   const make = (kind: FailureKind, confidence: FailureConfidence, extra: Partial<FailureDiagnosis> = {}): FailureDiagnosis => ({
     kind, confidence, phase: input.stepId ?? null, rounds: null, resetAt: null, detail: oneSentence(input.errorText), resumablePhase: null, blocker: null, source: 'desktop', ...extra,
@@ -144,6 +162,7 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   const blocker = parseBlocker(input.hostBlocker)
   if (blocker) return make('environment', 'high', { blocker, detail: oneSentence(blocker.reason) })
   if (input.outcome === 'blocked' && input.blockedReason) return make('blocked', 'high', { detail: oneSentence(input.blockedReason) })
+  if (conflict) return portInUse(null)
   const text = input.errorText ?? ''
   const limit = classifyProviderLimit(text)
   if (limit) return make('provider_limit', 'high', { resetAt: limit.resetsAt, detail: oneSentence(limit.message) })
@@ -152,7 +171,15 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   return make('unknown', 'low')
 }
 
-const RESUMABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'blocked', 'timeout', 'tool_inactivity', 'crash'])
+/** The conflict counts only for a run that failed in the very step that printed it. */
+function portConflictOf(input: DeriveInput): { port: number | null; line: string } | null {
+  const conflict = input.portConflict
+  if (!conflict || input.outcome !== 'failed') return null
+  if (conflict.stepId && input.stepId && conflict.stepId !== input.stepId) return null
+  return { port: conflict.port, line: oneSentence(conflict.line) ?? conflict.line }
+}
+
+const RESUMABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash'])
 
 /** Ranked remedies for a diagnosis. Order matters: the client shows the first available ones (at most three). */
 export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'resumablePhase'>): RemedyId[] {
@@ -165,6 +192,8 @@ export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confide
     case 'tests_failed': return [...resume, 'edit-spec', 'open-logs', 'retry']
     case 'provider_limit': return [...resume, 'retry', 'open-logs']
     case 'environment': return ['fix-environment', ...resume, 'open-logs', 'retry']
+    // Something else held the port: free it (or let the run use its own PORT) and run again.
+    case 'port_in_use': return [...resume, 'retry', 'open-logs']
     case 'blocked': return [...resume, 'edit-spec', 'open-logs', 'retry']
     case 'timeout':
     case 'tool_inactivity':

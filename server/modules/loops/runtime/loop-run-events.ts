@@ -9,6 +9,7 @@ import { createStreamAuditTap } from '../../audit'
 import { appendEvent } from '../../../db'
 import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from '../../agent-runtime/runtime/agent-runtime-events'
 import { updateLoopStepActivityCheckpoint } from './loop-runs-store'
+import { detectPortConflict } from '../../terminals/domain/run-ports'
 import type { LoopRunHost, LoopRunState } from './loop-run-context'
 import type { LoopLogSink, LoopStepEndEventPayload, LoopStepEventPayload } from './loop-run-contract'
 
@@ -42,8 +43,17 @@ export interface LoopRunEvents {
   auditTap: ReturnType<typeof createStreamAuditTap> | null
 }
 
+/** Agent conversation events: their tool output is the agent's own exploration, not the
+ *  run's checks, so a collision the agent hit (and maybe worked around) is not the cause. */
+const AGENT_STREAM_EVENT = /^(?:assistant|user|system|result|stream_event|(?:item|turn|thread)\..*)$/
+
 export function createLoopRunEvents(host: LoopRunHost, runId: string, state: LoopRunState): LoopRunEvents {
   const takeSeq = (): number => state.seq++
+  // Port collisions printed by the run's checks, servers and Core receipts (recovery `port_in_use`).
+  const notePortConflict = (line: string): void => {
+    const conflict = detectPortConflict(line)
+    if (conflict) state.portConflict = { ...conflict, stepId: state.openStep?.nodeId ?? null }
+  }
   // Persist + broadcast ONE structured JSON event on the run's job row (the
   // same wire shape the raw-provider forwarder uses).
   const emitRunEvent = (eventType: string, payload: unknown): void => {
@@ -92,6 +102,7 @@ export function createLoopRunEvents(host: LoopRunHost, runId: string, state: Loo
   const logLine: LoopLogSink = (line, source = 'stdout', metadata) => {
     const attemptId = metadata?.attemptId
     const attribution = typeof attemptId === 'string' && attemptId.trim() && attemptId.length <= 256 ? { attemptId } : {}
+    notePortConflict(line)
     const s = takeSeq()
     try {
       appendEvent(host.db, runId, s, { event_type: 'log', source, payload: JSON.stringify({ line, ...attribution }) })
@@ -115,6 +126,7 @@ export function createLoopRunEvents(host: LoopRunHost, runId: string, state: Loo
       auditTap?.(parsed)
     } catch { /* not JSON */ }
     if (!eventType) { logLine(line); return }
+    if (!AGENT_STREAM_EVENT.test(eventType)) notePortConflict(line)
     if (eventType === 'runtime-efficiency-event') {
       const validated = runtimeEfficiencyEventLine(line, runId)
       if (!validated || isRecordedRuntimeEfficiencyEvent(host.db, runId, validated)) return

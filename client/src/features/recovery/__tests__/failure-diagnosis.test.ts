@@ -94,3 +94,15 @@ describe('openLogsAtFailure', () => {
     expect(openLogsAtFailure()).toBe(false)
   })
 })
+
+describe('port_in_use', () => {
+  it('reads the port and names it in the headline', () => {
+    const d = readFailureDiagnosis({ ...base, kind: 'port_in_use', port: 3000, remedies: ['resume', 'retry', 'open-logs'] })!
+    expect(d.port).toBe(3000)
+    expect(headlineKey(d, null)).toEqual({ key: 'headline.port_in_use.port', params: { phase: '', count: 4, port: 3000 } })
+    expect(whyKey(d)).toEqual({ key: 'why.port_in_use', params: {} })
+    const noPort = readFailureDiagnosis({ ...base, kind: 'port_in_use', port: 'x' })!
+    expect(noPort.port).toBeNull()
+    expect(headlineKey(noPort, null).key).toBe('headline.port_in_use.plain')
+  })
+})

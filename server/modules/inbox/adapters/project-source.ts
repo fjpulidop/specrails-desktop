@@ -55,9 +55,9 @@ function ticketLabel(raw: string | null): string {
   return ` · ${ids.slice(0, 3).map((id) => `#${id}`).join(', ')}${ids.length > 3 ? ` +${ids.length - 3}` : ''}`
 }
 
-/** Provider limits and environment problems wait for the person; they are not defects of the change. */
+/** Provider limits, environment problems and taken ports wait for the person; they are not defects of the change. */
 function needsHost(diagnosis: PresentedFailureDiagnosis | null): boolean {
-  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment')
+  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment' || diagnosis.kind === 'port_in_use')
 }
 
 function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): PresentedFailureDiagnosis | null {

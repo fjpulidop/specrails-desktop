@@ -10,6 +10,10 @@
     },
     "provider_limit": "È stato raggiunto il limite d'uso del provider IA",
     "environment": "L'ambiente non riesce a eseguire i controlli",
+    "port_in_use": {
+      "port": "Un altro processo stava già usando la porta {{port}}",
+      "plain": "Un altro processo stava già usando la porta che serviva all'esecuzione"
+    },
     "blocked": {
       "phase": "L'esecuzione è bloccata nella fase {{phase}}",
       "plain": "L'esecuzione è bloccata"
@@ -35,6 +39,7 @@
       "noReset": "Aspetta che il limite si azzeri, poi riprendi."
     },
     "environment": "Il problema non è la modifica in sé. La macchina ha bisogno di qualcosa prima.",
+    "port_in_use": "Il problema non è la modifica: qualcos'altro occupava la porta. Fermalo oppure fai leggere PORT al progetto (ogni esecuzione ha la sua), poi esegui di nuovo.",
     "tests_failed": "I controlli continuano a fallire dopo le correzioni.",
     "blocked": "L'ha fermata un limite o una decisione. Non è andata in crash.",
     "timeout": "Ha raggiunto il limite di tempo prima di finire.",
