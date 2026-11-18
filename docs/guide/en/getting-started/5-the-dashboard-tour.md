@@ -35,7 +35,7 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 
 - **Connection indicator** (left) — a coloured dot and label showing the app is live: green for *connected*, amber while *reconnecting*, blue while *syncing* just after a reconnect. You'll rarely need it, but it's reassuring when you do.
 - **Total spend** (right) — a running total of what you've spent, so cost is always one glance away.
-- **Resources** (right) — how much CPU and memory everything Specrails launched is using right now, and how many processes. Click it for the totals, a memory trend and the split by source: missions and chats, rails, loops and jobs, background processes, terminals, agent CLIs, MCP and runners, Git and the Specrails server itself. Expand a source to see its processes.
+- **Resources** (right) — how much CPU and memory everything Specrails launched is using right now, and how many processes. Click it for the totals, a memory trend and the split by source: missions and chats, rails, loops and jobs, background processes, terminals, agent CLIs, MCP and runners, Git and the Specrails server itself. Expand a source to see its processes. Below the sources, **Ports of run worktrees** lists the ports each rail's dev or test server is serving (rail, ticket, project and process), and warns when another process sits in a rail's assigned ports.
 - **Terminal toggle** (far right) — open the built-in terminal panel. Press **Cmd+J** (macOS) or **Ctrl+J** (Windows/Linux) to toggle it any time. It's a full shell, opened right in your project folder.
 
 ## Windows of their own

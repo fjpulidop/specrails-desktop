@@ -115,6 +115,7 @@ For a failed or canceled job with a diagnosis, **Failure reasons** opens with th
 - **Tests failed** — the checks still fail after the correction rounds.
 - **Provider limit** — the AI provider's usage limit was reached. The card quotes when it resets, in the provider's own words.
 - **Environment** — the machine cannot run the checks (credentials, a missing toolchain, a failing setup command). *Fix the environment* shows exactly what to run or change.
+- **Port in use** — the run's own check or server could not start because another process already held its port (`EADDRINUSE`). It is not counted as failed tests. Each run worktree gets its own ports through `PORT` and `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; a project that reads `PORT` never collides. Stop the other process, or have the project read `PORT`, then **Run again**.
 - **Blocked**, **ran out of time**, **went quiet** and **stopped unexpectedly** name the limit or the process that stopped the run.
 - **Unknown cause** — the app does not guess. It shows the end of the log so you can read it yourself.
 

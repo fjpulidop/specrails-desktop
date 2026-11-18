@@ -115,6 +115,7 @@ Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
 - **Limite do provedor**: o limite de uso do provedor de IA foi atingido. O cartão cita quando ele é redefinido, com as palavras do próprio provedor.
 - **Ambiente**: a máquina não consegue executar as verificações (credenciais, uma ferramenta ausente, um comando de preparação que falha). *Corrigir o ambiente* mostra exatamente o que executar ou mudar.
+- **Porta em uso**: a verificação ou o servidor da própria execução não pôde iniciar porque outro processo já ocupava sua porta (`EADDRINUSE`). Não conta como testes falhos. Cada worktree de execução recebe portas próprias por `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; um projeto que lê `PORT` nunca colide. Pare o outro processo, ou faça o projeto ler `PORT`, e depois **Executar novamente**.
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
 - **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.
 

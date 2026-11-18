@@ -115,6 +115,7 @@ Per un job fallito o annullato con diagnosi, **Cause dell’errore** si apre con
 - **Test falliti**: i controlli continuano a fallire dopo i giri di correzioni.
 - **Limite del provider**: è stato raggiunto il limite d'uso del provider IA. La scheda riporta quando si azzera, con le parole del provider.
 - **Ambiente**: la macchina non riesce a eseguire i controlli (credenziali, uno strumento mancante, un comando di preparazione che fallisce). *Sistema l'ambiente* mostra esattamente cosa eseguire o cambiare.
+- **Porta in uso**: il controllo o il server dell'esecuzione non è partito perché un altro processo occupava già la sua porta (`EADDRINUSE`). Non conta come test falliti. Ogni worktree di esecuzione riceve porte proprie tramite `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; un progetto che legge `PORT` non va mai in conflitto. Ferma l'altro processo, o fai leggere `PORT` al progetto, poi **Esegui di nuovo**.
 - **Bloccata**, **senza tempo**, **in silenzio** e **fermata all'improvviso** indicano il limite o il processo che ha fermato l'esecuzione.
 - **Causa sconosciuta**: l'app non tira a indovinare. Mostra la fine del log perché lo legga tu.
 

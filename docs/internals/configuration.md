@@ -300,6 +300,40 @@ A few env vars are read directly by the app. The two most useful operational one
 | `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for the asynchronous login-shell probe that recovers configured project environment names (default `10000`, capped at `120000`). The synchronous cold fallback keeps its 1.5 s bound. See [Login-shell recovery](#login-shell-recovery-and-resolution-status). |
 | `WM_ZOMBIE_TIMEOUT_MS` | Zombie-job detection timeout in milliseconds (default `1800000` = 30 min). This is a stuck-job watchdog, **not** a hard "kill after N minutes" cap. |
 
+### Run worktree ports
+
+Every isolated run worktree (rails, loops, Intent sessions: any mount under
+`~/.specrails/projects/<slug>/worktrees/`) leases a block of 10 ports so rails
+launched together never fight over `:3000`. Its AI steps, shell checks, queue
+jobs, Core definition runs (including resumes and forks) and background
+processes started in it receive:
+
+| Variable | Value |
+| --- | --- |
+| `PORT` | First port of the block, **only when `PORT` is not already set** (a project or shell that pins its own port keeps it). |
+| `SPECRAILS_RUN_PORT` | First port of the block, always. |
+| `SPECRAILS_RUN_PORT_RANGE_START` / `SPECRAILS_RUN_PORT_RANGE_END` | The whole block (inclusive), for an API, HMR socket, preview or e2e server. |
+
+A dev or e2e config that reads `PORT` (Vite `server.port: Number(process.env.PORT)`,
+Playwright `webServer.port`, Next, Express, most frameworks) needs no change.
+
+The block is chosen from a hash of the worktree path (stable), skipping blocks
+leased to other live worktrees and, before a run's first spawn, blocks where
+something already listens. Leases are kept in `~/.specrails/run-ports.json`
+(mode 0600) so a resumed run keeps its ports after a restart, and are dropped
+once their worktree directory is gone. The reserved area is configurable on
+the server:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SPECRAILS_RUN_PORT_BASE` | `30100` | First port of the area (below the Linux, macOS and Windows ephemeral ranges). |
+| `SPECRAILS_RUN_PORT_BLOCK_SIZE` | `10` | Ports per run. |
+| `SPECRAILS_RUN_PORT_BLOCKS` | `200` | Blocks in the area (30100–32099 by default). |
+
+The Resources panel lists ports served from run worktrees (`GET /api/resources/ports`),
+and a check that fails because its port was taken is diagnosed as `port_in_use`,
+not as failed tests. Module: [terminals › Run worktree ports](../../server/modules/terminals/README.md#run-worktree-ports).
+
 ### Provider rollback gates
 
 Both extra providers are **enabled by default** and only need these levers if you want to turn one off app-wide (an emergency rollback — no redeploy needed):
@@ -444,6 +478,7 @@ stay shared, so agents keep their sign-ins.
   desktop.token           # Auto-generated API token (mode 0600)
   manager.pid             # PID of the running specrails-desktop server process
   desktop.log             # Server stdout/stderr (appended on each start)
+  run-ports.json          # Port blocks leased to run worktrees (mode 0600)
   projects/
     <project-slug>/
       jobs.sqlite         # Per-project job history, invocations, telemetry pointers

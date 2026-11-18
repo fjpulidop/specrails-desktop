@@ -115,6 +115,7 @@ Bei einem fehlgeschlagenen oder abgebrochenen Job mit Diagnose öffnet sich **Fe
 - **Tests fehlgeschlagen**: Die Prüfungen schlagen nach den Korrekturrunden weiter fehl.
 - **Anbieterlimit**: Das Nutzungslimit des KI-Anbieters ist erreicht. Die Karte nennt den Zeitpunkt des Zurücksetzens in den Worten des Anbieters.
 - **Umgebung**: Der Rechner kann die Prüfungen nicht ausführen (Zugangsdaten, fehlendes Werkzeug, fehlschlagender Setup-Befehl). *Umgebung reparieren* zeigt genau, was auszuführen oder zu ändern ist.
+- **Port belegt**: Die Prüfung oder der Server des Laufs konnte nicht starten, weil ein anderer Prozess seinen Port schon belegte (`EADDRINUSE`). Das zählt nicht als fehlgeschlagene Tests. Jedes Lauf-Worktree bekommt eigene Ports über `PORT` und `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; ein Projekt, das `PORT` liest, kollidiert nie. Beende den anderen Prozess oder lass das Projekt `PORT` lesen, dann **Erneut ausführen**.
 - **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
 - **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.
 
