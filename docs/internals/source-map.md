@@ -1890,7 +1890,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)
 - [fork-change-supersession.ts](../../server/modules/delivery/runtime/fork-change-supersession.ts) · [test](../../server/modules/delivery/runtime/fork-change-supersession.test.ts)
 - [ignored-copy-identity.ts](../../server/modules/delivery/runtime/ignored-copy-identity.ts)
-- [incomplete-tasks-remedy.ts](../../server/modules/delivery/runtime/incomplete-tasks-remedy.ts)
+- [incomplete-tasks-remedy.ts](../../server/modules/delivery/runtime/incomplete-tasks-remedy.ts) · [test](../../server/modules/delivery/runtime/incomplete-tasks-remedy.test.ts)
 - [intent-materialization.ts](../../server/modules/delivery/runtime/intent-materialization.ts) · [test](../../server/modules/delivery/runtime/intent-materialization.test.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
