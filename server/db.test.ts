@@ -418,6 +418,31 @@ describe('db', () => {
       }
     })
 
+    it('migration 94 prices Core runtime calls recorded without a cost, flagged estimated', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-core-cost-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const insert = db.prepare(`INSERT INTO ai_invocations (id, project_id, provider, surface, model, status, started_at, tokens_in, tokens_out, tokens_cache_read, total_cost_usd, total_cost_usd_estimated)
+          VALUES (?, 'p1', 'codex', ?, ?, 'success', '2026-11-17T10:00:00Z', 120000, 900, 100000, ?, 0)`)
+        insert.run('core:r1:priced', 'loop', 'gpt-6.1-sol', null)
+        insert.run('core:r1:unknown-model', 'loop', 'model-without-a-price', null)
+        insert.run('core:r1:reported', 'loop', 'gpt-6.1-sol', 0.5)
+        insert.run('job-row', 'job', 'gpt-6.1-sol', null)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 94').run()
+        db.close(); db = initDb(dbPath)
+        const rows = Object.fromEntries((db.prepare('SELECT id, total_cost_usd, total_cost_usd_estimated FROM ai_invocations').all() as Array<{ id: string; total_cost_usd: number | null; total_cost_usd_estimated: number }>)
+          .map(row => [row.id, [row.total_cost_usd, row.total_cost_usd_estimated]]))
+        expect(rows['core:r1:priced'][0]).toBeGreaterThan(0)
+        expect(rows['core:r1:priced'][1]).toBe(1)
+        expect(rows['core:r1:unknown-model']).toEqual([null, 0])
+        expect(rows['core:r1:reported']).toEqual([0.5, 0])
+        expect(rows['job-row']).toEqual([null, 0])
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 81 rebuilds flow_sessions with a closed state, preserving rows, columns and indexes', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-closed-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

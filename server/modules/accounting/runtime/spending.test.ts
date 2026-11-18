@@ -30,8 +30,13 @@ describe('getSpending', () => {
     // The 7 original analytics surfaces + the 5 cost-accounting-audit additions
     // (chat-sidebar, spec-launcher, proposal, agent-studio, setup).
     // + 'flow' (Intent turns live in agent_invocations; listed in the shared vocabulary).
-    // + 'triage' (spec triage, launch-triage) + 'failure-analysis' (Failure reasons).
-    expect(r.bySurface).toHaveLength(15)
+    // + 'triage' (spec triage, launch-triage) + 'failure-analysis' (Failure reasons)
+    // + the virtual agent-ledger surfaces 'mission' and 'intent'.
+    expect(r.bySurface).toHaveLength(17)
+    expect(r.bySurface.slice(-2).map((s) => s.surface)).toEqual(['mission', 'intent'])
+    // Every category is reported, zeroed.
+    expect(r.byCategory.map((c) => c.category).sort()).toEqual(['code', 'implementation', 'missions', 'specs', 'support'])
+    expect(r.byCategory.every((c) => c.costUsd === 0 && c.count === 0 && c.surfaces.length === 0)).toBe(true)
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
     expect(r.topTickets).toEqual([])
   })
@@ -597,6 +602,23 @@ describe('daily timeline (B58/B63)', () => {
     expect(total).toBeCloseTo(0.5)
   })
 
+  it('splits each day by spend category, reconciling with the day total', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'j', surface: 'job', status: 'success', total_cost_usd: 1, started_at: now },
+      { id: 'l', surface: 'loop', status: 'success', total_cost_usd: 0.5, started_at: now },
+      { id: 'q', surface: 'quick-spec', status: 'success', total_cost_usd: 0.25, started_at: now },
+      { id: 'f', surface: 'failure-analysis', status: 'success', total_cost_usd: 0.125, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: '30d' })
+    const day = r.dailyTimeline.find((d) => d.totalCostUsd > 0)!
+    expect(day.byCategory).toEqual({ implementation: 1.5, missions: 0, specs: 0.25, code: 0, support: 0.125 })
+    expect(Object.values(day.byCategory).reduce((a, b) => a + b, 0)).toBeCloseTo(day.totalCostUsd)
+    // The legacy per-surface fields stay for older clients.
+    expect(day.jobsCostUsd).toBe(1)
+    expect(day.loopCostUsd).toBe(0.5)
+  })
+
   it('B63: period "all" does not zero-fill from 1970 (bounded timeline)', () => {
     const now = new Date().toISOString()
     seed(db, [{ id: 'a', surface: 'job', status: 'success', total_cost_usd: 1, started_at: now }])
@@ -940,5 +962,168 @@ describe('getAgentMissionSpending', () => {
     expect(result.summary.totalCostUsd).toBe(0)
     expect(result.summary.turns).toBe(0)
     expect(result.topConversations).toEqual([])
+  })
+})
+
+// ─── Agent ledger folded into getSpending / getInvocations ──────────────────
+
+describe('getSpending with the agent ledger (mission / intent virtual surfaces)', () => {
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
+
+  async function setupLedgers() {
+    const { initDesktopDb, recordAgentInvocation } = await import('../../../desktop-db')
+    const { createAgentConversation } = await import('../../agents/runtime/agent-store')
+    const db = initDb(':memory:')
+    const ddb = initDesktopDb(':memory:')
+    const conv = createAgentConversation(ddb, { pinnedProjectId: 'p1' })
+    // Project ledger: a $2 job (ticket 7) and the $0.5 Intent spec rewrite (ai_invocations 'flow').
+    seed(db, [
+      { id: 'job-1', surface: 'job', ticket_id: 7, total_cost_usd: 2, model: 'sonnet', tokens_in: 100, tokens_out: 50, started_at: daysAgo(1) },
+      { id: 'rewrite-1', surface: 'flow', total_cost_usd: 0.5, model: 'sonnet', started_at: daysAgo(1) },
+    ])
+    const base = { conversation_id: conv.id, provider: 'claude', status: 'success' as const, model: 'opus' }
+    // Agent ledger: a $1 mission turn, a $3 estimated Intent turn (codex), an unpriced mission turn.
+    recordAgentInvocation(ddb, { ...base, id: 'm-1', project_id: 'p1', started_at: daysAgo(2), total_cost_usd: 1, tokens_in: 10, tokens_out: 5 })
+    recordAgentInvocation(ddb, { ...base, id: 'i-1', project_id: 'p1', surface: 'flow', provider: 'codex', model: 'gpt-5.5', started_at: daysAgo(3), total_cost_usd: 3, total_cost_usd_estimated: true })
+    recordAgentInvocation(ddb, { ...base, id: 'm-2', project_id: 'p1', started_at: daysAgo(4), total_cost_usd: null })
+    // Previous period (30d window) and rows that never count here.
+    recordAgentInvocation(ddb, { ...base, id: 'm-prev', project_id: 'p1', started_at: daysAgo(40), total_cost_usd: 4 })
+    recordAgentInvocation(ddb, { ...base, id: 'm-other', project_id: 'p2', started_at: daysAgo(1), total_cost_usd: 9 })
+    recordAgentInvocation(ddb, { ...base, id: 'm-home', project_id: null, started_at: daysAgo(1), total_cost_usd: 9 })
+    return { db, ddb, conv }
+  }
+
+  it('counts pinned mission and Intent turns in every breakdown exactly once', async () => {
+    const { db, ddb, conv } = await setupLedgers()
+    const r = getSpending(db, 'p1', { period: '30d' }, undefined, ddb)
+    expect(r.summary.totalCostUsd).toBeCloseTo(6.5)
+    expect(r.summary.totalEstimatedCostUsd).toBeCloseTo(3)
+    expect(r.summary.totalRuns).toBe(5)
+    expect(r.summary.pricedRuns).toBe(4)
+    expect(r.summary.unpricedRuns).toBe(1)
+    expect(r.summary.usageReportedRuns).toBe(2)
+    expect(r.summary.usageUnavailableRuns).toBe(3)
+    expect(r.summary.totalTokens).toBe(165)
+    expect(r.summary.prevTotalCostUsd).toBeCloseTo(4)
+    // An unpriced row in the window suppresses the delta (partial totals).
+    expect(r.summary.deltaPct).toBeNull()
+    expect(r.summary.avgCostPerRun).toBeNull()
+
+    const surface = (s: string) => r.bySurface.find((b) => b.surface === s)
+    expect(surface('mission')).toMatchObject({ count: 2, costUsd: 1, unpricedCount: 1 })
+    expect(surface('intent')).toMatchObject({ count: 1, costUsd: 3 })
+    expect(surface('flow')).toMatchObject({ count: 1, costUsd: 0.5 })
+    const bySurfaceTotal = r.bySurface.reduce((sum, b) => sum + b.costUsd, 0)
+    expect(bySurfaceTotal).toBeCloseTo(r.summary.totalCostUsd)
+
+    const missions = r.byCategory.find((c) => c.category === 'missions')!
+    expect(missions).toMatchObject({ count: 4, unpricedCount: 1, tokens: 15 })
+    expect(missions.costUsd).toBeCloseTo(4.5)
+    expect(missions.estimatedCostUsd).toBeCloseTo(3)
+    expect(missions.surfaces.map((s) => s.surface)).toEqual(['intent', 'mission', 'flow'])
+    expect(r.byCategory[0].category).toBe('missions')
+    expect(r.byCategory.find((c) => c.category === 'implementation')).toMatchObject({ costUsd: 2, count: 1, tokens: 150 })
+    expect(r.byCategory.reduce((sum, c) => sum + c.costUsd, 0)).toBeCloseTo(r.summary.totalCostUsd)
+
+    expect(r.byProvider.find((p) => p.provider === 'codex')).toMatchObject({ count: 1, costUsd: 0, estimatedCostUsd: 3, pricedCount: 1 })
+    expect(r.byProvider.find((p) => p.provider === 'claude')).toMatchObject({ count: 4, unpricedCount: 1 })
+    expect(r.byProvider.map((p) => p.provider)).toEqual(['claude', 'codex'])
+    expect(r.byModel.find((m) => m.model === 'opus')).toMatchObject({ provider: 'claude', count: 2, costUsd: 1 })
+    expect(r.byModel.find((m) => m.model === 'gpt-5.5')).toMatchObject({ provider: 'codex', estimatedCostUsd: 3 })
+
+    const timelineMission = r.dailyTimeline.reduce((sum, d) => sum + d.missionCostUsd, 0)
+    const timelineTotal = r.dailyTimeline.reduce((sum, d) => sum + d.totalCostUsd, 0)
+    expect(timelineMission).toBeCloseTo(4)
+    expect(timelineTotal).toBeCloseTo(6.5)
+    expect(r.scatterTotal).toBe(4)
+    expect(r.scatter.map((p) => p.id).sort()).toEqual(['i-1', 'job-1', 'm-1', 'rewrite-1'])
+    // Mission rows carry no ticket: topTickets is unchanged by them.
+    expect(r.topTickets.reduce((sum, t) => sum + t.totalRuns, 0)).toBe(2)
+
+    expect(r.agentMissions?.summary).toMatchObject({ turns: 3, flowTurns: 1 })
+    expect(r.agentMissions?.summary.totalCostUsd).toBeCloseTo(4)
+    expect(r.agentMissions?.topConversations[0]).toMatchObject({ conversationId: conv.id, turns: 3 })
+  })
+
+  it('without the agent ledger the response is the project ledger alone', async () => {
+    const { db } = await setupLedgers()
+    const r = getSpending(db, 'p1', { period: '30d' })
+    expect(r.summary.totalCostUsd).toBeCloseTo(2.5)
+    expect(r.agentMissions).toBeUndefined()
+    expect(r.bySurface.find((b) => b.surface === 'mission')).toMatchObject({ count: 0, costUsd: 0 })
+  })
+
+  it('respects category, surface, provider and ticket filters on agent rows', async () => {
+    const { db, ddb } = await setupLedgers()
+    const missionsOnly = getSpending(db, 'p1', { period: '30d', category: ['missions'] }, undefined, ddb)
+    expect(missionsOnly.summary.totalCostUsd).toBeCloseTo(4.5)
+    expect(missionsOnly.summary.totalRuns).toBe(4)
+
+    const implementation = getSpending(db, 'p1', { period: '30d', category: ['implementation'] }, undefined, ddb)
+    expect(implementation.summary.totalCostUsd).toBeCloseTo(2)
+    expect(implementation.agentMissions?.summary.turns).toBe(0)
+
+    const intent = getSpending(db, 'p1', { period: '30d', surface: ['intent'] }, undefined, ddb)
+    expect(intent.summary.totalCostUsd).toBeCloseTo(3)
+    expect(intent.summary.prevTotalCostUsd).toBe(0)
+
+    // surface ∩ category with no overlap matches nothing.
+    const none = getSpending(db, 'p1', { period: '30d', surface: ['job'], category: ['missions'] }, undefined, ddb)
+    expect(none.summary.totalRuns).toBe(0)
+
+    const codex = getSpending(db, 'p1', { period: '30d', provider: ['codex'] }, undefined, ddb)
+    expect(codex.summary.totalCostUsd).toBeCloseTo(3)
+
+    const ticket = getSpending(db, 'p1', { period: '30d', ticketId: 7 }, undefined, ddb)
+    expect(ticket.summary.totalCostUsd).toBeCloseTo(2)
+    expect(ticket.summary.totalRuns).toBe(1)
+  })
+
+  it('reports the previous-period delta including agent turns', async () => {
+    const { initDesktopDb, recordAgentInvocation } = await import('../../../desktop-db')
+    const db = initDb(':memory:')
+    const ddb = initDesktopDb(':memory:')
+    seed(db, [{ id: 'j', surface: 'job', total_cost_usd: 1, started_at: daysAgo(1) }])
+    seed(db, [{ id: 'j-prev', surface: 'job', total_cost_usd: 1, started_at: daysAgo(10) }])
+    recordAgentInvocation(ddb, { id: 'm', conversation_id: 'c', project_id: 'p1', provider: 'claude', status: 'success', started_at: daysAgo(2), total_cost_usd: 3 })
+    recordAgentInvocation(ddb, { id: 'm-prev', conversation_id: 'c', project_id: 'p1', provider: 'claude', status: 'success', started_at: daysAgo(9), total_cost_usd: 1 })
+    const r = getSpending(db, 'p1', { period: '7d' }, undefined, ddb)
+    expect(r.summary.totalCostUsd).toBeCloseTo(4)
+    expect(r.summary.prevTotalCostUsd).toBeCloseTo(2)
+    expect(r.summary.deltaPct).toBeCloseTo(100)
+    expect(r.summary.avgCostPerRun).toBeCloseTo(2)
+  })
+
+  it('getInvocations merges agent rows, marks them, and pages the merged order', async () => {
+    const { db, ddb, conv } = await setupLedgers()
+    const all = getInvocations(db, 'p1', { period: '30d', limit: 50 }, ddb)
+    expect(all.totalAvailable).toBe(5)
+    expect(all.rows.map((r) => r.id).sort()).toEqual(['i-1', 'job-1', 'm-1', 'm-2', 'rewrite-1'])
+    const mission = all.rows.find((r) => r.id === 'm-1')!
+    expect(mission).toMatchObject({ surface: 'mission', ledger: 'agent', conversation_id: conv.id, ticket_id: null })
+    expect(all.rows.find((r) => r.id === 'i-1')).toMatchObject({ surface: 'intent', ledger: 'agent' })
+    expect(all.rows.find((r) => r.id === 'job-1')?.ledger).toBeUndefined()
+    // Recency order across both ledgers.
+    const started = all.rows.map((r) => r.started_at)
+    expect([...started].sort().reverse()).toEqual(started)
+
+    const byCost = getInvocations(db, 'p1', { period: '30d', sortBy: 'cost', limit: 2 }, ddb)
+    expect(byCost.rows.map((r) => r.id)).toEqual(['i-1', 'job-1'])
+    const page2 = getInvocations(db, 'p1', { period: '30d', sortBy: 'cost', limit: 2, offset: 2 }, ddb)
+    expect(page2.rows.map((r) => r.id)).toEqual(['m-1', 'rewrite-1'])
+    const last = getInvocations(db, 'p1', { period: '30d', sortBy: 'cost', limit: 2, offset: 4 }, ddb)
+    expect(last.rows.map((r) => r.id)).toEqual(['m-2'])
+
+    const ticket = getInvocations(db, 'p1', { period: '30d', ticketId: 7 }, ddb)
+    expect(ticket.rows.map((r) => r.id)).toEqual(['job-1'])
+    const missions = getInvocations(db, 'p1', { period: '30d', category: ['missions'] }, ddb)
+    expect(missions.rows.map((r) => r.surface).sort()).toEqual(['flow', 'intent', 'mission', 'mission'])
+  })
+
+  it('parseSpendingFilters accepts virtual surfaces and categories, dropping unknown ones', () => {
+    const f = parseSpendingFilters({ surface: 'mission,intent,bogus', category: 'missions,nope' })
+    expect(f.surface).toEqual(['mission', 'intent'])
+    expect(f.category).toEqual(['missions'])
+    expect(parseSpendingFilters({ category: 'nope' }).category).toBeUndefined()
   })
 })

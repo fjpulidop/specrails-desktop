@@ -119,7 +119,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40">
       <div className="px-4 pt-3 pb-1">
-        <h2 className="text-strong">{t('quickVsExplore.title')}</h2>
+        <h2 className="text-title">{t('quickVsExplore.title')}</h2>
       </div>
       <div className="flex divide-x divide-border/40">
         <ModeColumn mode={quick} label={t('quickVsExplore.quick')} accentClass="bg-accent-secondary" />

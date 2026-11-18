@@ -13,8 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Einrichtung",
     "triage": "Triage",
-    "flow": "Intent",
-    "failureAnalysis": "Fehleranalyse"
+    "flow": "Intent-Spec",
+    "failureAnalysis": "Fehleranalyse",
+    "mission": "Missionen",
+    "intent": "Intent-Runden"
   },
   "periods": {
     "d7": "7d",
@@ -38,7 +40,13 @@
     "modelChip": "Modell: {{model}}",
     "clearModelFilter": "Modellfilter zurücksetzen",
     "localEngine": "lokal",
-    "moreBreakdowns": "Weitere Aufschlüsselungen"
+    "moreBreakdowns": "Weitere Aufschlüsselungen",
+    "categoryFilterAria": "Nach Kategorie filtern",
+    "surfaceChip": "Bereich: {{surface}}",
+    "clearSurfaceFilter": "Bereichsfilter entfernen",
+    "ticketChipLabel": "Spec #{{id}}",
+    "allEngines": "Alle Engines",
+    "period": "Zeitraum"
   },
   "hero": {
     "spending": "Ausgaben",
@@ -65,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Abgerechnet",
     "legendEstimated": "Geschätzt",
-    "apiEquivalent": "Schätzung als API-Äquivalent"
+    "apiEquivalent": "Schätzung als API-Äquivalent",
+    "statInvocations": "Aufrufe",
+    "statTokens": "Tokens",
+    "statBilledEstimated": "Abgerechnet · Gesch.",
+    "statEstimated": "Geschätzt",
+    "withoutCost_one": "{{count}} von {{total}} Läufen ohne Kostendaten.",
+    "withoutCost_other": "{{count}} von {{total}} Läufen ohne Kostendaten.",
+    "withoutUsage_one": "{{count}} von {{total}} Läufen ohne Token-Nutzung.",
+    "withoutUsage_other": "{{count}} von {{total}} Läufen ohne Token-Nutzung."
   },
   "providerCard": {
     "title": "Nach Provider",
@@ -165,7 +181,9 @@
     "sortLabel": "Sortieren",
     "sortRecency": "Neueste",
     "sortCost": "Kosten",
-    "costUnknownLocalTooltip": "Kosten unbekannt (lokale Engine). Tarife in der Verbindung hinterlegen, um eine Schätzung zu sehen."
+    "costUnknownLocalTooltip": "Kosten unbekannt (lokale Engine). Tarife in der Verbindung hinterlegen, um eine Schätzung zu sehen.",
+    "colWhy": "Anlass",
+    "missionConversation": "Missionsunterhaltung {{id}}"
   },
   "export": {
     "summaryCsv": "Zusammenfassung (CSV)",
@@ -215,14 +233,45 @@
     "all": "Gesamter Zeitraum",
     "custom": "Benutzerdefiniert"
   },
-  "agentMissions": {
-    "title": "Agent-Missionen",
-    "subtitle": "An dieses Projekt angeheftete Agent-Chat-Züge",
-    "vsPrev": "ggü. Vorperiode",
-    "turnsAndTokens": "{{turns}} Züge · {{tokens}} Tokens",
+  "categories": {
+    "implementation": {
+      "label": "Umsetzung",
+      "why": "Specs mit Rails, Loops und Jobs umsetzen"
+    },
+    "missions": {
+      "label": "Missionen",
+      "why": "Gespräche mit dem Agenten und Intent-Modus"
+    },
+    "specs": {
+      "label": "Specs",
+      "why": "Specs schreiben und verfeinern"
+    },
+    "code": {
+      "label": "Code",
+      "why": "Den Code erklären"
+    },
+    "support": {
+      "label": "Support",
+      "why": "Einrichtung, Diagnose und Nebenchats"
+    }
+  },
+  "breakdown": {
+    "title": "Wofür das Geld ausgegeben wurde",
+    "empty": "Keine KI-Aktivität in diesem Zeitraum.",
+    "share": "{{pct}} % der Ausgaben",
+    "invocations_one": "{{count}} Aufruf",
+    "invocations_other": "{{count}} Aufrufe",
+    "tokens": "{{tokens}} Tokens",
+    "unpriced_one": "{{count}} ohne Kostendaten",
+    "unpriced_other": "{{count}} ohne Kostendaten",
+    "costUnavailable": "Kosten nicht verfügbar",
+    "surfaceFilter": "Nur {{surface}} anzeigen",
+    "topConversations": "Teuerste Unterhaltungen",
     "untitled": "Unbenannte Mission",
-    "estimatedNote": "Enthält geschätzte Kosten",
-    "flowShare": "Davon Intent: {{cost}} · {{turns}} Turns"
+    "turns_one": "{{count}} Runde",
+    "turns_other": "{{count}} Runden",
+    "noActivity": "Keine Aktivität: {{categories}}",
+    "filterCategory": "Nur {{category}} anzeigen"
   },
   "legacyUsage": {
     "title": "Nutzung älterer Workflows",
@@ -363,6 +412,8 @@
       "session": "Sitzung",
       "weekly": "wöchentlich"
     },
-    "capsMetered": "Dollar-Limits (nutzungsbasierte Anbieter)"
+    "capsMetered": "Dollar-Limits (nutzungsbasierte Anbieter)",
+    "planLimits": "Plan-Limits",
+    "turnsUnit": "Turns"
   }
 }

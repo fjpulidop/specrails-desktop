@@ -13,8 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Setup",
     "triage": "Triage",
-    "flow": "Intent",
-    "failureAnalysis": "Failure analysis"
+    "flow": "Intent spec",
+    "failureAnalysis": "Failure analysis",
+    "mission": "Missions",
+    "intent": "Intent turns"
   },
   "periods": {
     "d7": "7d",
@@ -38,7 +40,13 @@
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
     "localEngine": "local",
-    "moreBreakdowns": "More breakdowns"
+    "moreBreakdowns": "More breakdowns",
+    "categoryFilterAria": "Filter by category",
+    "surfaceChip": "Surface: {{surface}}",
+    "clearSurfaceFilter": "Clear surface filter",
+    "ticketChipLabel": "spec #{{id}}",
+    "allEngines": "All engines",
+    "period": "Period"
   },
   "hero": {
     "spending": "Spending",
@@ -65,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Billed",
     "legendEstimated": "Estimated",
-    "apiEquivalent": "API-equivalent estimate"
+    "apiEquivalent": "API-equivalent estimate",
+    "statInvocations": "Invocations",
+    "statTokens": "Tokens",
+    "statBilledEstimated": "Billed · Est.",
+    "statEstimated": "Estimated",
+    "withoutCost_one": "{{count}} of {{total}} runs without cost data.",
+    "withoutCost_other": "{{count}} of {{total}} runs without cost data.",
+    "withoutUsage_one": "{{count}} of {{total}} runs without token usage.",
+    "withoutUsage_other": "{{count}} of {{total}} runs without token usage."
   },
   "providerCard": {
     "title": "By provider",
@@ -165,7 +181,9 @@
     "sortLabel": "Sort",
     "sortRecency": "Recent",
     "sortCost": "Cost",
-    "costUnknownLocalTooltip": "Cost unknown (local engine). Add rates to the connection to see an estimate."
+    "costUnknownLocalTooltip": "Cost unknown (local engine). Add rates to the connection to see an estimate.",
+    "colWhy": "Why",
+    "missionConversation": "Mission conversation {{id}}"
   },
   "export": {
     "summaryCsv": "Summary CSV",
@@ -215,14 +233,45 @@
     "all": "All time",
     "custom": "Custom range"
   },
-  "agentMissions": {
-    "title": "Agent missions",
-    "subtitle": "Agent Chat turns pinned to this project",
-    "vsPrev": "vs previous period",
-    "turnsAndTokens": "{{turns}} turns · {{tokens}} tokens",
+  "categories": {
+    "implementation": {
+      "label": "Implementation",
+      "why": "Building specs with rails, loops and jobs"
+    },
+    "missions": {
+      "label": "Missions",
+      "why": "Talking to the agent and Intent mode"
+    },
+    "specs": {
+      "label": "Specs",
+      "why": "Writing and refining specs"
+    },
+    "code": {
+      "label": "Code",
+      "why": "Explaining the code"
+    },
+    "support": {
+      "label": "Support",
+      "why": "Setup, diagnosis and side chats"
+    }
+  },
+  "breakdown": {
+    "title": "Where the money went",
+    "empty": "No AI activity in this period.",
+    "share": "{{pct}}% of spend",
+    "invocations_one": "{{count}} call",
+    "invocations_other": "{{count}} calls",
+    "tokens": "{{tokens}} tokens",
+    "unpriced_one": "{{count}} without cost data",
+    "unpriced_other": "{{count}} without cost data",
+    "costUnavailable": "cost unavailable",
+    "surfaceFilter": "Show only {{surface}}",
+    "topConversations": "Top conversations",
     "untitled": "Untitled mission",
-    "estimatedNote": "Includes estimated costs",
-    "flowShare": "Of which Intent: {{cost}} · {{turns}} turns"
+    "turns_one": "{{count}} turn",
+    "turns_other": "{{count}} turns",
+    "noActivity": "No activity: {{categories}}",
+    "filterCategory": "Show only {{category}}"
   },
   "legacyUsage": {
     "title": "Legacy workflow usage",
@@ -363,6 +412,8 @@
       "session": "session",
       "weekly": "weekly"
     },
-    "capsMetered": "Dollar limits (metered providers)"
+    "capsMetered": "Dollar limits (metered providers)",
+    "planLimits": "Plan limits",
+    "turnsUnit": "turns"
   }
 }

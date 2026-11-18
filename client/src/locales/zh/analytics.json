@@ -13,8 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "设置",
     "triage": "分诊",
-    "flow": "Intent",
-    "failureAnalysis": "失败分析"
+    "flow": "Intent 规格",
+    "failureAnalysis": "失败分析",
+    "mission": "任务",
+    "intent": "Intent 轮次"
   },
   "periods": {
     "d7": "7天",
@@ -38,7 +40,13 @@
     "modelChip": "模型：{{model}}",
     "clearModelFilter": "清除模型筛选",
     "localEngine": "本地",
-    "moreBreakdowns": "更多细分"
+    "moreBreakdowns": "更多细分",
+    "categoryFilterAria": "按类别筛选",
+    "surfaceChip": "界面：{{surface}}",
+    "clearSurfaceFilter": "清除界面筛选",
+    "ticketChipLabel": "规格 #{{id}}",
+    "allEngines": "所有引擎",
+    "period": "时间段"
   },
   "hero": {
     "spending": "支出",
@@ -65,7 +73,15 @@
     "segmentTitle": "{{label}}：{{value}}",
     "legendBilled": "已计费",
     "legendEstimated": "估算",
-    "apiEquivalent": "按 API 计价的等值估算"
+    "apiEquivalent": "按 API 计价的等值估算",
+    "statInvocations": "调用",
+    "statTokens": "Token",
+    "statBilledEstimated": "已计费 · 估算",
+    "statEstimated": "估算",
+    "withoutCost_one": "{{total}} 次运行中有 {{count}} 次没有成本数据。",
+    "withoutCost_other": "{{total}} 次运行中有 {{count}} 次没有成本数据。",
+    "withoutUsage_one": "{{total}} 次运行中有 {{count}} 次没有 token 用量。",
+    "withoutUsage_other": "{{total}} 次运行中有 {{count}} 次没有 token 用量。"
   },
   "providerCard": {
     "title": "按提供方",
@@ -165,7 +181,9 @@
     "sortLabel": "排序",
     "sortRecency": "最近",
     "sortCost": "成本",
-    "costUnknownLocalTooltip": "费用未知（本地引擎）。为连接添加费率以查看估算。"
+    "costUnknownLocalTooltip": "费用未知（本地引擎）。为连接添加费率以查看估算。",
+    "colWhy": "原因",
+    "missionConversation": "任务对话 {{id}}"
   },
   "export": {
     "summaryCsv": "摘要 CSV",
@@ -215,14 +233,45 @@
     "all": "全部时间",
     "custom": "自定义范围"
   },
-  "agentMissions": {
-    "title": "代理任务",
-    "subtitle": "固定到此项目的 Agent Chat 轮次",
-    "vsPrev": "对比上一周期",
-    "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
+  "categories": {
+    "implementation": {
+      "label": "实现",
+      "why": "用轨道、循环和作业实现规格"
+    },
+    "missions": {
+      "label": "任务",
+      "why": "与智能体对话及 Intent 模式"
+    },
+    "specs": {
+      "label": "规格",
+      "why": "编写和完善规格"
+    },
+    "code": {
+      "label": "代码",
+      "why": "解释代码"
+    },
+    "support": {
+      "label": "支持",
+      "why": "设置、诊断和侧边聊天"
+    }
+  },
+  "breakdown": {
+    "title": "钱花在了哪里",
+    "empty": "此期间没有 AI 活动。",
+    "share": "占支出 {{pct}}%",
+    "invocations_one": "{{count}} 次调用",
+    "invocations_other": "{{count}} 次调用",
+    "tokens": "{{tokens}} 个令牌",
+    "unpriced_one": "{{count}} 次无成本数据",
+    "unpriced_other": "{{count}} 次无成本数据",
+    "costUnavailable": "成本不可用",
+    "surfaceFilter": "仅显示 {{surface}}",
+    "topConversations": "主要对话",
     "untitled": "未命名任务",
-    "estimatedNote": "包含估算成本",
-    "flowShare": "其中 Intent：{{cost}} · {{turns}} 轮"
+    "turns_one": "{{count}} 轮",
+    "turns_other": "{{count}} 轮",
+    "noActivity": "无活动：{{categories}}",
+    "filterCategory": "仅显示 {{category}}"
   },
   "legacyUsage": {
     "title": "旧版工作流使用情况",
@@ -363,6 +412,8 @@
       "session": "会话",
       "weekly": "每周"
     },
-    "capsMetered": "美元上限（按用量计费的提供商）"
+    "capsMetered": "美元上限（按用量计费的提供商）",
+    "planLimits": "套餐限额",
+    "turnsUnit": "轮"
   }
 }

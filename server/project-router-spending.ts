@@ -5,7 +5,8 @@ import { DEFAULT_ZOMBIE_TIMEOUT_MS } from './modules/execution/runtime/queue-man
 import { getConfig, fetchIssues } from './config'
 import { resolveProjectExecution } from './workspace-resolution'
 import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
-import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
+import { getSpending, getInvocations, parseSpendingFilters } from './modules/accounting/runtime/spending'
+import type { DbInstance } from './db'
 import { getDecisionTimes } from './modules/accounting/runtime/decision-times'
 import { clampDays, computeWhatIf } from './modules/accounting/runtime/what-if'
 import { readSpendOverview } from './modules/execution/runtime/budget-overview'
@@ -121,6 +122,12 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
+  // App-level desktop DB holding the agent ledger (mission / Intent turns pinned
+  // to this project). Unavailable (tests, early boot) = project ledger only.
+  function agentLedger(): DbInstance | undefined {
+    try { return registry?.desktopDb ?? undefined } catch { return undefined }
+  }
+
   // Build a YAML-store-backed title resolver for getSpending's 4th arg
   // (BUG-ANALYTICS-18/36). Without it, topTickets keeps ticketTitle:null and the
   // client mislabels every live ticket "Deleted ticket #N". Returns undefined
@@ -146,16 +153,10 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     try {
-      const spending = getSpending(ctx(req).db, ctx(req).project.id, filters, makeTitleResolver(req))
-      // Agent-mission spend (app-level desktop.sqlite ledger, pinned to this
-      // project) folds in additively — a failure never breaks the dashboard.
-      let agentMissions: ReturnType<typeof getAgentMissionSpending> | undefined
-      try {
-        agentMissions = getAgentMissionSpending(registry.desktopDb, ctx(req).project.id, filters)
-      } catch (err) {
-        console.error('[project-router] agent-mission spending error (non-fatal):', err)
-      }
-      res.json({ ...spending, ...(agentMissions ? { agentMissions } : {}) })
+      // Mission and Intent turns (app-level agent ledger pinned to this project)
+      // count as the virtual 'mission' / 'intent' surfaces. An unreadable ledger
+      // degrades to the project ledger alone (see readAgentLedgerRows).
+      res.json(getSpending(ctx(req).db, ctx(req).project.id, filters, makeTitleResolver(req), agentLedger()))
     } catch (err) {
       console.error('[project-router] spending error:', err)
       res.status(500).json({ error: 'Failed to compute spending' })
@@ -177,7 +178,7 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         ...filters,
         ...(limit ? { limit } : {}),
         ...(offset ? { offset } : {}),
-      })
+      }, agentLedger())
       // Enrich with ticket titles from YAML store.
       try {
         const store = readStore(ticketPath(req))
@@ -261,7 +262,7 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       if (mode === 'summary') {
         // BUG-ANALYTICS-36: inject the YAML-store title resolver so the summary
         // CSV "Top tickets" section (and JSON export) carry human-readable names.
-        const data = getSpending(ctx(req).db, projectId, filters, makeTitleResolver(req))
+        const data = getSpending(ctx(req).db, projectId, filters, makeTitleResolver(req), agentLedger())
         if (format === 'json') {
           res.setHeader('Content-Disposition', `attachment; filename="${project.slug}-analytics-${periodTag}-${dateStamp}.json"`)
           res.json(data)
@@ -281,10 +282,14 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         ].join(','))
         lines.push('')
         lines.push('# Daily timeline')
-        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,smashCostUsd,fileSummaryCostUsd,loopCostUsd,totalCostUsd')
+        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,smashCostUsd,fileSummaryCostUsd,loopCostUsd,missionCostUsd,totalCostUsd')
         for (const d of data.dailyTimeline) {
-          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.smashCostUsd},${d.fileSummaryCostUsd},${d.loopCostUsd},${d.totalCostUsd}`)
+          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.smashCostUsd},${d.fileSummaryCostUsd},${d.loopCostUsd},${d.missionCostUsd},${d.totalCostUsd}`)
         }
+        lines.push('')
+        lines.push('# By category')
+        lines.push('category,count,costUsd,estimatedCostUsd,tokens')
+        for (const c of data.byCategory) lines.push(`${c.category},${c.count},${c.costUsd},${c.estimatedCostUsd},${c.tokens}`)
         lines.push('')
         lines.push('# By surface')
         lines.push('surface,count,costUsd')
@@ -328,7 +333,7 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         res.send(lines.join('\n'))
       } else {
         // raw mode: capped invocations
-        const result = getInvocations(ctx(req).db, projectId, { ...filters, cap: 10000 })
+        const result = getInvocations(ctx(req).db, projectId, { ...filters, cap: 10000 }, agentLedger())
         // Enrich titles
         try {
           const store = readStore(ticketPath(req))

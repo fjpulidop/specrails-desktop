@@ -13,6 +13,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/metrics.ts](runtime/metrics.ts)
 - [runtime/pricing.ts](runtime/pricing.ts)
 - [runtime/result-event.ts](runtime/result-event.ts)
+- [runtime/spend-categories.ts](runtime/spend-categories.ts)
 - [runtime/spending.ts](runtime/spending.ts)
 - [runtime/telemetry-compactor.ts](runtime/telemetry-compactor.ts)
 - [runtime/telemetry-export.ts](runtime/telemetry-export.ts)
@@ -61,3 +62,20 @@ is reported apart and never enters the delta. A model the rate card cannot price
 estimates, never guessed; a long-context tier is applied per invocation, not to the sum. Usage is recorded per model,
 not per profile role, so the source is a model bucket. The spend-vs-caps read model and the month-end projection live
 in the [execution module](../execution/README.md#spend-caps).
+
+## One spend picture per project
+
+[spending.ts](runtime/spending.ts) `getSpending` / `getInvocations` read the
+project `ai_invocations` ledger and, when the composition root passes the
+desktop DB, the app-level `agent_invocations` rows pinned to the project as the
+read-only virtual surfaces `mission` (Agent Chat / Mission turns) and `intent`
+(Intent-mode turns, ledger surface `flow`). Both ledgers are disjoint, so the
+merge never double counts; the ticket filter excludes agent rows. An unreadable
+agent ledger degrades to the project ledger alone. `recordInvocation` keeps
+rejecting the virtual surfaces.
+
+[spend-categories.ts](runtime/spend-categories.ts) is the pure surface →
+category mapping (implementation, missions, specs, code, support) behind
+`byCategory` and the `category` filter. The client mirrors it in
+`client/src/features/analytics/types/spending.ts`; keep both in sync (each side
+has a test that every surface maps to exactly one category).

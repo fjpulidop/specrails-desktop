@@ -165,7 +165,7 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     <section className="rounded-xl border border-border/50 bg-card p-4 space-y-3" aria-label={t('loopEconomics.title')} data-testid="loop-economics-card">
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
-        <h3 className="text-strong">{t('loopEconomics.title')}</h3>
+        <h3 className="text-title">{t('loopEconomics.title')}</h3>
         <span className="text-caption text-muted-foreground">{t('loopEconomics.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('loopEconomics.unavailable')}</p>}

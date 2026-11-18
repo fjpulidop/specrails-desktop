@@ -156,7 +156,7 @@ describe('Core definitions in Loop Manager',()=>{
     const unsupported=new LoopRunManager(db,()=>{},{...executors(undefined)})
     await expect(unsupported.run({...request(),runId:'r2'})).rejects.toThrow('engine_unsupported');expect(getLoopRun(db,'r2')).toBeUndefined()
   })
-  it('rolls back event and accounting together, replays once, and retains NULL provider values',async()=>{
+  it('rolls back event and accounting together, replays once, estimates a missing cost and keeps an unpriceable one NULL',async()=>{
     let seen: DefinitionLoopInvocation|undefined
     const manager=new LoopRunManager(db,()=>{},executors(async input=>{seen=input;return complete()}));await manager.run(request())
     const observer=vi.fn();let sequence=100
@@ -164,8 +164,14 @@ describe('Core definitions in Loop Manager',()=>{
     db.exec("CREATE TRIGGER reject_core_event BEFORE INSERT ON events WHEN NEW.event_type='runtime-efficiency-event' BEGIN SELECT RAISE(ABORT,'event write failed'); END")
     expect(()=>project(usage(10))).toThrow('event write failed');expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({n:0});expect(observer).not.toHaveBeenCalled()
     db.exec('DROP TRIGGER reject_core_event');project(usage(10));project(usage(10));project(usage(11,'physical-2',null))
-    const rows=db.prepare('SELECT tokens_in,tokens_out,total_cost_usd FROM ai_invocations ORDER BY id').all()
-    expect(rows).toEqual([{tokens_in:3,tokens_out:1,total_cost_usd:.3},{tokens_in:2,tokens_out:1,total_cost_usd:.3},{tokens_in:3,tokens_out:1,total_cost_usd:null},{tokens_in:2,tokens_out:1,total_cost_usd:null}]);expect(observer).toHaveBeenCalledTimes(2)
+    const unpriceable=usage(12,'physical-3',null);project({...unpriceable,payload:{...unpriceable.payload,model:'model-without-a-price'}})
+    const rows=db.prepare('SELECT id,tokens_in,tokens_out,total_cost_usd,total_cost_usd_estimated AS est FROM ai_invocations ORDER BY id').all() as Array<{id:string;tokens_in:number;tokens_out:number;total_cost_usd:number|null;est:number}>
+    expect(rows.map(({id,...row})=>({...row,id:id.split(':')[2]}))).toEqual([
+      {id:'physical-1',tokens_in:3,tokens_out:1,total_cost_usd:.3,est:0},{id:'physical-1',tokens_in:2,tokens_out:1,total_cost_usd:.3,est:0},
+      // No native cost: priced from the rate card and flagged estimated, split across the tickets.
+      {id:'physical-2',tokens_in:3,tokens_out:1,total_cost_usd:expect.any(Number),est:1},{id:'physical-2',tokens_in:2,tokens_out:1,total_cost_usd:expect.any(Number),est:1},
+      {id:'physical-3',tokens_in:3,tokens_out:1,total_cost_usd:null,est:0},{id:'physical-3',tokens_in:2,tokens_out:1,total_cost_usd:null,est:0},
+    ]);expect(rows[2].total_cost_usd).toBe(rows[3].total_cost_usd);expect(observer).toHaveBeenCalledTimes(3)
     expect(()=>project({...usage(10),payload:{...usage(10).payload,model:'changed'}})).toThrow('changed its committed content')
     expect(()=>seen!.onRuntimeEvent({...step(20,'step_started'),event:{...step(20,'step_started').event,runId:'other'}})).toThrow('another run')
   })

@@ -1,6 +1,7 @@
 import i18n from '../../../lib/i18n'
 
-export type Surface =
+/** Surfaces recorded in the project `ai_invocations` ledger. */
+export type RecordedSurface =
   | 'job'
   | 'quick-spec'
   | 'explore-spec'
@@ -18,7 +19,57 @@ export type Surface =
   | 'triage'
   /** The AI reading of why a failed job stopped. */
   | 'failure-analysis'
+/**
+ * Every surface the spending API reports: the recorded ones plus the read-only
+ * virtual surfaces derived from the app-level agent ledger — 'mission' (Agent
+ * Chat / Mission turns) and 'intent' (Intent-mode turns). Recorded 'flow' is the
+ * Intent spec rewrite.
+ */
+export type Surface = RecordedSurface | 'mission' | 'intent'
 export type SurfaceFilter = Surface | 'all'
+
+/** The "why" behind spend. Mirrors server/modules/accounting/runtime/spend-categories.ts. */
+export type SpendCategory = 'implementation' | 'missions' | 'specs' | 'code' | 'support'
+/** Canonical display order. */
+export const SPEND_CATEGORIES: readonly SpendCategory[] = ['implementation', 'missions', 'specs', 'code', 'support']
+const CATEGORY_SURFACES: Readonly<Record<SpendCategory, readonly Surface[]>> = {
+  implementation: ['job', 'loop'],
+  missions: ['mission', 'intent', 'flow'],
+  specs: ['quick-spec', 'explore-spec', 'ai-edit', 'smash', 'spec-launcher', 'proposal', 'triage'],
+  code: ['file-summary'],
+  support: ['failure-analysis', 'setup', 'agent-studio', 'chat-sidebar'],
+}
+/** Category of a surface; an unknown (newer) surface lands in 'support', like the server. */
+export function categoryForSurface(surface: string): SpendCategory {
+  for (const category of SPEND_CATEGORIES) {
+    if ((CATEGORY_SURFACES[category] as readonly string[]).includes(surface)) return category
+  }
+  return 'support'
+}
+export function surfacesForCategory(category: SpendCategory): readonly Surface[] {
+  return CATEGORY_SURFACES[category]
+}
+export function isSpendCategory(value: unknown): value is SpendCategory {
+  return typeof value === 'string' && (SPEND_CATEGORIES as readonly string[]).includes(value)
+}
+
+export interface CategorySurfaceEntry {
+  surface: Surface
+  costUsd: number
+  count: number
+  tokens: number
+}
+export interface CategoryBreakdownEntry {
+  category: SpendCategory
+  costUsd: number
+  /** Portion of costUsd from pricing-table estimates. */
+  estimatedCostUsd: number
+  count: number
+  tokens: number
+  unpricedCount: number
+  /** Surfaces with at least one invocation, costliest first. */
+  surfaces: CategorySurfaceEntry[]
+}
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
 export interface SpendingFilters {
@@ -26,6 +77,8 @@ export interface SpendingFilters {
   from?: string
   to?: string
   surface?: Surface[]
+  /** Spend categories to include (wire: `category` CSV). */
+  category?: SpendCategory[]
   model?: string[]
   status?: 'success' | 'failed' | 'aborted'
   minCostUsd?: number
@@ -90,7 +143,11 @@ export interface DailyEntry {
   smashCostUsd: number
   fileSummaryCostUsd: number
   loopCostUsd: number
+  /** Mission + Intent turns (agent ledger); absent on older servers. */
+  missionCostUsd?: number
   totalCostUsd: number
+  /** The day's cost per spend category; absent on older servers. */
+  byCategory?: Record<SpendCategory, number>
   unpricedCount?: number
 }
 export interface ScatterPoint {
@@ -167,6 +224,8 @@ export interface SpendingResponse {
     avgCostPerRun: number | null
   }
   bySurface: BySurfaceCount[]
+  /** Spend per category, costliest first; absent on older servers. */
+  byCategory?: CategoryBreakdownEntry[]
   byModel: ByModelEntry[]
   byMode: ByModeEntry[]
   byProvider: ByProviderEntry[]
@@ -186,8 +245,8 @@ export interface SpendingResponse {
   trackingStartedAt: string | null
   rangeFrom: string
   rangeTo: string
-  /** Agent-mission (Agent Chat) spend pinned to this project — app-level
-   *  desktop.sqlite ledger, additive; absent on older servers. */
+  /** Agent ledger (mission + Intent turns pinned to this project): summary and
+   *  top conversations. Already counted in the totals above. */
   agentMissions?: AgentMissionSpending
 }
 
@@ -242,7 +301,10 @@ export interface InvocationRow {
   num_turns: number | null
   session_id: string | null
   created_at: string
+  /** For an agent-ledger row: the conversation title (else a ticket or provisional title). */
   ticket_title: string | null
+  /** 'agent' for a mission / Intent turn from the app ledger; `conversation_id` is its conversation. */
+  ledger?: 'agent'
 }
 
 export interface InvocationsResponse {
@@ -269,7 +331,7 @@ export interface TicketSpendingSummary {
   turnsReportedRuns?: number
   turnsUnavailableRuns?: number
   activeDurationMs: number
-  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
+  bySurface: Record<RecordedSurface, { count: number; costUsd: number; unpricedCount?: number }>
   totalRuns: number
 }
 
@@ -289,6 +351,8 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   flow: 'analytics:surfaces.flow',
   triage: 'analytics:surfaces.triage',
   'failure-analysis': 'analytics:surfaces.failureAnalysis',
+  mission: 'analytics:surfaces.mission',
+  intent: 'analytics:surfaces.intent',
 }
 
 export interface SurfaceAccent {
@@ -308,98 +372,18 @@ export const NEUTRAL_SURFACE_ACCENT: SurfaceAccent = {
   dot: 'bg-muted-foreground',
 }
 
-const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = {
-  job: {
-    bg: 'bg-accent-info/15',
-    text: 'text-accent-info',
-    ring: 'ring-accent-info/40',
-    dot: 'bg-accent-info',
-  },
-  'quick-spec': {
-    bg: 'bg-accent-secondary/15',
-    text: 'text-accent-secondary',
-    ring: 'ring-accent-secondary/40',
-    dot: 'bg-accent-secondary',
-  },
-  'explore-spec': {
-    bg: 'bg-accent-highlight/15',
-    text: 'text-accent-highlight',
-    ring: 'ring-accent-highlight/40',
-    dot: 'bg-accent-highlight',
-  },
-  'ai-edit': {
-    bg: 'bg-accent-success/15',
-    text: 'text-accent-success',
-    ring: 'ring-accent-success/40',
-    dot: 'bg-accent-success',
-  },
-  smash: {
-    bg: 'bg-accent-highlight/15',
-    text: 'text-accent-highlight',
-    ring: 'ring-accent-highlight/40',
-    dot: 'bg-accent-highlight',
-  },
-  'file-summary': {
-    bg: 'bg-accent-warning/15',
-    text: 'text-accent-warning',
-    ring: 'ring-accent-warning/40',
-    dot: 'bg-accent-warning',
-  },
-  loop: {
-    bg: 'bg-accent-primary/15',
-    text: 'text-accent-primary',
-    ring: 'ring-accent-primary/40',
-    dot: 'bg-accent-primary',
-  },
-  'chat-sidebar': {
-    bg: 'bg-accent-info/15',
-    text: 'text-accent-info',
-    ring: 'ring-accent-info/40',
-    dot: 'bg-accent-info',
-  },
-  'spec-launcher': {
-    bg: 'bg-accent-secondary/15',
-    text: 'text-accent-secondary',
-    ring: 'ring-accent-secondary/40',
-    dot: 'bg-accent-secondary',
-  },
-  proposal: {
-    bg: 'bg-accent-highlight/15',
-    text: 'text-accent-highlight',
-    ring: 'ring-accent-highlight/40',
-    dot: 'bg-accent-highlight',
-  },
-  'agent-studio': {
-    bg: 'bg-accent-success/15',
-    text: 'text-accent-success',
-    ring: 'ring-accent-success/40',
-    dot: 'bg-accent-success',
-  },
-  setup: {
-    bg: 'bg-accent-primary/15',
-    text: 'text-accent-primary',
-    ring: 'ring-accent-primary/40',
-    dot: 'bg-accent-primary',
-  },
-  flow: {
-    bg: 'bg-accent-info/15',
-    text: 'text-accent-info',
-    ring: 'ring-accent-info/40',
-    dot: 'bg-accent-info',
-  },
-  triage: {
-    bg: 'bg-accent-info/15',
-    text: 'text-accent-info',
-    ring: 'ring-accent-info/40',
-    dot: 'bg-accent-info',
-  },
-  'failure-analysis': {
-    bg: 'bg-destructive/15',
-    text: 'text-destructive',
-    ring: 'ring-destructive/40',
-    dot: 'bg-destructive',
-  },
-}
+/**
+ * A surface chip is neutral: colour belongs to its spend category (the chart
+ * palette, see `lib/category-colors`), never to a lamp token, so a surface can
+ * never read as running, failed or caution. One accent object per category.
+ */
+const CATEGORY_ACCENT: Record<SpendCategory, SurfaceAccent> = Object.fromEntries(
+  SPEND_CATEGORIES.map((category) => [category, { bg: 'bg-muted', text: 'text-foreground', ring: 'ring-border', dot: 'bg-foreground' }]),
+) as Record<SpendCategory, SurfaceAccent>
+
+const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = Object.fromEntries(
+  (Object.keys(SURFACE_LABEL_KEYS) as Surface[]).map((surface) => [surface, CATEGORY_ACCENT[categoryForSurface(surface)]]),
+) as Record<Surface, SurfaceAccent>
 
 /**
  * Wrap an exhaustive surface map so an UNKNOWN surface id (a future server

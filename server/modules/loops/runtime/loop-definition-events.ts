@@ -1,5 +1,6 @@
 import { appendEvent, type DbInstance } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
+import { estimateCostUsd } from '../../accounting/runtime/pricing'
 import { distributeIntEvenly } from '../../../util/distribute-int'
 import { completeLoopStepRecovery, readLoopJobUsage, recordDefinitionCheckpoint, setLoopStepSettledResult, stageLoopStepRecovery, type LoopStepRecoveryPayload } from './loop-runs-store'
 
@@ -87,14 +88,21 @@ export function createDefinitionEventProjection(input: {
             model: text(p.model) ?? null, surfaceRefId: text(event.nodePath) ?? attemptId, ticketIds: input.ticketIds,
             startedAt, baseline: readLoopJobUsage(db, runId), completedEventSeq: -1, providerCostBaseline: 0, providerTurnsBaseline: 0, loopDurationBaseline: 0, completedDurationMs: number(p.durationMs) ?? 0 }
           stageLoopStepRecovery(db, payload)
-          setLoopStepSettledResult(db, runId, identity, { provider, cost: number(usage.costUsd), tokensIn: number(usage.inputTokens), tokensOut: number(usage.outputTokens), durationMs: number(p.durationMs), failed: p.status !== 'succeeded' })
+          // Codex and Gemini report no native cost: price the reported usage from
+          // the rate card and flag it estimated, as every other surface does.
+          const reportedCost = number(usage.costUsd)
+          const estimatedCost = reportedCost === undefined
+            ? estimateCostUsd(provider, text(p.model), { tokens_in: number(usage.inputTokens), tokens_out: number(usage.outputTokens), tokens_cache_read: number(usage.cacheReadInputTokens), tokens_cache_create: number(usage.cacheWriteInputTokens) }) ?? undefined
+            : undefined
+          const cost = reportedCost ?? estimatedCost
+          setLoopStepSettledResult(db, runId, identity, { provider, cost, tokensIn: number(usage.inputTokens), tokensOut: number(usage.outputTokens), durationMs: number(p.durationMs), failed: p.status !== 'succeeded' })
           completeLoopStepRecovery(db, runId, identity, () => {
             const inTokens = distributeIntEvenly(number(usage.inputTokens), targets.length), outTokens = distributeIntEvenly(number(usage.outputTokens), targets.length)
             const readTokens = distributeIntEvenly(number(usage.cacheReadInputTokens), targets.length), writeTokens = distributeIntEvenly(number(usage.cacheWriteInputTokens), targets.length)
             targets.forEach((ticketId,index) => recordInvocation(db, { id: identity + (targets.length > 1 ? `:t${ticketId}` : ''), project_id: input.projectId, provider,
               model: text(p.model), surface: 'loop', surface_ref_id: `${attemptId}:${invocationId}`, loop_run_id: runId, ticket_id: ticketId,
               status: p.status === 'succeeded' ? 'success' : p.status === 'interrupted' ? 'aborted' : 'failed', started_at: startedAt, finished_at: finishedAt,
-              total_cost_usd: number(usage.costUsd) === undefined ? undefined : Number(usage.costUsd)/targets.length, total_cost_usd_estimated: false,
+              total_cost_usd: cost === undefined ? undefined : cost/targets.length, total_cost_usd_estimated: reportedCost === undefined && estimatedCost !== undefined,
               tokens_in: inTokens[index], tokens_out: outTokens[index], tokens_cache_read: readTokens[index], tokens_cache_create: writeTokens[index],
               duration_ms: number(p.durationMs) === undefined ? undefined : Number(p.durationMs)/targets.length,
             }))

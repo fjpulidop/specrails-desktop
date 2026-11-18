@@ -4,6 +4,7 @@ import { migrateMultiRepoExecution } from '../modules/delivery/runtime/multi-rep
 import { migrateRepositoryProvenance } from '../project-repository-provenance'
 import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
 import { createJobSearchSchema, rebuildJobSearchIndex } from './job-search'
+import { estimateCostUsd } from '../modules/accounting/runtime/pricing'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
@@ -2082,6 +2083,26 @@ const MIGRATIONS: Migration[] = [
         created_at  TEXT NOT NULL
       )
     `)
+  },
+
+  // Migration 94: price the Core runtime calls recorded without a cost. Codex and
+  // Gemini report usage but no native cost, and Core v2 rows kept it NULL; the
+  // recorder now estimates from the rate card, so estimate the history the same
+  // way (flagged estimated). Rows without a known model or price stay NULL.
+  (db) => {
+    const rows = db.prepare(`
+      SELECT id, provider, model, tokens_in, tokens_out, tokens_cache_read, tokens_cache_create
+      FROM ai_invocations
+      WHERE surface = 'loop' AND id LIKE 'core:%' AND total_cost_usd IS NULL AND model IS NOT NULL
+    `).all() as Array<{ id: string; provider: string; model: string; tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null; tokens_cache_create: number | null }>
+    const update = db.prepare('UPDATE ai_invocations SET total_cost_usd = ?, total_cost_usd_estimated = 1 WHERE id = ?')
+    for (const row of rows) {
+      const cost = estimateCostUsd(row.provider, row.model, {
+        tokens_in: row.tokens_in ?? undefined, tokens_out: row.tokens_out ?? undefined,
+        tokens_cache_read: row.tokens_cache_read ?? undefined, tokens_cache_create: row.tokens_cache_create ?? undefined,
+      })
+      if (cost !== null) update.run(cost, row.id)
+    }
   },
 ]
 

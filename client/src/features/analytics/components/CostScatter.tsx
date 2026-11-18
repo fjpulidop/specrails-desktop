@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ZAxis, Symbols } from 'recharts'
-import type { SpendingResponse, ScatterPoint, Surface } from '../types/spending'
-import { SURFACE_LABEL } from '../types/spending'
+import type { SpendingResponse, ScatterPoint, SpendCategory } from '../types/spending'
+import { SPEND_CATEGORIES, categoryForSurface } from '../types/spending'
+import { useCategoryColors } from '../lib/category-colors'
 import { formatUsd } from '../lib/format'
 import { Skeleton } from '../../../components/ui/skeleton'
 
@@ -21,79 +22,44 @@ interface ChartPoint {
   raw: ScatterPoint
 }
 
-// Per-surface point/legend colour. Mirrors SURFACE_ACCENT's token mapping but
-// as inline CSS-var strings (recharts `fill` / inline `background` can't consume
-// Tailwind class names). Keyed on the full Surface union so file-summary + loop
-// points are never silently dropped from the plot or the legend.
-const COLOR: Record<Surface, string> = {
-  job: 'var(--color-accent-info)',
-  'quick-spec': 'var(--color-accent-secondary)',
-  'explore-spec': 'var(--color-accent-highlight)',
-  'ai-edit': 'var(--color-accent-success)',
-  smash: 'var(--color-accent-warning)',
-  'file-summary': 'var(--color-accent-intent)',
-  loop: 'var(--color-accent-primary)',
-  'chat-sidebar': 'var(--color-accent-info)',
-  'spec-launcher': 'var(--color-accent-secondary)',
-  proposal: 'var(--color-accent-highlight)',
-  'agent-studio': 'var(--color-accent-success)',
-  setup: 'var(--color-accent-primary)',
-  flow: 'var(--color-accent-intent)',
-  triage: 'var(--color-accent-warning)',
-  'failure-analysis': 'var(--color-destructive)',
+type PointShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'star'
+
+// One axis, category: colour from the chart palette and a shape per category
+// so the plot never relies on colour alone.
+const SHAPE: Record<SpendCategory, PointShape> = {
+  implementation: 'circle',
+  missions: 'diamond',
+  specs: 'square',
+  code: 'triangle',
+  support: 'star',
 }
 
-type PointShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'cross' | 'star' | 'wye'
-
-// Shape per surface so the plot never relies on colour alone: surfaces that
-// share a colour always differ in shape.
-const SHAPE: Record<Surface, PointShape> = {
-  job: 'circle',
-  'quick-spec': 'square',
-  'explore-spec': 'triangle',
-  'ai-edit': 'diamond',
-  smash: 'cross',
-  'file-summary': 'star',
-  loop: 'wye',
-  'chat-sidebar': 'square',
-  'spec-launcher': 'triangle',
-  proposal: 'diamond',
-  'agent-studio': 'cross',
-  setup: 'star',
-  flow: 'circle',
-  triage: 'wye',
-  'failure-analysis': 'diamond',
-}
-
-function LegendGlyph({ surface }: { surface: Surface }) {
+function LegendGlyph({ category, color }: { category: SpendCategory; color: string }) {
   return (
     <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8" aria-hidden>
-      <Symbols type={SHAPE[surface] ?? 'circle'} cx={4} cy={4} size={40} sizeType="area" fill={COLOR[surface] ?? 'var(--color-muted-foreground)'} />
+      <Symbols type={SHAPE[category]} cx={4} cy={4} size={40} sizeType="area" fill={color} />
     </svg>
   )
 }
 
-// All surfaces, drawn in a stable order. Derived from SURFACE_LABEL keys so a
-// newly added surface can never drift out of the scatter again.
-const SURFACES = Object.keys(SURFACE_LABEL) as Surface[]
 
 export function CostScatter({ data, loading, onSelectPoint }: Props) {
   const { t } = useTranslation('analytics')
+  const colors = useCategoryColors()
   if (loading && !data) {
     return <Skeleton className="h-[260px]" />
   }
   if (!data) return null
 
-  const surfaces = SURFACES
-  const datasets = surfaces.map((s) => ({
-    surface: s,
+  const datasets = SPEND_CATEGORIES.map((category) => ({
+    category,
     points: data.scatter
-      .filter((p) => p.surface === s)
+      .filter((p) => categoryForSurface(p.surface) === category)
       .map<ChartPoint>((p) => ({
         id: p.id,
         x: p.numTurns ?? Math.round((p.durationMs ?? 0) / 1000),
         y: p.costUsd,
-        surface: s,
+        surface: p.surface,
         ticketId: p.ticketId,
         startedAt: p.startedAt,
         raw: p,
@@ -113,12 +79,12 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-strong">{t('scatter.title')}</h2>
+        <h2 className="text-title">{t('scatter.title')}</h2>
         <div className="flex flex-wrap items-center gap-2 text-caption">
           {datasets.filter((d) => d.points.length > 0).map((d) => (
-            <span key={d.surface} className="inline-flex items-center gap-1">
-              <LegendGlyph surface={d.surface} />
-              <span className="text-muted-foreground">{SURFACE_LABEL[d.surface]}</span>
+            <span key={d.category} className="inline-flex items-center gap-1">
+              <LegendGlyph category={d.category} color={colors[d.category]} />
+              <span className="text-muted-foreground">{t(`categories.${d.category}.label`)}</span>
             </span>
           ))}
         </div>
@@ -177,10 +143,10 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
               />
               {datasets.map((d) => (
                 <Scatter
-                  key={d.surface}
+                  key={d.category}
                   data={d.points}
-                  fill={COLOR[d.surface]}
-                  shape={SHAPE[d.surface] ?? 'circle'}
+                  fill={colors[d.category]}
+                  shape={SHAPE[d.category]}
                   onClick={(point) => {
                     const cp = point as unknown as ChartPoint
                     if (cp?.raw) onSelectPoint(cp.raw)

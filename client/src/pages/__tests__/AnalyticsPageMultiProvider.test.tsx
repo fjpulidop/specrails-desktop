@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../test-utils'
-import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AnalyticsPage from '../../features/analytics/pages/AnalyticsPage'
 
@@ -40,9 +39,12 @@ vi.mock('../../features/analytics/components/InvocationsTable', () => ({ Invocat
 vi.mock('../../features/analytics/components/ExportDropdown', () => ({ ExportDropdown: () => <button data-testid="export">Export</button> }))
 void stub
 
+// Three engines did work in the period, so the engine select renders.
 const emptySpending = {
   summary: { totalCostUsd: 0, totalEstimatedCostUsd: 0, totalRuns: 0, failureRate: 0, prevTotalCostUsd: 0, deltaPct: null, avgCostPerRun: null },
-  bySurface: [], byModel: [], byMode: [], byProvider: [], dailyTimeline: [], scatter: [], topTickets: [],
+  bySurface: [], byCategory: [], byModel: [], byMode: [],
+  byProvider: ['claude', 'codex', 'lan-box'].map((provider) => ({ provider, count: 2, costUsd: 0, estimatedCostUsd: 0 })),
+  dailyTimeline: [], scatter: [], topTickets: [],
   trackingStartedAt: null, rangeFrom: '', rangeTo: '',
 }
 const emptyInvocations = { rows: [], total: 0, truncated: false, totalAvailable: 0 }
@@ -57,22 +59,21 @@ describe('AnalyticsPage — multi-provider engine filter', () => {
     })
   })
 
-  it('renders engine provider chips when the project has more than one provider', async () => {
-    render(<AnalyticsPage />)
-    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
-    const chips = screen.getByTestId('analytics-provider-chips')
-    expect(chips).toBeInTheDocument()
-    expect(chips).toHaveTextContent('Claude')
-    expect(chips).toHaveTextContent('Codex')
-  })
-
-  it('clicking a provider chip adds provider= to the spending query', async () => {
+  it('offers every engine that did work in the period in the engine select', async () => {
     const user = userEvent.setup()
     render(<AnalyticsPage />)
     await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
-    const chips = screen.getByTestId('analytics-provider-chips')
-    // Click the "Codex" chip within the engine chip row.
-    await user.click(within(chips).getByRole('button', { name: 'Codex' }))
+    await user.click(await screen.findByTestId('analytics-provider-select'))
+    const options = screen.getAllByRole('option').map((option) => option.textContent)
+    expect(options).toEqual(expect.arrayContaining(['Claude', 'Codex']))
+  })
+
+  it('choosing an engine adds provider= to the spending query', async () => {
+    const user = userEvent.setup()
+    render(<AnalyticsPage />)
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    await user.click(await screen.findByTestId('analytics-provider-select'))
+    await user.click(screen.getByRole('option', { name: 'Codex' }))
     await waitFor(() => {
       const lastSpending = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
         .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
@@ -80,11 +81,13 @@ describe('AnalyticsPage — multi-provider engine filter', () => {
     })
   })
 
-  it('renders a local engine chip with the id and a local tag', async () => {
+  it('labels a local engine with its id and a local tag', async () => {
+    const user = userEvent.setup()
     render(<AnalyticsPage />)
     await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
-    const chip = within(screen.getByTestId('analytics-provider-chips')).getByRole('button', { name: /lan-box/ })
-    expect(chip).toHaveTextContent('lan-box')
-    expect(chip).toHaveTextContent('local')
+    await user.click(await screen.findByTestId('analytics-provider-select'))
+    const local = screen.getByRole('option', { name: /lan-box/ })
+    expect(local).toHaveTextContent('lan-box')
+    expect(local).toHaveTextContent('local')
   })
 })

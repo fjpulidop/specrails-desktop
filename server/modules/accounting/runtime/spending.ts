@@ -1,5 +1,9 @@
 import type { DbInstance } from '../../../db'
-import type { Surface, InvocationStatus, InvocationRow } from './ai-invocations'
+import type { Surface, SpendSurface, VirtualSurface, InvocationStatus, InvocationRow } from './ai-invocations'
+import {
+  SPEND_CATEGORIES, buildCategoryBreakdown, categoryForSurface, isSpendCategory, surfacesForCategories,
+  type CategoryBreakdownEntry, type SpendCategory, type SurfaceSpendAggregate,
+} from './spend-categories'
 
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -7,7 +11,10 @@ export interface SpendingFilters {
   period?: Period
   from?: string
   to?: string
-  surface?: Surface[]
+  /** Surfaces to include, recorded or virtual ('mission' / 'intent'). */
+  surface?: SpendSurface[]
+  /** Spend categories to include (intersected with `surface` when both are set). */
+  category?: SpendCategory[]
   model?: string[]
   status?: InvocationStatus
   minCostUsd?: number
@@ -46,7 +53,7 @@ export interface InvocationsFilters extends SpendingFilters {
 }
 
 export interface BySurfaceCount {
-  surface: Surface
+  surface: SpendSurface
   count: number
   costUsd: number
   /** Invocations omitted from costUsd because no cost telemetry was available. */
@@ -81,13 +88,17 @@ export interface DailyEntry {
   smashCostUsd: number
   fileSummaryCostUsd: number
   loopCostUsd: number
+  /** Agent ledger turns pinned to the project (virtual surfaces 'mission' + 'intent'). */
+  missionCostUsd: number
   totalCostUsd: number
+  /** The day's cost per spend category (every surface folded into its category); sums to totalCostUsd. */
+  byCategory: Record<SpendCategory, number>
   /** Invocations on this day whose provider did not expose cost telemetry. */
   unpricedCount?: number
 }
 export interface ScatterPoint {
   id: string
-  surface: Surface
+  surface: SpendSurface
   costUsd: number
   numTurns: number | null
   durationMs: number | null
@@ -101,7 +112,7 @@ export interface TopTicketEntry {
   totalRuns: number
   /** Runs omitted from totalCostUsd because cost telemetry was unavailable. */
   unpricedCount?: number
-  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
+  bySurface: Record<SpendSurface, { count: number; costUsd: number; unpricedCount?: number }>
   isUnattributed?: boolean
   isDeleted?: boolean
 }
@@ -165,6 +176,8 @@ export interface SpendingResponse {
     avgCostPerRun: number | null
   }
   bySurface: BySurfaceCount[]
+  /** The "why": spend folded into the five categories, costliest first. */
+  byCategory: CategoryBreakdownEntry[]
   byModel: ByModelEntry[]
   byMode: ByModeEntry[]
   byProvider: ByProviderEntry[]
@@ -182,6 +195,8 @@ export interface SpendingResponse {
   trackingStartedAt: string | null
   rangeFrom: string
   rangeTo: string
+  /** Top mission conversations (agent ledger), present when the ledger was readable. */
+  agentMissions?: AgentMissionSpending
 }
 
 export interface InvocationsResponse {
@@ -191,8 +206,13 @@ export interface InvocationsResponse {
   totalAvailable: number
 }
 
-export interface InvocationWithTicket extends InvocationRow {
+export interface InvocationWithTicket extends Omit<InvocationRow, 'surface'> {
+  surface: SpendSurface
   ticket_title: string | null
+  /** 'agent' for a row read from the app-level agent ledger (mission / Intent turn);
+   *  its `conversation_id` is the agent conversation and `ticket_title` its title.
+   *  Absent for project `ai_invocations` rows. */
+  ledger?: 'agent'
 }
 
 // The surfaces enumerated in the bySurface breakdown. Keep the original seven
@@ -207,13 +227,30 @@ const ALL_SURFACES: Surface[] = [
   'chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup', 'flow', 'triage',
   'failure-analysis',
 ]
+/** Recorded surfaces followed by the read-only virtual agent-ledger surfaces. */
+const SPENDING_SURFACES: SpendSurface[] = [...ALL_SURFACES, 'mission', 'intent']
 
-/** Fresh zeroed per-surface bucket covering every Surface, so aggregation
+/** Fresh zeroed per-surface bucket covering every SpendSurface, so aggregation
  *  writes (`bySurface[r.surface]`) can never index an undefined key. */
-function emptyBySurface(): Record<Surface, { count: number; costUsd: number; unpricedCount?: number }> {
-  const out = {} as Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
-  for (const s of ALL_SURFACES) out[s] = { count: 0, costUsd: 0, unpricedCount: 0 }
+function emptyBySurface(): Record<SpendSurface, { count: number; costUsd: number; unpricedCount?: number }> {
+  const out = {} as Record<SpendSurface, { count: number; costUsd: number; unpricedCount?: number }>
+  for (const s of SPENDING_SURFACES) out[s] = { count: 0, costUsd: 0, unpricedCount: 0 }
   return out
+}
+
+/**
+ * The surfaces a filter admits: `surface` intersected with the surfaces of
+ * `category`. `undefined` = no surface constraint; `[]` = matches nothing (a
+ * category/surface combination with no overlap). An empty `surface` array alone
+ * keeps the legacy "no constraint" meaning.
+ */
+export function effectiveSurfaces(filters: SpendingFilters): SpendSurface[] | undefined {
+  let surfaces = filters.surface && filters.surface.length > 0 ? filters.surface : undefined
+  if (filters.category && filters.category.length > 0) {
+    const fromCategory = surfacesForCategories(filters.category)
+    surfaces = surfaces ? surfaces.filter((s) => fromCategory.includes(s)) : fromCategory
+  }
+  return surfaces
 }
 
 export interface ResolvedRange {
@@ -301,10 +338,13 @@ function buildWhere(
   params.push(range.from)
   conditions.push(`${a}started_at <= ?`)
   params.push(range.to)
-  if (filters.surface && filters.surface.length > 0) {
-    const placeholders = filters.surface.map(() => '?').join(',')
+  const surfaces = effectiveSurfaces(filters)
+  if (surfaces && surfaces.length === 0) {
+    conditions.push('0 = 1')
+  } else if (surfaces) {
+    const placeholders = surfaces.map(() => '?').join(',')
     conditions.push(`${a}surface IN (${placeholders})`)
-    params.push(...filters.surface)
+    params.push(...surfaces)
   }
   if (filters.modelKeys && filters.modelKeys.length > 0) {
     // Provider-aligned model filter (BUG-ANALYTICS-30/31): scope each model id
@@ -399,7 +439,9 @@ interface RowAggTicket {
   surface: Surface
   cnt: number
   cost: number | null
+  estCost: number | null
   unpriced: number | null
+  tokens: number | null
 }
 
 /**
@@ -411,15 +453,109 @@ interface RowAggTicket {
  */
 export type TicketTitleResolver = (ticketId: number) => { title: string | null; deleted: boolean }
 
+// ─── Agent ledger (desktop.sqlite) as virtual surfaces ───────────────────────
+//
+// Mission / Agent-Chat and Intent turns record to `agent_invocations` in the
+// APP-level desktop.sqlite (project_id = the mission's pinned project; NULL for
+// Home). They never touch the project's `ai_invocations`, so folding the pinned
+// rows in here cannot double count. Home (unpinned) turns belong to no project
+// and are excluded.
+
+/** One agent-ledger row projected onto the spending read model. */
+export interface AgentLedgerRow {
+  id: string
+  conversation_id: string | null
+  conversation_title: string | null
+  provider: string
+  /** Virtual surface: 'intent' for ledger surface 'flow', 'mission' otherwise. */
+  surface: VirtualSurface
+  model: string | null
+  status: string
+  started_at: string
+  finished_at: string | null
+  duration_ms: number | null
+  duration_api_ms: number | null
+  tokens_in: number | null
+  tokens_out: number | null
+  tokens_cache_read: number | null
+  tokens_cache_create: number | null
+  total_cost_usd: number | null
+  total_cost_usd_estimated: number
+  num_turns: number | null
+  session_id: string | null
+  created_at: string
+}
+
+export function agentLedgerSurface(ledgerSurface: string | null): VirtualSurface {
+  return ledgerSurface === 'flow' ? 'intent' : 'mission'
+}
+
+/**
+ * Pinned agent-ledger rows matching the filters within `range`. The ticket
+ * filter excludes every row (agent turns carry no ticket); the surface/category
+ * filter is applied on the virtual surface.
+ */
+export function readAgentLedgerRows(
+  agentDb: DbInstance | undefined,
+  projectId: string,
+  filters: SpendingFilters,
+  range: { from: string; to: string },
+): AgentLedgerRow[] {
+  if (!agentDb) return []
+  if (typeof filters.ticketId === 'number') return []
+  const surfaces = effectiveSurfaces(filters)
+  if (surfaces && !surfaces.includes('mission') && !surfaces.includes('intent')) return []
+  // Reuse the shared predicate for project, window, provider, model, status and
+  // min cost; surface and ticket are handled above (different columns here).
+  const where = buildWhere(projectId, { ...filters, surface: undefined, category: undefined, ticketId: undefined }, range, 'ai')
+  let rows: Array<Omit<AgentLedgerRow, 'surface'> & { ledger_surface: string | null }>
+  try {
+    rows = agentDb.prepare(`
+    SELECT ai.id, ai.conversation_id, ac.title AS conversation_title,
+           COALESCE(ai.provider, 'claude') AS provider, ai.surface AS ledger_surface,
+           ai.model, ai.status, ai.started_at, ai.finished_at, ai.duration_ms, ai.duration_api_ms,
+           ai.tokens_in, ai.tokens_out, ai.tokens_cache_read, ai.tokens_cache_create,
+           ai.total_cost_usd, ai.total_cost_usd_estimated, ai.num_turns, ai.session_id, ai.created_at
+    FROM agent_invocations ai
+    LEFT JOIN agent_conversations ac ON ac.id = ai.conversation_id
+    WHERE ${where.sql}
+  `).all(...where.params) as typeof rows
+  } catch (err) {
+    // An unreadable app ledger must never break the project dashboard.
+    console.error('[spending] agent ledger unavailable (project ledger only):', err)
+    return []
+  }
+  const out: AgentLedgerRow[] = []
+  for (const { ledger_surface, ...row } of rows) {
+    const surface = agentLedgerSurface(ledger_surface)
+    if (surfaces && !surfaces.includes(surface)) continue
+    out.push({ ...row, surface })
+  }
+  return out
+}
+
+function hasUsage(r: { tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null; tokens_cache_create: number | null }): boolean {
+  return r.tokens_in != null || r.tokens_out != null || r.tokens_cache_read != null || r.tokens_cache_create != null
+}
+
+function rowTokens(r: { tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null; tokens_cache_create: number | null }): number {
+  return (r.tokens_in ?? 0) + (r.tokens_out ?? 0) + (r.tokens_cache_read ?? 0) + (r.tokens_cache_create ?? 0)
+}
+
 export function getSpending(
   db: DbInstance,
   projectId: string,
   filters: SpendingFilters = {},
-  resolveTitle?: TicketTitleResolver
+  resolveTitle?: TicketTitleResolver,
+  /** App-level desktop DB holding `agent_invocations`; its pinned rows count as the
+   *  virtual 'mission' / 'intent' surfaces. Omitted = project ledger only. */
+  agentDb?: DbInstance,
 ): SpendingResponse {
   const range = resolveRange(filters)
   const where = buildWhere(projectId, filters, { from: range.from, to: range.to })
   const tzOffset = filters.tzOffsetMinutes ?? 0
+  const agentRows = readAgentLedgerRows(agentDb, projectId, filters, { from: range.from, to: range.to })
+  const prevAgentRows = readAgentLedgerRows(agentDb, projectId, filters, { from: range.prevFrom, to: range.prevTo })
 
   // summary
   const summaryRow = db.prepare(`
@@ -439,7 +575,8 @@ export function getSpending(
                THEN 1 ELSE 0 END) AS usageUnavailableRuns,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
       SUM(CASE WHEN status = 'success' AND total_cost_usd IS NULL THEN 1 ELSE 0 END) AS successfulUnpriced,
-      AVG(CASE WHEN status = 'success' THEN total_cost_usd END) AS avgCost
+      COALESCE(SUM(CASE WHEN status = 'success' THEN total_cost_usd END), 0) AS successCostSum,
+      COUNT(CASE WHEN status = 'success' THEN total_cost_usd END) AS successPriced
     FROM ai_invocations WHERE ${where.sql}
   `).get(...where.params) as {
     totalCost: number
@@ -452,8 +589,30 @@ export function getSpending(
     usageUnavailableRuns: number | null
     failed: number | null
     successfulUnpriced: number | null
-    avgCost: number | null
+    successCostSum: number
+    successPriced: number
   }
+  // Fold the agent-ledger rows into the same summary counters.
+  for (const r of agentRows) {
+    const cost = r.total_cost_usd
+    summaryRow.totalCost += cost ?? 0
+    if (r.total_cost_usd_estimated === 1) summaryRow.totalEstimatedCost += cost ?? 0
+    summaryRow.totalRuns += 1
+    if (cost == null) summaryRow.unpricedRuns = (summaryRow.unpricedRuns ?? 0) + 1
+    else summaryRow.pricedRuns += 1
+    if (hasUsage(r)) {
+      summaryRow.usageReportedRuns = (summaryRow.usageReportedRuns ?? 0) + 1
+      summaryRow.totalTokens += rowTokens(r)
+    } else {
+      summaryRow.usageUnavailableRuns = (summaryRow.usageUnavailableRuns ?? 0) + 1
+    }
+    if (r.status === 'failed') summaryRow.failed = (summaryRow.failed ?? 0) + 1
+    if (r.status === 'success') {
+      if (cost == null) summaryRow.successfulUnpriced = (summaryRow.successfulUnpriced ?? 0) + 1
+      else { summaryRow.successCostSum += cost; summaryRow.successPriced += 1 }
+    }
+  }
+  const avgCost = summaryRow.successPriced > 0 ? summaryRow.successCostSum / summaryRow.successPriced : null
 
   // prev period
   const prevWhere = buildWhere(projectId, filters, { from: range.prevFrom, to: range.prevTo })
@@ -463,6 +622,10 @@ export function getSpending(
       SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedRuns
     FROM ai_invocations WHERE ${prevWhere.sql}
   `).get(...prevWhere.params) as { totalCost: number; unpricedRuns: number | null }
+  for (const r of prevAgentRows) {
+    prevRow.totalCost += r.total_cost_usd ?? 0
+    if (r.total_cost_usd == null) prevRow.unpricedRuns = (prevRow.unpricedRuns ?? 0) + 1
+  }
 
   const deltaPct = (summaryRow.unpricedRuns ?? 0) === 0
     && (prevRow.unpricedRuns ?? 0) === 0
@@ -519,6 +682,16 @@ export function getSpending(
     agg.unpriced += r.unpriced ?? 0
     modelTotals.set(key, agg)
   }
+  for (const r of agentRows) {
+    if (r.model == null) continue
+    const key = `${r.provider}\0${r.model}`
+    const agg = modelTotals.get(key) ?? { provider: r.provider, model: r.model, cnt: 0, cost: 0, est: 0, unpriced: 0 }
+    agg.cnt += 1
+    agg.cost += r.total_cost_usd ?? 0
+    if (r.total_cost_usd_estimated === 1) agg.est += r.total_cost_usd ?? 0
+    if (r.total_cost_usd == null) agg.unpriced += 1
+    modelTotals.set(key, agg)
+  }
   const byModel: ByModelEntry[] = Array.from(modelTotals.values())
     .map((t) => ({
       provider: t.provider,
@@ -558,20 +731,24 @@ export function getSpending(
     FROM ai_invocations WHERE ${where.sql}
     GROUP BY day, surface
   `).all(...where.params) as RowAggDay[]
+  const agentDays = agentRows.map((r) => ({ day: localDay(r.started_at, tzOffset), row: r }))
   // B63: period 'all' resolves range.from to 1970, which would make eachDay emit
   // ~20,000 zero-filled days (a huge payload + 20k-bar chart). Clamp the zero-fill
   // start to the first day that actually has data (or a single day when empty).
   let timelineFrom = range.from
   if (filters.period === 'all') {
-    timelineFrom = dayRows.length > 0
-      ? dayRows.reduce((min, r) => (r.day < min ? r.day : min), dayRows[0].day)
+    const allDays = [...dayRows.map((r) => r.day), ...agentDays.map((d) => d.day)]
+    timelineFrom = allDays.length > 0
+      ? allDays.reduce((min, day) => (day < min ? day : min), allDays[0])
       : localDay(range.to, tzOffset)
   }
   const days = eachDay(timelineFrom, range.to, tzOffset)
   const dayMap = new Map<string, DailyEntry>()
   for (const day of days) {
     dayMap.set(day, {
-      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, loopCostUsd: 0, totalCostUsd: 0, unpricedCount: 0,
+      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, loopCostUsd: 0, missionCostUsd: 0, totalCostUsd: 0,
+      byCategory: Object.fromEntries(SPEND_CATEGORIES.map((category) => [category, 0])) as Record<SpendCategory, number>,
+      unpricedCount: 0,
     })
   }
   for (const r of dayRows) {
@@ -585,8 +762,17 @@ export function getSpending(
     else if (r.surface === 'smash') entry.smashCostUsd += c
     else if (r.surface === 'file-summary') entry.fileSummaryCostUsd += c // B58
     else if (r.surface === 'loop') entry.loopCostUsd += c
+    entry.byCategory[categoryForSurface(r.surface)] += c
     entry.totalCostUsd += c
     entry.unpricedCount = (entry.unpricedCount ?? 0) + (r.unpriced ?? 0)
+  }
+  for (const { day, row } of agentDays) {
+    const entry = dayMap.get(day)
+    if (!entry) continue
+    entry.missionCostUsd += row.total_cost_usd ?? 0
+    entry.byCategory.missions += row.total_cost_usd ?? 0
+    entry.totalCostUsd += row.total_cost_usd ?? 0
+    if (row.total_cost_usd == null) entry.unpricedCount = (entry.unpricedCount ?? 0) + 1
   }
   const dailyTimeline = Array.from(dayMap.values())
   for (const day of dailyTimeline) {
@@ -667,7 +853,8 @@ export function getSpending(
     SELECT COUNT(*) AS total FROM ai_invocations
     WHERE ${where.sql} AND total_cost_usd IS NOT NULL
   `).get(...where.params) as { total: number }
-  const scatterTotal = scatterTotalRow.total
+  const agentPriced = agentRows.filter((r) => r.total_cost_usd != null)
+  const scatterTotal = scatterTotalRow.total + agentPriced.length
   const scatterRows = db.prepare(`
     SELECT id, surface, total_cost_usd, num_turns, duration_ms, ticket_id, started_at
     FROM ai_invocations WHERE ${where.sql} AND total_cost_usd IS NOT NULL
@@ -681,15 +868,29 @@ export function getSpending(
     ticket_id: number | null
     started_at: string
   }>
-  const scatter: ScatterPoint[] = scatterRows.map((r) => ({
+  const agentPoints: ScatterPoint[] = agentPriced.map((r) => ({
     id: r.id,
     surface: r.surface,
+    costUsd: r.total_cost_usd as number,
+    numTurns: r.num_turns,
+    durationMs: r.duration_ms,
+    ticketId: null,
+    startedAt: r.started_at,
+  }))
+  const scatter: ScatterPoint[] = [...scatterRows.map((r) => ({
+    id: r.id,
+    surface: r.surface as SpendSurface,
     costUsd: r.total_cost_usd,
     numTurns: r.num_turns,
     durationMs: r.duration_ms,
     ticketId: r.ticket_id,
     startedAt: r.started_at,
-  }))
+  })), ...agentPoints]
+  if (agentPoints.length > 0) {
+    // Both ledgers share the recency cap.
+    scatter.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0))
+    scatter.splice(SCATTER_CAP)
+  }
   const scatterTruncated = scatterTotal > scatter.length
   if (scatterTruncated) {
     // Always include the single costliest priced row so a budget-blowing outlier
@@ -708,17 +909,19 @@ export function getSpending(
       ticket_id: number | null
       started_at: string
     } | undefined
-    if (outlier && !have.has(outlier.id)) {
-      scatter.push({
-        id: outlier.id,
-        surface: outlier.surface,
-        costUsd: outlier.total_cost_usd,
-        numTurns: outlier.num_turns,
-        durationMs: outlier.duration_ms,
-        ticketId: outlier.ticket_id,
-        startedAt: outlier.started_at,
-      })
-    }
+    const agentOutlier = agentPoints.reduce<ScatterPoint | null>((max, p) => (!max || p.costUsd > max.costUsd ? p : max), null)
+    const costliest: ScatterPoint | null = outlier && (!agentOutlier || outlier.total_cost_usd >= agentOutlier.costUsd)
+      ? {
+          id: outlier.id,
+          surface: outlier.surface,
+          costUsd: outlier.total_cost_usd,
+          numTurns: outlier.num_turns,
+          durationMs: outlier.duration_ms,
+          ticketId: outlier.ticket_id,
+          startedAt: outlier.started_at,
+        }
+      : agentOutlier
+    if (costliest && !have.has(costliest.id)) scatter.push(costliest)
   }
 
   // topTickets (cross-surface aggregation)
@@ -728,13 +931,18 @@ export function getSpending(
       surface,
       COUNT(*) AS cnt,
       COALESCE(SUM(total_cost_usd), 0) AS cost,
-      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced,
+      COALESCE(SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)
+                   + COALESCE(tokens_cache_read, 0) + COALESCE(tokens_cache_create, 0)), 0) AS tokens
     FROM ai_invocations WHERE ${where.sql}
     GROUP BY ticket_id, surface
   `).all(...where.params) as RowAggTicket[]
   const ticketMap = new Map<string, TopTicketEntry>()
   for (const r of ticketRows) {
     const key = r.ticket_id === null ? '__unattributed__' : String(r.ticket_id)
+    // A surface written by a newer build must not crash the per-ticket buckets.
+    if (!SPENDING_SURFACES.includes(r.surface)) continue
     if (!ticketMap.has(key)) {
       ticketMap.set(key, {
         ticketId: r.ticket_id,
@@ -780,15 +988,28 @@ export function getSpending(
   // bySurface — derived from ticketRows (same WHERE, grouped by
   // ticket_id+surface): summing across tickets equals a GROUP BY surface
   // (H24: previously a dedicated query re-scanned the same rows).
-  const surfaceTotals = new Map<Surface, { cnt: number; cost: number; unpriced: number }>()
-  for (const r of ticketRows) {
-    const agg = surfaceTotals.get(r.surface) ?? { cnt: 0, cost: 0, unpriced: 0 }
-    agg.cnt += r.cnt
-    agg.cost += r.cost ?? 0
-    agg.unpriced += r.unpriced ?? 0
-    surfaceTotals.set(r.surface, agg)
+  // The agent-ledger rows add the virtual 'mission' / 'intent' surfaces.
+  const surfaceTotals = new Map<SpendSurface, { cnt: number; cost: number; est: number; unpriced: number; tokens: number }>()
+  const addSurface = (surface: SpendSurface, cnt: number, cost: number, est: number, unpriced: number, tokens: number) => {
+    const agg = surfaceTotals.get(surface) ?? { cnt: 0, cost: 0, est: 0, unpriced: 0, tokens: 0 }
+    agg.cnt += cnt
+    agg.cost += cost
+    agg.est += est
+    agg.unpriced += unpriced
+    agg.tokens += tokens
+    surfaceTotals.set(surface, agg)
   }
-  const bySurface: BySurfaceCount[] = ALL_SURFACES.map((s) => {
+  for (const r of ticketRows) addSurface(r.surface, r.cnt, r.cost ?? 0, r.estCost ?? 0, r.unpriced ?? 0, r.tokens ?? 0)
+  for (const r of agentRows) {
+    const cost = r.total_cost_usd ?? 0
+    addSurface(r.surface, 1, cost, r.total_cost_usd_estimated === 1 ? cost : 0, r.total_cost_usd == null ? 1 : 0, rowTokens(r))
+  }
+  // Canonical surfaces first, then any surface a newer build wrote.
+  const reportedSurfaces = [
+    ...SPENDING_SURFACES,
+    ...Array.from(surfaceTotals.keys()).filter((s) => !SPENDING_SURFACES.includes(s)),
+  ]
+  const bySurface: BySurfaceCount[] = reportedSurfaces.map((s) => {
     const t = surfaceTotals.get(s)
     return {
       surface: s,
@@ -797,11 +1018,22 @@ export function getSpending(
       ...((t?.unpriced ?? 0) > 0 ? { unpricedCount: t?.unpriced ?? 0 } : {}),
     }
   })
+  const byCategory = buildCategoryBreakdown(reportedSurfaces.map((s): SurfaceSpendAggregate => {
+    const t = surfaceTotals.get(s)
+    return { surface: s, costUsd: t?.cost ?? 0, estimatedCostUsd: t?.est ?? 0, count: t?.cnt ?? 0, tokens: t?.tokens ?? 0, unpricedCount: t?.unpriced ?? 0 }
+  }))
 
   // tracking start (project's first invocation)
   const trackingRow = db.prepare(`
     SELECT MIN(started_at) AS first FROM ai_invocations WHERE project_id = ?
   `).get(projectId) as { first: string | null }
+  let trackingStartedAt = trackingRow.first
+  if (agentDb) {
+    try {
+      const agentFirst = (agentDb.prepare('SELECT MIN(started_at) AS first FROM agent_invocations WHERE project_id = ?').get(projectId) as { first: string | null }).first
+      if (agentFirst && (!trackingStartedAt || agentFirst < trackingStartedAt)) trackingStartedAt = agentFirst
+    } catch { /* ledger unreadable: keep the project ledger's start */ }
+  }
 
   // byProvider — split authoritative vs estimated cost so the UI can render
   // the `~` tilde + Hero footnote without re-querying. Rows persisted with
@@ -844,6 +1076,30 @@ export function getSpending(
     usageReportedCount: r.usageReported ?? 0,
     usageUnavailableCount: r.usageUnavailable ?? 0,
   }))
+  if (agentRows.length > 0) {
+    for (const r of agentRows) {
+      let entry = byProvider.find((p) => p.provider === r.provider)
+      if (!entry) {
+        entry = { provider: r.provider, count: 0, costUsd: 0, estimatedCostUsd: 0, pricedCount: 0, unpricedCount: 0, usageReportedCount: 0, usageUnavailableCount: 0 }
+        byProvider.push(entry)
+      }
+      entry.count += 1
+      const cost = r.total_cost_usd
+      if (cost == null) entry.unpricedCount = (entry.unpricedCount ?? 0) + 1
+      else {
+        entry.pricedCount = (entry.pricedCount ?? 0) + 1
+        if (r.total_cost_usd_estimated === 1) entry.estimatedCostUsd += cost
+        else entry.costUsd += cost
+      }
+      if (hasUsage(r)) entry.usageReportedCount = (entry.usageReportedCount ?? 0) + 1
+      else entry.usageUnavailableCount = (entry.usageUnavailableCount ?? 0) + 1
+    }
+    byProvider.sort((a, b) => (b.costUsd + b.estimatedCostUsd) - (a.costUsd + a.estimatedCostUsd))
+  }
+
+  // Top mission conversations (and the ledger summary) for the missions category.
+  let agentMissions: AgentMissionSpending | undefined
+  if (agentDb) agentMissions = summariseAgentMissions(agentRows, prevAgentRows)
 
   return {
     summary: {
@@ -867,9 +1123,10 @@ export function getSpending(
       avgCostPerRun:
         (summaryRow.successfulUnpriced ?? 0) > 0
           ? null
-          : summaryRow.avgCost,
+          : avgCost,
     },
     bySurface,
+    byCategory,
     byModel,
     byMode,
     byProvider,
@@ -878,9 +1135,10 @@ export function getSpending(
     scatterTotal,
     scatterTruncated,
     topTickets,
-    trackingStartedAt: trackingRow.first,
+    trackingStartedAt,
     rangeFrom: range.from,
     rangeTo: range.to,
+    ...(agentMissions ? { agentMissions } : {}),
   }
 }
 
@@ -912,16 +1170,24 @@ export function summariseExplorePrompt(raw: string): string | null {
 export function getInvocations(
   db: DbInstance,
   projectId: string,
-  filters: InvocationsFilters = {}
+  filters: InvocationsFilters = {},
+  /** App-level desktop DB: its pinned `agent_invocations` rows join the list as
+   *  'mission' / 'intent' rows marked `ledger: 'agent'`. */
+  agentDb?: DbInstance,
 ): InvocationsResponse {
   const range = resolveRange(filters)
   const where = buildWhere(projectId, filters, { from: range.from, to: range.to })
   const totalRow = db.prepare(`
     SELECT COUNT(*) AS total FROM ai_invocations WHERE ${where.sql}
   `).get(...where.params) as { total: number }
+  const agentRows = readAgentLedgerRows(agentDb, projectId, filters, { from: range.from, to: range.to })
   const cap = filters.cap
   const limit = cap ?? Math.min(filters.limit ?? 50, 200)
   const offset = filters.offset ?? 0
+  // With agent rows in play, read the first offset+limit project rows and page
+  // the merged, re-sorted list (both sources share the same ordering).
+  const projectLimit = agentRows.length > 0 ? offset + limit : limit
+  const projectOffset = agentRows.length > 0 ? 0 : offset
   // BUG-ANALYTICS-35: offer a cost-sorted order so the costliest rows surface on
   // page 1 for outlier hunting (NULL cost sorts last); recency (started_at DESC)
   // stays the default so the legacy table ordering is unchanged.
@@ -931,7 +1197,7 @@ export function getInvocations(
   const rows = db.prepare(`
     SELECT * FROM ai_invocations WHERE ${where.sql}
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
-  `).all(...where.params, limit, offset) as InvocationRow[]
+  `).all(...where.params, projectLimit, projectOffset) as InvocationRow[]
   // For Explore rows (conversation_id non-null) without a committed ticket,
   // surface the conversation title as the provisional ticket label so the
   // analytics table is useful before commit.
@@ -964,15 +1230,39 @@ export function getInvocations(
       }
     }
   }
-  const enriched: InvocationWithTicket[] = rows.map((r) => ({
+  let enriched: InvocationWithTicket[] = rows.map((r) => ({
     ...r,
     ticket_title: r.conversation_id ? (titleByConv.get(r.conversation_id) ?? null) : null,
   }))
+  if (agentRows.length > 0) {
+    const agentInvocations: InvocationWithTicket[] = agentRows.map(({ conversation_title, ...r }) => ({
+      ...r,
+      project_id: projectId,
+      surface_ref_id: null,
+      ticket_id: null,
+      status: r.status as InvocationStatus,
+      ticket_title: conversation_title,
+      ledger: 'agent' as const,
+    }))
+    const byRecency = (a: InvocationWithTicket, b: InvocationWithTicket) =>
+      (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0)
+    const compare = filters.sortBy === 'cost'
+      ? (a: InvocationWithTicket, b: InvocationWithTicket) => {
+          if (a.total_cost_usd == null || b.total_cost_usd == null) {
+            if (a.total_cost_usd == null && b.total_cost_usd == null) return byRecency(a, b)
+            return a.total_cost_usd == null ? 1 : -1
+          }
+          return b.total_cost_usd - a.total_cost_usd || byRecency(a, b)
+        }
+      : byRecency
+    enriched = [...enriched, ...agentInvocations].sort(compare).slice(offset, offset + limit)
+  }
+  const totalAvailable = totalRow.total + agentRows.length
   return {
     rows: enriched,
-    total: cap ? Math.min(rows.length, cap) : rows.length,
-    truncated: cap !== undefined && totalRow.total > cap,
-    totalAvailable: totalRow.total,
+    total: cap ? Math.min(enriched.length, cap) : enriched.length,
+    truncated: cap !== undefined && totalAvailable > cap,
+    totalAvailable,
   }
 }
 
@@ -987,8 +1277,12 @@ export function parseSpendingFilters(query: Record<string, unknown>): SpendingFi
     // empty filter array, so buildWhere applied NO surface condition and the UI
     // showed ALL-surface totals while claiming a single-surface filter was active.
     f.surface = query.surface.split(',').filter((s) =>
-      (ALL_SURFACES as string[]).includes(s)
-    ) as Surface[]
+      (SPENDING_SURFACES as string[]).includes(s)
+    ) as SpendSurface[]
+  }
+  if (typeof query.category === 'string') {
+    const categories = query.category.split(',').filter(isSpendCategory)
+    if (categories.length > 0) f.category = categories
   }
   if (typeof query.model === 'string') {
     f.model = query.model.split(',').filter((s) => s.length > 0)
@@ -1067,55 +1361,39 @@ export function getAgentMissionSpending(
   filters: SpendingFilters,
 ): AgentMissionSpending {
   const range = resolveRange(filters)
+  return summariseAgentMissions(
+    readAgentLedgerRows(desktopDb, projectId, filters, { from: range.from, to: range.to }),
+    readAgentLedgerRows(desktopDb, projectId, filters, { from: range.prevFrom, to: range.prevTo }),
+  )
+}
 
-  const summaryRow = desktopDb.prepare(`
-    SELECT
-      COALESCE(SUM(total_cost_usd), 0) AS total,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimated,
-      COUNT(*) AS turns,
-      COALESCE(SUM(tokens_in), 0) AS tokensIn,
-      COALESCE(SUM(tokens_out), 0) AS tokensOut,
-      COALESCE(SUM(CASE WHEN surface = 'flow' THEN total_cost_usd ELSE 0 END), 0) AS flowTotal,
-      COALESCE(SUM(CASE WHEN surface = 'flow' THEN 1 ELSE 0 END), 0) AS flowTurns
-    FROM agent_invocations
-    WHERE project_id = ? AND started_at >= ? AND started_at <= ?
-  `).get(projectId, range.from, range.to) as {
-    total: number; estimated: number; turns: number; tokensIn: number; tokensOut: number; flowTotal: number; flowTurns: number
+/** Ledger summary + the five costliest conversations, from already-filtered rows. */
+export function summariseAgentMissions(rows: readonly AgentLedgerRow[], prevRows: readonly AgentLedgerRow[]): AgentMissionSpending {
+  const summary: AgentMissionSpending['summary'] = {
+    totalCostUsd: 0, estimatedCostUsd: 0, prevTotalCostUsd: 0, turns: 0, tokensIn: 0, tokensOut: 0, flowCostUsd: 0, flowTurns: 0,
   }
-
-  const prevRow = desktopDb.prepare(`
-    SELECT COALESCE(SUM(total_cost_usd), 0) AS total
-    FROM agent_invocations
-    WHERE project_id = ? AND started_at >= ? AND started_at < ?
-  `).get(projectId, range.prevFrom, range.prevTo) as { total: number }
-
-  const topConversations = (desktopDb.prepare(`
-    SELECT
-      ai.conversation_id AS conversationId,
-      ac.title AS title,
-      COALESCE(SUM(ai.total_cost_usd), 0) AS costUsd,
-      COALESCE(SUM(CASE WHEN ai.total_cost_usd_estimated = 1 THEN ai.total_cost_usd ELSE 0 END), 0) AS estimatedCostUsd,
-      COUNT(*) AS turns,
-      MAX(ai.started_at) AS lastAt
-    FROM agent_invocations ai
-    LEFT JOIN agent_conversations ac ON ac.id = ai.conversation_id
-    WHERE ai.project_id = ? AND ai.started_at >= ? AND ai.started_at <= ?
-    GROUP BY ai.conversation_id
-    ORDER BY costUsd DESC
-    LIMIT 5
-  `).all(projectId, range.from, range.to)) as AgentMissionConversationRow[]
-
-  return {
-    summary: {
-      totalCostUsd: summaryRow.total,
-      estimatedCostUsd: summaryRow.estimated,
-      prevTotalCostUsd: prevRow.total,
-      turns: summaryRow.turns,
-      tokensIn: summaryRow.tokensIn,
-      tokensOut: summaryRow.tokensOut,
-      flowCostUsd: summaryRow.flowTotal,
-      flowTurns: summaryRow.flowTurns,
-    },
-    topConversations,
+  const conversations = new Map<string, AgentMissionConversationRow>()
+  for (const r of rows) {
+    const cost = r.total_cost_usd ?? 0
+    summary.totalCostUsd += cost
+    if (r.total_cost_usd_estimated === 1) summary.estimatedCostUsd += cost
+    summary.turns += 1
+    summary.tokensIn += r.tokens_in ?? 0
+    summary.tokensOut += r.tokens_out ?? 0
+    if (r.surface === 'intent') { summary.flowCostUsd += cost; summary.flowTurns += 1 }
+    const key = r.conversation_id ?? '\0'
+    const conv = conversations.get(key) ?? {
+      conversationId: r.conversation_id, title: r.conversation_title, costUsd: 0, estimatedCostUsd: 0, turns: 0, lastAt: null,
+    }
+    conv.costUsd += cost
+    if (r.total_cost_usd_estimated === 1) conv.estimatedCostUsd += cost
+    conv.turns += 1
+    if (!conv.lastAt || r.started_at > conv.lastAt) conv.lastAt = r.started_at
+    conversations.set(key, conv)
   }
+  for (const r of prevRows) summary.prevTotalCostUsd += r.total_cost_usd ?? 0
+  const topConversations = Array.from(conversations.values())
+    .sort((a, b) => b.costUsd - a.costUsd || b.turns - a.turns)
+    .slice(0, 5)
+  return { summary, topConversations }
 }

@@ -13,8 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Configurazione",
     "triage": "Triage",
-    "flow": "Intent",
-    "failureAnalysis": "Analisi dei fallimenti"
+    "flow": "Spec Intent",
+    "failureAnalysis": "Analisi dei fallimenti",
+    "mission": "Missioni",
+    "intent": "Turni Intent"
   },
   "periods": {
     "d7": "7d",
@@ -38,7 +40,13 @@
     "modelChip": "Modello: {{model}}",
     "clearModelFilter": "Rimuovi filtro modello",
     "localEngine": "locale",
-    "moreBreakdowns": "Altre ripartizioni"
+    "moreBreakdowns": "Altre ripartizioni",
+    "categoryFilterAria": "Filtra per categoria",
+    "surfaceChip": "Superficie: {{surface}}",
+    "clearSurfaceFilter": "Rimuovi filtro superficie",
+    "ticketChipLabel": "spec #{{id}}",
+    "allEngines": "Tutti i motori",
+    "period": "Periodo"
   },
   "hero": {
     "spending": "Spesa",
@@ -65,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Fatturato",
     "legendEstimated": "Stimato",
-    "apiEquivalent": "Stima equivalente in API"
+    "apiEquivalent": "Stima equivalente in API",
+    "statInvocations": "Invocazioni",
+    "statTokens": "Token",
+    "statBilledEstimated": "Fatturato · Stim.",
+    "statEstimated": "Stimato",
+    "withoutCost_one": "{{count}} di {{total}} esecuzioni senza dati di costo.",
+    "withoutCost_other": "{{count}} di {{total}} esecuzioni senza dati di costo.",
+    "withoutUsage_one": "{{count}} di {{total}} esecuzioni senza uso di token.",
+    "withoutUsage_other": "{{count}} di {{total}} esecuzioni senza uso di token."
   },
   "providerCard": {
     "title": "Per provider",
@@ -165,7 +181,9 @@
     "sortLabel": "Ordina",
     "sortRecency": "Recenti",
     "sortCost": "Costo",
-    "costUnknownLocalTooltip": "Costo sconosciuto (motore locale). Aggiungi tariffe alla connessione per vedere una stima."
+    "costUnknownLocalTooltip": "Costo sconosciuto (motore locale). Aggiungi tariffe alla connessione per vedere una stima.",
+    "colWhy": "Motivo",
+    "missionConversation": "Conversazione di missione {{id}}"
   },
   "export": {
     "summaryCsv": "CSV riepilogo",
@@ -215,14 +233,45 @@
     "all": "Sempre",
     "custom": "Intervallo personalizzato"
   },
-  "agentMissions": {
-    "title": "Missioni dell’agente",
-    "subtitle": "Turni di Agent Chat fissati a questo progetto",
-    "vsPrev": "vs periodo precedente",
-    "turnsAndTokens": "{{turns}} turni · {{tokens}} token",
+  "categories": {
+    "implementation": {
+      "label": "Implementazione",
+      "why": "Costruire spec con rail, loop e job"
+    },
+    "missions": {
+      "label": "Missioni",
+      "why": "Parlare con l’agente e modalità Intent"
+    },
+    "specs": {
+      "label": "Spec",
+      "why": "Scrivere e rifinire spec"
+    },
+    "code": {
+      "label": "Codice",
+      "why": "Spiegare il codice"
+    },
+    "support": {
+      "label": "Supporto",
+      "why": "Configurazione, diagnosi e chat laterali"
+    }
+  },
+  "breakdown": {
+    "title": "Dove sono finiti i soldi",
+    "empty": "Nessuna attività IA in questo periodo.",
+    "share": "{{pct}}% della spesa",
+    "invocations_one": "{{count}} chiamata",
+    "invocations_other": "{{count}} chiamate",
+    "tokens": "{{tokens}} token",
+    "unpriced_one": "{{count}} senza dati di costo",
+    "unpriced_other": "{{count}} senza dati di costo",
+    "costUnavailable": "costo non disponibile",
+    "surfaceFilter": "Mostra solo {{surface}}",
+    "topConversations": "Conversazioni principali",
     "untitled": "Missione senza titolo",
-    "estimatedNote": "Include costi stimati",
-    "flowShare": "Di cui Intent: {{cost}} · {{turns}} turni"
+    "turns_one": "{{count}} turno",
+    "turns_other": "{{count}} turni",
+    "noActivity": "Nessuna attività: {{categories}}",
+    "filterCategory": "Mostra solo {{category}}"
   },
   "legacyUsage": {
     "title": "Utilizzo dei workflow precedenti",
@@ -363,6 +412,8 @@
       "session": "sessione",
       "weekly": "settimanale"
     },
-    "capsMetered": "Limiti in dollari (provider a consumo)"
+    "capsMetered": "Limiti in dollari (provider a consumo)",
+    "planLimits": "Limiti del piano",
+    "turnsUnit": "turni"
   }
 }

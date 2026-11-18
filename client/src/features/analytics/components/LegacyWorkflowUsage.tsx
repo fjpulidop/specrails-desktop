@@ -44,7 +44,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
   if (!failed && (!summary || summary.total === 0)) return null
   return <section className="rounded-xl border border-border/40 bg-card/40 p-4 space-y-3" aria-label={t('legacyUsage.title')}>
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-strong">{t('legacyUsage.title')}</h2>
+      <h2 className="text-title">{t('legacyUsage.title')}</h2>
       <button type="button" disabled={loading} onClick={() => refresh(value => value + 1)} className="text-xs underline disabled:opacity-50">{t('legacyUsage.refresh')}</button>
     </div>
     <p className="text-xs text-muted-foreground">{t('legacyUsage.scope')}</p>
