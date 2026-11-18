@@ -31,7 +31,7 @@ Ogni consegna che ti aspetta viene confrontata con il suo branch base **così co
 - **main è avanzato di N commit da quando è stato creato questo branch**: la base è andata avanti; valuta di aggiornare il branch prima di decidere.
 - **Già in main**: la modifica è già entrata (per esempio dopo uno squash merge).
 
-L’anteprima si aggiorna quando una consegna cambia stato o un run termina. Quando Specrails unisce da solo più risultati, unisce prima quelli che si applicano senza conflitti. Serve Git 2.38 o successivo; con un Git più vecchio l’anteprima dice che non è disponibile.
+Sulla bacheca live il risultato è un chip breve (**2 conflitti**, **Si sovrappone a 1 run**, **Base avanzata**) la cui frase completa compare al passaggio del puntatore o con il focus. L’anteprima si aggiorna quando una consegna cambia stato o un run termina. Quando Specrails unisce da solo più risultati, unisce prima quelli che si applicano senza conflitti. Serve Git 2.38 o successivo; con un Git più vecchio l’anteprima dice che non è disponibile.
 
 ## Scegliere cosa succede a una consegna {#pr-decision}
 

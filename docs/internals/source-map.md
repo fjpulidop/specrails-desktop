@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1755 source/build files. Nearby tests are linked where names
+Includes 1756 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -492,6 +492,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/inbox/lib
 
 - [inbox-api.ts](../../client/src/features/inbox/lib/inbox-api.ts)
+- [inbox-item-text.ts](../../client/src/features/inbox/lib/inbox-item-text.ts)
 - [inbox-model.ts](../../client/src/features/inbox/lib/inbox-model.ts)
 - [inbox-run-state.ts](../../client/src/features/inbox/lib/inbox-run-state.ts)
 

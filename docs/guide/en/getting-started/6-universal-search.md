@@ -4,9 +4,9 @@ Press **⌘K** (**Ctrl+K** on Windows and Linux) to search almost everything in 
 
 ## Jump back in
 
-With an empty box, the first group is **Jump back in**: up to six rows that take you straight back to your work. What needs you comes first, newest first: items of the "Needs you" inbox (from every project) and missions waiting on you (a decision, a failed delivery or a reply you have not read). The most recently active missions and jobs follow. Each row shows its state lamp, and the project's name when it is not the open one.
+With an empty box, the first group is **Jump back in**: your most recently active missions and jobs, newest first, with the open project's newest one in front so **Enter** stays where you are. Each row shows its state lamp, and the project's name when it is not the open one. When something needs you, one row on top says how many things (**3 things need you**) and opens the inbox, the one list of what waits for you; inbox items themselves are not listed here.
 
-Press **⌘1** to **⌘6** (**Ctrl+1** to **Ctrl+6** on Windows and Linux) to open a row directly, or pick it with the arrows and **Enter**. A row opens exactly as it does elsewhere: an inbox item lands on its review or run (switching project when needed; Resume and Retry items open the inbox), a mission opens the mission, a job opens the job. While the palette is open these keys belong to it: the page shortcuts (⌘1–5) and project switching (⌥⌘1–9) wait until it closes. The order is fixed while the palette stays open, so a row never moves under your finger; states still update, and the list is sorted again the next time you open it. Rows listed here are not repeated under Missions or Jobs.
+Press **⌘1** to **⌘6** (**Ctrl+1** to **Ctrl+6** on Windows and Linux) to open a mission or job row directly (the inbox row has no number), or pick a row with the arrows and **Enter**. A row opens exactly as it does elsewhere: a mission opens the mission, a job opens the job. While the palette is open these keys belong to it: the page shortcuts (⌘1–5) and project switching (⌥⌘1–9) wait until it closes. The order is fixed while the palette stays open, so a row never moves under your finger; states still update, and the list is sorted again the next time you open it. Rows listed here are not repeated under Missions or Jobs.
 
 ## Prefixes
 
