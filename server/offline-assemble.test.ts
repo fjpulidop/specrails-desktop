@@ -297,3 +297,64 @@ describe('canAssembleProject', () => {
     expect(canAssembleProject()).toBe(false)
   })
 })
+
+describe('assembleProjectOffline — Core lifecycle lock', () => {
+  function scriptedInit(script: Array<{ code: number; stderr?: string }>) {
+    const calls: string[] = []
+    let active = 0
+    let maxActive = 0
+    const spawn = (args: string[], cwd: string): ChildProcess => {
+      calls.push(cwd)
+      const step = script.shift() ?? { code: 0 }
+      active++
+      maxActive = Math.max(maxActive, active)
+      const child = new EventEmitter() as unknown as ChildProcess & { stdout: Readable; stderr: Readable }
+      child.stdout = new Readable({ read() {} })
+      child.stderr = new Readable({ read() {} })
+      setTimeout(() => {
+        if (step.stderr) child.stderr.push(step.stderr)
+        child.stdout.push(null)
+        child.stderr.push(null)
+        if (step.code === 0) fs.mkdirSync(path.join(workspacePathFor('my-app'), '.specrails'), { recursive: true })
+        active--
+        setImmediate(() => child.emit('close', step.code))
+      }, 5)
+      return child
+    }
+    return { spawn, calls, maxActive: () => maxActive }
+  }
+
+  it('runs concurrent assemblies one at a time so they never collide on the lock', async () => {
+    const init = scriptedInit([])
+    const io = { spawnInit: init.spawn as never, materialize: vi.fn() }
+    const results = await Promise.all([
+      assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'p1', providers: ['claude', 'codex'], continueOnError: true, io }),
+      assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'p1', providers: ['claude'], continueOnError: true, io }),
+    ])
+    expect(init.maxActive()).toBe(1)
+    expect(results.flat().every((r) => r.ok)).toBe(true)
+  })
+
+  it('waits out a lock held by another process instead of failing the provider', async () => {
+    const busy = '✗ Another Core installation or update is active. Retry when it finishes; no framework files were changed.\n'
+    const init = scriptedInit([{ code: 41, stderr: busy }, { code: 41, stderr: busy }, { code: 0 }])
+    const results = await assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'p1', providers: ['claude'], continueOnError: true,
+      io: { spawnInit: init.spawn as never, materialize: vi.fn(), lockRetryDelaysMs: [1, 1, 1] } })
+    expect(results).toEqual([{ provider: 'claude', ok: true }])
+    expect(init.calls).toHaveLength(3)
+  })
+
+  it('still fails a provider whose lock stays busy, and never retries other exit-41 errors', async () => {
+    const busy = 'Another Core installation or update is active.\n'
+    const stuck = scriptedInit([{ code: 41, stderr: busy }, { code: 41, stderr: busy }])
+    const [held] = await assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'p1', providers: ['claude'], continueOnError: true,
+      io: { spawnInit: stuck.spawn as never, materialize: vi.fn(), lockRetryDelaysMs: [1] } })
+    expect(held).toMatchObject({ ok: false, error: expect.stringContaining('exit 41') })
+    expect(stuck.calls).toHaveLength(2)
+    const downgrade = scriptedInit([{ code: 41, stderr: 'Refusing to downgrade specrails-core 7.0.0 to 6.0.0.\n' }])
+    const [refused] = await assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'p1', providers: ['claude'], continueOnError: true,
+      io: { spawnInit: downgrade.spawn as never, materialize: vi.fn(), lockRetryDelaysMs: [1, 1] } })
+    expect(refused.ok).toBe(false)
+    expect(downgrade.calls).toHaveLength(1)
+  })
+})

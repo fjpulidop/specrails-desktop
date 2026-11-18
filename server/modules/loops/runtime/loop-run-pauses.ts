@@ -156,10 +156,25 @@ export type LimitPauseOutcome = { action: 'resume' } | { action: 'switch'; provi
  * (legacy engine). Stop settles it 'stopped'. The pause does not consume the
  * run's wall-clock deadline.
  */
-export async function awaitProviderLimit(ctx: LoopRunContext, limit: Omit<LoopLimitPause, 'pausedAt' | 'autoResume'>): Promise<LimitPauseOutcome> {
+/** Least wait before retrying a refused step on its own. */
+export const LIMIT_RESUME_FLOOR_MS = 2 * 60_000
+
+/**
+ * When to retry on its own. A provider that refuses again after the reset time it
+ * announced (its clock, a rounded "11:10pm") gives a resume time already past: resuming
+ * at once would burn every limit pause within milliseconds, so wait at least the floor.
+ */
+export function limitResumeAt(resumeAt: string | null, nowMs: number): string | null {
+  if (!resumeAt) return null
+  const at = Date.parse(resumeAt)
+  return Number.isFinite(at) && at < nowMs + LIMIT_RESUME_FLOOR_MS ? new Date(nowMs + LIMIT_RESUME_FLOOR_MS).toISOString() : resumeAt
+}
+
+export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<LoopLimitPause, 'pausedAt' | 'autoResume'>): Promise<LimitPauseOutcome> {
   const { host, req, runId, state, exactTicketIds } = ctx
   const { logLine } = ctx.events
   const pausedAtMs = host.now()
+  const limit = { ...announced, resumeAt: limitResumeAt(announced.resumeAt, pausedAtMs) }
   const pause: LoopLimitPause = { ...limit, autoResume: limit.resumeAt !== null && host.options.autoResumeOnLimit?.() !== false, pausedAt: new Date(pausedAtMs).toISOString() }
   const reason = `${limit.message}${limit.resumeAt ? ` (resets ${limit.resumeAt})` : ''}`
   const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {

@@ -175,15 +175,23 @@ describe('host blockers', () => {
     expect(prompt).toContain('never write a task that edits or records evidence in them')
     expect(prompt).toContain('Do not invent prerequisites or gates the workflow does not run')
     expect(prompt).toContain('is a question with low confidence, not a task or a gate')
+    expect(prompt).toContain('propose at least one minimal command that exercises the changed code')
   })
   it('verifies the unchanged code before the developer when Core summarizes verification', () => {
     const withSummary = compile(configurableImplementGraph({ ...paired, verificationSummary: 1 })).nodes
     expect(withSummary['initialize-corrections'].ends).toMatchObject({ next: 'baseline' })
     expect(withSummary.baseline).toMatchObject({ kind: 'verify', params: { commands: 'configured', setup: 'configured', hostBlockers: true } })
     // Failures only inform the roles; a broken setup or host precondition ends before any AI spend.
-    expect(withSummary.baseline.ends).toEqual({ pass: 'developer', fail: 'developer', failed: 'developer', blocked: 'host-blocked-baseline' })
+    expect(withSummary.baseline.ends).toEqual({ pass: 'record-baseline', fail: 'record-baseline', failed: 'baseline-unavailable', blocked: 'host-blocked-baseline' })
     expect(withSummary['host-blocked-baseline'].params).toMatchObject({ outcome: 'failure', blockerFrom: 'baseline' })
-    for (const role of ['developer', 'fixer', 'reviewer']) expect(withSummary[role].params.prompt).toContain('{{outputs.baseline.summary}}')
+    expect(withSummary['record-baseline']).toMatchObject({ kind: 'assign', params: { set: { baselineSummary: '{{outputs.baseline.summary}}' } }, ends: { next: 'developer' } })
+    // A baseline that could not execute has no output: the roles still get a summary instead of a
+    // missing-output crash in the developer turn.
+    expect(withSummary['baseline-unavailable']).toMatchObject({ kind: 'assign', params: { set: { baselineSummary: expect.stringMatching(/^unavailable: /) } }, ends: { next: 'developer' } })
+    for (const role of ['developer', 'fixer', 'reviewer', 'unblock']) {
+      expect(withSummary[role].params.prompt).toContain('{{run.baselineSummary}}')
+      expect(withSummary[role].params.prompt).not.toContain('outputs.baseline')
+    }
     // Without the summary (or host blockers) the shape is unchanged.
     const without = compile(configurableImplementGraph(paired)).nodes
     expect(without).not.toHaveProperty('baseline')

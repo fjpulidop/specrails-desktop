@@ -253,6 +253,16 @@ export const PR_NEVER_STAGE_PATHS = [
   '.specrails/agent-memory/**',
   '.specrails/agent-memory/explanations',
   '.specrails/agent-memory/explanations/**',
+  // Core's run state. Without a populated relocated workspace (an assembly that
+  // has not finished or failed) the backlog root is the run checkout, so the
+  // pipeline directory (run artifacts, the materialized runtime package with
+  // its node_modules) and the engine store land inside the worktree. They are
+  // never PR content.
+  '.specrails/pipeline',
+  '.specrails/pipeline/**',
+  '.specrails/engine-store.sqlite',
+  '.specrails/engine-store.sqlite-wal',
+  '.specrails/engine-store.sqlite-shm',
 ] as const
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'

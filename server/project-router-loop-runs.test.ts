@@ -461,3 +461,32 @@ describe('usage-limit pause controls (provider-quota)', () => {
     expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })).body.error).toBe('switch_unavailable')
   })
 })
+
+describe('resuming a run a Desktop restart interrupted', () => {
+  it('treats the empty-handed Resume of a restart-paused run as the explicit recovery of its interrupted steps', async () => {
+    const { isRestartResume, restartRecoveryControls } = await import('./project-router-loop-runs')
+    const interrupted = { status: 'paused', restart_reason: 'restart' }
+    expect(isRestartResume(interrupted, {})).toBe(true)
+    expect(restartRecoveryControls({}, [{ attemptId: 'a1' }, { attemptId: 'a2' }])).toEqual({ recover: ['a1', 'a2'] })
+    // Nothing interrupted mid-write: the body stays as it was.
+    expect(restartRecoveryControls({}, [])).toEqual({})
+  })
+  it('leaves answers, explicit recovery and other pauses alone', async () => {
+    const { isRestartResume } = await import('./project-router-loop-runs')
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { answer: 'yes', interruptId: 'i1' })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { recover: [] })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'budget_paused' }, {})).toBe(false)
+    expect(isRestartResume({ status: 'completed', restart_reason: null }, {})).toBe(false)
+  })
+})
+
+describe('resuming right after a restart', () => {
+  it('waits for the killed Core child lease to expire, bounded, and never for a run alive in this process', async () => {
+    const { staleLeaseWaitMs, STALE_LEASE_MAX_WAIT_MS } = await import('./project-router-loop-runs')
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, false)).toBe(6_250)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, true)).toBe(0)
+    expect(staleLeaseWaitMs({ active: false, expiresAt: 10_000 }, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs(null, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 4_000 + STALE_LEASE_MAX_WAIT_MS + 10_000 }, 4_000, false)).toBe(0)
+  })
+})

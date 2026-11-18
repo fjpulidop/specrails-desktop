@@ -58,6 +58,15 @@ describe('definition resume admission', () => {
     expect((await api().post(url).send({})).status).toBe(202)
     expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
   })
+  it("treats the empty-handed Resume of a restart-paused run as recovery of the step the restart cut off", async () => {
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(begin).toHaveBeenCalledWith('run', expect.objectContaining({ recover: ['attempt'] }))
+  })
+  it('waits for the lease of the Core child the restart killed instead of answering runtime_run_active', async () => {
+    runtime.probe.mockResolvedValueOnce({ status: 'running', lease: { owner: 'dead', epoch: 1, expiresAt: Date.now() + 300, active: true }, pendingInterrupts: [], recoverableSteps: [] })
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(runtime.probe).toHaveBeenCalledTimes(2)
+  })
   it('does not release a replacement claim acquired while probing', async () => {
     claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
     runtime.probe.mockImplementation(async () => {

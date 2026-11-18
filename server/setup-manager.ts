@@ -1,3 +1,4 @@
+import { adoptPreAssemblySpecs } from './pre-assembly-specs'
 import { spawnSync, ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
 import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
@@ -856,6 +857,12 @@ export class SetupManager {
         // The WS event carries the reason to the app; the server log must too,
         // or a packaged-app failure (installer smoke, support bundle) is blind.
         if (!r.ok) console.warn(`[SetupManager] silent assemble: ${r.provider} failed for ${projectId}: ${r.error ?? 'unknown error'}`)
+        // The first populated provider flips the project to its workspace store:
+        // bring over the specs written to the repository in the meantime.
+        if (r.ok) {
+          try { if (adoptPreAssemblySpecs({ slug, path: projectPath }) === 'adopted') console.log(`[SetupManager] silent assemble: moved specs created during assembly into the workspace for ${projectId}`) }
+          catch (err) { console.warn(`[SetupManager] silent assemble: could not move specs created during assembly for ${projectId}: ${(err as Error).message}`) }
+        }
         emit(r.provider, r.ok ? 'done' : 'failed', r.error)
       },
     })

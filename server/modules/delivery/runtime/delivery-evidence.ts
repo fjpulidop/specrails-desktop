@@ -747,8 +747,14 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
         if (commands.length >= RUNTIME_LIST_CAP) break
         if (!isRecord(raw) || typeof raw.command !== 'string' || !Number.isInteger(raw.exitCode)) continue
         const exitCode = raw.exitCode as number
-        commands.push({ label: raw.command.slice(0, 200), outcome: exitCode === 0 ? 'passed' : 'failed', exitCode,
-          durationMs: null, required: true, hostRun: true, outputTail: null })
+        // Core's verify output carries the argv, the measured duration and a
+        // bounded output: a bare "node" with an unknown duration told the
+        // reviewer nothing about what actually ran.
+        const args = Array.isArray(raw.args) ? raw.args.filter((arg): arg is string => typeof arg === 'string').slice(0, 16) : []
+        const output = typeof raw.output === 'string' ? raw.output.trim() : ''
+        commands.push({ label: [raw.command, ...args].join(' ').slice(0, 200), outcome: exitCode === 0 ? 'passed' : 'failed', exitCode,
+          durationMs: typeof raw.durationMs === 'number' && Number.isFinite(raw.durationMs) && raw.durationMs >= 0 ? raw.durationMs : null,
+          required: true, hostRun: true, outputTail: output ? output.slice(-RUNTIME_OUTPUT_TAIL_CAP) : null })
       }
     }
     if (scope.kind === 'derive-change') {

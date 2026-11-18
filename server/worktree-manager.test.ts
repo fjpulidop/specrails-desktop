@@ -462,6 +462,37 @@ describe('commitWorktree', () => {
     }
   })
 
+  it('never commits Core run state that lands in the checkout of an unassembled project', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-core-state-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      const run = path.join(dir, '.specrails', 'pipeline', 'run-1', 'agent-workflow')
+      fs.mkdirSync(run, { recursive: true })
+      fs.writeFileSync(path.join(run, 'artifact.json'), '{}\n')
+      fs.mkdirSync(path.join(dir, '.specrails', 'pipeline', 'runtime-packages', 'abc', 'node_modules', 'dep'), { recursive: true })
+      fs.writeFileSync(path.join(dir, '.specrails', 'pipeline', 'runtime-packages', 'abc', 'node_modules', 'dep', 'index.js'), '\n')
+      fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite'), 'db')
+      fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite-wal'), 'wal')
+      fs.writeFileSync(path.join(dir, 'app.py'), 'code = 1\n')
+
+      const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [])
+
+      expect(result.error).toBeUndefined()
+      expect(result).toMatchObject({ staged: true, committed: true })
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD']).slice(0, -1).split('\0')
+      expect(committed).toEqual(['app.py'])
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('commits deliverables when excluded paths are git-ignored (regression: "The following paths are ignored")', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-ignored-exclude-'))
     const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
