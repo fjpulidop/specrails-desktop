@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { SIDE_PANE_FIT } from '../lib/mission-side-pane'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { Maximize2, Minimize2, X } from 'lucide-react'
@@ -69,7 +70,7 @@ export function AgentModeAnalyticsPane() {
     <div data-area="analytics"
       className={cn(
         'area-surface flex h-full flex-col overflow-hidden border-l border-border bg-background',
-        maximized ? 'absolute inset-0 z-30 border-l-0' : 'relative',
+        maximized ? 'absolute inset-0 z-30 border-l-0' : cn('relative', SIDE_PANE_FIT),
       )}
       style={maximized ? undefined : { width, flexShrink: 0 }}
       data-testid="agent-analytics-pane"

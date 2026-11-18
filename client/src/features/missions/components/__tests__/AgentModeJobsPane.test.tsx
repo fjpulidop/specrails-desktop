@@ -171,12 +171,15 @@ describe('AgentModeJobsPane', () => {
   it('maximize covers the whole surface (absolute inset-0), restore returns to the split', () => {
     const { container } = renderPane()
     const pane = container.firstElementChild as HTMLElement
-    expect(pane.className).not.toContain('absolute')
+    // In flow at rest (it only overlays, as a drawer, on a surface too narrow for both: `@max-[680px]/surface:absolute`).
+    const classes = () => pane.className.split(/\s+/)
+    expect(classes()).not.toContain('absolute')
+    expect(classes()).toContain('@max-[680px]/surface:absolute')
     fireEvent.click(screen.getByLabelText('Maximize'))
-    expect(pane.className).toContain('absolute')
-    expect(pane.className).toContain('inset-0')
+    expect(classes()).toContain('absolute')
+    expect(classes()).toContain('inset-0')
     fireEvent.click(screen.getByLabelText('Restore'))
-    expect(pane.className).not.toContain('absolute')
+    expect(classes()).not.toContain('absolute')
     expect(pane.style.width).toBe('480px')
   })
 

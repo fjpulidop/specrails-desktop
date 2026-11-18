@@ -441,7 +441,11 @@
       "boardSelectColumn": "ボード: 列内のスペックをすべて選択",
       "boardClearSelection": "ボード: 選択を解除",
       "boardMove": "ボード:フォーカス中のスペックを移動(ステータスまたはレール)",
-      "openLiveBoard": "ライブボードを開く（すべてのプロジェクトの実行）"
+      "openLiveBoard": "ライブボードを開く（すべてのプロジェクトの実行）",
+      "splitFocusPane": "次 / 前のミッションペインへ移動",
+      "splitMaximize": "選択中のミッションペインを最大化 / 元に戻す",
+      "splitEqualize": "ミッションペインを均等にする",
+      "splitClose": "選択中のミッションペインを閉じる"
     },
     "searchLabel": "ショートカットとガイドを検索",
     "searchPlaceholder": "ショートカットとガイドを検索…",

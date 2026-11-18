@@ -114,6 +114,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 
+  // The split layout drops panes of archived or deleted missions; only the main window keeps it across reloads.
+  const splitMissions = useMemo(() => ({ conversations, loading: conversationsLoading, error: conversationsError, archiveScope }),
+    [conversations, conversationsLoading, conversationsError, archiveScope])
+  const persistSplitLayout = !secondaryWindow
+
   // In Agent Mode the conversation UI is the full-screen surface, so the
   // floating panel + bubble are suppressed. (`uiMode` is read at the top of the
   // provider — it also gates the sidebar-highlight sync in setPinnedProject.)
@@ -123,7 +128,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     <LiveStoreContext.Provider value={liveStore}>
       <AgentChatContext.Provider value={value}>
         {fixedConversationId ? <MissionSessionsProvider>{children}</MissionSessionsProvider> : (
-          <MissionSplitViewsProvider primaryId={active?.id ?? null}>
+          <MissionSplitViewsProvider primaryId={active?.id ?? null} missions={splitMissions} persist={persistSplitLayout}>
             <MissionSessionsProvider>{children}</MissionSessionsProvider>
             {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
             {floatingAllowed && visibility !== 'open' && <AgentBubble />}

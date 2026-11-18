@@ -16,7 +16,7 @@ import { appAttention } from '../../../lib/attention/app-attention'
 import type { AttentionCenter } from '../../../lib/attention/attention-center'
 import { isMainFocused, type WindowFocus } from '../../../lib/attention/window-focus'
 import { useAgentChat } from '../context/AgentChatContext'
-import { useMissionSplitViews } from '../context/MissionSplitViewsContext'
+import { PRIMARY_PANE, useMissionSplitViews } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useOpenMission } from './useOpenMission'
 
@@ -72,8 +72,9 @@ export function useMissionReplyNotifications({ pathname, center = appAttention }
     uiMode,
     pathname,
     activeId: agentChat.active?.id ?? null,
-    primaryVisible: splitViews.primaryVisible,
-    splitIds: splitViews.conversationIds,
+    // A pane hidden behind a maximized one, or by the stacked narrow layout, is not on screen.
+    primaryVisible: splitViews.primaryVisible && (splitViews.visiblePaneIds ?? [PRIMARY_PANE]).includes(PRIMARY_PANE),
+    splitIds: splitViews.conversationIds.filter((id) => !splitViews.visiblePaneIds || splitViews.visiblePaneIds.includes(id)),
     chatOpen: agentChat.visibility === 'open',
     detached: new Map(windows.transfers.filter((transfer) => transfer.state === 'detached').map((transfer) => [transfer.conversationId, transfer.windowLabel])),
   }

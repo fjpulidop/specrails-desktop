@@ -2,6 +2,7 @@ import { useMissionConversationMode } from '../context/MissionExtensionsContext'
 import { MissionModeBadge } from './MissionModeBadge'
 import { useMissionPaneClose } from '../context/MissionSplitViewsContext'
 import { MissionWindowAction } from './MissionWindowAction'
+import { MissionPaneLayoutMenu } from './MissionPaneLayoutMenu'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -291,6 +292,7 @@ export function AgentConversationHeader() {
       </div>
 
       <MissionWindowAction />
+      <MissionPaneLayoutMenu />
       {closePane && <button type="button" onClick={closePane} title={t('split.close')} aria-label={t('split.close')} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>}
       {/* ⋮ overflow menu */}
       <button

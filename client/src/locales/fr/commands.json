@@ -441,7 +441,11 @@
       "boardSelectColumn": "Tableau : sélectionner toutes les specs de la colonne",
       "boardClearSelection": "Tableau : effacer la sélection",
       "boardMove": "Tableau : déplacer la spec ciblée (statut ou rail)",
-      "openLiveBoard": "Ouvrir le tableau en direct (toutes les exécutions de tous les projets)"
+      "openLiveBoard": "Ouvrir le tableau en direct (toutes les exécutions de tous les projets)",
+      "splitFocusPane": "Aller au panneau de mission suivant / précédent",
+      "splitMaximize": "Agrandir ou restaurer le panneau de mission actif",
+      "splitEqualize": "Égaliser les panneaux de mission",
+      "splitClose": "Fermer le panneau de mission actif"
     },
     "searchLabel": "Rechercher des raccourcis et des guides",
     "searchPlaceholder": "Rechercher des raccourcis et des guides…",

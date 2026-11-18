@@ -441,7 +441,11 @@
       "boardSelectColumn": "看板:选择该列中的所有规格",
       "boardClearSelection": "看板:取消选择",
       "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)",
-      "openLiveBoard": "打开实时看板（所有项目的每次运行）"
+      "openLiveBoard": "打开实时看板（所有项目的每次运行）",
+      "splitFocusPane": "切换到下一个 / 上一个任务窗格",
+      "splitMaximize": "最大化或恢复当前任务窗格",
+      "splitEqualize": "平分任务窗格",
+      "splitClose": "关闭当前任务窗格"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",

@@ -441,7 +441,11 @@
       "boardSelectColumn": "Tablero: seleccionar todas las specs de la columna",
       "boardClearSelection": "Tablero: quitar la selección",
       "boardMove": "Tablero: mover la spec enfocada (estado o rail)",
-      "openLiveBoard": "Abrir el tablero en vivo (todas las ejecuciones de todos los proyectos)"
+      "openLiveBoard": "Abrir el tablero en vivo (todas las ejecuciones de todos los proyectos)",
+      "splitFocusPane": "Ir al panel de misión siguiente / anterior",
+      "splitMaximize": "Maximizar o restaurar el panel de misión activo",
+      "splitEqualize": "Igualar los paneles de misión",
+      "splitClose": "Cerrar el panel de misión activo"
     },
     "searchLabel": "Buscar atajos y guías",
     "searchPlaceholder": "Buscar atajos y guías…",

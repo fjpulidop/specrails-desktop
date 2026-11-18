@@ -2,7 +2,8 @@
 // Conversation-scoped: a shortcut acts on the run strip of ONE mission, the
 // one the person is in. With several missions visible (split views) that is
 // the surface containing the focused element, else the most recently focused
-// one, else the most recently mounted.
+// one, else the most recently mounted — never a pane hidden (inert) behind a
+// maximized pane or the stacked narrow layout.
 //
 //   ⌥R          jump to the run strip; pressed again inside it, show or hide
 //               the shown run's details. Works from the composer too (it is
@@ -89,7 +90,11 @@ export function resolveRunStrip<T extends { surface: () => Element | null }>(
   entries: ReadonlyArray<{ handle: T; focusedAt: number; mountedAt: number }>,
   active: Element | null,
 ): T | null {
-  const attached = entries.filter((entry) => entry.handle.surface()?.isConnected)
+  // A split pane hidden behind a maximized pane (or the stacked narrow layout) is inert: never a target.
+  const attached = entries.filter((entry) => {
+    const surface = entry.handle.surface()
+    return !!surface?.isConnected && !(typeof surface.closest === 'function' && surface.closest('[inert]'))
+  })
   if (attached.length === 0) return null
   if (active) {
     const containing = attached.find((entry) => entry.handle.surface()?.contains(active))

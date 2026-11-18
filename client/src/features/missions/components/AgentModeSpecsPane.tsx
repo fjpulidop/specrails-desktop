@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import { SIDE_PANE_FIT } from '../lib/mission-side-pane'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { composerReferenceDrafts, useComposerDraftRevision } from '../lib/agent-composer-drafts'
 import { ticketChip } from '../lib/agent-context-palette'
@@ -225,7 +226,7 @@ export function AgentModeSpecsPane({ projectId, draftKey }: { projectId: string;
       data-agent-specs-pane
       className={cn(
         'area-surface flex h-full flex-col overflow-hidden border-l border-border bg-background',
-        maximized ? 'absolute inset-0 z-30 border-l-0' : 'relative',
+        maximized ? 'absolute inset-0 z-30 border-l-0' : cn('relative', SIDE_PANE_FIT),
       )}
       style={maximized ? undefined : { width, flexShrink: 0 }}
     >

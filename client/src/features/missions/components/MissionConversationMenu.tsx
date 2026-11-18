@@ -3,11 +3,19 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useUiMode } from '../../../context/UiModeContext'
-import { PanelsTopLeft } from 'lucide-react'
+import { PanelBottom, PanelRight, PanelsTopLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useMissionSplitViews } from '../context/MissionSplitViewsContext'
+import { useMissionSplitViews, type SplitSide } from '../context/MissionSplitViewsContext'
 
-/** Right-click or Shift+F10 opens the same action without selecting the row. */
+const ITEMS: { key: string; side?: SplitSide; Icon: typeof PanelRight }[] = [
+  { key: 'split.open', Icon: PanelsTopLeft },
+  { key: 'split.openRight', side: 'right', Icon: PanelRight },
+  { key: 'split.openBelow', side: 'down', Icon: PanelBottom },
+]
+
+/** Right-click or Shift+F10 offers the split actions without selecting the row:
+ * Split view (right of the focused pane when it is wide enough, else below),
+ * Open to the right and Open below. Arrows, Home/End move; Escape closes. */
 export function MissionConversationMenu({ conversationId, children, onOpen }: {
   conversationId: string; children: ReactNode; onOpen?: () => void
 }) {
@@ -36,6 +44,23 @@ export function MissionConversationMenu({ conversationId, children, onOpen }: {
     document.addEventListener('keydown', key)
     return () => { document.removeEventListener('pointerdown', down); document.removeEventListener('keydown', key) }
   }, [position])
+  const openSplit = (side?: SplitSide) => {
+    if (side) split.openBeside(conversationId, side)
+    else split.open(conversationId)
+    if (uiMode !== 'agent') toggleUiMode()
+    if (location.pathname !== '/') navigate('/')
+    onOpen?.()
+    dismiss()
+  }
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+    const index = items.indexOf(document.activeElement as HTMLElement)
+    const next = event.key === 'ArrowDown' ? (index + 1) % items.length : event.key === 'ArrowUp' ? (index - 1 + items.length) % items.length
+      : event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : null
+    if (next === null) return
+    event.preventDefault()
+    items[next]?.focus()
+  }
   return <div ref={root} onContextMenu={event => {
     event.preventDefault(); event.stopPropagation()
     trigger.current = root.current?.querySelector<HTMLElement>('button') ?? null
@@ -50,13 +75,14 @@ export function MissionConversationMenu({ conversationId, children, onOpen }: {
     setPosition({ x: rect.left, y: rect.bottom })
   }}>
     {children}
-    {position && !visible && createPortal(<div ref={menu} role="menu" aria-label={t('split.menu')}
-      className="fixed z-[100] w-48 rounded-lg border border-border bg-popover p-1 shadow-xl"
-      style={{ left: Math.max(8, Math.min(position.x, window.innerWidth - 200)), top: Math.max(8, Math.min(position.y, window.innerHeight - 52)) }}>
-      <button autoFocus type="button" role="menuitem" className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
-        onClick={event => { event.stopPropagation(); split.open(conversationId); if (uiMode !== 'agent') toggleUiMode(); if (location.pathname !== '/') navigate('/'); onOpen?.(); dismiss() }}>
-        <PanelsTopLeft className="h-4 w-4" />{t('split.open')}
-      </button>
+    {position && !visible && createPortal(<div ref={menu} role="menu" aria-label={t('split.menu')} onKeyDown={onMenuKeyDown}
+      className="fixed z-[100] w-52 rounded-card border border-border bg-popover p-1 shadow-2"
+      style={{ left: Math.max(8, Math.min(position.x, window.innerWidth - 216)), top: Math.max(8, Math.min(position.y, window.innerHeight - 120)) }}>
+      {ITEMS.map(({ key, side, Icon }, index) => <button key={key} autoFocus={index === 0} type="button" role="menuitem" tabIndex={index === 0 ? 0 : -1}
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+        onClick={event => { event.stopPropagation(); openSplit(side) }}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />{t(key)}
+      </button>)}
     </div>, document.body)}
   </div>
 }

@@ -1,5 +1,7 @@
-import { useMissionPaneClose, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
+import { useMissionPaneClose, useMissionPaneId, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { MissionSplitLayout } from './MissionSplitLayout'
+import { MissionPaneLayoutMenu } from './MissionPaneLayoutMenu'
+import { SIDE_PANE_FIT } from '../lib/mission-side-pane'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useMissionViewRevision } from '../lib/mission-view-state'
 import { Suspense, lazy, useEffect, type ReactNode } from 'react'
@@ -37,8 +39,13 @@ const AgentModeAnalyticsPane = lazy(() =>
  */
 function EmptyPaneClose() {
   const closePane = useMissionPaneClose()
+  const paneId = useMissionPaneId()
   const { t } = useTranslation('agent')
-  return closePane ? <button type="button" aria-label={t('split.close')} title={t('split.close')} onClick={closePane} className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button> : null
+  if (!closePane && !paneId) return null
+  return <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+    <MissionPaneLayoutMenu />
+    {closePane && <button type="button" aria-label={t('split.close')} title={t('split.close')} onClick={closePane} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>}
+  </div>
 }
 
 /**
@@ -117,7 +124,7 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
   const showSpecs = !showJobs && !showCode && !showAnalytics && specsPaneOpen && !!activeProjectId && !external
 
   return (
-    <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden surface-center">
+    <div data-agent-mode-surface className="@container/surface relative z-0 flex h-full w-full overflow-hidden surface-center">
       {isGalaxy && <Starfield />}
       <div data-area="missions" className="area-surface relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
         {/* Radial glow — always mounted so EMPTY⇄ACTIVE crossfades instead of popping. */}
@@ -144,7 +151,7 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
           // ── EMPTY: centered composer card. The card carries the shared
           // `layoutId`, so the first send morphs it down into the docked
           // composer of the conversation view (and New Mission morphs it back).
-          <div className="relative z-10 flex h-full w-full items-center justify-center px-4">
+          <div className="relative z-10 flex h-full w-full justify-center overflow-y-auto px-4">
             <EmptyPaneClose />
             <motion.div
               layoutId={composerLayoutId}
@@ -155,7 +162,7 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
                 ease: [0.16, 1, 0.3, 1],
                 layout: { type: 'spring', stiffness: 350, damping: 34 },
               }}
-              className="w-full max-w-[960px]"
+              className="my-auto w-full max-w-[960px] py-4"
               data-agent-empty-composer
             >
               <MissionHomeHeader />
@@ -173,25 +180,25 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
       </div>
 
       {showJobs && (
-        <Suspense fallback={<div className="w-[480px] border-l border-border" />}>
+        <Suspense fallback={<div className={`w-[480px] border-l border-border ${SIDE_PANE_FIT}`} />}>
           <AgentModeJobsPane projectId={activeProjectId!} />
         </Suspense>
       )}
 
       {showCode && (
-        <Suspense fallback={<div className="w-[520px] border-l border-border" />}>
+        <Suspense fallback={<div className={`w-[520px] border-l border-border ${SIDE_PANE_FIT}`} />}>
           <AgentModeCodePane key={`${active?.id}:${revision}`} projectId={activeProjectId!} conversationId={active?.id ?? '__home__'} />
         </Suspense>
       )}
 
       {showAnalytics && (
-        <Suspense fallback={<div className="w-[560px] border-l border-border" />}>
+        <Suspense fallback={<div className={`w-[560px] border-l border-border ${SIDE_PANE_FIT}`} />}>
           <AgentModeAnalyticsPane />
         </Suspense>
       )}
 
       {showSpecs && (
-        <Suspense fallback={<div className="w-[420px] border-l border-border" />}>
+        <Suspense fallback={<div className={`w-[420px] border-l border-border ${SIDE_PANE_FIT}`} />}>
           <AgentModeSpecsPane key={activeProjectId!} projectId={activeProjectId!} draftKey={active?.id ?? NEW_MISSION_DRAFT_KEY} />
         </Suspense>
       )}

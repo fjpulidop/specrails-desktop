@@ -72,6 +72,11 @@ export const SHORTCUTS: Shortcut[] = [
       { keys: 'Esc', descriptionKey: 'shortcuts.items.runStripBack', category: 'missions' },
       { keys: 'P', descriptionKey: 'shortcuts.items.flowPause', category: 'missions' },
       { keys: 'H', descriptionKey: 'shortcuts.items.flowHandOff', category: 'missions' },
+      // Mission split layout (missions/lib/mission-split-keys.ts); ⌥⌘ is Ctrl+Alt off macOS.
+      { keys: '⌥⌘[ ⌥⌘]', descriptionKey: 'shortcuts.items.splitFocusPane', category: 'missions' },
+      { keys: '⌘⇧↵', descriptionKey: 'shortcuts.items.splitMaximize', category: 'missions' },
+      { keys: '⌥⌘=', descriptionKey: 'shortcuts.items.splitEqualize', category: 'missions' },
+      { keys: '⌥⌘W', descriptionKey: 'shortcuts.items.splitClose', category: 'missions' },
     ] satisfies Shortcut[])
     : []),
 ]

@@ -441,7 +441,11 @@
       "boardSelectColumn": "Board: alle Specs der Spalte auswählen",
       "boardClearSelection": "Board: Auswahl aufheben",
       "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)",
-      "openLiveBoard": "Live-Board öffnen (jeder Lauf in jedem Projekt)"
+      "openLiveBoard": "Live-Board öffnen (jeder Lauf in jedem Projekt)",
+      "splitFocusPane": "Nächsten / vorherigen Missionsbereich fokussieren",
+      "splitMaximize": "Aktiven Missionsbereich maximieren oder wiederherstellen",
+      "splitEqualize": "Missionsbereiche angleichen",
+      "splitClose": "Aktiven Missionsbereich schließen"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",

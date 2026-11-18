@@ -441,7 +441,11 @@
       "boardSelectColumn": "Bacheca: seleziona tutte le spec della colonna",
       "boardClearSelection": "Bacheca: deseleziona tutto",
       "boardMove": "Bacheca: sposta la spec a fuoco (stato o rail)",
-      "openLiveBoard": "Apri la bacheca live (ogni esecuzione di ogni progetto)"
+      "openLiveBoard": "Apri la bacheca live (ogni esecuzione di ogni progetto)",
+      "splitFocusPane": "Vai al riquadro missione successivo / precedente",
+      "splitMaximize": "Massimizza o ripristina il riquadro missione attivo",
+      "splitEqualize": "Uniforma i riquadri missione",
+      "splitClose": "Chiudi il riquadro missione attivo"
     },
     "searchLabel": "Cerca scorciatoie e guide",
     "searchPlaceholder": "Cerca scorciatoie e guide…",

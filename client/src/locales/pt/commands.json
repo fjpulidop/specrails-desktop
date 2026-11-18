@@ -441,7 +441,11 @@
       "boardSelectColumn": "Quadro: selecionar todas as specs da coluna",
       "boardClearSelection": "Quadro: limpar a seleção",
       "boardMove": "Quadro: mover a spec em foco (estado ou rail)",
-      "openLiveBoard": "Abrir o quadro ao vivo (todas as execuções de todos os projetos)"
+      "openLiveBoard": "Abrir o quadro ao vivo (todas as execuções de todos os projetos)",
+      "splitFocusPane": "Ir para o painel de missão seguinte / anterior",
+      "splitMaximize": "Maximizar ou restaurar o painel de missão ativo",
+      "splitEqualize": "Igualar os painéis de missão",
+      "splitClose": "Fechar o painel de missão ativo"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",

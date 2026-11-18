@@ -15,7 +15,7 @@ vi.mock('../../../../hooks/useSharedWebSocket', () => ({
 vi.mock('../../../../context/UiModeContext', () => ({ useUiMode: () => ({ uiMode: h.mode }) }))
 vi.mock('../../../../hooks/useDesktop', () => ({ useDesktop: () => ({ projects: [{ id: 'p1', name: 'Alpha' }] }) }))
 vi.mock('../../context/AgentChatContext', () => ({ useAgentChat: () => h.chat }))
-vi.mock('../../context/MissionSplitViewsContext', () => ({ useMissionSplitViews: () => h.split }))
+vi.mock('../../context/MissionSplitViewsContext', () => ({ PRIMARY_PANE: 'primary', useMissionSplitViews: () => h.split }))
 vi.mock('../../context/MissionWindowsContext', () => ({ useMissionWindows: () => h.windows }))
 vi.mock('../useOpenMission', () => ({ useOpenMission: () => h.openMission }))
 

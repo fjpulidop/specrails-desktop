@@ -441,7 +441,11 @@
       "boardSelectColumn": "Board: select every spec in the column",
       "boardClearSelection": "Board: clear the selection",
       "boardMove": "Board: move the focused spec (status or rail)",
-      "openLiveBoard": "Open the live board (every run of every project)"
+      "openLiveBoard": "Open the live board (every run of every project)",
+      "splitFocusPane": "Focus the next / previous mission pane",
+      "splitMaximize": "Maximize or restore the focused mission pane",
+      "splitEqualize": "Equalize mission panes",
+      "splitClose": "Close the focused mission pane"
     },
     "searchLabel": "Search shortcuts and guides",
     "searchPlaceholder": "Search shortcuts and guides…",
