@@ -62,7 +62,8 @@
       "about": "Info",
       "effects": "Effekte",
       "subscriptionUsage": "Abonnementnutzung",
-      "notifications": "Benachrichtigungen"
+      "notifications": "Benachrichtigungen",
+      "storage": "Speicher"
     },
     "title": "Desktop-Einstellungen",
     "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",

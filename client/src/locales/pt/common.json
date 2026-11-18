@@ -283,7 +283,8 @@
       "accessibility": "acessibilidade e personalização",
       "prDecision": "as opções de entrega",
       "attention": "Notificações",
-      "liveBoard": "o quadro ao vivo"
+      "liveBoard": "o quadro ao vivo",
+      "retainedWorktrees": "os worktrees de execuções mantidos no disco"
     }
   },
   "forecast": {

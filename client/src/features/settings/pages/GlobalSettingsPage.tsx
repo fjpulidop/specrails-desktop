@@ -1,6 +1,7 @@
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
+import { RetainedWorktreesSection } from '../../background/components/RetainedWorktreesSection'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
@@ -19,7 +20,7 @@ import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
 import { MissionConnectorsSection } from '../components/MissionConnectorsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save, HardDrive } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { formatUsd } from '../../../lib/format-usd'
@@ -133,6 +134,7 @@ const SETTINGS_GROUPS = [
     labelKey: 'desktop.navGroups.system',
     items: [
       { id: 'projects', icon: FolderOpen, labelKey: 'desktop.nav.projects' },
+      { id: 'storage', icon: HardDrive, labelKey: 'desktop.nav.storage' },
       { id: 'advanced', icon: SlidersHorizontal, labelKey: 'desktop.nav.advanced' },
       { id: 'webhooks', icon: Webhook, labelKey: 'desktop.nav.webhooks' },
       { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
@@ -472,6 +474,13 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                     ))}
                   </div>
                 )}
+              </SettingsCard>
+            </div>
+
+            <div className={paneCls('storage')}>
+              <SettingsCard title={t('resources:retained.title')} description={t('resources:retained.description')} data-setting-id="retainedWorktrees">
+                {/* Reads Git evidence for every project: only while this pane is shown. */}
+                <RetainedWorktreesSection active={open && activeSection === 'storage'} />
               </SettingsCard>
             </div>
 

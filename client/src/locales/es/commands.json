@@ -357,6 +357,10 @@
         "reduceMotion": {
           "label": "Reducir movimiento",
           "keywords": "reducir movimiento, animación, accesibilidad, vestibular, calma, transiciones, motion"
+        },
+        "retainedWorktrees": {
+          "label": "Worktrees de ejecuciones en disco",
+          "keywords": "almacenamiento, disco, worktrees, limpiar, limpieza, espacio, retenidos, ramas, quitar"
         }
       }
     }

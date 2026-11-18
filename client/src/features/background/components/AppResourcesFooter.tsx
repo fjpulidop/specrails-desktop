@@ -1,8 +1,9 @@
 import { useState, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
+import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
 import { HoverPopover } from '../../../components/ui/hover-popover'
 import { cn } from '../../../lib/utils'
+import { openAppSettings } from '../../../lib/app-settings-events'
 import { formatBytes } from '../lib/format-bytes'
 import { useAppResources } from '../hooks/useAppResources'
 import { useRunPorts } from '../hooks/useRunPorts'
@@ -130,6 +131,12 @@ export function AppResourcesPanel({ snapshot, error, ports = null }: { snapshot:
       </>}
     </>}
     <RunPortsSection snapshot={ports} />
+    <button type="button" data-testid="app-resources-retained" onClick={() => openAppSettings('storage', 'retainedWorktrees')}
+      className="flex w-full items-center gap-2 rounded-control px-1 py-1 text-left text-caption text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+      <HardDrive className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{t('retained.storageLink')}</span>
+      <span className="shrink-0 text-foreground">{t('retained.storageLinkAction')}</span>
+    </button>
   </div>
 }
 

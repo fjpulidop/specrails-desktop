@@ -42,6 +42,7 @@
       "components/BackgroundProcessLogsModal.tsx",
       "components/BackgroundProcessesPanel.tsx",
       "components/MissionResourcesPanel.tsx",
+      "components/RetainedWorktreesSection.tsx",
       "context/BackgroundProcessesContext.tsx",
       "hooks/useMissionResourceHistory.ts",
       "lib/background-processes-api.ts"
@@ -438,6 +439,7 @@
       "pages/SettingsPage.tsx"
     ],
     "dependencies": [
+      "background",
       "builder",
       "integrations",
       "jobs",

@@ -62,7 +62,8 @@
       "about": "À propos",
       "effects": "Effets",
       "subscriptionUsage": "Utilisation des abonnements",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "storage": "Stockage"
     },
     "title": "Paramètres de Desktop",
     "description": "Apparence, fournisseurs d’IA, mises à jour et préférences globales de Desktop.",

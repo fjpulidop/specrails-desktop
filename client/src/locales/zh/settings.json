@@ -62,7 +62,8 @@
       "about": "关于",
       "effects": "效果",
       "subscriptionUsage": "订阅用量",
-      "notifications": "通知"
+      "notifications": "通知",
+      "storage": "存储"
     },
     "title": "Desktop 设置",
     "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
