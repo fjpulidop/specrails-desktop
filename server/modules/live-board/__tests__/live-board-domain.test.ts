@@ -46,14 +46,14 @@ describe('live board: columns', () => {
     expect(columnOf({ source: 'job', status: 'canceled' }, null, '2026-11-18T10:00:00.000Z', DAY)).toBe('done')
     expect(columnOf({ source: 'delivery', decision: 'building', statusCode: null }, null, null, DAY)).toBe('working')
     expect(columnOf({ source: 'delivery', decision: 'merged', statusCode: null }, null, '2026-11-18T10:00:00.000Z', DAY)).toBe('done')
-    expect(columnOf({ source: 'delivery', decision: 'pr_ready', statusCode: null }, null, null, DAY)).toBe('decide')
+    expect(columnOf({ source: 'delivery', decision: 'pr_ready', statusCode: null }, null, null, DAY)).toBe('needs')
     expect(columnOf({ source: 'intent', state: 'active' }, null, null, DAY)).toBe('working')
     expect(columnOf({ source: 'intent', state: 'discarded' }, null, '2026-11-18T10:00:00.000Z', DAY)).toBe('done')
     expect(columnOf({ source: 'attention' }, null, null, DAY)).toBeNull()
   })
 
-  it('lets the inbox decide: review goes to decide, everything else needs you', () => {
-    expect(columnOf({ source: 'delivery', decision: 'on_review', statusCode: null }, { kind: 'review' }, null, DAY)).toBe('decide')
+  it('lets the inbox decide: every inbox item needs you, a review included', () => {
+    expect(columnOf({ source: 'delivery', decision: 'on_review', statusCode: null }, { kind: 'review' }, null, DAY)).toBe('needs')
     expect(columnOf({ source: 'loop-run', status: 'paused', outcome: null, restartReason: null }, { kind: 'question' }, null, DAY)).toBe('needs')
     expect(columnOf({ source: 'delivery', decision: 'implementation_failed', statusCode: null }, { kind: 'failed' }, '2026-11-18T10:00:00.000Z', DAY)).toBe('needs')
   })
@@ -72,7 +72,7 @@ describe('live board: columns', () => {
     const columns = Object.fromEntries(result.map((c) => [c.id, c.column]))
     expect(columns).toEqual({
       'p1:loop-run:r-question': 'needs',
-      'p1:delivery:d-review': 'decide',
+      'p1:delivery:d-review': 'needs',
       'p1:loop-run:r-live': 'working',
       'p1:loop-run:r-done': 'done',
       'p1:jira:jira-1': 'needs',
@@ -86,14 +86,14 @@ describe('live board: columns', () => {
     expect(cards([], [item('x', 'failed', { projectId: 'p2', id: 'p2:failed:x' })])).toEqual([])
   })
 
-  it('puts a paused run after running and queued ones, and does not count it as in progress', () => {
+  it('puts a paused run after running and queued ones, and counts it in its column', () => {
     const result = cards([
       run('p', { status: { source: 'intent', state: 'paused' }, kind: 'intent', startedAt: '2026-10-20T08:00:00.000Z' }),
       run('q', { kind: 'job', status: { source: 'job', status: 'queued' }, startedAt: '2026-11-18T07:00:00.000Z' }),
       run('w', { startedAt: '2026-11-18T09:00:00.000Z' }),
     ], [])
     expect(result.filter((c) => c.column === 'working').map((c) => c.id.split(':')[2])).toEqual(['w', 'q', 'p'])
-    expect(countColumns(result).inProgress).toBe(2)
+    expect(countColumns(result).inProgress).toBe(3)
   })
 
   it('orders needs you oldest first, running before queued, done most recent first', () => {
@@ -110,28 +110,29 @@ describe('live board: columns', () => {
     expect(ids('needs')).toEqual(['b', 'a'])
     expect(ids('working')).toEqual(['w1', 'w2', 'q'])
     expect(ids('done')).toEqual(['d2', 'd1'])
-    expect(countColumns(result)).toEqual({ needsYou: 2, inProgress: 3, toDecide: 0, doneToday: 2 })
+    expect(countColumns(result)).toEqual({ needsYou: 2, inProgress: 3, doneToday: 2 })
   })
 })
 
 describe('live board: lanes by mission', () => {
   const card = (id: string, column: LiveCard['column'], conversationId: string | null, at: string, costTodayUsd: number | null = null): LiveCard => ({
     ...run(id, { conversationId, costTodayUsd }), id, projectId: 'p1', projectName: 'Alpha', kind: 'loop', column,
-    urgency: { needs: 0, decide: 1, working: 2, done: 3 }[column], at, attention: null,
+    urgency: { needs: 0, working: 1, done: 2 }[column], at, attention: null,
   })
 
   it('orders lanes by urgency then recency, and puts runs without a mission last', () => {
     const lanes = buildLanes([
       card('free', 'needs', null, '2026-11-18T11:00:00.000Z'),
       card('m1-run', 'working', 'm1', '2026-11-18T11:30:00.000Z'),
-      card('m2-run', 'decide', 'm2', '2026-11-18T08:00:00.000Z'),
+      card('m2-run', 'needs', 'm2', '2026-11-18T08:00:00.000Z'),
       card('m3-fail', 'needs', 'm3', '2026-11-18T07:00:00.000Z'),
       card('m3-live', 'working', 'm3', '2026-11-18T07:30:00.000Z'),
       card('m4-done', 'done', 'm4', '2026-11-18T06:00:00.000Z'),
       card('m5-live', 'working', 'm5', '2026-11-18T10:00:00.000Z'),
     ], new Map([['m3', { title: 'Seasons', provider: 'codex', todayCostUsd: 1.5 }]]))
-    expect(lanes.map((lane) => lane.conversationId)).toEqual(['m3', 'm2', 'm1', 'm5', 'm4', null])
-    expect(lanes[0]).toMatchObject({ title: 'Seasons', provider: 'codex', cardIds: ['m3-fail', 'm3-live'], urgency: 0, projectIds: ['p1'] })
+    // m2 waits for a review and m3 has a failure: both need you, the most recent first.
+    expect(lanes.map((lane) => lane.conversationId)).toEqual(['m2', 'm3', 'm1', 'm5', 'm4', null])
+    expect(lanes[1]).toMatchObject({ title: 'Seasons', provider: 'codex', cardIds: ['m3-fail', 'm3-live'], urgency: 0, projectIds: ['p1'] })
   })
 
   it('adds the mission\'s own turns today to what its runs recorded today', () => {

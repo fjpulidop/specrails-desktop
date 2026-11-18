@@ -6,7 +6,7 @@ import { useUiMode } from '../../../context/UiModeContext'
 import { useNativeSurface } from '../../../components/ui/surface'
 import { nativeSurfaceEnabled, newSurfaceRequestId, openSurfaceWindow } from '../../../lib/native-surfaces'
 import { OPEN_LIVE_BOARD_EVENT } from '../../../lib/live-board-events'
-import { LIVE_BOARD_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
+import { INBOX_PARAM, LIVE_BOARD_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
 import { useInbox } from '../../inbox/context/InboxContext'
 import { inboxTarget, type InboxTarget } from '../../inbox/lib/inbox-model'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
@@ -19,6 +19,8 @@ export interface LiveBoardActions {
   open: (card: LiveCard) => void
   /** The card's inbox action is in flight. */
   busy: (card: LiveCard) => boolean
+  /** Leaves the board for the inbox (the full list of what needs the person); absent where no inbox can open. */
+  openInbox?: () => void
 }
 
 export interface LiveBoardValue {
@@ -153,7 +155,19 @@ export function LiveBoardProvider({ children }: { children: ReactNode }) {
   }, [inbox, leaveBoard, goTo, open])
 
   const busy = useCallback((card: LiveCard) => !!card.attention && !!inbox?.busy.has(card.attention.id), [inbox])
-  const actions = useMemo<LiveBoardActions>(() => ({ primary, open, busy }), [primary, open, busy])
+  // The inbox takes the board's place: the `?live=1` entry becomes `?inbox=1` (closing the inbox goes back
+  // to where the person was before the board). From the board's own window the main window just opens it.
+  const openInbox = useCallback(() => {
+    const loc = locationRef.current
+    const params = new URLSearchParams(loc.search)
+    if (params.get(LIVE_BOARD_PARAM) !== '1') { inbox?.openInbox(); return }
+    params.delete(LIVE_BOARD_PARAM)
+    params.set(INBOX_PARAM, '1')
+    const state = (loc.state && typeof loc.state === 'object' ? { ...(loc.state as Record<string, unknown>) } : {})
+    if (state[PLACE_PUSH_STATE] === LIVE_BOARD_PARAM) state[PLACE_PUSH_STATE] = INBOX_PARAM
+    navigate({ pathname: loc.pathname, search: `?${params.toString()}` }, { replace: true, state })
+  }, [inbox, navigate])
+  const actions = useMemo<LiveBoardActions>(() => ({ primary, open, busy, ...(inbox ? { openInbox } : {}) }), [primary, open, busy, inbox, openInbox])
 
   // ── Its own native window (desktop app): the window forwards card actions here.
   const actionsRef = useRef(actions)
@@ -165,7 +179,8 @@ export function LiveBoardProvider({ children }: { children: ReactNode }) {
     onResult: (value) => {
       const result = readLiveBoardWindowResult(value)
       if (!result) return
-      if (result.action === 'primary') actionsRef.current.primary(result.card)
+      if (result.action === 'inbox') actionsRef.current.openInbox?.()
+      else if (result.action === 'primary') actionsRef.current.primary(result.card)
       else actionsRef.current.open(result.card)
     },
   })

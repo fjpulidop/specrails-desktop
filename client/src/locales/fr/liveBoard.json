@@ -11,9 +11,7 @@
     "inProgress_one": "{{count}} en cours",
     "inProgress_other": "{{count}} en cours",
     "today": "aujourd'hui {{cost}}",
-    "todayEstimated": "aujourd'hui ~{{cost}} (estimations incluses)",
-    "paused_one": "{{count}} en pause",
-    "paused_other": "{{count}} en pause"
+    "todayEstimated": "aujourd'hui ~{{cost}} (estimations incluses)"
   },
   "layout": {
     "label": "Disposition",
@@ -23,15 +21,13 @@
   "columns": {
     "needs": "Vous attend",
     "working": "En cours",
-    "decide": "À décider",
     "done": "Terminé aujourd'hui",
-    "needsHint": "Le plus ancien en haut",
-    "doneHint": "Se vide à minuit"
+    "doneHint": "Se vide à minuit",
+    "openInbox": "Ouvrir À traiter"
   },
   "columnEmpty": {
     "needs": "Rien ne vous attend.",
     "working": "Rien n'est en cours.",
-    "decide": "Rien à décider.",
     "done": "Rien n'est encore terminé aujourd'hui."
   },
   "filters": {
@@ -84,7 +80,14 @@
     "mergeSiblings_one": "En collision avec {{count}} autre run",
     "mergeSiblings_other": "En collision avec {{count}} autres runs",
     "baseMoved_one": "La base a avancé de {{count}} commit",
-    "baseMoved_other": "La base a avancé de {{count}} commits"
+    "baseMoved_other": "La base a avancé de {{count}} commits",
+    "mergeChip": {
+      "conflicts_one": "{{count}} conflit",
+      "conflicts_other": "{{count}} conflits",
+      "siblings_one": "Recoupe {{count}} run",
+      "siblings_other": "Recoupe {{count}} runs",
+      "baseMoved": "Base avancée"
+    }
   },
   "empty": {
     "title": "Rien n'est en cours",

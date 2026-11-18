@@ -125,7 +125,7 @@ describe('CommandPalette: Jump back in', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  it('leads the empty palette: what needs you first (the open project\'s newest in front), then recent missions and jobs, at most six', async () => {
+  it('leads the empty palette with ONE row about what needs you (it opens the inbox), then the recent missions and jobs with ⌘1–6', async () => {
     asPlatform('MacIntel')
     const user = userEvent.setup()
     render(<CommandPalette />)
@@ -133,24 +133,44 @@ describe('CommandPalette: Jump back in', () => {
     await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
 
     expect(headings()[0]).toBe('Jump back in')
+    // No inbox item is listed here: the inbox is the list of what needs you.
     expect(jumpIds()).toEqual([
-      'palette-jump-mission-m-decision', 'palette-jump-inbox-q1', 'palette-jump-inbox-r1',
+      'palette-jump-inbox',
       'palette-jump-job-j-run', 'palette-jump-mission-m-recent', 'palette-jump-mission-m-other',
+      'palette-jump-mission-m-decision', 'palette-jump-mission-m-old', 'palette-jump-job-j-old',
     ])
-    const [decision, question, , job] = jumpRows()
-    // The shared vocabulary: inbox kind, mission attention and job status through their mappers.
-    expect(question).toHaveAttribute('data-run-state', 'needs-input')
+    const [inboxRow, job, recent, other, decision] = jumpRows()
+    expect(inboxRow).toHaveTextContent('2 things need you')
+    expect(inboxRow).toHaveTextContent('Open inbox')
+    // The inbox row has no chord: ⌘1 is the first recent.
+    expect(inboxRow).not.toHaveAttribute('aria-keyshortcuts')
+    expect(within(job).getByText('⌘1')).toBeInTheDocument()
+    expect(within(recent).getByText('⌘2')).toBeInTheDocument()
+    // The shared vocabulary: mission attention and job status through their mappers.
     expect(decision).toHaveAttribute('data-run-state', 'review')
     expect(job).toHaveAttribute('data-run-state', 'working')
-    // Project name only outside the active project; the chord on the right.
-    expect(question).toHaveTextContent('Beta')
-    expect(decision).not.toHaveTextContent('Alpha')
-    expect(within(decision).getByText('⌘1')).toBeInTheDocument()
-    expect(within(question).getByText('⌘2')).toBeInTheDocument()
-    expect(within(job).getByText('⌘4')).toBeInTheDocument()
-    // One accessible name with the title, the state's name, the project and the chord.
-    expect(question).toHaveAttribute('aria-label', 'Question q1, Needs input, Beta, ⌘2')
-    expect(question).toHaveAttribute('aria-keyshortcuts', 'Meta+2')
+    // Project name only outside the active project.
+    expect(other).toHaveTextContent('Beta')
+    expect(recent).not.toHaveTextContent('Alpha')
+    expect(other).toHaveAttribute('aria-label', 'Beta mission, Beta, ⌘3')
+    expect(other).toHaveAttribute('aria-keyshortcuts', 'Meta+3')
+  })
+
+  it('shows no inbox row when nothing needs you, and opens the inbox from it', async () => {
+    const user = userEvent.setup()
+    inboxItems = []
+    const { unmount } = render(<CommandPalette />)
+    await openPalette(user)
+    await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
+    expect(screen.queryByTestId('palette-jump-inbox')).toBeNull()
+    unmount()
+    inboxItems = [inboxItem('q1', 10)]
+    render(<CommandPalette />)
+    await openPalette(user)
+    await user.click(await screen.findByTestId('palette-jump-inbox'))
+    await waitFor(() => expect(paletteOpen()).toBe(false))
+    expect(openInbox).toHaveBeenCalledTimes(1)
+    expect(runPrimary).not.toHaveBeenCalled()
   })
 
   it('is only there while nothing is typed (not with a query, a scope or actions)', async () => {
@@ -171,15 +191,17 @@ describe('CommandPalette: Jump back in', () => {
   })
 
   it('does not list a row twice: jump rows leave the Missions and Jobs groups', async () => {
+    chat = { ...chat, conversations: [...chat.conversations, conv('m-ancient', 'Ancient idea', 2000)] }
+    jobs = [...jobs, { id: 'j-ancient', command: '/specrails:ancient', status: 'completed', started_at: minutesAgo(3000), finished_at: minutesAgo(2999) }]
     const user = userEvent.setup()
     render(<CommandPalette />)
     await openPalette(user)
     await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
     const missions = within(screen.getByTestId('palette-group-missions')).getAllByTestId(/^palette-mission-/)
-    expect(missions.map((m) => m.getAttribute('data-testid'))).toEqual(['palette-mission-m-old'])
+    expect(missions.map((m) => m.getAttribute('data-testid'))).toEqual(['palette-mission-m-ancient'])
     const jobGroup = screen.getByText('Jobs').closest('[cmdk-group]') as HTMLElement
     expect(within(jobGroup).getAllByRole('option')).toHaveLength(1)
-    expect(within(jobGroup).getByText('/specrails:old')).toBeInTheDocument()
+    expect(within(jobGroup).getByText('/specrails:ancient')).toBeInTheDocument()
     expect(within(jobGroup).queryByText('/specrails:implement')).toBeNull()
   })
 
@@ -192,26 +214,17 @@ describe('CommandPalette: Jump back in', () => {
 
     digit(1, { metaKey: true })
     await waitFor(() => expect(paletteOpen()).toBe(false))
-    expect(selectConversation).toHaveBeenCalledWith('m-decision')
-    expect(openAgentPanel).toHaveBeenCalled()
-
-    await openPalette(user)
-    digit(2, { metaKey: true })
-    await waitFor(() => expect(paletteOpen()).toBe(false))
-    expect(runPrimary).toHaveBeenCalledWith(inboxItems[0])
+    expect(navigate).toHaveBeenCalledWith('/jobs/j-run')
 
     await openPalette(user)
     await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
-    digit(4, { metaKey: true })
+    digit(2, { metaKey: true })
     await waitFor(() => expect(paletteOpen()).toBe(false))
-    expect(navigate).toHaveBeenCalledWith('/jobs/j-run')
-
-    // Resume acts on the run: from the palette it opens the inbox instead of resuming blind.
-    await openPalette(user)
-    digit(3, { metaKey: true })
-    await waitFor(() => expect(paletteOpen()).toBe(false))
-    expect(openInbox).toHaveBeenCalledTimes(1)
-    expect(runPrimary).toHaveBeenCalledTimes(1)
+    expect(selectConversation).toHaveBeenCalledWith('m-recent')
+    expect(openAgentPanel).toHaveBeenCalled()
+    // Never an inbox action from a digit.
+    expect(runPrimary).not.toHaveBeenCalled()
+    expect(openInbox).not.toHaveBeenCalled()
   })
 
   it('Enter on a row opens it like a click does', async () => {
@@ -228,16 +241,17 @@ describe('CommandPalette: Jump back in', () => {
     const user = userEvent.setup()
     render(<CommandPalette />)
     await openPalette(user)
-    const [first] = jumpRows()
+    await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
+    const first = jumpRows()[1]
     expect(within(first).getByText('Ctrl+1')).toBeInTheDocument()
     expect(first).toHaveAttribute('aria-keyshortcuts', 'Control+1')
 
-    digit(1, { metaKey: true })
+    digit(2, { metaKey: true })
     expect(paletteOpen()).toBe(true)
     expect(selectConversation).not.toHaveBeenCalled()
-    digit(1, { ctrlKey: true })
+    digit(2, { ctrlKey: true })
     await waitFor(() => expect(paletteOpen()).toBe(false))
-    expect(selectConversation).toHaveBeenCalledWith('m-decision')
+    expect(selectConversation).toHaveBeenCalledWith('m-recent')
   })
 
   it('keeps the app\'s own digit chords quiet while open (page ⌘1–5 and project ⌥⌘1–9), and only then', async () => {
@@ -276,20 +290,24 @@ describe('CommandPalette: Jump back in', () => {
     await waitFor(() => expect(jumpIds()).toContain('palette-jump-job-j-run'))
     const before = jumpIds()
 
-    // m-recent now fails and is the newest thing; a new inbox item arrives.
-    chat = { ...chat, attentionConversationIds: new Set(['m-decision', 'm-recent']), attentionKinds: new Map([['m-recent', 'failed']]) }
+    // m-decision is now the newest and failed; the inbox count changes in place.
+    chat = {
+      ...chat,
+      conversations: chat.conversations.map((c) => (c.id === 'm-decision' ? { ...c, updated_at: minutesAgo(0) } : c)),
+      attentionKinds: new Map([['m-decision', 'failed']]),
+    }
     inboxItems = [inboxItem('new', 0), ...inboxItems]
     rerender(<CommandPalette />)
 
     expect(jumpIds()).toEqual(before)
-    expect(screen.getByTestId('palette-jump-mission-m-recent')).toHaveAttribute('data-run-state', 'failed')
-    expect(screen.queryByTestId('palette-jump-inbox-new')).toBeNull()
+    expect(screen.getByTestId('palette-jump-mission-m-decision')).toHaveAttribute('data-run-state', 'failed')
+    expect(screen.getByTestId('palette-jump-inbox')).toHaveTextContent('3 things need you')
 
     await user.keyboard('{Escape}')
     await waitFor(() => expect(paletteOpen()).toBe(false))
     await openPalette(user)
-    // Re-sorted: m-recent now needs the person and is the open project's newest.
-    await waitFor(() => expect(jumpIds()[0]).toBe('palette-jump-mission-m-recent'))
-    expect(jumpIds()).toContain('palette-jump-inbox-new')
+    // Re-sorted: m-decision is the open project's newest.
+    await waitFor(() => expect(jumpIds()[1]).toBe('palette-jump-mission-m-decision'))
   })
+
 })

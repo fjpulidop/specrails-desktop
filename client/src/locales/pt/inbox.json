@@ -21,7 +21,7 @@
     "budget": "Pausado por orçamento",
     "jira": "Falha na sincronização com o Jira",
     "failedNoCause": "Parou antes da entrega",
-    "capReached": "Limite de orçamento atingido"
+    "capReached": "Trabalho em pausa"
   },
   "actions": {
     "open": "Abrir",
@@ -34,15 +34,11 @@
   "working": "Processando…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Adiar",
-    "hour": "1 hora",
-    "tomorrow": "Até amanhã",
-    "cancel": "Cancelar"
+    "hour": "Adiar 1 hora",
+    "tomorrow": "Adiar até amanhã"
   },
-  "snoozeItem": "Adiar {{title}}",
-  "snoozeFor": "Adiar {{title}} por",
   "done": "Concluído",
-  "doneItem": "Marcar {{title}} como concluído",
+  "more": "Mais ações para {{title}}",
   "age": {
     "now": "agora",
     "ago": "há {{age}}"
@@ -87,8 +83,6 @@
   "unseen": "Novo",
   "markRead": "Marcar como lido",
   "markUnread": "Marcar como não lido",
-  "markReadItem": "Marcar {{title}} como lido",
-  "markUnreadItem": "Marcar {{title}} como não lido",
   "mute": {
     "mute": "Silenciar as notificações de {{project}}",
     "unmute": "Reativar as notificações de {{project}}"

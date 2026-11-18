@@ -31,7 +31,7 @@ Cada entrega que te espera se compara con su rama base **tal como está ahora** 
 - **main avanzó N commits desde que se creó esta rama**: la base avanzó; plantéate actualizar la rama antes de decidir.
 - **Ya está en main**: el cambio ya entró (por ejemplo tras un squash merge).
 
-La vista previa se actualiza cuando una entrega cambia de estado o termina una ejecución. Cuando Specrails fusiona varios resultados por su cuenta, fusiona primero los que entran limpios. Hace falta Git 2.38 o posterior; con un Git más antiguo la vista previa indica que no está disponible.
+En el tablero en vivo el resultado es un chip corto (**2 conflictos**, **Choca con 1 ejecución**, **Base avanzada**) cuya frase completa aparece al pasar el puntero por encima o al darle el foco. La vista previa se actualiza cuando una entrega cambia de estado o termina una ejecución. Cuando Specrails fusiona varios resultados por su cuenta, fusiona primero los que entran limpios. Hace falta Git 2.38 o posterior; con un Git más antiguo la vista previa indica que no está disponible.
 
 ## Elige qué pasa con una entrega {#pr-decision}
 

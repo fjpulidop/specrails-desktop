@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, Columns3, ExternalLink, OctagonAlert, SearchX } from 'lucide-react'
+import { CircleCheck, Columns3, ExternalLink, Inbox, OctagonAlert, SearchX } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { DialogBody, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { EmptyState } from '../../../components/ui/empty-state'
@@ -27,7 +27,8 @@ import { LiveBoardCard } from './LiveBoardCard'
 /** ⌘⇧B on macOS, Ctrl+Shift+B elsewhere (the cheatsheet and ⌘K show the same chord). */
 export const LIVE_BOARD_CHORD = '⌘⇧B'
 
-const COLUMN_STATE: Record<LiveColumn, RunState> = { needs: 'needs-input', working: 'working', decide: 'review', done: 'done' }
+/** In progress and Done today speak their state; Needs you mixes states (each card carries its own), so it wears the inbox's neutral mark. */
+const COLUMN_STATE: Record<Exclude<LiveColumn, 'needs'>, RunState> = { working: 'working', done: 'done' }
 
 function Chip({ pressed, onClick, children, testId }: { pressed: boolean; onClick: () => void; children: ReactNode; testId?: string }) {
   return (
@@ -78,9 +79,10 @@ function LayoutSelector({ layout, onChange }: { layout: LiveBoardLayout; onChang
   )
 }
 
-function Column({ column, cards, actions, now }: { column: LiveColumn; cards: ReturnType<typeof columnsOf>[LiveColumn]; actions: LiveBoardActions; now: number }) {
+function Column({ column, cards, actions, now, showProject }: { column: LiveColumn; cards: ReturnType<typeof columnsOf>[LiveColumn]; actions: LiveBoardActions; now: number; showProject: boolean }) {
   const { t } = useTranslation('liveBoard')
-  const hint = column === 'needs' ? t('columns.needsHint') : column === 'done' ? t('columns.doneHint') : null
+  const hint = column === 'done' ? t('columns.doneHint') : null
+  const openInbox = column === 'needs' ? actions.openInbox : undefined
   return (
     <section
       aria-labelledby={`live-col-${column}`}
@@ -89,16 +91,23 @@ function Column({ column, cards, actions, now }: { column: LiveColumn; cards: Re
       data-column={column}
     >
       <h3 id={`live-col-${column}`} className="flex items-center gap-2 px-3 pb-2 pt-3 text-label text-foreground">
-        <RunStateGlyph state={COLUMN_STATE[column]} quiet />
+        {column === 'needs'
+          ? <Inbox className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          : <RunStateGlyph state={COLUMN_STATE[column]} quiet />}
         <span>{t(`columns.${column}`)}</span>
-        <span className="tabular-nums text-muted-foreground">{cards.length}</span>
+        <span className="tabular-nums text-muted-foreground" data-testid="live-column-count">{cards.length}</span>
         {hint && <span className="ml-auto truncate text-caption text-muted-foreground">{hint}</span>}
+        {openInbox && (
+          <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-caption" onClick={openInbox} data-testid="live-board-open-inbox">
+            {t('columns.openInbox')}
+          </Button>
+        )}
       </h3>
       {cards.length === 0 ? (
         <p className="px-3 pb-3 text-caption text-muted-foreground" data-testid="live-column-empty">{t(`columnEmpty.${column}`)}</p>
       ) : (
         <ul role="list" className="flex flex-col gap-2 px-2 pb-2 xl:overflow-y-auto">
-          {cards.map((card) => <LiveBoardCard key={card.id} card={card} actions={actions} now={now} />)}
+          {cards.map((card) => <LiveBoardCard key={card.id} card={card} actions={actions} now={now} showProject={showProject} />)}
         </ul>
       )}
     </section>
@@ -126,7 +135,7 @@ function Lane({ entry, actions, now, projectNames }: { entry: VisibleLane; actio
         <p className="text-caption tabular-nums text-muted-foreground">{counts}</p>
       </div>
       <ul role="list" className="flex min-w-0 flex-wrap gap-2">
-        {cards.map((card) => <LiveBoardCard key={card.id} card={card} actions={actions} now={now} compact />)}
+        {cards.map((card) => <LiveBoardCard key={card.id} card={card} actions={actions} now={now} compact showProject={lane.projectIds.length > 1} />)}
       </ul>
     </section>
   )
@@ -151,8 +160,9 @@ export function LiveBoardPanel({ data, actions, onOpenInWindow }: LiveBoardPanel
   const now = useNow(30_000, true)
   const inbox = useInbox()
   const snapshot = data.snapshot
-  // The inbox's own Snooze / Done (per viewer): a dismissed item leaves "Needs you" and "To decide" here too.
+  // The inbox's own Snooze / Done (per viewer): a dismissed item leaves "Needs you" here too, so its count is the inbox's.
   const dismissals = useMemo(() => readDismissals(), [snapshot, inbox?.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const showProject = (snapshot?.projects.length ?? 0) > 1
   const cards = useMemo(() => snapshot?.cards ?? [], [snapshot])
   const columns = useMemo(() => columnsOf(cards, filters, (item) => isDismissed(item, dismissals, Date.now())), [cards, filters, dismissals])
   const lanes = useMemo(() => (snapshot ? lanesOf(snapshot, filters) : []), [snapshot, filters])
@@ -169,7 +179,6 @@ export function LiveBoardPanel({ data, actions, onOpenInWindow }: LiveBoardPanel
     <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums" data-testid="live-board-summary">
       <span>{t('summary.needsYou', { count: visible.needsYou })}</span>
       <span>{t('summary.inProgress', { count: visible.inProgress })}</span>
-      {visible.paused > 0 && <span>{t('summary.paused', { count: visible.paused })}</span>}
       {cost !== null && <span>{t(totals?.costTodayEstimated ? 'summary.todayEstimated' : 'summary.today', { cost: formatUsd(cost) })}</span>}
     </span>
   ) : t('description')
@@ -263,8 +272,8 @@ export function LiveBoardPanel({ data, actions, onOpenInWindow }: LiveBoardPanel
         )}
 
         {snapshot && cards.length > 0 && layout === 'status' && !(filtered && visibleCount === 0) && (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-h-0 xl:flex-1 xl:grid-cols-4" data-testid="live-board-columns">
-            {LIVE_COLUMNS.map((column) => <Column key={column} column={column} cards={columns[column]} actions={actions} now={now} />)}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-h-0 xl:flex-1 xl:grid-cols-3" data-testid="live-board-columns">
+            {LIVE_COLUMNS.map((column) => <Column key={column} column={column} cards={columns[column]} actions={actions} now={now} showProject={showProject} />)}
           </div>
         )}
         {snapshot && cards.length > 0 && layout === 'mission' && (

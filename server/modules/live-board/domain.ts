@@ -12,12 +12,15 @@
 export const LIVE_RUN_KINDS = ['rail', 'loop', 'intent', 'job'] as const
 export type LiveRunKind = (typeof LIVE_RUN_KINDS)[number]
 
-/** Layout A columns: what waits for the person, what moves, what waits for a decision, what settled today. */
-export const LIVE_COLUMNS = ['needs', 'working', 'decide', 'done'] as const
+/**
+ * Layout A columns: what waits for the person (the inbox, reviews included),
+ * what moves, what settled today.
+ */
+export const LIVE_COLUMNS = ['needs', 'working', 'done'] as const
 export type LiveColumn = (typeof LIVE_COLUMNS)[number]
 
 /** Urgency rank of a column (lanes and caps order by it): what needs you first. */
-const COLUMN_URGENCY: Readonly<Record<LiveColumn, number>> = { needs: 0, decide: 1, working: 2, done: 3 }
+const COLUMN_URGENCY: Readonly<Record<LiveColumn, number>> = { needs: 0, working: 1, done: 2 }
 
 /** The domain status a card carries, as its owning capability names it. */
 export type LiveRunStatus =
@@ -92,7 +95,7 @@ export interface LiveCard<A extends LiveAttentionRef = LiveAttentionRef> extends
   /** null: an inbox item that is not a run (Jira update, spend cap). */
   kind: LiveRunKind | null
   column: LiveColumn
-  /** 0 needs you · 1 to decide · 2 in progress · 3 done today. */
+  /** 0 needs you · 1 in progress · 2 done today. */
   urgency: number
   /** The instant the card is ordered by (waiting since, started, settled). */
   at: string
@@ -133,9 +136,10 @@ export interface LiveMissionFacts {
 }
 
 export interface LiveBoardTotals {
+  /** The Needs you column: the inbox items (reviews included). */
   needsYou: number
+  /** The In progress column, paused runs included (they sit there with their paused look). */
   inProgress: number
-  toDecide: number
   doneToday: number
   /** Today's spend across every project (the analytics source); null when it could not be read. */
   costTodayUsd: number | null
@@ -147,7 +151,7 @@ export interface LiveBoardSnapshot<A extends LiveAttentionRef = LiveAttentionRef
   /** The local day the "Done today" column covers (ISO instants, `from` inclusive). */
   day: DayWindow
   projects: Array<{ projectId: string; projectName: string; count: number }>
-  /** Every card, grouped by column and ordered within it (needs, working, decide, done). */
+  /** Every card, grouped by column and ordered within it (needs, working, done). */
   cards: LiveCard<A>[]
   /** Layout B: one lane per mission, most urgent first, "Not from a mission" last. */
   lanes: LiveLane[]
@@ -163,7 +167,7 @@ export const MAX_CARDS_PER_PROJECT = 120
 
 const DONE_JOB_STATUSES = new Set(['completed', 'failed', 'zombie_terminated', 'canceled', 'skipped'])
 const LIVE_DELIVERY_DECISIONS = new Set(['building'])
-const DECIDE_DELIVERY_DECISIONS = new Set(['on_review', 'pr_draft', 'pr_ready'])
+const WAITING_DELIVERY_DECISIONS = new Set(['on_review', 'pr_draft', 'pr_ready'])
 const SETTLED_INTENT_STATES = new Set(['delivered', 'discarded', 'closed'])
 const OPEN_INTENT_STATES = new Set(['active', 'paused', 'needs-review'])
 
@@ -180,12 +184,12 @@ export function settledInDay(finishedAt: string | null, day: DayWindow): boolean
 
 /**
  * The column of a run. An inbox item decides first, so a card is never in two
- * columns: a review-ready item is "To decide", every other one "Needs you".
+ * columns: every inbox item (a review included) is "Needs you", like the inbox.
  * Without one, live work is "In progress" and work settled today is "Done
  * today"; anything else is history and stays off the board (null).
  */
 export function columnOf(status: LiveRunStatus, attention: Pick<LiveAttentionRef, 'kind'> | null, finishedAt: string | null, day: DayWindow): LiveColumn | null {
-  if (attention) return attention.kind === 'review' ? 'decide' : 'needs'
+  if (attention) return 'needs'
   const today = settledInDay(finishedAt, day)
   switch (status.source) {
     case 'job':
@@ -196,7 +200,8 @@ export function columnOf(status: LiveRunStatus, attention: Pick<LiveAttentionRef
       return today ? 'done' : null
     case 'delivery':
       if (LIVE_DELIVERY_DECISIONS.has(status.decision)) return 'working'
-      if (DECIDE_DELIVERY_DECISIONS.has(status.decision)) return 'decide'
+      // The inbox lists every delivery waiting for a decision; one it missed still waits on the person.
+      if (WAITING_DELIVERY_DECISIONS.has(status.decision)) return 'needs'
       return today ? 'done' : null
     case 'intent':
       if (OPEN_INTENT_STATES.has(status.state)) return 'working'
@@ -237,7 +242,7 @@ function byInstant(a: string | null, b: string | null, direction: 1 | -1): numbe
 }
 
 /**
- * Order inside a column. Needs you and To decide: oldest first (what has waited
+ * Order inside a column. Needs you: oldest first (what has waited
  * longest on top). In progress: running, then queued, then paused, each oldest first, so a
  * new run joins at the end instead of shuffling the column. Done today: most
  * recent first.
@@ -308,7 +313,7 @@ export function projectCards<A extends LiveAttentionRef>(read: ProjectRead<A>, d
   for (const item of read.attention) {
     if (item.projectId !== read.projectId || claimed.has(item.id)) continue
     claimed.add(item.id)
-    const column: LiveColumn = item.kind === 'review' ? 'decide' : 'needs'
+    const column: LiveColumn = 'needs'
     cards.push({
       id: item.id, projectId: read.projectId, projectName: read.projectName,
       kind: attentionKind(item), status: { source: 'attention' }, title: item.title, phase: null, question: null, steps: null,
@@ -322,10 +327,9 @@ export function projectCards<A extends LiveAttentionRef>(read: ProjectRead<A>, d
   return cards.slice(0, MAX_CARDS_PER_PROJECT)
 }
 
-/** Every card in board order: by column (needs, working, decide, done), then each column's own order. */
-const COLUMN_ORDER: Readonly<Record<LiveColumn, number>> = { needs: 0, working: 1, decide: 2, done: 3 }
+/** Every card in board order: by column (needs, working, done), then each column's own order. */
 export function boardOrder(a: LiveCard, b: LiveCard): number {
-  return COLUMN_ORDER[a.column] - COLUMN_ORDER[b.column] || compareCards(a, b)
+  return compareCards(a, b)
 }
 
 function latest(card: LiveCard): number {
@@ -339,8 +343,8 @@ function latest(card: LiveCard): number {
 
 /**
  * Layout B: one lane per mission holding every run it launched. Lanes order by
- * urgency (a lane with something that needs you first, then one waiting for a
- * decision, then one working), then by most recent activity; the runs without
+ * urgency (a lane with something that needs you first, then one working, then
+ * one done today), then by most recent activity; the runs without
  * a mission close the list in one "Not from a mission" lane.
  */
 export function buildLanes(cards: readonly LiveCard[], missions: ReadonlyMap<string, LiveMissionFacts>): LiveLane[] {
@@ -377,13 +381,12 @@ export function buildLanes(cards: readonly LiveCard[], missions: ReadonlyMap<str
   return lanes.map(({ recent: _recent, ...lane }) => lane)
 }
 
-/** Column counts; a paused run sits in the In progress column but is not counted as in progress. */
-export function countColumns(cards: readonly Pick<LiveCard, 'column' | 'status'>[]): Pick<LiveBoardTotals, 'needsYou' | 'inProgress' | 'toDecide' | 'doneToday'> {
-  const totals = { needsYou: 0, inProgress: 0, toDecide: 0, doneToday: 0 }
+/** Column counts: each total is the number of cards in its column, so a header never disagrees with the columns. */
+export function countColumns(cards: readonly Pick<LiveCard, 'column'>[]): Pick<LiveBoardTotals, 'needsYou' | 'inProgress' | 'doneToday'> {
+  const totals = { needsYou: 0, inProgress: 0, doneToday: 0 }
   for (const card of cards) {
     if (card.column === 'needs') totals.needsYou += 1
-    else if (card.column === 'working') { if (!isPausedRun(card.status)) totals.inProgress += 1 }
-    else if (card.column === 'decide') totals.toDecide += 1
+    else if (card.column === 'working') totals.inProgress += 1
     else totals.doneToday += 1
   }
   return totals

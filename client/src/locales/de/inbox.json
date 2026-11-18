@@ -21,7 +21,7 @@
     "budget": "Wegen Budget pausiert",
     "jira": "Jira-Sync fehlgeschlagen",
     "failedNoCause": "Vor der Auslieferung gestoppt",
-    "capReached": "Budgetlimit erreicht"
+    "capReached": "Arbeit pausiert"
   },
   "actions": {
     "open": "Öffnen",
@@ -34,15 +34,11 @@
   "working": "Läuft …",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Zurückstellen",
-    "hour": "1 Stunde",
-    "tomorrow": "Bis morgen",
-    "cancel": "Abbrechen"
+    "hour": "1 Stunde zurückstellen",
+    "tomorrow": "Bis morgen zurückstellen"
   },
-  "snoozeItem": "{{title}} zurückstellen",
-  "snoozeFor": "{{title}} zurückstellen für",
   "done": "Erledigt",
-  "doneItem": "{{title}} als erledigt markieren",
+  "more": "Weitere Aktionen für {{title}}",
   "age": {
     "now": "gerade eben",
     "ago": "vor {{age}}"
@@ -87,8 +83,6 @@
   "unseen": "Neu",
   "markRead": "Als gelesen markieren",
   "markUnread": "Als ungelesen markieren",
-  "markReadItem": "{{title}} als gelesen markieren",
-  "markUnreadItem": "{{title}} als ungelesen markieren",
   "mute": {
     "mute": "Benachrichtigungen von {{project}} stummschalten",
     "unmute": "Benachrichtigungen von {{project}} wieder einschalten"

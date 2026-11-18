@@ -5,7 +5,7 @@ import { MemoryRouter, useLocation, type Location } from 'react-router-dom'
 const h = vi.hoisted(() => ({
   desktop: { projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }], activeProjectId: 'p1' as string | null, setActiveProjectId: vi.fn() },
   mode: 'agent' as 'agent' | 'kanban',
-  inbox: { runPrimary: vi.fn(async () => {}), busy: new Set<string>(), items: [] as unknown[] },
+  inbox: { runPrimary: vi.fn(async () => {}), openInbox: vi.fn(), busy: new Set<string>(), items: [] as unknown[] },
   openMission: vi.fn(),
   selectConversation: vi.fn(async () => {}),
   openAgentPanel: vi.fn(),
@@ -58,13 +58,13 @@ function board() {
       card({ id: 'p1:loop-run:r-ask', column: 'needs', urgency: 0, title: 'Records top-5', status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null }, question: 'Per device or synced?', jobId: 'r-ask', conversationId: 'm1', attention: question }),
       card({ id: 'p1:loop-run:r-live', kind: 'rail', railIndex: 1, title: 'Next pieces preview', phase: 'implement-fix', jobId: 'r-live', conversationId: 'm1', costUsd: 0.62 }),
       card({ id: 'p2:job:j1', projectId: 'p2', projectName: 'Beta', kind: 'job', title: '/sr:implement #4', provider: 'codex', status: { source: 'job', status: 'running' }, phase: 'developer', steps: { done: 1, total: 3 }, jobId: 'j1' }),
-      card({ id: 'p1:delivery:d1', kind: 'rail', railIndex: 0, column: 'done', urgency: 3, title: 'Ghost piece', status: { source: 'delivery', decision: 'merged', statusCode: null }, finishedAt: AT, jobId: 'r-old', deliveryId: 'd1' }),
+      card({ id: 'p1:delivery:d1', kind: 'rail', railIndex: 0, column: 'done', urgency: 2, title: 'Ghost piece', status: { source: 'delivery', decision: 'merged', statusCode: null }, finishedAt: AT, jobId: 'r-old', deliveryId: 'd1' }),
     ],
     lanes: [
       { conversationId: 'm1', title: 'Records and screens', provider: 'claude', projectIds: ['p1'], cardIds: ['p1:loop-run:r-ask', 'p1:loop-run:r-live'], todayCostUsd: 1.46, urgency: 0 },
       { conversationId: null, title: null, provider: null, projectIds: ['p1', 'p2'], cardIds: ['p2:job:j1', 'p1:delivery:d1'], todayCostUsd: null, urgency: 2 },
     ],
-    totals: { needsYou: 1, inProgress: 2, toDecide: 0, doneToday: 1, costTodayUsd: 4.82, costTodayEstimated: false },
+    totals: { needsYou: 1, inProgress: 2, doneToday: 1, costTodayUsd: 4.82, costTodayEstimated: false },
   }
 }
 
@@ -91,7 +91,7 @@ beforeEach(() => {
   h.native = false
   h.desktop.activeProjectId = 'p1'
   h.desktop.setActiveProjectId = vi.fn()
-  for (const fn of [h.inbox.runPrimary, h.openMission, h.selectConversation, h.openAgentPanel, h.openSurfaceWindow]) fn.mockClear()
+  for (const fn of [h.inbox.runPrimary, h.inbox.openInbox, h.openMission, h.selectConversation, h.openAgentPanel, h.openSurfaceWindow]) fn.mockClear()
   body = board()
   fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     if (String(input).endsWith('/api/live-board')) return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
@@ -102,12 +102,12 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers() })
 
 describe('live board (by status)', () => {
-  it('opens from the place and renders the four columns with the summary', async () => {
+  it('opens from the place and renders the three columns with the summary', async () => {
     mount()
     expect(await screen.findByTestId('live-board-dialog')).toBeInTheDocument()
     await screen.findByText('Records top-5')
     const columns = screen.getAllByTestId('live-column').map((el) => [el.dataset.column, within(el).queryAllByTestId('live-card').length])
-    expect(columns).toEqual([['needs', 1], ['working', 2], ['decide', 0], ['done', 1]])
+    expect(columns).toEqual([['needs', 1], ['working', 2], ['done', 1]])
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('1 needs you')
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 in progress')
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('today $4.82')
@@ -118,6 +118,69 @@ describe('live board (by status)', () => {
     expect(within(cardEl('p2:job:j1')).getByTestId('live-card-steps')).toHaveAttribute('aria-label', '1 of 3 steps done')
     expect(cardEl('p1:delivery:d1').dataset.runState).toBe('done')
     expect(fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/api/live-board'))).toHaveLength(1)
+  })
+
+  it('puts reviews in Needs you with their own glyph, and the header counts are the columns\' counts', async () => {
+    const review = { ...question, id: 'p1:review:d2', kind: 'review', action: 'open-review', subjectId: 'd2', title: 'Add per-mode records' }
+    const paused = card({ id: 'p1:loop-run:r-p', title: 'Paused loop', status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: 'fork' }, jobId: 'r-p' })
+    body.cards = [...board().cards.slice(0, 1),
+      card({ id: 'p1:delivery:d2', kind: 'rail', railIndex: 3, column: 'needs', urgency: 0, title: 'Add per-mode records', status: { source: 'delivery', decision: 'pr_ready', statusCode: null }, deliveryId: 'd2', attention: review }),
+      ...board().cards.slice(1, 3), paused, ...board().cards.slice(3)]
+    mount()
+    await screen.findByText('Paused loop')
+    const needs = screen.getAllByTestId('live-column').find((el) => el.dataset.column === 'needs')!
+    expect(within(needs).getAllByTestId('live-card').map((el) => el.dataset.runState)).toEqual(['needs-input', 'review'])
+    for (const column of screen.getAllByTestId('live-column')) {
+      expect(within(column).getByTestId('live-column-count')).toHaveTextContent(String(within(column).queryAllByTestId('live-card').length))
+    }
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 need you')
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('3 in progress')
+    expect(screen.getByTestId('live-board-summary')).not.toHaveTextContent('paused')
+    // A paused run has the paused look, never the question look.
+    expect(cardEl('p1:loop-run:r-p').dataset.runState).toBe('paused')
+    // The mixed column wears no state glyph of its own.
+    expect(needs.querySelector('h3 [data-run-state]')).toBeNull()
+  })
+
+  it('says each thing once: the question is not repeated, and the project shows only on a multi-project board', async () => {
+    body.cards[0] = { ...board().cards[0], attention: { ...question, detail: 'Per device or synced?' } }
+    const { unmount } = mount()
+    await screen.findByText('Records top-5')
+    const ask = cardEl('p1:loop-run:r-ask')
+    expect(ask.textContent?.match(/Per device or synced\?/g)).toHaveLength(1)
+    expect(within(ask).getByTestId('live-card-phrase')).toHaveTextContent('Waiting for your answer')
+    expect(within(cardEl('p2:job:j1')).getByTestId('live-card-meta')).toHaveTextContent('Beta · Job')
+    unmount()
+    body = { ...board(), projects: [{ projectId: 'p1', projectName: 'Alpha', count: 3 }] }
+    mount()
+    await screen.findByText('Records top-5')
+    expect(within(cardEl('p1:loop-run:r-live')).getByTestId('live-card-meta')).toHaveTextContent(/^Rail 2$/)
+  })
+
+  it('names an inbox item that is not a run exactly as the inbox does', async () => {
+    const cap = { ...question, id: 'p1:budget:cap-day', kind: 'budget', action: 'raise-cap', subjectId: 'cap-day', title: 'Daily cap reached', cap: { scope: 'project', period: 'day', budgetUsd: 5, spentUsd: 5.12, resetsAt: '' } }
+    body.cards = [card({ id: 'p1:budget:cap-day', kind: null, column: 'needs', urgency: 0, title: 'Daily cap reached', status: { source: 'attention' }, attention: cap })]
+    mount()
+    const el = await waitFor(() => cardEl('p1:budget:cap-day'))
+    expect(within(el).getByTestId('live-card-title')).toHaveTextContent('Project daily limit reached')
+    expect(within(el).getByTestId('live-card-phrase')).toHaveTextContent('Work paused · $5.12 of $5.00 spent')
+    expect(el.dataset.runState).toBe('paused')
+  })
+
+  it('shows a merge preview as a short chip with the full sentence for hover and focus', async () => {
+    body.cards[1] = { ...board().cards[1], mergePreview: { status: 'conflicts', conflictFileCount: 2, siblingConflictCount: 1, baseAdvancedBy: 3 } }
+    mount()
+    await screen.findByText('Next pieces preview')
+    const chip = within(cardEl('p1:loop-run:r-live')).getByTestId('live-card-merge-preview')
+    expect(chip).toHaveTextContent(/^2 conflicts$/)
+    expect(chip).toHaveAccessibleName('Conflicts with the base in 2 files · Collides with 1 other run · Base moved 3 commits')
+  })
+
+  it('opens the inbox in place of the board', async () => {
+    mount('/?mission=m0&live=1')
+    await screen.findByText('Records top-5')
+    fireEvent.click(screen.getByTestId('live-board-open-inbox'))
+    expect(url()).toBe('/?mission=m0&inbox=1')
   })
 
   it('opens with the event (shell, sidebar, palette) and closes with Back semantics', async () => {
@@ -276,6 +339,8 @@ describe('live board in its own window', () => {
     expect(h.inbox.runPrimary).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1:question:r-ask' }))
     act(() => h.surfaceListener?.({ kind: 'result', requestId, result: { action: 'open', card: board().cards[1] } }))
     expect(h.openMission).toHaveBeenCalledWith('m1')
+    act(() => h.surfaceListener?.({ kind: 'result', requestId, result: { action: 'inbox' } }))
+    expect(h.inbox.openInbox).toHaveBeenCalledTimes(1)
   })
 
   it('in the desktop app, opening it again focuses the window instead of drawing it in-page', async () => {
@@ -301,6 +366,8 @@ describe('live board in its own window', () => {
     expect(screen.queryByTestId('live-board-open-window')).not.toBeInTheDocument()
     fireEvent.click(within(cardEl('p1:loop-run:r-ask')).getByTestId('live-card-primary'))
     expect(report).toHaveBeenCalledWith({ action: 'primary', card: expect.objectContaining({ id: 'p1:loop-run:r-ask' }) })
+    fireEvent.click(screen.getByTestId('live-board-open-inbox'))
+    expect(report).toHaveBeenCalledWith({ action: 'inbox' })
     expect(h.inbox.runPrimary).not.toHaveBeenCalled()
   })
 })

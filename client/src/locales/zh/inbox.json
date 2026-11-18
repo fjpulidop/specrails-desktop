@@ -21,7 +21,7 @@
     "budget": "因预算暂停",
     "jira": "Jira 同步失败",
     "failedNoCause": "在交付前停止",
-    "capReached": "已达到预算上限"
+    "capReached": "工作已暂停"
   },
   "actions": {
     "open": "打开",
@@ -34,15 +34,11 @@
   "working": "处理中…",
   "rowLabel": "{{action}}：{{title}}",
   "snooze": {
-    "label": "稍后提醒",
-    "hour": "1 小时",
-    "tomorrow": "明天再说",
-    "cancel": "取消"
+    "hour": "1 小时后提醒",
+    "tomorrow": "明天再提醒"
   },
-  "snoozeItem": "稍后提醒 {{title}}",
-  "snoozeFor": "将 {{title}} 推迟",
   "done": "完成",
-  "doneItem": "将 {{title}} 标记为完成",
+  "more": "{{title}} 的更多操作",
   "age": {
     "now": "刚刚",
     "ago": "{{age}}前"
@@ -87,8 +83,6 @@
   "unseen": "新",
   "markRead": "标为已读",
   "markUnread": "标为未读",
-  "markReadItem": "将 {{title}} 标为已读",
-  "markUnreadItem": "将 {{title}} 标为未读",
   "mute": {
     "mute": "将 {{project}} 的通知静音",
     "unmute": "重新开启 {{project}} 的通知"

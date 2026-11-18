@@ -31,7 +31,7 @@ Jede Lieferung, die auf dich wartet, wird mit ihrem Basis-Branch **im aktuellen 
 - **main ist seit dem Abzweigen dieses Branches um N Commits weitergegangen**: die Basis ist vorangekommen; aktualisiere den Branch eventuell, bevor du entscheidest.
 - **Bereits in main**: die Änderung ist schon gelandet (etwa nach einem Squash-Merge).
 
-Die Vorschau aktualisiert sich, wenn eine Lieferung ihren Zustand ändert oder ein Run endet. Wenn Specrails mehrere Ergebnisse selbst zurückmergt, mergt es zuerst die, die sauber passen. Benötigt wird Git 2.38 oder neuer; mit älterem Git meldet die Vorschau, dass sie nicht verfügbar ist.
+Auf dem Live-Board ist das Ergebnis ein kurzer Chip (**2 Konflikte**, **Überschneidet 1 Run**, **Basis weiter**), dessen vollständiger Satz beim Überfahren mit der Maus oder beim Fokussieren erscheint. Die Vorschau aktualisiert sich, wenn eine Lieferung ihren Zustand ändert oder ein Run endet. Wenn Specrails mehrere Ergebnisse selbst zurückmergt, mergt es zuerst die, die sauber passen. Benötigt wird Git 2.38 oder neuer; mit älterem Git meldet die Vorschau, dass sie nicht verfügbar ist.
 
 ## Entscheiden, was mit einer Lieferung geschieht {#pr-decision}
 

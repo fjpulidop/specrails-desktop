@@ -31,7 +31,7 @@ Chaque livraison qui vous attend est comparée à sa branche de base **telle qu�
 - **main a avancé de N commits depuis la création de cette branche** : la base a progressé ; pensez à mettre la branche à jour avant de décider.
 - **Déjà dans main** : le changement est déjà intégré (par exemple après un squash merge).
 
-L’aperçu se met à jour quand une livraison change d’état ou qu’un run se termine. Quand Specrails fusionne lui-même plusieurs résultats, il fusionne d’abord ceux qui s’appliquent proprement. Git 2.38 ou plus récent est nécessaire ; avec un Git plus ancien, l’aperçu indique qu’il est indisponible.
+Sur le tableau en direct, le résultat est une courte pastille (**2 conflits**, **Recoupe 1 run**, **Base avancée**) dont la phrase complète s’affiche au survol ou au focus. L’aperçu se met à jour quand une livraison change d’état ou qu’un run se termine. Quand Specrails fusionne lui-même plusieurs résultats, il fusionne d’abord ceux qui s’appliquent proprement. Git 2.38 ou plus récent est nécessaire ; avec un Git plus ancien, l’aperçu indique qu’il est indisponible.
 
 ## Choisir ce qu'il advient d'une livraison {#pr-decision}
 

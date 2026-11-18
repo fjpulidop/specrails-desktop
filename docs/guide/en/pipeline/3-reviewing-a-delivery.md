@@ -31,7 +31,7 @@ Each delivery waiting for you is checked against its base branch **as it is now*
 - **main moved N commits since this branch was cut**: the base advanced; consider updating the branch before you decide.
 - **Already in main**: the change landed already (for example after a squash merge).
 
-The preview refreshes when a delivery changes state or a run ends. When Specrails merges several results back itself, it merges the ones that apply cleanly first. Git 2.38 or later is needed; with an older Git the preview says it is unavailable.
+On the live board the result is a short chip (**2 conflicts**, **Overlaps 1 run**, **Base moved**) whose full sentence shows on hover or focus. The preview refreshes when a delivery changes state or a run ends. When Specrails merges several results back itself, it merges the ones that apply cleanly first. Git 2.38 or later is needed; with an older Git the preview says it is unavailable.
 
 ## Choose what happens to a delivery {#pr-decision}
 

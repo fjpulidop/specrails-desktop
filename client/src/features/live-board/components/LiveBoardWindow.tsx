@@ -22,6 +22,7 @@ export function LiveBoardWindow({ report, onClose }: LiveBoardWindowProps) {
     primary: (card) => report({ action: 'primary', card }),
     open: (card) => report({ action: 'open', card }),
     busy: () => false,
+    openInbox: () => report({ action: 'inbox' }),
   }), [report])
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>

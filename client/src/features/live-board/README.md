@@ -34,8 +34,8 @@ One view of every run of every project: rails, loops, Intent sessions and queue 
 **Live board** entry in the left sidebar (`ArcSidebar` nav items), `⌘⇧B` (`Ctrl+Shift+B` off macOS),
 the ⌘K action *Open live board* and the place `?live=1` open it over whatever place the person is on.
 
-- **Merge preview.** A delivery card with a `mergePreview` shows one line: conflicts with the base
-  and collisions with sibling runs in the `blocked` look, then how far the base moved (full text on hover).
+- **Merge preview.** A delivery card with a `mergePreview` shows one short chip (*2 conflicts*, *Overlaps 1 run*,
+  *Base moved*; conflicts in the `blocked` look) whose tooltip, on hover and focus, holds the full sentence.
 - **Projection, not a store.** Cards come from `GET /api/live-board`
   ([server module](../../../../server/modules/live-board/README.md)), which reads each registered project's
   own database and places every card (column, lane, order). The client keeps no cross-project cache. While
@@ -46,14 +46,23 @@ the ⌘K action *Open live board* and the place `?live=1` open it over whatever 
   added/removed ([`hooks/useLiveBoardData.ts`](hooks/useLiveBoardData.ts)). One request per refresh; nothing
   runs while the board is closed.
 - **Two layouts**, chosen in the header and remembered per viewer (`localStorage`
-  `specrails-desktop:live-board:layout`, in try/catch): **By status** (Needs you · In progress · To decide ·
-  Done today) and **By mission** (one lane per mission, most urgent first, "Not from a mission" last). The
+  `specrails-desktop:live-board:layout`, in try/catch): **By status** (Needs you · In progress · Done today) and
+  **By mission** (one lane per mission, most urgent first, "Not from a mission" last). The
   server's order is kept: filters (project, kind, engine; component state, not a place) only hide cards and
   never reorder columns or lanes.
-- **Needs you is the inbox.** Those cards carry the inbox item itself (`attention`, read with
-  `readInboxSnapshot`); the per-viewer Snooze / Done of the inbox hides them in layout A too
-  (`isDismissed`), so the column, the inbox and the Dock badge agree. In layout B a mission shows every run
-  it launched, a dismissed item included.
+- **Needs you is the inbox.** One column holds every inbox item, reviews included (each card keeps its own
+  run-state glyph; the column heading wears the inbox's neutral mark, not a state glyph). Those cards carry the
+  inbox item itself (`attention`, read with `readInboxSnapshot`); the per-viewer Snooze / Done of the inbox hides
+  them in layout A too (`isDismissed`), so the column count is the inbox count. **Open inbox** in the column header
+  replaces the `?live=1` entry with `?inbox=1` (from the board's window it is forwarded as `{ action: 'inbox' }`).
+  In layout B a mission shows every run it launched, a dismissed item included. An older server's `decide` column is
+  read as `needs`.
+- **Header counts are the columns' counts** (`countVisible`): *N need you · N in progress*, a paused run counted
+  where it sits. A paused run always has the paused look (`loopRunRunState`), never the question look; only an inbox
+  question item reads needs-input.
+- **Said once.** A card names its project only when the board spans several projects (a lane only when it does);
+  a question shown in its box is not repeated in the phrase line; an inbox item that is not a run is titled as the
+  inbox titles it (`useInboxItemTextOf`).
 - **State look** goes through the run-state vocabulary only ([`lib/live-board-run-state.ts`](lib/live-board-run-state.ts)):
   the server sends the domain status and the card maps it with the domain's own mapper (jobs, loops
   (`loopRunRunState`), deliveries; an inbox item by `inboxKindRunState`). Intent is a leaf feature nothing may

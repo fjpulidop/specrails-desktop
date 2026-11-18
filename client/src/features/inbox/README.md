@@ -50,6 +50,14 @@ project**, grouped by project, newest first.
   to the place (`?review=` / `?job=` in Mission mode, `/review/:id` / `/jobs/:id` in Board
   mode) after switching project when needed; Resume calls `POST /loop-runs/:id/resume` of
   the item's project (the budget 409 is shown localized; a run paused at its per-run cap opens the Continue / Raise dialog and resumes with that choice); Retry calls the Jira outbox retry.
+- **One wording per item.** `lib/inbox-item-text.ts` (`inboxItemText`, pure; `useInboxItemText` binds it in React) is
+  the only place an item's title, kind words and detail are chosen: the inbox row, its live board card and its
+  notification (`inboxAttentionText`) all read it. A reached cap is named by the cap (*Project daily limit reached* ·
+  *Work paused* · *$5.12 of $5.00 spent*), never by the server's raw title; a provider usage-limit pause by that limit
+  and when it continues. The command palette lists no inbox item (one *N things need you* row opens the inbox).
+- **Row actions.** One primary button per row; everything else is in its **More actions** menu (`⋯`,
+  `components/ui/dropdown-menu`): Snooze 1 hour, Snooze until tomorrow, Done, Mark as read / unread, Mute notifications
+  from the project. The group header holds only the project name and its bell (tooltip *Mute notifications from …*).
 - **Snooze (1 hour, until tomorrow 08:00) and Done** are per viewer (`localStorage`, in try/catch)
   and keyed by item id **and state version**: when the underlying state changes the item
   comes back. Entries older than 30 days are pruned.
@@ -77,8 +85,8 @@ project**, grouped by project, newest first.
 - **Dock badge** (desktop app, macOS Dock and Linux launcher; Windows has no count badge) = unseen items outside
   muted projects, sent to the guarded host command `desktop_set_badge` only when the number changes; cleared at 0
   or when Settings ▸ Notifications ▸ Dock badge is off.
-- **Mute a project.** The bell in a project's group header mutes / unmutes its notifications (Settings ▸
-  Notifications lists every project too); its items stay listed.
+- **Mute a project.** The bell in a project's group header (or *Mute notifications from …* in a row's menu) mutes /
+  unmutes its notifications (Settings ▸ Notifications lists every project too); its items stay listed.
 - **Shortcut.** `Ctrl+Shift+I` opens DevTools in WebView2 and Chromium (development builds and the
   web view), so off macOS the chord is `Ctrl+Alt+I` (`useKeyboardShortcuts`, `SHORTCUTS` with `platform`,
   `keyboardLabel`). macOS keeps `⌘⇧I`. The count badge is neutral (it mixes failures, questions and reviews).
@@ -87,7 +95,11 @@ project**, grouped by project, newest first.
 - **Done / Snooze** show a toast with Undo (sonner directly: the app undo stack is per project) and move the
   focus to the next row. The dialog opens with the first row's primary button focused; only the focused
   primary is filled, the rest are outlined.
-- Panel keyboard: `↑ ↓ Home End` walk the rows' primary buttons, `Esc` closes.
+- Panel keyboard: `↑ ↓ Home End` walk the rows' primary buttons, `Tab` reaches a row's `⋯`, whose menu takes the
+  arrows while open; `Esc` closes the menu only (it is portalled into the dialog, so the dialog's focus trap lets its
+  items take focus), then the panel.
+- **The count is the app's number.** `count` (items not snoozed or done) is the title-bar badge, the live board's
+  *Needs you* column and the palette's *N things need you* row.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/inbox`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

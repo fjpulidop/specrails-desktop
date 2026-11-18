@@ -51,15 +51,16 @@ export interface LoopRunStatusFacts {
 }
 
 /**
- * A whole loop run (live board). Paused on a question it asks the person
- * (needs-input); paused at a budget or by a restart it waits for a resume
- * (paused). A stalled run is paused like a stalled step; a blocked run waits
- * on something outside; a run that hit its iteration or cost ceiling, or was
+ * A whole loop run (live board). A paused run is paused, whatever paused it
+ * (a budget, a restart, a fork, a question): what it asks the person is the
+ * inbox item's to say (a question item reads needs-input), never the run row's.
+ * A stalled run is paused like a stalled step; a blocked run waits on
+ * something outside; a run that hit its iteration or cost ceiling, or was
  * stopped, ended without delivering (stopped).
  */
 export function loopRunRunState(run: LoopRunStatusFacts): RunState {
   if (run.status === 'running') return 'working'
-  if (run.status === 'paused') return run.restartReason === 'budget_paused' || run.restartReason === 'restart' ? 'paused' : 'needs-input'
+  if (run.status === 'paused') return 'paused'
   switch (run.outcome) {
     case 'success': return 'done'
     case 'failed': return 'failed'

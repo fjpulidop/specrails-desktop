@@ -31,7 +31,7 @@ Cada entrega que espera por você é comparada com sua branch base **como está 
 - **main avançou N commits desde que esta branch foi criada**: a base avançou; considere atualizar a branch antes de decidir.
 - **Já está em main**: a mudança já entrou (por exemplo depois de um squash merge).
 
-A prévia se atualiza quando uma entrega muda de estado ou um run termina. Quando o Specrails integra vários resultados por conta própria, integra primeiro os que entram sem conflitos. É preciso Git 2.38 ou posterior; com um Git mais antigo a prévia diz que não está disponível.
+No quadro ao vivo o resultado é um chip curto (**2 conflitos**, **Sobrepõe 1 run**, **Base avançou**) cuja frase completa aparece ao passar o ponteiro ou ao dar foco. A prévia se atualiza quando uma entrega muda de estado ou um run termina. Quando o Specrails integra vários resultados por conta própria, integra primeiro os que entram sem conflitos. É preciso Git 2.38 ou posterior; com um Git mais antigo a prévia diz que não está disponível.
 
 ## Escolha o que acontece com uma entrega {#pr-decision}
 

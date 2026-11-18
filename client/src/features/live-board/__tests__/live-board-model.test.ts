@@ -66,16 +66,27 @@ describe('live board filters and layouts', () => {
     wire({ id: 'c', projectId: 'p2', projectName: 'Beta', conversationId: 'm2', column: 'done', status: { source: 'loop-run', status: 'completed', outcome: 'success', restartReason: null } }),
   ], [
     { conversationId: 'm1', title: 'One', provider: 'claude', projectIds: ['p1'], cardIds: ['a', 'b'], todayCostUsd: null, urgency: 0 },
-    { conversationId: 'm2', title: 'Two', provider: 'claude', projectIds: ['p2'], cardIds: ['c'], todayCostUsd: null, urgency: 3 },
+    { conversationId: 'm2', title: 'Two', provider: 'claude', projectIds: ['p2'], cardIds: ['c'], todayCostUsd: null, urgency: 2 },
     { conversationId: null, title: null, provider: null, projectIds: [], cardIds: [], todayCostUsd: null, urgency: 3 },
   ])
 
-  it('counts a paused run apart from what is in progress', () => {
-    const paused = snapshot([
+  it('reads the header counts off the columns on screen (a paused run counts where it sits)', () => {
+    const board = snapshot([
+      wire({ id: 'n', column: 'needs', attention: item({ id: 'p1:question:n', subjectId: 'n' }) }),
+      wire({ id: 'r', column: 'needs', attention: item({ id: 'p1:review:r', subjectId: 'r', kind: 'review', action: 'open-review' }) }),
       wire({ id: 'w', status: { source: 'job', status: 'running' } }),
       wire({ id: 'p', kind: 'intent', status: { source: 'intent', state: 'paused' } }),
     ], [])
-    expect(countVisible(columnsOf(paused.cards, NO_FILTERS))).toEqual({ needsYou: 0, inProgress: 1, paused: 1 })
+    const columns = columnsOf(board.cards, NO_FILTERS)
+    expect(countVisible(columns)).toEqual({ needsYou: 2, inProgress: 2 })
+    expect(countVisible(columns).inProgress).toBe(columns.working.length)
+    // A dismissed inbox item leaves the column and the count together.
+    expect(countVisible(columnsOf(board.cards, NO_FILTERS, (i) => i.id === 'p1:review:r')).needsYou).toBe(1)
+  })
+
+  it('reads an older server\'s "To decide" column as Needs you', () => {
+    const board = snapshot([wire({ id: 'd', column: 'decide', attention: item({ kind: 'review', action: 'open-review' }) })], [])
+    expect(board.cards.map((c) => c.column)).toEqual(['needs'])
   })
 
   it('narrows columns by project, kind and engine, and hides inbox items the person dismissed', () => {
@@ -110,14 +121,17 @@ describe('what a card does and how it looks', () => {
 
   it('runs the inbox primary for an inbox item, opens a review, else opens the mission or run', () => {
     expect(primaryOf(card({ column: 'needs', attention: item() }))).toMatchObject({ kind: 'inbox', item: { id: 'p1:question:r1' } })
-    expect(primaryOf(card({ column: 'decide', deliveryId: 'd1', status: { source: 'delivery', decision: 'on_review', statusCode: null } }))).toEqual({ kind: 'review', deliveryId: 'd1' })
+    expect(primaryOf(card({ column: 'needs', deliveryId: 'd1', status: { source: 'delivery', decision: 'on_review', statusCode: null } }))).toEqual({ kind: 'review', deliveryId: 'd1' })
     expect(primaryOf(card({}))).toEqual({ kind: 'open' })
     expect(primaryOf(card({ conversationId: null, jobId: null }))).toEqual({ kind: 'none' })
   })
 
   it('maps each domain status through its own vocabulary mapper', () => {
     expect(liveCardLook(card({})).state).toBe('working')
-    expect(liveCardLook(card({ status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null } })).state).toBe('needs-input')
+    // A paused run looks paused whatever paused it; only an inbox question item reads needs-input.
+    expect(liveCardLook(card({ status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null } })).state).toBe('paused')
+    expect(liveCardLook(card({ status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: 'fork' } })).state).toBe('paused')
+    expect(liveCardLook(card({ status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null }, attention: item() })).state).toBe('needs-input')
     expect(liveCardLook(card({ status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: 'budget_paused' } })).state).toBe('paused')
     expect(liveCardLook(card({ status: { source: 'loop-run', status: 'completed', outcome: 'stopped', restartReason: null } })).state).toBe('stopped')
     expect(liveCardLook(card({ status: { source: 'job', status: 'queued' } })).state).toBe('queued')
@@ -135,6 +149,7 @@ describe('what a card does and how it looks', () => {
   it('reads a board window result and rejects anything else', () => {
     const c = card({ attention: item() })
     expect(readLiveBoardWindowResult(JSON.parse(JSON.stringify({ action: 'primary', card: c })))).toMatchObject({ action: 'primary', card: { id: c.id, attention: { id: 'p1:question:r1' } } })
+    expect(readLiveBoardWindowResult({ action: 'inbox' })).toEqual({ action: 'inbox' })
     expect(readLiveBoardWindowResult({ action: 'delete', card: c })).toBeNull()
     expect(readLiveBoardWindowResult({ action: 'open', card: { id: 'x' } })).toBeNull()
   })
