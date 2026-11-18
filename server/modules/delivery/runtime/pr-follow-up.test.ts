@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import fs from 'fs'
+import path from 'path'
 import {
   FOLLOW_UP_MAX_COMMENTS, FollowUpValidationError, followUpHash, freezeFollowUp, parseFollowUpInput,
   parseFollowUpReport, readFollowUp, renderFollowUpBriefing,
@@ -105,5 +107,14 @@ describe('parseFollowUpReport', () => {
   it('is null — never a synthesised verdict — when the run reported nothing', () => {
     expect(parseFollowUpReport('Test Files 263 passed\nVERIFICATION: PASS', fu)).toBeNull()
     expect(parseFollowUpReport(null, fu)).toBeNull()
+  })
+})
+
+describe('client mirror parity', () => {
+  it('client/src/features/delivery/lib/pr-follow-up-scope.ts is byte-identical to server/modules/delivery/runtime/pr-follow-up-scope.ts except for the mirror note', () => {
+    const server = fs.readFileSync(path.join(__dirname, 'pr-follow-up-scope.ts'), 'utf8')
+    const client = fs.readFileSync(path.resolve(__dirname, '../../../../client/src/features/delivery/lib/pr-follow-up-scope.ts'), 'utf8')
+    const norm = (text: string) => text.replace(/(client|server) copy lives at\n\/\/ [^\n]+ and MUST stay byte-identical/, 'MIRROR')
+    expect(norm(client)).toBe(norm(server))
   })
 })

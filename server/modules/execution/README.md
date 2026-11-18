@@ -18,6 +18,29 @@ reservation, process handles, durable recovery and notifications. The accounting
 use case does not swallow errors, open transactions or retry individual writes.
 These responsibilities have not yet been migrated out of QueueManager.
 
+### Job start stages
+
+`QueueManager._startJob` only sequences named stages; each is a move of the
+former inline body, in the original order, with a slot-ownership check after
+every await:
+
+| Stage | Where |
+| --- | --- |
+| Admission of the reserved slot, adapter pin, execution context, running mark | `_admitReservedStart`, `_prepareJobExecution`, `_markJobRunning` |
+| Spawn plan: system prompt, prompt, addenda, model, profile, argv | `_buildSpawnPlan` with [job-prompt](runtime/job-prompt.ts) and [job-spawn-profile](runtime/job-spawn-profile.ts) |
+| Env: agent base env, telemetry, profile path, repo map, plugins | [job-spawn-env](runtime/job-spawn-env.ts), then `_applyProviderSpawnEnv` (provider, relocation, openspec shim, PR delivery) |
+| Interactive hand-off or provenance snapshot → durable promotion → spawn & reservation | `_handOffInteractiveJob`, `_captureSpawnSnapshot`, `_promoteToRunning`, `_spawnAndReserve` |
+| Stream handling and close hand-off | [job-output-stream](runtime/job-output-stream.ts) through a narrow host |
+
+Plugin resolution is awaited only when it actually runs, so an ineligible spawn
+stays in the tick of its synchronous slot reservation. The terminal outcome of a
+one-shot exit is [job-terminal-outcome](runtime/job-terminal-outcome.ts); settle-time
+provenance is [job-provenance](runtime/job-provenance.ts) (finish diff before the next
+snapshot). Supporting modules: the [orphan-recovery outbox contract](runtime/orphan-recovery-payload.ts),
+the [queued-job projection](runtime/queued-job-store.ts), [budget enforcement and cost
+alerts](runtime/queue-budget-enforcement.ts) and the [execution context](runtime/queue-execution-context.ts).
+Spawn-stage characterization tests: [queue-manager-spawn-stages.test.ts](runtime/queue-manager-spawn-stages.test.ts).
+
 [Agent environment policy](domain/agent-env.ts) is pure: `buildAgentEnv` returns
 the source unchanged in `inherit` mode and, in `minimal` mode, a fresh object with
 the shared allowlist, Windows essentials (case-insensitive on Windows),

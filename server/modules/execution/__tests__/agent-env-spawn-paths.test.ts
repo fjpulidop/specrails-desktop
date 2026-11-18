@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest'
 // shared project builder, so `minimal` cannot be bypassed by one surface.
 const ROOT = path.resolve(__dirname, '../../../..')
 const SPAWN_PATHS = [
-  'server/modules/execution/runtime/queue-manager.ts',
+  // QueueManager builds its one-shot/interactive job env in its spawn-env stage.
+  'server/modules/execution/runtime/job-spawn-env.ts',
   'server/project-context-loops.ts',
   'server/modules/agent-runtime/runtime/agent-runtime-controls.ts',
   'server/modules/missions/runtime/agent-chat-manager.ts',

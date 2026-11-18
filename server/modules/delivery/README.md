@@ -24,7 +24,7 @@ degraded drafts and continuation recovery prerequisites.
 ## intent.md in the delivered change
 
 Before the isolated settlement commits a one-spec run (`commitWorktreeAndVerify`
-in [rail-isolated-launch.ts](runtime/rail-isolated-launch.ts), fresh runs and
+in [rail-isolated-run-settlement.ts](runtime/rail-isolated-run-settlement.ts), fresh runs and
 reattached ones alike), the spec's intent (intent-mode) is rendered into the
 ONE OpenSpec change the run created — `openspec/changes/<name>/` or its
 `archive/<date>-<name>/` — as `intent.md`
@@ -136,6 +136,18 @@ routes:
 
 Route tests stay in `rails-router*.test.ts` and exercise the composed router.
 
+The rail launch door (`launchRail` in rails-launch-http.ts) only sequences
+stages, each answering a refused request itself: relaunch source and request
+validation ([rail-launch-request.ts](runtime/rail-launch-request.ts)); admission,
+spec/repository scope, bases, capacity, loop recipe and engine
+([rail-launch-admission.ts](runtime/rail-launch-admission.ts)); loop graph, run plan
+and PR continuation ([rail-launch-loop-plan.ts](runtime/rail-launch-loop-plan.ts));
+then the isolation gate and the isolated, shared-cwd or legacy queue launch
+([rail-launch-run.ts](runtime/rail-launch-run.ts)). Stages are synchronous except
+the door's explicit awaits, so a launch needing none still checks in-flight
+tickets and registers its run in one tick. Characterization tests:
+[rails-launch-http.characterization.test.ts](runtime/rails-launch-http.characterization.test.ts).
+
 ## Phase-3 run records
 
 [`runtime/run-records.ts`](runtime/run-records.ts) parses Core's
@@ -158,7 +170,18 @@ lock) creates or resumes the mount, verifies its HEAD, applies the per-run
 overlay, links warm `node_modules` and freezes the provenance snapshot; a
 verification failure removes only resources the call created.
 `launchIsolatedRail` calls it once per allocation unit and keeps batching, PR
-continuation, delivery rows and the rail ledger. `prepareIsolatedWorktree` is
+continuation, delivery rows and the rail ledger. It composes explicit stages:
+scope ([repository routing, frozen revision/addenda/PR mode/units](runtime/rail-isolated-launch-scope.ts);
+a single-repository launch is routed synchronously), [allocation](runtime/rail-isolated-launch-allocation.ts)
+(repo-locked, all-or-nothing worktree preparation and generation opening),
+[runs](runtime/rail-isolated-launch-runs.ts) (fan-out with guarded per-run settlement) and
+[settlement](runtime/rail-isolated-launch-settlement.ts) (PR-mode persistence before release,
+legacy merge-back, aggregate failure parking), with the continuation push and
+outcome derivation in [the PR decision](runtime/rail-isolated-launch-pr-decision.ts).
+Contracts, helpers, the [per-run Git settlement](runtime/rail-isolated-run-settlement.ts) and
+[restart recovery](runtime/rail-isolated-recovery.ts) live in their own files;
+`rail-isolated-launch.ts` keeps every public export. Characterization tests:
+[rail-isolated-launch.characterization.test.ts](runtime/rail-isolated-launch.characterization.test.ts). `prepareIsolatedWorktree` is
 the self-contained entry for a second consumer (Intent): it takes the repository
 lock, fetches, resolves the integration base and a fresh conventional branch,
 then materializes. It writes no `rail_worktrees` row; the caller owns release
