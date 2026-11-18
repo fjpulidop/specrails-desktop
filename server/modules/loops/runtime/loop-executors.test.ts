@@ -504,6 +504,13 @@ describe('run worktree ports', () => {
     worktree = path.join(home, '.specrails', 'projects', 'app', 'worktrees', 'run-1', 'ticket-7')
     fs.mkdirSync(worktree, { recursive: true })
     process.env.SPECRAILS_REGISTRY_HOME = home
+    // Self-contained: callStep reads the FIRST recorded invocation, so each
+    // test starts from clean doubles regardless of which tests ran before.
+    runAiCliInvocation.mockReset()
+    getAdapter.mockReset()
+    finaliseInvocationResult.mockReset()
+    finaliseInvocationResult.mockImplementation(() => ({ result: { total_cost_usd: 0, tokens_in: 0, tokens_out: 0 }, estimated: false }))
+    runAiCliInvocation.mockResolvedValue({ spawnFailed: false, code: 0, events: [], sessionId: 'sid', stderrTail: '' })
   })
   afterEach(async () => {
     const fs = await import('node:fs')

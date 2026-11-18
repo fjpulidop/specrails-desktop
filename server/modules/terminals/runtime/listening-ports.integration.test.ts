@@ -19,7 +19,7 @@ afterEach(() => {
 
 /** A real server listening on an ephemeral port, started with `cwd` in a temp "worktree". */
 async function listenFrom(cwd: string): Promise<{ pid: number; port: number }> {
-  child = spawn(process.execPath, ['-e', "const s=require('net').createServer().listen(0,()=>console.log(s.address().port))"], { cwd, stdio: ['ignore', 'pipe', 'inherit'] })
+  child = spawn(process.execPath, ['-e', "const s=require('net').createServer().listen(0,'127.0.0.1',()=>console.log(s.address().port))"], { cwd, stdio: ['ignore', 'pipe', 'inherit'] })
   const port = await new Promise<number>((resolve, reject) => {
     child!.stdout!.once('data', (chunk: Buffer) => resolve(Number(String(chunk).trim())))
     child!.once('error', reject)
