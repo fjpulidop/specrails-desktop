@@ -82,7 +82,7 @@ import { renderFollowUpBriefing, type PrFollowUp } from './pr-follow-up'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, settleSpecAddendaAt, snapshotSpecAddenda, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import type { WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
-import { recordLoopRunProvenance } from '../../code/runtime/file-story'
+import { recordLoopRunProvenance, type ProvenanceCommit } from '../../code/runtime/file-story'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, resolveExplicitPrTarget, type ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
@@ -634,7 +634,8 @@ interface IsolatedRunSettlementPorts {
   isAborted?(): boolean
   ownsRun?(runId: string): boolean
   onFinished(runId: string, outcome: string, stallReason?: string): void
-  recordRunProvenance(run: AllocatedRun): void
+  /** Awaited before the terminal callback and the worktree commit. */
+  recordRunProvenance(run: AllocatedRun): void | Promise<void>
   markWorktree(run: AllocatedRun, state: 'built' | 'failed' | 'needs-review'): string | null
   hasRuntimeRequest(runId: string): boolean
   commitMessage(run: AllocatedRun, partial: boolean): string
@@ -677,7 +678,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
       }
     }
     const implementationOutcome = actualOutcome === 'success' ? 'succeeded' as const : 'failed' as const
-    recordRunProvenance(a)
+    await recordRunProvenance(a)
 
     let callbackFailure: string | undefined
     try {
@@ -1535,11 +1536,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // AFTER the .then already recorded — without this guard that run would insert
   // duplicate provenance rows.
   const provenanceRecorded = new Set<string>()
-  const recordRunProvenance = (a: AllocatedRun): void => {
+  const recordRunProvenance = async (a: AllocatedRun): Promise<void> => {
     if (provenanceRecorded.has(a.runId)) return
     provenanceRecorded.add(a.runId)
     try {
-      const record = () => recordProvenance({
+      const provenanceInput = {
         db: ctx.db,
         projectId: ctx.project.id,
         runId: a.runId,
@@ -1547,10 +1548,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         repoDir: a.handle.worktreePath,
         repositoryId: input.repositoryExecution?.repositoryId,
         snapshot: a.provenanceSnapshot,
-        broadcast: (msg) => ctx.broadcast(msg),
-      })
-      if (prDeliveryId && isDefinitionGraph(loopGraph)) recordIsolatedProvenanceOnce(ctx.db, prDeliveryId, a.runId, record)
-      else record()
+        broadcast: (msg: Parameters<typeof ctx.broadcast>[0]) => ctx.broadcast(msg),
+      }
+      const record = (commit?: ProvenanceCommit) => commit
+        ? recordProvenance(provenanceInput, undefined, commit)
+        : recordProvenance(provenanceInput)
+      if (prDeliveryId && isDefinitionGraph(loopGraph)) await recordIsolatedProvenanceOnce(ctx.db, prDeliveryId, a.runId, record)
+      else await record()
     } catch (err) {
       console.warn(`[rail-isolated] provenance recording failed for ${a.runId}: ${errorDetail(err)}`)
     }
@@ -2267,10 +2271,10 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
         intentFor: (unit) => runIntent(ctx, unit),
         forkChain: forkRunId => definitionForkChain(ctx.db, forkRunId),
         markWorktree: (unit, state) => updateRailWorktreeState(ctx.db, unit.ledgerId, state) ? null : 'Worktree ledger disappeared',
-        recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, () => (io.recordProvenance ?? recordLoopRunProvenance)({
+        recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, commit => (io.recordProvenance ?? recordLoopRunProvenance)({
           db: ctx.db, projectId: ctx.project.id, runId, ticketId: unit.ticketId, repoDir: unit.handle.worktreePath,
           repositoryId: row.repository_id ?? undefined, snapshot: unit.provenanceSnapshot, broadcast: message => ctx.broadcast(message),
-        })),
+        }, undefined, commit)),
       })
       const result = await settle(run, Promise.resolve({ runId, outcome }))
       saveIsolatedSettlementResult(ctx.db, row.id, result)

@@ -782,7 +782,7 @@
         "../../../db",
         "../../../project-repository-provenance",
         "../../../types",
-        "child_process",
+        "../../../util/bounded-exec",
         "crypto",
         "fs",
         "path"
@@ -2103,6 +2103,7 @@
         "../../../providers/terminal-result",
         "../../../providers/types",
         "../../../repo-map",
+        "../../../util/bounded-exec",
         "../../../util/win-spawn",
         "../../../workspace-manager",
         "../../accounting/runtime/result-event",
@@ -2122,6 +2123,7 @@
         "node:child_process",
         "node:crypto",
         "node:fs",
+        "node:fs/promises",
         "node:path"
       ],
       "runtime/loop-factory.ts": [

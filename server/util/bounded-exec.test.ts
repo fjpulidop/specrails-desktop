@@ -41,6 +41,13 @@ describe('runBounded', () => {
   it('caps buffered output at maxBuffer', async () => {
     const res = await runBounded(node, ['-e', 'process.stdout.write("x".repeat(10000))'], { timeoutMs: 10_000, maxBuffer: 100 })
     expect(res.stdout.length).toBe(100)
+    expect(res.stdoutTruncated).toBe(true)
+  })
+
+  it('does not flag output that fits in maxBuffer', async () => {
+    const res = await runBounded(node, ['-e', 'process.stdout.write("x".repeat(100))'], { timeoutMs: 10_000, maxBuffer: 100 })
+    expect(res.stdout.length).toBe(100)
+    expect(res.stdoutTruncated).toBeUndefined()
   })
 
   it('runs through the shell when asked', async () => {

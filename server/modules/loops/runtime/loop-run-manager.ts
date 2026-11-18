@@ -289,7 +289,7 @@ export interface LoopExecutors {
    *  no progress and the engine aborts (outcome `stalled`) instead of cycling.
    *  Returns null when it can't read the tree (guard then disabled). Omit the
    *  method to disable the guard entirely (byte-identical legacy behaviour). */
-  repoStateHash?(dir: string): string | null
+  repoStateHash?(dir: string): string | null | Promise<string | null>
 }
 
 export interface LoopRunRequest {
@@ -2694,7 +2694,7 @@ export class LoopRunManager {
             // written) — abort `stalled` rather than cycle to the cap.
             if (dec.continue && this.executors.repoStateHash) {
               const dirs = req.executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [req.repoDir ?? req.cwd]
-              const hashes = dirs.map((dir) => this.executors.repoStateHash!(dir))
+              const hashes = await Promise.all(dirs.map((dir) => this.executors.repoStateHash!(dir)))
               const hash = hashes.some((value) => value === null) ? null : JSON.stringify(hashes)
               // null = couldn't read the tree → skip (never let null match null).
               if (hash !== null) {

@@ -327,6 +327,94 @@ export function refreshLockHeartbeat(lp: string, ourToken: string): boolean {
   }
 }
 
+type LockAttempt =
+  | { kind: 'acquired'; fd: number }
+  | { kind: 'retry' }
+  | { kind: 'wait' }
+
+/** One exclusive-create attempt, shared by the sync and async lock. `retry` ⇒
+ *  try again immediately (stale lock broken / vanished); `wait` ⇒ held by a
+ *  live owner, back off. */
+function tryAcquireLock(lp: string, ourToken: string): LockAttempt {
+  try {
+    const fd = openSync(lp, 'wx')
+    // Write our token + fsync so a concurrent reader sees a complete token.
+    try {
+      writeFileSync(fd, ourToken)
+      fsyncSync(fd)
+    } catch {
+      /* best-effort — the lock still serialises via exclusive-create */
+    }
+    return { kind: 'acquired', fd }
+  } catch {
+    // Lock held — break it if stale, otherwise wait until the deadline.
+    try {
+      const age = Date.now() - statSync(lp).mtimeMs
+      if (age > LOCK_STALE_MS) {
+        unlinkSync(lp)
+        return { kind: 'retry' }
+      }
+    } catch {
+      // lock vanished between open and stat — retry immediately
+      return { kind: 'retry' }
+    }
+    return { kind: 'wait' }
+  }
+}
+
+function lockTimeoutError(lp: string): Error {
+  // FAIL-CLOSED (parity with specrails-core): rather than proceed WITHOUT
+  // the lock — which would let two writers race a read-modify-write and
+  // clobber each other's entries — throw. Every caller wraps this in a
+  // non-fatal try/catch (a missing/un-updated entry is recreated on the
+  // next reconcile), so failing closed loses nothing while preserving the
+  // single-writer invariant.
+  return new Error(`artifact-registry: could not acquire lock ${lp} within ${LOCK_MAX_WAIT_MS}ms`)
+}
+
+/** BUG-ARTREG-04: keep the lock's mtime fresh while we hold it so a contender
+ *  never stale-breaks a LIVE holder mid-fn() and races a concurrent read-
+ *  modify-write (lost update). The interval is unref'd so it never keeps the
+ *  process alive. It can only fire between event-loop turns: a synchronous
+ *  fn() blocks it (sub-ms, never near the TTL); an async holder that yields
+ *  (withFileLockAsync) is refreshed for as long as it holds the lock. */
+function startLockHeartbeat(lp: string, ourToken: string): NodeJS.Timeout {
+  const heartbeat = setInterval(() => {
+    refreshLockHeartbeat(lp, ourToken)
+  }, LOCK_HEARTBEAT_MS)
+  if (typeof heartbeat.unref === 'function') heartbeat.unref()
+  return heartbeat
+}
+
+function releaseLock(lp: string, fd: number, ourToken: string, heartbeat: NodeJS.Timeout): void {
+  clearInterval(heartbeat)
+  try {
+    closeSync(fd)
+  } catch {
+    /* already closed */
+  }
+  // Only unlink the lock when it still carries OUR token. If we were
+  // stale-broken and another writer now owns the file, its token differs and
+  // we leave it alone (a missing/unreadable file ⇒ already gone ⇒ no-op).
+  try {
+    const onDisk = readFileSync(lp, 'utf8')
+    if (onDisk === ourToken) {
+      unlinkSync(lp)
+    }
+  } catch {
+    /* already removed / unreadable — nothing to clean up */
+  }
+}
+
+/** Unique per-acquisition token written INTO the lock file. On release we
+ *  re-read the file and only unlink it when the token still matches OURS — so a
+ *  writer whose lock was stale-broken (TTL-reclaimed) by another writer never
+ *  deletes the NEW owner's lock out from under it (which would let a third
+ *  writer acquire concurrently and race the read-modify-write). */
+function lockToken(): string {
+  return `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 /**
  * Run `fn` while holding an advisory lock over the registry. Mutual exclusion
  * is an exclusive-create lock file (`open(..., 'wx')`) with bounded spin-retry
@@ -336,84 +424,51 @@ export function refreshLockHeartbeat(lp: string, ourToken: string): boolean {
 export function withFileLock<T>(home: string | undefined, fn: () => T): T {
   const lp = lockPath(home)
   mkdirSync(path.dirname(lp), { recursive: true })
-  let fd: number | undefined
-  // Unique per-acquisition token written INTO the lock file. On release we
-  // re-read the file and only unlink it when the token still matches OURS — so a
-  // writer whose lock was stale-broken (TTL-reclaimed) by another writer never
-  // deletes the NEW owner's lock out from under it (which would let a third
-  // writer acquire concurrently and race the read-modify-write).
-  const ourToken = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ourToken = lockToken()
   const deadline = Date.now() + LOCK_MAX_WAIT_MS
+  let fd: number
   for (;;) {
-    try {
-      fd = openSync(lp, 'wx')
-      // Write our token + fsync so a concurrent reader sees a complete token.
-      try {
-        writeFileSync(fd, ourToken)
-        fsyncSync(fd)
-      } catch {
-        /* best-effort — the lock still serialises via exclusive-create */
-      }
-      break
-    } catch {
-      // Lock held — break it if stale, otherwise spin until the deadline.
-      try {
-        const age = Date.now() - statSync(lp).mtimeMs
-        if (age > LOCK_STALE_MS) {
-          unlinkSync(lp)
-          continue
-        }
-      } catch {
-        // lock vanished between open and stat — retry immediately
-        continue
-      }
-      if (Date.now() >= deadline) {
-        // FAIL-CLOSED (parity with specrails-core): rather than proceed WITHOUT
-        // the lock — which would let two writers race a read-modify-write and
-        // clobber each other's entries — throw. Every caller wraps this in a
-        // non-fatal try/catch (a missing/un-updated entry is recreated on the
-        // next reconcile), so failing closed loses nothing while preserving the
-        // single-writer invariant.
-        throw new Error(
-          `artifact-registry: could not acquire lock ${lp} within ${LOCK_MAX_WAIT_MS}ms`,
-        )
-      }
-      syncSleep(LOCK_SPIN_MS)
-    }
+    const attempt = tryAcquireLock(lp, ourToken)
+    if (attempt.kind === 'acquired') { fd = attempt.fd; break }
+    if (attempt.kind === 'retry') continue
+    if (Date.now() >= deadline) throw lockTimeoutError(lp)
+    syncSleep(LOCK_SPIN_MS)
   }
-  // BUG-ARTREG-04: keep the lock's mtime fresh while we hold it so a contender
-  // never stale-breaks a LIVE holder mid-fn() and races a concurrent read-
-  // modify-write (lost update). The interval is unref'd so it never keeps the
-  // process alive. It can only fire between event-loop turns (a single
-  // synchronous fn() blocks it, but that is sub-ms and never approaches the TTL);
-  // it protects holders that yield to the loop or whose process is paused and
-  // resumed with the timer still queued.
-  const heartbeat = setInterval(() => {
-    refreshLockHeartbeat(lp, ourToken)
-  }, LOCK_HEARTBEAT_MS)
-  if (typeof heartbeat.unref === 'function') heartbeat.unref()
+  const heartbeat = startLockHeartbeat(lp, ourToken)
   try {
     return fn()
   } finally {
-    clearInterval(heartbeat)
-    if (fd !== undefined) {
-      try {
-        closeSync(fd)
-      } catch {
-        /* already closed */
-      }
-      // Only unlink the lock when it still carries OUR token. If we were
-      // stale-broken and another writer now owns the file, its token differs and
-      // we leave it alone (a missing/unreadable file ⇒ already gone ⇒ no-op).
-      try {
-        const onDisk = readFileSync(lp, 'utf8')
-        if (onDisk === ourToken) {
-          unlinkSync(lp)
-        }
-      } catch {
-        /* already removed / unreadable — nothing to clean up */
-      }
-    }
+    releaseLock(lp, fd, ourToken, heartbeat)
+  }
+}
+
+/**
+ * The same registry lock (same file, token, TTL, heartbeat and fail-closed
+ * deadline as withFileLock) for holders whose critical section awaits a
+ * child process — the Core update's `swap-current`. Contention waits with a
+ * timer instead of blocking the thread, and the event loop keeps serving while
+ * the lock is held. A synchronous withFileLock contender in this process fails
+ * closed after LOCK_MAX_WAIT_MS exactly as a contender in another process
+ * would; its callers already treat that as non-fatal.
+ */
+export async function withFileLockAsync<T>(home: string | undefined, fn: () => Promise<T>): Promise<T> {
+  const lp = lockPath(home)
+  mkdirSync(path.dirname(lp), { recursive: true })
+  const ourToken = lockToken()
+  const deadline = Date.now() + LOCK_MAX_WAIT_MS
+  let fd: number
+  for (;;) {
+    const attempt = tryAcquireLock(lp, ourToken)
+    if (attempt.kind === 'acquired') { fd = attempt.fd; break }
+    if (attempt.kind === 'retry') continue
+    if (Date.now() >= deadline) throw lockTimeoutError(lp)
+    await new Promise((resolve) => setTimeout(resolve, LOCK_SPIN_MS))
+  }
+  const heartbeat = startLockHeartbeat(lp, ourToken)
+  try {
+    return await fn()
+  } finally {
+    releaseLock(lp, fd, ourToken, heartbeat)
   }
 }
 

@@ -26,6 +26,27 @@ post-exit hook was the only provenance producer):
 So the entire loop-based implement path (the default rail mode) was invisible
 to the Code explorer.
 
+### Capture timing (async git)
+
+Every producer snapshots with `snapshotWorkingTree` (`git stash create
+--include-untracked`, untracked list, HEAD SHA) and diffs with
+`captureProvenance` (name-status diff, untracked pass, up to 50 per-file
+patches). Both are async, bounded git children (`runBounded`: 15 s timeout with
+tree-kill, stdout cap, prompt-free env), so a large repository no longer stalls
+the server at job start/finish. Ordering is preserved explicitly:
+
+- the snapshot is awaited before the job/run spawns (QueueManager `_startJob`,
+  the shared-cwd rail launch, isolated worktree materialization);
+- captures are serialised per worktree (`withWorktreeCapture`): a settle diff
+  claims the worktree synchronously at settle, so the next job's snapshot — and
+  therefore its spawn — waits until the previous diff has read the tree;
+- loop settles await the capture before `onLoopRunFinished` and the worktree
+  commit; isolated delivery writes rows and the receipt in one transaction
+  after the capture resolves (`recordIsolatedProvenanceOnce`).
+
+`server/modules/code/runtime/file-provenance-stall.test.ts` measures the event
+loop on a 2,000-file repository with 200 changed files.
+
 ## Persistence (migration 37)
 
 `file_story_contributions` in the per-project `jobs.sqlite`:

@@ -22,8 +22,7 @@ import { recordInvocation, type InvocationStatus } from '../../accounting/runtim
 import { isCodeExplorerEnabled, isInteractiveJobsEnabled } from '../../../feature-flags'
 import {
   snapshotWorkingTree,
-  diffAgainstSnapshot,
-  collectDiffPatches,
+  captureProvenance,
   recordProvenanceForJob,
   broadcastProvenanceUpdated,
   type WorkingTreeSnapshot,
@@ -340,6 +339,8 @@ export class QueueManager {
   /** Pre-spawn working-tree snapshot refs keyed by jobId — read at exit time
    *  by the Code-Explorer provenance hook. Cleared on job exit. */
   private _snapshotRefs: Map<string, WorkingTreeSnapshot>
+  /** Settle-time provenance captures still running (see _recordProvenance). */
+  private readonly _pendingProvenance = new Set<Promise<void>>()
   /** Per-job resolved execution context (relocate-artifacts gate), captured at
    *  spawn time so `_onJobExit`'s provenance hook uses the SAME repoDir the
    *  snapshot used (= project.path, never the workspace). Cleared on job exit. */
@@ -2804,12 +2805,16 @@ export class QueueManager {
     if (spawnInteractive) {
       if (!this._canContinueStart(jobId, lifecycleGeneration)) return
       if (isCodeExplorerEnabled()) {
+        // Async capture, awaited BEFORE the session spawns; queued behind any
+        // in-flight capture of the same worktree (a predecessor's settle diff).
         try {
-          const snap = snapshotWorkingTree(execution.repoDir)
+          const snap = await snapshotWorkingTree(execution.repoDir)
+          if (!this._canContinueStart(jobId, lifecycleGeneration)) return
           this._snapshotRefs.set(jobId, snap)
         } catch (err) {
           console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
         }
+        if (!this._canContinueStart(jobId, lifecycleGeneration)) return
       }
       const interactiveSpawnOptions = {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
@@ -2845,9 +2850,13 @@ export class QueueManager {
     // CRITICAL: snapshot the REPO working tree (execution.repoDir), never the
     // workspace — else a relocated job would diff an empty workspace and silently
     // record zero "touched by AI" files.
+    // The capture is an async git child (never a stall of the event loop),
+    // awaited before spawn and serialised per worktree behind a predecessor's
+    // settle diff, so the job can never touch the tree before its snapshot.
     if (isCodeExplorerEnabled()) {
       try {
-        const snap = snapshotWorkingTree(execution.repoDir)
+        const snap = await snapshotWorkingTree(execution.repoDir)
+        if (!this._canContinueStart(jobId, lifecycleGeneration)) return
         this._snapshotRefs.set(jobId, snap)
       } catch (err) {
         console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
@@ -3356,6 +3365,12 @@ export class QueueManager {
    * `file_provenance` row per touched path, broadcasting each. Gated by
    * SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can be
    * flipped off mid-session without leaving partial writes). Best-effort.
+   *
+   * The git capture is async: this call claims the worktree's capture slot
+   * synchronously (before the settle path drains the queue), so the next
+   * job's pre-spawn snapshot of the same tree — and therefore its spawn —
+   * waits until this diff has read the tree. Rows are written when the
+   * capture resolves; the returned promise is tracked for tests/shutdown.
    */
   private _recordProvenance(
     jobId: string,
@@ -3364,28 +3379,41 @@ export class QueueManager {
     snapshot: WorkingTreeSnapshot | undefined,
   ): void {
     if (!isCodeExplorerEnabled() || !provenanceRepoDir || !this._projectId || !this._db) return
-    const ref = snapshot?.ref ?? ''
-    try {
-      const diff = diffAgainstSnapshot(provenanceRepoDir, ref, snapshot?.untracked, snapshot?.headSha)
-      const patches = collectDiffPatches(provenanceRepoDir, ref, diff, snapshot?.headSha)
-      if (diff.length > 50) {
-        console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
+    const db = this._db
+    const projectId = this._projectId
+    const ticketIds = this._extractTicketIds(command)
+    const capture = captureProvenance(provenanceRepoDir, snapshot ?? { ref: '', untracked: [], headSha: '' })
+    const pending = capture.then(({ diff, patches }) => {
+      // A disposed manager (or swapped/closed DB) drops the late write.
+      if (this._disposed || this._db !== db) return
+      try {
+        if (diff.length > 50) {
+          console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
+        }
+        const rows = recordProvenanceForJob(
+          db,
+          projectId,
+          jobId,
+          ticketIds[0] ?? null,
+          diff,
+          Date.now(),
+          patches,
+        )
+        for (const row of rows) {
+          broadcastProvenanceUpdated(this._broadcast, projectId, row)
+        }
+      } catch (err) {
+        console.warn(`[queue-manager] provenance recording failed: ${(err as Error).message}`)
       }
-      const ticketIds = this._extractTicketIds(command)
-      const rows = recordProvenanceForJob(
-        this._db,
-        this._projectId,
-        jobId,
-        ticketIds[0] ?? null,
-        diff,
-        Date.now(),
-        patches,
-      )
-      for (const row of rows) {
-        broadcastProvenanceUpdated(this._broadcast, this._projectId, row)
-      }
-    } catch (err) {
-      console.warn(`[queue-manager] provenance recording failed: ${(err as Error).message}`)
+    })
+    this._pendingProvenance.add(pending)
+    void pending.finally(() => this._pendingProvenance.delete(pending))
+  }
+
+  /** Resolves once every in-flight provenance capture has been recorded. */
+  async whenProvenanceSettled(): Promise<void> {
+    while (this._pendingProvenance.size > 0) {
+      await Promise.all([...this._pendingProvenance])
     }
   }
 

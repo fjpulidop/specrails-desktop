@@ -29,6 +29,7 @@ import {
   restoreRegistryEntry,
   slugify,
   withFileLock,
+  withFileLockAsync,
   workspaceLayout,
   isCompleteEntry,
   refreshLockHeartbeat,
@@ -274,6 +275,62 @@ describe('withFileLock', () => {
     expect(result).toBe('ran')
     // We owned it ⇒ released it.
     expect(existsSync(lp)).toBe(false)
+  })
+})
+
+describe('withFileLockAsync', () => {
+  it('holds the same lock file across an awaited section and releases it', async () => {
+    let tokenWhileHeld = ''
+    const result = await withFileLockAsync(home, async () => {
+      tokenWhileHeld = readFileSync(lockPath(home), 'utf8')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      // A synchronous contender sees the lock as held by a live owner.
+      expect(existsSync(lockPath(home))).toBe(true)
+      return 7
+    })
+    expect(result).toBe(7)
+    expect(tokenWhileHeld).toContain(String(process.pid))
+    expect(existsSync(lockPath(home))).toBe(false)
+  })
+
+  it('waits for a held lock without blocking the event loop, then acquires it', async () => {
+    const lp = lockPath(home)
+    writeFileSync(lp, 'other-owner')
+    let ticks = 0
+    const ticker = setInterval(() => { ticks += 1 }, 5)
+    setTimeout(() => rmSync(lp, { force: true }), 120)
+    try {
+      expect(await withFileLockAsync(home, async () => 'acquired')).toBe('acquired')
+    } finally {
+      clearInterval(ticker)
+    }
+    // The loop kept turning while the contender waited (a busy wait would not tick).
+    expect(ticks).toBeGreaterThan(5)
+    expect(existsSync(lp)).toBe(false)
+  })
+
+  it('serialises two async holders in this process', async () => {
+    const order: string[] = []
+    const first = withFileLockAsync(home, async () => {
+      order.push('first:start')
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      order.push('first:end')
+    })
+    const second = withFileLockAsync(home, async () => { order.push('second') })
+    await Promise.all([first, second])
+    expect(order).toEqual(['first:start', 'first:end', 'second'])
+  })
+
+  it('fails closed past the deadline and leaves a foreign lock intact', async () => {
+    const lp = lockPath(home)
+    writeFileSync(lp, 'someone-elses-token')
+    await expect(withFileLockAsync(home, async () => 'should-not-run')).rejects.toThrow(/could not acquire lock/)
+    expect(readFileSync(lp, 'utf8')).toBe('someone-elses-token')
+  })
+
+  it('releases the lock when the section rejects', async () => {
+    await expect(withFileLockAsync(home, async () => { throw new Error('swap failed') })).rejects.toThrow('swap failed')
+    expect(existsSync(lockPath(home))).toBe(false)
   })
 })
 

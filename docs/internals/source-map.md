@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1455 source/build files. Nearby tests are linked where names
+Includes 1462 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -214,6 +214,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [app-resources-api.ts](../../client/src/features/background/lib/app-resources-api.ts)
 - [background-processes-api.ts](../../client/src/features/background/lib/background-processes-api.ts) · [test](../../client/src/features/background/lib/__tests__/background-processes-api.test.ts)
+- [format-bytes.ts](../../client/src/features/background/lib/format-bytes.ts)
 - [mission-resource-history.ts](../../client/src/features/background/lib/mission-resource-history.ts) · [test](../../client/src/features/background/lib/__tests__/mission-resource-history.test.ts)
 - [mission-resources-api.ts](../../client/src/features/background/lib/mission-resources-api.ts)
 
@@ -518,6 +519,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [job-event-buffer.ts](../../client/src/features/jobs/lib/job-event-buffer.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-event-buffer.test.ts)
 - [job-log-mode.ts](../../client/src/features/jobs/lib/job-log-mode.ts)
 - [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
+- [log-lines.ts](../../client/src/features/jobs/lib/log-lines.ts)
 
 ## client/src/features/jobs/pages
 
@@ -745,6 +747,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/projects/lib
 
+- [onboarding-state.ts](../../client/src/features/projects/lib/onboarding-state.ts)
 - [project-repositories.ts](../../client/src/features/projects/lib/project-repositories.ts)
 
 ## client/src/features/projects/types
@@ -1030,6 +1033,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [save-scrollback.ts](../../client/src/features/terminals/lib/save-scrollback.ts)
 - [search-decorations.ts](../../client/src/features/terminals/lib/search-decorations.ts) · [test](../../client/src/features/terminals/lib/__tests__/search-decorations.test.ts)
 - [terminal-notifications.ts](../../client/src/features/terminals/lib/terminal-notifications.ts)
+- [xterm-runtime.ts](../../client/src/features/terminals/lib/xterm-runtime.ts)
 
 ## client/src/hooks
 
@@ -1040,7 +1044,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useLaunchBudgetGuard.tsx](../../client/src/hooks/useLaunchBudgetGuard.tsx)
 - [useLaunchForecast.ts](../../client/src/hooks/useLaunchForecast.ts)
 - [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
+- [useMountOnOpen.ts](../../client/src/hooks/useMountOnOpen.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
+- [useNow.ts](../../client/src/hooks/useNow.ts)
 - [useOsNotifications.ts](../../client/src/hooks/useOsNotifications.ts) · [test](../../client/src/hooks/__tests__/useOsNotifications.test.ts)
 - [usePlaceHistory.tsx](../../client/src/hooks/usePlaceHistory.tsx) · [test](../../client/src/hooks/__tests__/usePlaceHistory.test.tsx)
 - [usePlaceParam.ts](../../client/src/hooks/usePlaceParam.ts)
@@ -1052,7 +1058,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useSuppressNativeContextMenu.ts](../../client/src/hooks/useSuppressNativeContextMenu.ts) · [test](../../client/src/hooks/__tests__/useSuppressNativeContextMenu.test.ts)
 - [useTrayLabels.tsx](../../client/src/hooks/useTrayLabels.tsx) · [test](../../client/src/hooks/__tests__/useTrayLabels.test.tsx)
 - [useUndo.tsx](../../client/src/hooks/useUndo.tsx) · [test](../../client/src/hooks/__tests__/useUndo.test.tsx)
-- [useWebSocket.ts](../../client/src/hooks/useWebSocket.ts) · [test](../../client/src/hooks/__tests__/useWebSocket.test.ts)
 
 ## client/src/lib
 
@@ -1095,6 +1100,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
 - [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
 - [pr-status-detail.ts](../../client/src/lib/pr-status-detail.ts) · [test](../../client/src/lib/__tests__/pr-status-detail.test.ts)
+- [reconnect-backoff.ts](../../client/src/lib/reconnect-backoff.ts) · [test](../../client/src/lib/__tests__/reconnect-backoff.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
@@ -1110,6 +1116,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [tauri-shell.ts](../../client/src/lib/tauri-shell.ts)
 - [toast-class-names.ts](../../client/src/lib/toast-class-names.ts)
 - [toasts-over-modals.ts](../../client/src/lib/toasts-over-modals.ts)
+- [ui-mode-storage.ts](../../client/src/lib/ui-mode-storage.ts)
 - [utils.ts](../../client/src/lib/utils.ts) · [test](../../client/src/lib/__tests__/utils.test.ts)
 - [viewport.ts](../../client/src/lib/viewport.ts)
 - [ws-url.ts](../../client/src/lib/ws-url.ts) · [test](../../client/src/lib/__tests__/ws-url.test.ts)

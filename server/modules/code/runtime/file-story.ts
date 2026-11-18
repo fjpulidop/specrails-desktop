@@ -30,10 +30,14 @@ import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from '../.
 import {
   diffAgainstSnapshot,
   collectDiffPatches,
+  captureProvenance,
   recordProvenanceForJob,
   broadcastProvenanceUpdated,
   type WorkingTreeSnapshot,
   type ProvenanceKind,
+  type CapturedProvenance,
+  type DiffEntry,
+  type StoredPatch,
 } from './file-provenance'
 
 /** Warn threshold mirroring queue-manager's `provenance.large_job`. */
@@ -139,40 +143,61 @@ export interface LoopRunProvenanceInput {
   broadcast: (msg: WsMessage) => void
 }
 
-/** Injectable IO so unit tests need no real git repo. */
+/** Injectable IO so unit tests need no real git repo. Either function may be
+ *  sync or async; production uses the async git capture. */
 export interface LoopRunProvenanceIO {
-  diff?: typeof diffAgainstSnapshot
-  patches?: typeof collectDiffPatches
+  diff?: (...args: Parameters<typeof diffAgainstSnapshot>) => DiffEntry[] | Promise<DiffEntry[]>
+  patches?: (...args: Parameters<typeof collectDiffPatches>) => Map<string, StoredPatch> | Promise<Map<string, StoredPatch>>
 }
+
+/** Wraps the synchronous row write. A caller that must make the rows atomic
+ *  with its own receipt (isolated settlement) runs `write` inside its
+ *  transaction; the default simply runs it. */
+export type ProvenanceCommit = (write: () => void) => void
 
 /**
  * Record Code-Explorer provenance for a settled loop run. Single chokepoint:
- * gated by the code-explorer flag, never throws (a provenance failure must
- * never break a rail settle). Returns the number of provenance rows written.
+ * gated by the code-explorer flag, never rejects (a provenance failure must
+ * never break a rail settle). The git capture is async and serialised per
+ * worktree (withWorktreeCapture); the DB write stays one synchronous
+ * transaction. Resolves to the number of provenance rows written.
  */
-export function recordLoopRunProvenance(input: LoopRunProvenanceInput, io: LoopRunProvenanceIO = {}): number {
+export async function recordLoopRunProvenance(
+  input: LoopRunProvenanceInput,
+  io: LoopRunProvenanceIO = {},
+  commit: ProvenanceCommit = (write) => write(),
+): Promise<number> {
   if (!isCodeExplorerEnabled()) return 0
   if (!input.snapshot) return 0
-  const diffFn = io.diff ?? diffAgainstSnapshot
-  const patchesFn = io.patches ?? collectDiffPatches
+  const snapshot = input.snapshot
   try {
-    const ref = input.snapshot.ref
-    const diff = diffFn(input.repoDir, ref, input.snapshot.untracked, input.snapshot.headSha)
+    let captured: CapturedProvenance
+    if (io.diff || io.patches) {
+      const diffFn = io.diff ?? diffAgainstSnapshot
+      const patchesFn = io.patches ?? collectDiffPatches
+      const diff = await diffFn(input.repoDir, snapshot.ref, snapshot.untracked, snapshot.headSha)
+      captured = { diff, patches: diff.length === 0 ? new Map() : await patchesFn(input.repoDir, snapshot.ref, diff, snapshot.headSha) }
+    } else {
+      captured = await captureProvenance(input.repoDir, snapshot)
+    }
+    const { diff, patches } = captured
     if (diff.length === 0) return 0
-    const patches = patchesFn(input.repoDir, ref, diff, input.snapshot.headSha)
     if (diff.length > LARGE_RUN_WARN_FILES) {
       console.warn(`[provenance.large_job] job=${input.runId} files=${diff.length}`)
     }
-    const rows = recordProvenanceForJob(
-      input.db,
-      input.projectId,
-      input.runId,
-      input.ticketId,
-      diff,
-      Date.now(),
-      patches,
-      input.repositoryId,
-    )
+    let rows: ReturnType<typeof recordProvenanceForJob> = []
+    commit(() => {
+      rows = recordProvenanceForJob(
+        input.db,
+        input.projectId,
+        input.runId,
+        input.ticketId,
+        diff,
+        Date.now(),
+        patches,
+        input.repositoryId,
+      )
+    })
     for (const row of rows) {
       try { broadcastProvenanceUpdated(input.broadcast, input.projectId, row) } catch { /* non-fatal */ }
     }

@@ -9,7 +9,7 @@ import { runBounded } from './util/bounded-exec'
 import { getBundledCoreVersion } from './bundled-core'
 import { getCoreRuntimeStatus, managedCoreRoot, readCoreRuntime, type CoreRuntimeSource } from './core-runtime'
 import { isSupportedCoreVersion, SUPPORTED_CORE_MAJORS } from './core-package'
-import { atomicWrite, withFileLock } from './artifact-registry'
+import { atomicWrite, withFileLockAsync } from './artifact-registry'
 import { DEFAULT_UPDATE_CHANNEL, isUpdateChannel, type UpdateChannel } from './update-channel'
 
 /** Voluntary Core updates retain the complete npm package and dependencies,
@@ -292,7 +292,10 @@ export class CoreUpdateManager {
       // state and the `current` swap — still happens atomically under the lock,
       // exactly as before, so no rail ever observes a half-swapped `current`.
       const mat = await fm.materializeAsync(installed, providers)
-      withFileLock(this.home, () => {
+      // The swap child is awaited under the async variant of the SAME registry
+      // lock: publication stays serialised, but the event loop is not frozen
+      // for the length of `swap-current`.
+      await withFileLockAsync(this.home, async () => {
         refuseDowngrade()
         if (!mat.ran) {
           throw new Error('framework materialize did not run (no usable core)')
@@ -316,7 +319,7 @@ export class CoreUpdateManager {
         this.pendingVersion = installed
         this.migrationError = null
         this.persistStatus(true)
-        const swapped = fm.swapCurrentDetailed(installed)
+        const swapped = await fm.swapCurrentDetailedAsync(installed)
         if (!swapped.ok) {
           throw new Error(`framework swap-current failed${swapped.detail ? `: ${swapped.detail}` : ''}`)
         }

@@ -433,6 +433,58 @@ describe('FrameworkManager', () => {
     })
   })
 
+  describe('swapCurrentDetailedAsync (non-blocking, same contract)', () => {
+    it('re-points current like the sync swap, and short-circuits when already current', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      expect(await fm.swapCurrentDetailedAsync('5.0.0')).toEqual({ ok: true, detail: null })
+      writeFileSync(path.join(coreDir, 'package.json'), JSON.stringify({ version: '5.1.0' }))
+      fm.materialize('5.1.0', ['claude'])
+      expect(await fm.swapCurrentDetailedAsync('5.1.0')).toEqual({ ok: true, detail: null })
+      expect(readCurrentFrameworkVersion(home)).toBe('5.1.0')
+      expect(await fm.swapCurrentDetailedAsync('5.1.0')).toEqual({ ok: true, detail: null })
+    })
+
+    it('carries the same failure detail and restores the previous framework', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      fm.swapCurrent('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), `
+        const fs = require('fs'), path = require('path');
+        const fw = process.argv[process.argv.indexOf('--framework-dir') + 1];
+        fs.rmSync(path.join(fw, 'current'), { recursive: true, force: true });
+        process.stderr.write('EPERM: publication denied'); process.exit(41);
+      `)
+      const result = await fm.swapCurrentDetailedAsync('5.1.0')
+      expect(result.ok).toBe(false)
+      expect(result.detail).toContain('EPERM: publication denied')
+      expect(result.detail).toContain('previous framework 5.0.0 restored')
+      expect(readCurrentFrameworkVersion(home)).toBe('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.exit(5)')
+      expect((await fm.swapCurrentDetailedAsync('9.9.9')).detail).toMatch(/^exit 5/)
+    })
+
+    it('keeps the event loop turning while the swap child runs', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), `
+        const end = Date.now() + 300; while (Date.now() < end) {}
+        process.exit(3)
+      `)
+      let ticks = 0
+      const ticker = setInterval(() => { ticks += 1 }, 10)
+      try {
+        expect(await fm.swapCurrentDetailedAsync('9.9.9')).toEqual({ ok: false, detail: 'exit 3' })
+      } finally {
+        clearInterval(ticker)
+      }
+      expect(ticks).toBeGreaterThan(5)
+    })
+  })
+
   describe('versionCheck when materialize fails', () => {
     it('keeps the active framework when materializing a provider retained from current fails', () => {
       installFakeCore('5.2.1')

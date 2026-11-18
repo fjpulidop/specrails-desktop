@@ -306,7 +306,7 @@ export async function materializeIsolatedWorktree(
   let provenanceSnapshot: WorkingTreeSnapshot | null = null
   if (isCodeExplorerEnabled()) {
     try {
-      provenanceSnapshot = (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
+      provenanceSnapshot = await (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
     } catch (err) {
       console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
     }

@@ -33,6 +33,10 @@ export interface BoundedExecResult {
   code: number | null
   signal: NodeJS.Signals | null
   timedOut: boolean
+  /** True when stdout exceeded `maxBuffer` and the excess was dropped. Callers
+   *  that must treat an overflow as a failure (like `execFileSync`'s ENOBUFS)
+   *  check this instead of parsing a partial stream. */
+  stdoutTruncated?: boolean
   /** Spawn failure (ENOENT, EACCES, …). */
   error?: Error
 }
@@ -64,6 +68,7 @@ export function runBounded(command: string, args: readonly string[], opts: Bound
     let stdout = ''
     let stderr = ''
     let timedOut = false
+    let stdoutTruncated = false
     let settled = false
     let killTimer: NodeJS.Timeout | null = null
     let forceSettleTimer: NodeJS.Timeout | null = null
@@ -73,7 +78,7 @@ export function runBounded(command: string, args: readonly string[], opts: Bound
       clearTimeout(timer)
       if (killTimer) clearTimeout(killTimer)
       if (forceSettleTimer) clearTimeout(forceSettleTimer)
-      resolve({ stdout, stderr, timedOut, ...result })
+      resolve({ stdout, stderr, timedOut, ...(stdoutTruncated ? { stdoutTruncated } : {}), ...result })
     }
     let child: ReturnType<typeof spawn>
     try {
@@ -105,7 +110,11 @@ export function runBounded(command: string, args: readonly string[], opts: Bound
     }, opts.timeoutMs)
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk: string) => { if (stdout.length < maxBuffer) stdout += chunk.slice(0, maxBuffer - stdout.length) })
+    child.stdout?.on('data', (chunk: string) => {
+      const room = maxBuffer - stdout.length
+      if (chunk.length > room) stdoutTruncated = true
+      if (room > 0) stdout += chunk.slice(0, room)
+    })
     child.stderr?.on('data', (chunk: string) => { if (stderr.length < maxBuffer) stderr += chunk.slice(0, maxBuffer - stderr.length) })
     child.on('error', (error) => finish({ code: null, signal: null, error }))
     child.on('close', (code, signal) => finish({ code, signal }))

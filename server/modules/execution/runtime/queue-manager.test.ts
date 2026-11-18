@@ -69,10 +69,18 @@ describe('QueueManager', () => {
   let qm: QueueManager
   let broadcast: ReturnType<typeof vi.fn>
   const savedInteractiveFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
+  const savedCodeExplorerFlag = process.env.SPECRAILS_CODE_EXPLORER
 
   beforeEach(() => {
     vi.resetAllMocks()
     __resetBinaryProbeCacheForTest()
+    // child_process is fully mocked here: every spawn returns the test's fake
+    // provider child. Code-Explorer provenance now runs async `git` children
+    // through that same spawn, so keep it off for this suite (it was inert
+    // before too: the mocked execSync returned nothing). Provenance around the
+    // queue lifecycle is covered against a real repo in
+    // server/queue-manager-provenance.test.ts.
+    process.env.SPECRAILS_CODE_EXPLORER = 'false'
     // Pin the legacy one-shot spawn path for this whole suite. Claude jobs are
     // interactive BY DEFAULT since the S1 flip; the kill-switch-off behaviour
     // pinned here must stay byte-identical (it is also what codex/gemini and
@@ -86,6 +94,8 @@ describe('QueueManager', () => {
   afterEach(() => {
     if (savedInteractiveFlag === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
     else process.env.SPECRAILS_INTERACTIVE_JOBS = savedInteractiveFlag
+    if (savedCodeExplorerFlag === undefined) delete process.env.SPECRAILS_CODE_EXPLORER
+    else process.env.SPECRAILS_CODE_EXPLORER = savedCodeExplorerFlag
     vi.restoreAllMocks()
   })
 
@@ -4612,6 +4622,7 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
   let broadcast: ReturnType<typeof vi.fn>
   const savedFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
   const savedPrFlag = process.env.SPECRAILS_RAIL_DELIVER_PR
+  const savedCodeExplorerFlag = process.env.SPECRAILS_CODE_EXPLORER
   const tick = () => new Promise((r) => setImmediate(r))
 
   beforeEach(() => {
@@ -4621,6 +4632,9 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     nextInteractivePid = 776
     delete process.env.SPECRAILS_INTERACTIVE_JOBS // default ON
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
+    // Fully mocked spawn: keep async provenance git children out of it (see the
+    // QueueManager suite above; covered in queue-manager-provenance.test.ts).
+    process.env.SPECRAILS_CODE_EXPLORER = 'false'
     broadcast = vi.fn()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
     vi.mocked(treeKill).mockImplementation((pid, signal, callback) => {
@@ -4638,6 +4652,8 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     else process.env.SPECRAILS_INTERACTIVE_JOBS = savedFlag
     if (savedPrFlag === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
     else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPrFlag
+    if (savedCodeExplorerFlag === undefined) delete process.env.SPECRAILS_CODE_EXPLORER
+    else process.env.SPECRAILS_CODE_EXPLORER = savedCodeExplorerFlag
     vi.restoreAllMocks()
   })
 

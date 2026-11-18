@@ -14,8 +14,10 @@ import { checkCoreCompletion, prepareCoreExecution } from '../../../core-executi
 import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
+import { lstat, readFile, readlink } from 'node:fs/promises'
+import { runBounded } from '../../../util/bounded-exec'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
@@ -360,15 +362,24 @@ export function createLoopExecutors(
     // alone stay identical while a fixer keeps improving the same files.
     // Two identical fingerprints
     // across consecutive Decider 'continue' verdicts ⇒ the loop changed nothing
-    // ⇒ abort `stalled`. Synchronous + best-effort: any git failure (no repo,
-    // detached, etc.) returns null so the guard simply stays off. Never throws.
-    repoStateHash(dir: string): string | null {
+    // ⇒ abort `stalled`. Async bounded git children (the sync version stalled
+    // the event loop for the whole capture on large trees) + best-effort: any
+    // git failure (no repo, detached, timeout, output over the buffer cap)
+    // resolves null so the guard simply stays off. Never rejects.
+    async repoStateHash(dir: string): Promise<string | null> {
       try {
-        const opt = { cwd: dir, encoding: 'utf-8' as const, timeout: 5_000, stdio: ['ignore', 'pipe', 'ignore'] as ('ignore' | 'pipe')[] }
-        const head = execFileSync('git', ['rev-parse', 'HEAD'], opt).trim()
+        // Same limits as the former execFileSync calls: 5 s each, the 1 MiB
+        // default buffer, 16 MiB for the binary diffs; an overflow fails the
+        // sample exactly like ENOBUFS did.
+        const git = async (args: string[], maxBuffer = 1024 * 1024): Promise<string> => {
+          const res = await runBounded('git', args, { cwd: dir, timeoutMs: 5_000, maxBuffer })
+          if (res.error || res.timedOut || res.code !== 0 || res.stdoutTruncated) throw new Error(`git ${args[0]} failed`)
+          return res.stdout
+        }
+        const head = (await git(['rev-parse', 'HEAD'])).trim()
         // `-z` NUL-delimited + include untracked so a brand-new file counts as
         // a change; stable ordering makes the hash deterministic per tree state.
-        const porcelain = execFileSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], opt)
+        const porcelain = await git(['status', '--porcelain', '-z', '--untracked-files=all'])
         const hash = createHash('sha256').update(head).update('\0').update(porcelain)
         // Separate index/worktree diffs preserve staged-only changes and staged
         // content subsequently edited back to HEAD. Binary patches include
@@ -376,16 +387,16 @@ export function createLoopExecutors(
         for (const args of [
           ['diff', '--no-ext-diff', '--no-textconv', '--binary', '--'],
           ['diff', '--cached', '--no-ext-diff', '--no-textconv', '--binary', '--'],
-        ]) hash.update('\0').update(execFileSync('git', args, { ...opt, maxBuffer: 16 * 1024 * 1024 }))
-        const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], opt)
+        ]) hash.update('\0').update(await git(args, 16 * 1024 * 1024))
+        const untracked = await git(['ls-files', '--others', '--exclude-standard', '-z'])
         for (const relative of untracked.split('\0').filter(Boolean).sort()) {
           const file = resolve(dir, relative)
-          const stat = lstatSync(file)
+          const stat = await lstat(file)
           hash.update('\0').update(relative).update('\0').update(String(stat.mode))
           // Never follow a symlink outside the worktree. If an unreadable file
           // or a racing delete defeats the snapshot, disable this sample.
-          if (stat.isSymbolicLink()) hash.update(readlinkSync(file))
-          else if (stat.isFile()) hash.update(readFileSync(file))
+          if (stat.isSymbolicLink()) hash.update(await readlink(file))
+          else if (stat.isFile()) hash.update(await readFile(file))
         }
         return hash.digest('hex')
       } catch {

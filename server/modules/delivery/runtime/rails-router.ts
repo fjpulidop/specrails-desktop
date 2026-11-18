@@ -1437,6 +1437,20 @@ export function createRailsRouter(): Router {
         const loopRunIds: string[] = []
         const loopTicketCompletionStatus = isRailPrDeliveryEnabled() ? 'on_review' as const : 'done' as const
         const addendaStorePath = ticketStorePathForProject(c.project)
+        // Code-Explorer provenance for shared-cwd loop runs (isolated runs
+        // record inside rail-isolated-launch): snapshot the REPO once, before
+        // any run of this launch starts (every run shares the same pre-launch
+        // tree), then diff + record at each run's settle. The snapshot is an
+        // async git capture awaited here — never on the event loop — and still
+        // completes before the first engine step can write. Best-effort; diffs
+        // the repo (never the workspace) exactly like QueueManager.
+        const provenanceRepoDir = loopExec.relocated && loopExec.repoDir ? loopExec.repoDir : loopExec.cwd
+        let launchProvenanceSnapshot: WorkingTreeSnapshot | null = null
+        if (isCodeExplorerEnabled()) {
+          try { launchProvenanceSnapshot = await snapshotWorkingTree(provenanceRepoDir) } catch (err) {
+            console.warn(`[rails-router] provenance snapshot failed: ${(err as Error).message}`)
+          }
+        }
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
           c.railLoopRuns.set(runId, { railIndex, ticketIds, requiresTerminalIntent: true, ...(originConversationId ? { originConversationId } : {}) })
           // Spec addenda (spec-addenda): claim the specs' open addenda for this
@@ -1459,23 +1473,14 @@ export function createRailsRouter(): Router {
               })
             })().catch((err) => console.error('[rails-router] mission card settle failed:', err))
           }
-          // Code-Explorer provenance for shared-cwd loop runs (isolated runs
-          // record inside rail-isolated-launch): snapshot the REPO before the
-          // run, diff + record at settle. Loop runs settle outside QueueManager,
-          // so without this they leave no file_provenance at all. Best-effort;
-          // diffs the repo (never the workspace) exactly like QueueManager.
-          const provenanceRepoDir = loopExec.relocated && loopExec.repoDir ? loopExec.repoDir : loopExec.cwd
-          let provenanceSnapshot: WorkingTreeSnapshot | null = null
-          if (isCodeExplorerEnabled()) {
-            try { provenanceSnapshot = snapshotWorkingTree(provenanceRepoDir) } catch (err) {
-              console.warn(`[rails-router] provenance snapshot failed: ${(err as Error).message}`)
-            }
-          }
+          // Loop runs settle outside QueueManager, so without this they leave
+          // no file_provenance at all. Recorded BEFORE onLoopRunFinished.
+          const provenanceSnapshot = launchProvenanceSnapshot
           let provenanceRecorded = false
-          const recordRunProvenance = (): void => {
+          const recordRunProvenance = async (): Promise<void> => {
             if (provenanceRecorded) return
             provenanceRecorded = true
-            recordLoopRunProvenance({
+            await recordLoopRunProvenance({
               db: c.db,
               projectId: c.project.id,
               runId,
@@ -1520,15 +1525,15 @@ export function createRailsRouter(): Router {
               ...(runCapUsd !== undefined ? { runCapUsd } : {}),
               ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
             })
-            .then((r) => {
-              recordRunProvenance()
+            .then(async (r) => {
+              await recordRunProvenance()
               c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined)
               settleMissionCard(r.outcome, r.stallReason ?? null)
               return r.outcome === 'success'
             })
-            .catch((err) => {
+            .catch(async (err) => {
               console.error('[rails-router] loop run failed:', err)
-              recordRunProvenance()
+              await recordRunProvenance()
               c.onLoopRunFinished(runId, 'failed')
               settleMissionCard('failed', null, err instanceof Error ? err.message : String(err))
               return false

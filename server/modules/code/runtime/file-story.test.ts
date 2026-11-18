@@ -102,11 +102,11 @@ describe('recordLoopRunProvenance', () => {
     broadcast: vi.fn(),
   })
 
-  it('records provenance rows + contributions and broadcasts per row', () => {
+  it('records provenance rows + contributions and broadcasts per row', async () => {
     const input = baseInput()
     const diff = vi.fn(() => [{ path: 'src/app.ts', status: 'M' as const }])
     const patches = vi.fn(() => new Map([['src/app.ts', { patch: SAMPLE_PATCH, truncated: false }]]))
-    const n = recordLoopRunProvenance(input, { diff, patches })
+    const n = await recordLoopRunProvenance(input, { diff, patches })
     expect(n).toBe(1)
     expect(diff).toHaveBeenCalledWith('/tmp/nowhere', '', [], 'abc123')
 
@@ -127,26 +127,45 @@ describe('recordLoopRunProvenance', () => {
     expect(msg.jobId).toBe('run-1')
   })
 
-  it('is a no-op when the code explorer is disabled', () => {
+  it('is a no-op when the code explorer is disabled', async () => {
     process.env.SPECRAILS_CODE_EXPLORER = 'false'
     const diff = vi.fn()
-    const n = recordLoopRunProvenance(baseInput(), { diff: diff as never })
+    const n = await recordLoopRunProvenance(baseInput(), { diff: diff as never })
     expect(n).toBe(0)
     expect(diff).not.toHaveBeenCalled()
   })
 
-  it('is a no-op without a snapshot', () => {
+  it('is a no-op without a snapshot', async () => {
     const diff = vi.fn()
-    const n = recordLoopRunProvenance({ ...baseInput(), snapshot: null }, { diff: diff as never })
+    const n = await recordLoopRunProvenance({ ...baseInput(), snapshot: null }, { diff: diff as never })
     expect(n).toBe(0)
     expect(diff).not.toHaveBeenCalled()
   })
 
-  it('returns 0 for an empty diff and never throws on a diff failure', () => {
-    expect(recordLoopRunProvenance(baseInput(), { diff: () => [] })).toBe(0)
-    expect(recordLoopRunProvenance(baseInput(), {
+  it('returns 0 for an empty diff and never throws on a diff failure', async () => {
+    expect(await recordLoopRunProvenance(baseInput(), { diff: () => [] })).toBe(0)
+    expect(await recordLoopRunProvenance(baseInput(), {
       diff: () => { throw new Error('boom') },
     })).toBe(0)
+    expect(await recordLoopRunProvenance(baseInput(), {
+      diff: async () => { throw new Error('async boom') },
+    })).toBe(0)
+  })
+
+  it('accepts async capture functions and routes the row write through the commit hook', async () => {
+    const commits: string[] = []
+    const n = await recordLoopRunProvenance(baseInput(), {
+      diff: async () => [{ path: 'src/app.ts', status: 'M' as const }],
+      patches: async () => new Map([['src/app.ts', { patch: SAMPLE_PATCH, truncated: false }]]),
+    }, (write) => { commits.push('before'); write(); commits.push('after') })
+    expect(n).toBe(1)
+    expect(commits).toEqual(['before', 'after'])
+  })
+
+  it('does not call the commit hook when nothing changed', async () => {
+    const commit = vi.fn()
+    expect(await recordLoopRunProvenance(baseInput(), { diff: async () => [] }, commit)).toBe(0)
+    expect(commit).not.toHaveBeenCalled()
   })
 })
 

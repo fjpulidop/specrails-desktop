@@ -38,7 +38,12 @@ eligible; an unpublished staging directory is not an installation candidate.
 
 Updates verify the downloaded version, retain the package, materialize every
 requested provider without swapping, and persist recovery state before moving
-`framework/current`. Incomplete retained packages are moved to a retained
+`framework/current`. The publication step (downgrade re-check, recovery state,
+`swap-current`) runs under the async variant of the registry lock
+(`withFileLockAsync`: same lock file, token, TTL and heartbeat, timer-based
+waiting), so the server keeps serving while the swap child runs. The startup
+`versionCheck` and workspace `assemble` still use the synchronous lock and child;
+see the Core update notes in `server/framework-manager.ts`. Incomplete retained packages are moved to a retained
 `.previous-<version>-*` directory before their verified replacement is published.
 Previous framework versions are retained. Windows repair reads the activated
 version instead of choosing the highest directory, which could be an unfinished
