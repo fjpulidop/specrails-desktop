@@ -11,7 +11,47 @@ one. `domain/app-urls.ts` extracts the `local` and `network` (private LAN/VPN)
 addresses a process prints; `runtime/app-urls.ts` attaches them as `appUrls` to
 running processes on read (REST, mission MCP tools, WS events). The operator
 prompt asks the user before launching a dev server exposed on the local network
-(the framework's own host flag); nothing here binds or proxies ports.
+(the framework's own host flag); nothing here binds or proxies ports. When a
+process announces a new address, the port scan below is invalidated so the next
+Resources read sees it.
+
+## Run worktree ports
+
+Rails launched together each start their own dev or e2e server; without a port of
+their own they all reach for `:3000` and the loser's checks failed with
+`EADDRINUSE`, read as "tests failed".
+
+- **Assignment.** `domain/run-ports.ts` (pure) defines the reserved area (default
+  30100–32099, 200 blocks of 10; `SPECRAILS_RUN_PORT_BASE`, `_BLOCK_SIZE`, `_BLOCKS`),
+  the hashed home block per worktree and the env: `PORT` (only when unset: a
+  pinned port is kept), `SPECRAILS_RUN_PORT`, `SPECRAILS_RUN_PORT_RANGE_START/END`.
+  `runtime/run-port-leases.ts` holds one machine-wide lease table (one server hosts
+  every project), persisted to `<home>/.specrails/run-ports.json` (0600) so resumes
+  keep their ports, and garbage-collected when a worktree directory is gone. Only
+  paths under `<home>/.specrails/projects/<slug>/worktrees/` lease. `ensure()` runs
+  before a run's first spawn (loop executors: definitions, AI steps, shell steps) and
+  skips blocks where something already listens; synchronous env builders then read
+  the lease in O(1). Consumers: `loops/runtime/loop-executors.ts` (AI/programmatic/shell
+  steps and frozen-host resumes), `delivery/runtime/definition-fork.ts`, the queue's
+  provider spawn env and `transient-children.ts` (background processes; POSIX).
+- **Attribution.** `runtime/listening-ports.ts` reads listeners off the event loop and
+  only on demand: macOS one `lsof -b -w -nP -iTCP -sTCP:LISTEN -F pcn` plus one
+  `lsof -a -d cwd -p <pids>`; Linux `/proc/net/tcp{,6}` LISTEN rows, inode → pid via
+  `/proc/<pid>/fd`, then `cwd` and `comm`; Windows unsupported. Scans are shared (3 s
+  TTL, one in flight) and invalidated by an announced URL. `attributeListeners` maps
+  each listener to a leased worktree: `cwd` when the process works inside it,
+  `command` when it or an ancestor (process table) names it, else `none`; a foreign
+  listener inside a leased block is `squatting`. `GET /api/resources/ports`
+  (`server/app-resources-router.ts`) labels them with the rail ledger row.
+- **Diagnosis.** `detectPortConflict` recognises `EADDRINUSE`, "address already in
+  use" and "Port N is in use". The loop's log sink records the latest one with its
+  step (agent conversation events are ignored: the agent's own exploration is not the
+  run's checks), and recovery classifies a run that failed in that step as
+  `port_in_use`.
+
+Tests: `domain/run-ports.test.ts`, `runtime/run-port-leases.test.ts` (real listener
+skips a busy block), `runtime/listening-ports.integration.test.ts` (a real server in
+a temp cwd attributed by `cwd`), `server/app-resources-router.ports.test.ts`.
 
 ## Intent apps
 

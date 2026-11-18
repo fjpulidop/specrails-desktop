@@ -46,3 +46,19 @@ The upshot for you: you can add a project, run pipelines, explore specs, and try
 ## Removing a project
 
 When you remove a project from Specrails, the app cleans up its own per-project state under `~/.specrails/`. The specs already committed to your repo stay where they belong — in your repo — because they're yours.
+
+## Run worktrees kept on disk {#retained-worktrees}
+
+Each rail run works in its own Git worktree under `~/.specrails/projects/<project>/worktrees/`. When a run settles, Specrails removes that worktree — but only when it can prove nothing would be lost. When it can't (uncommitted changes, files that exist only there, or a removal that failed), it keeps the worktree. Over time these add up.
+
+**Settings ▸ Storage** lists them for every project. You can also get there from the status bar's **Resources** popover. Each worktree shows its size (measured in the background), how long it has been idle, its PR, and what removing it would lose:
+
+- **Nothing to lose**: no uncommitted changes, and every ignored file is regenerable (`node_modules`), a link, or identical to the same file in your main checkout (a copied `.env`, for example). Every commit on its branch is on a remote or on another branch, or its delivery was merged.
+- **Waiting for you**: something still needs you. Each reason is listed: uncommitted changes, ignored files that exist only here, commits only on this branch, a delivery that still waits for your decision, recent activity (the last hour), or Git couldn't check it. When Git can't check a worktree, it is never treated as clean.
+
+Select worktrees and choose **Remove**. The confirmation says how much disk you get back and what happens to branches:
+
+- Branches are **kept** by default, so their commits stay available.
+- With **Also delete branches that hold nothing new**, a branch is deleted only when it has nothing to lose, and only if it still points at the commit Specrails checked.
+
+Worktrees with uncommitted changes or files that exist only there can't be selected. Commit, copy or discard that work first. A worktree that belongs to an Intent session is listed but handled from its session. Right before removal, each worktree is checked again: if anything changed after you confirmed, it is kept and the result says why. Processes left running in a removed worktree (a dev server, for example) are stopped.

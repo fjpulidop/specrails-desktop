@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { prepareRunCheckouts, releaseRunCheckouts } from '../lib/worktree-preparation'
 
 interface Props {
   open: boolean
@@ -57,6 +58,17 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
   const quotaWarnings = (preflight.report?.chips ?? []).flatMap((chip) => chip.kind === 'quota' && chip.state === 'warn' ? [chip] : [])
   const quotas = useProviderQuotas()
 
+  // Populate up to three run worktrees while the person reads the dialog;
+  // dismissing it drops them (a confirmed launch adopts them instead).
+  useEffect(() => {
+    if (!open || railCount === 0) return
+    void prepareRunCheckouts(Math.min(railCount, 3))
+  }, [open, railCount])
+  const cancel = () => {
+    void releaseRunCheckouts()
+    onCancel()
+  }
+
   // ⌘/Ctrl + Enter confirms while the dialog is open.
   useEffect(() => {
     if (!open || railCount === 0 || blocked) return
@@ -71,7 +83,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
   }, [open, onConfirm, railCount, blocked])
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) cancel() }}>
       <DialogContent
         size="confirm"
         showCloseButton={false}
@@ -153,7 +165,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="ghost" onClick={cancel}>
             {t('common:actions.cancel')}
           </Button>
           <Button

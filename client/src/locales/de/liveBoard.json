@@ -78,7 +78,13 @@
     "question": "Frage",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten"
+    "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten",
+    "mergeConflicts_one": "Konflikt mit der Basis in {{count}} Datei",
+    "mergeConflicts_other": "Konflikt mit der Basis in {{count}} Dateien",
+    "mergeSiblings_one": "Kollidiert mit {{count}} anderen Run",
+    "mergeSiblings_other": "Kollidiert mit {{count}} anderen Runs",
+    "baseMoved_one": "Basis ist {{count}} Commit weiter",
+    "baseMoved_other": "Basis ist {{count}} Commits weiter"
   },
   "empty": {
     "title": "Nichts läuft",

@@ -1,6 +1,7 @@
 import os from 'node:os'
 import { getBackgroundProcessLogs, type BackgroundProcess, type BackgroundProcessLogSnapshot } from '../../../transient-children'
 import { appUrlsFromLines, isPrivateIPv4, type AppUrls } from '../domain/app-urls'
+import { noteAdvertisedUrl } from './listening-ports'
 
 /** Statuses whose announced URLs are still served. */
 const LIVE_STATUSES = new Set<BackgroundProcess['status']>(['starting', 'running'])
@@ -11,6 +12,8 @@ const MAX_MEMO_ENTRIES = 256
 export interface AppUrlDeps {
   logs(process: BackgroundProcess): BackgroundProcessLogSnapshot | null
   lanAddresses(): string[]
+  /** A process announced a new address (the port scan rescans on its next read). */
+  onAdvertised?(): void
 }
 
 /** This machine's private IPv4 addresses (Wi-Fi/Ethernet and VPNs such as Tailscale). */
@@ -27,6 +30,7 @@ export function lanIPv4Addresses(): string[] {
 const defaultDeps: AppUrlDeps = {
   logs: (process) => getBackgroundProcessLogs(process.pid, { projectId: process.projectId, processId: process.processId, limit: SCAN_LIMIT }),
   lanAddresses: lanIPv4Addresses,
+  onAdvertised: noteAdvertisedUrl,
 }
 
 /**
@@ -54,8 +58,13 @@ export function createAppUrlResolver(deps: AppUrlDeps = defaultDeps): (process: 
     if (entry?.key !== key) {
       // Keyed by unique execution id; bound it for processes never read again after exiting.
       if (!entry && memo.size >= MAX_MEMO_ENTRIES) memo.clear()
+      const previous = entry?.urls
       entry = { key, urls: appUrlsFromLines(snapshot.lines.map((line) => line.line), lan) }
       memo.set(process.processId, entry)
+      const announced = [...entry.urls.local, ...entry.urls.network]
+      if (announced.some((url) => !previous || (!previous.local.includes(url) && !previous.network.includes(url)))) {
+        try { deps.onAdvertised?.() } catch { /* observing only */ }
+      }
     }
     const { local, network } = entry.urls
     return local.length || network.length ? { ...process, appUrls: { local: [...local], network: [...network] } } : process

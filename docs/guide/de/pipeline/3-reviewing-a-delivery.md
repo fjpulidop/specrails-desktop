@@ -22,6 +22,17 @@ Wähle Zeilen per Klick auf ihre Nummern (Umschalt-Klick erweitert den Bereich),
 
 **Im Editor öffnen** öffnet die Datei an der ausgewählten Zeile in VS Code, Cursor oder einer JetBrains-IDE. Den Editor wählst du unter **Einstellungen → Code → Editor**. Die Datei öffnet sich aus deinem eigenen Checkout des Projekts, in dem der Review-Branch möglicherweise nicht ausgecheckt ist.
 
+## Konflikte sehen, bevor du mergst {#merge-preview}
+
+Jede Lieferung, die auf dich wartet, wird mit ihrem Basis-Branch **im aktuellen Stand** (dem zuletzt geholten `origin/<base>`) verglichen, ohne deinen Checkout anzufassen: Git führt beide im Speicher zusammen, und in dein Repository wird nichts geschrieben. Rail-Karte, Review-Paket und Live-Board zeigen dann:
+
+- **Konflikt mit main in …**: die Änderung lässt sich nicht mehr sauber mergen; die Dateien werden aufgelistet. Sie erscheint im Warnaussehen.
+- **Kollidiert mit Rail N in …**: eine andere wartende Lieferung auf derselben Basis ändert dieselben Zeilen, daher hat die zweite beim Mergen Konflikte.
+- **main ist seit dem Abzweigen dieses Branches um N Commits weitergegangen**: die Basis ist vorangekommen; aktualisiere den Branch eventuell, bevor du entscheidest.
+- **Bereits in main**: die Änderung ist schon gelandet (etwa nach einem Squash-Merge).
+
+Die Vorschau aktualisiert sich, wenn eine Lieferung ihren Zustand ändert oder ein Run endet. Wenn Specrails mehrere Ergebnisse selbst zurückmergt, mergt es zuerst die, die sauber passen. Benötigt wird Git 2.38 oder neuer; mit älterem Git meldet die Vorschau, dass sie nicht verfügbar ist.
+
 ## Entscheiden, was mit einer Lieferung geschieht {#pr-decision}
 
 Ein abgeschlossener Lauf fragt dich nur eines: Was soll mit dem Ergebnis passieren? Die Karte zeigt eine Hauptschaltfläche für den nächsten Schritt (PR erstellen, veröffentlichen oder prüfen) und daneben **Prüfen**, das das verständliche Review-Paket öffnet. Alles andere liegt hinter **Weitere Aktionen**:

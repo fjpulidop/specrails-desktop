@@ -284,7 +284,8 @@
       "prDecision": "交付选项",
       "attention": "通知",
       "liveBoard": "实时看板",
-      "serverRecovery": "如果本地服务器停止运行"
+      "serverRecovery": "如果本地服务器停止运行",
+      "retainedWorktrees": "磁盘上保留的运行工作树"
     }
   },
   "forecast": {

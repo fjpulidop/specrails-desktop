@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { gitInvocationEnv } from '../../../util/git-invocation'
 
 /** A verification command Desktop can propose for a repository without any model call. */
 export interface VerificationSuggestion {
@@ -126,7 +127,7 @@ const defaultProbe: PythonEnvironmentProbe = {
     return null
   },
   ignored(root, relative) {
-    const result = spawnSync('git', ['check-ignore', '-q', '--', relative], { cwd: root, timeout: 5000, windowsHide: true, stdio: 'ignore' })
+    const result = spawnSync('git', ['check-ignore', '-q', '--', relative], { cwd: root, env: gitInvocationEnv(undefined, ['check-ignore']), timeout: 5000, windowsHide: true, stdio: 'ignore' })
     return result.status === 0
   },
 }

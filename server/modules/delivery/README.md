@@ -84,6 +84,63 @@ finding anchors come from Core contract 5.9 (`readFindingLocations` in
 [`runtime/delivery-changes.test.ts`](runtime/delivery-changes.test.ts). See the
 [review packet guide](../../../docs/internals/review-packet.md#changes-tab-in-app-diff-review).
 
+## Merge preview
+
+[`domain/merge-preview.ts`](domain/merge-preview.ts) is the pure vocabulary (status,
+summary, worst-of aggregation, merge-back comparator);
+[`runtime/merge-preview-git.ts`](runtime/merge-preview-git.ts) runs
+`git merge-tree --write-tree --name-only -z --no-messages` (Git ≥ 2.38, probed once;
+older Git reports `unknown` / `supported: false`) with `GIT_OBJECT_DIRECTORY` set to a
+temp dir and the repository's objects as an alternate, so a preview writes no object
+into the person's repository and the temp dir is deleted afterwards. No index, working
+tree, ref or lock is touched and nothing is fetched (the base is `origin/<base>` as last
+fetched, else `<base>`). A clean result whose tree equals the base tree is
+`already_merged` (squash and rebase merges included). Pair results are cached by
+(repository, base sha, head sha) — failures are not cached — and at most three Git
+children run at once.
+
+[`runtime/merge-preview.ts`](runtime/merge-preview.ts) previews every active delivery
+(`building`, `on_review`, `pr_draft`, `pr_ready`, `pr_failed`; primary-repository
+branches; a multi-repository group is not previewed): each branch against the base,
+`rev-list --count head..base` for the base lead, and every pair of pending deliveries
+on the same base against each other (siblings — any pending delivery on that base, not
+only one Launch all batch). The last summary per delivery is kept for read-only
+surfaces: the live board attaches it to delivery cards and asks for a throttled (10 s)
+background refresh that broadcasts `rail.merge_preview` when a summary changed. Route:
+`GET /rails/merge-preview[?deliveryId=]` ([rails-merge-preview-http.ts](runtime/rails-merge-preview-http.ts)).
+Clients refetch it on `rail.pr_state`, `rail.job_completed`, `rail.job_stopped` and
+`rail.merge_preview`.
+
+The legacy merge-back ([rail-merge-orchestrator.ts](runtime/rail-merge-orchestrator.ts)
+`withMergePreview`) previews the succeeded branches under the repository lock and
+[merge-manager](runtime/merge-manager.ts) `orderBranches` merges clean candidates first,
+unknown next, conflicting last (fewest conflicted paths first), then fewest sibling
+conflicts, then the touch-list overlap and ticket id as before.
+Tests: [`runtime/merge-preview.test.ts`](runtime/merge-preview.test.ts) (real Git).
+
+## Faster run worktrees
+
+- `createWorktree` adds `-c checkout.workers=4` unless the person configured
+  `checkout.workers` (any scope). Measured on a 5,245-file repository: 2.2–2.5 s → 1.0–1.2 s.
+- [`runtime/worktree-preparation-pool.ts`](runtime/worktree-preparation-pool.ts) keeps
+  prepared run checkouts: detached linked worktrees under
+  `<worktreesRoot>/.prepared/<id>` created with `worktree add --no-checkout` and
+  populated with `reset --hard` (neither runs hooks). The Launch all dialog asks for up
+  to three (`POST /rails/worktree-preparation`, released on dismiss), and a fresh launch
+  with none prepared starts one before awaiting its fetch, so file writes overlap the
+  network. A fresh unit adopts one (`claimPrepared`): reset to the exact base (only the
+  delta is written), `worktree move` to the run path, then
+  `git checkout --no-track -b <branch>`, which runs the `post-checkout` hook exactly once
+  as `worktree add` would (its previous-HEAD argument is the base sha instead of the null
+  sha). Any failure falls back to a plain `worktree add`; continuations, revisions and
+  Intent adoptions never use it. Unclaimed checkouts expire after 5 minutes, and a new
+  process sweeps `.prepared` leftovers the first time it touches the repository.
+  Injected Git doubles disable it (`IsolatedWorktreeIO.preparation`); kill switch
+  `SPECRAILS_WORKTREE_PREPARATION=false`.
+- Overlay copies use [`util/clone-copy.ts`](../../util/clone-copy.ts): Node's
+  `COPYFILE_FICLONE` does not clone on macOS, so large files and directories are cloned
+  with `cp -c` (APFS clonefile), falling back to a normal copy.
+
 ## PR CI loop
 
 `runtime/pr-ci/` holds the host adapters of `factory:pr-ci`: `pr-ci-handlers.ts` (`pr.update-base`, `pr.sync`, `pr.checks`, `pr.rerun-failed`: merge never rebase, push never forced, only a verified candidate, bounded and redacted CI evidence), `pr-ci-target.ts` (PR identity from the frozen isolated-settlement snapshot), `pr-ci-offer.ts` / `pr-ci-projection.ts` (the optional `pr-ci-offer` mission row). `domain/decision-policy.ts` owns `ciFixAllowed`. Routes: `POST /rails/:railIndex/pr-ci`, `POST /rails/pr-ci-offer/dismiss`, `GET /rails/pr-ci-availability`. See [safe PR flow](../../../docs/internals/safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
@@ -94,6 +151,18 @@ A mission can offer the same card for any open same-repository PR of a project r
 
 **Fork PRs are rejected.** Specrails pushes with the project repository's own rights; a fork head is not writable by that mechanism, so the request is refused before any work starts (same rule as `explicit-pr-target`).
 
+## Retained run worktrees (Settings ▸ Storage)
+
+[`domain/retained-worktrees.ts`](domain/retained-worktrees.ts) is the pure "Nothing to lose / Waiting for you" decision.
+[`runtime/retained-worktrees.ts`](runtime/retained-worktrees.ts) lists one project's retained mounts, gathers their Git evidence, lazily measures disk use, and removes confirmed ones. Removal always goes through `releaseRailWorktrees`, never a second removal path; it uses the cleanup-only opt-ins `acceptIgnoredBaseCopies` and `reclaimTerminalMounts`, and branches are deleted with compare-and-delete `update-ref -d`.
+[`adapters/retained-worktrees-http.ts`](adapters/retained-worktrees-http.ts) serves `/api/worktrees/retained*` across projects, and [desktop-router.ts](../../desktop-router.ts) registers it.
+
+Real-Git tests:
+- [`runtime/retained-worktrees.test.ts`](runtime/retained-worktrees.test.ts): dirty, unique commits, pushed, an identical vs a different `.env`, a moved HEAD, a branch raced between the check and the deletion, and terminal-row reclaim.
+- [`adapters/retained-worktrees-http.test.ts`](adapters/retained-worktrees-http.test.ts).
+
+See the [safe PR guide](../../../docs/internals/safe-pr-review-flow.md#retained-run-worktrees).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
@@ -103,6 +172,7 @@ A mission can offer the same card for any open same-repository PR of a project r
 - [runtime/flow-worktree-return.ts](runtime/flow-worktree-return.ts)
 - [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
 - [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
+- [runtime/merge-preview.ts](runtime/merge-preview.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
 - [runtime/multi-repo-execution.ts](runtime/multi-repo-execution.ts)
 - [runtime/pr-merge-watch.ts](runtime/pr-merge-watch.ts)
@@ -130,6 +200,8 @@ routes:
 | [`rails-settings-http.ts`](runtime/rails-settings-http.ts) | tickets/mode, profile, engine and name of a rail |
 | [`rails-launch-http.ts`](runtime/rails-launch-http.ts) | launch/relaunch admission door, PR CI start on a rail, stop |
 | [`rails-pr-ci-http.ts`](runtime/rails-pr-ci-http.ts) | PR CI status/availability, mission-origin admissions, offer dismiss |
+| [`rails-merge-preview-http.ts`](runtime/rails-merge-preview-http.ts) | merge preview of pending deliveries |
+| [`rails-preparation-http.ts`](runtime/rails-preparation-http.ts) | prepared run checkouts for Launch all (prepare / release) |
 | [`rails-review-http.ts`](runtime/rails-review-http.ts) | review packet, Changes tab, PR decision, local-changes actions, PR checkout |
 | [`rails-http-shared.ts`](runtime/rails-http-shared.ts) | request context, mode normalization, rail/PR broadcasts, `:railIndex` guard |
 | [`rail-delivery-revision.ts`](runtime/rail-delivery-revision.ts) | pure delivery-snapshot predicates (continuation, revision, checkout target) |

@@ -53,6 +53,7 @@ import {
 } from '../domain'
 import type { Clock, IntentDiffFile, IntentLaunchOptions, IntentEffectsStore, IntentPorts, IntentProcesses, IntentProviderBilling, IntentProviderCost, IntentPublication, IntentRepository, IntentSpecBlocker, IntentTickets, WorktreeReservation } from '../ports'
 import type { IntentService } from '../application'
+import { clipOnLineBoundary } from '../../../util/diff-prompt-budget'
 
 /** What Intent needs from the mission agent host (implemented by AgentChatManager). */
 export interface IntentAgentHost {
@@ -985,7 +986,8 @@ export async function readDerivedChange(git: GitRunner, repo: string, input: { r
     changeName: chosen?.[1].name ?? input.changeName,
     proposal: await show(chosen?.[1].files.get('proposal')),
     design: await show(chosen?.[1].files.get('design')),
-    diffstat: stat.code === 0 ? stat.stdout.slice(0, 8000) : null,
+    // Whole lines only: a stat cut mid-line misnames a file.
+    diffstat: stat.code === 0 ? clipOnLineBoundary(stat.stdout, 8000) : null,
   }
 }
 

@@ -115,6 +115,7 @@ Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
 - **Limite do fornecedor** — foi atingido o limite de utilização do fornecedor de IA. O cartão diz quando é reposto, na tua hora local quando o fornecedor indicou a hora exata, senão nas palavras do fornecedor. Uma execução ainda em pausa no limite mostra o seu próprio cartão: quando retoma sozinha, **Retomar agora** e **Continuar agora com** outro fornecedor. Vê [Limites de utilização](1-rails-and-jobs.md#usage-limits).
 - **Ambiente**: a máquina não consegue executar as verificações (credenciais, uma ferramenta ausente, um comando de preparação que falha). *Corrigir o ambiente* mostra exatamente o que executar ou mudar.
+- **Porta em uso**: a verificação ou o servidor da própria execução não pôde iniciar porque outro processo já ocupava sua porta (`EADDRINUSE`). Não conta como testes falhos. Cada worktree de execução recebe portas próprias por `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; um projeto que lê `PORT` nunca colide. Pare o outro processo, ou faça o projeto ler `PORT`, e depois **Executar novamente**.
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
 - **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.
 

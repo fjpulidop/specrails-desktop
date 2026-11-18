@@ -1,10 +1,14 @@
 import { useState, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
+import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
 import { HoverPopover } from '../../../components/ui/hover-popover'
 import { cn } from '../../../lib/utils'
+import { openAppSettings } from '../../../lib/app-settings-events'
 import { formatBytes } from '../lib/format-bytes'
 import { useAppResources } from '../hooks/useAppResources'
+import { useRunPorts } from '../hooks/useRunPorts'
+import { RunPortsSection } from './RunPortsSection'
+import type { RunPortsSnapshot } from '../lib/run-ports-api'
 import type { AppResourceCategory, AppResourceCategoryId, AppResourceItem, AppResourcesSnapshot } from '../lib/app-resources-api'
 import type { ResourceSample } from '../lib/mission-resources-api'
 import { ServerResponsiveness } from '../../diagnostics/components/ServerResponsiveness'
@@ -80,7 +84,7 @@ function CategoryRow({ category }: { category: AppResourceCategory }) {
 }
 
 /** The popover body: totals, memory split by category and expandable per-category rows. */
-export function AppResourcesPanel({ snapshot, error, open = false }: { snapshot: AppResourcesSnapshot | null; error: string | null; open?: boolean }) {
+export function AppResourcesPanel({ snapshot, error, open = false, ports = null }: { snapshot: AppResourcesSnapshot | null; error: string | null; open?: boolean; ports?: RunPortsSnapshot | null }) {
   const { t } = useTranslation('resources')
   const totals = snapshot?.totals
   const memory = totals?.memoryBytes ?? 0
@@ -128,6 +132,13 @@ export function AppResourcesPanel({ snapshot, error, open = false }: { snapshot:
       </>}
     </>}
     <ServerResponsiveness active={open} />
+    <RunPortsSection snapshot={ports} />
+    <button type="button" data-testid="app-resources-retained" onClick={() => openAppSettings('storage', 'retainedWorktrees')}
+      className="flex w-full items-center gap-2 rounded-control px-1 py-1 text-left text-caption text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+      <HardDrive className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{t('retained.storageLink')}</span>
+      <span className="shrink-0 text-foreground">{t('retained.storageLinkAction')}</span>
+    </button>
   </div>
 }
 
@@ -137,6 +148,7 @@ export function AppResourcesFooter() {
   const { t } = useTranslation('resources')
   const [open, setOpen] = useState(false)
   const { snapshot, error } = useAppResources(open)
+  const { snapshot: ports } = useRunPorts(open)
   const supported = snapshot?.supported ?? false
   const memory = supported && snapshot ? formatBytes(snapshot.totals.memoryBytes) : null
   const count = supported && snapshot ? snapshot.totals.processCount : null
@@ -151,6 +163,6 @@ export function AppResourcesFooter() {
         <span className="num">{count}</span>
       </>}
     </button>}>
-    <AppResourcesPanel snapshot={snapshot} error={error} open={open} />
+    <AppResourcesPanel snapshot={snapshot} error={error} open={open} ports={ports} />
   </HoverPopover>
 }

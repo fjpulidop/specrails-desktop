@@ -163,7 +163,7 @@ describe('focusSettingAnchor', () => {
 
 const NAV_LABELS: Record<string, string> = {
   appearance: 'Appearance', effects: 'Effects', code: 'Code', terminal: 'Terminal', notifications: 'Notifications', specrailsAgents: 'AI providers', mobile: 'Mobile',
-  projects: 'Projects', advanced: 'Advanced', webhooks: 'Webhooks', updates: 'Updates', about: 'About',
+  projects: 'Projects', storage: 'Storage', advanced: 'Advanced', webhooks: 'Webhooks', updates: 'Updates', about: 'About',
 }
 function navLabel(section: string): string {
   return NAV_LABELS[section] ?? section

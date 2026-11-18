@@ -60,6 +60,8 @@ Every time you press Play, the rail run becomes a **job**. The most important ru
 
 Want everything moving at once? The **Launch all** button in the Rails header starts every ready lane in one go, after a single confirmation that frames the total cost (N rails × AI spend). Rails that are empty, already running, or awaiting a PR decision are skipped and reported in a compact summary toast. The in-app agent has the same power through `specrails_rails(launch_all)` — and it will create a fresh rail when no free lane exists.
 
+While the **Launch all** dialog is open, Specrails already prepares up to three worktrees in the background, so the rails start sooner once you confirm; a launch with nothing prepared fills its worktree while it fetches. Your Git `post-checkout` hook still runs once for each new worktree. Closing the dialog without launching drops what was prepared.
+
 Projects without git do not get worktree isolation or PR continuation. They still run, but the rail writes directly into the shared project folder and the result is accepted or reverted manually from the spec board.
 
 There's no global concurrency knob to tune. The only automatic throttle is budget-based: if you've set a daily budget (project or app-wide), the queue auto-pauses once that day's spend hits the cap.

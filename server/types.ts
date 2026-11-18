@@ -802,6 +802,16 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
+/**
+ * A project's merge previews changed (a background refresh found new
+ * conflicts, a resolved one, or a moved base). Clients refetch
+ * `GET /rails/merge-preview` (and the live board) on it.
+ */
+export interface RailMergePreviewMessage {
+  type: 'rail.merge_preview'
+  projectId: string
+}
+
 /** An Intent session as clients receive it (server/modules/flow IntentSession). */
 export interface IntentSessionWire {
   id: string
@@ -1395,7 +1405,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailMergePreviewMessage | RailPrStateMessage
   | IntentStateMessage
  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage

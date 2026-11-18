@@ -62,7 +62,8 @@
       "about": "About",
       "effects": "Effects",
       "subscriptionUsage": "Subscription usage",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "storage": "Storage"
     },
     "title": "Desktop Settings",
     "description": "Appearance, AI providers, updates and Desktop-wide preferences.",

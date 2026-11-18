@@ -372,6 +372,26 @@ at launch:
   `project-context-loops.ts`) — the worktree's cwd-relative `${ENV:-legacy}` defaults would
   otherwise resolve to nothing. Legacy projects keep `process.env` untouched.
 
+## Retained run worktrees
+
+Settlement removes a run worktree only when release can prove it loses nothing. Otherwise the ledger row stays `needs-review`, and a failed removal can leave a terminal row still mounted. Nothing sweeps these rows, so **Settings ▸ Storage** lists them across projects (`GET /api/worktrees/retained`, [api-reference](api-reference.md#retained-run-worktrees-app-wide)).
+
+- **Evidence** comes from [`runtime/retained-worktrees.ts`](../../server/modules/delivery/runtime/retained-worktrees.ts):
+  - `status --porcelain=v1 -z --untracked-files=all --ignored=matching`, excluding the same overlay proofs release uses (persisted fingerprints plus live warm links);
+  - `rev-list --count <tip> --not --remotes --exclude=<branch> --branches HEAD`, i.e. commits that exist on no remote, no other branch and not in the main checkout;
+  - the delivery that lists the ledger id (`json_each(worktree_ids)`);
+  - the latest of the ledger update and the worktree's `index`/`HEAD`/`logs/HEAD` mtimes. These are read before Git runs, and reads take no optional locks.
+- **Ignored paths** are safe when they are regenerable (`node_modules`), a link, covered by the settlement snapshot (quarantined on release), or byte-identical to the same path in the main checkout ([`runtime/ignored-copy-identity.ts`](../../server/modules/delivery/runtime/ignored-copy-identity.ts), bounded at 2,000 entries and 64 MiB).
+- **The decision** is pure ([`domain/retained-worktrees.ts`](../../server/modules/delivery/domain/retained-worktrees.ts)):
+  - Removal is blocked by a run or PR operation in flight, Intent ownership, unknown Git evidence, uncommitted changes, at-risk ignored files, or activity in the last hour.
+  - Branch deletion is additionally blocked by unique commits (unless the delivery is `merged`), an unreadable branch, or an open delivery.
+  - No reasons ⇒ **Nothing to lose**; any reason ⇒ **Waiting for you**.
+- **Removal** takes the repository lock and re-reads the candidate and its evidence. It refuses if HEAD differs from the confirmed one, then calls `releaseRailWorktrees`, the same path settlement and Discard use, with two opt-ins:
+  - `acceptIgnoredBaseCopies` re-proves the link or identical-copy rule live;
+  - `reclaimTerminalMounts` lets a terminal row's surviving mount go while the row keeps its recorded state.
+
+  The branch is deleted only with `update-ref -d` against the checked commit and only when no checkout uses it.
+
 ## The one decision endpoint
 
 `POST /rails/pr-decision` `{ prDeliveryId, action, expectedDecision }` (replaces the stateless

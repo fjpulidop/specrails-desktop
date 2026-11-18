@@ -78,7 +78,13 @@
     "question": "Pregunta",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Estimación según tarifa, no coste facturado"
+    "costEstimatedHint": "Estimación según tarifa, no coste facturado",
+    "mergeConflicts_one": "Choca con la base en {{count}} archivo",
+    "mergeConflicts_other": "Choca con la base en {{count}} archivos",
+    "mergeSiblings_one": "Choca con {{count}} ejecución más",
+    "mergeSiblings_other": "Choca con {{count}} ejecuciones más",
+    "baseMoved_one": "La base avanzó {{count}} commit",
+    "baseMoved_other": "La base avanzó {{count}} commits"
   },
   "empty": {
     "title": "No hay nada en marcha",

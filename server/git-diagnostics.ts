@@ -1,5 +1,7 @@
 import { execFile } from 'child_process'
 import { gitExecEnv } from './modules/code/runtime/file-provenance'
+import { gitInvocationEnv } from './util/git-invocation'
+import { waitForIndexLockRelease, type IndexLockObservation } from './util/git-index-lock'
 import { windowsSpawnEnv } from './util/win-spawn'
 
 /**
@@ -48,6 +50,9 @@ export interface GitDiagnosticResult {
   exitCode: number
   stdout: string
   stderr: string
+  /** status/diff only: an index.lock that outlived a short wait (a Git
+   *  process is still writing, or one crashed and left it). Absent when none. */
+  indexLock?: IndexLockObservation & { note: string }
 }
 
 /** Injectable spawn (tests). Resolves { code, stdout, stderr } — never rejects. */
@@ -59,7 +64,7 @@ const defaultExec: DiagnosticExec = (cmd, args, cwd) =>
   new Promise((resolve) => {
     // git: hardened, cwd-pinned env. gh: user env (needs ~/.config/gh auth) with
     // the Windows shell-critical vars guaranteed present.
-    const env = cmd === 'gh' ? windowsSpawnEnv() : gitExecEnv()
+    const env = cmd === 'gh' ? windowsSpawnEnv() : gitInvocationEnv(gitExecEnv(), args)
     execFile(
       cmd, args,
       { cwd, env, timeout: 15_000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
@@ -88,8 +93,12 @@ export async function runGitDiagnostic(
     throw new Error(`Unknown diagnostic action: ${action}. Allowed: ${GIT_DIAGNOSTIC_ACTIONS.join(', ')}`)
   }
   const spec = SPECS[action]
+  // Working-tree reads first let a live index.lock clear so they describe the
+  // settled index; a lock that stays is reported instead of looking like dirt.
+  const lock = action === 'status' || action === 'diff' ? await waitForIndexLockRelease(repoDir) : null
   const r = await exec(spec.cmd, spec.args, repoDir)
   return {
+    ...(lock ? { indexLock: { ...lock, note: `${lock.path} exists${lock.stale ? ' and has not changed' : ''}: a Git process is writing in this checkout, or one crashed and left it. Specrails never deletes it; remove it once no Git command is running there.` } } : {}),
     action,
     command: `${spec.cmd} ${spec.args.join(' ')}`,
     ok: r.code === 0,

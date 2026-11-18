@@ -47,6 +47,10 @@ today (its ledger) plus what its runs recorded today (`ai_invocations`).
 
 - Project isolation: a source is bound to ONE project's database, filters `loop_runs` by its project id,
   and the collector drops any inbox item of another project. Nothing is cached between calls.
+- Merge preview: the HTTP adapter attaches each delivery card's last merge preview
+  (`peekMergePreview`, owned by [delivery](../delivery/README.md#merge-preview)) and asks for a
+  throttled background refresh per project; it never computes one on the request. A changed
+  preview is broadcast as `rail.merge_preview`, which the board treats as a nudge.
 - Read-only. Every statement is parameterized and runs once per refresh (no per-card query); each read is
   guarded, so a missing table costs that read only, and a broken project costs that project only.
 - Caps: 200 rows per table read, 120 cards per project (settled history dropped first).

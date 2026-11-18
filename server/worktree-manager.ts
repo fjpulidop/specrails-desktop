@@ -16,6 +16,8 @@ import { execFile } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { gitInvocationEnv, gitSubcommand } from './util/git-invocation'
+import { annotateIndexLockFailure, waitForIndexLockRelease } from './util/git-index-lock'
 
 export interface GitResult {
   code: number
@@ -31,24 +33,33 @@ export interface GitRunner {
 const GIT_RUNNER_TIMEOUT_MS = 120_000
 
 export const defaultGitRunner: GitRunner = {
-  run(args, cwd) {
-    return new Promise<GitResult>((resolve) => {
-      // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
-      // to start under a pkg-stripped Windows sidecar env. No-op on POSIX.
-      const env = windowsSpawnEnv()
-      execFile('git', args, {
-        cwd,
-        env,
-        timeout: GIT_RUNNER_TIMEOUT_MS,
-        killSignal: 'SIGTERM',
-        maxBuffer: 16 * 1024 * 1024,
-        windowsHide: true,
-      }, (err, stdout, stderr) => {
-        const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
-        resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
-      })
-    })
+  async run(args, cwd) {
+    // A status read waits (bounded) for a live index.lock so it sees the
+    // settled index, not a half-staged commit; a lock failure gets an
+    // actionable explanation. See util/git-index-lock.ts.
+    if (gitSubcommand(args)?.name === 'status') await waitForIndexLockRelease(cwd)
+    return annotateIndexLockFailure(await spawnGit(args, cwd), cwd)
   },
+}
+
+function spawnGit(args: string[], cwd: string): Promise<GitResult> {
+  return new Promise<GitResult>((resolve) => {
+    // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
+    // to start under a pkg-stripped Windows sidecar env. No-op on POSIX. Reads
+    // skip Git's optional index locks (util/git-invocation.ts).
+    const env = gitInvocationEnv(windowsSpawnEnv(), args)
+    execFile('git', args, {
+      cwd,
+      env,
+      timeout: GIT_RUNNER_TIMEOUT_MS,
+      killSignal: 'SIGTERM',
+      maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
+      resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
+    })
+  })
 }
 
 /** True when `dir` is inside a git working tree. Worktree isolation is impossible
@@ -102,6 +113,109 @@ export interface CreateWorktreeInput {
   fresh?: boolean
   /** Exact delivered branch continuations may reuse a mount at another run path. */
   reuseBranchWorktree?: boolean
+  /** Fresh branches only: adopt a checkout prepared ahead of time (see
+   *  modules/delivery/runtime/worktree-preparation-pool.ts) instead of
+   *  writing every file now. Any failure falls back to a plain `worktree add`. */
+  claimPrepared?: ClaimPreparedCheckout
+}
+
+/** A detached, fully populated linked worktree prepared before it was needed.
+ *  `discard` removes it (it never held anyone's work). */
+export interface PreparedCheckout {
+  path: string
+  discard(): Promise<void>
+}
+
+export type ClaimPreparedCheckout = () => Promise<PreparedCheckout | null>
+
+/** Parallel checkout fan-out for worktree population (Git ≥ 2.32 honours it,
+ *  older Git ignores the unknown key). Measured on a 5k-file repository:
+ *  `worktree add` 2.2–2.5 s sequential vs 1.0–1.2 s with 4 workers; 8 workers
+ *  was not faster. */
+const CHECKOUT_WORKERS = 4
+const CHECKOUT_WORKERS_TTL_MS = 60_000
+const checkoutWorkersCache = new Map<string, { at: number; args: Promise<string[]> }>()
+
+/** `-c checkout.workers=4` unless the person configured `checkout.workers` at
+ *  any scope for this repository (their value wins). Cached briefly per repo. */
+export function checkoutWorkersArgs(git: GitRunner, repoDir: string, now: () => number = Date.now): Promise<string[]> {
+  const key = canonicalWorktreePath(repoDir)
+  const cached = checkoutWorkersCache.get(key)
+  if (cached && now() - cached.at < CHECKOUT_WORKERS_TTL_MS) return cached.args
+  const args = git.run(['config', '--get', 'checkout.workers'], repoDir)
+    // Exit 1 = unset. Any other failure keeps Git's own default.
+    .then((r) => (r.code === 1 ? ['-c', `checkout.workers=${CHECKOUT_WORKERS}`] : []))
+    .catch(() => [])
+  checkoutWorkersCache.set(key, { at: now(), args })
+  return args
+}
+
+/** Test-only: forget cached `checkout.workers` probes. */
+export function __resetCheckoutWorkersCache(): void {
+  checkoutWorkersCache.clear()
+}
+
+/**
+ * Turn a prepared checkout into the run's worktree: reset it to the exact
+ * base (only the delta since preparation is written), move it to the run path
+ * and create the branch with `git checkout --no-track -b`, which is also what
+ * runs the person's `post-checkout` hook — exactly once, after the files exist,
+ * as `worktree add` would (the preparation used `--no-checkout` + `reset`,
+ * which run no hook). Returns false (and leaves nothing behind) when any step
+ * fails, so the caller falls back to a plain `worktree add`.
+ */
+async function adoptPreparedCheckout(
+  git: GitRunner,
+  input: { repoDir: string; claimPrepared: ClaimPreparedCheckout },
+  branch: string,
+  wt: string,
+  base: string,
+): Promise<boolean> {
+  let prepared: PreparedCheckout | null = null
+  try {
+    prepared = await input.claimPrepared()
+  } catch {
+    return false
+  }
+  if (!prepared) return false
+  const target = await gitRun(git, ['rev-parse', '--verify', `${base}^{commit}`], input.repoDir)
+  const targetSha = target.code === 0 ? target.stdout.trim() : ''
+  if (!/^[0-9a-f]{40,64}$/i.test(targetSha)) {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const head = await gitRun(git, ['rev-parse', '--verify', 'HEAD'], prepared.path)
+  if (head.code !== 0 || head.stdout.trim() !== targetSha) {
+    const workers = await checkoutWorkersArgs(git, input.repoDir)
+    const reset = await gitRun(git, [...workers, 'reset', '--hard', '--quiet', targetSha], prepared.path)
+    if (reset.code !== 0) {
+      await prepared.discard().catch(() => {})
+      return false
+    }
+  }
+  try {
+    await fs.promises.mkdir(path.dirname(wt), { recursive: true })
+  } catch {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const moved = await gitRun(git, ['worktree', 'move', prepared.path, wt], input.repoDir)
+  if (moved.code !== 0) {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const checkout = await gitRun(git, ['checkout', '--quiet', '--no-track', '-b', branch, targetSha], wt)
+  if (checkout.code !== 0) {
+    // The mount is ours and holds nothing yet; the branch may exist only if
+    // checkout created it before failing (it never did when -b failed).
+    await gitRun(git, ['worktree', 'remove', '--force', wt], input.repoDir)
+    const created = await gitRun(git, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)
+    if (created.code === 0 && created.stdout.trim() === targetSha) {
+      await gitRun(git, ['update-ref', '-d', `refs/heads/${branch}`, targetSha], input.repoDir)
+    }
+    return false
+  }
+  return true
 }
 
 export interface WorktreeHandle {
@@ -247,9 +361,14 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   if (hasBranch && input.refreshFromBaseRef) {
     await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef)
   }
+  if (!hasBranch && input.claimPrepared && await adoptPreparedCheckout(git, { repoDir: input.repoDir, claimPrepared: input.claimPrepared }, branch, wt, base)) {
+    await ensurePrNeverStageExcludes(git, wt)
+    return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: true }
+  }
+  const workers = await checkoutWorkersArgs(git, input.repoDir)
   const args = hasBranch
-    ? ['worktree', 'add', wt, branch]
-    : ['worktree', 'add', '-b', branch, wt, base]
+    ? [...workers, 'worktree', 'add', wt, branch]
+    : [...workers, 'worktree', 'add', '-b', branch, wt, base]
   const res = await git.run(args, input.repoDir)
   if (res.code !== 0) {
     throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)

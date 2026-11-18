@@ -373,6 +373,7 @@
         "node:util"
       ],
       "runtime/agent-runtime-verification-suggestions.ts": [
+        "../../../util/git-invocation",
         "node:child_process",
         "node:fs",
         "node:path"
@@ -833,6 +834,7 @@
         "../../../project-repository-provenance",
         "../../../providers",
         "../../../types",
+        "../../../util/git-invocation",
         "./code-activity",
         "./file-provenance",
         "./file-story",
@@ -867,6 +869,7 @@
         "../../../feature-flags",
         "../../../project-repository-provenance",
         "../../../types",
+        "../../../util/diff-prompt-budget",
         "./file-provenance",
         "./file-summary-manager",
         "node:crypto"
@@ -1021,6 +1024,7 @@
   "delivery": {
     "publicEntries": [
       "adapters/decisions/metadata.ts",
+      "adapters/retained-worktrees-http.ts",
       "runtime/definition-fork.ts",
       "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
@@ -1030,6 +1034,7 @@
       "runtime/flow-worktree-return.ts",
       "runtime/isolated-settlement-reconstruction.ts",
       "runtime/isolated-worktree.ts",
+      "runtime/merge-preview.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-ci/pr-ci-admission-runtime.ts",
@@ -1044,6 +1049,7 @@
       "runtime/rail-pr-decision.ts",
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
+      "runtime/rail-worktrees-store.ts",
       "runtime/rails-router.ts",
       "runtime/rails-store.ts",
       "runtime/review-wip-gate.ts",
@@ -1212,6 +1218,12 @@
         "../../runtime/rail-pr-ticket-effects",
         "./contracts"
       ],
+      "adapters/retained-worktrees-http.ts": [
+        "../../../project-registry",
+        "../../../worktree-manager",
+        "../runtime/retained-worktrees",
+        "express"
+      ],
       "adapters/review-wip-store.ts": [
         "../../../db/types",
         "../domain/review-wip",
@@ -1220,6 +1232,8 @@
       "domain/decision-policy.ts": [
         "./state"
       ],
+      "domain/merge-preview.ts": [],
+      "domain/retained-worktrees.ts": [],
       "domain/review-wip.ts": [
         "./state"
       ],
@@ -1246,6 +1260,7 @@
         "../../agent-runtime/runtime/agent-runtime-bridge",
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-runs-store",
+        "../../terminals/runtime/run-port-leases",
         "./isolated-settlement-store",
         "./rail-pr-store",
         "./rail-worktrees-store",
@@ -1254,6 +1269,7 @@
         "node:path"
       ],
       "runtime/delivery-changes.ts": [
+        "../../../util/git-invocation",
         "../../code/runtime/file-provenance",
         "./delivery-evidence",
         "./pr-follow-up",
@@ -1298,6 +1314,10 @@
         "fs",
         "path"
       ],
+      "runtime/ignored-copy-identity.ts": [
+        "fs",
+        "path"
+      ],
       "runtime/intent-materialization.ts": [
         "../../../worktree-manager",
         "../../specs/domain/intent",
@@ -1335,6 +1355,7 @@
         "../../agent-policy",
         "../../code/runtime/file-provenance",
         "./pr-naming",
+        "./worktree-preparation-pool",
         "path"
       ],
       "runtime/local-restore-branch.ts": [
@@ -1360,7 +1381,23 @@
       ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager",
+        "../domain/merge-preview",
         "./pr-naming"
+      ],
+      "runtime/merge-preview-git.ts": [
+        "../../../repo-lock",
+        "../../../util/git-invocation",
+        "../../code/runtime/file-provenance",
+        "child_process",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/merge-preview.ts": [
+        "../../../project-repositories",
+        "../domain/merge-preview",
+        "./merge-preview-git",
+        "./rail-pr-store"
       ],
       "runtime/multi-repo-bases.ts": [
         "../../../db",
@@ -1549,6 +1586,7 @@
       ],
       "runtime/pr-publisher.ts": [
         "../../../git-guardrails",
+        "../../../util/git-invocation",
         "../../../util/win-spawn",
         "child_process"
       ],
@@ -1577,6 +1615,7 @@
         "./rail-isolated-launch-support",
         "./rail-pr-store",
         "./rail-worktrees-store",
+        "./worktree-preparation-pool",
         "path"
       ],
       "runtime/rail-isolated-launch-contracts.ts": [
@@ -1855,7 +1894,8 @@
         "../../loops/runtime/loop-command-catalog",
         "../../loops/runtime/loop-constants",
         "../../loops/runtime/loop-run-manager",
-        "./merge-manager"
+        "./merge-manager",
+        "./merge-preview-git"
       ],
       "runtime/rail-pr-decision.ts": [
         "..",
@@ -1904,10 +1944,12 @@
       "runtime/rail-worktree-release.ts": [
         "../../../db",
         "../../../repo-lock",
+        "../../../util/git-index-lock",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
         "../../terminals/runtime/worktree-process-reaper",
+        "./ignored-copy-identity",
         "./rail-worktrees-store",
         "fs",
         "path"
@@ -1952,6 +1994,12 @@
         "./rails-http-shared",
         "express"
       ],
+      "runtime/rails-merge-preview-http.ts": [
+        "./merge-preview",
+        "./merge-preview-git",
+        "./rails-http-shared",
+        "express"
+      ],
       "runtime/rails-pr-ci-http.ts": [
         "../../../feature-flags",
         "../../missions/runtime/agent-chat-registry",
@@ -1967,6 +2015,15 @@
         "./rails-http-shared",
         "express",
         "path"
+      ],
+      "runtime/rails-preparation-http.ts": [
+        "../../../db",
+        "../../../integration-branch",
+        "../../../worktree-manager",
+        "./isolated-worktree",
+        "./rails-http-shared",
+        "./worktree-preparation-pool",
+        "express"
       ],
       "runtime/rails-review-http.ts": [
         "../../../feature-flags",
@@ -2003,7 +2060,9 @@
         "./rail-delivery-revision",
         "./rails-http-shared",
         "./rails-launch-http",
+        "./rails-merge-preview-http",
         "./rails-pr-ci-http",
+        "./rails-preparation-http",
         "./rails-review-http",
         "./rails-settings-http",
         "./rails-state-http",
@@ -2029,6 +2088,21 @@
       ],
       "runtime/rails-store.ts": [
         "../../../db"
+      ],
+      "runtime/retained-worktrees.ts": [
+        "../../../db",
+        "../../../repo-lock",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../terminals/runtime/resource-sampler",
+        "../domain/retained-worktrees",
+        "./ignored-copy-identity",
+        "./rail-pr-store",
+        "./rail-worktree-release",
+        "./rail-worktrees-store",
+        "fs",
+        "path"
       ],
       "runtime/review-brief.ts": [],
       "runtime/review-packet.ts": [
@@ -2062,6 +2136,13 @@
         "./delivery-evidence",
         "./flow-review-outcome",
         "node:fs"
+      ],
+      "runtime/worktree-preparation-pool.ts": [
+        "../../../ids",
+        "../../../repo-lock",
+        "../../../worktree-manager",
+        "fs",
+        "path"
       ]
     }
   },
@@ -2351,6 +2432,7 @@
         "../../delivery/runtime/rail-isolation",
         "../../loops/runtime/legacy-launch-telemetry",
         "../../specs/runtime/ticket-store",
+        "../../terminals/runtime/run-port-leases",
         "../adapters/usage-reader",
         "./interactive-job-session",
         "./job-output-stream",
@@ -2459,6 +2541,7 @@
         "../../../providers/runtime",
         "../../../repo-lock",
         "../../../types",
+        "../../../util/diff-prompt-budget",
         "../../../workspace-resolution",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
@@ -2549,6 +2632,7 @@
         "../../../project-registry",
         "../../../util/local-day",
         "../../accounting/runtime/desktop-analytics",
+        "../../delivery/runtime/merge-preview",
         "../../inbox",
         "../../inbox/adapters/http",
         "../application",
@@ -2707,6 +2791,7 @@
         "../../../providers/types",
         "../../../repo-map",
         "../../../util/bounded-exec",
+        "../../../util/git-invocation",
         "../../../util/win-spawn",
         "../../../workspace-manager",
         "../../accounting/runtime/result-event",
@@ -2716,6 +2801,7 @@
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rail-isolation",
         "../../execution/runtime/spawn-lifecycle",
+        "../../terminals/runtime/run-port-leases",
         "./loop-constants",
         "./loop-decider",
         "./loop-definition",
@@ -2871,6 +2957,7 @@
         "../../../db",
         "../../agent-runtime/runtime/agent-runtime-events",
         "../../audit",
+        "../../terminals/domain/run-ports",
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-runs-store"
@@ -3756,14 +3843,17 @@
     "publicEntries": [
       "domain/app-resources.ts",
       "domain/mission-resources.ts",
+      "domain/run-ports.ts",
       "runtime/app-resources.ts",
       "runtime/app-urls.ts",
       "runtime/background-process-control.ts",
       "runtime/background-process-service.ts",
       "runtime/background-process-store.ts",
       "runtime/background-windows-bootstrap.ts",
+      "runtime/listening-ports.ts",
       "runtime/mission-resource-history.ts",
       "runtime/resource-sampler.ts",
+      "runtime/run-port-leases.ts",
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
       "runtime/terminal-settings.ts",
@@ -3775,6 +3865,9 @@
       ],
       "domain/app-urls.ts": [],
       "domain/mission-resources.ts": [],
+      "domain/run-ports.ts": [
+        "./mission-resources"
+      ],
       "domain/worktree-leftovers.ts": [
         "./mission-resources"
       ],
@@ -3786,6 +3879,7 @@
       "runtime/app-urls.ts": [
         "../../../transient-children",
         "../domain/app-urls",
+        "./listening-ports",
         "node:os"
       ],
       "runtime/background-process-control.ts": [
@@ -3822,6 +3916,12 @@
         "node:os",
         "node:path"
       ],
+      "runtime/listening-ports.ts": [
+        "../domain/run-ports",
+        "node:child_process",
+        "node:fs/promises",
+        "node:util"
+      ],
       "runtime/mission-resource-history.ts": [
         "../../../db",
         "../domain/mission-resources"
@@ -3832,6 +3932,13 @@
         "node:fs/promises",
         "node:path",
         "node:util"
+      ],
+      "runtime/run-port-leases.ts": [
+        "../../../util/specrails-home",
+        "../domain/run-ports",
+        "node:fs",
+        "node:net",
+        "node:path"
       ],
       "runtime/terminal-manager.ts": [
         "../../../db",

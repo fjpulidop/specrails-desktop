@@ -115,6 +115,7 @@ En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre c
 - **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
 - **Límite del proveedor** — se alcanzó el límite de uso del proveedor de IA. La tarjeta dice cuándo se restablece, en tu hora local cuando el proveedor indicó la hora exacta y si no con las palabras del proveedor. Una ejecución que sigue en pausa en el límite muestra su propia tarjeta: cuándo se reanuda sola, **Reanudar ahora** y **Continuar ahora con** otro proveedor. Consulta [Límites de uso](1-rails-and-jobs.md#usage-limits).
 - **Entorno**: la máquina no puede ejecutar las comprobaciones (credenciales, una herramienta que falta, un comando de preparación que falla). *Arreglar el entorno* muestra exactamente qué ejecutar o cambiar.
+- **Puerto en uso**: la comprobación o el servidor de la propia ejecución no pudo arrancar porque otro proceso ya ocupaba su puerto (`EADDRINUSE`). No cuenta como tests fallidos. Cada worktree de ejecución recibe sus propios puertos mediante `PORT` y `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; un proyecto que lee `PORT` nunca choca. Detén el otro proceso, o haz que el proyecto lea `PORT`, y luego **Ejecutar de nuevo**.
 - **Bloqueada**, **sin tiempo**, **en silencio** y **detenida inesperadamente** nombran el límite o el proceso que paró la ejecución.
 - **Causa desconocida**: la app no adivina. Muestra el final del registro para que lo leas tú.
 

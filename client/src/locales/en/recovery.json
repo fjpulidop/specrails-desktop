@@ -10,6 +10,10 @@
     },
     "provider_limit": "The AI provider's usage limit was reached",
     "environment": "The environment can't run the checks",
+    "port_in_use": {
+      "port": "Another process was already using port {{port}}",
+      "plain": "Another process was already using the port the run needed"
+    },
     "blocked": {
       "phase": "The run is blocked in the {{phase}} phase",
       "plain": "The run is blocked"
@@ -36,6 +40,7 @@
       "noReset": "Wait for the limit to reset, then resume, or run it on another provider."
     },
     "environment": "The change itself isn't the problem. The machine needs something first.",
+    "port_in_use": "The change itself isn't the problem: something else held the port. Stop it, or have the project read PORT (each run gets its own), then run again.",
     "tests_failed": "The checks still fail after the corrections.",
     "blocked": "A limit or a decision stopped it. It didn't crash.",
     "timeout": "It reached its time limit before finishing.",

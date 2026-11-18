@@ -284,7 +284,8 @@
       "prDecision": "le opzioni di consegna",
       "attention": "Notifiche",
       "liveBoard": "la bacheca live",
-      "serverRecovery": "Se il server locale si arresta"
+      "serverRecovery": "Se il server locale si arresta",
+      "retainedWorktrees": "i worktree delle esecuzioni conservati su disco"
     }
   },
   "forecast": {

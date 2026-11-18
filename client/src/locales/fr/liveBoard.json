@@ -78,7 +78,13 @@
     "question": "Question",
     "actionLabel": "{{action}} : {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "Estimation selon le barème, pas un coût facturé"
+    "costEstimatedHint": "Estimation selon le barème, pas un coût facturé",
+    "mergeConflicts_one": "Conflit avec la base dans {{count}} fichier",
+    "mergeConflicts_other": "Conflit avec la base dans {{count}} fichiers",
+    "mergeSiblings_one": "En collision avec {{count}} autre run",
+    "mergeSiblings_other": "En collision avec {{count}} autres runs",
+    "baseMoved_one": "La base a avancé de {{count}} commit",
+    "baseMoved_other": "La base a avancé de {{count}} commits"
   },
   "empty": {
     "title": "Rien n'est en cours",

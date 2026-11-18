@@ -5,7 +5,7 @@ import type { LiveBoardSnapshot } from '../lib/live-board-model'
 
 /** WS events that can move a card (any project: the board is app-wide). */
 const NUDGE_TYPES = new Set([
-  'rail.pr_state', 'rail.job_started', 'rail.job_completed', 'rail.job_stopped',
+  'rail.pr_state', 'rail.merge_preview', 'rail.job_started', 'rail.job_completed', 'rail.job_stopped',
   'job.stuck', 'job.finalized', 'job_started', 'queue', 'phase',
   'jira.outbox_changed', 'flow.state', 'agent_title', 'agent_pr_decision', 'runtime.continuation',
   'desktop.project_added', 'desktop.project_removed',

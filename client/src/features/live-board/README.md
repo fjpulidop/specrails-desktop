@@ -34,11 +34,13 @@ One view of every run of every project: rails, loops, Intent sessions and queue 
 **Live board** entry in the left sidebar (`ArcSidebar` nav items), `⌘⇧B` (`Ctrl+Shift+B` off macOS),
 the ⌘K action *Open live board* and the place `?live=1` open it over whatever place the person is on.
 
+- **Merge preview.** A delivery card with a `mergePreview` shows one line: conflicts with the base
+  and collisions with sibling runs in the `blocked` look, then how far the base moved (full text on hover).
 - **Projection, not a store.** Cards come from `GET /api/live-board`
   ([server module](../../../../server/modules/live-board/README.md)), which reads each registered project's
   own database and places every card (column, lane, order). The client keeps no cross-project cache. While
   the board is shown it refetches on open, on app focus, every 60 s while visible, after local midnight, and
-  (debounced 500 ms, at most one request every 2 s) on the WS events that move a card: `rail.pr_state`,
+  (debounced 500 ms, at most one request every 2 s) on the WS events that move a card: `rail.pr_state`, `rail.merge_preview`,
   `rail.job_*`, `loop.run_*`, `job.stuck`, `job.finalized`, `job_started`, `queue`, `phase`,
   `jira.outbox_changed`, `flow.state`, `agent_title`, `agent_pr_decision`, `runtime.continuation` and project
   added/removed ([`hooks/useLiveBoardData.ts`](hooks/useLiveBoardData.ts)). One request per refresh; nothing

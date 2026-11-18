@@ -16,6 +16,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/BackgroundProcessLogsModal.tsx](components/BackgroundProcessLogsModal.tsx)
 - [components/BackgroundProcessesPanel.tsx](components/BackgroundProcessesPanel.tsx)
 - [components/MissionResourcesPanel.tsx](components/MissionResourcesPanel.tsx)
+- [components/RetainedWorktreesSection.tsx](components/RetainedWorktreesSection.tsx)
 - [context/BackgroundProcessesContext.tsx](context/BackgroundProcessesContext.tsx)
 - [hooks/useMissionResourceHistory.ts](hooks/useMissionResourceHistory.ts)
 - [lib/background-processes-api.ts](lib/background-processes-api.ts)
@@ -49,3 +50,27 @@ ignores responses from a previously selected project or mission.
 trigger summary (skipped while the window is hidden) and every 3 s while the popover
 is open. The popover shows CPU, memory and process totals, a memory trend from the
 server's in-memory history, memory split by source and expandable rows per source.
+While the popover is open, `useRunPorts` also reads `GET /api/resources/ports` every 5 s
+and `RunPortsSection` lists the ports served from run worktrees: port, rail · ticket ·
+project, process and how it was attributed (working folder or command line). A foreign
+process listening inside a run's assigned block is flagged with the warning lamp
+(AlertTriangle): that run's server would fail with "address already in use".
+
+## Retained run worktrees
+
+`RetainedWorktreesSection` is the body of **Settings ▸ Storage**. The status-bar Resources popover links to it
+with `openAppSettings('storage', 'retainedWorktrees')`.
+
+- `useRetainedWorktrees(active)` reads `GET /api/worktrees/retained` only while the pane is shown.
+- It then asks `POST /api/worktrees/retained/sizes` for every listed worktree, and polls only the ones still scanning
+  every 1.5 s.
+- The pure model `lib/retained-worktrees-model.ts` maps a worktree to the status vocabulary:
+  - `working` when a run or decision holds it;
+  - `done` for **Nothing to lose**;
+  - `review` for **Waiting for you**.
+  It also filters by label, idle days and known size, and groups rows by project.
+- Rows that cannot be removed (uncommitted changes, ignored files that exist only there, Intent-owned, recently
+  active, unknown) have a disabled checkbox that names the reason.
+- Removal posts the confirmed `head` of each selected worktree, plus `deleteBranch` only for worktrees the server
+  marked `branchDeletable` when **Also delete branches that hold nothing new** is checked. It then shows the
+  per-item outcome and warnings and refreshes the list.

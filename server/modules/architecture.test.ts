@@ -32,6 +32,8 @@ const coreDependencies: Record<string, string[]> = {
   'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/spend-caps', './domain/agent-env'],
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
+  'delivery/domain/merge-preview.ts': [],
+  'delivery/domain/retained-worktrees.ts': [],
   'delivery/domain/review-wip.ts': ['./state'],
   'delivery/index.ts': ['./domain/decision-policy', './domain/state', './domain/review-wip'],
   'agent-sessions/domain/protocol.ts': [],
@@ -49,6 +51,7 @@ const coreDependencies: Record<string, string[]> = {
   'terminals/domain/app-resources.ts': ['./mission-resources'],
   'terminals/domain/app-urls.ts': [],
   'terminals/domain/mission-resources.ts': [],
+  'terminals/domain/run-ports.ts': ['./mission-resources'],
   'terminals/domain/worktree-leftovers.ts': ['./mission-resources'],
   // Failure recovery: pure diagnosis vocabulary and rules (the provider-limit classifier is itself pure).
   'recovery/domain.ts': ['../../provider-limit'],

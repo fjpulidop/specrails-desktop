@@ -39,6 +39,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('missionConnectors', 'specrailsAgents'),
   app('mobileCompanion', 'mobile'),
   app('registeredProjects', 'projects'),
+  app('retainedWorktrees', 'storage'),
   app('budgetAlerts', 'advanced'),
   app('notifications', 'notifications'),
   app('webhooks', 'webhooks'),

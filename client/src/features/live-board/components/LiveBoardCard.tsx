@@ -11,7 +11,7 @@ import { useInboxItemText } from '../../inbox/hooks/useInboxItemText'
 import type { InboxItem } from '../../inbox/lib/inbox-model'
 import { humanizeStepId } from '../../missions/components/mission-run-strip'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
-import { canOpen, primaryOf, type LiveCard } from '../lib/live-board-model'
+import { canOpen, primaryOf, type LiveCard, type LiveMergePreview } from '../lib/live-board-model'
 import { liveCardLook } from '../lib/live-board-run-state'
 import { useMissionExtensions } from '../../missions/context/MissionExtensionsContext'
 import type { LiveBoardActions } from '../context/LiveBoardContext'
@@ -97,6 +97,27 @@ export interface LiveBoardCardProps {
 }
 
 /** One run: its state, project, kind, title, phrase, progress, engine, time, cost and its one action. */
+/**
+ * A delivery's merge preview on its card: conflicts with the current base or
+ * with sibling runs take the `blocked` (warning) look; a moved base is a quiet
+ * note. A clean merge says nothing.
+ */
+function MergePreviewPhrase({ preview }: { preview: LiveMergePreview }) {
+  const { t } = useTranslation('liveBoard')
+  const parts: string[] = []
+  if (preview.status === 'conflicts') parts.push(t('card.mergeConflicts', { count: preview.conflictFileCount }))
+  if (preview.siblingConflictCount > 0) parts.push(t('card.mergeSiblings', { count: preview.siblingConflictCount }))
+  const moved = preview.baseAdvancedBy ?? 0
+  if (parts.length === 0 && moved === 0) return null
+  const text = [...parts, ...(moved > 0 ? [t('card.baseMoved', { count: moved })] : [])].join(' · ')
+  return (
+    <p className="flex min-w-0 items-center gap-1.5 text-caption" data-testid="live-card-merge-preview" title={text}>
+      {parts.length > 0 ? <RunStateGlyph state="blocked" size="xs" /> : null}
+      <span className={cn('truncate', parts.length > 0 ? 'text-foreground' : 'text-muted-foreground')}>{text}</span>
+    </p>
+  )
+}
+
 export function LiveBoardCard({ card, actions, now, compact = false }: LiveBoardCardProps) {
   const { t } = useTranslation(['liveBoard', 'inbox'])
   const kindLabel = useKindLabel()
@@ -151,6 +172,7 @@ export function LiveBoardCard({ card, actions, now, compact = false }: LiveBoard
         </blockquote>
       )}
       {card.attention ? <AttentionPhrase item={card.attention} /> : <RunPhrase card={card} />}
+      {card.mergePreview ? <MergePreviewPhrase preview={card.mergePreview} /> : null}
       {card.steps && card.column === 'working' && <Steps steps={card.steps} />}
       <div className="flex items-center gap-2 text-caption tabular-nums text-muted-foreground">
         {card.provider && <span className="truncate">{providerLabel(card.provider)}</span>}

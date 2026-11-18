@@ -115,6 +115,7 @@ Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** s’ou
 - **Tests échoués** : les vérifications échouent encore après les tours de correction.
 - **Limite du fournisseur** — la limite d'utilisation du fournisseur d'IA a été atteinte. La carte indique la réinitialisation à votre heure locale quand le fournisseur a donné l'heure exacte, sinon avec ses propres mots. Une exécution encore en pause à la limite affiche sa propre carte : quand elle reprend seule, **Reprendre maintenant** et **Continuer maintenant avec** un autre fournisseur. Voir [Limites d'utilisation](1-rails-and-jobs.md#usage-limits).
 - **Environnement** : la machine ne peut pas exécuter les vérifications (identifiants, outil manquant, commande de préparation en échec). *Réparer l'environnement* montre précisément quoi exécuter ou changer.
+- **Port déjà utilisé** : la vérification ou le serveur de l'exécution n'a pas pu démarrer parce qu'un autre processus occupait déjà son port (`EADDRINUSE`). Ce n'est pas compté comme des tests en échec. Chaque worktree d'exécution reçoit ses propres ports via `PORT` et `SPECRAILS_RUN_PORT_RANGE_START`/`_END` ; un projet qui lit `PORT` n'entre jamais en collision. Arrêtez l'autre processus, ou faites lire `PORT` au projet, puis **Relancer**.
 - **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
 - **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.
 

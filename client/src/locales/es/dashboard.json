@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}: tablero",
     "pageTitleBare": "Tablero"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Choca con {{base}} en {{files}}",
+    "conflictsWithBase_other": "Choca con {{base}} en {{count}} archivos: {{files}}",
+    "collidesWithRail": "Choca con el Rail {{rail}} en {{files}}",
+    "alreadyMerged": "Ya está en {{base}}",
+    "clean": "Entra limpio en {{base}} tal como está ahora",
+    "unknown": "Vista previa de la fusión no disponible (hace falta Git 2.38 o posterior, o una referencia ya no existe)",
+    "baseMoved_one": "{{base}} avanzó {{count}} commit desde que se creó esta rama",
+    "baseMoved_other": "{{base}} avanzó {{count}} commits desde que se creó esta rama",
+    "moreFiles": "y {{count}} más",
+    "title": "Vista previa de la fusión"
   }
 }

@@ -284,7 +284,8 @@
       "prDecision": "die Lieferoptionen",
       "attention": "Benachrichtigungen",
       "liveBoard": "das Live-Board",
-      "serverRecovery": "Wenn der lokale Server stoppt"
+      "serverRecovery": "Wenn der lokale Server stoppt",
+      "retainedWorktrees": "auf der Festplatte behaltene Run-Worktrees"
     }
   },
   "forecast": {

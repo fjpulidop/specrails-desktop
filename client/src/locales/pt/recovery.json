@@ -10,6 +10,10 @@
     },
     "provider_limit": "O limite de uso do provedor de IA foi atingido",
     "environment": "O ambiente não consegue executar as verificações",
+    "port_in_use": {
+      "port": "Outro processo já estava usando a porta {{port}}",
+      "plain": "Outro processo já estava usando a porta de que a execução precisava"
+    },
     "blocked": {
       "phase": "A execução está bloqueada na fase {{phase}}",
       "plain": "A execução está bloqueada"
@@ -36,6 +40,7 @@
       "noReset": "Espera pela reposição do limite e retoma, ou executa-a com outro fornecedor."
     },
     "environment": "O problema não é a mudança em si. A máquina precisa de algo antes.",
+    "port_in_use": "O problema não é a mudança: outra coisa ocupava a porta. Pare-a ou faça o projeto ler PORT (cada execução tem a sua) e execute novamente.",
     "tests_failed": "As verificações continuam falhando após as correções.",
     "blocked": "Um limite ou uma decisão a interrompeu. Ela não travou.",
     "timeout": "Atingiu o limite de tempo antes de terminar.",

@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}} : tableau",
     "pageTitleBare": "Tableau"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Conflit avec {{base}} dans {{files}}",
+    "conflictsWithBase_other": "Conflit avec {{base}} dans {{count}} fichiers : {{files}}",
+    "collidesWithRail": "Entre en collision avec le Rail {{rail}} dans {{files}}",
+    "alreadyMerged": "Déjà dans {{base}}",
+    "clean": "Se fusionne proprement dans {{base}} tel qu’il est maintenant",
+    "unknown": "Aperçu de fusion indisponible (Git 2.38 ou plus récent requis, ou une référence n’existe plus)",
+    "baseMoved_one": "{{base}} a avancé de {{count}} commit depuis la création de cette branche",
+    "baseMoved_other": "{{base}} a avancé de {{count}} commits depuis la création de cette branche",
+    "moreFiles": "+{{count}} de plus",
+    "title": "Aperçu de fusion"
   }
 }

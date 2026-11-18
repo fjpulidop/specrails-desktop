@@ -47,3 +47,12 @@ URL builder and preference are shared in `client/src/lib/open-in-editor.ts`. See
 Run the adjacent tests with `npm run test --prefix client -- src/features/delivery`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+**Merge preview.** [`lib/merge-preview-store.ts`](lib/merge-preview-store.ts) keeps one copy of a
+project's `GET /rails/merge-preview` for every strip on screen (one request per refresh, keyed by
+project id, refetched after 15 s on mount and, debounced 1 s, on `rail.pr_state`, `rail.job_completed`,
+`rail.job_stopped` and `rail.merge_preview` of that project). [`useMergePreview`](hooks/useMergePreview.ts)
+reads it; [`MergePreviewLine`](components/MergePreviewLine.tsx) draws it on the decision strip (nothing
+when the merge is clean and the base did not move) and, detailed, in the packet's
+[`PacketMergePreview`](components/review-packet/PacketMergePreview.tsx). Conflicts with the base or a
+sibling take the `blocked` look (`mergePreviewRunState` in [`lib/merge-preview.ts`](lib/merge-preview.ts)).

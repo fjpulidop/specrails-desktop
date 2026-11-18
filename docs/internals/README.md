@@ -15,6 +15,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [source-architecture.md](source-architecture.md) | Persistence boundaries, queue collaborators and unused-source audit |
 | [api-reference.md](api-reference.md) | REST endpoint catalogue under `/api/*` and `/api/projects/:projectId/*` |
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
+| [git-invocations.md](git-invocations.md) | Read-only git without optional locks (`GIT_OPTIONAL_LOCKS=0`), live/stale `index.lock` handling, fair per-file diff budgets for prompts |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
 | [server-recovery-and-diagnostics.md](server-recovery-and-diagnostics.md) | Desktop relaunch of the local server (circuit breaker, same port/token), crash markers, event-loop stall probe and the local "Report a problem" ZIP with its redaction |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |

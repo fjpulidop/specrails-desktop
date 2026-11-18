@@ -15,6 +15,8 @@ import { registerRailStateRoutes } from './rails-state-http'
 import { registerRailSettingsRoutes } from './rails-settings-http'
 import { registerRailLaunchRoutes } from './rails-launch-http'
 import { registerRailReviewRoutes } from './rails-review-http'
+import { registerRailPreparationRoutes } from './rails-preparation-http'
+import { registerRailMergePreviewRoutes } from './rails-merge-preview-http'
 
 /** The Intent -> Spec loop only runs from an Intent session hand-off (arch section 4.8). */
 export { FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
@@ -28,5 +30,7 @@ export function createRailsRouter(): Router {
   registerRailSettingsRoutes(router)
   registerRailLaunchRoutes(router)
   registerRailReviewRoutes(router)
+  registerRailPreparationRoutes(router)
+  registerRailMergePreviewRoutes(router)
   return router
 }

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1720 source/build files. Nearby tests are linked where names
+Includes 1750 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -213,6 +213,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [BackgroundProcessLogsModal.tsx](../../client/src/features/background/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessLogsModal.test.tsx)
 - [BackgroundProcessesPanel.tsx](../../client/src/features/background/components/BackgroundProcessesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessesPanel.test.tsx)
 - [MissionResourcesPanel.tsx](../../client/src/features/background/components/MissionResourcesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/MissionResourcesPanel.test.tsx)
+- [RetainedWorktreesSection.tsx](../../client/src/features/background/components/RetainedWorktreesSection.tsx) · [test](../../client/src/features/background/components/__tests__/RetainedWorktreesSection.test.tsx)
+- [RunPortsSection.tsx](../../client/src/features/background/components/RunPortsSection.tsx) · [test](../../client/src/features/background/components/__tests__/RunPortsSection.test.tsx)
 
 ## client/src/features/background/context
 
@@ -222,6 +224,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [useAppResources.ts](../../client/src/features/background/hooks/useAppResources.ts)
 - [useMissionResourceHistory.ts](../../client/src/features/background/hooks/useMissionResourceHistory.ts) · [test](../../client/src/features/background/hooks/__tests__/useMissionResourceHistory.test.ts)
+- [useRetainedWorktrees.ts](../../client/src/features/background/hooks/useRetainedWorktrees.ts)
+- [useRunPorts.ts](../../client/src/features/background/hooks/useRunPorts.ts)
 
 ## client/src/features/background/lib
 
@@ -230,6 +234,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [format-bytes.ts](../../client/src/features/background/lib/format-bytes.ts)
 - [mission-resource-history.ts](../../client/src/features/background/lib/mission-resource-history.ts) · [test](../../client/src/features/background/lib/__tests__/mission-resource-history.test.ts)
 - [mission-resources-api.ts](../../client/src/features/background/lib/mission-resources-api.ts)
+- [retained-worktrees-api.ts](../../client/src/features/background/lib/retained-worktrees-api.ts)
+- [retained-worktrees-model.ts](../../client/src/features/background/lib/retained-worktrees-model.ts)
+- [run-ports-api.ts](../../client/src/features/background/lib/run-ports-api.ts)
 
 ## client/src/features/browser/components/browser-capture
 
@@ -390,6 +397,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [LocalStashNotice.tsx](../../client/src/features/delivery/components/LocalStashNotice.tsx)
 - [LoopChip.tsx](../../client/src/features/delivery/components/LoopChip.tsx) · [test](../../client/src/features/delivery/components/__tests__/LoopChip.test.tsx)
+- [MergePreviewLine.tsx](../../client/src/features/delivery/components/MergePreviewLine.tsx) · [test](../../client/src/features/delivery/components/__tests__/MergePreviewLine.test.tsx)
 - [RailPrDecisionStrip.tsx](../../client/src/features/delivery/components/RailPrDecisionStrip.tsx) · [test](../../client/src/features/delivery/components/__tests__/RailPrDecisionStrip.test.tsx)
 - [RepositoryDeliveries.tsx](../../client/src/features/delivery/components/RepositoryDeliveries.tsx) · [test](../../client/src/features/delivery/components/__tests__/RepositoryDeliveries.test.tsx)
 - [TargetPrLaunchDialog.tsx](../../client/src/features/delivery/components/TargetPrLaunchDialog.tsx)
@@ -403,6 +411,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [PacketBaseline.tsx](../../client/src/features/delivery/components/review-packet/PacketBaseline.tsx)
 - [PacketDerivation.tsx](../../client/src/features/delivery/components/review-packet/PacketDerivation.tsx) · [test](../../client/src/features/delivery/components/review-packet/PacketDerivation.test.tsx)
 - [PacketMarkdown.tsx](../../client/src/features/delivery/components/review-packet/PacketMarkdown.tsx)
+- [PacketMergePreview.tsx](../../client/src/features/delivery/components/review-packet/PacketMergePreview.tsx)
 - [RequirementsDemonstrated.tsx](../../client/src/features/delivery/components/review-packet/RequirementsDemonstrated.tsx)
 - [WhatToLookAt.tsx](../../client/src/features/delivery/components/review-packet/WhatToLookAt.tsx)
 
@@ -419,12 +428,15 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/delivery/hooks
 
+- [useMergePreview.ts](../../client/src/features/delivery/hooks/useMergePreview.ts)
 - [useRowVirtualizer.ts](../../client/src/features/delivery/hooks/useRowVirtualizer.ts)
 
 ## client/src/features/delivery/lib
 
 - [changes-model.ts](../../client/src/features/delivery/lib/changes-model.ts) · [test](../../client/src/features/delivery/lib/__tests__/changes-model.test.ts)
 - [delivery-run-state.ts](../../client/src/features/delivery/lib/delivery-run-state.ts) · [test](../../client/src/features/delivery/lib/__tests__/delivery-run-state.test.ts)
+- [merge-preview-store.ts](../../client/src/features/delivery/lib/merge-preview-store.ts)
+- [merge-preview.ts](../../client/src/features/delivery/lib/merge-preview.ts)
 - [packet-verbs.ts](../../client/src/features/delivery/lib/packet-verbs.ts) · [test](../../client/src/features/delivery/lib/__tests__/packet-verbs.test.ts)
 - [pr-ci.ts](../../client/src/features/delivery/lib/pr-ci.ts)
 - [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
@@ -949,6 +961,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-launch-intents.ts](../../client/src/features/rails/lib/rail-launch-intents.ts)
 - [rail-loops.ts](../../client/src/features/rails/lib/rail-loops.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-loops.test.ts)
 - [rail-run-state.ts](../../client/src/features/rails/lib/rail-run-state.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-run-state.test.ts)
+- [worktree-preparation.ts](../../client/src/features/rails/lib/worktree-preparation.ts)
 - [worktree-progress.ts](../../client/src/features/rails/lib/worktree-progress.ts) · [test](../../client/src/features/rails/lib/__tests__/worktree-progress.test.ts)
 
 ## client/src/features/recovery/components
@@ -1822,6 +1835,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/delivery/adapters
 
+- [retained-worktrees-http.ts](../../server/modules/delivery/adapters/retained-worktrees-http.ts) · [test](../../server/modules/delivery/adapters/retained-worktrees-http.test.ts)
 - [review-wip-store.ts](../../server/modules/delivery/adapters/review-wip-store.ts)
 
 ## server/modules/delivery/adapters/decisions
@@ -1845,6 +1859,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/delivery/domain
 
 - [decision-policy.ts](../../server/modules/delivery/domain/decision-policy.ts)
+- [merge-preview.ts](../../server/modules/delivery/domain/merge-preview.ts)
+- [retained-worktrees.ts](../../server/modules/delivery/domain/retained-worktrees.ts)
 - [review-wip.ts](../../server/modules/delivery/domain/review-wip.ts)
 - [state.ts](../../server/modules/delivery/domain/state.ts)
 
@@ -1859,6 +1875,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)
 - [fork-change-supersession.ts](../../server/modules/delivery/runtime/fork-change-supersession.ts) · [test](../../server/modules/delivery/runtime/fork-change-supersession.test.ts)
+- [ignored-copy-identity.ts](../../server/modules/delivery/runtime/ignored-copy-identity.ts)
 - [intent-materialization.ts](../../server/modules/delivery/runtime/intent-materialization.ts) · [test](../../server/modules/delivery/runtime/intent-materialization.test.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
@@ -1867,6 +1884,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [local-restore-resolver.ts](../../server/modules/delivery/runtime/local-restore-resolver.ts)
 - [local-stash.ts](../../server/modules/delivery/runtime/local-stash.ts) · [test](../../server/modules/delivery/runtime/local-stash.test.ts)
 - [merge-manager.ts](../../server/modules/delivery/runtime/merge-manager.ts) · [test](../../server/modules/delivery/runtime/merge-manager.test.ts)
+- [merge-preview-git.ts](../../server/modules/delivery/runtime/merge-preview-git.ts)
+- [merge-preview.ts](../../server/modules/delivery/runtime/merge-preview.ts) · [test](../../server/modules/delivery/runtime/merge-preview.test.ts)
 - [multi-repo-bases.ts](../../server/modules/delivery/runtime/multi-repo-bases.ts) · [test](../../server/modules/delivery/runtime/multi-repo-bases.test.ts)
 - [multi-repo-checkout.ts](../../server/modules/delivery/runtime/multi-repo-checkout.ts)
 - [multi-repo-delivery.ts](../../server/modules/delivery/runtime/multi-repo-delivery.ts)
@@ -1908,17 +1927,21 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-worktrees-store.ts](../../server/modules/delivery/runtime/rail-worktrees-store.ts) · [test](../../server/modules/delivery/runtime/rail-worktrees-store.test.ts)
 - [rails-http-shared.ts](../../server/modules/delivery/runtime/rails-http-shared.ts)
 - [rails-launch-http.ts](../../server/modules/delivery/runtime/rails-launch-http.ts)
+- [rails-merge-preview-http.ts](../../server/modules/delivery/runtime/rails-merge-preview-http.ts)
 - [rails-pr-ci-http.ts](../../server/modules/delivery/runtime/rails-pr-ci-http.ts)
+- [rails-preparation-http.ts](../../server/modules/delivery/runtime/rails-preparation-http.ts)
 - [rails-review-http.ts](../../server/modules/delivery/runtime/rails-review-http.ts)
 - [rails-router.ts](../../server/modules/delivery/runtime/rails-router.ts) · [test](../../server/modules/delivery/runtime/rails-router.test.ts)
 - [rails-settings-http.ts](../../server/modules/delivery/runtime/rails-settings-http.ts)
 - [rails-state-http.ts](../../server/modules/delivery/runtime/rails-state-http.ts)
 - [rails-store.ts](../../server/modules/delivery/runtime/rails-store.ts) · [test](../../server/modules/delivery/runtime/rails-store.test.ts)
+- [retained-worktrees.ts](../../server/modules/delivery/runtime/retained-worktrees.ts) · [test](../../server/modules/delivery/runtime/retained-worktrees.test.ts)
 - [review-brief.ts](../../server/modules/delivery/runtime/review-brief.ts) · [test](../../server/modules/delivery/runtime/review-brief.test.ts)
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
 - [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
 - [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
 - [run-review-diagnosis.ts](../../server/modules/delivery/runtime/run-review-diagnosis.ts) · [test](../../server/modules/delivery/runtime/run-review-diagnosis.test.ts)
+- [worktree-preparation-pool.ts](../../server/modules/delivery/runtime/worktree-preparation-pool.ts) · [test](../../server/modules/delivery/runtime/worktree-preparation-pool.test.ts)
 
 ## server/modules/delivery/runtime/pr-ci
 
@@ -2266,6 +2289,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-resources.ts](../../server/modules/terminals/domain/app-resources.ts) · [test](../../server/modules/terminals/domain/app-resources.test.ts)
 - [app-urls.ts](../../server/modules/terminals/domain/app-urls.ts) · [test](../../server/modules/terminals/domain/app-urls.test.ts)
 - [mission-resources.ts](../../server/modules/terminals/domain/mission-resources.ts) · [test](../../server/modules/terminals/domain/mission-resources.test.ts)
+- [run-ports.ts](../../server/modules/terminals/domain/run-ports.ts) · [test](../../server/modules/terminals/domain/run-ports.test.ts)
 - [worktree-leftovers.ts](../../server/modules/terminals/domain/worktree-leftovers.ts) · [test](../../server/modules/terminals/domain/worktree-leftovers.test.ts)
 
 ## server/modules/terminals/runtime
@@ -2276,8 +2300,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts) · [test](../../server/modules/terminals/runtime/background-process-service.test.ts)
 - [background-process-store.ts](../../server/modules/terminals/runtime/background-process-store.ts) · [test](../../server/modules/terminals/runtime/background-process-store.test.ts)
 - [background-windows-bootstrap.ts](../../server/modules/terminals/runtime/background-windows-bootstrap.ts) · [test](../../server/modules/terminals/runtime/background-windows-bootstrap.test.ts)
+- [listening-ports.ts](../../server/modules/terminals/runtime/listening-ports.ts)
 - [mission-resource-history.ts](../../server/modules/terminals/runtime/mission-resource-history.ts) · [test](../../server/modules/terminals/runtime/mission-resource-history.test.ts)
 - [resource-sampler.ts](../../server/modules/terminals/runtime/resource-sampler.ts) · [test](../../server/modules/terminals/runtime/resource-sampler.test.ts)
+- [run-port-leases.ts](../../server/modules/terminals/runtime/run-port-leases.ts) · [test](../../server/modules/terminals/runtime/run-port-leases.test.ts)
 - [terminal-manager.ts](../../server/modules/terminals/runtime/terminal-manager.ts) · [test](../../server/modules/terminals/runtime/terminal-manager.test.ts)
 - [terminal-marks-store.ts](../../server/modules/terminals/runtime/terminal-marks-store.ts) · [test](../../server/modules/terminals/runtime/terminal-marks-store.test.ts)
 - [terminal-osc-parser.ts](../../server/modules/terminals/runtime/terminal-osc-parser.ts) · [test](../../server/modules/terminals/runtime/terminal-osc-parser.test.ts)
@@ -2345,8 +2371,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [bounded-exec.ts](../../server/util/bounded-exec.ts) · [test](../../server/util/bounded-exec.test.ts)
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
+- [clone-copy.ts](../../server/util/clone-copy.ts) · [test](../../server/util/clone-copy.test.ts)
 - [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
+- [diff-prompt-budget.ts](../../server/util/diff-prompt-budget.ts) · [test](../../server/util/diff-prompt-budget.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
+- [git-index-lock.ts](../../server/util/git-index-lock.ts) · [test](../../server/util/git-index-lock.test.ts)
+- [git-invocation.ts](../../server/util/git-invocation.ts) · [test](../../server/util/git-invocation.test.ts)
 - [local-day.ts](../../server/util/local-day.ts)
 - [log-rejection.ts](../../server/util/log-rejection.ts)
 - [page-cursor.ts](../../server/util/page-cursor.ts) · [test](../../server/util/page-cursor.test.ts)

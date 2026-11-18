@@ -284,7 +284,8 @@
       "prDecision": "納品オプション",
       "attention": "通知",
       "liveBoard": "ライブボード",
-      "serverRecovery": "ローカルサーバーが停止したとき"
+      "serverRecovery": "ローカルサーバーが停止したとき",
+      "retainedWorktrees": "ディスクに残っている実行用ワークツリー"
     }
   },
   "forecast": {

@@ -491,3 +491,51 @@ describe('environment notice', () => {
     expect(createLoopExecutors({ env: {} }).environmentNotice).toBeUndefined()
   })
 })
+
+describe('run worktree ports', () => {
+  const ORIG_HOME = process.env.SPECRAILS_REGISTRY_HOME
+  let home = ''
+  let worktree = ''
+  beforeEach(async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'loop-ports-')))
+    worktree = path.join(home, '.specrails', 'projects', 'app', 'worktrees', 'run-1', 'ticket-7')
+    fs.mkdirSync(worktree, { recursive: true })
+    process.env.SPECRAILS_REGISTRY_HOME = home
+    // Self-contained: callStep reads the FIRST recorded invocation, so each
+    // test starts from clean doubles regardless of which tests ran before.
+    runAiCliInvocation.mockReset()
+    getAdapter.mockReset()
+    finaliseInvocationResult.mockReset()
+    finaliseInvocationResult.mockImplementation(() => ({ result: { total_cost_usd: 0, tokens_in: 0, tokens_out: 0 }, estimated: false }))
+    runAiCliInvocation.mockResolvedValue({ spawnFailed: false, code: 0, events: [], sessionId: 'sid', stderrTail: '' })
+  })
+  afterEach(async () => {
+    const fs = await import('node:fs')
+    if (ORIG_HOME === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+    else process.env.SPECRAILS_REGISTRY_HOME = ORIG_HOME
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('AI steps and shell checks in a run worktree share one leased PORT block', async () => {
+    const inv = await callStep('claude', { repoDir: worktree, cwd: worktree })
+    const port = Number(inv.env.PORT)
+    expect(port).toBeGreaterThanOrEqual(30100)
+    expect(inv.env.SPECRAILS_RUN_PORT).toBe(String(port))
+    expect(Number(inv.env.SPECRAILS_RUN_PORT_RANGE_END)).toBe(port + 9)
+    const ex = createLoopExecutors({ env: { PATH: process.env.PATH } })
+    const shell = await ex.runShell({ command: 'printf "%s:%s" "$PORT" "$SPECRAILS_RUN_PORT_RANGE_START"', cwd: worktree, repoDir: worktree })
+    expect(shell.stdout).toBe(`${port}:${port}`)
+  })
+
+  it('leaves the project checkout and a pinned PORT alone', async () => {
+    const outside = await callStep('claude', { repoDir: '/repo', cwd: '/ws' })
+    expect(outside.env.PORT).toBeUndefined()
+    expect(outside.env.SPECRAILS_RUN_PORT).toBeUndefined()
+    const ex = createLoopExecutors({ env: { PATH: process.env.PATH, PORT: '4000' } })
+    const shell = await ex.runShell({ command: 'printf "%s:%s" "$PORT" "$SPECRAILS_RUN_PORT"', cwd: worktree, repoDir: worktree })
+    expect(shell.stdout).toMatch(/^4000:30\d{3}$/)
+  })
+})

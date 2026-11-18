@@ -22,7 +22,11 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
 - No invented cause. Core's classification (contract 5.8) wins; otherwise only certain signals
   produce a kind: the loop's stall reason, the provider-limit classifier, Core's fixed
   "Baseline blocked" / "Verification cannot run in this environment" sentences and
-  `completion.blocker`. Everything else is `unknown` with `confidence: 'low'`.
+  `completion.blocker`, and a port collision (`EADDRINUSE`, "address already in use",
+  "Port N is in use") printed by the run in the very step that failed. That collision
+  is `port_in_use` (with `port` when named) and replaces Core's `tests_failed`/`unknown`
+  for the step: the checks did not fail on the change. Collisions inside the agent's own
+  conversation never count. Everything else is `unknown` with `confidence: 'low'`.
 - A low-confidence record is always `unknown`, whatever kind it claimed, and its remedies are only
   `open-logs` and `retry`.
 - Remedies are ids of actions the app already has; the client offers only those its surface can run.

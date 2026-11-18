@@ -78,7 +78,13 @@
     "question": "问题",
     "actionLabel": "{{action}}：{{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "按价目表估算，并非实际计费"
+    "costEstimatedHint": "按价目表估算，并非实际计费",
+    "mergeConflicts_one": "与基线在 {{count}} 个文件中冲突",
+    "mergeConflicts_other": "与基线在 {{count}} 个文件中冲突",
+    "mergeSiblings_one": "与另外 {{count}} 个运行冲突",
+    "mergeSiblings_other": "与另外 {{count}} 个运行冲突",
+    "baseMoved_one": "基线已前进 {{count}} 个提交",
+    "baseMoved_other": "基线已前进 {{count}} 个提交"
   },
   "empty": {
     "title": "没有正在运行的内容",

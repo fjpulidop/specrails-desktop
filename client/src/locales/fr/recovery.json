@@ -10,6 +10,10 @@
     },
     "provider_limit": "La limite d'utilisation du fournisseur d'IA est atteinte",
     "environment": "L'environnement ne peut pas exécuter les vérifications",
+    "port_in_use": {
+      "port": "Un autre processus utilisait déjà le port {{port}}",
+      "plain": "Un autre processus utilisait déjà le port dont l'exécution avait besoin"
+    },
     "blocked": {
       "phase": "L'exécution est bloquée en phase {{phase}}",
       "plain": "L'exécution est bloquée"
@@ -36,6 +40,7 @@
       "noReset": "Attendez la réinitialisation de la limite puis reprenez, ou exécutez-la avec un autre fournisseur."
     },
     "environment": "Le problème n'est pas le changement. La machine a besoin de quelque chose d'abord.",
+    "port_in_use": "Le changement n'est pas en cause : autre chose occupait le port. Arrêtez-le ou faites lire PORT au projet (chaque exécution a le sien), puis relancez.",
     "tests_failed": "Les vérifications échouent encore après les corrections.",
     "blocked": "Une limite ou une décision l'a arrêtée. Elle n'a pas planté.",
     "timeout": "Elle a atteint sa limite de temps avant de finir.",

@@ -12,6 +12,7 @@
 import { expandCommands } from '../../loops/runtime/loop-command-catalog'
 import { resolveConstants } from '../../loops/runtime/loop-constants'
 import { mergeBack, type BranchToMerge, type MergeOutcome, type MergeState } from './merge-manager'
+import { previewPairMerge, type PairMerge } from './merge-preview-git'
 import { withRepoLock } from '../../../repo-lock'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { newId } from '../../../ids'
@@ -45,6 +46,9 @@ export interface MergeBackContext {
   branches: BranchToMerge[]
   /** State sink (ledger + WS); receives 'merging' + the terminal MergeState. */
   onState?: (ticketId: number, state: MergeState | 'merging') => void
+  /** Merge preview used to order the merge-back (default: merge-tree in a
+   *  scratch object store; merge-preview-git.ts). */
+  previewMerge?: (repoDir: string, baseSha: string, headSha: string) => Promise<PairMerge>
   /**
    * Cost-accounting sink (CRIT-2). When present, EVERY AI merge-back step
    * (verify / resolve-merge / fix) records an `ai_invocations` `surface='job'`
@@ -153,10 +157,59 @@ export async function runMergeBack(ctx: MergeBackContext): Promise<MergeOutcome[
 
   // Serialise the WHOLE merge-back per base repo so two concurrent rails (e.g. two
   // single-ticket rails launched together) never merge/reset the same repo at once.
-  return withRepoLock(baseDir, () =>
+  return withRepoLock(baseDir, async () =>
     mergeBack(
       { git, baseDir, resolveConflict, verifyIntegrated, rebaseAndFix, onState: ctx.onState },
-      ctx.branches
+      await withMergePreview(git, baseDir, ctx.branches, ctx.previewMerge ?? previewPairMerge),
     )
   )
+}
+
+const SHA_RE = /^[0-9a-f]{40,64}$/i
+
+/**
+ * Attach merge-preview facts to every succeeded branch (conflicts against the
+ * base as it stands now, and against each other) so clean candidates merge
+ * first. Read-only; any Git failure leaves that branch without facts and the
+ * previous order applies.
+ */
+export async function withMergePreview(
+  git: GitRunner,
+  baseDir: string,
+  branches: BranchToMerge[],
+  preview: (repoDir: string, baseSha: string, headSha: string) => Promise<PairMerge>,
+): Promise<BranchToMerge[]> {
+  const sha = async (ref: string): Promise<string | null> => {
+    try {
+      const r = await git.run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], baseDir)
+      const value = r.code === 0 ? r.stdout.trim() : ''
+      return SHA_RE.test(value) ? value : null
+    } catch { return null }
+  }
+  const eligible = branches.filter((b) => b.succeeded)
+  if (eligible.length < 2) return branches
+  const base = await sha('HEAD')
+  if (!base) return branches
+  const heads = new Map<BranchToMerge, string>()
+  for (const b of eligible) {
+    const head = await sha(`refs/heads/${b.branch}`)
+    if (head) heads.set(b, head)
+  }
+  const safe = (p: Promise<PairMerge>): Promise<PairMerge | null> => p.catch(() => null)
+  const baseConflicts = new Map<BranchToMerge, number | null>()
+  await Promise.all([...heads].map(async ([b, head]) => {
+    const r = await safe(preview(baseDir, base, head))
+    baseConflicts.set(b, !r || r.status === 'unknown' ? null : r.status === 'conflicts' ? Math.max(1, r.fileCount) : 0)
+  }))
+  const siblings = new Map<BranchToMerge, number>()
+  const entries = [...heads]
+  await Promise.all(entries.flatMap(([a, ha], i) => entries.slice(i + 1).map(async ([b, hb]) => {
+    const r = await safe(preview(baseDir, ha, hb))
+    if (r?.status !== 'conflicts') return
+    siblings.set(a, (siblings.get(a) ?? 0) + 1)
+    siblings.set(b, (siblings.get(b) ?? 0) + 1)
+  })))
+  return branches.map((b) => heads.has(b)
+    ? { ...b, preview: { baseConflicts: baseConflicts.get(b) ?? null, siblingConflicts: siblings.get(b) ?? 0 } }
+    : b)
 }

@@ -28,8 +28,9 @@ import { resolveProjectExecution } from '../../../workspace-resolution'
 import { fetchOrigin, resolveIntegrationBranch, resolveWorktreeBaseRef } from '../../../integration-branch'
 import {
   createWorktree, defaultGitRunner, listLocalBranches, removeWorktree, worktreeBranch,
-  type GitRunner, type WorktreeHandle,
+  type ClaimPreparedCheckout, type GitRunner, type WorktreeHandle,
 } from '../../../worktree-manager'
+import { ensurePreparedCheckout, preparedCheckoutClaimer } from './worktree-preparation-pool'
 import { applyWorktreeOverlay, type OverlayCleanupEvidence } from '../../../worktree-overlay'
 import { currentPolicyHookCommand } from '../../agent-policy'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
@@ -85,6 +86,14 @@ export interface IsolatedWorktreeIO {
   resolveExecution?: typeof resolveProjectExecution
   /** Code-Explorer pre-run worktree snapshot. */
   snapshot?: typeof snapshotWorkingTree
+  /** Prepared checkouts (worktree-preparation-pool). Default: on only with the
+   *  real Git runner and worktree creator, so injected doubles stay exact. */
+  preparation?: boolean
+}
+
+/** Whether a launch with this IO prepares/adopts checkouts. */
+export function usesWorktreePreparation(io: IsolatedWorktreeIO): boolean {
+  return io.preparation ?? ((io.git === undefined || io.git === defaultGitRunner) && io.create === undefined)
 }
 
 /** `adopted`: an Intent session worktree/branch the rail took over at hand-off. From the
@@ -201,6 +210,8 @@ export interface MaterializeIsolatedWorktreeInput {
   refreshFromBaseRef?: boolean
   fresh?: boolean
   reuseBranchWorktree?: boolean
+  /** Fresh branches: adopt a prepared checkout (worktree-preparation-pool). */
+  claimPrepared?: ClaimPreparedCheckout
   /** Verifies the materialized checkout and returns its pre-run HEAD. Throwing
    *  rolls back resources this call created. Default: read HEAD. */
   verifyHead?: (handle: WorktreeHandle, git: GitRunner) => Promise<string | null>
@@ -246,6 +257,7 @@ export async function materializeIsolatedWorktree(
     refreshFromBaseRef: input.refreshFromBaseRef,
     fresh: input.fresh,
     reuseBranchWorktree: input.reuseBranchWorktree,
+    ...(input.claimPrepared ? { claimPrepared: input.claimPrepared } : {}),
   })
   const worktreeOwnership: IsolatedWorktreeOwnership = handle.worktreeCreated === false ? 'preexisting' : 'created'
   let branchOwnership = input.branchOwnership
@@ -411,7 +423,11 @@ export async function prepareIsolatedWorktree(
   const resolveExecution = io.resolveExecution ?? (target.primary ? undefined : () => resolveProjectExecution(ctx.project))
   const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, resolveExecution)
   return withRepoLock(baseRepo, async () => {
-    const fetchResult = await fetchOrigin(git, baseRepo)
+    const fetching = fetchOrigin(git, baseRepo)
+    // Populate a checkout from the pre-fetch base while the fetch is on the
+    // network; adoption below resets it to the exact fetched base.
+    if (usesWorktreePreparation(io)) await startPreparationBesideFetch(git, baseRepo, target.worktreesRoot, input.baseRef ?? undefined, target.primary ? target.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch : target.integrationBranch ?? undefined)
+    const fetchResult = await fetching
     const integration = await resolveIntegrationBranch(git, {
       repoDir: baseRepo,
       explicit: input.baseRef ?? undefined,
@@ -442,9 +458,31 @@ export async function prepareIsolatedWorktree(
       branch,
       branchOwnership: 'created',
       fresh: true,
+      ...(!usesWorktreePreparation(io) ? {} : { claimPrepared: preparedCheckoutClaimer(git, baseRepo, target.worktreesRoot) }),
       overlay: overlaySources,
       onDegraded,
     }, io)
     return { ...prepared, runId, baseRef: worktreeBaseRef.baseRef, baseSha, integrationBranch: integration.branch }
   })
+}
+
+/**
+ * Start (without awaiting) one prepared checkout cut from the launch's best
+ * pre-fetch base guess — the remote-tracking ref of the integration branch as
+ * it stands before this fetch, else the local branch — so populating the files
+ * overlaps the network round trip. Never throws; a failed guess only means no
+ * prepared checkout (the plain `worktree add` path runs).
+ */
+export async function startPreparationBesideFetch(
+  git: GitRunner,
+  repoDir: string,
+  worktreesRoot: string,
+  explicit: string | undefined,
+  projectSetting: string | null | undefined,
+): Promise<void> {
+  try {
+    const integration = await resolveIntegrationBranch(git, { repoDir, explicit, projectSetting: projectSetting ?? undefined })
+    const guess = await resolveWorktreeBaseRef(git, { repoDir, integration, fetchOk: true })
+    ensurePreparedCheckout({ git, repoDir, worktreesRoot, baseRef: guess.baseRef })
+  } catch { /* no preparation; the launch creates its worktree normally */ }
 }

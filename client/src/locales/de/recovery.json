@@ -10,6 +10,10 @@
     },
     "provider_limit": "Das Nutzungslimit des KI-Anbieters ist erreicht",
     "environment": "Die Umgebung kann die Prüfungen nicht ausführen",
+    "port_in_use": {
+      "port": "Ein anderer Prozess belegte bereits Port {{port}}",
+      "plain": "Ein anderer Prozess belegte bereits den Port, den der Lauf brauchte"
+    },
     "blocked": {
       "phase": "Der Lauf ist in der Phase {{phase}} blockiert",
       "plain": "Der Lauf ist blockiert"
@@ -36,6 +40,7 @@
       "noReset": "Warte auf den Reset des Limits und setze dann fort, oder führe es mit einem anderen Anbieter aus."
     },
     "environment": "Die Änderung selbst ist nicht das Problem. Der Rechner braucht zuerst etwas.",
+    "port_in_use": "Nicht die Änderung ist das Problem: Etwas anderes belegte den Port. Beende es oder lass das Projekt PORT lesen (jeder Lauf bekommt einen eigenen) und starte erneut.",
     "tests_failed": "Die Prüfungen schlagen auch nach den Korrekturen fehl.",
     "blocked": "Ein Limit oder eine Entscheidung hat ihn gestoppt. Er ist nicht abgestürzt.",
     "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",

@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { gitExecEnv } from './modules/code/runtime/file-provenance'
+import { gitInvocationEnv, gitSubcommand } from './util/git-invocation'
+import { describeIndexLockFailure, inspectIndexLock, waitForIndexLockRelease } from './util/git-index-lock'
 import { isValidBranchName } from './integration-branch'
 
 // ─── Project git info + branch switch (Agent-Mode git bar) ────────────────────
@@ -17,12 +19,25 @@ const GIT_TIMEOUT_MS = 10_000
 const GIT_MAX_BUFFER = 4 * 1024 * 1024
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
-function git(repoDir: string, args: string[]): Promise<string> {
+async function git(repoDir: string, args: string[]): Promise<string> {
+  // A status read waits (bounded) for a live index.lock so the git bar and the
+  // checkout preflight see the settled index (util/git-index-lock.ts).
+  if (gitSubcommand(args)?.name === 'status') await waitForIndexLockRelease(repoDir)
+  try {
+    return await spawnGit(repoDir, args)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    const note = describeIndexLockFailure(message, await inspectIndexLock(repoDir))
+    throw note ? new Error(`${message}\n${note}`) : err
+  }
+}
+
+function spawnGit(repoDir: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       'git',
       args,
-      { cwd: repoDir, env: gitExecEnv(), timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, windowsHide: true },
+      { cwd: repoDir, env: gitInvocationEnv(gitExecEnv(), args), timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, windowsHide: true },
       (err, stdout, stderr) => {
         if (err) {
           const detail = String(stderr || err.message).trim()

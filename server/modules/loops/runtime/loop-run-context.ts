@@ -97,6 +97,8 @@ export interface LoopRunState {
   failedStepId: string | undefined
   failureText: string | undefined
   coreFailure: unknown
+  /** Latest port collision (`EADDRINUSE`) printed by the run, with its step (recovery `port_in_use`). */
+  portConflict?: { port: number | null; line: string; stepId: string | null }
   iteration: number
   totalCost: number
   totalTokens: number

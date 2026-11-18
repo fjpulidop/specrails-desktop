@@ -17,6 +17,7 @@
  * Pure over an injectable `Exec` so it is unit-tested without git/gh or a network.
  */
 import { execFile } from 'child_process'
+import { gitInvocationEnv, isGitCommand } from '../../../util/git-invocation'
 import { assertGitAllowed } from '../../../git-guardrails'
 import { windowsSpawnEnv } from '../../../util/win-spawn'
 
@@ -44,7 +45,7 @@ export function createBoundedExec(timeoutMs = PR_COMMAND_TIMEOUT_MS): Exec {
       // fail to start. NOT `gitExecEnv()`: that hardened env disables credentials
       // (GIT_ASKPASS=echo / GIT_TERMINAL_PROMPT=0), which the push must keep. No-op
       // on POSIX (returns process.env), so mac/Linux behaviour is byte-identical.
-      const env = windowsSpawnEnv()
+      const env = isGitCommand(cmd) ? gitInvocationEnv(windowsSpawnEnv(), args) : windowsSpawnEnv()
       // These commands can run while holding the per-repository mutation lock.
       // A wedged credential helper/network child must be reaped before the lock
       // can be released; otherwise every later launch/decision/checkout hangs

@@ -24,6 +24,7 @@ import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
+import { MergePreviewLine } from './MergePreviewLine'
 import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -1018,6 +1019,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {menuRendered ? null : runLogChips}
       {unitEvidence}
       {!compact && d !== 'building' ? <TopRiskLine summary={decision.riskSummary} className="basis-full" /> : null}
+      {/* Conflicts with the current base / sibling deliveries, base lead (merge-tree, no checkout). */}
+      <MergePreviewLine deliveryId={decision.prDeliveryId} className="basis-full" />
       {statusLabel && (
         <span className={`${pillBase} border-border/60 bg-surface/60 text-muted-foreground`} data-testid="rail-pr-status-code">
           {statusLabel}

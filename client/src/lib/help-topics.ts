@@ -41,6 +41,7 @@ export const HELP_TOPICS = {
   attention: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'attention' },
   liveBoard: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'live-board' },
   serverRecovery: { category: 'settings', slug: 'server-recovery-and-problem-reports', anchor: 'server-recovery' },
+  retainedWorktrees: { category: 'settings', slug: 'where-your-data-lives', anchor: 'retained-worktrees' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>
 
 export type HelpTopicId = keyof typeof HELP_TOPICS
@@ -62,6 +63,7 @@ export const APP_SETTINGS_HELP = {
   mcp: 'mcpServer',
   mobile: 'mobileCompanion',
   projects: 'existingProjects',
+  storage: 'retainedWorktrees',
   updates: 'updates',
   about: 'serverRecovery',
 } as const satisfies Record<string, HelpTopicId>

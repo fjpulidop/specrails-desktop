@@ -37,6 +37,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 ## Feature dependencies
 
+- [background](../background/README.md)
 - [builder](../builder/README.md)
 - [diagnostics](../diagnostics/README.md)
 - [integrations](../integrations/README.md)

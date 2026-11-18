@@ -78,7 +78,13 @@
     "question": "質問",
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
-    "costEstimatedHint": "料金表による見積もりで、請求額ではありません"
+    "costEstimatedHint": "料金表による見積もりで、請求額ではありません",
+    "mergeConflicts_one": "{{count}} ファイルでベースとコンフリクト",
+    "mergeConflicts_other": "{{count}} ファイルでベースとコンフリクト",
+    "mergeSiblings_one": "ほかの {{count}} 件の run と衝突",
+    "mergeSiblings_other": "ほかの {{count}} 件の run と衝突",
+    "baseMoved_one": "ベースが {{count}} コミット進みました",
+    "baseMoved_other": "ベースが {{count}} コミット進みました"
   },
   "empty": {
     "title": "実行中のものはありません",

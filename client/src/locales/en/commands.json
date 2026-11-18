@@ -361,6 +361,10 @@
         "reduceMotion": {
           "label": "Reduce motion",
           "keywords": "reduce motion, animation, accessibility, vestibular, calm, transitions"
+        },
+        "retainedWorktrees": {
+          "label": "Run worktrees kept on disk",
+          "keywords": "storage, disk, worktrees, cleanup, clean up, space, retained, branches, remove"
         }
       }
     }

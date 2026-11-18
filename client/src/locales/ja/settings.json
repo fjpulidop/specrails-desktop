@@ -62,7 +62,8 @@
       "about": "概要",
       "effects": "エフェクト",
       "subscriptionUsage": "サブスクリプション使用量",
-      "notifications": "通知"
+      "notifications": "通知",
+      "storage": "ストレージ"
     },
     "title": "Desktop 設定",
     "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",

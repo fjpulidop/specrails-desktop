@@ -8,7 +8,7 @@
 import type { EventRow } from '../../../types'
 import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 
 export const REMEDY_IDS = ['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs'] as const
@@ -34,6 +34,8 @@ export interface FailureDiagnosis {
   detail: string | null
   resumablePhase: string | null
   blocker: FailureBlocker | null
+  /** `port_in_use`: the contested port, when the run's output named it. */
+  port?: number | null
   source: 'core' | 'desktop'
   /** Ranked by the server; a surface shows the first ones it can run. */
   remedies: RemedyId[]
@@ -79,6 +81,7 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
     detail: text(v.detail, 300),
     resumablePhase: text(v.resumablePhase, 200),
     blocker: readBlocker(v.blocker),
+    port: typeof v.port === 'number' && Number.isInteger(v.port) && v.port >= 1 && v.port <= 65535 ? v.port : null,
     source: v.source === 'core' ? 'core' : 'desktop',
     // An uncertain record is offered the same two safe remedies whatever the wire said.
     remedies: confident ? remedies : ['open-logs', 'retry'],
@@ -115,6 +118,7 @@ export function headlineKey(diagnosis: FailureDiagnosis, phaseLabel: string | nu
     case 'tool_inactivity':
     case 'crash':
     case 'blocked': return { key: `headline.${diagnosis.kind}.${phaseLabel ? 'phase' : 'plain'}`, params }
+    case 'port_in_use': return diagnosis.port ? { key: 'headline.port_in_use.port', params: { ...params, port: diagnosis.port } } : { key: 'headline.port_in_use.plain', params }
     default: return { key: `headline.${diagnosis.kind}`, params }
   }
 }
@@ -126,6 +130,7 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'provider_limit': return diagnosis.resetsAt ? { key: 'why.provider_limit.resetsAt', params: { resetsAt: diagnosis.resetsAt } }
       : diagnosis.resetAt ? { key: 'why.provider_limit.reset', params: { resetAt: diagnosis.resetAt } } : { key: 'why.provider_limit.noReset', params: {} }
     case 'environment': return { key: 'why.environment', params: {} }
+    case 'port_in_use': return { key: 'why.port_in_use', params: {} }
     case 'tests_failed': return { key: 'why.tests_failed', params: {} }
     case 'blocked': return { key: 'why.blocked', params: {} }
     case 'timeout': return { key: 'why.timeout', params: {} }

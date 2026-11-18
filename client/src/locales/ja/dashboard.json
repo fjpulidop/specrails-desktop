@@ -334,5 +334,17 @@
   "board": {
     "pageTitle": "{{project}}：ボード",
     "pageTitleBare": "ボード"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "{{files}} で {{base}} とコンフリクトします",
+    "conflictsWithBase_other": "{{count}} ファイルで {{base}} とコンフリクトします: {{files}}",
+    "collidesWithRail": "Rail {{rail}} と {{files}} で衝突します",
+    "alreadyMerged": "すでに {{base}} に含まれています",
+    "clean": "現在の {{base}} にコンフリクトなしでマージできます",
+    "unknown": "マージのプレビューを利用できません（Git 2.38 以降が必要か、参照が存在しません）",
+    "baseMoved_one": "このブランチの作成後、{{base}} は {{count}} コミット進みました",
+    "baseMoved_other": "このブランチの作成後、{{base}} は {{count}} コミット進みました",
+    "moreFiles": "ほか {{count}} 件",
+    "title": "マージのプレビュー"
   }
 }

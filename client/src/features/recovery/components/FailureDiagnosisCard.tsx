@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Check, CircleHelp, Copy, FilePenLine, Gauge, OctagonAlert, Play, RotateCcw, ScrollText, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
+  Cable, Check, CircleHelp, Copy, FilePenLine, Gauge, OctagonAlert, Play, RotateCcw, ScrollText, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
@@ -19,6 +19,7 @@ const KIND_LOOK: Record<FailureDiagnosis['kind'], { icon: LucideIcon; tone: Tone
   tests_failed: { icon: XCircle, tone: 'failed' },
   provider_limit: { icon: Gauge, tone: 'caution' },
   environment: { icon: Wrench, tone: 'caution' },
+  port_in_use: { icon: Cable, tone: 'caution' },
   blocked: { icon: OctagonAlert, tone: 'caution' },
   timeout: { icon: TimerOff, tone: 'caution' },
   tool_inactivity: { icon: TimerOff, tone: 'caution' },

@@ -361,6 +361,10 @@
         "reduceMotion": {
           "label": "减少动态效果",
           "keywords": "减少动态效果, 动画, 无障碍, 前庭, 平静, 过渡, motion"
+        },
+        "retainedWorktrees": {
+          "label": "磁盘上保留的运行工作树",
+          "keywords": "存储, 磁盘, 工作树, worktree, 清理, 空间, 分支, 移除"
         }
       }
     }

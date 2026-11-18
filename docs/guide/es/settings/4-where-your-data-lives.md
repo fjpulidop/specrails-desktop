@@ -46,3 +46,19 @@ Lo que ganas tú: puedes añadir un proyecto, ejecutar pipelines, explorar specs
 ## Eliminar un proyecto
 
 Cuando eliminas un proyecto de Specrails, la app limpia su propio estado por proyecto en `~/.specrails/`. Las specs que ya estaban commiteadas en tu repo se quedan donde les corresponde —en tu repo— porque son tuyas.
+
+## Worktrees de ejecuciones guardados en disco {#retained-worktrees}
+
+Cada ejecución de un rail trabaja en su propio worktree de Git dentro de `~/.specrails/projects/<proyecto>/worktrees/`. Cuando una ejecución termina, Specrails borra ese worktree, pero solo si puede demostrar que no se perderá nada. Si no puede (hay cambios sin commit, archivos que solo existen ahí o un borrado que falló), lo conserva. Con el tiempo se van acumulando.
+
+**Ajustes ▸ Almacenamiento** los muestra para todos los proyectos. También puedes llegar desde el panel **Recursos** de la barra de estado. Cada worktree muestra su tamaño (medido en segundo plano), cuánto tiempo lleva sin usarse, su PR y qué se perdería al quitarlo:
+
+- **Nada que perder**: no tiene cambios sin commit, y cada archivo ignorado es regenerable (`node_modules`), un enlace o idéntico al mismo archivo de tu checkout principal (un `.env` copiado, por ejemplo). Todos los commits de su rama están en un remoto o en otra rama, o su entrega se fusionó.
+- **Te espera**: algo sigue necesitándote. Se indica cada motivo: cambios sin commit, archivos ignorados que solo existen ahí, commits que solo están en esta rama, una entrega que espera tu decisión, actividad reciente (la última hora) o que Git no pudo comprobarlo. Si Git no puede comprobar un worktree, nunca se considera limpio.
+
+Selecciona worktrees y elige **Quitar**. La confirmación indica cuánto disco recuperas y qué pasa con las ramas:
+
+- Por defecto las ramas se **conservan**, así que sus commits siguen disponibles.
+- Con **Borrar también las ramas que no contienen nada nuevo**, una rama solo se borra si no tiene nada que perder y solo si sigue apuntando al commit que comprobó Specrails.
+
+Los worktrees con cambios sin commit o con archivos que solo existen ahí no se pueden seleccionar. Antes, haz commit de ese trabajo, cópialo o descártalo. Un worktree que pertenece a una sesión de Intent aparece en la lista, pero se gestiona desde su sesión. Justo antes de quitarlo, cada worktree se vuelve a comprobar: si algo cambió después de que confirmaras, se conserva y el resultado explica por qué. Los procesos que siguieran en marcha en un worktree quitado (un servidor de desarrollo, por ejemplo) se detienen.

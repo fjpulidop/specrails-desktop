@@ -12,6 +12,7 @@
  *  · A state the three verbs cannot describe honestly renders the existing
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
+import { PacketMergePreview } from '../components/review-packet/PacketMergePreview'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
@@ -635,6 +636,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       {packet.whatToLookAt ? (
         <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
       ) : null}
+
+      {/* ── Merge preview: conflicts with the base as it stands now and with
+          sibling deliveries, and how far the base moved (no checkout). */}
+      <PacketMergePreview deliveryId={delivery?.prDeliveryId ?? packet.prDeliveryId} />
 
       {/* ── Needs human eyes: the project's human-only rules (rules inventory) */}
       {packet.needsHumanEyes?.length ? <NeedsHumanEyes rules={packet.needsHumanEyes} /> : null}

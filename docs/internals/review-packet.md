@@ -214,6 +214,16 @@ two surfaces disagree about what the same person had chosen. With
 `VITE_FEATURE_NARRATED_PROGRESS=false` both surfaces render byte-identically to
 their pre-change behaviour, with no toggle at all.
 
+## Merge preview
+
+The Overview shows a **Merge preview** card right after "What to look at":
+conflicts with the base as it stands now, the sibling
+deliveries this one collides with, how far the base moved since the branch was
+cut, or that the change already landed. It reads `GET /rails/merge-preview`
+(one shared request per project, also used by the delivery strips) and is
+absent until the first preview arrives. Computation, caching and refresh are
+described in the [delivery README](../../server/modules/delivery/README.md#merge-preview).
+
 ## Changes tab (in-app diff review)
 
 The packet has two tabs, **Overview** (everything above) and **Changes**

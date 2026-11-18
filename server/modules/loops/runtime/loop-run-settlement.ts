@@ -113,7 +113,7 @@ function failureDiagnosisOf(ctx: LoopRunContext, outcome: LoopRunOutcome, coreCo
   const { state } = ctx
   const definitionCompletion = state.definitionCompletion
   return isDiagnosableOutcome(outcome)
-    ? serializeDiagnosis(deriveFailureDiagnosis({ outcome, stallReason: state.stallReason ?? null, providerLimit: state.providerLimitHit ?? null, errorText: state.failureText ?? null, stepId: state.failedStepId ?? null, core: state.coreFailure, hostBlocker: definitionCompletion?.blocker ?? null,
+    ? serializeDiagnosis(deriveFailureDiagnosis({ outcome, stallReason: state.stallReason ?? null, providerLimit: state.providerLimitHit ?? null, errorText: state.failureText ?? null, stepId: state.failedStepId ?? null, core: state.coreFailure, hostBlocker: definitionCompletion?.blocker ?? null, portConflict: state.portConflict ?? null,
       blockedReason: definitionCompletion && !definitionCompletion.ok ? definitionCompletion.reasons.join('; ') : coreCompletion && outcome === 'blocked' ? `validation ${coreCompletion.completion.validation}, implementation ${coreCompletion.completion.implementation}` : null }))
     : null
 }

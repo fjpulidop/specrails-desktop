@@ -61,6 +61,8 @@ Jedes Mal, wenn du Play drückst, wird der rail-Lauf zu einem **Job**. Die wicht
 
 Du willst alles auf einmal starten? Der Button **Alle starten** im Rails-Header startet jede startbereite Spur in einem Rutsch — nach einer einzigen Bestätigung, die die Gesamtkosten einordnet (N rails × KI-Ausgaben). Leere, bereits laufende oder auf eine PR-Entscheidung wartende rails werden übersprungen und in einem kompakten Zusammenfassungs-Toast gemeldet. Der eingebaute Agent hat dieselbe Fähigkeit über `specrails_rails(launch_all)` — und legt eine frische rail an, wenn keine freie Spur existiert.
 
+Solange der Dialog **Launch all** offen ist, bereitet Specrails im Hintergrund bereits bis zu drei Worktrees vor, sodass die Rails nach deiner Bestätigung schneller starten; ein Start ohne vorbereiteten Worktree befüllt ihn, während er fetcht. Dein Git-Hook `post-checkout` läuft weiterhin genau einmal pro neuem Worktree. Schließt du den Dialog ohne Start, wird das Vorbereitete verworfen.
+
 Projekte ohne Git haben keine Worktree-Isolation und keine PR-Fortsetzung. Sie können trotzdem laufen, aber die Rail schreibt direkt in den gemeinsamen Projektordner und das Ergebnis wird manuell über das Spec-Board akzeptiert oder zurückgenommen.
 
 Es gibt keinen globalen Regler für die Parallelität. Die einzige automatische Bremse ist budgetbasiert: Wenn du ein Tagesbudget gesetzt hast (pro Projekt oder app-weit), pausiert die Queue von selbst, sobald die Ausgaben des Tages das Limit erreichen.
