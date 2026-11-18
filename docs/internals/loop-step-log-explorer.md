@@ -38,7 +38,7 @@ does not qualify. Parallel scoped verdicts stay separate and do not acquire an
 invented aggregate confidence score. AI review never replaces host verification,
 and a file-based confidence score retains precedence over the runtime projection.
 
-Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
+Emitted by `server/modules/loops/runtime/loop-run-events.ts` on behalf of `LoopRunManager` (payload interfaces live in `loop-run-contract.ts` and are re-exported by `loop-run-manager.ts` — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start
 
@@ -97,7 +97,7 @@ A step torn down by manager shutdown / project removal (disposed, never settles)
 
 ### Seq guarantees
 
-The run owns a single monotonic seq allocator (`takeSeq` in `runLoop`), **shared with an interactive step session** that persists its own provider events/logs on the same job id:
+The run owns a single monotonic seq allocator (`takeSeq` from `createLoopRunEvents`), **shared with an interactive step session** that persists its own provider events/logs on the same job id:
 
 - `loop_graph` precedes the first `loop_step`.
 - Each `loop_step_end` is appended **after its step's last persisted output line** — every emit site sits past the step's settle `await`, and the interactive session takes its seqs from the same allocator synchronously as it streams, so the end event's seq is always greater.
@@ -213,7 +213,8 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 
 | File | Role |
 |---|---|
-| `server/modules/loops/runtime/loop-run-manager.ts` | Event emission (`emitStep` / `emitStepEnd` / `loop_graph`), exported payload types, seq allocator |
+| `server/modules/loops/runtime/loop-run-events.ts` | Event emission (`emitStep` / `emitStepEnd` / `emitRunEvent`) and the run's seq allocator; `loop_graph` is written by `loop-run-launch.ts` |
+| `server/modules/loops/runtime/loop-run-contract.ts` | Payload types, re-exported by `loop-run-manager.ts` |
 | `client/src/features/loops/components/loop-log/loop-log-model.ts` | Pure grouping/status/chip model |
 | `client/src/features/loops/components/loop-log/LoopStepExplorer.tsx` | Container: follow mode, filter, copy, toolbar |
 | `client/src/features/loops/components/loop-log/LoopOverviewStrip.tsx` | Live chip strip + iteration counter |

@@ -120,6 +120,36 @@ phases). `failureRecovery` allows one in-run phase retry or an artifact-only rep
 followed by revalidation; it never resets run budgets or changes the frozen target.
 See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-sdd-scope-and-efficiency).
 
+## Run execution structure
+
+`runtime/loop-run-manager.ts` is the public entry: `LoopRunManager` owns the
+resident per-run state (spawned children, interactive sessions, pauses,
+cancellation, definition claims, run caps) and re-exports the contract and
+helpers below, so consumers keep importing from it. `_run` only orchestrates
+admit → launch → execute → settle over a shared `LoopRunContext`
+(`loop-run-context.ts`: the narrow `LoopRunHost` port, resolved limits,
+mutable run state and the `NodeStep` routing result).
+
+| Unit | Responsibility |
+| --- | --- |
+| `loop-run-contract.ts` | Executor port, request/result, run-event payloads, budget-pause types |
+| `loop-run-launch.ts` | Request freezing, limits, launch transaction, run header and `loop_graph`, run cap |
+| `loop-run-events.ts` | Seq allocator, `loop_step` / `loop_step_end` / log / raw-frame emission |
+| `loop-run-ledger.ts` | Stage `loop_step_recovery` before a spawn; record the settled step and totals |
+| `loop-step-accounting.ts` | `ai_invocations` rows and orphan step recovery (startup, teardown, settle) |
+| `loop-run-pauses.ts` | Human-decision and `budget_paused` pauses |
+| `loop-legacy-traversal.ts` | Engine-1 traversal: between-step guards and node dispatch |
+| `loop-node-ai-step.ts`, `loop-node-shell.ts`, `loop-node-decider.ts` | One executor per executable node kind |
+| `loop-phase-recovery.ts` | Single in-run `failureRecovery` retry/repair routing |
+| `loop-ai-step-signals.ts`, `loop-run-vars.ts` | Pure step judgments; history, `{{run.*}}` variables, change identity |
+| `loop-interactive-ai-step.ts` | Resident interactive session for one AI step |
+| `loop-definition-execution.ts` | Core definition delegation (engine 2) |
+| `loop-run-settlement.ts` | Accounting reconciliation, outcome acceptance, `finishLoopRunAndJob`, terminal broadcasts |
+
+`loop-run-characterization.test.ts` pins full run traces (event order, seqs,
+payloads, broadcasts, accounting rows, terminal rows) and traversal routing;
+a snapshot change there is a behaviour change.
+
 ## Template catalog
 
 `runtime/loop-templates.ts` serves the eight starters in
@@ -154,7 +184,7 @@ and again on `GET /loops` and `GET /loops/factory`; it is idempotent
   missing row runs the current code default. Edited graphs pass graph validation
   and `assertEngineSupport` before any run or worktree is allocated.
 - Built-ins are edited through the normal `PUT`/`publish` flow. `PUT` is allowed
-  while a run uses a built-in: `LoopRunManager._run` clones the request graph and
+  while a run uses a built-in: `normalizeLoopRunRequest` (`loop-run-launch.ts`) clones the request graph and
   definition runs resume from their frozen request, so an edit cannot reach a live
   run. Other loops keep the running guard. `DELETE` and `unpublish` return
   `409 builtin_loop`. `POST /loops/:id/restore-builtin` resets a built-in to the
