@@ -7,6 +7,8 @@ vi.mock('../../../loops/lib/loops-api', () => ({
   loopsApi: { list: vi.fn() },
 }))
 const api = loopsApi as unknown as { list: ReturnType<typeof vi.fn> }
+const openSelect = (trigger: HTMLElement) =>
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -17,10 +19,16 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
   it('always offers Implement, the only built-in loop', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
-    expect(within(sel).getByRole('option', { name: 'Implement' })).toBeInTheDocument()
+    // No pick yet: the trigger shows the placeholder, which is not a selectable option.
+    expect(sel).toHaveTextContent('Pick a loop')
+    expect(sel).toHaveAttribute('data-placeholder')
+    openSelect(sel)
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByRole('option', { name: 'Implement' })).toBeInTheDocument()
     // Freestyle, SDD Quick and the removed Batch mode are never offered by the app.
-    for (const name of ['Freestyle', 'SDD Quick (OpenSpec)', 'Batch']) expect(within(sel).queryByRole('option', { name })).not.toBeInTheDocument()
-    expect(within(sel).getAllByRole('option').map((o) => (o as HTMLOptionElement).value)).toEqual(['', 'factory:implement'])
+    for (const name of ['Freestyle', 'SDD Quick (OpenSpec)', 'Batch']) expect(within(listbox).queryByRole('option', { name })).not.toBeInTheDocument()
+    expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual(['Implement'])
+    expect(within(listbox).getByText('Built-in')).toBeInTheDocument()
   })
 
   it('says in one line what the picked loop does', () => {
@@ -32,9 +40,13 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     api.list.mockResolvedValue([
       { id: 'u-free', name: 'Freestyle', status: 'published', graph: { nodes: [{ id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 0 }, data: { prompt: '{{cmd:freestyle}}' } }], edges: [], config: { maxIterations: 12, timeoutMinutes: 0 } }, description: null, createdAt: '', updatedAt: '' },
     ])
-    render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    const onChange = vi.fn()
+    render(<RailLoopSelector value={null} onChange={onChange} loopsEnabled />)
+    await waitFor(() => expect(api.list).toHaveBeenCalled())
+    openSelect(screen.getByTestId('rail-loop-selector'))
     await waitFor(() => expect(screen.getByRole('option', { name: 'Freestyle' })).toBeInTheDocument())
-    expect((screen.getByRole('option', { name: 'Freestyle' }) as HTMLOptionElement).value).toBe('u-free')
+    fireEvent.click(screen.getByRole('option', { name: 'Freestyle' }))
+    expect(onChange).toHaveBeenCalledWith('u-free')
   })
 
   // A spec-driven graph (references {{spec.*}}) — rail-eligible.
@@ -48,6 +60,8 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
       { id: 'd1', name: 'Draft One', status: 'draft', graph: specGraph, description: null, createdAt: '', updatedAt: '' },
     ])
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    await waitFor(() => expect(api.list).toHaveBeenCalled())
+    openSelect(screen.getByTestId('rail-loop-selector'))
     await waitFor(() => expect(screen.getByRole('option', { name: 'My Loop' })).toBeInTheDocument())
     // Drafts are not selectable.
     expect(screen.queryByRole('option', { name: 'Draft One' })).not.toBeInTheDocument()
@@ -59,6 +73,8 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
       { id: 'c2', name: 'Standalone Loop', status: 'published', graph: standaloneGraph, description: null, createdAt: '', updatedAt: '' },
     ])
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    await waitFor(() => expect(api.list).toHaveBeenCalled())
+    openSelect(screen.getByTestId('rail-loop-selector'))
     await waitFor(() => expect(screen.getByRole('option', { name: 'Spec Loop' })).toBeInTheDocument())
     expect(screen.queryByRole('option', { name: 'Standalone Loop' })).not.toBeInTheDocument()
   })
@@ -70,8 +86,9 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
 
   it('fires onChange with the chosen loop id', () => {
     const onChange = vi.fn()
-    render(<RailLoopSelector value="factory:implement" onChange={onChange} loopsEnabled={false} />)
-    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:implement' } })
+    render(<RailLoopSelector value={null} onChange={onChange} loopsEnabled={false} />)
+    openSelect(screen.getByTestId('rail-loop-selector'))
+    fireEvent.click(screen.getByRole('option', { name: 'Implement' }))
     expect(onChange).toHaveBeenCalledWith('factory:implement')
   })
 })
@@ -84,12 +101,15 @@ describe('RailLoopSelector with editable built-in rows', () => {
       { id: 'factory:implement', builtinId: 'factory:implement', builtinModified: true, name: 'Team Implement', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
       { id: 'c1', name: 'My Loop', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
     ])
-    render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    const onChange = vi.fn()
+    render(<RailLoopSelector value={null} onChange={onChange} loopsEnabled />)
+    await waitFor(() => expect(api.list).toHaveBeenCalled())
+    openSelect(screen.getByTestId('rail-loop-selector'))
     await waitFor(() => expect(screen.getByRole('option', { name: 'Team Implement' })).toBeInTheDocument())
-    const sel = screen.getByTestId('rail-loop-selector')
-    const values = within(sel).getAllByRole('option').map((option) => (option as HTMLOptionElement).value)
-    expect(values.filter((value) => value === 'factory:implement')).toHaveLength(1)
-    expect(within(sel).getByRole('option', { name: 'My Loop' })).toBeInTheDocument()
-    expect(within(sel).queryByRole('option', { name: 'Implement' })).not.toBeInTheDocument()
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual(['Team Implement', 'My Loop'])
+    expect(within(listbox).queryByRole('option', { name: 'Implement' })).not.toBeInTheDocument()
+    fireEvent.click(within(listbox).getByRole('option', { name: 'Team Implement' }))
+    expect(onChange).toHaveBeenCalledWith('factory:implement')
   })
 })

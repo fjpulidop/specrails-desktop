@@ -2,6 +2,7 @@ import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import { isLocalEngineId, isRolesEngine, providerLabel } from '../../providers/lib/provider-capabilities'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 
 interface Props {
   /** Selected engine. null/undefined = project primary; `roles` = the hybrid
@@ -29,19 +30,23 @@ export function RailEngineSelector({ value, providers, onChange }: Props) {
       onClick={(e) => e.stopPropagation()}
     >
       <Cpu className="w-3 h-3 text-muted-foreground mr-1" />
-      <select
-        value={current}
-        aria-label={t('railSelectors.engineTitle')}
-        data-testid="rail-engine-selector"
-        onChange={(e) => onChange(e.target.value)}
-        className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
-      >
-        {providers.map((p) => (
-          <option key={p} value={p}>
-            {isLocalEngineId(p) ? `${providerLabel(p)} · ${t('railSelectors.localEngine')}` : providerLabel(p)}
-          </option>
-        ))}
-      </select>
+      <Select value={current} onValueChange={onChange}>
+        <SelectTrigger
+          size="sm"
+          aria-label={t('railSelectors.engineTitle')}
+          data-testid="rail-engine-selector"
+          className="border-border/50 bg-transparent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-40"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {providers.map((p) => (
+            <SelectItem key={p} value={p}>
+              {isLocalEngineId(p) ? `${providerLabel(p)} · ${t('railSelectors.localEngine')}` : providerLabel(p)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

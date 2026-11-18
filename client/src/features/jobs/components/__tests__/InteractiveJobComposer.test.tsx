@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '../../../../test-utils'
+import { render, screen, waitFor, act, fireEvent } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { InteractiveJobComposer } from '../InteractiveJobComposer'
 
@@ -268,8 +268,25 @@ describe('Core workflow human controls',()=>{
     render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'map[0]/ask',kind:'question'},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)
     await user.type(screen.getByRole('textbox'),'Answer')
     expect(screen.getByRole('button',{name:'Send'})).toBeDisabled()
-    await user.selectOptions(screen.getByRole('combobox'),'q2');await user.click(screen.getByRole('button',{name:'Send'}))
+    const picker=screen.getByRole('combobox',{name:'Select pending question or approval'})
+    expect(picker).toHaveTextContent('Select pending question or approval')
+    fireEvent.pointerDown(picker,{button:0,ctrlKey:false,pointerType:'mouse'})
+    fireEvent.click(screen.getByRole('option',{name:/^map\[1\]\/ask/}))
+    expect(screen.getByRole('button',{name:'Send'})).not.toBeDisabled()
+    await user.click(screen.getByRole('button',{name:'Send'}))
     await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'Answer',interruptId:'q2'})})))
+  })
+  it('maps the empty interrupt entry back to no interrupt',async()=>{
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'map[0]/ask',kind:'question'},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)
+    fireEvent.change(screen.getByRole('textbox'),{target:{value:'Answer'}})
+    const picker=screen.getByRole('combobox',{name:'Select pending question or approval'})
+    fireEvent.pointerDown(picker,{button:0,ctrlKey:false,pointerType:'mouse'})
+    fireEvent.click(screen.getByRole('option',{name:/^map\[0\]\/ask/}))
+    expect(screen.getByRole('button',{name:'Send'})).not.toBeDisabled()
+    fireEvent.pointerDown(picker,{button:0,ctrlKey:false,pointerType:'mouse'})
+    fireEvent.click(screen.getByRole('option',{name:'Select pending question or approval'}))
+    expect(picker).toHaveTextContent('Select pending question or approval')
+    expect(screen.getByRole('button',{name:'Send'})).toBeDisabled()
   })
 })
 

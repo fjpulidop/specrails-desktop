@@ -4,6 +4,9 @@ import { fireEvent, render, screen } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { ChatInput } from '../ChatInput'
 
+const openSelect = (trigger: HTMLElement) =>
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+
 const defaultProps = {
   conversationId: 'conv-1',
   model: 'sonnet',
@@ -115,8 +118,7 @@ describe('ChatInput', () => {
 
   it('model selector shows current model', () => {
     render(<ChatInput {...defaultProps} model="sonnet" />)
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('sonnet')
+    expect(screen.getByRole('combobox')).toHaveTextContent('Claude Sonnet 5.5')
   })
 
   it('model selector is disabled when hasMessages is true', () => {
@@ -131,12 +133,11 @@ describe('ChatInput', () => {
     expect(select).not.toBeDisabled()
   })
 
-  it('model selector calls onModelChange when changed', async () => {
-    const user = userEvent.setup()
+  it('model selector calls onModelChange when changed', () => {
     const onModelChange = vi.fn()
     render(<ChatInput {...defaultProps} onModelChange={onModelChange} />)
-    const select = screen.getByRole('combobox')
-    await user.selectOptions(select, 'opus')
+    openSelect(screen.getByRole('combobox'))
+    fireEvent.click(screen.getByRole('option', { name: 'Claude Opus 5.5' }))
     expect(onModelChange).toHaveBeenCalledWith('opus')
   })
 
@@ -148,11 +149,11 @@ describe('ChatInput', () => {
         model="gpt-6.1-sol"
       />
     )
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    const options = Array.from(select.options).map((o) => o.value)
-    expect(options[0]).toBe('gpt-6.1-sol')
-    expect(options).toContain('gpt-6-astra')
-    expect(options).not.toEqual(expect.arrayContaining(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']))
+    openSelect(screen.getByRole('combobox'))
+    const options = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(options[0]).toBe('GPT-6.1 Sol')
+    expect(options).toContain('GPT-6 Astra')
+    expect(options.some((label) => /GPT-5\.(5|4|3)\b/.test(label ?? ''))).toBe(false)
   })
 
   it('when provider=codex, model selector value is gpt-5.6-luna when set', () => {
@@ -163,8 +164,7 @@ describe('ChatInput', () => {
         model="gpt-5.6-luna"
       />
     )
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('gpt-5.6-luna')
+    expect(screen.getByRole('combobox')).toHaveTextContent('GPT-5.6 Luna')
   })
 
   it('preserves and commits a safe custom Kimi alias exactly', () => {
