@@ -32,11 +32,10 @@
   "restarting": "The local server stopped. Restarting it…",
   "responsiveness": {
     "title": "Responsiveness",
-    "none": "No stalls since {{time}}",
-    "summary_one": "{{count}} stall · longest {{duration}}",
-    "summary_other": "{{count}} stalls · longest {{duration}}",
-    "last": "Last at {{time}}: {{duration}} during {{operation}}",
-    "background": "background work",
-    "hint": "A stall is a moment of {{threshold}} or more when the local server could not answer."
+    "none": "No slowdowns since {{time}}",
+    "summary_one": "{{count}} slowdown · longest {{duration}}",
+    "summary_other": "{{count}} slowdowns · longest {{duration}}",
+    "last": "Last at {{time}}: the app took {{duration}} to respond",
+    "hint": "A slowdown is a moment of {{threshold}} or more when the app could not respond."
   }
 }

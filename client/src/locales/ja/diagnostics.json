@@ -32,11 +32,10 @@
   "restarting": "ローカルサーバーが停止しました。再起動しています…",
   "responsiveness": {
     "title": "応答性",
-    "none": "{{time}} 以降、停止なし",
-    "summary_one": "停止 {{count}} 回 · 最長 {{duration}}",
-    "summary_other": "停止 {{count}} 回 · 最長 {{duration}}",
-    "last": "最後は {{time}}: {{operation}} の間に {{duration}}",
-    "background": "バックグラウンド処理",
-    "hint": "停止とは、ローカルサーバーが {{threshold}} 以上応答できなかった時間のことです。"
+    "none": "{{time}} 以降、遅延なし",
+    "summary_one": "遅延 {{count}} 回 · 最長 {{duration}}",
+    "summary_other": "遅延 {{count}} 回 · 最長 {{duration}}",
+    "last": "最後は {{time}}: アプリの応答に {{duration}} かかりました",
+    "hint": "遅延とは、アプリが {{threshold}} 以上応答できなかった時間のことです。"
   }
 }

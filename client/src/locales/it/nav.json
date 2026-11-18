@@ -87,10 +87,9 @@
     "activeCli": "CLI attiva: {{label}}"
   },
   "statusBar": {
-    "connected": "connesso",
-    "syncing": "sincronizzazione...",
-    "reconnecting": "riconnessione...",
-    "disconnected": "disconnesso",
+    "syncing": "Sincronizzazione…",
+    "reconnecting": "Riconnessione…",
+    "disconnected": "Offline",
     "connectionRestored": "Connessione ripristinata"
   },
   "titleBar": {
@@ -155,11 +154,11 @@
   },
   "keepAwake": {
     "label": "Mantieni il computer attivo",
-    "on": "Attivo",
-    "off": "Disattivo",
     "active": "Impedisce la sospensione automatica. Lo schermo può spegnersi.",
     "inactive": "Sospensione normale consentita.",
-    "failed": "Impossibile modificare la sospensione."
+    "failed": "Impossibile modificare la sospensione.",
+    "turnOff": "Consenti di nuovo la sospensione",
+    "activeHint": "Il computer resta attivo. Fai clic per consentire la sospensione."
   },
   "skipToContent": "Vai al contenuto principale",
   "places": {

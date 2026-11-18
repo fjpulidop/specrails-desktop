@@ -32,11 +32,10 @@
   "restarting": "Der lokale Server wurde beendet. Er wird neu gestartet…",
   "responsiveness": {
     "title": "Reaktionsfähigkeit",
-    "none": "Keine Hänger seit {{time}}",
-    "summary_one": "{{count}} Hänger · längster {{duration}}",
-    "summary_other": "{{count}} Hänger · längster {{duration}}",
-    "last": "Zuletzt um {{time}}: {{duration}} während {{operation}}",
-    "background": "Hintergrundarbeit",
-    "hint": "Ein Hänger ist ein Moment von {{threshold}} oder mehr, in dem der lokale Server nicht antworten konnte."
+    "none": "Keine Verzögerungen seit {{time}}",
+    "summary_one": "{{count}} Verzögerung · längste {{duration}}",
+    "summary_other": "{{count}} Verzögerungen · längste {{duration}}",
+    "last": "Zuletzt um {{time}}: Die App brauchte {{duration}} zum Antworten",
+    "hint": "Eine Verzögerung ist ein Moment von {{threshold}} oder mehr, in dem die App nicht antworten konnte."
   }
 }

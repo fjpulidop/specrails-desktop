@@ -87,10 +87,9 @@
     "activeCli": "Aktive CLI: {{label}}"
   },
   "statusBar": {
-    "connected": "verbunden",
-    "syncing": "synchronisiere...",
-    "reconnecting": "verbinde neu...",
-    "disconnected": "getrennt",
+    "syncing": "Synchronisiere…",
+    "reconnecting": "Verbinde neu…",
+    "disconnected": "Offline",
     "connectionRestored": "Verbindung wiederhergestellt"
   },
   "titleBar": {
@@ -155,11 +154,11 @@
   },
   "keepAwake": {
     "label": "Computer wach halten",
-    "on": "An",
-    "off": "Aus",
     "active": "Verhindert automatischen Ruhezustand. Der Bildschirm darf ausgehen.",
     "inactive": "Normaler Ruhezustand erlaubt.",
-    "failed": "Ruhezustand konnte nicht geändert werden."
+    "failed": "Ruhezustand konnte nicht geändert werden.",
+    "turnOff": "Ruhezustand wieder erlauben",
+    "activeHint": "Der Computer wird wach gehalten. Klicken, um den Ruhezustand zu erlauben."
   },
   "skipToContent": "Zum Hauptinhalt springen",
   "places": {

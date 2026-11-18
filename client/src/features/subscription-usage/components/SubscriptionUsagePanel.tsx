@@ -6,6 +6,8 @@ import { cn } from '../../../lib/utils'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
 import type { ProviderUsage, UsageWindow } from '../lib/types'
 import { EnterpriseSpendMeter } from './EnterpriseSpendMeter'
+import { usageMeters } from '../lib/usage-meter'
+import { useProviderQuotas } from '../../provider-quota/lib/useProviderQuota'
 export function useUsageClock() {
   const [now, setNow] = useState(Date.now)
   useEffect(() => { const timer = setInterval(() => { if (document.visibilityState !== 'hidden') setNow(Date.now()) }, 60_000); return () => clearInterval(timer) }, [])
@@ -20,6 +22,10 @@ export function usageLabel(window: UsageWindow, t: (key: string) => string) {
   const label = ['session', 'weekly', 'monthly'].includes(window.label) ? t(`windows.${window.label}`) : t('windows.window')
   return window.model ? `${window.model} · ${label}` : label
 }
+/** Refresh waits for the provider's retry time, except to look for a missing CLI again. */
+export function coolingDown(provider: ProviderUsage, now: number) {
+  return !!provider.retryAt && Date.parse(provider.retryAt) > now && provider.issue?.code !== 'cli-missing'
+}
 export function usageIssue(provider: ProviderUsage) {
   if (provider.installed === false) return 'cli-missing'
   return provider.issue?.code ?? (provider.availability === 'available' ? '' : provider.availability)
@@ -32,7 +38,9 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
   const now = useUsageClock()
   const rows = snapshot?.providers.filter(p => !selectedProvider || p.providerId === selectedProvider) ?? []
   const refreshing = busy || rows.some(p => p.refreshState === 'refreshing')
-  const cooling = rows.length > 0 && rows.every(p => p.retryAt && Date.parse(p.retryAt) > now)
+  const cooling = rows.length > 0 && rows.every(p => coolingDown(p, now))
+  // The same reading as the status bar (one source): a refusal shows here too.
+  const meters = usageMeters(snapshot, useProviderQuotas())
   const empty = snapshot?.providers.every(p => p.installed === false)
   const absolute = (value: string) => new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'long' }).format(new Date(value))
   function relative(value: string) {
@@ -65,6 +73,7 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
           {<p className="text-caption text-muted-foreground" title={window.resetsAt ? absolute(window.resetsAt) : undefined}>{window.resetsAt ? Date.parse(window.resetsAt) <= now ? t('resetPassed') : t('resets', { time: relative(window.resetsAt) }) : t('resetUnknown')}</p>}
           {window.usedPercent === 100 && !stale && <p className="text-xs text-destructive">{t('limitReached')}</p>}
         </div>)}
+        {meters.find(meter => meter.providerId === provider.providerId)?.level === 'rejected' && <p data-testid="usage-panel-rejected" className="text-xs text-destructive">{t('limitReached')}</p>}
         {issue && <p className="text-xs text-muted-foreground">{t(`issues.${issue}`, { defaultValue: t('issues.collection-failed') })}</p>}
         {provider.retryAt && Date.parse(provider.retryAt) > now && <p className="text-caption text-muted-foreground">{t('retry', { time: relative(provider.retryAt) })}</p>}
         {showDataDetails && provider.observedAt && <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">{t('dataDetails')}</summary><p className="mt-2">{t('observed', { time: absolute(provider.observedAt) })}</p>{provider.source && <p>{t('source', { source: provider.source })}</p>}</details>}

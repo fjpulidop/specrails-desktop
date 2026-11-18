@@ -616,7 +616,7 @@ function DesktopApp() {
     terminals.ensureProject(activeProjectId)
   }, [activeProjectId, terminals])
   const chevronSlot =
-    FEATURE_TERMINAL_PANEL && uiMode === 'kanban' && panelState.visibility === 'hidden' ? (
+    FEATURE_TERMINAL_PANEL && panelState.visibility === 'hidden' ? (
       <PanelChevronButton
         isOpen={false}
         onClick={() => activeProjectId && terminals.setVisibility(activeProjectId, 'restored')}
@@ -720,9 +720,8 @@ function DesktopApp() {
           )}
         </main>
 
-        {/* Hoisted terminal panel — single instance shared by both modes.
-            Footer status/chevron chrome is Kanban-only; in Agent Mode the
-            entry point is the workspace sidebar's Terminal tool. */}
+        {/* Hoisted terminal panel — single instance shared by both modes; the
+            status bar's toggle opens it in either mode. */}
         {FEATURE_TERMINAL_PANEL && activeProjectId && activeProject && (
           <BottomPanel
             projectId={activeProjectId}
@@ -734,7 +733,7 @@ function DesktopApp() {
           />
         )}
         <ProviderQuotaBridge />
-        <StatusBar connectionStatus={connectionStatus} minimal={uiMode === 'agent'} rightSlot={uiMode === 'agent' ? undefined : chevronSlot} />
+        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"

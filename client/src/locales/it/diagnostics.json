@@ -32,11 +32,10 @@
   "restarting": "Il server locale si è arrestato. Riavvio in corso…",
   "responsiveness": {
     "title": "Reattività",
-    "none": "Nessun blocco dalle {{time}}",
-    "summary_one": "{{count}} blocco · il più lungo {{duration}}",
-    "summary_other": "{{count}} blocchi · il più lungo {{duration}}",
-    "last": "Ultimo alle {{time}}: {{duration}} durante {{operation}}",
-    "background": "lavoro in background",
-    "hint": "Un blocco è un momento di {{threshold}} o più in cui il server locale non ha potuto rispondere."
+    "none": "Nessun rallentamento dalle {{time}}",
+    "summary_one": "{{count}} rallentamento · il più lungo {{duration}}",
+    "summary_other": "{{count}} rallentamenti · il più lungo {{duration}}",
+    "last": "Ultimo alle {{time}}: l'app ha impiegato {{duration}} a rispondere",
+    "hint": "Un rallentamento è un momento di {{threshold}} o più in cui l'app non ha potuto rispondere."
   }
 }

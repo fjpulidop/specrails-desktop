@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { AppResourcesFooter, AppResourcesPanel, formatCpu } from '../AppResourcesFooter'
+import { AppResourcesFooter, AppResourcesPanel, formatCpu, workProcessCount } from '../AppResourcesFooter'
 import { getAppResources, type AppResourcesSnapshot } from '../../lib/app-resources-api'
 import { APP_RESOURCES_IDLE_POLL_MS, APP_RESOURCES_POLL_MS } from '../../hooks/useAppResources'
 
@@ -33,22 +33,31 @@ beforeEach(() => { vi.useFakeTimers(); vi.mocked(getAppResources).mockReset().mo
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('AppResourcesFooter', () => {
-  it('shows total memory and process count in the trigger', async () => {
+  it('shows only an icon and the count of work processes (memory lives in the popover)', async () => {
     render(<AppResourcesFooter />)
     await flush()
     const trigger = screen.getByTestId('app-resources-trigger')
-    expect(trigger.textContent).toContain('1.2 GB')
-    expect(trigger.textContent).toContain('9')
-    expect(trigger).toHaveAttribute('aria-label', 'Resources: 1.2 GB memory, 9 processes')
+    // Missions, rails and terminals; the Specrails server is not counted.
+    expect(trigger.textContent).toBe('9')
+    expect(trigger.textContent).not.toContain('GB')
+    expect(trigger).toHaveAttribute('aria-label', 'App resources: 9 processes running. Show details')
   })
 
-  it('falls back to a label when the platform cannot be measured', async () => {
-    vi.mocked(getAppResources).mockResolvedValue(snapshot({ supported: false, categories: [], totals: { cpuPercent: 0, memoryBytes: 0, processCount: 0 } }))
-    render(<AppResourcesFooter />)
+  it('is absent while nothing but the server runs, and where the platform cannot be measured', async () => {
+    vi.mocked(getAppResources).mockResolvedValue(snapshot({ categories: [snapshot().categories[3]!], totals: { cpuPercent: 3, memoryBytes: 200 * MB, processCount: 1 } }))
+    const view = render(<AppResourcesFooter />)
     await flush()
-    expect(screen.getByTestId('app-resources-trigger').textContent).toBe('Resources')
-    fireEvent.click(screen.getByTestId('app-resources-trigger'))
-    expect(screen.getByText('Resource usage is not available on this system.')).toBeInTheDocument()
+    expect(view.container).toBeEmptyDOMElement()
+    cleanup()
+    vi.mocked(getAppResources).mockResolvedValue(snapshot({ supported: false, categories: [], totals: { cpuPercent: 0, memoryBytes: 0, processCount: 0 } }))
+    const second = render(<AppResourcesFooter />)
+    await flush()
+    expect(second.container).toBeEmptyDOMElement()
+  })
+
+  it('workProcessCount ignores the server', () => {
+    expect(workProcessCount(snapshot())).toBe(9)
+    expect(workProcessCount(null)).toBe(0)
   })
 
   it('opens on click with totals, the memory bar and categories expandable to items', async () => {

@@ -87,10 +87,9 @@
     "activeCli": "当前 CLI：{{label}}"
   },
   "statusBar": {
-    "connected": "已连接",
-    "syncing": "同步中...",
-    "reconnecting": "重新连接中...",
-    "disconnected": "已断开",
+    "syncing": "同步中…",
+    "reconnecting": "重新连接中…",
+    "disconnected": "离线",
     "connectionRestored": "连接已恢复"
   },
   "titleBar": {
@@ -155,11 +154,11 @@
   },
   "keepAwake": {
     "label": "保持电脑唤醒",
-    "on": "开启",
-    "off": "关闭",
     "active": "防止自动睡眠，屏幕仍可关闭。",
     "inactive": "允许正常睡眠。",
-    "failed": "无法更改睡眠状态。"
+    "failed": "无法更改睡眠状态。",
+    "turnOff": "重新允许睡眠",
+    "activeHint": "正在保持电脑唤醒。点击以允许睡眠。"
   },
   "skipToContent": "跳到主要内容",
   "places": {

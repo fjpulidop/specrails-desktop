@@ -87,10 +87,9 @@
     "activeCli": "CLI active : {{label}}"
   },
   "statusBar": {
-    "connected": "connecté",
-    "syncing": "synchronisation...",
-    "reconnecting": "reconnexion...",
-    "disconnected": "déconnecté",
+    "syncing": "Synchronisation…",
+    "reconnecting": "Reconnexion…",
+    "disconnected": "Hors ligne",
     "connectionRestored": "Connexion rétablie"
   },
   "titleBar": {
@@ -155,11 +154,11 @@
   },
   "keepAwake": {
     "label": "Garder l’ordinateur éveillé",
-    "on": "Activé",
-    "off": "Désactivé",
     "active": "Empêche la veille automatique. L’écran peut s’éteindre.",
     "inactive": "Veille normale autorisée.",
-    "failed": "Impossible de modifier la veille."
+    "failed": "Impossible de modifier la veille.",
+    "turnOff": "Autoriser à nouveau la veille",
+    "activeHint": "L'ordinateur reste éveillé. Cliquez pour autoriser la veille."
   },
   "skipToContent": "Aller au contenu principal",
   "places": {

@@ -32,11 +32,10 @@
   "restarting": "本地服务器已停止，正在重启…",
   "responsiveness": {
     "title": "响应性",
-    "none": "自 {{time}} 起无卡顿",
-    "summary_one": "{{count}} 次卡顿 · 最长 {{duration}}",
-    "summary_other": "{{count}} 次卡顿 · 最长 {{duration}}",
-    "last": "最近一次在 {{time}}：{{operation}} 期间 {{duration}}",
-    "background": "后台工作",
-    "hint": "卡顿是指本地服务器有 {{threshold}} 或更长时间无法响应。"
+    "none": "自 {{time}} 起无延迟",
+    "summary_one": "{{count}} 次延迟 · 最长 {{duration}}",
+    "summary_other": "{{count}} 次延迟 · 最长 {{duration}}",
+    "last": "最近一次在 {{time}}：应用用了 {{duration}} 才响应",
+    "hint": "延迟是指应用有 {{threshold}} 或更长时间无法响应。"
   }
 }

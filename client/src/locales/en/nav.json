@@ -87,10 +87,9 @@
     "activeCli": "Active CLI: {{label}}"
   },
   "statusBar": {
-    "connected": "connected",
-    "syncing": "syncing...",
-    "reconnecting": "reconnecting...",
-    "disconnected": "disconnected",
+    "syncing": "Syncing…",
+    "reconnecting": "Reconnecting…",
+    "disconnected": "Offline",
     "connectionRestored": "Connection restored"
   },
   "titleBar": {
@@ -155,11 +154,11 @@
   },
   "keepAwake": {
     "label": "Keep computer awake",
-    "on": "On",
-    "off": "Off",
     "active": "Prevents idle sleep. The display can turn off.",
     "inactive": "Normal sleep allowed.",
-    "failed": "Could not change sleep prevention."
+    "failed": "Could not change sleep prevention.",
+    "turnOff": "Allow sleep again",
+    "activeHint": "Keeping the computer awake. Click to allow sleep."
   },
   "skipToContent": "Skip to main content",
   "places": {

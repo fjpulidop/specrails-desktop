@@ -1,8 +1,6 @@
 {
-  "button": "リソース",
-  "open": "Specrails が使用しているリソースを表示",
-  "openWithSummary": "リソース: メモリ {{memory}}、プロセス {{count}} 個",
-  "title": "リソース",
+  "openWithSummary": "アプリのリソース: 実行中のプロセス {{count}} 個。詳細を表示",
+  "title": "アプリのリソース",
   "subtitle": "Specrails が起動したすべてのもの",
   "cpu": "CPU",
   "memory": "メモリ",
