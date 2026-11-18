@@ -48,6 +48,20 @@ core from their instructions file there (`AGENTS.md`, `GEMINI.md`,
 each user turn (`providerLoadsOperatorCore`); local engines, which read no
 file, get it folded into the turn.
 
+## Sub-agent tool
+
+"Allow sub-agents" (project setting, or the app setting without a project) is
+the single source for whether the mission agent has its provider's sub-agent
+tool. Core sessions receive it as `policy.subagents`; legacy turns as
+`nativeSubagents` from `missionSpawnPolicy(adapter, subagents)`
+([mission-tool-policy.ts](runtime/mission-tool-policy.ts)), resolved through
+`MissionCoreSessions.subagentPolicy`. Off removes Claude's `Agent` tool; the
+operator core says nothing about sub-agents, so it is the same in both states,
+and the delegated-runtime addendum is only added while they are on. A toggle
+applies on the next turn and resumes the same provider session, rewriting the
+prompt cache once. Other providers are unaffected. See
+[agent sessions](../../../docs/internals/agent-sessions.md#the-sub-agent-tool-follows-the-setting).
+
 ## Intent drafts and the commit_draft gate
 
 The operator writes the intent first (intent-mode): one fenced `intent-draft`

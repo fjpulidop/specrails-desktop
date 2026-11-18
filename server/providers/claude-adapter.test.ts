@@ -255,6 +255,28 @@ describe('claudeAdapter.buildArgs', () => {
     for (const tool of ['Bash', 'Edit', 'Write', 'NotebookEdit']) expect(args.join(' ')).not.toContain(tool)
   })
 
+  it.each(['chat-turn', 'chat-resume', 'chat-stream'] as const)('sub-agents off removes the Agent tool from read-only missions (%s)', action => {
+    const base = { prompt: 'inspect', model: 'sonnet', sessionId: 'session-1', toolPolicy: 'read-only' as const, retainMcpTools: true }
+    const off = claudeAdapter.buildArgs(action, { ...base, nativeSubagents: 'disabled' })
+    expect(off[off.indexOf('--tools') + 1]).toBe('Read,Grep,Glob,WebFetch,WebSearch')
+    expect(off).not.toContain('--disallowedTools')
+    // Same flags otherwise: only the tool list differs between the two states.
+    const on = claudeAdapter.buildArgs(action, base)
+    expect(on[on.indexOf('--tools') + 1]).toBe('Read,Grep,Glob,Agent,WebFetch,WebSearch')
+    expect(off.filter((arg) => !arg.startsWith('Read,'))).toEqual(on.filter((arg) => !arg.startsWith('Read,')))
+  })
+
+  it('sub-agents off denies Agent/Task on the full toolkit and never adds tools to pure-output turns', () => {
+    const full = claudeAdapter.buildArgs('chat-turn', { prompt: 'x', model: 'sonnet', nativeSubagents: 'disabled' })
+    expect(full.slice(full.indexOf('--tools'), full.indexOf('--tools') + 4)).toEqual(['--tools', 'default', '--disallowedTools', 'Agent,Task'])
+    const pure = claudeAdapter.buildArgs('agent-refine', { prompt: 'x', model: 'sonnet', toolPolicy: 'read-only', nativeSubagents: 'disabled' })
+    expect(pure[pure.indexOf('--tools') + 1]).toBe('Read,Grep,Glob')
+    expect(pure).not.toContain('--disallowedTools')
+    const title = claudeAdapter.buildArgs('auto-title', { prompt: 'x', model: 'sonnet', nativeSubagents: 'disabled' })
+    expect(title[title.indexOf('--tools') + 1]).toBe('__none__')
+    expect(title).not.toContain('--disallowedTools')
+  })
+
   it('retainMcpTools is ignored outside read-only', () => {
     const args = claudeAdapter.buildArgs('chat-turn', { prompt: 'x', model: 'sonnet', retainMcpTools: true })
     expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2)).toEqual(['--tools', 'default'])

@@ -105,6 +105,8 @@ const PURE_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob'] as const
  * web tools keep research available. MCP tools are not built-ins and stay.
  */
 export const MISSION_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob', 'Agent', 'WebFetch', 'WebSearch'] as const
+/** Claude Code's sub-agent tool (`Task` is its legacy name), the same pair Core's Claude driver removes. */
+const CLAUDE_SUBAGENT_TOOLS = ['Agent', 'Task'] as const
 
 function commonFlagsFor(opts: SpawnOptions): string[] {
   const toolPolicy = opts.toolPolicy ?? 'default'
@@ -115,14 +117,22 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
   // built-in tool that writes files or runs commands exists in the session,
   // and native sub-agents inherit the same restricted set.
   const operatorReadOnly = toolPolicy === 'read-only' && opts.retainMcpTools === true
+  // Sub-agents off: the tool is not offered at all (its definition alone is
+  // ~5.4k characters per request), matching Core's Claude driver. Tools are
+  // fixed per process, and each legacy mission turn is its own process.
+  const noSubagents = opts.nativeSubagents === 'disabled'
+  const operatorTools = noSubagents
+    ? MISSION_READ_ONLY_TOOLS.filter((tool) => !(CLAUDE_SUBAGENT_TOOLS as readonly string[]).includes(tool))
+    : MISSION_READ_ONLY_TOOLS
   const toolArgs = toolPolicy === 'none'
     // Claude silently drops an empty tool list on some versions and falls back
     // to the default toolkit. A non-existent sentinel is the established,
     // tested way this repo disables every tool (see context-scope.ts).
     ? ['--tools', '__none__']
     : toolPolicy === 'read-only'
-      ? ['--tools', (operatorReadOnly ? MISSION_READ_ONLY_TOOLS : PURE_READ_ONLY_TOOLS).join(',')]
-      : ['--tools', 'default']
+      ? ['--tools', (operatorReadOnly ? operatorTools : PURE_READ_ONLY_TOOLS).join(',')]
+      // The full toolkit includes the sub-agent tool: deny it by name instead.
+      : ['--tools', 'default', ...(noSubagents ? ['--disallowedTools', CLAUDE_SUBAGENT_TOOLS.join(',')] : [])]
   return [
     // No approval bypass is necessary when no tool can be invoked. Keeping it
     // off also makes the pure-output boundary fail closed if Claude ever

@@ -45,7 +45,10 @@ import { spawn as mockSpawn } from 'child_process'
 import treeKill from 'tree-kill'
 import { attachmentManager } from '../../../attachment-manager'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
+import { MissionCoreSessions } from './mission-core-sessions'
+import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { initDesktopDb } from '../../../desktop-db'
+import { getAdapter } from '../../../providers'
 import {
   archiveAgentConversation,
   unarchiveAgentConversation,
@@ -499,6 +502,34 @@ describe('AgentChatManager read-only mission policy (mission-read-only-policy)',
     expect(args).toContain('--dangerously-skip-permissions')
     expect(flagValue(args, '--mcp-config')).toBe(MCP_ARGS[1])
     expect(prepared.readOnly).toBe(true)
+  })
+
+  it('follows "Allow sub-agents" turn by turn on the legacy transport: Agent off, then on, same provider session', async () => {
+    let allowed: 'enabled' | 'disabled' = 'disabled'
+    // Core sessions unavailable: the turn runs on the legacy transport, with the same setting resolver.
+    mgr.setCoreSessions(new MissionCoreSessions({
+      db, registry: {} as SessionHostRegistry, port: 4200, broadcast: vi.fn(), adapterFor: getAdapter,
+      availability: async () => ({ enabled: false, flag: 'off', reason: 'test' }), projectKey: () => null, revokeCapability: vi.fn(),
+      subagentPolicy: () => allowed,
+    }))
+    agentMcpMocks.prepare.mockImplementation(() => ({ extraArgs: [...MCP_ARGS], env: {} }))
+    const conv = createAgentConversation(db, { provider: 'claude' })
+    updateAgentConversation(db, conv.id, { title: 'Existing title' })
+    primeTurn([assistantLine('ok'), resultLine({ session_id: 'claude-session-1' })])
+    await mgr.sendMessage(conv.id, 'first')
+    await waitFor(() => !mgr.isBusy(conv.id))
+    const first = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+    expect(flagValue(first, '--tools')).toBe('Read,Grep,Glob,WebFetch,WebSearch')
+
+    allowed = 'enabled'
+    primeTurn([assistantLine('ok'), resultLine({ session_id: 'claude-session-1' })])
+    await mgr.sendMessage(conv.id, 'second')
+    await waitFor(() => vi.mocked(mockSpawn).mock.calls.length >= 2)
+    const second = vi.mocked(mockSpawn).mock.calls[1][1] as string[]
+    expect(flagValue(second, '--tools')).toBe('Read,Grep,Glob,Agent,WebFetch,WebSearch')
+    // The conversation continues: the new process resumes the provider session.
+    expect(flagValue(second, '--resume')).toBe('claude-session-1')
+    agentMcpMocks.prepare.mockReset()
   })
 
   it('spawns Codex in its read-only sandbox with the MCP overrides intact', async () => {

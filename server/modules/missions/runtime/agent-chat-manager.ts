@@ -917,7 +917,9 @@ export class AgentChatManager {
 
     // Native read-only boundary for legacy transports (one-shot and native live
     // sessions). Core sessions get the matching session policy instead.
-    const spawnPolicy = flowTurn ? {} : missionSpawnPolicy(adapter)
+    // "Allow sub-agents" off also removes the provider's own sub-agent tool
+    // (the same setting Core sessions receive as `policy.subagents`).
+    const spawnPolicy = flowTurn ? {} : missionSpawnPolicy(adapter, this._coreSessions?.subagentPolicy(conversation) ?? 'enabled')
     let currentCapability: string | null = null
     let currentInvocationId: string | undefined
     try {

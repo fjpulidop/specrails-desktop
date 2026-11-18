@@ -19,6 +19,7 @@ import type { DriverDescriptor, SessionPolicyInput } from '../../agent-sessions'
 export interface MissionSpawnPolicy {
   toolPolicy?: 'read-only'
   retainMcpTools?: true
+  nativeSubagents?: 'disabled'
 }
 
 /** Why a mission does not run read-only, for logs and the turn status line. */
@@ -29,9 +30,12 @@ export type MissionReadOnlyGap = 'disabled' | 'unsupported'
  * without a native read-only mode (Kimi prompt mode) keep their default tools:
  * a mission must still work, and prompt-only guidance is not a boundary.
  */
-export function missionSpawnPolicy(adapter: ProviderAdapter): MissionSpawnPolicy {
-  if (!isMissionReadOnlyEnabled() || !supportsToolPolicy(adapter, 'read-only')) return {}
-  return { toolPolicy: 'read-only', retainMcpTools: true }
+export function missionSpawnPolicy(adapter: ProviderAdapter, subagents: 'enabled' | 'disabled' = 'enabled'): MissionSpawnPolicy {
+  // "Allow sub-agents" off removes the provider's own sub-agent tool (Claude
+  // `Agent`), whatever the read-only state; providers without one ignore it.
+  const subagentPolicy = subagents === 'disabled' ? { nativeSubagents: 'disabled' as const } : {}
+  if (!isMissionReadOnlyEnabled() || !supportsToolPolicy(adapter, 'read-only')) return subagentPolicy
+  return { toolPolicy: 'read-only', retainMcpTools: true, ...subagentPolicy }
 }
 
 /** The reason a provider's mission turns stay write-capable, or null when read-only. */

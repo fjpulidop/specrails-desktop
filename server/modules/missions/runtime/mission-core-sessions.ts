@@ -147,7 +147,9 @@ export class MissionCoreSessions {
       driver: adapter.id,
       policy,
       mcpServers,
-      ...(policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
+      // Sub-agents off: no delegation guidance either (the operator core never
+      // mentions sub-agents, so each state has one byte-stable system prompt).
+      ...(policy.subagents === 'enabled' && policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
       // A new generation starts clean: the turn seeds it with the conversation
       // history (never another provider's thread).
       legacyProviderSessionRef: renewed ? null : (getAgentConversation(this.deps.db, conversationId) ?? conversation).session_id ?? null,
@@ -347,7 +349,11 @@ export class MissionCoreSessions {
     return resolution.runtime
   }
 
-  private subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {
+  /**
+   * "Allow sub-agents" for this conversation: the single source for Core's
+   * `policy.subagents` and for the legacy transports' `nativeSubagents`.
+   */
+  subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {
     return this.deps.subagentPolicy?.(conversation) ?? 'enabled'
   }
 
@@ -398,7 +404,8 @@ export class MissionCoreSessions {
 
   /** True when this mission's sub-agents (or its Intent's, while in Intent) are launched by Core (another provider). */
   delegates(conversationId: string): boolean {
-    return this.contexts.get(this.sessionOf(conversationId))?.policy.subagentRuntime?.mode === 'delegated'
+    const policy = this.contexts.get(this.sessionOf(conversationId))?.policy
+    return policy?.subagents === 'enabled' && policy.subagentRuntime?.mode === 'delegated'
   }
 
   /** Launch a sub-agent on the configured provider (delegated runtime only), in the current session. */

@@ -16,6 +16,23 @@ describe('missionSpawnPolicy', () => {
     expect(missionReadOnlyGap(getAdapter(id))).toBeNull()
   })
 
+  it('removes the native sub-agent tool when sub-agents are off, on every provider and behind the kill switch', () => {
+    expect(missionSpawnPolicy(getAdapter('claude'), 'disabled')).toEqual({ toolPolicy: 'read-only', retainMcpTools: true, nativeSubagents: 'disabled' })
+    expect(missionSpawnPolicy(getAdapter('claude'), 'enabled')).toEqual({ toolPolicy: 'read-only', retainMcpTools: true })
+    expect(missionSpawnPolicy(getAdapter('kimi'), 'disabled')).toEqual({ nativeSubagents: 'disabled' })
+    process.env.SPECRAILS_MISSION_READ_ONLY = 'false'
+    expect(missionSpawnPolicy(getAdapter('claude'), 'disabled')).toEqual({ nativeSubagents: 'disabled' })
+  })
+
+  it.each(['codex', 'gemini', 'kimi'])('%s has no sub-agent tool: its mission argv is identical in both states', (id) => {
+    const adapter = getAdapter(id)
+    for (const action of ['chat-turn', 'chat-resume'] as const) {
+      const base = { prompt: 'inspect', model: adapter.defaultModel(), sessionId: 'session-1' }
+      expect(adapter.buildArgs(action, { ...base, ...missionSpawnPolicy(adapter, 'disabled') }))
+        .toEqual(adapter.buildArgs(action, { ...base, ...missionSpawnPolicy(adapter, 'enabled') }))
+    }
+  })
+
   it('keeps Kimi on its default tools and reports why', () => {
     expect(missionSpawnPolicy(getAdapter('kimi'))).toEqual({})
     expect(missionReadOnlyGap(getAdapter('kimi'))).toBe('unsupported')

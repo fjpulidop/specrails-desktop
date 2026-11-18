@@ -455,6 +455,24 @@ describe('missions on Core agent sessions', () => {
       expect(updates()).toHaveLength(1)
     })
 
+    it('a toggle between turns reaches the next turn in the same session (Core respawns the provider with --resume)', async () => {
+      const allow = { value: false }
+      withPolicy(allow)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      // Toggled with no refresh reaching the session (e.g. Desktop restarted): the next turn carries it.
+      allow.value = true
+      await manager.sendMessage(conversation.id, 'again')
+      await waitFor(() => doneCount() === 2)
+      const turnUpdates = host.requests.filter((request) => request.method === 'session.update' && request.params.model)
+      expect(turnUpdates.map((request) => [request.params.sessionId, (request.params.policy as { subagents: string }).subagents]))
+        .toEqual([[conversation.id, 'enabled']])
+      // Same Core session (no new generation, no fresh seed): the conversation continues.
+      expect(host.requests.filter((request) => request.method === 'session.open' && !request.params.resume)).toHaveLength(1)
+      expect(host.requests.filter((request) => request.method === 'session.send').map((request) => request.params.sessionId)).toEqual([conversation.id, conversation.id])
+    })
+
     it('explains a policy the provider cannot enforce', async () => {
       withPolicy({ value: false })
       const original = host.request.bind(host)
@@ -485,12 +503,12 @@ describe('missions on Core agent sessions', () => {
   })
 
   describe('who runs sub-agents (hybrid runtime)', () => {
-    function withRuntime(choice: { provider: string; model: string; effort: string | null } | null) {
+    function withRuntime(choice: { provider: string; model: string; effort: string | null } | null, subagents: 'enabled' | 'disabled' = 'enabled') {
       const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
       manager.setCoreSessions(new MissionCoreSessions({
         db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
         availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
-        subagentPolicy: () => 'enabled',
+        subagentPolicy: () => subagents,
         subagentRuntime: () => choice,
       }))
     }
@@ -505,6 +523,17 @@ describe('missions on Core agent sessions', () => {
       await manager.sendMessage(conversation.id, 'hello')
       await waitFor(() => doneCount() === 1)
       expect(openPolicy()).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5.6-terra', effort: 'low' } })
+    })
+
+    it.each(['enabled', 'disabled'] as const)('sends the delegation guidance only when sub-agents are %s', async (subagents) => {
+      host.initialize = { ...host.initialize, capabilities: { sessions: 1, delegation: 1 }, drivers: [claude, codex] }
+      withRuntime({ provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' }, subagents)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      const systemPrompt = host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params.systemPrompt as string
+      expect(systemPrompt.includes('subagent_start')).toBe(subagents === 'enabled')
+      expect(manager['_coreSessions']?.delegates(conversation.id)).toBe(subagents === 'enabled')
     })
 
     it('keeps them native with the supported overrides when the providers match', async () => {

@@ -61,6 +61,13 @@ describe('operator core — non-negotiable rules stay always loaded', () => {
     expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toContain('recommended')
   })
 
+  it('never tells the agent to use its own sub-agent tool, so one static core fits both "Allow sub-agents" states', () => {
+    // With sub-agents off the provider has no `Agent` tool; sub-agent guidance
+    // reaches the agent only as a policy-specific addendum (delegated runtime).
+    expect(core()).not.toMatch(/sub-?agent/i)
+    expect(core()).not.toMatch(/`(Agent|Task)`|\b(Agent|Task) tool\b/)
+  })
+
   it('no longer teaches retired protocols or modes', () => {
     for (const retired of ['problem-frame', 'batch-implement', 'call the free-form autonomous rail mode Freestyle in prose', 'canonical API/id/token values', 'reassemble_project_workspace', 'npx specrails-core@latest update', 'CLAUDE.md auto-loaded']) {
       expect(core()).not.toContain(retired)
@@ -163,7 +170,7 @@ describe('content preserved across core + topics', () => {
     "specrails_context",
     "Spec numbers are project-local",
     "specrails_code(search)",
-    "nested JSON schema and tier",
+    "for the action's fields with their full",
     "not a fresh instruction to execute old launches",
     "override a conversation pin",
     "Claude and Kimi\n  support profiles; Contract Refine supports Claude and Codex",
