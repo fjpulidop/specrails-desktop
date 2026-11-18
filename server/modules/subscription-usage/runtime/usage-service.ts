@@ -3,6 +3,8 @@ import { initialUsage, providerBilling, USAGE_PROVIDERS, windowLabel, type Provi
 import { backoff, withFreshness } from '../application'
 import type { UsageDependencies } from '../ports'
 import { UsageError } from '../adapters/errors'
+/** How soon a missing CLI is looked for again (detection itself is cached for a minute). */
+export const CLI_MISSING_RETRY_MS = 60_000
 export function createUsageService(deps: UsageDependencies) {
   const now = deps.now ?? Date.now
   const instanceId = randomUUID()
@@ -24,7 +26,10 @@ export function createUsageService(deps: UsageDependencies) {
       const installed = await deps.installed(id)
       if (signal.aborted) return
       rows.set(id, { ...rows.get(id)!, installed })
-      if (!installed) { clear(id); rows.set(id, { ...rows.get(id)!, refreshState: 'idle', retryAt: new Date(now() + 30_000).toISOString(), issue: { code: 'cli-missing', retryable: false } }); return }
+      // Retryable: the CLI can appear after launch (installed later, or found on a
+      // PATH the first detection missed), so automatic reads keep checking at the
+      // detection cache's pace instead of reporting "not detected" for the session.
+      if (!installed) { clear(id); rows.set(id, { ...rows.get(id)!, refreshState: 'idle', retryAt: new Date(now() + CLI_MISSING_RETRY_MS).toISOString(), issue: { code: 'cli-missing', retryable: true } }); return }
       if (deps.eligible && !await deps.eligible(id)) throw new UsageError('unsupported-cli')
       if (signal.aborted) return
       const before = await reader.context(signal)
@@ -60,7 +65,9 @@ export function createUsageService(deps: UsageDependencies) {
     if (!disposed) for (const id of providerId ? [providerId] : USAGE_PROVIDERS) {
       const row = rows.get(id)!
       if (running.has(id)) { scheduled = true; continue }
-      if (row.retryAt && Date.parse(row.retryAt) > now()) continue
+      // "Install a CLI, then refresh": a manual refresh looks for a missing CLI at once.
+      const lookAgain = !automatic && row.issue?.code === 'cli-missing'
+      if (!lookAgain && row.retryAt && Date.parse(row.retryAt) > now()) continue
       if (automatic && row.issue && !row.issue.retryable) continue
       const controller = new AbortController()
       controllers.set(id, controller)
@@ -82,7 +89,15 @@ export function createUsageService(deps: UsageDependencies) {
     if (disposed || !(USAGE_PROVIDERS as readonly string[]).includes(providerId)) return
     const id = providerId as UsageProvider
     const row = rows.get(id)!
-    if (row.availability !== 'available' || row.spend || !Number.isFinite(Date.parse(observedAt))) return
+    // A turn of this provider just ran, so its CLI exists: a row that says
+    // otherwise (not detected, unavailable) is out of date. Re-read it now
+    // rather than merging, so the status bar and Settings never disagree.
+    if (row.availability !== 'available' && !row.spend) {
+      const attempted = row.attemptedAt ? Date.parse(row.attemptedAt) : 0
+      if (!running.has(id) && now() - attempted >= CLI_MISSING_RETRY_MS) { rows.set(id, { ...row, retryAt: null }); refresh(id, true) }
+      return
+    }
+    if (row.spend || !Number.isFinite(Date.parse(observedAt))) return
     if (row.observedAt && Date.parse(row.observedAt) > Date.parse(observedAt)) return
     let changed = false
     const merged = row.windows.map(window => {
