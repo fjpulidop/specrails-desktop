@@ -201,6 +201,7 @@ const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
 // The Implement recipe's own end reasons (Desktop data, fixed templates): known causes even when
 // an older Core sends no classification, or a low-confidence one.
 const INCOMPLETE_TASKS = /approved tasks (?:are )?still incomplete/i
+const INTERRUPTED_WRITE = /interrupted write requires explicit recovery/i
 const SPEC_INVALID = /Not implemented: the person declined this ticket|still fails OpenSpec validation|OpenSpec could not archive change/i
 const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host blocker\b|^Host blocker \(/im
 const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
@@ -252,6 +253,9 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (limit) return make('provider_limit', 'high', { resetAt: limit.resetsAt, detail: oneSentence(limit.message) })
   if (BASELINE_CODE.test(text)) return make('blocked', 'high')
   if (HOST_PRECONDITION.test(text)) return make('environment', 'high')
+  // Core refused to re-run a step that writes files because a restart cut it off and the
+  // resume did not authorize recovering it. Nothing about the work failed: Continue re-runs it.
+  if (INTERRUPTED_WRITE.test(text)) return make('crash', 'high', { detail: 'A restart cut off a step that writes files, and the resume did not re-run it. Continue re-runs that step from its saved state.' })
   const skipped = WORKFLOW_PROTOCOL.exec(text)
   if (skipped) {
     const missingSteps = skipped[2]!.split(',').map((step) => step.trim()).filter(Boolean).slice(0, 4)
