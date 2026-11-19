@@ -45,8 +45,9 @@ export interface LoopRunHost {
   parkPause(runId: string, pause: PausedRun): void
   /** Resolve the run's parked pause if it is still parked (a scheduled limit resume). */
   resolvePause(runId: string, decision: PausedHumanDecision): boolean
-  budgetBreach(runId: string): LoopBudgetBreach | null
-  trackRunCap(runId: string, cap: { capUsd: number | null; cost: () => number }): void
+  /** `turnsAhead` (default 1): how many more turns at the run's largest turn cost the per-run cap must allow. */
+  budgetBreach(runId: string, options?: { turnsAhead?: number }): LoopBudgetBreach | null
+  trackRunCap(runId: string, cap: { capUsd: number | null; cost: () => number; turns?: () => import('../../execution').RunTurnCosts }): void
   untrackRunCap(runId: string): void
   claimDefinition(req: LoopRunRequest & { runId: string }): void
   releaseDefinition(runId: string): void

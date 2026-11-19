@@ -289,4 +289,73 @@ describe('Core definitions: budget gate before re-invoking with a human decision
     expect(result.runtimeStatus).toBe('cancelled')
     expect(invoke).toHaveBeenCalledTimes(1)
   })
+
+  // The 2026-11-19 gpt-6-astra run: a $1.96 plan turn, then a $2.30 developer turn started
+  // before the pause requested at the plan's end reached Core: $4.89 against a $2.00 cap.
+  describe('per-run cap ahead of the next turn', () => {
+    const step = (sequence: number, nodePath: string) => ({ type: 'workflow-event', event: { id: `d1:${sequence}`, runId: 'd1', sequence, type: 'step_started', nodePath, scopeId: 'root', visit: 1, attempt: 1, attemptId: `attempt-${nodePath}`, timestamp: at } })
+    const turn = (sequence: number, nodePath: string, costUsd: number) => ({ ...spend(sequence, costUsd), attemptId: `attempt-${nodePath}`, nodePath, payload: { ...spend(sequence, costUsd).payload, invocationId: `physical-${nodePath}` } })
+    const graphEvent = { type: 'runtime-graph', engineVersion: 2, runId: 'd1', nodes: [{ path: 'architect', kind: 'role-turn' }, { path: 'checks', kind: 'verify' }, { path: 'developer', kind: 'role-turn' }, { path: 'reviewer', kind: 'role-turn' }] }
+
+    function core(costs: { architect: number; developer: number }) {
+      const order: string[] = []
+      const pauseDefinition = vi.fn(async () => { order.push('pause-requested'); return { outcome: 'requested' } })
+      const runDefinition = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+        if (input.resume) return succeeded
+        input.onPrepared?.(prepared)
+        input.onRuntimeEvent(graphEvent)
+        input.onRuntimeEvent(step(1, 'architect'))
+        input.onRuntimeEvent(turn(2, 'architect', costs.architect))
+        input.onRuntimeEvent(step(3, 'checks'))
+        order.push('developer-started')
+        input.onRuntimeEvent(step(4, 'developer'))
+        await new Promise(resolve => setImmediate(resolve))
+        input.onRuntimeEvent(turn(5, 'developer', costs.developer))
+        order.push('developer-finished')
+        // Core honours a pause requested before it admits the next node.
+        return order.includes('pause-requested') ? budgetPaused : succeeded
+      })
+      return { runDefinition, pauseDefinition, order }
+    }
+
+    it('arms the pause while the turn runs when the next one could not fit, and keeps the run paused before it', async () => {
+      const { runDefinition, pauseDefinition, order } = core({ architect: 0.8, developer: 0.9 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      const running = m.run({ ...definitionRequest(), runCapUsd: 2 })
+      await vi.waitFor(() => expect(m.budgetPause('d1')).not.toBeNull())
+      // $0.80 spent and a $0.80 turn running: it and the next could pass $2.00, so the request went in during the developer turn.
+      expect(order.indexOf('pause-requested')).toBeGreaterThan(order.indexOf('developer-started'))
+      expect(order.indexOf('pause-requested')).toBeLessThan(order.indexOf('developer-finished'))
+      expect(pauseDefinition).toHaveBeenCalledTimes(1)
+      // $1.70 spent; the reviewer is expected to cost $0.90 (the largest turn): $2.60 > $2.00, so it does not start.
+      expect(m.budgetPause('d1')).toMatchObject({ period: 'run', budgetUsd: 2, spentUsd: expect.closeTo(1.7, 6), nextTurnUsd: 0.9 })
+      expect(m.budgetPause('d1')?.detail).toBe('This run has spent $1.70 of its $2.00 per-run cap, and its next turn is expected to cost about $0.90 (its largest turn so far), which would take it to $2.60.')
+      const log = getJobEvents(db, 'd1').map(event => event.payload).join('\n')
+      expect(log).toContain('Per-run cap: this turn and the next could take the run past its $2.00 cap.')
+      expect(log).not.toContain('Daily budget reached mid-run')
+      expect(m.resumeBudgetPause('d1', { raiseTo: 3 })).toEqual({ status: 'resumed' })
+      expect((await running).outcome).toBe('success')
+    })
+
+    it('resumes at once when the turn came in cheaper than feared and the next one fits', async () => {
+      const { runDefinition, pauseDefinition } = core({ architect: 0.8, developer: 0.1 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      // $0.90 spent; the next turn at $0.80 makes $1.70, within $2.00.
+      expect((await m.run({ ...definitionRequest(), runCapUsd: 2 })).outcome).toBe('success')
+      expect(pauseDefinition).toHaveBeenCalledTimes(1)
+      expect(runDefinition).toHaveBeenCalledTimes(2)
+      expect(broadcasts.some(msg => msg.type === 'loop.run_paused')).toBe(false)
+      expect(getJobEvents(db, 'd1').some(event => event.payload.includes('The budget allows the next step'))).toBe(true)
+    })
+
+    it('never arms a pause when the next turns fit the cap', async () => {
+      const { runDefinition, pauseDefinition } = core({ architect: 0.3, developer: 0.3 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      expect((await m.run({ ...definitionRequest(), runCapUsd: 2 })).outcome).toBe('success')
+      expect(pauseDefinition).not.toHaveBeenCalled()
+    })
+  })
 })

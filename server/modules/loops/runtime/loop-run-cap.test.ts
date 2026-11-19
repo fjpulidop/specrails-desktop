@@ -55,19 +55,22 @@ describe('per-run soft cap', () => {
     expect(broadcasts.some((msg) => msg.type === 'loop.run_paused')).toBe(false)
   })
 
-  it('pauses when the run cost crosses the default cap, and Continue waives it for this run', async () => {
+  it('pauses before a turn whose expected cost would cross the cap, and Continue waives it for this run', async () => {
     const ex = executors()
     const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { runCapDefault: () => 2 })
     const running = m.run(request('cap-ignore'))
-    await waitFor(() => m.budgetPause('cap-ignore') !== null, 'run-cap pause') // 1.5 < 2: step 2 runs; 3.0 >= 2 pauses before step 3
-    expect(ex.runAiStep).toHaveBeenCalledTimes(2)
+    // $1.50 spent; the next turn is expected to cost $1.50 like the first, which would make $3.00 > $2.00.
+    await waitFor(() => m.budgetPause('cap-ignore') !== null, 'run-cap pause')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(1)
     expect(getLoopRun(db, 'cap-ignore')).toMatchObject({ status: 'paused', restart_reason: 'budget_paused' })
-    expect(m.budgetPause('cap-ignore')).toMatchObject({ period: 'run', budgetUsd: 2, spentUsd: 3, resetsAt: null })
-    expect(broadcasts.find((msg) => msg.type === 'loop.run_paused')).toMatchObject({ pauseKind: 'budget_paused', budget: { period: 'run', budgetUsd: 2, spentUsd: 3, resetsAt: null } })
+    expect(m.budgetPause('cap-ignore')).toMatchObject({ period: 'run', budgetUsd: 2, spentUsd: 1.5, nextTurnUsd: 1.5, resetsAt: null,
+      detail: 'This run has spent $1.50 of its $2.00 per-run cap, and its next turn is expected to cost about $1.50 (its largest turn so far), which would take it to $3.00.',
+      action: 'Continue without the cap, or raise the per-run cap to at least $3.00, and the run resumes from the next step.' })
+    expect(broadcasts.find((msg) => msg.type === 'loop.run_paused')).toMatchObject({ pauseKind: 'budget_paused', budget: { period: 'run', budgetUsd: 2, spentUsd: 1.5, resetsAt: null } })
     // No choice: the cap stands and the run stays paused.
     expect(m.resumeBudgetPause('cap-ignore')).toMatchObject({ status: 'over_budget', rejection: { period: 'run' } })
     expect(m.sendInteractiveTurn('cap-ignore', 'go')).toBe(false)
-    expect(ex.runAiStep).toHaveBeenCalledTimes(2)
+    expect(ex.runAiStep).toHaveBeenCalledTimes(1)
 
     expect(m.resumeBudgetPause('cap-ignore', { ignore: true })).toEqual({ status: 'resumed' })
     expect((await running).outcome).toBe('success')
@@ -75,17 +78,22 @@ describe('per-run soft cap', () => {
     expect(readLoopRunCap(db, 'cap-ignore')).toBe(0)
   })
 
-  it('Raise moves the cap up: the run continues and pauses again only at the new cap', async () => {
+  it('reports the overshoot of a turn that cost more than the cap had left, and Raise must cover the next turn', async () => {
     const ex = executors()
     const m = new LoopRunManager(db, () => {}, ex, () => 1000, { runCapDefault: () => 1 })
     const running = m.run(request('cap-raise'))
-    await waitFor(() => m.budgetPause('cap-raise') !== null, 'first pause') // 1.5 >= 1 before step 2
+    await waitFor(() => m.budgetPause('cap-raise') !== null, 'first pause') // the first turn alone cost $1.50
     expect(ex.runAiStep).toHaveBeenCalledTimes(1)
-    expect(m.resumeBudgetPause('cap-raise', { raiseTo: 2 })).toEqual({ status: 'resumed' }) // 1.5 < 2
-    await waitFor(() => ex.runAiStep.mock.calls.length === 2 && m.budgetPause('cap-raise') !== null, 'second pause') // 3.0 >= 2
-    expect(readLoopRunCap(db, 'cap-raise')).toBe(2)
-    // Raising below the spend keeps it paused.
-    expect(m.resumeBudgetPause('cap-raise', { raiseTo: 2.5 })).toMatchObject({ status: 'over_budget' })
+    expect(m.budgetPause('cap-raise')).toMatchObject({ spentUsd: 1.5, budgetUsd: 1, overshootUsd: 0.5,
+      detail: "This run's cost $1.50 is $0.50 over its per-run cap of $1.00: its last turn cost $1.50, more than the cap had left." })
+    // $2.00 would not cover the next $1.50 turn: still paused, saying what would.
+    expect(m.resumeBudgetPause('cap-raise', { raiseTo: 2 })).toMatchObject({ status: 'over_budget', rejection: { nextTurnUsd: 1.5, action: expect.stringContaining('at least $3.00') } })
+    expect(m.resumeBudgetPause('cap-raise', { raiseTo: 3 })).toEqual({ status: 'resumed' }) // 1.5 + 1.5 fits $3.00
+    await waitFor(() => ex.runAiStep.mock.calls.length === 2 && m.budgetPause('cap-raise') !== null, 'second pause') // 3.0 >= 3
+    expect(readLoopRunCap(db, 'cap-raise')).toBe(3)
+    expect(m.budgetPause('cap-raise')).toMatchObject({ spentUsd: 3, budgetUsd: 3 })
+    expect(m.budgetPause('cap-raise')?.overshootUsd).toBeUndefined()
+    expect(m.resumeBudgetPause('cap-raise', { raiseTo: 4 })).toMatchObject({ status: 'over_budget' })
     expect(m.resumeBudgetPause('cap-raise', { raiseTo: 10 })).toEqual({ status: 'resumed' })
     expect((await running).outcome).toBe('success')
     expect(ex.runAiStep).toHaveBeenCalledTimes(3)

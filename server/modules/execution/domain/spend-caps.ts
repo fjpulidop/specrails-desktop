@@ -106,23 +106,47 @@ export function capRejection(status: CapStatus): DailyBudgetRejection {
   }
 }
 
-/** The per-run soft cap crossed by one run's provider-reported cost. */
-export function runCapRejection(capUsd: number, runCostUsd: number): DailyBudgetRejection {
-  return {
-    error: 'daily_budget_exceeded',
-    scope: 'project',
-    period: 'run',
-    budgetUsd: capUsd,
-    spentUsd: runCostUsd,
-    resetsAt: null,
-    detail: `This run's cost $${runCostUsd.toFixed(2)} has reached the per-run cap of $${capUsd.toFixed(2)}.`,
-    action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.',
+/** What a run's turns cost so far: the largest (the next turn's expected cost) and the latest. */
+export interface RunTurnCosts { largestUsd: number | null; lastUsd: number | null }
+
+const usd = (value: number): string => `$${value.toFixed(2)}`
+
+/**
+ * The per-run soft cap, reached by one run's provider-reported cost, or about to be:
+ * the run's next turn is expected to cost as much as its largest turn so far, and a
+ * turn whose expected cost would take the run past the cap is not started.
+ */
+export function runCapRejection(capUsd: number, runCostUsd: number, turns: RunTurnCosts = { largestUsd: null, lastUsd: null }): DailyBudgetRejection {
+  const base = { error: 'daily_budget_exceeded' as const, scope: 'project' as const, period: 'run' as const, budgetUsd: capUsd, spentUsd: runCostUsd, resetsAt: null }
+  const overshoot = fromCents(toCents(runCostUsd) - toCents(capUsd))
+  if (overshoot > 0) {
+    return { ...base, overshootUsd: overshoot,
+      detail: `This run's cost ${usd(runCostUsd)} is ${usd(overshoot)} over its per-run cap of ${usd(capUsd)}${turns.lastUsd !== null ? `: its last turn cost ${usd(turns.lastUsd)}, more than the cap had left` : ''}.`,
+      action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
   }
+  if (toCents(runCostUsd) >= toCents(capUsd) || turns.largestUsd === null) {
+    return { ...base, detail: `This run's cost ${usd(runCostUsd)} has reached the per-run cap of ${usd(capUsd)}.`, action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
+  }
+  const projected = fromCents(toCents(runCostUsd) + toCents(turns.largestUsd))
+  return { ...base, nextTurnUsd: turns.largestUsd,
+    detail: `This run has spent ${usd(runCostUsd)} of its ${usd(capUsd)} per-run cap, and its next turn is expected to cost about ${usd(turns.largestUsd)} (its largest turn so far), which would take it to ${usd(projected)}.`,
+    action: `Continue without the cap, or raise the per-run cap to at least ${usd(projected)}, and the run resumes from the next step.` }
 }
 
 /** Does a run's cost-so-far cross its soft cap? (`null`/0 cap = no cap.) */
 export const isRunCapCrossed = (capUsd: number | null | undefined, runCostUsd: number): boolean =>
   capUsd != null && capUsd > 0 && toCents(runCostUsd) >= toCents(capUsd)
+
+/**
+ * Must the run stop before its next turn? Its cost crossed the cap, or `turnsAhead`
+ * more turns at its largest turn's cost would take it past the cap. Without a turn
+ * cost yet nothing is projected (the first turn always runs).
+ */
+export function isRunCapReached(capUsd: number | null | undefined, runCostUsd: number, largestTurnUsd: number | null, turnsAhead = 1): boolean {
+  if (isRunCapCrossed(capUsd, runCostUsd)) return true
+  if (capUsd == null || capUsd <= 0 || largestTurnUsd === null || largestTurnUsd <= 0) return false
+  return toCents(runCostUsd) + turnsAhead * toCents(largestTurnUsd) > toCents(capUsd)
+}
 
 /** The tighter (smaller) of the per-run caps that apply; 0/null mean "none". */
 export function effectiveRunCap(...caps: Array<number | null | undefined>): number | null {
