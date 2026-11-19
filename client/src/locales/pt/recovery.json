@@ -181,6 +181,8 @@
     "byAutomatic": "O Specrails continuou automaticamente",
     "byPerson": "Continuada por si",
     "byReview": "Enviada para revisão com verificações manuais",
-    "guidance": "Orientações enviadas ao agente"
+    "guidance": "Orientações enviadas ao agente",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimativa pela tabela de preços, não custo cobrado"
   }
 }

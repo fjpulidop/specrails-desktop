@@ -181,6 +181,8 @@
     "byAutomatic": "Specrails ha continuato automaticamente",
     "byPerson": "Continuato da te",
     "byReview": "Mandato in revisione con verifiche a mano",
-    "guidance": "Istruzioni inviate all'agente"
+    "guidance": "Istruzioni inviate all'agente",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Stima dal listino, non costo fatturato"
   }
 }

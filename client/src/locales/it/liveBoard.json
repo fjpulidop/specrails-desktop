@@ -77,6 +77,7 @@
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Stima dal listino, non costo fatturato",
+    "costIncludesEstimate": "Include {{cost}} stimato dal listino, non fatturato",
     "mergeConflicts_one": "In conflitto con la base in {{count}} file",
     "mergeConflicts_other": "In conflitto con la base in {{count}} file",
     "mergeSiblings_one": "Collide con {{count}} altro run",
@@ -90,7 +91,8 @@
       "siblings_other": "Si sovrappone a {{count}} run",
       "baseMoved": "Base avanzata"
     },
-    "attempt": "tentativo {{number}}"
+    "attempt": "tentativo {{number}}",
+    "attemptCost": "Questo tentativo: {{cost}}. Il costo della scheda copre tutti i {{of}} tentativi."
   },
   "empty": {
     "title": "Niente in esecuzione",

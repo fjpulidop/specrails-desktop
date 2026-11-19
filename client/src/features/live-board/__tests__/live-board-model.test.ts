@@ -165,7 +165,10 @@ describe('what a card does and how it looks', () => {
 
 describe('attempt chains on the board', () => {
   it('reads a chain position defensively', () => {
-    expect(readAttempt({ number: 3, of: 4 })).toEqual({ number: 3, of: 4 })
+    expect(readAttempt({ number: 3, of: 4 })).toEqual({ number: 3, of: 4, costUsd: null, costEstimated: false })
+    // The latest attempt's own cost; the card's cost is the chain's.
+    expect(readAttempt({ number: 4, of: 4, costUsd: 0.4, costEstimated: true })).toEqual({ number: 4, of: 4, costUsd: 0.4, costEstimated: true })
+    expect(readAttempt({ number: 2, of: 2, costUsd: 'x', costEstimated: true })).toEqual({ number: 2, of: 2, costUsd: null, costEstimated: false })
     for (const junk of [null, { number: 1, of: 1 }, { number: 5, of: 4 }, { number: '2', of: 3 }, 'x']) expect(readAttempt(junk)).toBeNull()
   })
 })

@@ -8,6 +8,7 @@ import { listUnifiedJobs } from '../../execution/runtime/job-listing'
 import { createProjectInboxSource } from '../../inbox/adapters/project-source'
 import { createProjectLiveBoardSource } from '../../live-board/adapters/project-source'
 import { serializeDiagnosis } from '../../recovery'
+import { createPrDelivery } from '../../delivery/runtime/rail-pr-store'
 
 const NOW = Date.parse('2026-11-18T21:00:00.000Z')
 const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString()
@@ -73,6 +74,7 @@ describe('attempt chains (one project database)', () => {
     expect(chain.attempts.map((item) => [item.runId, item.attempt, item.outcome, item.fromStep])).toEqual([
       ['run-14', 1, 'failed', null], ['fork-a', 2, 'failed', 'developer'], ['fork-b', 3, 'failed', 'developer'], ['fork-c', 4, 'success', 'developer'],
     ])
+    expect(chain.attempts.map((item) => item.costUsd)).toEqual([0, 0, 0, 0])
     expect(chain.attempts[1].continuations).toEqual([expect.objectContaining({ automatic: true, guidance: 'browser guidance', cause: 'incomplete_tasks' })])
     expect(readAttemptChain(db, 'nope')).toBeNull()
   })
@@ -120,7 +122,47 @@ describe('one counting rule for every surface', () => {
     const facts = createProjectLiveBoardSource({ project: { id: 'p1', name: 'Alpha' }, db }).collect(day)
     const runs = facts.filter((item) => item.status.source === 'loop-run')
     expect(runs.map((item) => item.sourceId)).toEqual(['fork-c'])
-    expect(runs[0].attempt).toEqual({ number: 4, of: 4 })
+    expect(runs[0].attempt).toEqual({ number: 4, of: 4, costUsd: 0, costEstimated: false })
+  })
+
+  it('the chain card carries the chain\'s total cost; the latest attempt keeps its own', () => {
+    seedIssue14()
+    // Billed attempts, one rate-card estimate (codex), as analytics records them.
+    const costs: Array<[string, number, 0 | 1]> = [['run-14', 1, 0], ['fork-a', 0.5, 0], ['fork-b', 0.25, 1], ['fork-c', 0.4, 0]]
+    for (const [id, usd, estimated] of costs) {
+      db.prepare('UPDATE loop_runs SET total_cost_usd = ? WHERE id = ?').run(usd, id)
+      db.prepare('UPDATE jobs SET total_cost_usd = ?, total_cost_usd_estimated = ? WHERE id = ?').run(usd, estimated, id)
+      db.prepare(`INSERT INTO ai_invocations (id, project_id, provider, surface, model, status, started_at, total_cost_usd, total_cost_usd_estimated, loop_run_id)
+        VALUES (?, 'p1', 'claude', 'loop', 'sonnet', 'success', ?, ?, ?, ?)`).run(`ai-${id}`, at(20), usd, estimated, id)
+    }
+    const day = { from: new Date(NOW - 86_400_000).toISOString(), to: new Date(NOW + 60_000).toISOString() }
+    const [card] = createProjectLiveBoardSource({ project: { id: 'p1', name: 'Alpha' }, db }).collect(day).filter((item) => item.status.source === 'loop-run')
+    expect(card.sourceId).toBe('fork-c')
+    expect(card.costUsd).toBeCloseTo(2.15, 10)
+    // Billed and estimated stay apart: part of the total is an estimate.
+    expect(card.costEstimated).toBe(true)
+    expect(card.costEstimatedUsd).toBeCloseTo(0.25, 10)
+    // Today's spend counts every attempt once (the earlier ones have no card).
+    expect(card.costTodayUsd).toBeCloseTo(2.15, 10)
+    expect(card.attempt).toEqual({ number: 4, of: 4, costUsd: 0.4, costEstimated: false })
+  })
+
+  it('a delivery continued in a new attempt carries every attempt\'s cost', () => {
+    run('run-14', { outcome: 'failed', started: 120 })
+    run('fork-a', { forkOf: 'run-14', outcome: null, started: 10 })
+    db.prepare('UPDATE loop_runs SET total_cost_usd = ? WHERE id = ?').run(0.75, 'run-14')
+    db.prepare('UPDATE loop_runs SET total_cost_usd = ? WHERE id = ?').run(0.2, 'fork-a')
+    // The fork replaced the source run in the delivery's run ids.
+    const delivery0 = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: 'rail-0', ticketIds: [14], baseBranch: 'main', loopName: 'Implement', originSurface: 'rail' } as never)
+    db.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['fork-a']), delivery0.id)
+    const day = { from: new Date(NOW - 86_400_000).toISOString(), to: new Date(NOW + 60_000).toISOString() }
+    const facts = createProjectLiveBoardSource({ project: { id: 'p1', name: 'Alpha' }, db }).collect(day)
+    const delivery = facts.find((item) => item.status.source === 'delivery')!
+    expect(facts.filter((item) => item.status.source === 'loop-run')).toEqual([])
+    expect(delivery.costUsd).toBeCloseTo(0.95, 10)
+    expect(delivery.costEstimated).toBe(false)
+    expect(delivery.costEstimatedUsd).toBeNull()
+    expect(delivery.attempt).toEqual({ number: 2, of: 2, costUsd: 0.2, costEstimated: false })
   })
 
   it('an attempt still in progress takes the chain over too', () => {

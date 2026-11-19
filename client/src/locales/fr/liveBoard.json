@@ -77,6 +77,7 @@
     "actionLabel": "{{action}} : {{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimation selon le barème, pas un coût facturé",
+    "costIncludesEstimate": "Inclut {{cost}} estimé selon le barème, non facturé",
     "mergeConflicts_one": "Conflit avec la base dans {{count}} fichier",
     "mergeConflicts_other": "Conflit avec la base dans {{count}} fichiers",
     "mergeSiblings_one": "En collision avec {{count}} autre run",
@@ -90,7 +91,8 @@
       "siblings_other": "Recoupe {{count}} runs",
       "baseMoved": "Base avancée"
     },
-    "attempt": "tentative {{number}}"
+    "attempt": "tentative {{number}}",
+    "attemptCost": "Cette tentative : {{cost}}. Le coût de la carte couvre les {{of}} tentatives."
   },
   "empty": {
     "title": "Rien n'est en cours",

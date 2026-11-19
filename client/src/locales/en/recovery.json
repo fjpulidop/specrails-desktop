@@ -181,6 +181,8 @@
     "byAutomatic": "Specrails continued automatically",
     "byPerson": "Continued by you",
     "byReview": "Sent to review with checks by hand",
-    "guidance": "Guidance sent to the agent"
+    "guidance": "Guidance sent to the agent",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimate from the rate card, not billed cost"
   }
 }

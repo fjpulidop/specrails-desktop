@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { GitBranch, Sparkles } from 'lucide-react'
 import { Popover } from '../../../components/ui/popover'
+import { formatUsd } from '../../../lib/format-usd'
 import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
 import { humanizePhase } from '../lib/failure-diagnosis'
 import { attemptRunState, lineageFacts, type AttemptChain, type ChainAttempt } from '../lib/attempt-chain'
@@ -60,6 +61,12 @@ function AttemptRow({ attempt, self, step, onOpenRun }: { attempt: ChainAttempt;
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-foreground num">{t('lineage.attemptShort', { attempt: attempt.attempt })}</span>
         {self && <span className="text-caption text-muted-foreground">{t('lineage.this')}</span>}
+        {attempt.costUsd !== null && attempt.costUsd > 0 && (
+          <span className="text-caption tabular-nums text-muted-foreground" title={attempt.costEstimated ? t('lineage.costEstimatedHint') : undefined} data-testid="run-lineage-cost">
+            {attempt.costEstimated ? t('lineage.costEstimated', { cost: formatUsd(attempt.costUsd) }) : formatUsd(attempt.costUsd)}
+            {attempt.costEstimated && <span className="sr-only"> ({t('lineage.costEstimatedHint')})</span>}
+          </span>
+        )}
         <RunStatePill state={state} label={tCommon(`runState.${state}`)} className="ml-auto" />
         {!self && onOpenRun && (
           <button type="button" className="text-caption text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50" onClick={() => onOpenRun(attempt.runId)} data-testid="run-lineage-open">

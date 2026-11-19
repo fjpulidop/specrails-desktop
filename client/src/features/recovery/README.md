@@ -56,7 +56,7 @@ and the server-ranked `remedies`.
   offers the same Continue, never a relaunch from the base.
 - **Attempt chains.** `useAttemptChain` (`GET /loop-runs/:id/attempts`) gives the chain and whether
   Continue applies; `RunLineage` is the run window's line ("Attempt 3 of 4 · continued from the
-  Developer step of attempt 2") and its popover of every attempt and what changed.
+  Developer step of attempt 2") and its popover of every attempt, its own cost and what changed.
 - **No invented diagnosis.** A low-confidence or unrecognised record is read as `unknown`
   (`readFailureDiagnosis`): the card says "Unknown cause", shows the raw tail of the log and offers
   only logs and a retry.

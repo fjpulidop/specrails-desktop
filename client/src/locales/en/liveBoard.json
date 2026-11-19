@@ -77,6 +77,7 @@
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimate from the rate card, not billed cost",
+    "costIncludesEstimate": "Includes {{cost}} estimated from the rate card, not billed",
     "mergeConflicts_one": "Conflicts with the base in {{count}} file",
     "mergeConflicts_other": "Conflicts with the base in {{count}} files",
     "mergeSiblings_one": "Collides with {{count}} other run",
@@ -90,7 +91,8 @@
       "siblings_other": "Overlaps {{count}} runs",
       "baseMoved": "Base moved"
     },
-    "attempt": "attempt {{number}}"
+    "attempt": "attempt {{number}}",
+    "attemptCost": "This attempt: {{cost}}. The card's cost covers all {{of}} attempts."
   },
   "empty": {
     "title": "Nothing is running",

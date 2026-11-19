@@ -181,6 +181,8 @@
     "byAutomatic": "Specrails hat automatisch fortgesetzt",
     "byPerson": "Von dir fortgesetzt",
     "byReview": "Mit Prüfungen von Hand zur Prüfung geschickt",
-    "guidance": "An den Agenten gesendete Hinweise"
+    "guidance": "An den Agenten gesendete Hinweise",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten"
   }
 }

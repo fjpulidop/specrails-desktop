@@ -38,8 +38,12 @@ export interface LiveCard {
   model: string | null
   startedAt: string | null
   finishedAt: string | null
+  /** The run's cost; a chain card's is every attempt added up (the latest attempt's own cost is on `attempt`). */
   costUsd: number | null
+  /** At least part of `costUsd` is a rate-card estimate. */
   costEstimated: boolean
+  /** The estimated part of `costUsd` (all of it when every part is estimated); null when none or unknown. */
+  costEstimatedUsd: number | null
   costTodayUsd: number | null
   railIndex: number | null
   ticketIds: number[]
@@ -51,7 +55,15 @@ export interface LiveCard {
   /** A delivery card's last merge preview (server: delivery merge preview); null/absent when none yet. */
   mergePreview?: LiveMergePreview | null
   /** A continued run's place in its attempt chain: the chain is one card, showing its latest attempt. */
-  attempt?: { number: number; of: number } | null
+  attempt?: LiveCardAttempt | null
+}
+
+/** A chain card's latest attempt: where it stands and its own cost (the card's cost is the chain's). */
+export interface LiveCardAttempt {
+  number: number
+  of: number
+  costUsd: number | null
+  costEstimated: boolean
 }
 
 export interface LiveMergePreview {
@@ -132,6 +144,7 @@ function readCard(raw: unknown): LiveCard | null {
     finishedAt: str(v.finishedAt),
     costUsd: num(v.costUsd),
     costEstimated: v.costEstimated === true,
+    costEstimatedUsd: num(v.costEstimatedUsd),
     costTodayUsd: num(v.costTodayUsd),
     railIndex: num(v.railIndex),
     ticketIds: Array.isArray(v.ticketIds) ? v.ticketIds.filter((x): x is number => typeof x === 'number') : [],
@@ -144,12 +157,14 @@ function readCard(raw: unknown): LiveCard | null {
   }
 }
 
-/** `{ number, of }` of an attempt chain, defensively: anything else is no chain. */
-export function readAttempt(raw: unknown): { number: number; of: number } | null {
+/** `{ number, of }` of an attempt chain and the latest attempt's own cost, defensively: anything else is no chain. */
+export function readAttempt(raw: unknown): LiveCardAttempt | null {
   const v = raw as Record<string, unknown> | null
   if (!v || typeof v !== 'object') return null
   const number = v.number, of = v.of
-  return Number.isInteger(number) && Number.isInteger(of) && (number as number) >= 1 && (of as number) >= 2 && (number as number) <= (of as number) ? { number: number as number, of: of as number } : null
+  if (!(Number.isInteger(number) && Number.isInteger(of) && (number as number) >= 1 && (of as number) >= 2 && (number as number) <= (of as number))) return null
+  const costUsd = num(v.costUsd)
+  return { number: number as number, of: of as number, costUsd, costEstimated: costUsd !== null && v.costEstimated === true }
 }
 
 const MERGE_STATUSES = new Set(['clean', 'conflicts', 'already_merged', 'unknown'])

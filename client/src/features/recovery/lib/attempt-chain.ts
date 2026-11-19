@@ -25,6 +25,9 @@ export interface ChainAttempt {
   finishedAt: string | null
   fromStep: string | null
   continuations: AttemptContinuation[]
+  /** This attempt's own recorded cost (null when unknown); `costEstimated` marks a rate-card estimate. */
+  costUsd: number | null
+  costEstimated: boolean
 }
 
 export interface AttemptChain {
@@ -61,6 +64,8 @@ export function readAttemptChain(raw: unknown): AttemptChain | null {
       runId: id, attempt: a.attempt, status: text(a.status, 20) ?? 'completed', outcome: text(a.outcome, 40), startedAt: text(a.startedAt, 40) ?? '',
       finishedAt: text(a.finishedAt, 40), fromStep: text(a.fromStep),
       continuations: (Array.isArray(a.continuations) ? a.continuations : []).map(readContinuation).filter((c): c is AttemptContinuation => !!c),
+      costUsd: typeof a.costUsd === 'number' && Number.isFinite(a.costUsd) ? a.costUsd : null,
+      costEstimated: typeof a.costUsd === 'number' && a.costEstimated === true,
     }]
   }).sort((a, b) => a.attempt - b.attempt)
   const self = attempts.find((attempt) => attempt.runId === runId)

@@ -1,6 +1,6 @@
 import type { DbInstance } from '../../../db'
 import { readSpecSnapshot } from '../../delivery/runtime/rail-pr-store'
-import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
+import { readAttemptChainRunIds, readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { toIso, type DayWindow, type LiveRunFacts, type LiveSteps } from '../domain'
 import type { ProjectLiveBoardSource } from '../ports'
 
@@ -127,6 +127,22 @@ function pendingQuestion(raw: string | null): string | null {
     }
   } catch { /* an unreadable checkpoint simply has no question */ }
   return null
+}
+
+interface RunCostRow { id: string; total_cost_usd: number | null; cost_estimated: number | null }
+
+/** Recorded cost of runs the board lists no card for (the earlier attempts of a chain). */
+function runCosts(db: DbInstance, projectId: string, runIds: readonly string[]): Map<string, RunCostRow> {
+  const out = new Map<string, RunCostRow>()
+  for (const ids of chunks(runIds)) {
+    const rows = db.prepare(`
+      SELECT r.id, r.total_cost_usd, j.total_cost_usd_estimated AS cost_estimated
+      FROM loop_runs r LEFT JOIN jobs j ON j.id = r.id
+      WHERE r.project_id = ? AND r.id IN (${marks(ids.length)})
+    `).all(projectId, ...ids) as RunCostRow[]
+    for (const row of rows) out.set(row.id, row)
+  }
+  return out
 }
 
 /** Costs recorded today, per run (loop runs by `loop_run_id`, queue jobs by their `job` invocations). */
@@ -262,9 +278,43 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
       const steps = guard(projectId, 'loop steps', new Map<string, string>(), () => currentSteps(db, running))
       const ciMissions = guard(projectId, 'CI missions', new Map<string, string>(), () => ciRunMissions(db, projectId, loopRuns.map((row) => row.id)))
       const attempts = guard(projectId, 'attempt chains', new Map() as ReturnType<typeof readRunAttempts>, () => readRunAttempts(db, [...loopRuns.map((row) => row.id), ...deliveryRunIds]))
+      // One card per attempt chain: the card's cost is the chain's (every
+      // attempt added up, as analytics counts it). An earlier attempt has no
+      // card of its own, so its cost is counted once, on its chain's card.
+      const chains = guard(projectId, 'attempt chain runs', new Map<string, string[]>(), () => readAttemptChainRunIds(db, [...loopRuns.map((row) => row.id), ...deliveryRunIds]))
+      const loopCardRows = loopRuns.filter((row) => !represented.has(row.id) && !(row.status === 'paused' && row.restart_reason === 'fork'))
+      const ownCardRuns = new Set([...deliveryRunIds, ...loopCardRows.map((row) => row.id)])
+      const earlier = [...new Set([...chains.values()].flat())].filter((id) => !runById.has(id))
+      const earlierCosts = guard(projectId, 'attempt costs', new Map<string, RunCostRow>(), () => runCosts(db, projectId, earlier))
+      const costRow = (id: string): RunCostRow | undefined => runById.get(id) ?? earlierCosts.get(id)
+      const counted = new Set<string>()
+      const chainCost = (ids: readonly string[]) => {
+        const members = [...new Set(ids)]
+        for (const id of ids) {
+          for (const member of chains.get(id) ?? []) {
+            if (members.includes(member) || ownCardRuns.has(member) || counted.has(member)) continue
+            members.push(member)
+          }
+        }
+        for (const member of members) counted.add(member)
+        let total: number | null = null
+        let estimatedUsd: number | null = null
+        let estimated = false
+        for (const member of members) {
+          const row = costRow(member)
+          if (row?.cost_estimated === 1) estimated = true
+          if (typeof row?.total_cost_usd !== 'number') continue
+          total = (total ?? 0) + row.total_cost_usd
+          if (row.cost_estimated === 1) estimatedUsd = (estimatedUsd ?? 0) + row.total_cost_usd
+        }
+        return { total, estimatedUsd, estimated, todayUsd: cost(...members) }
+      }
       const attemptOf = (id: string | null | undefined) => {
         const position = id ? attempts.get(id) : undefined
-        return position ? { number: position.attempt, of: position.attempts } : null
+        if (!id || !position) return null
+        const row = costRow(id)
+        const own = typeof row?.total_cost_usd === 'number' ? row.total_cost_usd : null
+        return { number: position.attempt, of: position.attempts, costUsd: own, costEstimated: own !== null && row?.cost_estimated === 1 }
       }
       const liveMissions = guard(projectId, 'live run missions', new Map() as ReadonlyMap<string, { originConversationId?: string }>, () => handle.liveRunMissions?.() ?? new Map())
 
@@ -274,7 +324,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         const live = own.find((r) => r.status === 'running') ?? null
         const starts = own.map((r) => toIso(r.started_at)).filter((v): v is string => !!v).sort()
         const terminal = !['building', 'on_review', 'pr_draft', 'pr_ready'].includes(row.decision)
-        const known = own.filter((r) => typeof r.total_cost_usd === 'number')
+        const chain = chainCost(ids)
         runs.push({
           sourceId: row.id, kind: 'rail',
           status: { source: 'delivery', decision: row.decision, statusCode: row.status_code },
@@ -285,9 +335,10 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           model: own.find((r) => r.model)?.model ?? null,
           startedAt: starts[0] ?? toIso(row.created_at),
           finishedAt: terminal ? toIso(row.settled_at) : null,
-          costUsd: known.length > 0 ? known.reduce((sum, r) => sum + (r.total_cost_usd ?? 0), 0) : null,
-          costEstimated: own.some((r) => r.cost_estimated === 1),
-          costTodayUsd: cost(...ids),
+          costUsd: chain.total,
+          costEstimated: chain.estimated,
+          costEstimatedUsd: chain.estimatedUsd,
+          costTodayUsd: chain.todayUsd,
           railIndex: Number.isInteger(row.rail_index) ? row.rail_index : null,
           ticketIds: ticketIds(row.ticket_ids),
           conversationId: row.origin_conversation_id,
@@ -298,11 +349,10 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         })
       }
 
-      for (const row of loopRuns) {
-        if (represented.has(row.id)) continue
-        // Forked-away and adopted runs are the inbox's call (it skips them); a fork pause is not news.
-        if (row.status === 'paused' && row.restart_reason === 'fork') continue
+      // Forked-away and adopted runs are the inbox's call (it skips them); a fork pause is not news.
+      for (const row of loopCardRows) {
         const ids = ticketIds(row.ticket_ids_json)
+        const chain = chainCost([row.id])
         runs.push({
           sourceId: row.id,
           kind: typeof row.rail_index === 'number' ? 'rail' : 'loop',
@@ -313,9 +363,10 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           steps: null,
           provider: row.provider, model: row.model,
           startedAt: toIso(row.started_at), finishedAt: toIso(row.finished_at),
-          costUsd: typeof row.total_cost_usd === 'number' && row.total_cost_usd > 0 ? row.total_cost_usd : null,
-          costEstimated: row.cost_estimated === 1,
-          costTodayUsd: cost(row.id),
+          costUsd: chain.total !== null && chain.total > 0 ? chain.total : null,
+          costEstimated: chain.estimated,
+          costEstimatedUsd: chain.total !== null && chain.total > 0 ? chain.estimatedUsd : null,
+          costTodayUsd: chain.todayUsd,
           railIndex: typeof row.rail_index === 'number' ? row.rail_index : null,
           ticketIds: ids,
           conversationId: liveMissions.get(row.id)?.originConversationId ?? ciMissions.get(row.id) ?? null,
@@ -342,7 +393,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           title: null, phase: null, question: null, steps: null,
           provider: null, model: null,
           startedAt: toIso(row.created_at), finishedAt: open ? null : toIso(row.updated_at),
-          costUsd: null, costEstimated: false, costTodayUsd: null,
+          costUsd: null, costEstimated: false, costEstimatedUsd: null, costTodayUsd: null,
           railIndex: typeof row.rail_index === 'number' ? row.rail_index : null,
           ticketIds: typeof row.ticket_id === 'number' ? [row.ticket_id] : [],
           conversationId: row.conversation_id,
@@ -384,6 +435,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           startedAt: toIso(row.started_at), finishedAt: toIso(row.finished_at),
           costUsd: typeof row.total_cost_usd === 'number' ? row.total_cost_usd : null,
           costEstimated: row.total_cost_usd_estimated === 1,
+          costEstimatedUsd: row.total_cost_usd_estimated === 1 && typeof row.total_cost_usd === 'number' ? row.total_cost_usd : null,
           costTodayUsd: cost(row.id),
           railIndex: null, ticketIds: [], conversationId: null,
           jobId: row.id, deliveryId: null,

@@ -181,6 +181,8 @@
     "byAutomatic": "Specrails が自動で続行",
     "byPerson": "あなたが続行",
     "byReview": "手動チェック付きでレビューへ",
-    "guidance": "エージェントに送った指示"
+    "guidance": "エージェントに送った指示",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "料金表による見積もりで、請求額ではありません"
   }
 }

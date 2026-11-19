@@ -8,11 +8,11 @@ const wire = (runId: string) => ({
   runId,
   attempt: 0,
   attempts: [
-    { runId: 'run-14', attempt: 1, status: 'completed', outcome: 'failed', startedAt: '2026-11-18T18:00:00Z', finishedAt: '2026-11-18T18:20:00Z', fromStep: null, continuations: [] },
+    { runId: 'run-14', attempt: 1, status: 'completed', outcome: 'failed', startedAt: '2026-11-18T18:00:00Z', finishedAt: '2026-11-18T18:20:00Z', fromStep: null, continuations: [], costUsd: 1.25, costEstimated: false },
     { runId: 'fork-a', attempt: 2, status: 'completed', outcome: 'failed', startedAt: '2026-11-18T19:48:00Z', finishedAt: null, fromStep: 'developer',
       continuations: [{ remedy: 'continue', mode: 'fork', fromStep: 'developer', cause: 'incomplete_tasks', guidance: 'Specrails continued this run because these approved tasks were left unticked', automatic: true, createdAt: '' }] },
     { runId: 'fork-b', attempt: 3, status: 'completed', outcome: 'success', startedAt: '2026-11-18T20:00:00Z', finishedAt: null, fromStep: 'developer',
-      continuations: [{ remedy: 'continue', mode: 'fork', fromStep: 'developer', cause: 'incomplete_tasks', guidance: null, automatic: false, createdAt: '' }] },
+      continuations: [{ remedy: 'continue', mode: 'fork', fromStep: 'developer', cause: 'incomplete_tasks', guidance: null, automatic: false, createdAt: '' }], costUsd: 0.4, costEstimated: true },
   ],
 })
 
@@ -51,6 +51,10 @@ describe('RunLineage', () => {
     expect(attempts[1]).toHaveTextContent('Specrails continued automatically')
     expect(attempts[2]).toHaveTextContent('Continued by you')
     expect(within(attempts[1]).getByText('Guidance sent to the agent')).toBeInTheDocument()
+    // Each attempt names its own cost; an estimate keeps its estimate reading.
+    expect(within(attempts[0]).getByTestId('run-lineage-cost')).toHaveTextContent('$1.25')
+    expect(within(attempts[1]).queryByTestId('run-lineage-cost')).toBeNull()
+    expect(within(attempts[2]).getByTestId('run-lineage-cost').textContent).toMatch(/^~\$0\.40/)
     await userEvent.click(within(attempts[2]).getByTestId('run-lineage-open'))
     expect(onOpenRun).toHaveBeenCalledWith('fork-b')
     expect(within(attempts[1]).queryByTestId('run-lineage-open')).toBeNull()
