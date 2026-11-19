@@ -50,6 +50,8 @@ export interface DeliveryRuntimeCommand {
   hostRun: boolean
   /** Bounded stdout/stderr tail (raw). */
   outputTail: string | null
+  /** The repository the host ran it in (Core's receipt), when the run had several. */
+  repositoryId?: string
 }
 
 /** One acceptance check the runtime recorded (host-run or reviewer static). */
@@ -808,7 +810,8 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
         const output = typeof raw.output === 'string' ? raw.output.trim() : ''
         commands.push({ label: [raw.command, ...args].join(' ').slice(0, 200), outcome: exitCode === 0 ? 'passed' : 'failed', exitCode,
           durationMs: typeof raw.durationMs === 'number' && Number.isFinite(raw.durationMs) && raw.durationMs >= 0 ? raw.durationMs : null,
-          required: true, hostRun: true, outputTail: output ? output.slice(-RUNTIME_OUTPUT_TAIL_CAP) : null })
+          required: true, hostRun: true, outputTail: output ? output.slice(-RUNTIME_OUTPUT_TAIL_CAP) : null,
+          ...(typeof raw.repositoryId === 'string' && raw.repositoryId ? { repositoryId: raw.repositoryId.slice(0, 128) } : {}) })
       }
     }
     if (scope.kind === 'derive-change') {

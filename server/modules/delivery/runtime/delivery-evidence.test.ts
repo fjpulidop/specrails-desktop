@@ -611,6 +611,12 @@ describe('Core definition delivery evidence', () => {
     ])
   })
 
+  it('keeps the repository each verify command ran in', () => {
+    const probe = definitionProbe([{ nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'succeeded', attemptId: 'a3',
+      output: { receiptId: 'receipt', commands: [{ repositoryId: 'web', command: 'npm', args: ['test'], exitCode: 0 }, { command: 'npm', args: ['test'], exitCode: 0 }] } }])
+    expect(projectDefinitionRuntimeEvidence(probe)?.commands.map((command) => command.repositoryId)).toEqual(['web', undefined])
+  })
+
   it('projects confirmed verification commands and implementation review without inventing durations or output', () => {
     const probe = definitionProbe([scopedReview, { nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'failed', attemptId: 'a2', output: { receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 1 }] } }])
     expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ label: 'npm test', exitCode: 1, outcome: 'failed', hostRun: true, durationMs: null, outputTail: null }] })

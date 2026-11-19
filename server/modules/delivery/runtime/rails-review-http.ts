@@ -80,7 +80,8 @@ export function registerRailReviewRoutes(router: Router): void {
         const grouped = groupSettleEvidence(listRepositoryDeliveries(c.db, row.id).map((child) => readSettleEvidence(child.settle_evidence)))
         if (grouped) row = { ...row, settle_evidence: JSON.stringify(grouped) }
       }
-      const packet = composeReviewPacket({ db: c.db, row, flowSettlement: c.flow?.settlementForDelivery(row.id) ?? null, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
+      const repositoryNames = manifest ? Object.fromEntries(manifest.repositories.map((repository) => [repository.repositoryId, repository.name])) : undefined
+      const packet = composeReviewPacket({ db: c.db, row, flowSettlement: c.flow?.settlementForDelivery(row.id) ?? null, ...(repositoryNames ? { repositoryNames } : {}), ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the
       // confirm-gated local path rather than blocking the packet.
       const acceptCapability = await resolveAcceptCapability({ repoDir: frozenRepository?.sourcePath ?? c.project.path, exec: defaultExec })

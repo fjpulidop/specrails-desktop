@@ -311,6 +311,8 @@ function buildProof(
   confidence: DeliveryConfidenceScore | null,
   /** The run delivered (its final verification gated the delivery). */
   settled = false,
+  /** The repository this packet speaks for (none: the whole delivery) and display names by id. */
+  scope: { repositoryId?: string; repositoryNames?: Record<string, string> } = {},
 ): PacketProofItem[] {
   const proof: PacketProofItem[] = []
 
@@ -342,7 +344,10 @@ function buildProof(
   // records exit code + output under the pipeline dir. That is a measurement
   // by the runtime, not the agent's claim — so it belongs with the facts.
   const runtimeUnits = (evidence ?? []).map((unit) => unit.runtime).filter((r): r is NonNullable<typeof r> => !!r)
-  const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun))
+  // One run verifies every repository of a multi-repository delivery: a repository's packet proves
+  // only its own commands, and the group's names the repository whenever several ran the same label.
+  const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun && (!scope.repositoryId || !c.repositoryId || c.repositoryId === scope.repositoryId)))
+    .map((command, _index, all) => ({ ...command, label: new Set(all.map((other) => other.repositoryId ?? '')).size > 1 && command.repositoryId ? `${command.label} (${scope.repositoryNames?.[command.repositoryId] ?? command.repositoryId})` : command.label }))
   const passedOf = (command: (typeof hostCommands)[number]) => command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
   const secondsOf = (command: (typeof hostCommands)[number]) => command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?'
   // A delivered packet proves the FINAL verification: when a command later passed, its earlier
@@ -528,6 +533,8 @@ export interface ComposeReviewPacketInput {
   includeLegacyProvenance?: boolean
   /** Intent settlement state read by the caller from the Intent module (durable rows). */
   flowSettlement?: PacketFlowSettlement | null
+  /** Repository display names of a multi-repository delivery, by id (from its frozen manifest). */
+  repositoryNames?: Record<string, string>
 }
 
 /** The derivation an Intent session -> Spec delivery recorded at settle (first unit that has one). */
@@ -551,7 +558,7 @@ function changeNarrative(evidence: DeliverySettleEvidence | null, ticketId: numb
   return { whatChanged: summary?.whatChanges ?? null, whyChanged: summary?.why ?? null }
 }
 
-export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null }: ComposeReviewPacketInput): ReviewPacket {
+export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null, repositoryNames }: ComposeReviewPacketInput): ReviewPacket {
   const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
   const units = safeParse<DeliverBranchRecord[]>(row.branches, [])
@@ -655,7 +662,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     failedCount,
     totalCount: units.length > 0 ? new Set(units.map((u) => u.ticketId)).size : ticketIds.length,
     sections,
-    proof: buildProof(units, evidence?.units ?? null, churn, confidence, variant !== 'failed'),
+    proof: buildProof(units, evidence?.units ?? null, churn, confidence, variant !== 'failed', { ...(repositoryId ? { repositoryId } : {}), ...(repositoryNames ? { repositoryNames } : {}) }),
     watchOut: buildWatchOut(confidence, churn, variant),
     confidence,
     whatToLookAt: buildWhatToLookAt(evidence?.units ?? []),
