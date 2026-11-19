@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeSpecTitle, SPEC_TITLE_MAX_CHARS } from './spec-title'
+import { normalizeSpecTitle, SPEC_TITLE_MAX_CHARS, specDescriptionError, SPEC_DESCRIPTION_MAX_CHARS } from './spec-title'
 
 describe('normalizeSpecTitle', () => {
   it('refuses a title made only of invisible format characters', () => {
@@ -22,5 +22,14 @@ describe('normalizeSpecTitle', () => {
   })
   it('uses the caller-provided empty message', () => {
     expect(normalizeSpecTitle('  ', 'title cannot be empty')).toEqual({ ok: false, error: 'title cannot be empty' })
+  })
+})
+
+describe('specDescriptionError', () => {
+  it('refuses a description past the limit with a pointer to attachments, and accepts absent or normal ones', () => {
+    expect(specDescriptionError(undefined)).toBeNull()
+    expect(specDescriptionError('x'.repeat(SPEC_DESCRIPTION_MAX_CHARS))).toBeNull()
+    expect(specDescriptionError('x'.repeat(SPEC_DESCRIPTION_MAX_CHARS + 1))).toMatch(/attach/)
+    expect(specDescriptionError(42)).toMatch(/string/)
   })
 })

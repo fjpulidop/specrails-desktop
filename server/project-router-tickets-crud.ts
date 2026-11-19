@@ -8,7 +8,7 @@ import type { Request, Response } from 'express'
 import { validateNonGoals } from './modules/specs/domain/non-goals'
 import { validateSpecIntent } from './modules/specs/domain/intent'
 import { softDeleteTicket } from './modules/specs/runtime/ticket-trash'
-import { normalizeSpecTitle } from './modules/specs/runtime/spec-title'
+import { normalizeSpecTitle, specDescriptionError } from './modules/specs/runtime/spec-title'
 import { readStore, mutateStore, filterTickets, isValidStatus, isValidPriority, validatePriorityForStatus, clampShortSummary, normalizeRegressionOfMetadata, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, LocalTicket } from './types'
 import { formatDescriptionWithCriteria } from './project-router-helpers'
@@ -90,6 +90,10 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
     const normalizedTitle = normalizeSpecTitle(title)
     if (!normalizedTitle.ok) {
       res.status(400).json({ error: normalizedTitle.error }); return
+    }
+    const createDescriptionError = specDescriptionError(description)
+    if (createDescriptionError) {
+      res.status(400).json({ error: createDescriptionError }); return
     }
     const createNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
     if (createNonGoals && !createNonGoals.ok) {
@@ -184,6 +188,10 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
     const patchTitle = title === undefined ? null : normalizeSpecTitle(title, 'title cannot be empty')
     if (patchTitle && !patchTitle.ok) {
       res.status(400).json({ error: patchTitle.error }); return
+    }
+    const patchDescriptionError = specDescriptionError(description)
+    if (patchDescriptionError) {
+      res.status(400).json({ error: patchDescriptionError }); return
     }
     if (acceptanceCriteria !== undefined) {
       if (!Array.isArray(acceptanceCriteria) || !acceptanceCriteria.every((c) => typeof c === 'string')) {

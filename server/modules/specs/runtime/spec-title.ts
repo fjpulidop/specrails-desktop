@@ -21,3 +21,17 @@ export function normalizeSpecTitle(raw: unknown, emptyError = 'title is required
   }
   return { ok: true, title }
 }
+
+/**
+ * A spec description is read by every planning and review turn, so its size is
+ * spend. 200,000 characters is far beyond any real spec (a whole-product spec
+ * of 60 requirements is ~17,000); larger pasted material belongs in an
+ * attachment, which turns read only when they need it.
+ */
+export const SPEC_DESCRIPTION_MAX_CHARS = 200_000
+
+export function specDescriptionError(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'string') return 'description must be a string'
+  return raw.length > SPEC_DESCRIPTION_MAX_CHARS ? `description must be at most ${SPEC_DESCRIPTION_MAX_CHARS} characters; attach longer material to the spec as a file` : null
+}

@@ -226,6 +226,8 @@ describe('E1b: spec titles must be visible single-line text', () => {
     expect((await request(app).patch('/api/projects/proj-1/tickets/1').send({ title: '\u202e' })).status).toBe(400)
     await request(app).patch('/api/projects/proj-1/tickets/1').send({ title: ' New\ttitle ' })
     expect(readDiskStore(tmpDir).tickets['1'].title).toBe('New title')
+    expect((await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Big but fine', description: 'y'.repeat(20_000) })).status).toBe(201)
+    expect((await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Bad', description: 42 })).status).toBe(400)
   })
 })
 
