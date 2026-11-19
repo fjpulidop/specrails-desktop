@@ -17,8 +17,17 @@ const MIN_GAP_MS = 2_000
 /** The inbox's own cadence: never poll faster. */
 const POLL_MS = 60_000
 
+/**
+ * Step changes of a Core (definition) run reach the client only as job events
+ * (`loop_step` / `loop_step_end`); without them a card kept showing the previous
+ * phase until the 60 s poll (e.g. "Architect" while the run was in "Baseline").
+ */
+const STEP_EVENT_TYPES = new Set(['loop_step', 'loop_step_end'])
+
 function isNudge(message: unknown): boolean {
-  const type = message && typeof message === 'object' ? (message as { type?: unknown }).type : undefined
+  if (!message || typeof message !== 'object') return false
+  const { type, event_type: eventType } = message as { type?: unknown; event_type?: unknown }
+  if (type === 'event') return typeof eventType === 'string' && STEP_EVENT_TYPES.has(eventType)
   return typeof type === 'string' && (NUDGE_TYPES.has(type) || type.startsWith('loop.run_'))
 }
 

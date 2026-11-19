@@ -248,6 +248,23 @@ describe('live board (by status)', () => {
     act(() => { vi.advanceTimersByTime(2_500) })
     expect(calls()).toBe(2)
   })
+
+  it('refreshes when a Core run starts or ends a step, so the card never lags a phase behind', async () => {
+    mount()
+    await screen.findByText('Records top-5')
+    vi.useFakeTimers()
+    const calls = () => fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/api/live-board')).length
+    // Token and log events of the same run do not move a card.
+    act(() => { handlers.get('live-board')!({ type: 'event', jobId: 'r1', event_type: 'log', payload: '{}' }) })
+    act(() => { vi.advanceTimersByTime(5_000) })
+    expect(calls()).toBe(1)
+    act(() => { handlers.get('live-board')!({ type: 'event', jobId: 'r1', event_type: 'loop_step', payload: JSON.stringify({ title: 'baseline' }) }) })
+    act(() => { vi.advanceTimersByTime(2_500) })
+    expect(calls()).toBe(2)
+    act(() => { handlers.get('live-board')!({ type: 'event', jobId: 'r1', event_type: 'loop_step_end', payload: '{}' }) })
+    act(() => { vi.advanceTimersByTime(2_500) })
+    expect(calls()).toBe(3)
+  })
 })
 
 describe('live board chain cards', () => {
