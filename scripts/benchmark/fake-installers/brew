@@ -1,0 +1,24 @@
+#!/bin/sh
+# FAKE brew for the benchmark (never the real one). Put this directory and
+# $BENCH_INSTALLED_DIR first on the isolated server's PATH (--path-prepend).
+# Only "brew install actionlint" is emulated: it writes a stub actionlint
+# into $BENCH_INSTALLED_DIR plus a marker file; everything else is refused.
+D="${BENCH_INSTALLED_DIR:-$(dirname "$0")/../.installed}"
+mkdir -p "$D"
+echo "$(date +%T) brew $*" >> "$D/brew.log"
+[ "$1" = install ] || { echo "fake brew: only install is emulated" >&2; exit 1; }
+shift
+for t in "$@"; do
+  case "$t" in
+    --formula) ;;
+    actionlint)
+      cat > "$D/actionlint" <<'EOT'
+#!/bin/sh
+# stub actionlint: fails on a workflow job without runs-on
+for f in .github/workflows/*.yml .github/workflows/*.yaml; do [ -f "$f" ] || continue; grep -q "runs-on:" "$f" || { echo "$f: jobs need runs-on"; exit 1; }; done
+exit 0
+EOT
+      chmod +x "$D/actionlint"; touch "$D/.installed-actionlint"; echo "==> Installed actionlint (fake)" ;;
+    *) echo "fake brew: refusing $t" >&2; exit 1 ;;
+  esac
+done

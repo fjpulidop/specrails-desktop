@@ -32,6 +32,10 @@ npm run benchmark -- \
 - **Installers.** Never put a real installer in front of the server. For install questions, pass
   `--path-prepend` with a directory of **fake** installers (for example a `brew` shell script that
   only creates a stub tool and a marker file). The server and its runs inherit that `PATH`.
+  `fake-installers/brew` is one: it emulates only `brew install actionlint` (used by the `gha-lint`
+  template) and writes the stub into `$BENCH_INSTALLED_DIR`. Pass
+  `--path-prepend scripts/benchmark/fake-installers:$BENCH_INSTALLED_DIR` and export
+  `BENCH_INSTALLED_DIR` for the server.
 
 ## Options
 
