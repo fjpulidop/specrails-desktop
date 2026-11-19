@@ -67,6 +67,33 @@ describe('automatic continuation', () => {
     expect(continueRun).not.toHaveBeenCalled()
   })
 
+  it('waits out a provider outage before continuing, and says when it will (the 2026-11-19 routing outage)', async () => {
+    const outage: FailureDiagnosis = { ...tasks, kind: 'provider_unavailable', phase: 'architect', incompleteTasks: null, resumablePhase: 'architect', detail: "The provider's service was unavailable for a moment (codex: workspace routing discovery failed); nothing about the work is wrong, and continuing re-runs the same step." }
+    run('run-7', 'failed', outage)
+    const waits: number[] = []
+    const continueRun = vi.fn(async () => ({ status: 201, body: { loopRunId: 'fork-7' } }))
+    const context = { db, loopRunManager: { isDisposed: () => false } } as unknown as ProjectContext
+    const auto = createAutoContinuation({ context: () => context, desktopDb, continueRun, wait: async (ms) => { waits.push(ms) }, delays: { firstMs: 0, retryMs: 0, attempts: 3 } })
+    expect(await auto.settle('run-7')).toBe('continued')
+    expect(waits).toContain(120_000)
+    expect(continueRun).toHaveBeenCalledTimes(1)
+    const lines = (db.prepare("SELECT payload FROM events WHERE job_id = 'run-7' AND event_type = 'log' ORDER BY seq").all() as { payload: string }[]).map(row => JSON.parse(row.payload).line)
+    expect(lines[0]).toBe("The provider's service was unavailable. Specrails continues this run automatically in 2 min; Continue does it now.")
+    expect(lines[1]).toMatch(/^Specrails continued automatically: the provider's service was unavailable/)
+  })
+
+  it('does not continue after the outage wait when the person already continued it', async () => {
+    const outage: FailureDiagnosis = { ...tasks, kind: 'provider_unavailable', incompleteTasks: null }
+    run('run-8', 'failed', outage)
+    const continueRun = vi.fn(async () => ({ status: 201, body: { loopRunId: 'fork-8' } }))
+    const context = { db, loopRunManager: { isDisposed: () => false } } as unknown as ProjectContext
+    const auto = createAutoContinuation({ context: () => context, desktopDb, continueRun, delays: { firstMs: 0, retryMs: 0, attempts: 3 },
+      // The person pressed Continue during the wait: the source run now has a successor.
+      wait: async (ms) => { if (ms === 120_000) db.prepare("INSERT INTO definition_fork_operations (project_id, source_run_id, request_id, child_run_id, request_json, adopted) VALUES ('p1', 'run-8', 'person', 'fork-person', '{}', 1)").run() } })
+    expect(await auto.settle('run-8')).toBe('declined')
+    expect(continueRun).not.toHaveBeenCalled()
+  })
+
   it('never continues a credential blocker', async () => {
     run('run-1', 'failed', { ...tasks, kind: 'environment', incompleteTasks: null, blocker: { kind: 'credential', reason: 'npm returned 401', command: 'npm', args: ['ci'], cwd: '.', requiredAction: 'Log in to the registry' } })
     const { auto, continueRun } = coordinator()

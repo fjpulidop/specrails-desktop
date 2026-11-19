@@ -25,6 +25,7 @@ export const AUTO_CONTINUE_REASON_TEXT: Record<AutoContinueReason, string> = {
   unfinished_tasks: 'approved tasks were left unfinished, so the next attempt finishes them with the browser and install guidance',
   missing_tool: 'a tool was missing, so the next attempt installs it and goes on',
   transient_error: 'the provider failed for a moment, so the same step runs again',
+  provider_unavailable: 'the provider\'s service was unavailable, so the same step ran again once the wait was over',
   stalled: 'the attempt stalled, so the next attempt restarts the developer with fresh budgets and guidance',
 }
 
@@ -53,6 +54,8 @@ export function createAutoContinuation(deps: AutoContinueDeps): { observe(msg: W
 
   async function settle(runId: string): Promise<'continued' | 'declined' | 'failed'> {
     await wait(delays.firstMs)
+    // A provider outage waits once per settlement before continuing.
+    let outageWaited = false
     for (let attempt = 0; attempt < delays.attempts; attempt++) {
       const c = deps.context()
       if (!c || c.loopRunManager.isDisposed()) return 'declined'
@@ -67,6 +70,14 @@ export function createAutoContinuation(deps: AutoContinueDeps): { observe(msg: W
       if (!verdict.continue) {
         if (verdict.reason !== 'disabled' && verdict.reason !== 'not_failed') console.log(`[auto-continue] ${runId}: not continued (${verdict.reason})`)
         return 'declined'
+      }
+      // A provider outage: say when the run goes on, wait, then decide again (the person may have acted).
+      if (verdict.delayMs && !outageWaited) {
+        outageWaited = true
+        historyLine(c.db, runId, `The provider's service was unavailable. Specrails continues this run automatically in ${Math.round(verdict.delayMs / 60_000)} min; Continue does it now.`)
+        await wait(verdict.delayMs)
+        attempt--
+        continue
       }
       const outcome = await deps.continueRun(c, runId, 'continue', { automatic: true })
       const body = outcome.body as { loopRunId?: string; error?: string; detail?: string }

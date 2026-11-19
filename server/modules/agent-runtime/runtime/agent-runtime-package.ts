@@ -1,5 +1,6 @@
 import { withRuntimePackageLock } from './agent-runtime-package-lock'
-export { collectUnreferencedRuntimePackages } from './agent-runtime-package-gc'
+import { recordSharedPackageReference } from './agent-runtime-package-refs'
+export { collectUnreferencedRuntimePackages, collectSharedRuntimePackages, removeCollectedPackages } from './agent-runtime-package-gc'
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import { createAsyncMemo } from '../../../util/async-memo'
@@ -213,17 +214,24 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   if (relativeCli.startsWith('..') || path.isAbsolute(relativeCli)) throw new Error('Core CLI escapes its package')
   const cache = sharedPackageCache ?? path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages')
   fs.mkdirSync(cache, { recursive: true, mode: 0o700 })
+  const shared = sharedPackageCache !== null && cache === sharedPackageCache
   const writePin = (integrity: string, retained: string): string => {
     const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
     try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
+    // The shared cache's collection keeps every package a pin still names, wherever the pin lives.
+    if (shared) recordSharedPackageReference(cache, integrity, pinFile)
     return path.join(retained, relativeCli)
   }
   // The same unchanged source was already retained into this shared cache by this
   // process: pin it again instead of copying and hashing ~16k files per launch.
+  // Under the package lock, so a collection can never remove it between check and pin.
   const stamp = sharedPackageCache ? sourceStamp(root) : null
   const known = stamp ? retainedBySource.get(root) : undefined
-  if (stamp && known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return writePin(known.integrity, path.join(cache, known.integrity))
+  if (stamp && known && known.stamp === stamp) {
+    const pinned = withRuntimePackageLock(cache, () => fs.existsSync(path.join(cache, known.integrity)) ? writePin(known.integrity, path.join(cache, known.integrity)) : null)
+    if (pinned) return pinned
+  }
   return withRuntimePackageLock(cache, () => {
     const staged = path.join(cache, '.staged-' + randomUUID())
     try {

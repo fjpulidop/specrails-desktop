@@ -30,6 +30,10 @@
       "phase": "L'agente si è fermato all'improvviso nella fase {{phase}}",
       "plain": "L'agente si è fermato all'improvviso"
     },
+    "provider_unavailable": {
+      "phase": "Il servizio del provider non era disponibile nella fase {{phase}}",
+      "plain": "Il servizio del provider non era disponibile"
+    },
     "incomplete_tasks": "Alcune attività approvate sono rimaste incomplete",
     "spec_invalid": "OpenSpec ha rifiutato la specifica della modifica",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "Ha raggiunto il limite di tempo prima di finire.",
     "tool_inactivity": "Ha smesso di usare strumenti e di rispondere per troppo tempo.",
     "crash": "Il processo del provider o la sua connessione è morto a metà esecuzione.",
+    "provider_unavailable": "Il servizio del provider non ha risposto per un momento, nemmeno dopo circa un minuto di nuovi tentativi di Specrails. Il lavoro non ha problemi.",
     "incomplete_tasks": "Tutto il resto è fatto. Continua completa ciò che resta con il browser e i suoi strumenti; una verifica che solo una persona può fare può andare in revisione.",
     "spec_invalid": "Il piano o la specifica non ha superato OpenSpec e la pianificazione non è riuscita a ripararlo.",
     "workflow_protocol": {

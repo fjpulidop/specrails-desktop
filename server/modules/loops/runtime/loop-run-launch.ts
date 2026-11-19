@@ -170,6 +170,14 @@ export function writeRunHeader(ctx: LoopRunContext, adapter: ProviderAdapter): v
 /** Per-run soft cap ("pause and ask at $X"): this launch's override, else what
  *  the run was already given (a restart keeps the person's choice), else the
  *  project/app default. The cost read is the run's provider-reported total. */
+/** The run's turns by cost: one physical provider call each (a multi-ticket call is split per ticket and summed back). */
+export function readRunTurnCosts(db: LoopRunContext['host']['db'], runId: string): { largestUsd: number | null; lastUsd: number | null } {
+  const rows = db.prepare(`SELECT SUM(total_cost_usd) AS cost, MAX(finished_at) AS at FROM ai_invocations
+    WHERE loop_run_id = ? AND total_cost_usd IS NOT NULL GROUP BY COALESCE(surface_ref_id, id) ORDER BY at DESC`).all(runId) as Array<{ cost: number; at: string | null }>
+  if (!rows.length) return { largestUsd: null, lastUsd: null }
+  return { largestUsd: Math.max(...rows.map(row => row.cost)), lastUsd: rows[0]!.cost }
+}
+
 export function bindRunCap(ctx: LoopRunContext): void {
   const { host, req, runId, state } = ctx
   let cap: number | null = null
@@ -183,5 +191,5 @@ export function bindRunCap(ctx: LoopRunContext): void {
     else cap = host.options.runCapDefault?.() ?? null
     if (override !== undefined || stored === undefined) writeLoopRunCap(host.db, runId, cap ?? 0)
   } catch { cap = null }
-  host.trackRunCap(runId, { capUsd: cap, cost: () => state.totalCost })
+  host.trackRunCap(runId, { capUsd: cap, cost: () => state.totalCost, turns: () => readRunTurnCosts(host.db, runId) })
 }

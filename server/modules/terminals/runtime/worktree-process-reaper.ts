@@ -53,6 +53,8 @@ export interface WorktreeProcessReaperDeps {
   /** Called once per reap that terminated something (activity/telemetry hook). */
   onReaped?: (request: ReapRequest, reaped: LeftoverProcess[]) => void
   setTimer?: (fn: () => void, ms: number) => void
+  /** Removes the compose containers started from these worktrees (absent: none are touched). */
+  reapContainers?: (worktreePaths: string[], context: string) => Promise<unknown>
 }
 
 export type WorktreeProcessReaper = (request: ReapRequest) => Promise<ReapResult>
@@ -89,6 +91,11 @@ export function createWorktreeProcessReaper(deps: WorktreeProcessReaperDeps): Wo
         return false
       })
     if (worktreePaths.length === 0) return { worktreePaths, reaped: [], unavailable: false }
+    // Containers are the Docker daemon's, never in the process table: reaped by their compose directory.
+    if (deps.reapContainers) {
+      const where = [request.reason, request.projectId ? `project=${request.projectId}` : '', request.runId ? `run=${request.runId}` : ''].filter(Boolean).join(' ')
+      try { await deps.reapContainers(worktreePaths, where) } catch { /* containers never block process cleanup */ }
+    }
     const table = await deps.readProcessTable()
     if (!table) return { worktreePaths, reaped: [], unavailable: true }
     const reaped = selectWorktreeLeftovers(table, worktreePaths, {

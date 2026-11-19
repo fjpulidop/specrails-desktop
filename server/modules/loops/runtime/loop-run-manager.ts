@@ -25,7 +25,7 @@ import type { DbInstance } from '../../../db'
 import type { InteractiveJobSession } from '../../execution/runtime/interactive-job-session'
 import type { WsMessage } from '../../../types'
 import { getAdapter, requireToolPolicy } from '../../../providers'
-import { isRunCapCrossed, runCapRejection } from '../../execution'
+import { isRunCapReached, runCapRejection, type RunTurnCosts } from '../../execution'
 import { newId } from '../../../ids'
 import { isDefinitionGraph } from './loop-graph'
 import {
@@ -116,23 +116,29 @@ export class LoopRunManager {
   ) {}
 
   /** Live per-run soft cap state of the runs this manager is executing. */
-  private readonly _runCaps = new Map<string, { capUsd: number | null; cost: () => number }>()
+  private readonly _runCaps = new Map<string, { capUsd: number | null; cost: () => number; turns?: () => RunTurnCosts }>()
 
   /** Best-effort budget read: an unreadable budget never stops a run. */
   private _dailyBudgetBreach(): LoopBudgetBreach | null {
     try { return this.options.dailyBudget?.() ?? null } catch { return null }
   }
 
-  /** The per-run soft cap, when this run's provider-reported cost has reached it. */
-  private _runCapBreach(runId: string): LoopBudgetBreach | null {
+  /** The per-run soft cap, when this run's provider-reported cost has reached it, or its
+   *  next turn (at the cost of its largest turn so far) would take it past it. `turnsAhead`
+   *  looks further: 2 asks, while a turn runs, whether the turn after it could start. */
+  private _runCapBreach(runId: string, turnsAhead = 1): LoopBudgetBreach | null {
     const state = this._runCaps.get(runId)
-    if (!state || !isRunCapCrossed(state.capUsd, state.cost())) return null
-    return runCapRejection(state.capUsd as number, state.cost())
+    if (!state) return null
+    let turns: RunTurnCosts = { largestUsd: null, lastUsd: null }
+    try { turns = state.turns?.() ?? turns } catch { /* an unreadable history projects nothing */ }
+    const cost = state.cost()
+    if (!isRunCapReached(state.capUsd, cost, turns.largestUsd, turnsAhead)) return null
+    return runCapRejection(state.capUsd as number, cost, turns)
   }
 
   /** Daily/weekly/monthly cap first (refuses outright), then the run's soft cap. */
-  private _budgetBreach(runId: string): LoopBudgetBreach | null {
-    return this._dailyBudgetBreach() ?? this._runCapBreach(runId)
+  private _budgetBreach(runId: string, turnsAhead = 1): LoopBudgetBreach | null {
+    return this._dailyBudgetBreach() ?? this._runCapBreach(runId, turnsAhead)
   }
 
   /** The budget a run is paused on (`budget_paused`), else null. */
@@ -508,7 +514,7 @@ export class LoopRunManager {
         paused.resolve(decision)
         return true
       },
-      budgetBreach: (runId) => this._budgetBreach(runId),
+      budgetBreach: (runId, options) => this._budgetBreach(runId, options?.turnsAhead ?? 1),
       trackRunCap: (runId, cap) => { this._runCaps.set(runId, cap) },
       untrackRunCap: (runId) => { this._runCaps.delete(runId) },
       claimDefinition: (req) => this.claimDefinition(req),

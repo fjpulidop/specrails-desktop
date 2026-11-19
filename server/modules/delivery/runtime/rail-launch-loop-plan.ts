@@ -202,6 +202,19 @@ export function planRailLoopRun(
  * A preparation-failure generation is closed in place (relaunch IS the
  * decision). Runs even when the worktree kill-switch is off.
  */
+/**
+ * The launch refusal of a rail whose delivery waits for the person's decision: the code
+ * hosts branch on, plus what is waiting and the two ways forward, in words.
+ */
+export function pendingDecisionRefusal(railIndex: number, pending: { id: string; ticketIds: readonly number[] }): { error: 'pr_decision_pending'; prDeliveryId: string; railIndex: number; ticketIds: number[]; detail: string; action: string } {
+  const specs = pending.ticketIds.length ? ` (${pending.ticketIds.map(id => `#${id}`).join(', ')})` : ''
+  return {
+    error: 'pr_decision_pending', prDeliveryId: pending.id, railIndex, ticketIds: [...pending.ticketIds],
+    detail: `Rail ${railIndex + 1} has a delivery waiting for your review${specs}; a new launch there would build on work nobody has decided on yet.`,
+    action: 'Review that delivery first (create its PR, approve or discard it), or launch these specs on another rail.',
+  }
+}
+
 export function resolvePrContinuation(door: RailLaunchDoor, scope: RailLaunchScope): RailPrContinuation | null {
   const { c, res, railIndex, relaunchSource } = door
   const { revisionOfDeliveryId, revisionNote, targetPrNumber } = door.launch
@@ -267,7 +280,7 @@ export function resolvePrContinuation(door: RailLaunchDoor, scope: RailLaunchSco
       }); return null
     }
     if (pendingSnapshot && !revisionOfPending && !failedAddendumRetry && !identifiedFailureRetry && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
-      res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return null
+      res.status(409).json(pendingDecisionRefusal(railIndex, pendingSnapshot)); return null
     }
     if (revisionOfPending && pendingSnapshot) {
       revisionRequest = {

@@ -11,7 +11,7 @@ import { binaryOnPathAsync, runProbeCommand, WHICH_TIMEOUT_MS } from './binary-p
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 /** Paired development target; older supported contracts (5.1) remain compatible. */
-export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.16'
+export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.17'
 
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([

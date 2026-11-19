@@ -289,4 +289,143 @@ describe('Core definitions: budget gate before re-invoking with a human decision
     expect(result.runtimeStatus).toBe('cancelled')
     expect(invoke).toHaveBeenCalledTimes(1)
   })
+
+  // The 2026-11-19 gpt-6-astra run: a $1.96 plan turn, then a $2.30 developer turn started
+  // before the pause requested at the plan's end reached Core: $4.89 against a $2.00 cap.
+  describe('per-run cap ahead of the next turn', () => {
+    const step = (sequence: number, nodePath: string) => ({ type: 'workflow-event', event: { id: `d1:${sequence}`, runId: 'd1', sequence, type: 'step_started', nodePath, scopeId: 'root', visit: 1, attempt: 1, attemptId: `attempt-${nodePath}`, timestamp: at } })
+    const turn = (sequence: number, nodePath: string, costUsd: number) => ({ ...spend(sequence, costUsd), attemptId: `attempt-${nodePath}`, nodePath, payload: { ...spend(sequence, costUsd).payload, invocationId: `physical-${nodePath}` } })
+    const graphEvent = { type: 'runtime-graph', engineVersion: 2, runId: 'd1', nodes: [{ path: 'architect', kind: 'role-turn' }, { path: 'checks', kind: 'verify' }, { path: 'developer', kind: 'role-turn' }, { path: 'reviewer', kind: 'role-turn' }] }
+
+    function core(costs: { architect: number; developer: number }) {
+      const order: string[] = []
+      const pauseDefinition = vi.fn(async () => { order.push('pause-requested'); return { outcome: 'requested' } })
+      const runDefinition = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+        if (input.resume) return succeeded
+        input.onPrepared?.(prepared)
+        input.onRuntimeEvent(graphEvent)
+        input.onRuntimeEvent(step(1, 'architect'))
+        input.onRuntimeEvent(turn(2, 'architect', costs.architect))
+        input.onRuntimeEvent(step(3, 'checks'))
+        order.push('developer-started')
+        input.onRuntimeEvent(step(4, 'developer'))
+        await new Promise(resolve => setImmediate(resolve))
+        input.onRuntimeEvent(turn(5, 'developer', costs.developer))
+        order.push('developer-finished')
+        // Core honours a pause requested before it admits the next node.
+        return order.includes('pause-requested') ? budgetPaused : succeeded
+      })
+      return { runDefinition, pauseDefinition, order }
+    }
+
+    it('arms the pause while the turn runs when the next one could not fit, and keeps the run paused before it', async () => {
+      const { runDefinition, pauseDefinition, order } = core({ architect: 0.8, developer: 0.9 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      const running = m.run({ ...definitionRequest(), runCapUsd: 2 })
+      await vi.waitFor(() => expect(m.budgetPause('d1')).not.toBeNull())
+      // $0.80 spent and a $0.80 turn running: it and the next could pass $2.00, so the request went in during the developer turn.
+      expect(order.indexOf('pause-requested')).toBeGreaterThan(order.indexOf('developer-started'))
+      expect(order.indexOf('pause-requested')).toBeLessThan(order.indexOf('developer-finished'))
+      expect(pauseDefinition).toHaveBeenCalledTimes(1)
+      // $1.70 spent; the reviewer is expected to cost $0.90 (the largest turn): $2.60 > $2.00, so it does not start.
+      expect(m.budgetPause('d1')).toMatchObject({ period: 'run', budgetUsd: 2, spentUsd: expect.closeTo(1.7, 6), nextTurnUsd: 0.9 })
+      expect(m.budgetPause('d1')?.detail).toBe('This run has spent $1.70 of its $2.00 per-run cap, and its next turn is expected to cost about $0.90 (its largest turn so far), which would take it to $2.60.')
+      const log = getJobEvents(db, 'd1').map(event => event.payload).join('\n')
+      expect(log).toContain('Per-run cap: this turn and the next could take the run past its $2.00 cap.')
+      expect(log).not.toContain('Daily budget reached mid-run')
+      expect(m.resumeBudgetPause('d1', { raiseTo: 3 })).toEqual({ status: 'resumed' })
+      expect((await running).outcome).toBe('success')
+    })
+
+    it('resumes at once when the turn came in cheaper than feared and the next one fits', async () => {
+      const { runDefinition, pauseDefinition } = core({ architect: 0.8, developer: 0.1 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      // $0.90 spent; the next turn at $0.80 makes $1.70, within $2.00.
+      expect((await m.run({ ...definitionRequest(), runCapUsd: 2 })).outcome).toBe('success')
+      expect(pauseDefinition).toHaveBeenCalledTimes(1)
+      expect(runDefinition).toHaveBeenCalledTimes(2)
+      expect(broadcasts.some(msg => msg.type === 'loop.run_paused')).toBe(false)
+      expect(getJobEvents(db, 'd1').some(event => event.payload.includes('The budget allows the next step'))).toBe(true)
+    })
+
+    it('never arms a pause when the next turns fit the cap', async () => {
+      const { runDefinition, pauseDefinition } = core({ architect: 0.3, developer: 0.3 })
+      const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+      const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+      expect((await m.run({ ...definitionRequest(), runCapUsd: 2 })).outcome).toBe('success')
+      expect(pauseDefinition).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// The 2026-11-19 i18n-fr run: a restart script's process-tree kill sent SIGTERM to its Core
+// process; Core cancelled the run and Desktop recorded the person's "stopped", with no reason.
+describe('a Core run stopped by a signal Specrails did not send', () => {
+  const at = '2026-11-19T01:41:23.000Z'
+  const request = (): LoopRunRequest => ({ runId: 'sig', loopId: 'test-loop', projectId: 'p1', cwd: '/repo', provider: 'claude', model: 'haiku', graph: { nodes: [
+    { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+    { id: 'a', type: 'core', position: { x: 0, y: 100 }, data: { kind: 'prompt', params: { text: 'Read', access: 'read', engine: { provider: 'claude' } } } },
+    { id: 'end', type: 'core', position: { x: 0, y: 200 }, data: { kind: 'end', params: { outcome: 'success' } } }],
+  edges: [{ id: 's', source: 'start', target: 'a' }, { id: 'e', source: 'a', target: 'end', label: 'next' }], config: { maxIterations: 3, timeoutMinutes: 0 } } })
+  const cancelledBySignal = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+    input.onRuntimeEvent({ type: 'workflow-event', event: { id: 'sig:1', runId: 'sig', sequence: 1, type: 'step_started', nodePath: 'reviewer', scopeId: 'root', visit: 2, attempt: 1, attemptId: 'attempt-r', timestamp: at } })
+    return { text: '', runtimeStatus: 'cancelled' as const, failed: true, errorText: 'Process termination requested (SIGTERM)' }
+  })
+
+  it('records why, keeps it continuable from its step, and is not a stop the person chose', async () => {
+    const ex: LoopExecutors = { runDefinition: cancelledBySignal, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+    expect((await m.run(request())).outcome).toBe('failed')
+    const row = getLoopRun(db, 'sig')!
+    expect(row.final_outcome).toBe('failed')
+    const diagnosis = JSON.parse(row.failure_diagnosis!)
+    expect(diagnosis).toMatchObject({ kind: 'crash', confidence: 'high', phase: 'reviewer', resumablePhase: 'reviewer' })
+    expect(diagnosis.detail).toBe("The run's Core process received SIGTERM, a stop Specrails did not request: something outside the app (a script, a terminal or the system) ended it during the reviewer step. The work so far is kept; Continue resumes from that step.")
+    const { autoContinueVerdict, parseStoredDiagnosis } = await import('../../recovery')
+    expect(autoContinueVerdict({ enabled: true, outcome: 'failed', diagnosis: parseStoredDiagnosis(row.failure_diagnosis), chainAlreadyContinued: false })).toEqual({ continue: false, reason: 'not_auto_fixable' })
+  })
+
+  it('still settles the person\'s own Stop as stopped', async () => {
+    let release!: () => void
+    const runDefinition = vi.fn(async () => { await new Promise<void>(resolve => { release = resolve }); return { text: '', runtimeStatus: 'cancelled' as const, failed: true, errorText: 'Process termination requested (SIGTERM)' } })
+    const ex: LoopExecutors = { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, () => {}, ex, () => 1000, {})
+    const running = m.run(request())
+    await vi.waitFor(() => expect(runDefinition).toHaveBeenCalled())
+    m.cancel('sig')
+    release()
+    expect((await running).outcome).toBe('stopped')
+    expect(getLoopRun(db, 'sig')!.failure_diagnosis).toBeNull()
+  })
+})
+
+// GET loop-runs/:id served the paused checkpoint (with the answered question) until Core's first event.
+describe('a resumed Core run', () => {
+  it('shows as running with no pending question as soon as Desktop resumes it', async () => {
+    const { recordDefinitionCheckpoint } = await import('./loop-runs-store')
+    const prepared = { contextPath: '/frozen/context.json', runtimeDirectory: '/frozen', configPath: '/frozen/config.json', definitionPath: '/frozen/definition.json', definitionHash: 'a'.repeat(64), definition: {}, context: {} }
+    const question = { id: 'q1', kind: 'question', nodePath: 'ask', value: { prompt: 'Which?' } }
+    let seenOnResume: unknown
+    const runDefinition = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+      if (!input.resume) {
+        input.onPrepared?.(prepared)
+        recordDefinitionCheckpoint(db, 'q-run', { revision: 3, eventCursor: 2, status: 'paused', pendingInterrupts: [question] })
+        return { text: '', runtimeStatus: 'paused' as const, pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' as const }] }
+      }
+      seenOnResume = JSON.parse(getLoopRun(db, 'q-run')!.runtime_status_json!)
+      return { text: 'done', runtimeStatus: 'succeeded' as const, completion: { ok: true, verified: true, reasons: [] } }
+    })
+    const m = new LoopRunManager(db, () => {}, { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }, () => 1000, {})
+    const running = m.run({ runId: 'q-run', loopId: 'test-loop', projectId: 'p1', cwd: '/repo', provider: 'claude', model: 'sonnet', graph: { nodes: [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'a', type: 'core', position: { x: 0, y: 100 }, data: { kind: 'prompt', params: { text: 'Read', access: 'read', engine: { provider: 'claude' } } } }],
+    edges: [{ id: 's', source: 'start', target: 'a' }], config: { maxIterations: 3, timeoutMinutes: 0 } } })
+    await vi.waitFor(() => expect(m.isPaused('q-run')).toBe(true))
+    expect(JSON.parse(getLoopRun(db, 'q-run')!.runtime_status_json!)).toMatchObject({ status: 'paused', pendingInterrupts: [question] })
+    expect(m.sendInteractiveTurn('q-run', 'Answer', { interruptId: 'q1' })).toBe(true)
+    expect((await running).outcome).toBe('success')
+    expect(seenOnResume).toEqual({ revision: 3, eventCursor: 2, status: 'running', pendingInterrupts: [] })
+  })
 })

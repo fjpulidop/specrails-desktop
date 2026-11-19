@@ -169,6 +169,7 @@
       "runtime/agent-runtime-events.ts",
       "runtime/agent-runtime-history.ts",
       "runtime/agent-runtime-loader.ts",
+      "runtime/agent-runtime-package-schedule.ts",
       "runtime/agent-runtime-package.ts",
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
@@ -272,6 +273,7 @@
       "runtime/agent-runtime-package-gc.ts": [
         "./agent-runtime-package",
         "./agent-runtime-package-lock",
+        "./agent-runtime-package-refs",
         "node:crypto",
         "node:fs",
         "node:path"
@@ -281,10 +283,20 @@
         "node:fs",
         "node:path"
       ],
+      "runtime/agent-runtime-package-refs.ts": [
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-package-schedule.ts": [
+        "./agent-runtime-package",
+        "./agent-runtime-package-gc"
+      ],
       "runtime/agent-runtime-package.ts": [
         "../../../util/async-memo",
         "./agent-runtime-package-gc",
         "./agent-runtime-package-lock",
+        "./agent-runtime-package-refs",
         "node:crypto",
         "node:fs",
         "node:module",
@@ -2987,6 +2999,7 @@
         "../../../provider-limit",
         "../../../providers/types",
         "../../../types",
+        "../../execution",
         "./loop-definition-run",
         "./loop-graph",
         "./loop-interactive-ai-step",
@@ -3926,6 +3939,7 @@
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
       "runtime/terminal-settings.ts",
+      "runtime/worktree-container-reaper.ts",
       "runtime/worktree-process-reaper.ts"
     ],
     "dependencies": {
@@ -4031,6 +4045,10 @@
       "runtime/terminal-settings.ts": [
         "../../../db",
         "os"
+      ],
+      "runtime/worktree-container-reaper.ts": [
+        "node:child_process",
+        "node:path"
       ],
       "runtime/worktree-process-reaper.ts": [
         "../domain/mission-resources",

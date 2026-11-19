@@ -1,8 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Cable, Check, CircleHelp, ClipboardCheck, Copy, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
-} from 'lucide-react'
+  Cable, Check, CircleHelp, ClipboardCheck, CloudOff, Copy, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { OverflowActions } from '../../../components/ui/overflow-actions'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
@@ -21,6 +20,7 @@ type Tone = 'failed' | 'caution' | 'neutral'
 const KIND_LOOK: Record<FailureDiagnosis['kind'], { icon: LucideIcon; tone: Tone }> = {
   tests_failed: { icon: XCircle, tone: 'failed' },
   provider_limit: { icon: Gauge, tone: 'caution' },
+  provider_unavailable: { icon: CloudOff, tone: 'caution' },
   environment: { icon: Wrench, tone: 'caution' },
   port_in_use: { icon: Cable, tone: 'caution' },
   blocked: { icon: OctagonAlert, tone: 'caution' },

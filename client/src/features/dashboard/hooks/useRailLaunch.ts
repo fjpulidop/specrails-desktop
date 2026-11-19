@@ -240,7 +240,7 @@ export function useRailLaunch(args: {
         // Launch collision: this rail still has an unresolved PR decision — the
         // user must Create PR / Approve / Discard it before relaunching.
         if (res.status === 409 && data.error === 'pr_decision_pending') {
-          if (!silent) toast.info(t('railPr.decisionPending'))
+          if (!silent) toast.info(t('railPr.decisionPendingOnRail', { rail: typeof data.railIndex === 'number' ? data.railIndex + 1 : railIndex + 1 }), { description: t('railPr.decisionPendingAction') })
           return 'pendingDecision'
         }
         // A ticket of this rail is already being worked by an active run

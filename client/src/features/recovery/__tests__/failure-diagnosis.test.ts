@@ -58,6 +58,12 @@ describe('headline and why keys', () => {
   it('has one headline per kind', () => {
     expect(headlineKey({ ...base, kind: 'provider_limit' }, null).key).toBe('headline.provider_limit')
     expect(headlineKey({ ...base, kind: 'crash' }, 'Developer').key).toBe('headline.crash.phase')
+    // A provider outage (contract 5.17) is its own cause, continued like a transient one.
+    expect(headlineKey({ ...base, kind: 'provider_unavailable' }, 'Architect').key).toBe('headline.provider_unavailable.phase')
+    expect(headlineKey({ ...base, kind: 'provider_unavailable' }, null).key).toBe('headline.provider_unavailable.plain')
+    expect(whyKey({ ...base, kind: 'provider_unavailable' })?.key).toBe('why.provider_unavailable')
+    expect(consequenceKey('continue', { kind: 'provider_unavailable' })).toBe('consequence.continueTransient')
+    expect(readFailureDiagnosis({ ...base, kind: 'provider_unavailable' })?.kind).toBe('provider_unavailable')
     expect(headlineKey({ ...base, kind: 'unknown' }, null).key).toBe('headline.unknown')
   })
   it('says when a provider limit resets only when it knows', () => {

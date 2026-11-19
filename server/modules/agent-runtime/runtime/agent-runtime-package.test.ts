@@ -143,3 +143,66 @@ it('retains one shared copy per Core build for every run instead of copying it i
     expect(execFileSync(process.execPath, [a], { encoding: 'utf8' }).trim()).toBe('original dependency')
   } finally { configureSharedRuntimePackageCache(null) }
 })
+
+it('collects old shared Core builds, keeping the recent ones and every one a run still pins', async () => {
+  const { cli } = fixture()
+  const { configureSharedRuntimePackageCache, collectSharedRuntimePackages, removeCollectedPackages } = await import('./agent-runtime-package')
+  const cache = path.join(root, 'shared')
+  configureSharedRuntimePackageCache(cache)
+  try {
+    // Five Core builds, each retained by one run, oldest first.
+    const builds: Array<{ cli: string; context: string; digest: string }> = []
+    for (let build = 0; build < 5; build++) {
+      fs.writeFileSync(path.join(root, 'active/node_modules/fixture/index.js'), `module.exports="build ${build}"`)
+      const context = file(`projects/app/worktrees/run-${build}/ticket-1/.specrails/pipeline/run-${build}/desktop-context.json`, '{}')
+      const retained = retainAgentRuntime(cli, context)
+      const digest = path.relative(cache, retained).split(path.sep)[0]!
+      const at = new Date(Date.UTC(2026, 10, 1 + build))
+      fs.utimesSync(path.join(cache, digest), at, at)
+      builds.push({ cli: retained, context, digest })
+    }
+    // Build 0's run is still retained (a paused run that can resume); build 1's worktree was reaped.
+    fs.rmSync(path.join(root, 'projects/app/worktrees/run-1'), { recursive: true })
+    // Build 2's pin lives outside the data home (a run in the project's own checkout).
+    const outside = file('repo/.specrails/pipeline/run-x/desktop-context.json', '{}')
+    fs.rmSync(path.join(root, 'projects/app/worktrees/run-2'), { recursive: true })
+    fs.writeFileSync(path.join(path.dirname(outside), 'desktop-runtime-package.json'), JSON.stringify({ schemaVersion: 1, packageVersion: '5.3.0', integrity: builds[2]!.digest, root: path.join(cache, builds[2]!.digest), cli: 'dist/agent-runtime/cli.js' }))
+    const now = Date.UTC(2026, 10, 20)
+    const options = { cache, projectsRoot: path.join(root, 'projects'), keepRecent: 2, minimumAgeMs: 3_600_000, now }
+    // Without its pipeline root, build 2 is only protected by a pin Specrails can find.
+    const dry = collectSharedRuntimePackages({ ...options, dryRun: true })
+    expect(dry.collected).toEqual([builds[1]!.digest, builds[2]!.digest].sort())
+    expect(fs.existsSync(path.join(cache, builds[1]!.digest))).toBe(true)
+    const result = collectSharedRuntimePackages({ ...options, pipelineRoots: [path.join(root, 'repo/.specrails/pipeline')] })
+    expect(result.collected).toEqual([builds[1]!.digest])
+    expect(result.referenced).toEqual(expect.arrayContaining([builds[0]!.digest, builds[2]!.digest]))
+    await removeCollectedPackages(result.garbage)
+    expect(fs.readdirSync(cache).filter(name => /^[a-f0-9]{64}$/.test(name)).sort()).toEqual([builds[0]!.digest, builds[2]!.digest, builds[3]!.digest, builds[4]!.digest].sort())
+    expect(fs.readdirSync(cache).some(name => name.startsWith('.garbage-'))).toBe(false)
+    // The retained run still resumes on its own package; the current build is untouched.
+    expect(resolveRetainedAgentRuntime(builds[0]!.context)).toBe(builds[0]!.cli)
+    expect(execFileSync(process.execPath, [builds[4]!.cli], { encoding: 'utf8' }).trim()).toBe('build 4')
+    // A package used within the age floor is never collected, even when nothing pins it.
+    fs.rmSync(path.join(root, 'projects/app/worktrees/run-3'), { recursive: true })
+    const fresh = new Date(now - 60_000)
+    fs.utimesSync(path.join(cache, builds[3]!.digest), fresh, fresh)
+    expect(collectSharedRuntimePackages({ ...options, keepRecent: 1, dryRun: true }).collected).not.toContain(builds[3]!.digest)
+    expect(() => collectSharedRuntimePackages({ ...options, keepRecent: 0 })).toThrow('keeps at least the current build')
+  } finally { configureSharedRuntimePackageCache(null) }
+})
+
+it('re-pins an unchanged shared build under the package lock and marks it as just used', async () => {
+  const { cli } = fixture()
+  const { configureSharedRuntimePackageCache } = await import('./agent-runtime-package')
+  const cache = path.join(root, 'shared')
+  configureSharedRuntimePackageCache(cache)
+  try {
+    const first = retainAgentRuntime(cli, file('a/.specrails/pipeline/run-a/desktop-context.json', '{}'))
+    const digest = path.relative(cache, first).split(path.sep)[0]!
+    const old = new Date(Date.UTC(2026, 0, 1))
+    fs.utimesSync(path.join(cache, digest), old, old)
+    retainAgentRuntime(cli, file('b/.specrails/pipeline/run-b/desktop-context.json', '{}'))
+    expect(fs.statSync(path.join(cache, digest)).mtimeMs).toBeGreaterThan(old.getTime())
+    expect(fs.readdirSync(path.join(cache, '.refs', digest))).toHaveLength(2)
+  } finally { configureSharedRuntimePackageCache(null) }
+})

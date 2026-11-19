@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { initDb } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import {
-  capRejection, dailyBudgetRejection, effectiveRunCap, firstExhaustedCap, isRunCapCrossed, localDayKey, periodEnd, periodStart,
+  capRejection, dailyBudgetRejection, effectiveRunCap, firstExhaustedCap, isRunCapCrossed, isRunCapReached, localDayKey, periodEnd, periodStart,
   projectMonthEnd, runCapRejection, tightestCap, type CapStatus,
 } from '..'
 import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses } from '../runtime/daily-budget-gate'
@@ -74,6 +74,26 @@ describe('per-run soft cap', () => {
   })
   it('describes the rejection without a reset window', () => {
     expect(runCapRejection(5, 5.2)).toMatchObject({ period: 'run', budgetUsd: 5, spentUsd: 5.2, resetsAt: null })
+  })
+  it('enforces the cap before a turn whose expected cost would cross it', () => {
+    // The gpt-6-astra run: a $1.96 plan turn against a $2.00 cap.
+    expect(isRunCapReached(2, 1.96, 1.96)).toBe(true)
+    expect(isRunCapReached(2, 0.5, 0.5)).toBe(false)
+    expect(isRunCapReached(2, 1, 1)).toBe(false) // exactly at the cap still fits
+    expect(isRunCapReached(2, 0.8, 0.8, 2)).toBe(true) // this turn and the next
+    expect(isRunCapReached(2, 0.1, null)).toBe(false) // no turn yet: nothing projected
+    expect(isRunCapReached(null, 10, 10)).toBe(false)
+    expect(isRunCapReached(2, 2, null)).toBe(true)
+  })
+  it('reports the overshoot precisely, and what a raise must cover', () => {
+    expect(runCapRejection(2, 4.89, { largestUsd: 2.3, lastUsd: 0.63 })).toMatchObject({ overshootUsd: 2.89,
+      detail: "This run's cost $4.89 is $2.89 over its per-run cap of $2.00: its last turn cost $0.63, more than the cap had left." })
+    expect(runCapRejection(2, 1.96, { largestUsd: 1.96, lastUsd: 1.96 })).toMatchObject({ nextTurnUsd: 1.96,
+      detail: 'This run has spent $1.96 of its $2.00 per-run cap, and its next turn is expected to cost about $1.96 (its largest turn so far), which would take it to $3.92.',
+      action: 'Continue without the cap, or raise the per-run cap to at least $3.92, and the run resumes from the next step.' })
+    expect(runCapRejection(2, 2, { largestUsd: 1, lastUsd: 1 })).toMatchObject({ detail: "This run's cost $2.00 has reached the per-run cap of $2.00." })
+    // A small model's sub-cent spend is shown as it is, not rounded up to the cap (live haiku run: $0.0356 of $0.04).
+    expect(runCapRejection(0.04, 0.03561898, { largestUsd: 0.02, lastUsd: 0.02 }).detail).toBe('This run has spent $0.036 of its $0.04 per-run cap, and its next turn is expected to cost about $0.02 (its largest turn so far), which would take it to $0.056.')
   })
 })
 

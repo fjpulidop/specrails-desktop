@@ -9,7 +9,7 @@
 import { classifyProviderLimit } from '../../provider-limit'
 import { remainingAreHumanChecks } from './continuation'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'provider_unavailable', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 export type FailureConfidence = 'high' | 'low'
 export type FailureSource = 'core' | 'desktop'
@@ -202,6 +202,8 @@ const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
 // an older Core sends no classification, or a low-confidence one.
 const INCOMPLETE_TASKS = /approved tasks (?:are )?still incomplete/i
 const INTERRUPTED_WRITE = /interrupted write requires explicit recovery/i
+// Desktop's own sentence (loops `unrequestedStopText`) for a Core stopped by a signal it did not send.
+export const EXTERNAL_STOP = /a stop Specrails did not request/
 const SPEC_INVALID = /Not implemented: the person declined this ticket|still fails OpenSpec validation|OpenSpec could not archive change/i
 const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host blocker\b|^Host blocker \(/im
 const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
@@ -210,6 +212,18 @@ const HOST_PRECONDITION = /Verification cannot run in this environment/i
 // Core's fixed sentence for a role that ended without its required OpenSpec steps; a Core
 // before contract 5.16 sends it with no classification (or `unknown`).
 const WORKFLOW_PROTOCOL = /Required OpenSpec role workflow was not executed: (\S+) must execute \S+ \(missing ([^)]*)\)/
+// A provider CLI's own sentence for a brief outage of its service (Core's PROVIDER_UNAVAILABLE_TEXT,
+// contract 5.17). A Core before 5.17 classifies it `crash`; it is a certain signal either way.
+export const PROVIDER_UNAVAILABLE = /\bworkspace routing discovery (?:failed|timed out|cancelled)\b|\bstream disconnected before completion\b|\berror sending request for url\b|\bexceeded retry limit, last status: 5\d\d\b|\b(?:500 Internal Server Error|502 Bad Gateway|503 Service Unavailable|504 Gateway Time-?out)\b|\boverloaded_error\b|\bAPI Error: 5\d\d\b|\bConnection (?:reset|closed) by (?:peer|remote)\b|\b(?:ECONNRESET|ETIMEDOUT|EAI_AGAIN)\b/i
+const PROVIDER_EXECUTION = /\b(claude|codex|gemini|kimi) execution failed\b/i
+/** The provider's words for an outage, when the text is a provider CLI's failure (never verification output). */
+function providerOutage(text: string | null | undefined): string | null {
+  if (!text) return null
+  const provider = PROVIDER_EXECUTION.exec(text)?.[1]?.toLowerCase()
+  const match = provider ? PROVIDER_UNAVAILABLE.exec(text) : null
+  return match ? `${provider}: ${match[0]}` : null
+}
+const outageDetail = (cause: string): string => `The provider's service was unavailable for a moment (${cause}); nothing about the work is wrong, and continuing re-runs the same step.`
 
 /**
  * Diagnosis of a terminal run. Core's classification wins; otherwise only
@@ -226,6 +240,11 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   // A check whose own step could not bind its port did not fail on the change: the collision is
   // the certain cause, whatever the checks' exit code made Core call it. Core's other causes win.
   if (core && conflict && (core.kind === 'tests_failed' || core.kind === 'unknown')) return portInUse(core)
+  // A Core before contract 5.17 calls a provider outage a crash; its own words say what it was.
+  const limited = !!input.providerLimit || input.stallReason === 'provider_limit' || !!classifyProviderLimit(input.errorText ?? '')
+  const outage = !limited && (core?.kind === 'crash' || !core || core.kind === 'unknown') ? providerOutage(core?.detail ?? input.errorText) ?? providerOutage(input.errorText) : null
+  if (outage) return { ...(core ?? { rounds: null, resetAt: null, blocker: null, source: 'desktop' as const }), kind: 'provider_unavailable', confidence: 'high', phase: core?.phase ?? input.stepId ?? null,
+    detail: outageDetail(outage), resumablePhase: core?.resumablePhase ?? core?.phase ?? input.stepId ?? null }
   // A low-confidence Core record is not a cause: Desktop's own certain signals may still name one.
   if (core && core.confidence === 'high') return { ...core, phase: core.phase ?? input.stepId ?? null }
   const make = (kind: FailureKind, confidence: FailureConfidence, extra: Partial<FailureDiagnosis> = {}): FailureDiagnosis => ({
@@ -255,6 +274,7 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (HOST_PRECONDITION.test(text)) return make('environment', 'high')
   // Core refused to re-run a step that writes files because a restart cut it off and the
   // resume did not authorize recovering it. Nothing about the work failed: Continue re-runs it.
+  if (EXTERNAL_STOP.test(text)) return make('crash', 'high', { detail: oneSentence(text), resumablePhase: input.stepId ?? null })
   if (INTERRUPTED_WRITE.test(text)) return make('crash', 'high', { detail: 'A restart cut off a step that writes files, and the resume did not re-run it. Continue re-runs that step from its saved state.' })
   const skipped = WORKFLOW_PROTOCOL.exec(text)
   if (skipped) {
@@ -272,7 +292,7 @@ function portConflictOf(input: DeriveInput): { port: number | null; line: string
   return { port: conflict.port, line: oneSentence(conflict.line) ?? conflict.line }
 }
 
-const CONTINUABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'workflow_protocol'])
+const CONTINUABLE_KINDS: ReadonlySet<FailureKind> = new Set(['provider_limit', 'provider_unavailable', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'workflow_protocol'])
 
 /** Ranked remedies for a diagnosis. Order matters: the client shows the first available ones; `retry` (Start over) sits apart. */
 export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'resumablePhase'> & Partial<Pick<FailureDiagnosis, 'incompleteTasks'>>): RemedyId[] {
@@ -286,6 +306,7 @@ export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confide
     case 'environment': return [...go, 'fix-environment', 'open-logs', 'retry']
     case 'blocked': return [...go, 'edit-spec', 'open-logs', 'retry']
     case 'provider_limit':
+    case 'provider_unavailable':
     case 'port_in_use':
     case 'timeout':
     case 'tool_inactivity':
