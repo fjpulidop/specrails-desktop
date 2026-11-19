@@ -403,6 +403,108 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: !hasBranch }
 }
 
+/** A run checkout could not populate a submodule its base commit records. */
+export class SubmoduleUnavailableError extends Error {
+  readonly code = 'submodule_unavailable'
+  constructor(readonly submodulePath: string, message: string) {
+    super(message)
+    this.name = 'SubmoduleUnavailableError'
+  }
+}
+
+interface RecordedSubmodule { name: string; path: string; sha: string; url: string | null }
+
+/** Submodules `.gitmodules` declares that the checkout's index records as gitlinks. */
+async function recordedSubmodules(git: GitRunner, dir: string): Promise<RecordedSubmodule[]> {
+  try { await fs.promises.access(path.join(dir, '.gitmodules')) } catch { return [] }
+  const declared = await gitRun(git, ['config', '--file', '.gitmodules', '--null', '--get-regexp', '^submodule\\..*\\.path$'], dir)
+  if (declared.code !== 0) return []
+  const urls = await gitRun(git, ['config', '--file', '.gitmodules', '--null', '--get-regexp', '^submodule\\..*\\.url$'], dir)
+  const entries = (stdout: string) => stdout.split('\0').filter(Boolean).map((entry) => {
+    const newline = entry.indexOf('\n')
+    return newline < 0 ? null : { key: entry.slice(0, newline), value: entry.slice(newline + 1) }
+  }).filter((entry): entry is { key: string; value: string } => entry !== null)
+  const urlByName = new Map(entries(urls.code === 0 ? urls.stdout : '').map(({ key, value }) => [key.slice('submodule.'.length, -'.url'.length), value]))
+  const staged = await gitRun(git, ['ls-files', '--stage', '-z'], dir)
+  const gitlinks = new Map<string, string>()
+  for (const line of staged.stdout.split('\0')) {
+    const match = /^160000 ([0-9a-f]{40,64}) \d+\t(.+)$/.exec(line)
+    if (match) gitlinks.set(match[2]!, match[1]!)
+  }
+  const submodules: RecordedSubmodule[] = []
+  for (const { key, value } of entries(declared.stdout)) {
+    const name = key.slice('submodule.'.length, -'.path'.length)
+    const sha = gitlinks.get(value)
+    if (sha) submodules.push({ name, path: value, sha, url: urlByName.get(name) ?? null })
+  }
+  return submodules
+}
+
+async function isGitDirectory(candidate: string): Promise<boolean> {
+  try {
+    await fs.promises.access(path.join(candidate, 'HEAD'))
+    return (await fs.promises.stat(path.join(candidate, 'objects'))).isDirectory()
+  } catch { return false }
+}
+
+/**
+ * Populate the submodules of a run checkout, recursively. `git worktree add` leaves them
+ * empty, so a repository whose code or tests import from a submodule failed at baseline.
+ *
+ * Each submodule is cloned from the person's own checkout first (`<common git dir>/modules/
+ * <name>`, local objects, no network) and only falls back to its configured or declared URL
+ * when that copy is missing or lacks the recorded commit. Activation and the URL are passed
+ * as command-line configuration, so nothing is written to the repository's shared config;
+ * the clones live in this worktree's private git dir and are removed with it. A submodule
+ * already populated in this checkout is left exactly as it is (a resumed run may have moved
+ * it), and `submodule.<name>.update=none` is honoured by Git. When a submodule can be
+ * populated neither way, a SubmoduleUnavailableError names it, both sources and Git's reason.
+ */
+export async function initializeWorktreeSubmodules(git: GitRunner, repoDir: string, worktreePath: string): Promise<void> {
+  const common = await gitRun(git, ['rev-parse', '--path-format=absolute', '--git-common-dir'], repoDir)
+  const modules = common.code === 0 && common.stdout.trim() ? path.join(common.stdout.trim(), 'modules') : null
+  await initializeSubmodulesIn(git, repoDir, worktreePath, modules, '')
+}
+
+async function initializeSubmodulesIn(git: GitRunner, repoDir: string, dir: string, localModules: string | null, prefix: string): Promise<void> {
+  for (const submodule of await recordedSubmodules(git, dir)) {
+    const display = prefix + submodule.path
+    const checkout = path.join(dir, submodule.path)
+    const populated = await fs.promises.access(path.join(checkout, '.git')).then(() => true, () => false)
+    const local = localModules ? path.join(localModules, ...submodule.name.split('/')) : null
+    const localUsable = local !== null && !/[=\n]/.test(submodule.name) && await isGitDirectory(local)
+    if (!populated) {
+      const update = (overrides: string[]) => gitRun(git, ['-c', `submodule.${submodule.name}.active=true`, ...overrides, 'submodule', 'update', '--quiet', '--', submodule.path], dir)
+      let result: GitResult | null = null
+      if (localUsable) {
+        result = await update(['-c', 'protocol.file.allow=always', '-c', `submodule.${submodule.name}.url=${local}`])
+        // Git would reuse the failed clone (its origin is the local copy) instead of
+        // cloning from the real URL: drop it from this worktree's private git dir.
+        if (result.code !== 0) {
+          await fs.promises.rm(path.join(checkout, '.git'), { force: true, recursive: true }).catch(() => {})
+          const clone = await gitRun(git, ['rev-parse', '--path-format=absolute', '--git-path', `modules/${submodule.name}`], dir)
+          const target = clone.code === 0 ? clone.stdout.trim() : ''
+          // Never the person's own module store (the local copy itself).
+          const own = path.relative(localModules!, target)
+          if (target && (own.startsWith('..') || path.isAbsolute(own))) await fs.promises.rm(target, { force: true, recursive: true }).catch(() => {})
+        }
+      }
+      if (!result || result.code !== 0) {
+        const remote = await update([])
+        if (remote.code !== 0) {
+          const reason = (remote.stderr.trim() || remote.stdout.trim() || `exit ${remote.code}`).split('\n').filter(Boolean).slice(-3).join(' ')
+          const sources = [localUsable ? `the local copy ${local}` : null, submodule.url ? `its URL ${submodule.url}` : null].filter(Boolean).join(' or ') || 'any source'
+          throw new SubmoduleUnavailableError(display, `submodule_unavailable: The run checkout needs submodule ${display} at ${submodule.sha.slice(0, 12)}, but it could not be populated from ${sources}: ${reason}. Run "git submodule update --init --recursive" in ${repoDir} (or restore access to the submodule's remote), then launch again.`)
+        }
+      }
+    }
+    const nested = localUsable ? path.join(local!, 'modules') : null
+    if (await fs.promises.access(path.join(checkout, '.gitmodules')).then(() => true, () => false)) {
+      await initializeSubmodulesIn(git, repoDir, checkout, nested, `${display}/`)
+    }
+  }
+}
+
 export interface CommitWorktreeResult {
   /** `git add` accepted the deliverable pathspecs. */
   staged: boolean
@@ -745,10 +847,19 @@ export interface RemoveWorktreeInput {
  * throw so callers do not mark the ledger released while it is still mounted.
  * Branch deletion remains best-effort. */
 export async function removeWorktree(git: GitRunner, input: RemoveWorktreeInput): Promise<void> {
-  const removed = await git.run(
+  let removed = await git.run(
     ['worktree', 'remove', ...(input.force === false ? [] : ['--force']), input.worktreePath],
     input.repoDir,
   )
+  if (removed.code !== 0 && input.force === false && /containing submodules/i.test(removed.stderr)) {
+    // Git refuses any non-force removal of a checkout with populated submodules (run
+    // checkouts populate them). Apply Git's own non-force guard — a porcelain status
+    // that includes submodule content and commits — and only then force the unmount.
+    const status = await gitRun(git, ['status', '--porcelain', '--ignore-submodules=none'], input.worktreePath)
+    if (status.code !== 0) throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(status, `status exit ${status.code}`)}`)
+    if (status.stdout.trim()) throw new Error(`git worktree remove failed for ${input.worktreePath}: it contains modified or untracked files, either delete them or use --force (${status.stdout.trim().split('\n').slice(0, 5).join('; ')})`)
+    removed = await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  }
   if (removed.code !== 0) {
     throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(removed, `exit ${removed.code}`)}`)
   }

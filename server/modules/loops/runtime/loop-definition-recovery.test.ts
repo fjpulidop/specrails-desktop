@@ -13,7 +13,7 @@ import { runAgentRuntimeControl } from '../../agent-runtime/runtime/agent-runtim
 
 const retained = vi.hoisted(() => ({ cli: '', syncResolutions: 0, inspections: 0 }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({
-  resolveRetainedAgentRuntime: () => { retained.syncResolutions++; return retained.cli },
+  resolveRetainedAgentRuntime: async () => { retained.syncResolutions++; return retained.cli },
   resolveRetainedAgentRuntimeForInspection: async () => { retained.inspections++; return retained.cli },
 }))
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))

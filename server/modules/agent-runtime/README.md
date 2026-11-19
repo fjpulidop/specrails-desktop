@@ -150,10 +150,18 @@ run per rail (`GET /agent-runtime/runs?railIndex=N`) on every mount and poll.
 Read-only inspection (`status`, `evidence`) resolves the retained Core package
 with `resolveRetainedAgentRuntimeForInspection`: the same pin rules, but the
 package digest (the whole production dependency closure, ~16k files) is computed
-with async I/O and reused per retained root for 5 minutes. The synchronous,
-uncached `resolveRetainedAgentRuntime` remains the gate for anything that runs
-the package (resume, recovery, signal). Before this split each rail read hashed
-the package synchronously (~2 s of blocked event loop per request).
+with async I/O and reused per retained root for 5 minutes. The uncached
+`resolveRetainedAgentRuntime` remains the gate for anything that runs the package
+(resume, recovery, signal, fork, cancel, pause). Before this split each rail read
+hashed the package synchronously (~2 s of blocked event loop per request).
+
+The execution gate is async too: it digests the whole package with async I/O
+(~0.8 s of blocked event loop per resume before; a 6-resume burst froze the app
+~4.4 s). It never reuses a result: every caller gets a digest whose reads all
+start after its request. Concurrent resumes of one shared package join only the
+single digest queued behind the running one, never the running one itself, so a
+burst costs at most two digests. Only the synchronous retention path for a context
+that already has a pin (`retainAgentRuntime`) still digests synchronously.
 
 Launches retain Core once per build in the shared cache
 `<data home>/.specrails/runtime-packages` (`<digest>/`, plus `.refs/<digest>/` records
@@ -162,6 +170,13 @@ five minutes after boot and every six hours: it keeps the three most recently us
 builds, every build a pin still names (recorded references, the data home's workspaces
 and worktrees, each project's own `.specrails/pipeline`) and anything used within the
 last hour; the rest is renamed aside under the package lock and deleted asynchronously.
+
+The first launch on a Core build that is not in the cache yet (normally the first run
+after a Core update) copies and digests the package with async I/O before retention
+(`prepareRetainedAgentRuntime`, ~7–9 s for ~16.5k files). The run log says so:
+`[runtime] Preparing the updated Core runtime …` when the wait starts (also for a launch
+that joins another launch's preparation) and `[runtime] Core runtime ready (N s)` when
+it ends. Launches of an already retained build log nothing.
 
 ## Recovery diagnosis
 

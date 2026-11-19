@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const retained = vi.hoisted(() => ({ cli: '' }))
-vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => retained.cli }))
+vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: async () => retained.cli }))
 
 import { retainedRuntimeSupportsPause, runAgentRuntimeControl } from './agent-runtime-bridge'
 

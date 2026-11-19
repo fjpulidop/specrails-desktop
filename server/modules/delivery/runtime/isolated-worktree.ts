@@ -27,7 +27,7 @@ import { getProjectRepositories } from '../../../project-repositories'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { fetchOrigin, resolveIntegrationBranch, resolveWorktreeBaseRef } from '../../../integration-branch'
 import {
-  createWorktree, defaultGitRunner, listLocalBranches, removeWorktree, worktreeBranch,
+  createWorktree, defaultGitRunner, initializeWorktreeSubmodules, listLocalBranches, removeWorktree, worktreeBranch,
   type ClaimPreparedCheckout, type GitRunner, type WorktreeHandle,
 } from '../../../worktree-manager'
 import { ensurePreparedCheckout, preparedCheckoutClaimer } from './worktree-preparation-pool'
@@ -89,6 +89,14 @@ export interface IsolatedWorktreeIO {
   /** Prepared checkouts (worktree-preparation-pool). Default: on only with the
    *  real Git runner and worktree creator, so injected doubles stay exact. */
   preparation?: boolean
+  /** Populates the checkout's submodules (`git worktree add` leaves them empty).
+   *  Default: on only with the real Git runner and worktree creator, like `preparation`. */
+  submodules?: typeof initializeWorktreeSubmodules
+}
+
+function worktreeSubmodules(io: IsolatedWorktreeIO): typeof initializeWorktreeSubmodules | null {
+  if (io.submodules) return io.submodules
+  return (io.git === undefined || io.git === defaultGitRunner) && io.create === undefined ? initializeWorktreeSubmodules : null
 }
 
 /** Whether a launch with this IO prepares/adopts checkouts. */
@@ -266,6 +274,9 @@ export async function materializeIsolatedWorktree(
   }
   let initialSha: string | null
   try {
+    // Before HEAD is proven and before any agent runs: a checkout missing a submodule its
+    // code imports fails every baseline check. Unavailable → the launch fails clearly.
+    await worktreeSubmodules(io)?.(git, input.repoDir, handle.worktreePath)
     initialSha = input.verifyHead
       ? await input.verifyHead(handle, git)
       : await readHeadSha(git, handle.worktreePath)

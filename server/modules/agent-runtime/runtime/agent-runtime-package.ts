@@ -98,7 +98,7 @@ const IO_BATCH = 64
  * inspection (status/evidence) reuses a successful verification of the same
  * root for a few minutes instead of re-hashing ~16k files on every request;
  * concurrent requests share one verification. Execution paths keep the
- * synchronous, uncached check in resolveRetainedAgentRuntime. */
+ * uncached check in resolveRetainedAgentRuntime. */
 export const RETAINED_PACKAGE_VERIFY_TTL_MS = 5 * 60_000
 const verifiedPackages = createAsyncMemo<string, string>({ ttlMs: RETAINED_PACKAGE_VERIFY_TTL_MS })
 /** Test seam / retention hook: forget cached verifications. */
@@ -286,24 +286,37 @@ async function copyInstalledPackageAsync(source: string, destination: string): P
 
 const preparing = new Map<string, Promise<void>>()
 
+/** Observes a launch's package preparation (the run log announces the wait). */
+export interface RuntimePreparationObserver {
+  /** Called once when this launch waits for a copy of a Core build not retained yet
+   * (the first launch after a Core update); never on the fast, already-retained path. */
+  onPreparing?: () => void
+}
+
 /**
  * Materialize the Core package a launch is about to retain into the shared cache with async
  * I/O, before the launch's synchronous retention. The first launch after every Core build
  * (each app update) copied and hashed ~16k files on the event loop, freezing the app for
  * 7–8 s; concurrent launches now share one preparation and only publish under the lock.
  * Best effort: on any failure the synchronous path still retains the package itself.
+ * Resolves true when this launch waited for a preparation (copy and digest).
  */
-export async function prepareRetainedAgentRuntime(cli: string): Promise<void> {
+export async function prepareRetainedAgentRuntime(cli: string, observer: RuntimePreparationObserver = {}): Promise<boolean> {
   const cache = sharedPackageCache
-  if (!cache) return
+  if (!cache) return false
   let root: string
-  try { root = packageRoot(await fs.promises.realpath(cli)) } catch { return }
-  const stamp = sourceStamp(root)
+  try { root = packageRoot(await fs.promises.realpath(cli)) } catch { return false }
+  // Synchronous on purpose (~0.2 s for ~16k stats): an async walk measured 0.7–2 s of
+  // added latency on every launch, and this check decides whether to announce a wait.
+  let stamp: string
+  try { stamp = sourceStamp(root) } catch { return false }
   const known = retainedBySource.get(root)
-  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return
+  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return false
+  const announce = () => { try { observer.onPreparing?.() } catch { /* An observer cannot stop the launch. */ } }
   const key = root + '\0' + stamp
   const running = preparing.get(key)
-  if (running) return running
+  if (running) { announce(); await running; return true }
+  announce()
   const task = (async () => {
     await fs.promises.mkdir(cache, { recursive: true, mode: 0o700 })
     const staged = path.join(cache, '.staged-' + randomUUID())
@@ -325,12 +338,13 @@ export async function prepareRetainedAgentRuntime(cli: string): Promise<void> {
     }
   })()
   preparing.set(key, task)
-  return task
+  await task
+  return true
 }
 
 export function retainAgentRuntime(cli: string, contextPath: string): string {
   const pinFile = path.join(path.dirname(contextPath), 'desktop-runtime-package.json')
-  if (fs.existsSync(pinFile)) return resolveRetainedAgentRuntime(contextPath)
+  if (fs.existsSync(pinFile)) return resolveRetainedAgentRuntimeSync(contextPath)
   const realCli = fs.realpathSync(cli)
   const root = packageRoot(realCli)
   const relativeCli = path.relative(root, realCli)
@@ -341,7 +355,7 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   const writePin = (integrity: string, retained: string): string => {
     const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
     try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntimeSync(contextPath) !== path.join(retained, relativeCli)) throw error }
     // The shared cache's collection keeps every package a pin still names, wherever the pin lives.
     if (shared) recordSharedPackageReference(cache, integrity, pinFile)
     return path.join(retained, relativeCli)
@@ -373,7 +387,52 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   })
 }
 
-export function resolveRetainedAgentRuntime(contextPath: string): string {
+/** Execution-gate digests in flight, per retained root. */
+const executionChecks = new Map<string, { running: Promise<string>; queued?: Promise<string> }>()
+
+/**
+ * A full content digest of `root` whose every read starts after this call. A burst of
+ * resumes on one shared package shares work without weakening that rule: a caller never
+ * joins a digest that has already started reading (a file it read before the caller asked
+ * could have changed since); it joins the single digest queued behind it, which starts
+ * when the running one ends. A burst therefore costs at most two digests, not one each.
+ */
+function freshRetainedDigest(root: string): Promise<string> {
+  const digest = async () => treeDigestAsync(root, (await fs.promises.readdir(root)).sort())
+  const state = executionChecks.get(root)
+  if (!state) {
+    const running = digest()
+    const entry: { running: Promise<string>; queued?: Promise<string> } = { running }
+    executionChecks.set(root, entry)
+    void running.catch(() => {}).finally(() => { if (executionChecks.get(root) === entry && !entry.queued) executionChecks.delete(root) })
+    return running
+  }
+  if (state.queued) return state.queued
+  const queued = state.running.catch(() => {}).then(() => {
+    // Promote: later callers queue behind this digest, which has now started.
+    state.running = queued
+    state.queued = undefined
+    return digest()
+  })
+  state.queued = queued
+  void queued.catch(() => {}).finally(() => { if (executionChecks.get(root) === state && state.running === queued && !state.queued) executionChecks.delete(root) })
+  return queued
+}
+
+/**
+ * The gate before anything executes a retained Core package (resume, controls, recovery):
+ * the pin rules plus a full, uncached content digest that must equal the pinned
+ * integrity. The digest runs with async I/O, so a burst of resumes no longer freezes the
+ * app for ~0.8 s per resume (16k files hashed on the event loop).
+ */
+export async function resolveRetainedAgentRuntime(contextPath: string): Promise<string> {
+  const { pin, expected } = readRetainedPin(contextPath)
+  if (await freshRetainedDigest(expected) !== pin.integrity) throw new Error('The original retained Core package failed its integrity check. Restore it before continuing.')
+  return retainedCli(expected, pin)
+}
+
+/** Synchronous gate for the retention path that is itself synchronous (an existing pin). */
+function resolveRetainedAgentRuntimeSync(contextPath: string): string {
   const { pin, expected } = readRetainedPin(contextPath)
   if (treeDigest(expected) !== pin.integrity) throw new Error('The original retained Core package failed its integrity check. Restore it before continuing.')
   return retainedCli(expected, pin)

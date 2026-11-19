@@ -118,6 +118,28 @@ unknown next, conflicting last (fewest conflicted paths first), then fewest sibl
 conflicts, then the touch-list overlap and ticket id as before.
 Tests: [`runtime/merge-preview.test.ts`](runtime/merge-preview.test.ts) (real Git).
 
+## Submodules in run worktrees
+
+`git worktree add` leaves submodules empty, so a repository whose code or tests import
+from one failed at baseline. `materializeIsolatedWorktree` calls
+`initializeWorktreeSubmodules` (in `server/worktree-manager.ts`) on every run checkout,
+before HEAD is proven and before any agent runs. Each recorded submodule, recursively, is
+cloned from the person's own checkout (`<common git dir>/modules/<name>`: local objects,
+no network) and only falls back to its configured or `.gitmodules` URL when that copy is
+missing or lacks the recorded commit (a local-path URL then needs the person's own
+`protocol.file.allow`, as with plain Git). Activation and the URL are passed as `-c`
+options, so the repository config is never written; the clones live in the worktree's
+private git dir. A submodule already populated in the checkout is left as is (a resumed
+run may have moved it). When neither source works the launch fails with
+`submodule_unavailable: … needs submodule <path> at <sha> …` naming both sources, Git's
+reason and the fix, and the created worktree and branch are rolled back. Injected Git
+doubles disable it (`IsolatedWorktreeIO.submodules`).
+
+Git refuses every non-force `worktree remove` of a checkout with populated submodules.
+`removeWorktree({ force: false })` then applies Git's own guard itself (`status
+--porcelain --ignore-submodules=none` must be empty, so changed submodule content or new
+submodule commits still block removal) and only then unmounts with `--force`.
+
 ## Faster run worktrees
 
 - `createWorktree` adds `-c checkout.workers=4` unless the person configured

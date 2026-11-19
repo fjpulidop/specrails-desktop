@@ -4,13 +4,13 @@ import { readRuntimeHistory } from './agent-runtime-history'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
+const fixture = vi.hoisted(() => ({ preparing: false, cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: { ...(fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {}), ...fixture.capabilities } }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
-vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async () => {}, resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async (_cli: string, observer?: { onPreparing?: () => void }) => { if (!fixture.preparing) return false; observer?.onPreparing?.(); return true }, resolveRetainedAgentRuntime: async () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
 import { configureCoreChildRegistry } from '../../../util/core-child-process'
-import { coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
+import { CORE_PREPARING_LINE, coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
 let root: string, contextPath: string
 beforeEach(() => {
@@ -20,7 +20,7 @@ beforeEach(() => {
   mkdirSync(join(root, 'state'))
   writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front' }] }))
   writeFileSync(join(root, 'config.json'), JSON.stringify({ schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }], agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } }, verification: [{ repositoryId: 'front', command: 'npm', args: ['test'] }, { repositoryId: 'back', command: './mvnw', args: ['test'] }] }))
-  fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
+  fixture.preparing = false; fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
   fixture.cli = join(root, 'cli.mjs')
 })
 afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null })
@@ -148,6 +148,25 @@ describe('definition verification admission', () => {
     expect(frozen()).not.toHaveProperty('setup')
     expect(frozen().verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'], cwd: 'apps/web' }])
     expect(unsupported.mock.calls.map(call => call[0]).join('')).toContain('[runtime] setup commands ignored: the installed Core does not advertise setupCommands (1 configured)')
+  })
+
+  it('announces the first-launch Core preparation in the run log, and only when it happens', async () => {
+    setup([{ repositoryId: 'front', command: 'npm', args: ['test'] }])
+    script(`console.log(JSON.stringify(${JSON.stringify(final())}))`)
+    const lines = (calls: unknown[][]) => calls.map(call => call[0]).join('')
+    const quiet = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: quiet })
+    expect(lines(quiet.mock.calls)).not.toContain('Preparing the updated Core runtime')
+    expect(lines(quiet.mock.calls)).not.toContain('Core runtime ready')
+
+    fixture.preparing = true
+    for (const name of ['desktop-runtime-config.json', 'desktop-runtime-selection.json']) rmSync(join(root, 'state', name), { force: true })
+    const announced = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: announced })
+    const log = lines(announced.mock.calls)
+    expect(log).toContain(`${CORE_PREPARING_LINE}\n`)
+    expect(log).toMatch(/\[runtime\] Core runtime ready \(\d+\.\d s\)\n/)
+    expect(log.indexOf('Preparing the updated Core runtime')).toBeLessThan(log.indexOf('Core runtime ready'))
   })
 
   it('allows workflows that supply verification proposals later', async () => {
