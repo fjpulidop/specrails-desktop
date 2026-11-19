@@ -32,6 +32,8 @@ export function liveStatusLook(status: LiveRunStatus, extensionRunState?: Extens
     case 'job': return { state: jobStatusLook(status.status as JobStatus).state, objectIcon: null }
     case 'loop-run': return { state: loopRunRunState(status), objectIcon: null }
     case 'delivery': {
+      // Still building, but its run is paused: nothing moves until it resumes.
+      if (status.paused) return { state: 'paused', objectIcon: null }
       if (!isDecision(status.decision)) return { state: 'queued', objectIcon: null }
       const look = deliveryLook(status.decision, deliveryOverrideOf({ decision: status.decision, statusCode: status.statusCode }))
       return { state: look.state, objectIcon: look.objectIcon }

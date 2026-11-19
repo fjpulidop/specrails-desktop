@@ -322,15 +322,19 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         const ids = jsonArray(row.run_ids).filter((v): v is string => typeof v === 'string')
         const own = ids.map((id) => runById.get(id)).filter((r): r is LoopRunRow => !!r)
         const live = own.find((r) => r.status === 'running') ?? null
+        // A delivery still building whose run is paused (a restart, a question, a provider limit)
+        // is not working: the card wears the paused run's state, so the board never says
+        // "Running" with a growing timer while nothing moves.
+        const paused = !live && row.decision === 'building' ? own.find((r) => r.status === 'paused') ?? null : null
         const starts = own.map((r) => toIso(r.started_at)).filter((v): v is string => !!v).sort()
         const terminal = !['building', 'on_review', 'pr_draft', 'pr_ready'].includes(row.decision)
         const chain = chainCost(ids)
         runs.push({
           sourceId: row.id, kind: 'rail',
-          status: { source: 'delivery', decision: row.decision, statusCode: row.status_code },
+          status: { source: 'delivery', decision: row.decision, statusCode: row.status_code, ...(paused ? { paused: true } : {}) },
           title: deliveryTitle(row),
           phase: live ? steps.get(live.id) ?? null : null,
-          question: null, steps: null,
+          question: paused ? pendingQuestion(paused.runtime_status_json) : null, steps: null,
           provider: own.find((r) => r.provider)?.provider ?? null,
           model: own.find((r) => r.model)?.model ?? null,
           startedAt: starts[0] ?? toIso(row.created_at),

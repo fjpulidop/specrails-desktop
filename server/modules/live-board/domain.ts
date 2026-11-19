@@ -26,7 +26,8 @@ const COLUMN_URGENCY: Readonly<Record<LiveColumn, number>> = { needs: 0, working
 export type LiveRunStatus =
   | { source: 'job'; status: string }
   | { source: 'loop-run'; status: 'running' | 'paused' | 'completed'; outcome: string | null; restartReason: string | null }
-  | { source: 'delivery'; decision: string; statusCode: string | null }
+  /** `paused`: still building, but its run is paused (a restart, a question, a limit): nothing moves. */
+  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean }
   | { source: 'intent'; state: string }
   /** An inbox item with no run on the board (a Jira update, a reached cap, an older failure). */
   | { source: 'attention' }
@@ -240,7 +241,7 @@ function isQueued(card: Pick<LiveCard, 'status'>): boolean {
 
 /** A paused loop run or Intent session: open, but nothing moves until the person resumes it. */
 export function isPausedRun(status: LiveRunStatus): boolean {
-  return (status.source === 'loop-run' && status.status === 'paused') || (status.source === 'intent' && status.state === 'paused')
+  return (status.source === 'loop-run' && status.status === 'paused') || (status.source === 'intent' && status.state === 'paused') || (status.source === 'delivery' && status.paused === true)
 }
 
 /** In progress: running first, then queued, then paused (open but not moving). */

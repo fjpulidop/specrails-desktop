@@ -134,6 +134,13 @@ describe('what a card does and how it looks', () => {
     expect(primaryOf(card({ conversationId: null, jobId: null }))).toEqual({ kind: 'none' })
   })
 
+  it('shows a building delivery whose run is paused as paused, and counts it apart from running work', () => {
+    const paused = card({ column: 'working', deliveryId: 'd1', status: { source: 'delivery', decision: 'building', statusCode: 'restart_pending', paused: true } })
+    expect(paused.status).toMatchObject({ source: 'delivery', paused: true })
+    expect(liveCardLook(paused).state).toBe('paused')
+    expect(liveCardLook(card({ column: 'working', status: { source: 'delivery', decision: 'building', statusCode: 'implementation_running' } })).state).toBe('working')
+  })
+
   it('maps each domain status through its own vocabulary mapper', () => {
     expect(liveCardLook(card({})).state).toBe('working')
     // A paused run looks paused whatever paused it; only an inbox question item reads needs-input.

@@ -17,7 +17,7 @@ export const LIVE_KINDS: readonly LiveRunKind[] = ['rail', 'loop', 'intent', 'jo
 export type LiveRunStatus =
   | { source: 'job'; status: string }
   | { source: 'loop-run'; status: 'running' | 'paused' | 'completed'; outcome: string | null; restartReason: string | null }
-  | { source: 'delivery'; decision: string; statusCode: string | null }
+  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean }
   | { source: 'intent'; state: string }
   | { source: 'attention' }
 
@@ -111,7 +111,7 @@ function readStatus(raw: unknown): LiveRunStatus | null {
       return v.status === 'running' || v.status === 'paused' || v.status === 'completed'
         ? { source: 'loop-run', status: v.status, outcome: str(v.outcome), restartReason: str(v.restartReason) }
         : null
-    case 'delivery': return typeof v.decision === 'string' ? { source: 'delivery', decision: v.decision, statusCode: str(v.statusCode) } : null
+    case 'delivery': return typeof v.decision === 'string' ? { source: 'delivery', decision: v.decision, statusCode: str(v.statusCode), ...(v.paused === true ? { paused: true } : {}) } : null
     case 'intent': return typeof v.state === 'string' ? { source: 'intent', state: v.state } : null
     case 'attention': return { source: 'attention' }
     default: return null
@@ -276,7 +276,7 @@ export function lanesOf(snapshot: Pick<LiveBoardSnapshot, 'cards' | 'lanes'>, fi
 /** A paused loop run or Intent session: open, but nothing moves until it resumes. */
 export function isPausedCard(card: Pick<LiveCard, 'status'>): boolean {
   const s = card.status
-  return (s.source === 'loop-run' && s.status === 'paused') || (s.source === 'intent' && s.state === 'paused')
+  return (s.source === 'loop-run' && s.status === 'paused') || (s.source === 'intent' && s.state === 'paused') || (s.source === 'delivery' && s.paused === true)
 }
 
 /**
