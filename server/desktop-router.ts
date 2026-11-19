@@ -35,6 +35,7 @@ import { registerWebhookRoutes } from './desktop-router-webhooks'
 import { registerQuotaRoutes } from './modules/provider-quota/adapters/http'
 import { registerLaunchPreflightRoutes } from './modules/launch-preflight/adapters/http'
 import { createDesktopLaunchPreflight } from './modules/launch-preflight/runtime/composition'
+import { setRailLaunchPreflight } from './modules/delivery/runtime/rail-launch-preflight'
 import type { QuotaStore } from './modules/provider-quota/runtime/quota-store'
 
 export type { RuntimeProviderStatus, RuntimeProviderStatusMap } from './desktop-router-runtime-providers'
@@ -52,7 +53,10 @@ export function createDesktopRouter(
   if (options.quotaStore) registerQuotaRoutes(router, options.quotaStore)
   // Launch preflight (modules/launch-preflight): disk, sign-in and quota before "Launch all".
   const quota = options.quotaStore
-  registerLaunchPreflightRoutes(router, registry, createDesktopLaunchPreflight((providerId) => quota?.view(providerId) ?? null))
+  const launchPreflight = createDesktopLaunchPreflight((providerId) => quota?.view(providerId) ?? null)
+  registerLaunchPreflightRoutes(router, registry, launchPreflight)
+  // The rail launch door runs the same disk + sign-in check (GitHub and quota only warn there too).
+  setRailLaunchPreflight(({ worktreesDir, providers }) => launchPreflight.run({ worktreesDir, providers, github: false }))
   // "Needs you" inbox: read-only projection across projects (modules/inbox).
   registerInboxRoutes(router, registry)
   // Live board: every run across every project, read-only (modules/live-board).

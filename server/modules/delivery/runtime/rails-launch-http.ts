@@ -29,6 +29,7 @@ import { projectContextOf, requireRailIndexParam, emitPrDeliveryUpdate, engineSu
 import { resolveRelaunchSource, parseRailLaunchRequest } from './rail-launch-request'
 import { admitRailLaunch, resolveRailLaunchScope, relaunchRepositoryBases, resolveBaseDeliveries, checkRailLaunchCapacity, launchLoopSource, selectBuiltinLaunchLoop, selectLibraryLaunchLoop, resolveRailLaunchEngine, type RailLaunchDoor, type LaunchLoopSelection } from './rail-launch-admission'
 import { resolveRailLoopGraph, planRailLoopRun, resolvePrContinuation } from './rail-launch-loop-plan'
+import { admitRailLaunchPreflight } from './rail-launch-preflight'
 import { gateRailLaunchIsolation, launchIsolatedLoopRuns, launchSharedLoopRuns, enqueueRailJob, respondRailLaunchError, type RailLoopTarget } from './rail-launch-run'
 
 export function registerRailLaunchRoutes(router: Router): void {
@@ -102,6 +103,9 @@ export function registerRailLaunchRoutes(router: Router): void {
       : loopSource === 'library' ? selectLibraryLaunchLoop(c, launch.loopId as string) : {}
     const engine = resolveRailLaunchEngine(door, scope, selection)
     if (!engine) return
+    // Disk and provider sign-in, as the dashboard checks before calling this door:
+    // a direct API launch (MCP, scripts, companion) gets the same refusal.
+    if (!await admitRailLaunchPreflight(c, res, engine.railProvider, { localEngine: engine.localEngine })) return
 
     try {
       // Loop mode: run a published loop (the Loops feature) against each spec,

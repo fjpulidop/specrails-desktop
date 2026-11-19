@@ -14,6 +14,12 @@ under 5 GiB), provider sign-in (`claude auth status`, `codex login status`),
 - A failing chip (disk under 1 GiB, a provider signed out or missing) blocks
   the launch; GitHub and quota only warn.
 
+The rail launch door runs the same disk and sign-in check for every launch, so a
+direct API launch (MCP, scripts, the companion) is refused like the dashboard's:
+409 `launch_preflight_blocked` with the failing chips and one sentence per fix
+([rail-launch-preflight.ts](../delivery/runtime/rail-launch-preflight.ts), wired in
+`desktop-router.ts`).
+
 `GET /api/launch-preflight?projectId=<id>&providers=<engine,...>[&fresh=1]`
 (an empty engine is the project's primary provider).
 

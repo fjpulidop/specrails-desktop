@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1814 source/build files. Nearby tests are linked where names
+Includes 1815 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1974,6 +1974,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-isolation.ts](../../server/modules/delivery/runtime/rail-isolation.ts) · [test](../../server/modules/delivery/runtime/rail-isolation.test.ts)
 - [rail-launch-admission.ts](../../server/modules/delivery/runtime/rail-launch-admission.ts)
 - [rail-launch-loop-plan.ts](../../server/modules/delivery/runtime/rail-launch-loop-plan.ts)
+- [rail-launch-preflight.ts](../../server/modules/delivery/runtime/rail-launch-preflight.ts) · [test](../../server/modules/delivery/runtime/rail-launch-preflight.test.ts)
 - [rail-launch-request.ts](../../server/modules/delivery/runtime/rail-launch-request.ts)
 - [rail-launch-run.ts](../../server/modules/delivery/runtime/rail-launch-run.ts)
 - [rail-merge-orchestrator.ts](../../server/modules/delivery/runtime/rail-merge-orchestrator.ts) · [test](../../server/modules/delivery/runtime/rail-merge-orchestrator.test.ts)

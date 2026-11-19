@@ -1086,6 +1086,7 @@
       "runtime/pr-publisher.ts",
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
+      "runtime/rail-launch-preflight.ts",
       "runtime/rail-pr-decision.ts",
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
@@ -1903,6 +1904,12 @@
         "./rail-pr-store",
         "./rails-http-shared"
       ],
+      "runtime/rail-launch-preflight.ts": [
+        "../../../project-registry",
+        "../../../provider-selection",
+        "../adapters/decisions/metadata",
+        "express"
+      ],
       "runtime/rail-launch-request.ts": [
         "../../../feature-flags",
         "../../../integration-branch",
@@ -2054,6 +2061,7 @@
         "./rail-isolation",
         "./rail-launch-admission",
         "./rail-launch-loop-plan",
+        "./rail-launch-preflight",
         "./rail-launch-request",
         "./rail-launch-run",
         "./rail-pr-store",
