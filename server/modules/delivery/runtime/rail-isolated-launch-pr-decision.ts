@@ -12,7 +12,7 @@ import type { ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
 import type { ProjectContext } from '../../../project-registry'
 import type { SettledRun } from './rail-isolated-launch-contracts'
-import { PrContinuationIsolationError, isStoppedByPerson } from './rail-isolated-launch-contracts'
+import { PrContinuationIsolationError, RUN_STOPPED_DETAIL, isStoppedByPerson } from './rail-isolated-launch-contracts'
 import { errorDetail, verifyContinuationWorktree } from './rail-isolated-launch-support'
 import type { MarkWorktree } from './rail-isolated-launch-runs'
 
@@ -342,6 +342,11 @@ export function decidePrSettlement(p: {
           ? 'partial_success'
           : firstFailure?.failureCode
             ?? (launchContinuation && ready.length > 0 ? 'existing_pr_updated' : 'ready_for_review')
-  const statusDetail = continuationPushFailureReason ?? firstFailure?.failureDetail ?? null
+  // A person's Stop is the reason, whatever the partial commit then reported
+  // (an unarchived OpenSpec change, a dirty path): the unit records keep that
+  // settlement detail in their own `failureDetail`.
+  const statusDetail = stoppedByPerson
+    ? RUN_STOPPED_DETAIL
+    : continuationPushFailureReason ?? firstFailure?.failureDetail ?? null
   return { deliveryOutcome, next, stoppedByPerson, statusCode, statusDetail }
 }

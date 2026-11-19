@@ -22,6 +22,7 @@ import { readExecutionManifest, type RunExecutionManifest, type RepositoryDelive
 import { IntentWorktreeMismatchError } from './flow-worktree-handoff'
 import { FLOW_SPEC_DELIVERY_LOOP_ID } from './flow-review-outcome'
 import { readSettleEvidence } from './delivery-evidence'
+import { RUN_STOPPED_DETAIL } from './rail-isolated-launch-contracts'
 
 /** The OpenSpec artifacts live in the primary repository: the archive step of the
  *  Quick SDD recipe (any copy of it, or the retired built-in id) runs there. */
@@ -102,6 +103,9 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
       decision = 'implementation_failed'; patch.deliveryOutcome = 'blocked'
       const failedChildren = children.filter((row) => row.decision === 'implementation_failed')
       patch.statusCode = failedChildren.every((row) => row.status_code === 'run_stopped') ? 'run_stopped' : 'implementation_failed'
+      // Every failed repository was stopped by a person: the group says so,
+      // never a sibling's unrelated detail.
+      if (patch.statusCode === 'run_stopped') patch.statusDetail = RUN_STOPPED_DETAIL
       // An Intent session → Spec group has exactly one repository: its "changes requested"
       // outcome (status + the evidence it is read from) is the group's, so the
       // card offers Back to Intent / Relaunch and the Intent reads its findings.

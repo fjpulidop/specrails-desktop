@@ -36,6 +36,10 @@ export interface DeliverBranchRecord {
   finalSha?: string | null
   changed?: boolean
   failureCode?: PrDeliveryStatusCode | null
+  /** This unit's own settlement detail (a hygiene refusal, a commit error).
+   * Kept apart from the delivery's status_detail, which names the outcome
+   * a person reads first (a Stop's text wins there). */
+  failureDetail?: string | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
   /** Delivery-owned isolated checkout retained for explicit local recovery. */
   worktreePath?: string | null
