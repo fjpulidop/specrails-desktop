@@ -379,7 +379,7 @@
     "showLess": "Show less",
     "notice": "Needs you",
     "notHere": "Don't do it here",
-    "notHereMeaning": "This ticket does not belong in this repository; the run ends without changes.",
+    "notHereMeaning": "This spec does not belong in this repository; the run ends without changes.",
     "sentEnds": "Answer sent — the run ends."
   }
 }

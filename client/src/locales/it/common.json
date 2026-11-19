@@ -379,7 +379,7 @@
     "showLess": "Mostra meno",
     "notice": "Ti aspetta",
     "notHere": "Non farlo qui",
-    "notHereMeaning": "Questo ticket non appartiene a questo repository; l’esecuzione termina senza modifiche.",
+    "notHereMeaning": "Questa spec non appartiene a questo repository; l’esecuzione termina senza modifiche.",
     "sentEnds": "Risposta inviata: l’esecuzione termina."
   }
 }

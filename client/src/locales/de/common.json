@@ -379,7 +379,7 @@
     "showLess": "Weniger anzeigen",
     "notice": "Braucht dich",
     "notHere": "Nicht hier umsetzen",
-    "notHereMeaning": "Dieses Ticket gehört nicht in dieses Repository; der Lauf endet ohne Änderungen.",
+    "notHereMeaning": "Diese Spec gehört nicht in dieses Repository; der Lauf endet ohne Änderungen.",
     "sentEnds": "Antwort gesendet – der Lauf endet."
   }
 }

@@ -379,7 +379,7 @@
     "showLess": "Afficher moins",
     "notice": "Vous attend",
     "notHere": "Ne pas le faire ici",
-    "notHereMeaning": "Ce ticket n’appartient pas à ce dépôt ; l’exécution s’arrête sans modification.",
+    "notHereMeaning": "Cette spec n’appartient pas à ce dépôt ; l’exécution s’arrête sans modification.",
     "sentEnds": "Réponse envoyée — l’exécution s’arrête."
   }
 }
