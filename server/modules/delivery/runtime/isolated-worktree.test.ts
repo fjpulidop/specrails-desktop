@@ -103,6 +103,28 @@ describe('materializeIsolatedWorktree', () => {
     expect(borrowed.remove).not.toHaveBeenCalled()
   })
 
+  it('populates submodules before proving HEAD and rolls back a checkout whose submodule is unavailable', async () => {
+    const { git } = gitRecorder()
+    const order: string[] = []
+    const submodules = vi.fn(async () => { order.push('submodules') })
+    const io = { ...baseIo(), git, submodules }
+    await materializeIsolatedWorktree({
+      repoDir: '/repo', worktreesRoot: '/wt/r', slug: 'p', ticketId: 4, baseRef: 'main',
+      branch: 'b', branchOwnership: 'created', overlay: overlaySources, onDegraded: vi.fn(),
+      verifyHead: async () => { order.push('head'); return SHA },
+    }, io)
+    expect(submodules).toHaveBeenCalledWith(git, '/repo', '/wt/r/ticket-4')
+    expect(order).toEqual(['submodules', 'head'])
+
+    const failing = { ...baseIo(), git, submodules: vi.fn(async () => { throw new Error('submodule_unavailable: libs/lib') }) }
+    await expect(materializeIsolatedWorktree({
+      repoDir: '/repo', worktreesRoot: '/wt/r', slug: 'p', ticketId: 5, baseRef: 'main',
+      branch: 'b', branchOwnership: 'created', overlay: overlaySources, onDegraded: vi.fn(),
+    }, failing)).rejects.toThrow('submodule_unavailable')
+    expect(failing.remove).toHaveBeenCalledWith(git, { repoDir: '/repo', worktreePath: '/wt/r/ticket-5', branch: 'b', deleteBranch: true })
+    expect(failing.overlay).not.toHaveBeenCalled()
+  })
+
   it('downgrades branch ownership for reused branches unless pinned', async () => {
     const { git } = gitRecorder()
     const reused = await materializeIsolatedWorktree({
