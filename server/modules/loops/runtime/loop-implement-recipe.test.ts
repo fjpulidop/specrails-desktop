@@ -185,6 +185,9 @@ describe('host blockers', () => {
     expect(prompt).toContain('Do not invent prerequisites or gates the workflow does not run')
     expect(prompt).toContain('is a question with low confidence, not a task or a gate')
     expect(prompt).toContain('propose at least one minimal command that exercises the changed code')
+    // triage-c: a "checked by hand on a physical Android phone" criterion paused the run at clarify.
+    expect(prompt).toContain('A criterion that only a person can check by hand (a physical device, taste, a real account) follows the human-check rule above and is never a question')
+    expect(prompt).not.toContain('A criterion no command can prove is a question')
   })
   it('verifies the unchanged code before the developer when Core summarizes verification', () => {
     const withSummary = compile(configurableImplementGraph({ ...paired, verificationSummary: 1 })).nodes
