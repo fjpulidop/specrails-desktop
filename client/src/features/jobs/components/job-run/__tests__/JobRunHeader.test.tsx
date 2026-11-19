@@ -602,6 +602,13 @@ describe('JobRunHeader — a run that stopped without settling', () => {
     } finally { vi.useRealTimers() }
   })
 
+  it('after a resume the running clock leaves out the time the run was held', () => {
+    const startedAt = new Date(Date.now() - 3 * 3_600_000 - 90_000).toISOString()
+    // Held for 3 hours (restart overnight), then resumed: 1m 30s of work so far.
+    renderHeader({ ...heldJob(null), started_at: startedAt, heldMs: 3 * 3_600_000 })
+    expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent(/^1m 3\ds/)
+  })
+
   it.each([
     [{ kind: 'interrupted' as const, step: 'fixer', since: null }, 'Interrupted', 'The Fixer step stopped before it finished.'],
     [{ kind: 'provider_limit' as const, step: null, since: null }, 'Usage limit', "Waiting for the provider's usage limit to reset."],

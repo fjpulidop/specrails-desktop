@@ -102,6 +102,8 @@ export interface JobSummary {
    * with `jobHoldOf`; every surface shows the job through it, never the raw row.
    */
   hold?: JobHold | null
+  /** Loop runs: time spent held (question, approval, restart, limit, budget) before the last resume. */
+  heldMs?: number
   /** True when a loop run is paused awaiting a human decision. GET /jobs/:id only. */
   loopPaused?: boolean
   /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */

@@ -15,12 +15,13 @@ import { formatUsd } from '../../../analytics/lib/format'
 
 /** Wall-clock elapsed between the job start and `finishedAt` (ISO string or a
  *  `Date.now()` reading for the live ticker). `—` when either side is unknown. */
-export function formatWallClock(startedAt: string | null | undefined, finishedAt: string | number | null | undefined): string {
+export function formatWallClock(startedAt: string | null | undefined, finishedAt: string | number | null | undefined, heldMs = 0): string {
   const start = parseJobTimestamp(startedAt ?? null)
   const endMs = typeof finishedAt === 'number'
     ? finishedAt
     : (parseJobTimestamp(finishedAt ?? null)?.getTime() ?? Number.NaN)
-  const ms = endMs - (start?.getTime() ?? Number.NaN)
+  // Time the run spent held (waiting for an answer, a restart, a limit) is not work.
+  const ms = endMs - (start?.getTime() ?? Number.NaN) - (Number.isFinite(heldMs) && heldMs > 0 ? heldMs : 0)
   if (!Number.isFinite(ms) || ms < 0) return '—'
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`

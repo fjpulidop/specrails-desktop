@@ -2208,6 +2208,15 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_run_continuations_source ON run_continuations(source_run_id);
     `)
   },
+
+  // Migration 97: loop_runs.held_ms — the time a run spent held (waiting on a
+  // question or approval, a restart, a provider limit or the budget), summed
+  // at each resume. The run window's elapsed time excludes it, so a resumed
+  // run does not count the hours it waited as work.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('held_ms')) db.exec('ALTER TABLE loop_runs ADD COLUMN held_ms INTEGER NOT NULL DEFAULT 0')
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

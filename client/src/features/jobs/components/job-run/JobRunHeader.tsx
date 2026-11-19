@@ -120,12 +120,14 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   // Live wall-clock tick (1 s) while running — the only genuinely live number.
   // A held run shows the time it worked until it stopped.
   const now = useNow(1000, isRunning)
+  // Held periods before the last resume are excluded (server-summed `heldMs`).
+  const heldMs = job.heldMs ?? 0
   const elapsed = job.finished_at
-    ? formatWallClock(job.started_at, job.finished_at)
+    ? formatWallClock(job.started_at, job.finished_at, heldMs)
     : isRunning
-      ? formatWallClock(job.started_at, now)
+      ? formatWallClock(job.started_at, now, heldMs)
       : hold?.since
-        ? formatWallClock(job.started_at, Date.parse(hold.since))
+        ? formatWallClock(job.started_at, Date.parse(hold.since), heldMs)
         : '—'
 
   const activity = useJobActivity(job.id, events)

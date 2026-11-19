@@ -55,6 +55,8 @@ export interface LoopRunRow {
   restart_reason?: string | null
   /** JSON FailureDiagnosis of a failed / blocked / stalled run (migration 84). */
   failure_diagnosis?: string | null
+  /** Time spent held (question, approval, restart, limit, budget), summed at each resume (migration 97). */
+  held_ms?: number
 }
 
 export interface DefinitionRunMetadata {
@@ -739,8 +741,12 @@ export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<Loop
   return getLoopRun(db, id)
 }
 
-export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
-  const resumed = db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL WHERE id = ? AND status = 'paused'`).run(id).changes > 0
+export function resumeLoopRun(db: DbInstance, id: string, now: Date = new Date()): LoopRunRow | undefined {
+  // The held time ends now: it began with the run's last recorded event (the pause
+  // notice, or the last step output before a restart). Summed into held_ms.
+  const resumed = db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL,
+      held_ms = COALESCE(held_ms, 0) + COALESCE(MAX(0, CAST(ROUND((julianday(?) - julianday((SELECT MAX(e.timestamp) FROM events e WHERE e.job_id = loop_runs.id))) * 86400000) AS INTEGER)), 0)
+    WHERE id = ? AND status = 'paused'`).run(now.toISOString(), id).changes > 0
   // A delivery a restart or a Continue fork left "waiting for workflow recovery" is building
   // again the moment its run resumes; it said so for the whole continued attempt.
   if (resumed) {

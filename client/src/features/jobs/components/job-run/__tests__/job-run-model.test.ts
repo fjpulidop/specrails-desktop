@@ -35,6 +35,10 @@ describe('formatWallClock', () => {
     const start = new Date(Date.now() - 65_000).toISOString()
     expect(formatWallClock(start, Date.now())).toMatch(/^1m \d+s$/)
   })
+  it('leaves out the time the run was held', () => {
+    expect(formatWallClock('2024-03-21T10:00:00Z', '2024-03-21T12:05:00Z', 2 * 3_600_000)).toBe('5m 0s')
+    expect(formatWallClock('2024-03-21T10:00:00Z', '2024-03-21T10:00:30Z', -5)).toBe('30s')
+  })
   it('returns an em-dash for unknown or negative spans', () => {
     expect(formatWallClock(null, '2024-03-21T10:00:00Z')).toBe('—')
     expect(formatWallClock('2024-03-21T10:00:00Z', null)).toBe('—')
