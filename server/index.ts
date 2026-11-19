@@ -93,6 +93,7 @@ import './providers'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
 import { resolveSpecrailsHome } from './util/specrails-home'
+import { configureSharedRuntimePackageCache } from './modules/agent-runtime/runtime/agent-runtime-package'
 import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
 import { logRejection } from './util/log-rejection'
 import { checkCoreCompat } from './core-compat'
@@ -651,6 +652,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 }
 
 // ─── Super-mode bootstrap ─────────────────────────────────────────────────────
+
+// Launches retain Core once per build in the app's own cache instead of copying
+// the package (~16k files) into every run's worktree on the event loop. Set
+// before any registry work so a resume after restart resolves the same pins.
+configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails', 'runtime-packages'))
 
 {
   const registry = new ProjectRegistry(broadcast, undefined, port)
