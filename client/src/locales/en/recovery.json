@@ -30,6 +30,10 @@
       "phase": "The agent stopped unexpectedly in the {{phase}} phase",
       "plain": "The agent stopped unexpectedly"
     },
+    "provider_unavailable": {
+      "phase": "The provider's service was unavailable in the {{phase}} phase",
+      "plain": "The provider's service was unavailable"
+    },
     "incomplete_tasks": "Some approved tasks were left unfinished",
     "spec_invalid": "OpenSpec rejected the change's spec",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "It reached its time limit before finishing.",
     "tool_inactivity": "It stopped using tools and replying for too long.",
     "crash": "The provider process or its connection died mid-run.",
+    "provider_unavailable": "The provider's service did not answer for a moment, even after Specrails retried for about a minute. Nothing about the work is wrong.",
     "incomplete_tasks": "Everything else is done. Continue finishes what is left with the browser and its tools; a check only a person can make can go to review instead.",
     "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
     "workflow_protocol": {

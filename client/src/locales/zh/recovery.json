@@ -30,6 +30,10 @@
       "phase": "代理在{{phase}}阶段意外停止",
       "plain": "代理意外停止"
     },
+    "provider_unavailable": {
+      "phase": "{{phase}} 阶段时提供方服务不可用",
+      "plain": "提供方服务不可用"
+    },
     "incomplete_tasks": "有已批准的任务未完成",
     "spec_invalid": "OpenSpec 拒绝了该变更的规范",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "在完成之前达到了时间上限。",
     "tool_inactivity": "它太久没有使用工具，也没有回复。",
     "crash": "提供商进程或其连接在运行中断开了。",
+    "provider_unavailable": "即使 Specrails 重试了约一分钟，提供方服务仍暂时没有响应。工作本身没有问题。",
     "incomplete_tasks": "其余都已完成。继续会用浏览器和工具完成剩余部分；只能由人完成的检查可以改为送去评审。",
     "spec_invalid": "计划或规范未通过 OpenSpec，规划也无法修复。",
     "workflow_protocol": {

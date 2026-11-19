@@ -30,6 +30,10 @@
       "phase": "{{phase}}フェーズでエージェントが予期せず停止しました",
       "plain": "エージェントが予期せず停止しました"
     },
+    "provider_unavailable": {
+      "phase": "{{phase}} フェーズでプロバイダーのサービスが利用できませんでした",
+      "plain": "プロバイダーのサービスが利用できませんでした"
+    },
     "incomplete_tasks": "承認済みのタスクが未完了のまま残りました",
     "spec_invalid": "OpenSpec が変更の仕様を拒否しました",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "終了する前に制限時間に達しました。",
     "tool_inactivity": "ツールの使用も返信も長時間ありませんでした。",
     "crash": "実行中にプロバイダーのプロセスまたは接続が切れました。",
+    "provider_unavailable": "Specrails が約 1 分間再試行しても、プロバイダーのサービスが一時的に応答しませんでした。作業内容に問題はありません。",
     "incomplete_tasks": "それ以外はすべて完了しています。続行するとブラウザーとツールで残りを仕上げます。人にしかできないチェックはレビューに回せます。",
     "spec_invalid": "計画または仕様が OpenSpec を通らず、計画の修正でも直せませんでした。",
     "workflow_protocol": {

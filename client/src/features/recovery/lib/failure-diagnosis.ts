@@ -8,7 +8,7 @@
 import type { EventRow } from '../../../types'
 import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
-export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
+export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'provider_unavailable', 'environment', 'port_in_use', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'incomplete_tasks', 'spec_invalid', 'workflow_protocol', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
 
 /**
@@ -153,6 +153,7 @@ export function consequenceKey(id: RemedyId, diagnosis: Pick<FailureDiagnosis, '
       case 'environment': return 'consequence.continueEnvironment'
       case 'provider_limit': return 'consequence.continueLimit'
       case 'crash':
+      case 'provider_unavailable':
       case 'timeout':
       case 'tool_inactivity': return 'consequence.continueTransient'
       case undefined: return 'consequence.continueStopped'
@@ -171,6 +172,7 @@ export function headlineKey(diagnosis: FailureDiagnosis, phaseLabel: string | nu
     case 'timeout':
     case 'tool_inactivity':
     case 'crash':
+    case 'provider_unavailable':
     case 'blocked': return { key: `headline.${diagnosis.kind}.${phaseLabel ? 'phase' : 'plain'}`, params }
     // The role names who skipped the steps (`plan`); the phase id is only the node it ran in.
     case 'workflow_protocol': return diagnosis.role ? { key: 'headline.workflow_protocol.role', params: { ...params, role: diagnosis.role } } : { key: 'headline.workflow_protocol.plain', params }
@@ -192,6 +194,7 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'timeout': return { key: 'why.timeout', params: {} }
     case 'tool_inactivity': return { key: 'why.tool_inactivity', params: {} }
     case 'crash': return { key: 'why.crash', params: {} }
+    case 'provider_unavailable': return { key: 'why.provider_unavailable', params: {} }
     case 'incomplete_tasks': return { key: 'why.incomplete_tasks', params: {} }
     case 'spec_invalid': return { key: 'why.spec_invalid', params: {} }
     case 'workflow_protocol': return diagnosis.strongerModel

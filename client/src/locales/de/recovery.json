@@ -30,6 +30,10 @@
       "phase": "Der Agent hat in der Phase {{phase}} unerwartet gestoppt",
       "plain": "Der Agent hat unerwartet gestoppt"
     },
+    "provider_unavailable": {
+      "phase": "Der Dienst des Anbieters war in der Phase {{phase}} nicht erreichbar",
+      "plain": "Der Dienst des Anbieters war nicht erreichbar"
+    },
     "incomplete_tasks": "Einige freigegebene Aufgaben blieben unerledigt",
     "spec_invalid": "OpenSpec hat die Spezifikation der Änderung abgelehnt",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",
     "tool_inactivity": "Er hat zu lange keine Werkzeuge benutzt und nicht geantwortet.",
     "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
+    "provider_unavailable": "Der Dienst des Anbieters hat kurz nicht geantwortet, auch nicht nach etwa einer Minute Wiederholungen durch Specrails. An der Arbeit ist nichts falsch.",
     "incomplete_tasks": "Alles andere ist erledigt. Fortsetzen erledigt den Rest mit dem Browser und seinen Werkzeugen; eine Prüfung, die nur ein Mensch machen kann, kann stattdessen zur Prüfung gehen.",
     "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
     "workflow_protocol": {

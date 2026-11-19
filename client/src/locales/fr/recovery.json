@@ -30,6 +30,10 @@
       "phase": "L'agent s'est arrêté de façon inattendue en phase {{phase}}",
       "plain": "L'agent s'est arrêté de façon inattendue"
     },
+    "provider_unavailable": {
+      "phase": "Le service du fournisseur était indisponible pendant la phase {{phase}}",
+      "plain": "Le service du fournisseur était indisponible"
+    },
     "incomplete_tasks": "Des tâches approuvées sont restées inachevées",
     "spec_invalid": "OpenSpec a rejeté la spécification du changement",
     "workflow_protocol": {
@@ -52,6 +56,7 @@
     "timeout": "Elle a atteint sa limite de temps avant de finir.",
     "tool_inactivity": "Elle a cessé d'utiliser des outils et de répondre trop longtemps.",
     "crash": "Le processus du fournisseur ou sa connexion est mort en cours d'exécution.",
+    "provider_unavailable": "Le service du fournisseur n'a pas répondu pendant un moment, même après environ une minute de nouvelles tentatives de Specrails. Le travail n'est pas en cause.",
     "incomplete_tasks": "Tout le reste est fait. Continuer termine ce qui reste avec le navigateur et ses outils ; une vérification que seule une personne peut faire peut aller en relecture.",
     "spec_invalid": "Le plan ou la spécification n'a pas passé OpenSpec, et la planification n'a pas pu le réparer.",
     "workflow_protocol": {

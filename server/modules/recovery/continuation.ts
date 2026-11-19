@@ -93,12 +93,14 @@ const INSTALLABLE_BLOCKERS: ReadonlySet<string> = new Set(['toolchain', 'setup']
 const PERSON_ONLY = /credential|secret|token|api[ _-]?key|password|log ?in\b|sign(ed)? ?(in|out)|auth(entication|orization)?\b|permission denied|not permitted|denied by (the )?policy|policy (denied|blocked|forbids)|budget|spend cap|cost cap|usage limit|quota/i
 
 export type AutoContinueVerdict =
-  | { continue: true; reason: AutoContinueReason }
+  | { continue: true; reason: AutoContinueReason; /** Wait this long first (a provider outage clears by itself). */ delayMs?: number }
   | { continue: false; reason: AutoContinueRefusal }
-export type AutoContinueReason = 'unfinished_tasks' | 'missing_tool' | 'transient_error' | 'stalled'
+export type AutoContinueReason = 'unfinished_tasks' | 'missing_tool' | 'transient_error' | 'provider_unavailable' | 'stalled'
 export type AutoContinueRefusal = 'disabled' | 'not_failed' | 'unknown_cause' | 'person_must_resolve' | 'already_continued' | 'repeated_failure' | 'not_auto_fixable'
 
 const TRANSIENT: ReadonlySet<FailureKind> = new Set(['crash', 'timeout', 'tool_inactivity'])
+/** How long an automatic continuation waits after a provider outage before it runs the step again. */
+export const PROVIDER_OUTAGE_WAIT_MS = 2 * 60_000
 
 /** Fingerprint of a failure: the same cause at the same step with the same words is the same failure. */
 export function failureFingerprint(diagnosis: Pick<FailureDiagnosis, 'kind' | 'phase' | 'detail' | 'blocker'> | null): string | null {
@@ -134,6 +136,9 @@ export function autoContinueVerdict(input: {
     // An unnamed or other kind of host blocker (network, scope, a variable) is the person's to resolve.
     return diagnosis.blocker && INSTALLABLE_BLOCKERS.has(diagnosis.blocker.kind) ? { continue: true, reason: 'missing_tool' } : { continue: false, reason: 'person_must_resolve' }
   }
+  // The provider's service was down for a moment and Core already retried for about a minute:
+  // continuing at once would meet the same outage (the night of 2026-11-19 it did, 15 s later).
+  if (diagnosis.kind === 'provider_unavailable') return { continue: true, reason: 'provider_unavailable', delayMs: PROVIDER_OUTAGE_WAIT_MS }
   if (TRANSIENT.has(diagnosis.kind)) return { continue: true, reason: 'transient_error' }
   if (diagnosis.kind === 'blocked' && diagnosis.detail && STALLED.test(diagnosis.detail)) return { continue: true, reason: 'stalled' }
   return { continue: false, reason: 'not_auto_fixable' }
