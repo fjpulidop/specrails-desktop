@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import {
+  workspaceMcpPort,
   ensureWorkspace,
   removeWorkspace,
   workspacePathFor,
@@ -419,5 +420,16 @@ describe('workspace-manager', () => {
       expect(res.assembled).toBe(true)
       expect(res.error).toBe('boom')
     })
+  })
+})
+
+describe('workspaceMcpPort', () => {
+  it('points the workspace MCP at the port this server listens on', () => {
+    // An isolated dev app on 4590 wrote 4200 (the person's main app) into workspace .mcp.json.
+    expect(workspaceMcpPort({ SPECRAILS_DEV_SERVER_PORT: '4590' }, ['node', 'index.ts'])).toBe(4590)
+    expect(workspaceMcpPort({ SPECRAILS_PORT: '4300' }, ['node', 'index.ts'])).toBe(4300)
+    expect(workspaceMcpPort({}, ['node', 'index.ts', '--port', '4410'])).toBe(4410)
+    expect(workspaceMcpPort({ SPECRAILS_MCP_PORT: '5000', SPECRAILS_DEV_SERVER_PORT: '4590' }, ['node'])).toBe(5000)
+    expect(workspaceMcpPort({}, ['node'])).toBe(4200)
   })
 })
