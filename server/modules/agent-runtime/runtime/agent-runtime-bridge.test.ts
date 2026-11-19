@@ -508,6 +508,13 @@ console.log(JSON.stringify(${JSON.stringify(final())}))`)
     const result = await runAgentRuntimeInvocation({ ...options(), resume: true, approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
     expect(result.failed).toBe(false)
   })
+  it('questionOptions: passes the chosen option with its answer and a rejection with its reason', async () => {
+    script(`const a=process.argv; const o=a.indexOf('--option'); if(!a.includes('resume')||o<0||a[o+1]!=='sqlite'||a[a.indexOf('--answer')+1]!=='SQLite')process.exit(7); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), resume: true, answer: 'SQLite', optionId: 'sqlite' })).failed).toBe(false)
+    script(`const a=process.argv; const r=a.indexOf('--reject'); if(!a.includes('resume')||r<0||a[r+1]!=='a1'||a[a.indexOf('--reason')+1]!=='Wrong colours'||a.includes('--approve'))process.exit(7); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), resume: true, reject: 'a1', reason: 'Wrong colours' })).failed).toBe(false)
+    await expect(runAgentRuntimeInvocation({ ...options(), resume: true, reject: 'a1', reason: ' ' })).rejects.toThrow('needs a reason')
+  })
   it('passes an answer verbatim on resume only and tolerates trace spans in the event stream', async () => {
     script(`const i=process.argv.indexOf('--answer'); if(!process.argv.includes('resume')||i<0||process.argv[i+1]!=='Use Redis, keep the schema')process.exit(7); console.log(JSON.stringify({type:'span',span:{traceId:'t1',spanId:'s1',name:'architect',stepId:'architect',attempt:1,visit:2,startedAt:'a',endedAt:'b',status:'ok'}})); console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const onLine = vi.fn(), onRawLine = vi.fn()

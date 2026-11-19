@@ -152,7 +152,7 @@ describe('live board projection', () => {
     loopRun(alpha, 'p1', 'r-q')
     pauseLoopRun(alpha, 'r-q')
     alpha.prepare(`UPDATE loop_runs SET runtime_status_json = ? WHERE id = 'r-q'`).run(JSON.stringify({ pendingInterrupts: [{ id: 'i1', nodePath: 'plan', kind: 'question', value: { question: 'Per device or synced?' } }] }))
-    expect(snapshot().cards[0]).toMatchObject({ question: 'Per device or synced?', column: 'needs' })
+    expect(snapshot().cards[0]).toMatchObject({ question: { interruptId: 'i1', kind: 'question', asker: 'planner', text: 'Per device or synced?', options: [] }, column: 'needs' })
   })
 
   it('adds a mission\'s own turns today to its lane and survives a missing mission', () => {

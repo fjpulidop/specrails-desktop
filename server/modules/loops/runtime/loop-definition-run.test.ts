@@ -114,6 +114,45 @@ describe('Core definitions in Loop Manager',()=>{
     expect(manager.sendInteractiveTurn('r1','',{interruptId:'approval-id',approve:true})).toBe(true)
     expect((await running).outcome).toBe('success')
   })
+  it('questionOptions: broadcasts the question card, answers by option id, and refuses a choice the question never offered', async () => {
+    const broadcast = vi.fn()
+    let calls = 0
+    const value = { kind: 'question', prompt: 'Which store?\n\nOptions:\n- SQLite\n- Files', text: 'Which store?', asker: 'architect', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'files', label: 'Files' }], recommended: 'sqlite' }
+    const ex = executors(async input => {
+      if (calls++ === 0) return { text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'clarify', kind: 'question', value }] }
+      expect(input).toMatchObject({ resume: true, answer: 'SQLite', optionId: 'sqlite', interruptId: 'q1' })
+      return complete()
+    })
+    const manager = new LoopRunManager(db, broadcast, ex); const running = manager.run(request()); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    const card = { interruptId: 'q1', kind: 'question', asker: 'planner', text: 'Which store?', recommended: 'sqlite', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'files', label: 'Files' }] }
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'loop.run_paused', reason: 'Which store?', question: expect.objectContaining(card) }))
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'job.interactive', acceptingTurns: true, question: expect.objectContaining(card) }))
+    // The person reads no node ids: neither the pause reason nor the log line carries `clarify`.
+    expect(getJobEvents(db, 'r1').map(event => event.payload).join('\n')).not.toMatch(/clarify:/)
+    expect(manager.sendInteractiveTurn('r1', 'Mongo', { interruptId: 'q1', optionId: 'mongo' })).toBe(false)
+    expect(manager.sendInteractiveTurn('r1', 'SQLite', { interruptId: 'q1', optionId: 'sqlite' })).toBe(true)
+    expect((await running).outcome).toBe('success')
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'job.interactive', acceptingTurns: false, question: null }))
+  })
+  it('questionOptions: rejects a rejectable approval with the person\'s reason, never a plain one or one without a reason', async () => {
+    let calls = 0
+    const ex = executors(async input => {
+      if (calls++ === 0) return { text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'a1', nodePath: 'approve', kind: 'approval', value: { kind: 'approval', prompt: 'Approve archiving?', rejectable: true } }] }
+      expect(input).toMatchObject({ resume: true, reject: 'a1', reason: 'Wrong colours', interruptId: 'a1' })
+      expect(input.approve).toBeUndefined()
+      return complete(false)
+    })
+    const manager = new LoopRunManager(db, () => {}, ex); const running = manager.run(request()); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    expect(manager.sendInteractiveTurn('r1', '  ', { interruptId: 'a1', reject: true })).toBe(false)
+    expect(manager.sendInteractiveTurn('r1', 'Wrong colours', { interruptId: 'a1', reject: true })).toBe(true)
+    await running
+  })
+  it('questionOptions: an approval from an older Core cannot be rejected', async () => {
+    const ex = executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'a1', nodePath: 'approve', kind: 'approval', value: { kind: 'approval', prompt: 'Approve?' } }] }))
+    const manager = new LoopRunManager(db, () => {}, ex); void manager.run(request()).catch(() => undefined); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    expect(manager.sendInteractiveTurn('r1', 'No', { interruptId: 'a1', reject: true })).toBe(false)
+    manager.shutdown()
+  })
   it('announces a resumed run so cards that showed its pause follow it live', async () => {
     // A paused run whose host went away (an app restart): the next manager resumes it from the frozen request.
     const first = new LoopRunManager(db, () => {}, executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })))

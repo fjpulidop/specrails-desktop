@@ -343,5 +343,40 @@
   "errors": {
     "technicalDetails": "Détails techniques",
     "copyDetails": "Copier les détails"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "Le planificateur a besoin d’une décision",
+      "developer": "Le développeur a besoin que vous décidiez",
+      "fixer": "Le correcteur a besoin que vous décidiez",
+      "reviewer": "Le relecteur a besoin que vous décidiez",
+      "install": "Specrails a besoin de votre accord",
+      "run": "L’exécution attend votre réponse"
+    },
+    "approval": "L’exécution attend votre approbation",
+    "recommended": "Recommandé",
+    "other": "Autre réponse…",
+    "otherLabel": "Votre réponse",
+    "otherPlaceholder": "Écrivez votre réponse",
+    "answer": "Répondre",
+    "approve": "Approuver",
+    "reject": "Refuser",
+    "rejectLabel": "Pourquoi refusez-vous ?",
+    "rejectPlaceholder": "Votre raison",
+    "back": "Retour",
+    "sending": "Envoi…",
+    "consequence": {
+      "waits": "L’exécution attend, sans coût, votre réponse.",
+      "mayEnd": "Si vous dites que ce n’est pas le bon endroit, l’exécution s’arrête.",
+      "endsRunOption": "Choisir « {{label}} » arrête l’exécution.",
+      "reject": "Refuser arrête l’exécution. Rien n’est archivé ni fusionné."
+    },
+    "sent": "Réponse envoyée — l’exécution continue.",
+    "approved": "Approuvé — l’exécution continue.",
+    "rejected": "Refusé — l’exécution s’arrête.",
+    "failed": "Impossible d’envoyer votre réponse",
+    "showMore": "Tout afficher",
+    "showLess": "Afficher moins",
+    "notice": "Vous attend"
   }
 }

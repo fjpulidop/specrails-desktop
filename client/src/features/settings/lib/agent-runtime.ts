@@ -168,6 +168,8 @@ export interface RuntimeRun {
   runId: string; traceId?: string; status: string; nextStep: string | null; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
+  /** The question card (engine 2): who asks, the question, its choices. */
+  question?: unknown
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
   /** Settled continuation removable from the rail card (stays in the history). */
   canDismiss?: boolean

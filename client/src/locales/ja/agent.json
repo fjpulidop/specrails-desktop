@@ -346,7 +346,7 @@
       "building": "分離されたワークツリーで実装中…",
       "buildingInPlace": "プロジェクトフォルダーで実装中…",
       "buildingExistingPr": "既存の PR に変更を適用中…",
-      "paused": "人の判断が必要です",
+      "paused": "一時停止中",
       "on_review": "実装のレビュー準備完了",
       "pr_draft": "ドラフト PR を作成しました",
       "pr_draft_degraded": "PR の公開が未完了",
@@ -1411,7 +1411,7 @@
     "paused": "一時停止中。あなたの対応を待っています",
     "pausedReason": "一時停止中：{{reason}}",
     "decision": {
-      "approval": "あなたの承認待ち",
+      "approval": "あなたの対応が必要",
       "changes": "レビュアーが変更を求めています",
       "on_review": "レビューの準備ができました",
       "pr_draft": "ドラフト PR を公開できます",

@@ -1,3 +1,4 @@
+import { runQuestionFrom } from '../../../shared/run-question'
 import type { DefinitionResumeControls } from './loop-definition-run'
 import type { DefinitionRunProbe } from './loop-definition-recovery'
 
@@ -5,7 +6,7 @@ import type { DefinitionRunProbe } from './loop-definition-recovery'
 export function validateDefinitionResumeControls(value: unknown, probe: DefinitionRunProbe): DefinitionResumeControls {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Resume controls must be an object')
   const body = value as Record<string, unknown>
-  if (Object.keys(body).some(key => !['answer', 'interruptId', 'approve', 'recover'].includes(key))) throw new Error('Unknown resume control')
+  if (Object.keys(body).some(key => !['answer', 'optionId', 'interruptId', 'approve', 'reject', 'reason', 'recover'].includes(key))) throw new Error('Unknown resume control')
   if (body.answer !== undefined && (typeof body.answer !== 'string' || !body.answer.trim() || body.answer.length > 20_000)) throw new Error('Answer must be nonempty and contain at most 20000 characters')
   if (body.interruptId !== undefined && (typeof body.interruptId !== 'string' || !body.interruptId)) throw new Error('An exact interrupt ID is required')
   const ids = (key: 'approve' | 'recover'): string[] | undefined => {
@@ -15,6 +16,16 @@ export function validateDefinitionResumeControls(value: unknown, probe: Definiti
     return values as string[]
   }
   const approve = ids('approve'), recover = ids('recover')
+  const pendingAll = probe.pendingInterrupts
+  // Core questionOptions: a choice the question offered, or one rejectable approval with a reason.
+  if (body.optionId !== undefined && (typeof body.optionId !== 'string' || body.answer === undefined)) throw new Error('A chosen option needs its answer text')
+  if (body.reject !== undefined) {
+    if (typeof body.reject !== 'string' || !body.reject || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 20_000) throw new Error('A rejection needs the approval ID and a reason')
+    if (body.answer !== undefined || approve?.length) throw new Error('Submit a rejection on its own')
+    const target = pendingAll.find(item => item.id === body.reject)
+    if (!target || !runQuestionFrom([target])?.canReject) throw new Error('Rejection is not available for this approval')
+    return { reject: body.reject, reason: body.reason as string, interruptId: body.reject, ...(recover ? { recover } : {}) }
+  } else if (body.reason !== undefined) throw new Error('A reason applies to a rejection')
   if (body.answer !== undefined && approve?.length) throw new Error('Submit an answer or approvals separately')
   const pending = probe.pendingInterrupts
   if (approve?.some(id => !pending.some(item => item.id === id && (item.kind === 'approval' || item.kind === 'gate')))) throw new Error('Approval is no longer pending')
@@ -28,8 +39,10 @@ export function validateDefinitionResumeControls(value: unknown, probe: Definiti
   if (interruptId && !pending.some(item => item.id === interruptId)) throw new Error('Interrupt is no longer pending')
   if (body.answer !== undefined && !pending.some(item => item.id === interruptId && item.kind === 'question')) throw new Error('Answers require a pending question')
   if (interruptId && body.answer === undefined && !approve?.includes(interruptId)) throw new Error('Select an answer or approval for the interrupt')
+  if (typeof body.optionId === 'string' && !runQuestionFrom(pending.filter(item => item.id === interruptId))?.options.some(option => option.id === body.optionId)) throw new Error('The chosen option is not one the question offered')
   return {
     ...(body.answer === undefined ? {} : { answer: body.answer as string }),
+    ...(typeof body.optionId === 'string' ? { optionId: body.optionId } : {}),
     ...(interruptId ? { interruptId } : {}), ...(approve ? { approve } : {}), ...(recover ? { recover } : {}),
   }
 }

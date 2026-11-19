@@ -343,5 +343,40 @@
   "errors": {
     "technicalDetails": "Dettagli tecnici",
     "copyDetails": "Copia i dettagli"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "Il pianificatore ha bisogno di una decisione",
+      "developer": "Lo sviluppatore ha bisogno che tu decida",
+      "fixer": "Il correttore ha bisogno che tu decida",
+      "reviewer": "Il revisore ha bisogno che tu decida",
+      "install": "Specrails ha bisogno del tuo permesso",
+      "run": "L’esecuzione aspetta la tua risposta"
+    },
+    "approval": "L’esecuzione aspetta la tua approvazione",
+    "recommended": "Consigliata",
+    "other": "Altra risposta…",
+    "otherLabel": "La tua risposta",
+    "otherPlaceholder": "Scrivi la tua risposta",
+    "answer": "Rispondi",
+    "approve": "Approva",
+    "reject": "Rifiuta",
+    "rejectLabel": "Perché lo rifiuti?",
+    "rejectPlaceholder": "Il tuo motivo",
+    "back": "Indietro",
+    "sending": "Invio…",
+    "consequence": {
+      "waits": "L’esecuzione aspetta, senza costi, finché non rispondi.",
+      "mayEnd": "Se dici che non va fatto qui, l’esecuzione termina.",
+      "endsRunOption": "Scegliere «{{label}}» termina l’esecuzione.",
+      "reject": "Rifiutare termina l’esecuzione. Nulla viene archiviato o unito."
+    },
+    "sent": "Risposta inviata: l’esecuzione continua.",
+    "approved": "Approvato: l’esecuzione continua.",
+    "rejected": "Rifiutato: l’esecuzione termina.",
+    "failed": "Impossibile inviare la risposta",
+    "showMore": "Mostra tutto",
+    "showLess": "Mostra meno",
+    "notice": "Ti aspetta"
   }
 }

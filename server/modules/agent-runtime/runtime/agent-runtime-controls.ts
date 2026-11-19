@@ -1,3 +1,4 @@
+import { runQuestionFrom, type RunQuestion } from '../../../shared/run-question'
 import { collectRuntimeRetention } from './agent-runtime-retention'
 import { runtimeRetentionHostPorts, recoverHostRuntimeRetention } from './agent-runtime-retention-host'
 import { readRuntimeExpiration, readRuntimeRetentionPolicy, saveRuntimeRetentionPolicy } from './agent-runtime-retention-records'
@@ -84,6 +85,8 @@ interface RuntimeInspection {
 }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  /** The question card a paused definition run waits on (see loops/runtime/run-question). */
+  question?: RunQuestion | null
   lease?: { active: boolean } | null
   recoverableSteps?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
   pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate' | 'host-task'; value?: unknown }>
@@ -217,7 +220,9 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   let selection: unknown
   try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
   const catalog = metricsCatalogFor(state)
-  return { ...state, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
+  // The question card (shared with every surface); null when nothing waits on the person.
+  const question = state.engineVersion === 2 ? runQuestionFrom(state.pendingInterrupts ?? []) : null
+  return { ...state, question, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
 }
 
 /** One controller per ProjectContext; Core's durable lease remains the final

@@ -75,6 +75,22 @@ describe('inbox projection: runs', () => {
     expect(byId['r-fork']).toBeUndefined()
   })
 
+  it('a question item carries its card and a short question for the notification; a limit, budget or restart pause never becomes one', () => {
+    const status = (pending: unknown[]) => JSON.stringify({ pendingInterrupts: pending })
+    const question = { id: 'q1', nodePath: 'developer', kind: 'question', value: { kind: 'question', prompt: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?', text: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?', asker: 'build', options: [{ id: 'implement', label: 'Implement' }, { id: 'drop', label: 'Drop 2.1' }] } }
+    run('r-ask', 0); pauseLoopRun(db, 'r-ask'); db.prepare('UPDATE loop_runs SET runtime_status_json=? WHERE id=?').run(status([question]), 'r-ask')
+    run('r-restart-ask', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart', runtime_status_json=? WHERE id='r-restart-ask'").run(status([question]))
+    run('r-budget-ask', 2); pauseLoopRun(db, 'r-budget-ask', undefined, 'budget_paused'); db.prepare('UPDATE loop_runs SET runtime_status_json=? WHERE id=?').run(status([question]), 'r-budget-ask')
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-ask']).toMatchObject({ kind: 'question', action: 'open-run', detail: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?',
+      question: { interruptId: 'q1', asker: 'developer', options: [{ id: 'implement' }, { id: 'drop' }] } })
+    expect(byId['r-ask'].version).toContain(':q1')
+    // A run cut off by a restart while it asked still asks the same question.
+    expect(byId['r-restart-ask']).toMatchObject({ kind: 'question', question: { interruptId: 'q1' } })
+    expect(byId['r-budget-ask']).toMatchObject({ kind: 'budget' })
+    expect(byId['r-budget-ask'].question).toBeUndefined()
+  })
+
   it('shows a run paused at a usage limit as a budget item that names the provider and its resume time', () => {
     run('r-limit', 0); pauseLoopRun(db, 'r-limit', undefined, 'limit_paused')
     saveLimitPause(db, 'r-limit', { providerId: 'claude', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: true, message: 'limit', pausedAt: iso(-60_000), switchable: true })

@@ -5,6 +5,7 @@
  * the filters, the per-viewer layout choice and what a card's action does.
  * How a state LOOKS is the run-state vocabulary's (see `live-board-run-state.ts`).
  */
+import { readRunQuestion, type RunQuestion } from '../../../components/run-question/run-question'
 import { readInboxSnapshot, type InboxItem } from '../../inbox/lib/inbox-model'
 
 export type LiveRunKind = 'rail' | 'loop' | 'intent' | 'job'
@@ -32,7 +33,8 @@ export interface LiveCard {
   at: string
   title: string | null
   phase: string | null
-  question: string | null
+  /** The question card a paused run waits on (answered inline on the card). */
+  question: RunQuestion | null
   steps: { done: number; total: number } | null
   provider: string | null
   model: string | null
@@ -136,7 +138,7 @@ function readCard(raw: unknown): LiveCard | null {
     urgency: num(v.urgency) ?? 2,
     title: str(v.title),
     phase: str(v.phase),
-    question: str(v.question),
+    question: readRunQuestion(v.question),
     steps: steps && num(steps.done) !== null && num(steps.total) ? { done: num(steps.done)!, total: num(steps.total)! } : null,
     provider: str(v.provider),
     model: str(v.model),

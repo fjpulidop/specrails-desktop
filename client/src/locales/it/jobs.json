@@ -382,7 +382,7 @@
     "details": "Dettagli",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Riportato dal provider finora; le cifre definitive arrivano al termine del job.",
-    "questionPending": "Rispondi alla domanda"
+    "questionPending": "Rispondi"
   },
   "runDetail": {
     "failure": "Cause dell’errore",

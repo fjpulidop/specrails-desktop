@@ -92,6 +92,8 @@ export interface JobSummary {
   /** `limit_paused`: the provider usage limit the run waits for. GET /jobs/:id only. */
   loopPauseLimit?: unknown
   pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
+  /** The question card a paused run waits on (GET /jobs/:id). */
+  question?: unknown
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;

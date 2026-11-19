@@ -382,7 +382,7 @@
     "details": "Details",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Reported by the provider so far; the final figures arrive when the job finishes.",
-    "questionPending": "Answer the question"
+    "questionPending": "Answer"
   },
   "runDetail": {
     "failure": "Failure reasons",

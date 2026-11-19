@@ -1,4 +1,5 @@
 import { readLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { runQuestionFromStatus, shortQuestion } from '../../../shared/run-question'
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
@@ -32,6 +33,7 @@ interface RunRow {
   ticket_ids_json: string | null
   rail_index: number | null
   failure_diagnosis: string | null
+  runtime_status_json: string | null
 }
 
 function parseJsonArray(raw: string | null | undefined): unknown[] {
@@ -122,7 +124,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
 function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<string>, nowIso: string, nowMs: number): InboxItem[] {
   const since = new Date(nowMs - FAILED_RUN_WINDOW_MS).toISOString()
   const rows = handle.db.prepare(`
-    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis
+    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis, r.runtime_status_json
     FROM loop_runs r
     WHERE r.project_id = ?
       -- An attempt a later one continued is history: the chain speaks through its latest attempt.
@@ -161,7 +163,12 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
     if (run.status === 'paused') {
       // provider-quota: waiting for a usage-limit reset (live, or retained over a restart).
       const limit = run.restart_reason === 'limit_paused' || run.restart_reason === 'restart' ? readLimitPause(handle.db, run.id) : null
-      if (limit) {
+      // Only a question Core still waits on needs the person's answer; a limit, a budget or a restart is not a question.
+      const question = !limit && run.restart_reason !== 'budget_paused' ? runQuestionFromStatus(run.runtime_status_json) : null
+      if (question) {
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', version: `${version}:${question.interruptId}`,
+          detail: shortQuestion(question), question, at: toIso(run.started_at, nowIso), action: 'open-run' })
+      } else if (limit) {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit.resumeAt ?? ''}:${limit.autoResume}`,
           detail: `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}`, at: toIso(limit.pausedAt, nowIso), action: 'resume-run' })
       } else if (run.restart_reason === 'budget_paused') {

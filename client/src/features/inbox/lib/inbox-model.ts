@@ -4,6 +4,7 @@
  * this module is everything pure on the client: the item shape, per-viewer
  * Snooze / Done, grouping and where an item leads.
  */
+import { readRunQuestion, type RunQuestion } from '../../../components/run-question/run-question'
 import { JOB_PARAM, MISSION_PARAM, REVIEW_PARAM } from '../../../lib/places'
 import { readFailureDiagnosis, type FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 
@@ -37,6 +38,8 @@ export interface InboxItem {
   cap: InboxCap | null
   /** A continued run's attempt ("attempt 3"): the chain is one item, its latest attempt. */
   attempt?: { number: number; of: number } | null
+  /** A question item's card (who asks, the question, its choices): answered inline. */
+  question?: RunQuestion | null
 }
 
 export interface InboxSnapshot {
@@ -84,6 +87,7 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       diagnosis: readFailureDiagnosis(v.diagnosis),
       cap: readCap(v.cap),
       attempt: readAttempt(v.attempt),
+      question: v.kind === 'question' ? readRunQuestion(v.question) : null,
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {

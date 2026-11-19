@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "Offene Frage oder Freigabe auswählen",
-    "answerQuestion": "Frage beantworten",
+    "answerQuestion": "Antworten",
     "approval": "Freigabe",
-    "approveContinue": "Freigeben und fortfahren",
+    "approveContinue": "Freigeben",
     "paused": "Pausiert",
     "acceptance": "Abnahme",
     "verified": "Verifiziert",

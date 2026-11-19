@@ -144,8 +144,10 @@ export function createMobileInboxRouter({ db, upstream }: { db: DbInstance; upst
     await send(res, 'GET', `${base(pid)}/agent-runtime/runs/${encodeURIComponent(runId)}`, undefined, (json) => {
       const run = record((Array.isArray(record(json).runs) ? record(json).runs as unknown[] : [])[0])
       const question = record(run.pendingQuestion)
+      // `card`: the same structured question the desktop renders (choices, recommendation, consequence).
+      const card = run.question && typeof run.question === 'object' && record(run.question).kind === 'question' ? run.question : null
       return typeof question.question === 'string'
-        ? { pending: true, question: question.question, requestedAt: question.requestedAt ?? null }
+        ? { pending: true, question: question.question, requestedAt: question.requestedAt ?? null, card }
         : { pending: false }
     })
   })
@@ -168,7 +170,11 @@ export function createMobileInboxRouter({ db, upstream }: { db: DbInstance; upst
     const path = definition
       ? `${base(pid)}/loop-runs/${encodeURIComponent(runId)}/resume`
       : `${base(pid)}/agent-runtime/runs/${encodeURIComponent(runId)}/resume`
-    await send(res, 'POST', path, { answer: answer.trim(), ...(definition && typeof question.stepId === 'string' ? { interruptId: question.stepId } : {}) })
+    // A chosen option (Core questionOptions) travels with its label as the answer.
+    const card = record(run.question)
+    const optionId = typeof body.optionId === 'string' && Array.isArray(card.options) && card.options.some((option) => record(option).id === body.optionId) ? body.optionId : undefined
+    if (body.optionId !== undefined && !optionId) { res.status(400).json({ error: 'The chosen option is not one the question offered' }); return }
+    await send(res, 'POST', path, { answer: answer.trim(), ...(definition && typeof question.stepId === 'string' ? { interruptId: question.stepId } : {}), ...(definition && optionId ? { optionId } : {}) })
   })
 
   // Resume a budget/limit-paused or interrupted run; a run paused at its per-run cap takes the person's choice.

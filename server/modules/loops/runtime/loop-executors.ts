@@ -323,7 +323,7 @@ export function createLoopExecutors(
       if (input.resume) {
         const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
         const host = frozenHost(contextPath,resolveEnv(),runId)
-        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
+        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,optionId:input.optionId,approve:input.approve,reject:input.reject,reason:input.reason,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       // Intent -> Spec derives ONE change for code that already exists: it is named
@@ -347,7 +347,7 @@ export function createLoopExecutors(
         projectRuntime: opts.projectRuntime?.(),
         loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
-        resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
+        resume: input.resume, answer: input.answer, optionId: input.optionId, approve: input.approve, reject: input.reject, reason: input.reason, interruptId: input.interruptId,
         defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride ?? (request.graph.config.agents ? { provider: request.provider, model: request.model, effort: request.effort } : undefined),
         ...(!request.graph.config.agents && request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
           [request.graph.config.legacyDeciderRole]: {

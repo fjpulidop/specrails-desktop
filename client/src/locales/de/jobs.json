@@ -382,7 +382,7 @@
     "details": "Details",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Bisher vom Anbieter gemeldet; die endgültigen Zahlen kommen, wenn der Job endet.",
-    "questionPending": "Frage beantworten"
+    "questionPending": "Antworten"
   },
   "runDetail": {
     "failure": "Fehlerursachen",

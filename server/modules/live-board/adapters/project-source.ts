@@ -1,4 +1,5 @@
 import type { DbInstance } from '../../../db'
+import { runQuestionFromStatus } from '../../../shared/run-question'
 import { readSpecSnapshot } from '../../delivery/runtime/rail-pr-store'
 import { readAttemptChainRunIds, readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { toIso, type DayWindow, type LiveRunFacts, type LiveSteps } from '../domain'
@@ -107,26 +108,6 @@ function deliveryTitle(row: DeliveryRow): string {
   const first = specs.find((s) => s.title)?.title
   if (first) return specs.length > 1 ? `${first} +${specs.length - 1}` : first
   return row.loop_name || row.rail_key
-}
-
-/** The question a paused run asks, when its runtime recorded one (`pendingInterrupts[].value`). */
-function pendingQuestion(raw: string | null): string | null {
-  if (!raw) return null
-  try {
-    const status = JSON.parse(raw) as { pendingInterrupts?: unknown }
-    for (const entry of Array.isArray(status.pendingInterrupts) ? status.pendingInterrupts : []) {
-      const item = entry as { kind?: unknown; value?: unknown } | null
-      if (!item || item.kind !== 'question') continue
-      const value = item.value as unknown
-      const text = typeof value === 'string' ? value
-        : value && typeof value === 'object'
-          ? ['question', 'prompt', 'message', 'text'].map((key) => (value as Record<string, unknown>)[key]).find((v): v is string => typeof v === 'string')
-          : undefined
-      const flat = text?.replace(/\s+/g, ' ').trim()
-      if (flat) return flat.length > 280 ? `${flat.slice(0, 279)}…` : flat
-    }
-  } catch { /* an unreadable checkpoint simply has no question */ }
-  return null
 }
 
 interface RunCostRow { id: string; total_cost_usd: number | null; cost_estimated: number | null }
@@ -334,7 +315,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           status: { source: 'delivery', decision: row.decision, statusCode: row.status_code, ...(paused ? { paused: true } : {}) },
           title: deliveryTitle(row),
           phase: live ? steps.get(live.id) ?? null : null,
-          question: paused ? pendingQuestion(paused.runtime_status_json) : null, steps: null,
+          question: paused ? runQuestionFromStatus(paused.runtime_status_json) : null, steps: null,
           provider: own.find((r) => r.provider)?.provider ?? null,
           model: own.find((r) => r.model)?.model ?? null,
           startedAt: starts[0] ?? toIso(row.created_at),
@@ -363,7 +344,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           status: { source: 'loop-run', status: row.status, outcome: row.final_outcome, restartReason: row.restart_reason },
           title: runTitle(row.loop_name, ids),
           phase: row.status === 'running' ? steps.get(row.id) ?? null : null,
-          question: row.status === 'paused' ? pendingQuestion(row.runtime_status_json) : null,
+          question: row.status === 'paused' ? runQuestionFromStatus(row.runtime_status_json) : null,
           steps: null,
           provider: row.provider, model: row.model,
           startedAt: toIso(row.started_at), finishedAt: toIso(row.finished_at),

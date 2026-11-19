@@ -55,7 +55,7 @@ function board() {
     generatedAt: new Date().toISOString(),
     projects: [{ projectId: 'p1', projectName: 'Alpha', count: 3 }, { projectId: 'p2', projectName: 'Beta', count: 1 }],
     cards: [
-      card({ id: 'p1:loop-run:r-ask', column: 'needs', urgency: 0, title: 'Records top-5', status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null }, question: 'Per device or synced?', jobId: 'r-ask', conversationId: 'm1', attention: question }),
+      card({ id: 'p1:loop-run:r-ask', column: 'needs', urgency: 0, title: 'Records top-5', status: { source: 'loop-run', status: 'paused', outcome: null, restartReason: null }, question: { interruptId: 'i1', kind: 'question', asker: 'planner', text: 'Per device or synced?', options: [], endsRun: [], mayEndRun: true, canReject: false }, jobId: 'r-ask', conversationId: 'm1', attention: question }),
       card({ id: 'p1:loop-run:r-live', kind: 'rail', railIndex: 1, title: 'Next pieces preview', phase: 'implement-fix', jobId: 'r-live', conversationId: 'm1', costUsd: 0.62 }),
       card({ id: 'p2:job:j1', projectId: 'p2', projectName: 'Beta', kind: 'job', title: '/sr:implement #4', provider: 'codex', status: { source: 'job', status: 'running' }, phase: 'developer', steps: { done: 1, total: 3 }, jobId: 'j1' }),
       card({ id: 'p1:delivery:d1', kind: 'rail', railIndex: 0, column: 'done', urgency: 2, title: 'Ghost piece', status: { source: 'delivery', decision: 'merged', statusCode: null }, finishedAt: AT, jobId: 'r-old', deliveryId: 'd1' }),
@@ -154,7 +154,9 @@ describe('live board (by status)', () => {
     await screen.findByText('Records top-5')
     const ask = cardEl('p1:loop-run:r-ask')
     expect(ask.textContent?.match(/Per device or synced\?/g)).toHaveLength(1)
-    expect(within(ask).getByTestId('live-card-phrase')).toHaveTextContent('Waiting for your answer')
+    expect(within(ask).getByTestId('live-card-phrase')).toHaveTextContent('Needs you')
+    // The question itself is the card, answerable right on the board.
+    expect(within(ask).getByTestId('run-question-card')).toHaveTextContent('The planner needs a decision')
     expect(within(cardEl('p2:job:j1')).getByTestId('live-card-meta')).toHaveTextContent('Beta · Job')
     unmount()
     body = { ...board(), projects: [{ projectId: 'p1', projectName: 'Alpha', count: 3 }] }
@@ -273,6 +275,8 @@ describe('live board chain cards', () => {
 
 describe('live board actions reuse the existing handlers', () => {
   it('runs the inbox primary for an inbox item and leaves the board in place', async () => {
+    // A question the card cannot show (an older Core recorded none) keeps the inbox's Answer.
+    body.cards[0] = { ...board().cards[0], question: null }
     mount('/?mission=m0&live=1')
     await screen.findByText('Records top-5')
     fireEvent.click(within(cardEl('p1:loop-run:r-ask')).getByTestId('live-card-primary'))
@@ -353,6 +357,7 @@ describe('live board in its own window', () => {
     mount()
     await screen.findByText('Records top-5')
     expect(screen.queryByTestId('live-board-open-window')).not.toBeInTheDocument()
+
   })
 
   it('in the desktop app, opens as its own window from a ?live=1 entry and runs the window\'s actions here', async () => {
@@ -385,6 +390,7 @@ describe('live board in its own window', () => {
   })
 
   it('in the window, forwards card actions as results instead of running them', async () => {
+    body.cards[0] = { ...board().cards[0], question: null }
     const report = vi.fn()
     render(
       <MemoryRouter>
@@ -393,6 +399,7 @@ describe('live board in its own window', () => {
     )
     await screen.findByText('Records top-5')
     expect(screen.queryByTestId('live-board-open-window')).not.toBeInTheDocument()
+
     fireEvent.click(within(cardEl('p1:loop-run:r-ask')).getByTestId('live-card-primary'))
     expect(report).toHaveBeenCalledWith({ action: 'primary', card: expect.objectContaining({ id: 'p1:loop-run:r-ask' }) })
     fireEvent.click(screen.getByTestId('live-board-open-inbox'))

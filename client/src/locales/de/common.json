@@ -343,5 +343,40 @@
   "errors": {
     "technicalDetails": "Technische Details",
     "copyDetails": "Details kopieren"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "Der Planer braucht eine Entscheidung",
+      "developer": "Der Entwickler braucht deine Entscheidung",
+      "fixer": "Der Korrektor braucht deine Entscheidung",
+      "reviewer": "Der Prüfer braucht deine Entscheidung",
+      "install": "Specrails braucht deine Erlaubnis",
+      "run": "Der Lauf braucht deine Antwort"
+    },
+    "approval": "Der Lauf braucht deine Freigabe",
+    "recommended": "Empfohlen",
+    "other": "Andere Antwort…",
+    "otherLabel": "Deine Antwort",
+    "otherPlaceholder": "Schreib deine Antwort",
+    "answer": "Antworten",
+    "approve": "Freigeben",
+    "reject": "Ablehnen",
+    "rejectLabel": "Warum lehnst du ab?",
+    "rejectPlaceholder": "Dein Grund",
+    "back": "Zurück",
+    "sending": "Wird gesendet…",
+    "consequence": {
+      "waits": "Der Lauf wartet kostenlos, bis du antwortest.",
+      "mayEnd": "Wenn du sagst, dass es nicht hierher gehört, endet der Lauf.",
+      "endsRunOption": "„{{label}}“ beendet den Lauf.",
+      "reject": "Ablehnen beendet den Lauf. Nichts wird archiviert oder zusammengeführt."
+    },
+    "sent": "Antwort gesendet – der Lauf geht weiter.",
+    "approved": "Freigegeben – der Lauf geht weiter.",
+    "rejected": "Abgelehnt – der Lauf endet.",
+    "failed": "Deine Antwort konnte nicht gesendet werden",
+    "showMore": "Alles anzeigen",
+    "showLess": "Weniger anzeigen",
+    "notice": "Braucht dich"
   }
 }

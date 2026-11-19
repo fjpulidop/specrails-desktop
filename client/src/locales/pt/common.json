@@ -343,5 +343,40 @@
   "errors": {
     "technicalDetails": "Detalhes técnicos",
     "copyDetails": "Copiar detalhes"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "O planejador precisa de uma decisão",
+      "developer": "O desenvolvedor precisa que você decida",
+      "fixer": "O corretor precisa que você decida",
+      "reviewer": "O revisor precisa que você decida",
+      "install": "O Specrails precisa da sua permissão",
+      "run": "A execução aguarda sua resposta"
+    },
+    "approval": "A execução aguarda sua aprovação",
+    "recommended": "Recomendada",
+    "other": "Outra resposta…",
+    "otherLabel": "Sua resposta",
+    "otherPlaceholder": "Escreva sua resposta",
+    "answer": "Responder",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "rejectLabel": "Por que você está rejeitando?",
+    "rejectPlaceholder": "Seu motivo",
+    "back": "Voltar",
+    "sending": "Enviando…",
+    "consequence": {
+      "waits": "A execução espera, sem custo, até você responder.",
+      "mayEnd": "Se você disser que não é aqui, a execução termina.",
+      "endsRunOption": "Escolher “{{label}}” termina a execução.",
+      "reject": "Rejeitar termina a execução. Nada é arquivado nem mesclado."
+    },
+    "sent": "Resposta enviada: a execução continua.",
+    "approved": "Aprovado: a execução continua.",
+    "rejected": "Rejeitado: a execução termina.",
+    "failed": "Não foi possível enviar sua resposta",
+    "showMore": "Ver tudo",
+    "showLess": "Ver menos",
+    "notice": "Precisa de você"
   }
 }

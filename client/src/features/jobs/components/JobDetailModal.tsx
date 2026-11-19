@@ -44,6 +44,7 @@ import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
 import { InteractiveJobComposer } from './InteractiveJobComposer'
+import { RunQuestionDock, runWindowQuestion } from './job-run/RunQuestionDock'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
@@ -521,6 +522,10 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                 Detail page mounts, so a mission-mode user steers the running job
                 without leaving the workspace. */}
             {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+            {/* The run's question: its one place in the run window, answered inline. */}
+            {job && projectId && (
+              <RunQuestionDock projectId={projectId} runId={job.id} initial={runWindowQuestion(job, runtime.runs[0])} onAnswered={runtime.refresh} />
+            )}
             {job && projectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
               <RunLimitPause projectId={projectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
             )}

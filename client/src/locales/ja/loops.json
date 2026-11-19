@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "保留中の質問または承認を選択",
-    "answerQuestion": "質問に回答",
+    "answerQuestion": "回答",
     "approval": "承認",
-    "approveContinue": "承認して続行",
+    "approveContinue": "承認",
     "paused": "一時停止中",
     "acceptance": "受け入れ",
     "verified": "検証済み",

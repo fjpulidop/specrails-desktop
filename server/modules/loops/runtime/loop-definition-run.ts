@@ -18,6 +18,8 @@ export interface DefinitionCompletion {
   /** Present when the run ended through an `end` node with `blockerFrom`; absent on older Core and on ordinary ends. */
   blocker?: DefinitionHostBlocker
 }
+import { runQuestionFrom } from '../../../shared/run-question'
+
 export interface DefinitionInterrupt {
   id: string
   nodePath: string
@@ -64,7 +66,8 @@ export interface DefinitionPrepared {
   context: Record<string, unknown>
   runtimeIdentity?: Record<string, unknown>
 }
-export interface DefinitionResumeControls { answer?: string; approve?: string[]; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult }
+/** `optionId` answers a structured question by choice; `reject` + `reason` rejects one approval (both need Core `questionOptions`). */
+export interface DefinitionResumeControls { answer?: string; optionId?: string; approve?: string[]; reject?: string; reason?: string; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult }
 export interface DefinitionLoopInvocation {
   contextPath?: string
   recover?: string[]
@@ -73,7 +76,10 @@ export interface DefinitionLoopInvocation {
   runId: string
   resume?: boolean
   answer?: string
+  optionId?: string
   approve?: string[]
+  reject?: string
+  reason?: string
   interruptId?: string
   /** Resolution of one pending `host-task` interrupt (`--host-result`, with `interruptId`). */
   hostResult?: DefinitionHostTaskResult
@@ -99,7 +105,7 @@ export interface DefinitionLoopExecutionPorts {
    * Absent ⇒ the host cannot serve host tasks and the run is stopped.
    */
   resolveHostTask?(interrupt: DefinitionInterrupt & { value: DefinitionHostTaskRequest }): Promise<{ action: 'stop' } | { action: 'resume'; result: DefinitionHostTaskResult }>
-  awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }>
+  awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }>
   /** Host gate before re-invoking Core with a human decision (daily budget).
    *  'stop' settles the run as cancelled exactly like a Stop while paused. */
   beforeContinuation?(): Promise<'continue' | 'stop'>
@@ -114,7 +120,7 @@ export interface DefinitionLoopExecutionPorts {
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
 export async function runDefinitionLoop(request: LoopRunRequest, runId: string, ports: DefinitionLoopExecutionPorts): Promise<DefinitionRuntimeResult> {
-  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'approve' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
+  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'optionId' | 'approve' | 'reject' | 'reason' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
   for (;;) {
     if (ports.isCancelled()) return { text: '', runtimeStatus: 'cancelled', failed: true }
     const result = await ports.invoke({ request, runId, contextPath: ports.contextPath?.(), ...continuation,
@@ -145,19 +151,19 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       }
       continue
     }
-    const reason = result.pendingQuestion?.question ?? result.pendingApproval?.reason ?? pending.map(item => {
-      const value = item.value as { prompt?: unknown } | undefined
-      return `${item.nodePath}: ${typeof value?.prompt === 'string' ? value.prompt : item.kind}`
-    }).join('\n')
+    // The person reads the question itself, never a node path.
+    const reason = runQuestionFrom(pending)?.text || result.pendingQuestion?.question || result.pendingApproval?.reason || 'The run needs a decision.'
     if (!pending.length) throw new Error('Core paused without an addressable interrupt')
     const decision = await ports.awaitHumanDecision(reason, pending)
     if (decision.action === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
     const selected = decision.interruptId ? pending.find(item => item.id === decision.interruptId) : pending.length === 1 ? pending[0] : undefined
     if (!selected) throw new Error('Select the pending question or approval to resume')
-    if (selected.kind !== 'question' && decision.approve !== true) throw new Error('Explicit approval is required to resume this interrupt')
+    if (selected.kind !== 'question' && decision.approve !== true && decision.reject !== true) throw new Error('Explicit approval is required to resume this interrupt')
     continuation = selected.kind === 'question'
-      ? { resume: true, answer: decision.text, interruptId: selected.id }
-      : { resume: true, approve: [selected.id], interruptId: selected.id }
+      ? { resume: true, answer: decision.text, interruptId: selected.id, ...(decision.optionId ? { optionId: decision.optionId } : {}) }
+      : decision.reject === true
+        ? { resume: true, reject: selected.id, reason: decision.text, interruptId: selected.id }
+        : { resume: true, approve: [selected.id], interruptId: selected.id }
     if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
       return { ...result, runtimeStatus: 'cancelled', failed: true }
     }

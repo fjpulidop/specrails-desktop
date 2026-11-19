@@ -346,7 +346,7 @@
       "building": "Implémentation dans un worktree isolé…",
       "buildingInPlace": "Implémentation dans le dossier du projet…",
       "buildingExistingPr": "Application des changements sur une PR existante…",
-      "paused": "Décision humaine requise",
+      "paused": "En pause",
       "on_review": "Implémentation prête pour la revue",
       "pr_draft": "PR en brouillon créée",
       "pr_draft_degraded": "Livraison de la PR incomplète",
@@ -1411,7 +1411,7 @@
     "paused": "En pause, en attente de votre part",
     "pausedReason": "En pause : {{reason}}",
     "decision": {
-      "approval": "En attente de votre approbation",
+      "approval": "Vous attend",
       "changes": "Le relecteur a demandé des modifications",
       "on_review": "Prêt pour votre relecture",
       "pr_draft": "PR brouillon prête à publier",

@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { onRunQuestionAnswered, readRunQuestion, type RunQuestion } from '../../../components/run-question/run-question'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { readDailyBudgetInfo, type DailyBudgetInfo } from '../../../lib/daily-budget'
@@ -27,6 +28,8 @@ export interface RunVitals {
   pauseBudget: DailyBudgetInfo | null
   /** Set when the pause is `limit_paused` (provider usage limit). */
   pauseLimit: LimitPause | null
+  /** The question card the run waits on (a question or an approval); null otherwise. */
+  question: RunQuestion | null
   /** True while the backing job is still executing (drives the ticker). */
   running: boolean
   /** REAL wall-clock ms (started_at → finished_at | now). Null until known. */
@@ -49,6 +52,7 @@ interface JobRowSlice {
   loopPauseKind?: string | null
   loopPauseBudget?: unknown
   loopPauseLimit?: unknown
+  question?: unknown
 }
 
 interface WireTotals {
@@ -99,6 +103,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   const [pausedReason, setPausedReason] = useState<string | null>(null)
   const [pauseBudget, setPauseBudget] = useState<DailyBudgetInfo | null>(null)
   const [pauseLimit, setPauseLimit] = useState<LimitPause | null>(null)
+  const [question, setQuestion] = useState<RunQuestion | null>(null)
   // A run announced live can reach the card before its jobs row (or its
   // started_at) is written: re-read it a bounded number of times instead of
   // showing "—" until the next reload.
@@ -128,6 +133,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
           setPausedReason(typeof job.loopPauseReason === 'string' ? job.loopPauseReason : null)
           setPauseBudget(job.loopPaused === true && job.loopPauseKind === 'budget_paused' ? readDailyBudgetInfo(job.loopPauseBudget) : null)
           setPauseLimit(job.loopPaused === true && job.loopPauseKind === 'limit_paused' ? readLimitPause(job.loopPauseLimit) : null)
+          setQuestion(readRunQuestion(job.question))
         }
         setLoaded(true)
       })
@@ -148,12 +154,13 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
     if (!ws || !live) return
     const handlerId = `run-vitals-${runId}-${uid}`
     ws.registerHandler(handlerId, (data: unknown) => {
-      const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string; pauseKind?: string; budget?: unknown; limit?: unknown }
+      const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string; pauseKind?: string; budget?: unknown; limit?: unknown; question?: unknown }
       if (msg?.type === 'loop.run_paused' && msg.loopRunId === runId) {
         setPaused(true)
         setPausedReason(typeof msg.reason === 'string' ? msg.reason : null)
         setPauseBudget(msg.pauseKind === 'budget_paused' ? readDailyBudgetInfo(msg.budget) : null)
         setPauseLimit(msg.pauseKind === 'limit_paused' ? readLimitPause(msg.limit) : null)
+        setQuestion(readRunQuestion(msg.question))
         setStatus('running')
         setFinishedAt(null)
         return
@@ -163,6 +170,7 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         setPausedReason(null)
         setPauseBudget(null)
         setPauseLimit(null)
+        setQuestion(null)
         return
       }
       if (msg?.type === 'loop.limit_pause' && msg.loopRunId === runId) {
@@ -183,16 +191,22 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         setPausedReason(null)
         setPauseBudget(null)
         setPauseLimit(null)
+        setQuestion(null)
         setFinishedAt(ts(msg.timestamp) ?? Date.now())
       }
     })
     return () => ws.unregisterHandler(handlerId)
   }, [ws, live, runId, uid])
 
+  // Answered on another surface of this window: the question is gone now.
+  useEffect(() => onRunQuestionAnswered((answered) => {
+    if (answered.projectId === projectId && answered.runId === runId) { setQuestion(null); setPaused(false); setPausedReason(null) }
+  }), [projectId, runId])
+
   // 1s elapsed ticker — only while genuinely running (and the caller wants live).
   const now = useNow(1000, live && running && startedAt !== null)
 
   const elapsedMs = startedAt === null ? null : Math.max(0, (finishedAt ?? now) - startedAt)
 
-  return { status, paused, pausedReason, pauseBudget, pauseLimit, running, elapsedMs, costUsd, numTurns, loaded }
+  return { status, paused, pausedReason, pauseBudget, pauseLimit, question, running, elapsedMs, costUsd, numTurns, loaded }
 }

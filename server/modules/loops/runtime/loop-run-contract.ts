@@ -377,7 +377,7 @@ export interface LoopGraphEventPayload {
 }
 
 export type PausedHumanDecision =
-  | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }
+  | { action: 'resume'; text: string; interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }
   | { action: 'stop' }
   /** `limit_paused` only: continue now on another provider (prior context goes along as historical data). */
   | { action: 'switch'; provider: string; model: string }

@@ -91,12 +91,12 @@ const coreDependencies: Record<string, string[]> = {
   // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
   'project-rules/domain.ts': [],
   // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
-  'inbox/domain.ts': [],
+  'inbox/domain.ts': ['../../shared/run-question'],
   'inbox/ports.ts': ['./domain'],
   'inbox/application.ts': ['./domain', './ports'],
   'inbox/index.ts': ['./application', './domain', './ports'],
   // Live board (every run across projects): pure columns/lanes; the collector depends only on its own ports.
-  'live-board/domain.ts': [],
+  'live-board/domain.ts': ['../../shared/run-question'],
   'live-board/ports.ts': ['./domain'],
   'live-board/application.ts': ['./domain', './ports'],
   'live-board/index.ts': ['./application', './domain', './ports'],

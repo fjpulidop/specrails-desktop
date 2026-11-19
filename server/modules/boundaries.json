@@ -218,6 +218,7 @@
         "../../../project-registry",
         "../../../providers/registry",
         "../../../providers/runtime",
+        "../../../shared/run-question",
         "../../../util/win-spawn",
         "../../../workspace-resolution",
         "../../delivery/runtime/multi-repo-execution-store",
@@ -2565,6 +2566,7 @@
       "adapters/project-source.ts": [
         "../../../db",
         "../../../jira/jira-db",
+        "../../../shared/run-question",
         "../../delivery/runtime/rail-pr-store",
         "../../execution",
         "../../loops/runtime/loop-limit-pauses",
@@ -2579,7 +2581,9 @@
         "./ports"
       ],
       "attention-prefs.ts": [],
-      "domain.ts": [],
+      "domain.ts": [
+        "../../shared/run-question"
+      ],
       "index.ts": [
         "./application",
         "./domain",
@@ -2718,6 +2722,7 @@
       ],
       "adapters/project-source.ts": [
         "../../../db",
+        "../../../shared/run-question",
         "../../delivery/runtime/rail-pr-store",
         "../../loops/runtime/run-attempts",
         "../domain",
@@ -2727,7 +2732,9 @@
         "./domain",
         "./ports"
       ],
-      "domain.ts": [],
+      "domain.ts": [
+        "../../shared/run-question"
+      ],
       "index.ts": [
         "./application",
         "./domain",
@@ -2803,6 +2810,7 @@
       ],
       "runtime/loop-decider.ts": [],
       "runtime/loop-definition-controls.ts": [
+        "../../../shared/run-question",
         "./loop-definition-recovery",
         "./loop-definition-run"
       ],
@@ -2839,6 +2847,7 @@
         "node:util"
       ],
       "runtime/loop-definition-run.ts": [
+        "../../../shared/run-question",
         "./loop-run-manager",
         "node:child_process"
       ],
@@ -3060,6 +3069,7 @@
         "../../../db",
         "../../../ids",
         "../../../providers",
+        "../../../shared/run-question",
         "../../../types",
         "../../../util/win-spawn",
         "../../execution",
@@ -3084,6 +3094,7 @@
       ],
       "runtime/loop-run-pauses.ts": [
         "../../../db",
+        "../../../shared/run-question",
         "../../provider-quota/runtime/quota-reports",
         "./loop-definition-run",
         "./loop-limit-pauses",

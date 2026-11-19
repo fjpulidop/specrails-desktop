@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { onRunQuestionAnswered } from '../../../components/run-question/run-question'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { fetchLiveBoard } from '../lib/live-board-api'
 import type { LiveBoardSnapshot } from '../lib/live-board-model'
@@ -92,6 +93,9 @@ export function useLiveBoardData(active: boolean): LiveBoardData {
       if (timer.current) { clearTimeout(timer.current); timer.current = null }
     }
   }, [active, registerHandler, unregisterHandler, refresh])
+
+  // An answer from another surface of this window: the board drops the question now.
+  useEffect(() => (active ? onRunQuestionAnswered(() => { void refresh() }) : undefined), [active, refresh])
 
   useEffect(() => {
     if (!active) return

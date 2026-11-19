@@ -382,7 +382,7 @@
     "details": "详情",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "截至目前由提供方上报；最终数据在任务结束时给出。",
-    "questionPending": "回答问题"
+    "questionPending": "回答"
   },
   "runDetail": {
     "failure": "失败原因",

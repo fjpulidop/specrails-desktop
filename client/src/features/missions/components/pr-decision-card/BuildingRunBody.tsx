@@ -11,26 +11,32 @@ import { RailTrack } from '../../../../components/brand/RailTrack'
 import { FLOW_SPEC_LOOP_ID, LoopChip } from '../../../delivery/components/LoopChip'
 import { RunPrimaryButton } from '../run-primary'
 import { MissionRunStatusPill } from './MissionRunStatusPill'
+import { RunQuestionCard } from '../../../../components/run-question/RunQuestionCard'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
 import type { PrDecisionCardModel } from './usePrDecisionCardModel'
 
 export function BuildingRunBody({ model }: { model: PrDecisionCardModel }) {
   const {
     t, envelope, prUrl, runOnly, runtime, buildingPaused, existingPrContinuation, displayedPrNumber, runStatus,
     phaseLine, ticketChips, openPr, pausedRunId, pausedReason, pausedRunLabel, pausedResumeStep, pausedOnBudget,
-    pausedLive, setLogRunId, runChips, runtimeError, logModal,
+    pausedLive, setLogRunId, runChips, runtimeError, logModal, pausedQuestion,
   } = model
   const { runtimeBusy } = model.buttons
   const { resumingBudgetRunId, resumeBudgetPausedRun, stoppingRunId, stopPausedRun } = model.controls
   return (
     <>
       <div className="flex items-center gap-2">
-        {buildingPaused
+        {buildingPaused && pausedQuestion
+          ? <RunStateGlyph state="needs-input" size="sm" />
+          : buildingPaused
           ? <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />
           : existingPrContinuation
             ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
             : <RailTrack running className="w-16 shrink-0" />}
-        <span className={cn('min-w-0 flex-1 truncate', buildingPaused && 'text-accent-warning')}>
-          {buildingPaused
+        <span className={cn('min-w-0 flex-1 truncate', buildingPaused && (pausedQuestion ? 'text-accent-primary' : 'text-accent-warning'))}>
+          {buildingPaused && pausedQuestion
+            ? t('common:runQuestion.notice')
+            : buildingPaused
             ? t('prCard.title.paused')
             : envelope.loopId === PR_CI_LOOP_ID
               ? t('prCard.title.ciBuilding', { pr: displayedPrNumber ?? (envelope.repositoryDeliveries ?? []).flatMap((repository) => repository.prNumber ? [`#${repository.prNumber}`] : []).join(', ') })
@@ -84,7 +90,23 @@ export function BuildingRunBody({ model }: { model: PrDecisionCardModel }) {
           <span className="sr-only"> ({t('git.branch')})</span></span>
         </div>
       )}
-      {buildingPaused && pausedRunId && (
+      {buildingPaused && pausedRunId && pausedQuestion && (
+        // The run needs the person: the question itself, answered here like on every other surface.
+        <div className="mt-2 space-y-1.5" data-agent-interactive data-testid="pr-run-question">
+          <RunQuestionCard question={pausedQuestion} projectId={envelope.projectId} runId={pausedRunId} runLabel={pausedRunLabel} density="compact" />
+          <button
+            type="button"
+            data-agent-interactive
+            disabled={stoppingRunId === pausedRunId}
+            onClick={(e) => { e.stopPropagation(); void stopPausedRun(pausedRunId) }}
+            className="inline-flex items-center gap-1 text-caption text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-60"
+          >
+            {stoppingRunId === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+            {t('prCard.stopExecution')}
+          </button>
+        </div>
+      )}
+      {buildingPaused && pausedRunId && !pausedQuestion && (
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-label text-accent-warning" data-testid="pr-run-paused-actions">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate" title={pausedReason ?? undefined}>

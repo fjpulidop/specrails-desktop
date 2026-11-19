@@ -203,6 +203,8 @@ export function usePrDecisionCardModel({ envelope: envelopeProp, conversationId,
   const pausedRunId = runIds.find((rid) => pausedRuns[rid]?.paused) ?? null
   const pausedReason = pausedRunId ? pausedRuns[pausedRunId]?.pausedReason ?? null : null
   const pausedOnBudget = pausedRunId ? pausedRuns[pausedRunId]?.budgetPaused === true : false
+  // The question (or approval) the paused run waits on: answered right on this card.
+  const pausedQuestion = pausedRunId ? pausedRuns[pausedRunId]?.question ?? null : null
   const runChips = runIds.length > 0 && (
     // Inline in the card's chip row (display: contents), not a row of its own.
     <div className="contents" data-testid="pr-run-log-chips">
@@ -238,7 +240,8 @@ export function usePrDecisionCardModel({ envelope: envelopeProp, conversationId,
   const summaryStep = liveRun?.nextStep ?? envelope.runtime?.currentStep ?? null
   const summaryPausedReason = pausedReason
   const summaryStalled = liveRun?.status === 'stalled'
-  const summaryApproval = Boolean(liveRun?.pendingApproval)
+  // A question waits on the person exactly like an approval: the strip says it needs them.
+  const summaryApproval = Boolean(liveRun?.pendingApproval) || pausedQuestion !== null
   useEffect(() => {
     onSummary?.({ step: summaryStep, paused: pausedRunId !== null, pausedReason: summaryPausedReason, stalled: summaryStalled, pendingApproval: summaryApproval })
   }, [onSummary, summaryStep, pausedRunId, summaryPausedReason, summaryStalled, summaryApproval])
@@ -284,7 +287,7 @@ export function usePrDecisionCardModel({ envelope: envelopeProp, conversationId,
     degradedDraft, existingPrContinuation, displayedPrNumber, terminal, showArrival,
     statusDetail, statusLabel, partialCreatePending,
     openPr, ticketChips, runChips, setLogRunId,
-    pausedRunId, pausedReason, pausedOnBudget, buildingPaused, pausedRunLabel, pausedLive, pausedResumeStep,
+    pausedRunId, pausedReason, pausedOnBudget, pausedQuestion, buildingPaused, pausedRunLabel, pausedLive, pausedResumeStep,
     runStatus, ciLive, ciShown, runtimeError, phaseLine, logModal,
     actions, confirms, controls, ci, buttons, section,
   }

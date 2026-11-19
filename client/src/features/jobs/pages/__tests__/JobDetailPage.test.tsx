@@ -135,17 +135,21 @@ describe('JobDetailPage', () => {
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
-  it('reveals a question-only answer form through the compact header', async () => {
-    const answer = vi.fn()
-    mockUseRuntimeRuns.mockReturnValue({ runs: [{ runId: 'r', status: 'paused', canResume: true, recoverableSteps: [], pendingQuestion: { question: 'Which backend?' } }], error: '', busy: null, answers: { r: 'Redis' }, setAnswer: vi.fn(), act: answer, refresh: vi.fn() })
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+  it('shows a live pause\'s structured question as its card and answers it by choice on the turn door', async () => {
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
+    const question = { interruptId: 'q1', kind: 'question', asker: 'developer', text: 'Task 2.1 needs touch controls, a declared non-goal.', options: [{ id: 'implement', label: 'Implement touch', meaning: 'Adds it.' }, { id: 'drop', label: 'Drop 2.1', meaning: 'Keeps the non-goal.' }], recommended: 'drop', endsRun: [], mayEndRun: false, canReject: false }
+    global.fetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => init?.method === 'POST'
+      ? { ok: true, status: 202, json: async () => ({ ok: true }) }
+      : { ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:implement', loopPaused: true, question }, events: mockEvents }) })
     render(<JobDetailPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByLabelText('Your answer')).toBeVisible()
-    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    expect(answer).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r' }), 'answer')
+    const card = await screen.findByTestId('run-question-card')
+    expect(card).toHaveTextContent('The developer needs you to decide')
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getAllByTestId('run-question-option')[1])
+    await screen.findByTestId('run-question-sent')
+    const post = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(String(post[0])).toMatch(/\/jobs\/.+\/messages$/)
+    expect(JSON.parse(String(post[1].body))).toEqual({ text: 'Drop 2.1', interruptId: 'q1', optionId: 'drop' })
   })
 
   it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals the failed step in Log detail before the remedy scrolls and leaves narrated detail preference unchanged', async () => {

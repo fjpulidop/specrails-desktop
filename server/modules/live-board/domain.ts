@@ -9,6 +9,8 @@
  * the domain status carried in `status` (never a second state table here).
  */
 
+import type { RunQuestion } from '../../shared/run-question'
+
 export const LIVE_RUN_KINDS = ['rail', 'loop', 'intent', 'job'] as const
 export type LiveRunKind = (typeof LIVE_RUN_KINDS)[number]
 
@@ -46,6 +48,8 @@ export interface LiveAttentionRef {
   title: string
   at: string
   railIndex?: number
+  /** A question item's card (the inbox's `question`). */
+  question?: RunQuestion
 }
 
 /** Pipeline progress, when the run has phases (a queue job): done of total, never guessed. */
@@ -64,8 +68,8 @@ export interface LiveRunFacts {
   title: string | null
   /** The current step or phase id, as the run reports it (the client humanizes it). */
   phase: string | null
-  /** The question a paused run asks, when the runtime recorded it. */
-  question: string | null
+  /** The question card a paused run waits on, when the runtime recorded it. */
+  question: RunQuestion | null
   steps: LiveSteps | null
   provider: string | null
   model: string | null
@@ -336,7 +340,7 @@ export function projectCards<A extends LiveAttentionRef>(read: ProjectRead<A>, d
     const column: LiveColumn = 'needs'
     cards.push({
       id: item.id, projectId: read.projectId, projectName: read.projectName,
-      kind: attentionKind(item), status: { source: 'attention' }, title: item.title, phase: null, question: null, steps: null,
+      kind: attentionKind(item), status: { source: 'attention' }, title: item.title, phase: null, question: item.question ?? null, steps: null,
       provider: null, model: null, startedAt: null, finishedAt: null, costUsd: null, costEstimated: false, costEstimatedUsd: null, costTodayUsd: null,
       railIndex: typeof item.railIndex === 'number' ? item.railIndex : null, ticketIds: [], conversationId: item.conversationId,
       jobId: null, deliveryId: null, column, urgency: columnUrgency(column), at: item.at, attention: item,

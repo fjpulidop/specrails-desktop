@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Review ready",
-    "question": "Waiting for your answer",
+    "question": "Needs you",
     "failed": "Failed",
     "blocked": "Blocked",
     "budget": "Paused: spend limit reached",

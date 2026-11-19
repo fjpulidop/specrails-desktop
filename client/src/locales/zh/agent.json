@@ -346,7 +346,7 @@
       "building": "正在隔离的 worktree 中实现…",
       "buildingInPlace": "正在项目文件夹中实现…",
       "buildingExistingPr": "正在向现有 PR 应用更改…",
-      "paused": "需要人工决策",
+      "paused": "已暂停",
       "on_review": "实现已完成，待评审",
       "pr_draft": "已创建草稿 PR",
       "pr_draft_degraded": "PR 交付未完成",
@@ -1411,7 +1411,7 @@
     "paused": "已暂停。等待你处理",
     "pausedReason": "已暂停：{{reason}}",
     "decision": {
-      "approval": "等待你的批准",
+      "approval": "需要你处理",
       "changes": "审阅者要求修改",
       "on_review": "可供你评审",
       "pr_draft": "草稿 PR 已可发布",

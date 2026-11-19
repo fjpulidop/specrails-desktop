@@ -343,5 +343,40 @@
   "errors": {
     "technicalDetails": "Technical details",
     "copyDetails": "Copy details"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "The planner needs a decision",
+      "developer": "The developer needs you to decide",
+      "fixer": "The fixer needs you to decide",
+      "reviewer": "The reviewer needs you to decide",
+      "install": "Specrails needs your permission",
+      "run": "The run needs your answer"
+    },
+    "approval": "The run needs your approval",
+    "recommended": "Recommended",
+    "other": "Other answer…",
+    "otherLabel": "Your answer",
+    "otherPlaceholder": "Write your answer",
+    "answer": "Answer",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectLabel": "Why are you rejecting it?",
+    "rejectPlaceholder": "Your reason",
+    "back": "Back",
+    "sending": "Sending…",
+    "consequence": {
+      "waits": "The run waits, at no cost, until you answer.",
+      "mayEnd": "If you say it should not be done here, the run ends.",
+      "endsRunOption": "Choosing “{{label}}” ends the run.",
+      "reject": "Rejecting ends the run. Nothing is archived or merged."
+    },
+    "sent": "Answer sent — the run continues.",
+    "approved": "Approved — the run continues.",
+    "rejected": "Rejected — the run ends.",
+    "failed": "Couldn't send your answer",
+    "showMore": "Show all",
+    "showLess": "Show less",
+    "notice": "Needs you"
   }
 }

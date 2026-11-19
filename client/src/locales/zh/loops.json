@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "选择待处理的问题或审批",
-    "answerQuestion": "回答问题",
+    "answerQuestion": "回答",
     "approval": "审批",
-    "approveContinue": "批准并继续",
+    "approveContinue": "批准",
     "paused": "已暂停",
     "acceptance": "验收",
     "verified": "已验证",
