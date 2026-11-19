@@ -107,7 +107,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
     if (body.action === 'resume') {
       if (live) { c.loopRunManager.resolveLimitPause(runId, { action: 'resume' }); res.status(202).json({ loopRunId: runId, resumed: true }); return }
-      const outcome = await resumeRetainedDefinitionRun(c, runId, {})
+      const outcome = await resumeRetainedDefinitionRun(c, runId, {}, limitResumeOptions(run))
       res.status(outcome.status).json(outcome.body); return
     }
     if (body.action === 'switch' && typeof body.provider === 'string') {
@@ -625,6 +625,16 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
 }
 
 /** An empty-handed resume of a run paused by a Desktop restart (no answer, no explicit recovery). */
+/**
+ * A usage-limit resume (the person's click or the automatic one at the reset) of a
+ * run retained over a Desktop restart authorizes re-running the step the restart cut
+ * off, as the restart dialog's Resume does; without it Core refuses with "An
+ * interrupted write requires explicit recovery" and the run fails.
+ */
+export function limitResumeOptions(run: { status: string; restart_reason?: string | null } | undefined): { restartResume: boolean } {
+  return { restartResume: !!run && isRestartResume(run, {}) }
+}
+
 export function isRestartResume(run: { status: string; restart_reason?: string | null }, controls: unknown): boolean {
   if (run.status !== 'paused' || run.restart_reason !== 'restart') return false
   const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>

@@ -27,7 +27,7 @@ import { getLoopRun, type DefinitionCheckpoint, type LoopRunRow } from './module
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { openProjectProcessAdmission } from './process-admission'
 import type { ProjectContext } from './project-registry'
-import { resumeRetainedDefinitionRun } from './project-router-loop-runs'
+import { limitResumeOptions, resumeRetainedDefinitionRun } from './project-router-loop-runs'
 import { clearLimitPause, listLimitPauses, readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { scheduleLimitResume } from './modules/provider-quota/runtime/quota-reports'
 import type { WsMessage } from './types'
@@ -196,7 +196,9 @@ function scheduleRetainedLimitResumes(ctx: ProjectContext, db: DbInstance, isCur
       const current = readLimitPause(db, runId)
       if (!isCurrent() || !current?.autoResume || getLoopRun(db, runId)?.status !== 'paused') return
       clearLimitPause(db, runId)
-      void resumeRetainedDefinitionRun(ctx, runId, {}).then(outcome => {
+      // A run retained over a restart may hold a step the restart cut off; the automatic
+      // resume the person left on authorizes re-running it, exactly like their Resume.
+      void resumeRetainedDefinitionRun(ctx, runId, {}, limitResumeOptions(getLoopRun(db, runId))).then(outcome => {
         if (outcome.status >= 400) console.warn(`[provider-quota] ${slug}: run ${runId} did not resume after the usage limit (${outcome.status})`, outcome.body)
       }).catch(error => console.error(`[provider-quota] ${slug}: resume of ${runId} failed:`, error))
     })
