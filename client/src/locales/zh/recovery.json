@@ -76,7 +76,8 @@
     "openLogs": "在失败处打开日志",
     "continueToReview": "继续进入评审",
     "continue": "继续",
-    "continueFrom": "从{{phase}}继续"
+    "continueFrom": "从{{phase}}继续",
+    "copyEnvFiles": "将此项目的 .env 复制到运行中"
   },
   "environment": {
     "command": "命令",
@@ -150,7 +151,9 @@
     "notResumed": "继续的运行未能启动",
     "failed": "无法继续运行",
     "continuing": "正在继续运行。",
-    "continuingFrom": "正在从{{step}}步骤继续。"
+    "continuingFrom": "正在从{{step}}步骤继续。",
+    "envFilesCopied": "已将 {{files}} 复制到运行中。继续。",
+    "envFilesUnavailable": "此项目没有可复制的 .env 文件。请在你的工作副本中创建它，然后重试。"
   },
   "consequence": {
     "continue": "保留全部内容，从失败的步骤继续。",
@@ -164,7 +167,8 @@
     "fixEnvironment": "显示机器需要什么以及要运行的命令。",
     "openLogs": "滚动到日志中失败的步骤。",
     "retry": "从基线重新运行。此次尝试的工作不会带过去，仍保留在旧的 worktree 中。",
-    "analyze": "AI 阅读日志并说明停止原因。"
+    "analyze": "AI 阅读日志并说明停止原因。",
+    "copyEnvFiles": "为此项目打开该设置并继续。其运行中的智能体可以读取这些文件；它们绝不会被提交，也不会在评审中显示。"
   },
   "stopped": {
     "headline": "你停止了此次运行",

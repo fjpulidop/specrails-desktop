@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "Instalações lembradas",
           "keywords": "instalar, brew, toda a máquina, ferramenta, aprovação, revogar"
+        },
+        "envFiles": {
+          "label": "Arquivos de ambiente nas execuções",
+          "keywords": "arquivos env, .env, dotenv, APP_KEY, segredos, ambiente, worktree"
         }
       }
     },

@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "記憶したインストール",
           "keywords": "インストール, brew, マシン全体, ツール, 承認, 取り消し"
+        },
+        "envFiles": {
+          "label": "実行での環境ファイル",
+          "keywords": "env ファイル, .env, dotenv, APP_KEY, シークレット, 環境, ワークツリー"
         }
       }
     },

@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "Remembered installs",
           "keywords": "install, brew, machine-wide, tool, approval, revoke"
+        },
+        "envFiles": {
+          "label": "Environment files in runs",
+          "keywords": "env files, .env, dotenv, APP_KEY, secrets, environment, worktree"
         }
       }
     },

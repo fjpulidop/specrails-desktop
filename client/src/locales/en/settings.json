@@ -625,5 +625,14 @@
     "revoked": "Approval revoked. Specrails will ask before running it again.",
     "revokeFailed": "Could not revoke the approval",
     "loadFailed": "Could not load the remembered installs"
+  },
+  "envFiles": {
+    "title": "Environment files in runs",
+    "description": "Copies this project's gitignored .env files (.env, .env.local, .env.test and other .env.<name>) from each repository into every run's worktree, so tests that need them can run. Off by default.",
+    "label": "Copy this project's .env files into runs",
+    "consequence": "Agents in this project's runs can read these files. They are never committed or shown in reviews.",
+    "enabled": "Runs now get this project's .env files",
+    "disabled": "Runs no longer get this project's .env files",
+    "saveFailed": "Could not save the environment files setting"
   }
 }

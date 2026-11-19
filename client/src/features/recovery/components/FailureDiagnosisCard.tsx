@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Cable, Check, CircleHelp, ClipboardCheck, CloudOff, Copy, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon } from 'lucide-react'
+  Cable, Check, CircleHelp, ClipboardCheck, CloudOff, Copy, FileKey, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { OverflowActions } from '../../../components/ui/overflow-actions'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
@@ -46,6 +46,7 @@ const REMEDY_ICON: Record<RemedyId, LucideIcon> = {
   'fix-environment': Wrench,
   'open-logs': ScrollText,
   'continue-to-review': ClipboardCheck,
+  'copy-env-files': FileKey,
 }
 
 /** One remedy as the person sees it: a button and, under it, what it does to their work. */

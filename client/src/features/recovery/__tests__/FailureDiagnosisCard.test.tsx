@@ -233,4 +233,17 @@ describe('FailureDiagnosisCard: unfinished tasks and causes only an AI reading n
     expect(screen.getByTestId('failure-why')).toHaveTextContent('The work before that step is kept: continue from it.')
     expect(screen.getByTestId('failure-why')).not.toHaveTextContent('choose')
   })
+
+  it('offers copying the project\'s .env as the one-click remedy of an env-file blocker, with its consequence', async () => {
+    const copy = { run: vi.fn() }
+    const blocker = { kind: 'environment', reason: 'No application encryption key (APP_KEY).', command: 'php', args: ['artisan', 'test'], cwd: '.', requiredAction: 'cp .env.example .env in this worktree' }
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'environment', resumablePhase: null, blocker, remedies: ['copy-env-files', 'continue', 'fix-environment', 'open-logs', 'retry'] })} handlers={{ ...handlers(), 'copy-env-files': copy }} />)
+    const button = screen.getByTestId('failure-remedy-copy-env-files')
+    expect(button).toHaveTextContent("Copy this project's .env into runs")
+    expect(button).toHaveAttribute('data-primary')
+    expect(button).toHaveAccessibleDescription(/Agents in its runs can read these files; they are never committed or shown in reviews\./)
+    await userEvent.click(button)
+    expect(copy.run).toHaveBeenCalledTimes(1)
+  })
 })
+

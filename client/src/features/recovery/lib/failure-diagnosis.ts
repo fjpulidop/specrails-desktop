@@ -15,8 +15,10 @@ export type FailureKind = (typeof FAILURE_KINDS)[number]
  * `continue` is the one primary remedy of a run that can go on (it keeps the work and sends the
  * cause's guidance). `retry` is "Start over" from the base, offered apart with its warning.
  * `resume` and `retry-with-browser` are older wire ids of `continue`: read as `continue`.
+ * `copy-env-files` (an environment blocker about a missing `.env`, project setting off) turns the
+ * project's env-file copy on and continues.
  */
-export const REMEDY_IDS = ['continue', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review'] as const
+export const REMEDY_IDS = ['continue', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'copy-env-files'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
 const LEGACY_REMEDIES: Readonly<Record<string, RemedyId>> = { resume: 'continue', 'retry-with-browser': 'continue' }
 

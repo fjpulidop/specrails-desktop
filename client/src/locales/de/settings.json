@@ -625,5 +625,14 @@
     "revoked": "Zustimmung widerrufen. Specrails fragt, bevor es sie erneut ausführt.",
     "revokeFailed": "Zustimmung konnte nicht widerrufen werden",
     "loadFailed": "Gemerkte Installationen konnten nicht geladen werden"
+  },
+  "envFiles": {
+    "title": "Umgebungsdateien in Läufen",
+    "description": "Kopiert die von Git ignorierten .env-Dateien dieses Projekts (.env, .env.local, .env.test und andere .env.<name>) aus jedem Repository in den Worktree jedes Laufs, damit Tests, die sie brauchen, laufen können. Standardmäßig aus.",
+    "label": ".env-Dateien dieses Projekts in Läufe kopieren",
+    "consequence": "Agenten in den Läufen dieses Projekts können diese Dateien lesen. Sie werden nie committet oder in Reviews angezeigt.",
+    "enabled": "Läufe erhalten jetzt die .env-Dateien dieses Projekts",
+    "disabled": "Läufe erhalten die .env-Dateien dieses Projekts nicht mehr",
+    "saveFailed": "Die Einstellung für Umgebungsdateien konnte nicht gespeichert werden"
   }
 }

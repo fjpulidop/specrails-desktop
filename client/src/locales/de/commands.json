@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "Gemerkte Installationen",
           "keywords": "installieren, brew, rechnerweit, Werkzeug, Zustimmung, widerrufen"
+        },
+        "envFiles": {
+          "label": "Umgebungsdateien in Läufen",
+          "keywords": "env-Dateien, .env, dotenv, APP_KEY, Geheimnisse, Umgebung, Worktree"
         }
       }
     },

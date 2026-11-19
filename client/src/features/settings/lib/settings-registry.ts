@@ -58,6 +58,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   project('subagentsProject', 'subagents'),
   project('integrationBranch', 'branch'),
   project('worktreeEnv', 'environment'),
+  project('envFiles', 'environment'),
   project('agentEnv', 'environment'),
   project('projectBudget', 'budget'),
   project('reviewLimit', 'budget'),
