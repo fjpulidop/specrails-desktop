@@ -206,3 +206,25 @@ it('re-pins an unchanged shared build under the package lock and marks it as jus
     expect(fs.readdirSync(path.join(cache, '.refs', digest))).toHaveLength(2)
   } finally { configureSharedRuntimePackageCache(null) }
 })
+
+it('prepares the shared package off the event loop so the launch only pins it', async () => {
+  const { configureSharedRuntimePackageCache, prepareRetainedAgentRuntime } = await import('./agent-runtime-package')
+  const { cli, context } = fixture()
+  configureSharedRuntimePackageCache(path.join(root, 'cache'))
+  try {
+    // Two launches at once share one preparation.
+    await Promise.all([prepareRetainedAgentRuntime(cli), prepareRetainedAgentRuntime(cli)])
+    const packages = fs.readdirSync(path.join(root, 'cache')).filter((name) => /^[a-f0-9]{64}$/.test(name))
+    expect(packages).toHaveLength(1)
+    expect(fs.readdirSync(path.join(root, 'cache')).filter((name) => name.startsWith('.staged-'))).toEqual([])
+    // The synchronous retention then copies nothing: it pins the prepared package.
+    const copy = vi.spyOn(fs, 'copyFileSync')
+    const retained = retainAgentRuntime(cli, context)
+    expect(copy).not.toHaveBeenCalled()
+    expect(retained).toBe(path.join(root, 'cache', packages[0]!, 'dist/agent-runtime/cli.js'))
+    expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
+    copy.mockRestore()
+  } finally {
+    configureSharedRuntimePackageCache(null)
+  }
+})

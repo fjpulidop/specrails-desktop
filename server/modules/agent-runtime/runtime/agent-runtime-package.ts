@@ -205,6 +205,96 @@ function copyInstalledPackage(source: string, destination: string): void {
   install(source, destination, true)
 }
 
+/** copyInstalledPackage with async I/O: the same selection, resolution and limits. */
+async function copyInstalledPackageAsync(source: string, destination: string): Promise<void> {
+  const installed = new Map<string, string>()
+  const copying = new Set<string>()
+  let files = 0, bytes = 0, packages = 0
+  const copy = async (from: string, to: string, boundary: string): Promise<void> => {
+    const stat = await fs.promises.lstat(from)
+    if (stat.isSymbolicLink()) {
+      const resolved = await fs.promises.realpath(from), relative = path.relative(boundary, resolved)
+      if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Core package symlink escapes its package')
+      await copy(resolved, to, boundary)
+    } else if (stat.isDirectory()) {
+      const real = await fs.promises.realpath(from)
+      if (copying.has(real)) throw new Error('Core package contains a cyclic symbolic link')
+      copying.add(real)
+      await fs.promises.mkdir(to, { recursive: true })
+      try { for (const name of (await fs.promises.readdir(from)).sort()) if (!['node_modules', '.git', '.bin'].includes(name)) await copy(path.join(from, name), path.join(to, name), boundary) }
+      finally { copying.delete(real) }
+    } else if (stat.isFile()) {
+      if (++files > 100_000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
+      await fs.promises.mkdir(path.dirname(to), { recursive: true })
+      await fs.promises.copyFile(from, to)
+      await fs.promises.chmod(to, stat.mode & 0o777)
+    } else throw new Error('Core package contains a nonregular file')
+  }
+  const install = async (from: string, to: string, root = false): Promise<void> => {
+    if (++packages > 2000) throw new Error('Core dependency closure exceeds retention limits')
+    if (root) { for (const entry of SHIPPED) if (fs.existsSync(path.join(from, entry))) await copy(path.join(from, entry), path.join(to, entry), from) }
+    else await copy(from, to, from)
+    installed.set(await fs.promises.realpath(to), from)
+    const pkg = JSON.parse(await fs.promises.readFile(path.join(from, 'package.json'), 'utf8'))
+    for (const name of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).sort()) {
+      if (!SAFE_PACKAGE.test(name)) throw new Error('Invalid Core package dependency')
+      let dependency: string
+      try { dependency = resolveDependency(name, from) }
+      catch (error) { if (pkg.optionalDependencies?.[name]) continue; throw error }
+      try {
+        const present = resolveDependency(name, to)
+        if (installed.get(present) === dependency) continue
+      } catch { /* Not copied into this resolution scope yet. */ }
+      await install(dependency, path.join(to, 'node_modules', name))
+    }
+  }
+  await install(source, destination, true)
+}
+
+const preparing = new Map<string, Promise<void>>()
+
+/**
+ * Materialize the Core package a launch is about to retain into the shared cache with async
+ * I/O, before the launch's synchronous retention. The first launch after every Core build
+ * (each app update) copied and hashed ~16k files on the event loop, freezing the app for
+ * 7–8 s; concurrent launches now share one preparation and only publish under the lock.
+ * Best effort: on any failure the synchronous path still retains the package itself.
+ */
+export async function prepareRetainedAgentRuntime(cli: string): Promise<void> {
+  const cache = sharedPackageCache
+  if (!cache) return
+  let root: string
+  try { root = packageRoot(await fs.promises.realpath(cli)) } catch { return }
+  const stamp = sourceStamp(root)
+  const known = retainedBySource.get(root)
+  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return
+  const key = root + '\0' + stamp
+  const running = preparing.get(key)
+  if (running) return running
+  const task = (async () => {
+    await fs.promises.mkdir(cache, { recursive: true, mode: 0o700 })
+    const staged = path.join(cache, '.staged-' + randomUUID())
+    try {
+      await copyInstalledPackageAsync(root, staged)
+      const integrity = await treeDigestAsync(staged, (await fs.promises.readdir(staged)).sort())
+      const retained = path.join(cache, integrity)
+      const existing = fs.existsSync(retained) ? await treeDigestAsync(retained, (await fs.promises.readdir(retained)).sort()) : null
+      if (existing !== null && existing !== integrity) return
+      withRuntimePackageLock(cache, () => {
+        if (!fs.existsSync(retained)) fs.renameSync(staged, retained)
+      })
+      retainedBySource.set(root, { stamp, integrity })
+    } catch {
+      // The synchronous retention reports the real problem.
+    } finally {
+      await fs.promises.rm(staged, { recursive: true, force: true }).catch(() => {})
+      preparing.delete(key)
+    }
+  })()
+  preparing.set(key, task)
+  return task
+}
+
 export function retainAgentRuntime(cli: string, contextPath: string): string {
   const pinFile = path.join(path.dirname(contextPath), 'desktop-runtime-package.json')
   if (fs.existsSync(pinFile)) return resolveRetainedAgentRuntime(contextPath)
