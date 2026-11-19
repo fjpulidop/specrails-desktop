@@ -392,5 +392,41 @@
     "navigation": "Détail de l’exécution",
     "sections": "Sections du journal",
     "stopped": "Continuer"
+  },
+  "held": {
+    "label": {
+      "restart": "En pause",
+      "interrupted": "Interrompu",
+      "provider_limit": "Limite d’utilisation",
+      "budget": "Limite de dépenses",
+      "question": "Vous attend",
+      "approval": "Vous attend",
+      "paused": "En pause"
+    },
+    "tooltip": {
+      "restart": "L’app a redémarré pendant que cette exécution travaillait. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "interrupted": "Une étape s’est arrêtée avant la fin. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "provider_limit": "La limite d’utilisation du fournisseur est atteinte. L’exécution attend sa réinitialisation.",
+      "budget": "La limite de dépenses est atteinte. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "question": "L’exécution vous a posé une question et attend votre réponse.",
+      "approval": "L’exécution attend votre approbation pour continuer.",
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas."
+    },
+    "reason": {
+      "restart": "L’app a redémarré pendant l’étape {{step}}.",
+      "restartNoStep": "L’app a redémarré pendant que l’exécution travaillait.",
+      "interrupted": "L’étape {{step}} s’est arrêtée avant la fin.",
+      "interruptedNoStep": "Une étape s’est arrêtée avant la fin.",
+      "provider_limit": "En attente de la réinitialisation de la limite d’utilisation du fournisseur.",
+      "budget": "La limite de dépenses est atteinte.",
+      "question": "En attente de votre réponse.",
+      "approval": "En attente de votre approbation.",
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas."
+    },
+    "stoppedTime": "Temps de travail jusqu’à l’arrêt",
+    "cancelRun": "Annuler l’exécution",
+    "cancelRunConfirmTitle": "Annuler cette exécution en pause ?",
+    "cancelRunConfirmDescription": "Elle se termine comme arrêtée et plus rien ne s’exécute. Ses modifications restent dans son worktree, et vous pourrez encore la reprendre plus tard depuis la fenêtre de l’exécution.",
+    "keepPaused": "La laisser en pause"
   }
 }

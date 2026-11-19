@@ -174,7 +174,7 @@
     "approve": "Aprovar",
     "recover": "Recuperar fase interrompida",
     "resume": "Retomar",
-    "cancel": "Cancelar continuação",
+    "cancel": "Cancelar execução",
     "status": {
       "running": "A continuar…",
       "succeeded": "Concluído",
@@ -196,7 +196,12 @@
     "reviewDelivery": "Implementação concluída. Reveja o resultado no log antes da entrega; esta continuação não o publicou.",
     "prepareDelivery": "Preparar entrega",
     "dismiss": "Descartar",
-    "selectRecovery": "Selecione as tentativas interrompidas a recuperar"
+    "selectRecovery": "Escolha quais etapas interrompidas continuar",
+    "continue": "Continuar",
+    "continueConsequence": "A etapa {{step}} retoma de onde parou; suas alterações parciais são mantidas.",
+    "continueConsequenceMany": "As etapas interrompidas retomam de onde pararam; suas alterações parciais são mantidas.",
+    "recoveryHint": "Cada uma retoma de onde parou e mantém suas alterações parciais. Uma etapa deixada de fora continua interrompida.",
+    "recoveryBranch": "{{step}} · ramo {{index}}"
   },
   "roleHints": {
     "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",

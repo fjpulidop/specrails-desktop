@@ -154,7 +154,8 @@ export interface RuntimePendingQuestion { stepId: string; requestedAt: string; q
 export interface RuntimeRun {
   expiredAt?: string
   forkSuccessor?: string
-  recoveryAttempts?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
+  /** Core's interrupted attempts; `effect` is `write` for a step re-running its own workspace writes. */
+  recoveryAttempts?: Array<{ attemptId: string; nodePath: string; scopeId: string; status?: string; effect?: string }>
   engineVersion?: number
   completion?: { ok: boolean; verified: boolean; reasons: string[] } | null
   steering?: {

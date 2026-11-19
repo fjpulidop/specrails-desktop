@@ -28,6 +28,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/loop-factory.ts](runtime/loop-factory.ts)
 - [runtime/loop-graph.ts](runtime/loop-graph.ts)
 - [runtime/loop-role-engines.ts](runtime/loop-role-engines.ts)
+- [runtime/loop-run-hold.ts](runtime/loop-run-hold.ts): why a run whose job row stays `running` is not working (restart, interrupted write, usage limit, budget, question). `GET /jobs` and `GET /jobs/:id` return it as `hold`; every client surface reads the job through it (`jobStatusLook(job)`), so a stopped run never shows as running. Runs startup recovery has not reconciled yet (`ProjectContext.restartPendingRunIds`) read as paused by the restart from the first request
 - [runtime/loop-run-manager.ts](runtime/loop-run-manager.ts)
 - [runtime/loop-runs-store.ts](runtime/loop-runs-store.ts)
 - [runtime/run-attempts.ts](runtime/run-attempts.ts): attempt chains along `fork_of`, the one superseded-attempt rule every list shares, and the `run_continuations` record

@@ -392,5 +392,41 @@
     "navigation": "Dettaglio esecuzione",
     "sections": "Sezioni del log",
     "stopped": "Continua"
+  },
+  "held": {
+    "label": {
+      "restart": "In pausa",
+      "interrupted": "Interrotto",
+      "provider_limit": "Limite di utilizzo",
+      "budget": "Limite di spesa",
+      "question": "Ti aspetta",
+      "approval": "Ti aspetta",
+      "paused": "In pausa"
+    },
+    "tooltip": {
+      "restart": "L’app si è riavviata mentre questa esecuzione lavorava. Non viene eseguito nulla finché non la continui.",
+      "interrupted": "Un passo si è fermato prima di finire. Non viene eseguito nulla finché non la continui.",
+      "provider_limit": "È stato raggiunto il limite di utilizzo del provider. L’esecuzione attende che venga ripristinato.",
+      "budget": "È stato raggiunto il limite di spesa. Non viene eseguito nulla finché non la continui.",
+      "question": "L’esecuzione ti ha fatto una domanda e attende la tua risposta.",
+      "approval": "L’esecuzione attende la tua approvazione per proseguire.",
+      "paused": "Non viene eseguito nulla finché non la continui."
+    },
+    "reason": {
+      "restart": "L’app si è riavviata durante il passo {{step}}.",
+      "restartNoStep": "L’app si è riavviata mentre l’esecuzione lavorava.",
+      "interrupted": "Il passo {{step}} si è fermato prima di finire.",
+      "interruptedNoStep": "Un passo si è fermato prima di finire.",
+      "provider_limit": "In attesa che il limite di utilizzo del provider venga ripristinato.",
+      "budget": "È stato raggiunto il limite di spesa.",
+      "question": "In attesa della tua risposta.",
+      "approval": "In attesa della tua approvazione.",
+      "paused": "Non viene eseguito nulla finché non la continui."
+    },
+    "stoppedTime": "Tempo di lavoro fino all’arresto",
+    "cancelRun": "Annulla esecuzione",
+    "cancelRunConfirmTitle": "Annullare questa esecuzione in pausa?",
+    "cancelRunConfirmDescription": "Termina come fermata e non viene eseguito altro. Le sue modifiche restano nel suo worktree e potrai ancora continuarla più tardi dalla finestra dell’esecuzione.",
+    "keepPaused": "Lasciala in pausa"
   }
 }

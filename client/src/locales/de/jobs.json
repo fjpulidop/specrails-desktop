@@ -392,5 +392,41 @@
     "navigation": "Ausführungsdetails",
     "sections": "Protokollbereiche",
     "stopped": "Fortsetzen"
+  },
+  "held": {
+    "label": {
+      "restart": "Pausiert",
+      "interrupted": "Unterbrochen",
+      "provider_limit": "Nutzungslimit",
+      "budget": "Ausgabenlimit",
+      "question": "Braucht dich",
+      "approval": "Braucht dich",
+      "paused": "Pausiert"
+    },
+    "tooltip": {
+      "restart": "Die App wurde neu gestartet, während dieser Lauf arbeitete. Nichts läuft, bis du ihn fortsetzt.",
+      "interrupted": "Ein Schritt wurde vor dem Ende angehalten. Nichts läuft, bis du ihn fortsetzt.",
+      "provider_limit": "Das Nutzungslimit des Anbieters wurde erreicht. Der Lauf wartet, bis es zurückgesetzt wird.",
+      "budget": "Das Ausgabenlimit wurde erreicht. Nichts läuft, bis du ihn fortsetzt.",
+      "question": "Der Lauf hat dir eine Frage gestellt und wartet auf deine Antwort.",
+      "approval": "Der Lauf wartet auf deine Freigabe, um weiterzumachen.",
+      "paused": "Nichts läuft, bis du ihn fortsetzt."
+    },
+    "reason": {
+      "restart": "Die App wurde während des Schritts {{step}} neu gestartet.",
+      "restartNoStep": "Die App wurde neu gestartet, während der Lauf arbeitete.",
+      "interrupted": "Der Schritt {{step}} wurde vor dem Ende angehalten.",
+      "interruptedNoStep": "Ein Schritt wurde vor dem Ende angehalten.",
+      "provider_limit": "Wartet, bis das Nutzungslimit des Anbieters zurückgesetzt wird.",
+      "budget": "Das Ausgabenlimit wurde erreicht.",
+      "question": "Wartet auf deine Antwort.",
+      "approval": "Wartet auf deine Freigabe.",
+      "paused": "Nichts läuft, bis du ihn fortsetzt."
+    },
+    "stoppedTime": "Arbeitszeit bis zum Anhalten",
+    "cancelRun": "Lauf abbrechen",
+    "cancelRunConfirmTitle": "Diesen pausierten Lauf abbrechen?",
+    "cancelRunConfirmDescription": "Er endet als gestoppt und es läuft nichts mehr. Seine Änderungen bleiben in seinem Worktree, und du kannst ihn später im Lauffenster noch fortsetzen.",
+    "keepPaused": "Pausiert lassen"
   }
 }

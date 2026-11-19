@@ -174,7 +174,7 @@
     "approve": "Approuver",
     "recover": "Récupérer la phase interrompue",
     "resume": "Reprendre",
-    "cancel": "Annuler la reprise",
+    "cancel": "Annuler l’exécution",
     "status": {
       "running": "Reprise en cours…",
       "succeeded": "Réussi",
@@ -196,7 +196,12 @@
     "reviewDelivery": "Implémentation terminée. Vérifiez le résultat dans le journal avant la livraison ; cette reprise ne l’a pas publié.",
     "prepareDelivery": "Préparer la livraison",
     "dismiss": "Ignorer",
-    "selectRecovery": "Sélectionnez les tentatives interrompues à reprendre"
+    "selectRecovery": "Choisissez les étapes interrompues à continuer",
+    "continue": "Continuer",
+    "continueConsequence": "L’étape {{step}} reprend là où elle s’est arrêtée ; ses modifications partielles sont conservées.",
+    "continueConsequenceMany": "Les étapes interrompues reprennent là où elles se sont arrêtées ; leurs modifications partielles sont conservées.",
+    "recoveryHint": "Chacune reprend là où elle s’est arrêtée et garde ses modifications partielles. Une étape laissée de côté reste interrompue.",
+    "recoveryBranch": "{{step}} · branche {{index}}"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",

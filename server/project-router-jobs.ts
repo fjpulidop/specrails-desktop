@@ -59,6 +59,7 @@ import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
 import { readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { readRunHolds, type LiveRunPause, type RunHoldSources } from './modules/loops/runtime/loop-run-hold'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
@@ -519,9 +520,13 @@ const accepted = loopPaused
       const title = store?.tickets[String(id)]?.title
       return title ? { ticketId: id, ticketTitle: title } : null
     }
+    // A loop run that stopped without settling keeps its row running (ownership):
+    // its hold says why it is not working, so no list shows it as running.
+    const holds = (() => { try { return readRunHolds(db, result.jobs.filter((job) => job.status === 'running' && !isRuntimeContinuationActive(ctx(req), job.id)).map((job) => job.id), runHoldSources(ctx(req))) } catch { return new Map() as ReturnType<typeof readRunHolds> } })()
     const annotatedJobs = result.jobs.map((j) => ({
       ...j,
       ...(isRuntimeContinuationActive(ctx(req), j.id) ? { status: 'running', finished_at: null } : {}),
+      ...(holds.get(j.id) ? { hold: holds.get(j.id) } : {}),
       hasTelemetry: jobsWithTelemetry.has(j.id),
       ...(specOf(j.command) ?? {}),
       ...(chain.get(j.id) ? { attempt: { number: chain.get(j.id)!.attempt, of: chain.get(j.id)!.attempts, firstRunId: chain.get(j.id)!.rootRunId } } : {}),
@@ -718,7 +723,9 @@ const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), pendingInterrupts, question, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
+const continuationActive = isRuntimeContinuationActive(c, jobId)
+const hold = job.status === 'running' && !continuationActive ? (() => { try { return readRunHolds(db, [jobId], runHoldSources(c)).get(jobId) ?? null } catch { return null } })() : null
+const annotated = { ...job, ...(continuationActive ? { status: 'running', finished_at: null } : {}), ...(hold ? { hold } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused: loopPaused || !!hold, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), pendingInterrupts, question, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 
@@ -881,4 +888,15 @@ async function generateFailureAnalysis(
   }
   writeFailureAnalysis(db, job.id, stored)
   return stored
+}
+
+/** What the project's live loop engine and startup recovery know about held runs. */
+function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }> }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
+  const manager = c.loopRunManager
+  return {
+    livePause: (runId) => manager?.isPaused?.(runId)
+      ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, pending: manager.pendingInterrupts?.(runId) ?? [] }
+      : null,
+    restartPending: c.restartPendingRunIds,
+  }
 }

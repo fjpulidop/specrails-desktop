@@ -84,6 +84,8 @@ export function startProjectRecovery(deps: {
   const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => {
     if (!isCurrent()) return
     const loopRecoveryOk = deps.recoverOrphanLoopRuns(definitionStates)
+    // Reconciled: the rows now say paused (restart) or settled; they speak for themselves.
+    if (loopRecoveryOk) ctx.restartPendingRunIds?.clear()
     if (loopRecoveryOk) {
       // Decision tokens belong to the dead process. Clear them before any
       // recovery projection while admission is still closed; otherwise every

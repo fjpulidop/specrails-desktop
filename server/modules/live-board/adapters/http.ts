@@ -27,6 +27,7 @@ export function registerLiveBoardRoutes(router: Router, registry: ProjectRegistr
         project: { id: ctx.project.id, name: ctx.project.name },
         db: ctx.db,
         liveRunMissions: () => ctx.railLoopRuns,
+        restartPending: ctx.restartPendingRunIds,
       })),
       attention: inbox.items,
       missions: createMissionDirectory(registry.desktopDb),

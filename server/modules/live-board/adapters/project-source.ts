@@ -19,6 +19,8 @@ export interface LiveBoardProjectHandle {
    * (`ProjectContext.railLoopRuns`); isolated runs keep it on the delivery.
    */
   liveRunMissions?: () => ReadonlyMap<string, { originConversationId?: string }>
+  /** Runs active at startup that recovery has not reconciled yet: nothing drives them, so they read as paused by the restart. */
+  restartPending?: ReadonlySet<string>
 }
 
 interface LoopRunRow {
@@ -254,6 +256,8 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         }
         return rows
       })
+      // Booting: a run the restart cut off still says running until recovery reconciles it.
+      for (const row of loopRuns) if (row.status === 'running' && handle.restartPending?.has(row.id)) { row.status = 'paused'; row.restart_reason = 'restart' }
       const runById = new Map(loopRuns.map((row) => [row.id, row]))
       const running = loopRuns.filter((row) => row.status === 'running').map((row) => row.id)
       const steps = guard(projectId, 'loop steps', new Map<string, string>(), () => currentSteps(db, running))

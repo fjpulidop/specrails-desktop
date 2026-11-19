@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { jobDisplayStatus, jobHoldOf } from '../lib/job-run-state'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
 import { LoopRunDetail } from '../components/job-run/LoopRunDetail'
@@ -57,6 +59,11 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [confirmCancelHeld, setConfirmCancelHeld] = useState(false)
+  // A held run that streams again was continued: re-read its row (at most every 3 s).
+  const heldRef = useRef(false)
+  heldRef.current = !!jobHoldOf(job)
+  const holdRefetchRef = useRef(0)
   // Log-surface altitude, remembered per project like the Code explorer's
   // Story|Log toggle. Narrated is the default: a reader who wants raw logs can
   // switch in one click, but a reader who cannot read them never has to.
@@ -192,6 +199,10 @@ export default function JobDetailPage() {
 
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as { type: string; projectId?: string } & Record<string, unknown>
+    if (heldRef.current && Date.now() - holdRefetchRef.current > 3000 && (msg.jobId === id || msg.processId === id) && (msg.type === 'event' || msg.type === 'log')) {
+      holdRefetchRef.current = Date.now()
+      fetch(`${getApiBase()}/jobs/${id}`).then((r) => r.json()).then((data: { job: JobSummary }) => { if (data?.job) setJob(data.job) }).catch(() => {})
+    }
 
     // Filter by active project
     if (activeProjectRef.current && msg.projectId && msg.projectId !== activeProjectRef.current) {
@@ -416,12 +427,17 @@ export default function JobDetailPage() {
   }
 
   const isRunning = job.status === 'running'
+  // Held: stopped without settling. Ending it is "Cancel run", confirmed with its consequence.
+  const held = !!jobHoldOf(job)
+  const displayStatus = jobDisplayStatus(job)
+  const settledView = displayStatus !== 'running' && displayStatus !== 'queued'
   const isFinished = job.status === 'completed' || job.status === 'failed'
   // An interactive freestyle session that is still resident: the user converses
   // and must Finalize (no auto-terminate). FEATURE-gated via the server flag —
   // job.interactive is only ever set when the feature is on.
   const isInteractive = !!job.interactive
-  const isInteractiveRunning = isInteractive && isRunning
+  // A held run (a restart, a limit, a question) has nothing to steer: its card or its Resume speaks for it.
+  const isInteractiveRunning = isInteractive && isRunning && !held
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
@@ -514,7 +530,7 @@ export default function JobDetailPage() {
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
+              <LoopStepExplorer events={events} jobStatus={displayStatus} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
             </>}
             logContent={navigation => isLoopJob ? <>
               {eventBuffer.omitted && (
@@ -522,8 +538,8 @@ export default function JobDetailPage() {
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopRunDetail events={events} jobStatus={job.status} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
-                settled={job.status !== 'running' && job.status !== 'queued'} elapsedMs={job.duration_ms ?? null} />
+              <LoopRunDetail events={events} jobStatus={displayStatus} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
+                settled={settledView} elapsedMs={job.duration_ms ?? null} />
             </> : <>
               {eventBuffer.omitted && (
                 <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
@@ -549,7 +565,7 @@ export default function JobDetailPage() {
                       {narrationMode === 'narrated' ? (
                         <NarratedProgress
                           events={events}
-                          settled={job.status !== 'running' && job.status !== 'queued'}
+                          settled={settledView}
                           durationRange={durationRange}
                           elapsedMs={job.duration_ms ?? null}
                           variant="page"
@@ -613,10 +629,10 @@ export default function JobDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleCancel}
+                    onClick={held ? () => setConfirmCancelHeld(true) : handleCancel}
                     className="h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
                   >
-                    {isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
+                    {held ? t('held.cancelRun') : isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -639,6 +655,16 @@ export default function JobDetailPage() {
       {job && activeProjectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
         <RunLimitPause projectId={activeProjectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
       )}
+      <ConfirmDialog
+        open={confirmCancelHeld}
+        onOpenChange={setConfirmCancelHeld}
+        testId="job-cancel-held-confirm"
+        title={t('held.cancelRunConfirmTitle')}
+        description={t('held.cancelRunConfirmDescription')}
+        cancelLabel={t('held.keepPaused')}
+        confirmLabel={t('held.cancelRun')}
+        onConfirm={() => { setConfirmCancelHeld(false); void handleCancel() }}
+      />
       {isInteractiveRunning && (
         <InteractiveJobComposer
           jobId={job.id}

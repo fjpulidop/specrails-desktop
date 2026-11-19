@@ -17,3 +17,8 @@ export const INBOX_KIND_RUN_STATE = {
 export function inboxKindRunState(kind: InboxKind): RunState {
   return INBOX_KIND_RUN_STATE[kind]
 }
+
+/** A run held by a restart, an interruption or a plain pause (`held:<kind>`) is paused, not blocked. */
+export function inboxItemRunState(item: { kind: InboxKind; detail: string | null }): RunState {
+  return item.kind === 'blocked' && item.detail?.startsWith('held:') ? 'paused' : INBOX_KIND_RUN_STATE[item.kind]
+}

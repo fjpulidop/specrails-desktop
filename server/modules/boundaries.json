@@ -2570,6 +2570,7 @@
         "../../delivery/runtime/rail-pr-store",
         "../../execution",
         "../../loops/runtime/loop-limit-pauses",
+        "../../loops/runtime/loop-run-hold",
         "../../loops/runtime/run-attempts",
         "../../recovery",
         "../../recovery/adapters/sqlite",
@@ -2762,6 +2763,7 @@
       "runtime/loop-limit-pauses.ts",
       "runtime/loop-pr-ci-recipe.ts",
       "runtime/loop-role-engines.ts",
+      "runtime/loop-run-hold.ts",
       "runtime/loop-run-manager.ts",
       "runtime/loop-runs-store.ts",
       "runtime/loop-turn-limits.ts",
@@ -3047,6 +3049,11 @@
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-runs-store"
+      ],
+      "runtime/loop-run-hold.ts": [
+        "../../../db",
+        "./loop-limit-pauses",
+        "./loop-run-contract"
       ],
       "runtime/loop-run-launch.ts": [
         "../../../db",

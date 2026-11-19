@@ -392,5 +392,41 @@
     "navigation": "実行詳細",
     "sections": "ログのセクション",
     "stopped": "続行"
+  },
+  "held": {
+    "label": {
+      "restart": "一時停止",
+      "interrupted": "中断",
+      "provider_limit": "利用上限",
+      "budget": "支出上限",
+      "question": "あなたの対応が必要",
+      "approval": "あなたの対応が必要",
+      "paused": "一時停止"
+    },
+    "tooltip": {
+      "restart": "この実行の作業中にアプリが再起動しました。続行するまで何も実行されません。",
+      "interrupted": "ステップが完了前に停止しました。続行するまで何も実行されません。",
+      "provider_limit": "プロバイダーの利用上限に達しました。リセットされるまで待機します。",
+      "budget": "支出上限に達しました。続行するまで何も実行されません。",
+      "question": "実行から質問があり、回答を待っています。",
+      "approval": "続行するには承認が必要です。",
+      "paused": "続行するまで何も実行されません。"
+    },
+    "reason": {
+      "restart": "{{step}}ステップの途中でアプリが再起動しました。",
+      "restartNoStep": "実行の作業中にアプリが再起動しました。",
+      "interrupted": "{{step}}ステップが完了前に停止しました。",
+      "interruptedNoStep": "ステップが完了前に停止しました。",
+      "provider_limit": "プロバイダーの利用上限のリセットを待っています。",
+      "budget": "支出上限に達しました。",
+      "question": "回答を待っています。",
+      "approval": "承認を待っています。",
+      "paused": "続行するまで何も実行されません。"
+    },
+    "stoppedTime": "停止までの作業時間",
+    "cancelRun": "実行をキャンセル",
+    "cancelRunConfirmTitle": "一時停止中のこの実行をキャンセルしますか？",
+    "cancelRunConfirmDescription": "停止として終了し、これ以上何も実行されません。変更はワークツリーに残り、後で実行ウィンドウから続行することもできます。",
+    "keepPaused": "一時停止のままにする"
   }
 }

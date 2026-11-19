@@ -13,7 +13,7 @@ import { compactRelativeTime } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
 import { primaryLabelKey, type InboxItem } from '../lib/inbox-model'
-import { inboxKindRunState } from '../lib/inbox-run-state'
+import { inboxItemRunState } from '../lib/inbox-run-state'
 import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { useInboxItemText } from '../hooks/useInboxItemText'
@@ -45,7 +45,7 @@ function useProjectMute(projectId: string, projectName: string) {
  */
 function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const { t } = useTranslation('inbox')
-  const state = inboxKindRunState(item.kind)
+  const state = inboxItemRunState(item)
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
   // A failed or blocked run says WHY in plain words; an unknown cause says so, the raw outcome (often English) stays on hover.

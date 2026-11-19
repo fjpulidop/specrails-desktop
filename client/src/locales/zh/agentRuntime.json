@@ -174,7 +174,7 @@
     "approve": "批准",
     "recover": "恢复中断阶段",
     "resume": "继续",
-    "cancel": "取消继续执行",
+    "cancel": "取消运行",
     "status": {
       "running": "继续中…",
       "succeeded": "成功",
@@ -196,7 +196,12 @@
     "reviewDelivery": "实现已完成。交付前请在任务日志中检查结果；本次继续执行未发布结果。",
     "prepareDelivery": "准备交付",
     "dismiss": "忽略",
-    "selectRecovery": "选择要恢复的中断尝试"
+    "selectRecovery": "选择要继续的中断步骤",
+    "continue": "继续",
+    "continueConsequence": "{{step}} 步骤将从停止处继续，保留其部分更改。",
+    "continueConsequenceMany": "中断的步骤将从停止处继续，保留其部分更改。",
+    "recoveryHint": "每个步骤都从停止处继续并保留其部分更改。未选择的步骤保持中断。",
+    "recoveryBranch": "{{step}} · 分支 {{index}}"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",

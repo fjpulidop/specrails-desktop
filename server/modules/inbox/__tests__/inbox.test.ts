@@ -71,7 +71,8 @@ describe('inbox projection: runs', () => {
     const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
     expect(byId['r-budget']).toMatchObject({ kind: 'budget', action: 'resume-run' })
     expect(byId['r-human']).toMatchObject({ kind: 'question', action: 'open-run' })
-    expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run' })
+    // A restart is a pause that waits for Resume, worded like the run window (the run's hold).
+    expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:restart' })
     expect(byId['r-fork']).toBeUndefined()
   })
 

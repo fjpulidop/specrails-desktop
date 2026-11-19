@@ -1,4 +1,5 @@
 import { readLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { readRunHold } from '../../loops/runtime/loop-run-hold'
 import { runQuestionFromStatus, shortQuestion } from '../../../shared/run-question'
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
@@ -161,22 +162,26 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       ...attemptField(attempts.get(run.id)),
     }
     if (run.status === 'paused') {
-      // provider-quota: waiting for a usage-limit reset (live, or retained over a restart).
-      const limit = run.restart_reason === 'limit_paused' || run.restart_reason === 'restart' ? readLimitPause(handle.db, run.id) : null
-      // Only a question Core still waits on needs the person's answer; a limit, a budget or a restart is not a question.
-      const question = !limit && run.restart_reason !== 'budget_paused' ? runQuestionFromStatus(run.runtime_status_json) : null
-      if (question) {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', version: `${version}:${question.interruptId}`,
-          detail: shortQuestion(question), question, at: toIso(run.started_at, nowIso), action: 'open-run' })
-      } else if (limit) {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit.resumeAt ?? ''}:${limit.autoResume}`,
-          detail: `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}`, at: toIso(limit.pausedAt, nowIso), action: 'resume-run' })
-      } else if (run.restart_reason === 'budget_paused') {
+      // One classification for every surface (the run's hold): only a question or an approval
+      // needs the person's answer; a usage limit or the budget is a pause, a restart or an
+      // interruption waits for Resume.
+      const hold = readRunHold(handle.db, run.id)
+      // A legacy (pre-Core) loop paused on a human decision records no checkpoint and no reason: it asks.
+      const legacyAsk = !run.runtime_status_json && !run.restart_reason
+      const kind = hold?.kind === 'paused' && legacyAsk ? 'question' : hold?.kind ?? 'paused'
+      if (kind === 'question' || kind === 'approval') {
+        const question = runQuestionFromStatus(run.runtime_status_json)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', version: `${version}:${question?.interruptId ?? ''}`,
+          detail: shortQuestion(question), ...(question ? { question } : {}), at: toIso(run.started_at, nowIso), action: 'open-run' })
+      } else if (kind === 'provider_limit') {
+        const limit = readLimitPause(handle.db, run.id)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit?.resumeAt ?? ''}:${limit?.autoResume ?? ''}`,
+          detail: limit ? `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}` : null, at: toIso(limit?.pausedAt ?? run.started_at, nowIso), action: 'resume-run' })
+      } else if (kind === 'budget') {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', detail: null, at: toIso(run.started_at, nowIso), action: 'resume-run' })
-      } else if (run.restart_reason === 'restart') {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: 'interrupted', at: toIso(run.started_at, nowIso), action: 'resume-run' })
       } else {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', detail: null, at: toIso(run.started_at, nowIso), action: 'open-run' })
+        // `held:<kind>[:<step>]`: the client words it like the run window ("The app restarted during the Developer step.").
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: `held:${kind}${hold?.step ? `:${hold.step}` : ''}`, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       }
       continue
     }

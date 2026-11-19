@@ -174,7 +174,7 @@
     "approve": "Aprobar",
     "recover": "Recuperar fase interrumpida",
     "resume": "Reanudar",
-    "cancel": "Cancelar continuación",
+    "cancel": "Cancelar ejecución",
     "status": {
       "running": "Continuando…",
       "succeeded": "Completado",
@@ -196,7 +196,12 @@
     "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este trabajo antes de preparar la entrega; esta continuación no lo ha publicado.",
     "prepareDelivery": "Preparar entrega",
     "dismiss": "Descartar",
-    "selectRecovery": "Selecciona los intentos interrumpidos que quieres recuperar"
+    "selectRecovery": "Elige qué pasos interrumpidos continuar",
+    "continue": "Continuar",
+    "continueConsequence": "El paso {{step}} continúa donde se quedó; se conservan sus cambios parciales.",
+    "continueConsequenceMany": "Los pasos interrumpidos continúan donde se quedaron; se conservan sus cambios parciales.",
+    "recoveryHint": "Cada uno continúa donde se quedó y conserva sus cambios parciales. Un paso que dejes fuera sigue interrumpido.",
+    "recoveryBranch": "{{step}} · rama {{index}}"
   },
   "roleHints": {
     "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",

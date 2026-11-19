@@ -33,6 +33,7 @@ import {
 import { useNativeSurface } from '../../../components/ui/surface'
 import { getActiveProjectId } from '../../../lib/api'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { jobDisplayStatus, jobHoldOf } from '../lib/job-run-state'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
 import { useRuntimeRuns } from './job-run/useRuntimeRuns'
@@ -209,9 +210,18 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
   // Cleanup rAF on unmount
   useEffect(() => () => { if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current) }, [])
 
+  // At most one re-read every 3 s while the row still says held.
+  const holdRefetchRef = useRef(0)
+
   // Subscribe to live WebSocket updates
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as { type: string } & Record<string, unknown>
+    // A held run that streams again was continued: re-read its row once so the
+    // header stops saying paused (no paused→running event exists for every door).
+    if (jobHoldOf(job) && Date.now() - holdRefetchRef.current > 3000 && (msg.jobId === jobId || msg.processId === jobId) && (msg.type === 'event' || msg.type === 'log')) {
+      holdRefetchRef.current = Date.now()
+      refetchJob()
+    }
 
     if (msg.type === 'event' && msg.jobId === jobId) {
       const eventRow: EventRow = {
@@ -301,6 +311,11 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
   }
 
   const isRunning = job?.status === 'running'
+  // Held: stopped without settling (a restart, a limit, a question). Ending it is
+  // "Cancel run" with its own consequence, not Stop of a live run.
+  const held = !!jobHoldOf(job)
+  const displayStatus = job ? jobDisplayStatus(job) : 'queued'
+  const settledView = displayStatus !== 'running' && displayStatus !== 'queued'
   const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal({
@@ -440,7 +455,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopStepExplorer events={events} jobStatus={job.status} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
+                      <LoopStepExplorer events={events} jobStatus={displayStatus} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
                     </>}
                     logContent={navigation => job.command.startsWith('loop:') ? <>
                       {eventBuffer.omitted && (
@@ -448,8 +463,8 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopRunDetail events={events} jobStatus={job.status} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
-                        settled={job.status !== 'running' && job.status !== 'queued'} elapsedMs={job.duration_ms ?? null} />
+                      <LoopRunDetail events={events} jobStatus={displayStatus} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
+                        settled={settledView} elapsedMs={job.duration_ms ?? null} />
                     </> : <>
                       {eventBuffer.omitted && (
                         <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
@@ -475,7 +490,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                               {narrationMode === 'narrated' ? (
                                 <NarratedProgress
                                   events={events}
-                                  settled={job.status !== 'running' && job.status !== 'queued'}
+                                  settled={settledView}
                                   elapsedMs={job.duration_ms ?? null}
                                   variant="glass"
                                 />
@@ -500,7 +515,9 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                     className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
-                    {isLoopRun
+                    {held
+                      ? t('held.cancelRun')
+                      : isLoopRun
                       ? t('dashboard:railControls.stop')
                       : cancelKind === 'interactive'
                         ? t('common:actions.discard')
@@ -529,7 +546,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
             {job && projectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
               <RunLimitPause projectId={projectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
             )}
-            {!!job?.interactive && job.status === 'running' && (
+            {!!job?.interactive && job.status === 'running' && !jobHoldOf(job) && (
               <InteractiveJobComposer
                 jobId={jobId}
                 projectId={projectId}
@@ -550,10 +567,10 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
               open={showCancelConfirm}
               onOpenChange={setShowCancelConfirm}
               testId="job-cancel-confirm"
-              title={isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
-              description={isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
-              cancelLabel={t('modal.keepRunning')}
-              confirmLabel={isLoopRun
+              title={held ? t('held.cancelRunConfirmTitle') : isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
+              description={held ? t('held.cancelRunConfirmDescription') : isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
+              cancelLabel={held ? t('held.keepPaused') : t('modal.keepRunning')}
+              confirmLabel={held ? t('held.cancelRun') : isLoopRun
                 ? t('modal.stopRun')
                 : cancelKind === 'interactive'
                   ? t('common:actions.discard')

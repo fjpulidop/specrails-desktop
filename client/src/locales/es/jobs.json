@@ -392,5 +392,41 @@
     "navigation": "Detalle de ejecución",
     "sections": "Secciones del registro",
     "stopped": "Continuar"
+  },
+  "held": {
+    "label": {
+      "restart": "Pausado",
+      "interrupted": "Interrumpido",
+      "provider_limit": "Límite de uso",
+      "budget": "Límite de gasto",
+      "question": "Te necesita",
+      "approval": "Te necesita",
+      "paused": "Pausado"
+    },
+    "tooltip": {
+      "restart": "La app se reinició mientras esta ejecución trabajaba. No se ejecuta nada hasta que la continúes.",
+      "interrupted": "Un paso se detuvo antes de terminar. No se ejecuta nada hasta que la continúes.",
+      "provider_limit": "Se alcanzó el límite de uso del proveedor. La ejecución espera a que se restablezca.",
+      "budget": "Se alcanzó el límite de gasto. No se ejecuta nada hasta que la continúes.",
+      "question": "La ejecución te ha preguntado algo y espera tu respuesta.",
+      "approval": "La ejecución espera tu aprobación para seguir.",
+      "paused": "No se ejecuta nada hasta que la continúes."
+    },
+    "reason": {
+      "restart": "La app se reinició durante el paso {{step}}.",
+      "restartNoStep": "La app se reinició mientras la ejecución trabajaba.",
+      "interrupted": "El paso {{step}} se detuvo antes de terminar.",
+      "interruptedNoStep": "Un paso se detuvo antes de terminar.",
+      "provider_limit": "Esperando a que se restablezca el límite de uso del proveedor.",
+      "budget": "Se alcanzó el límite de gasto.",
+      "question": "Esperando tu respuesta.",
+      "approval": "Esperando tu aprobación.",
+      "paused": "No se ejecuta nada hasta que la continúes."
+    },
+    "stoppedTime": "Tiempo que trabajó hasta detenerse",
+    "cancelRun": "Cancelar ejecución",
+    "cancelRunConfirmTitle": "¿Cancelar esta ejecución pausada?",
+    "cancelRunConfirmDescription": "Termina como detenida y no se ejecuta nada más. Sus cambios se quedan en su worktree y aún podrás continuarla más tarde desde la ventana de la ejecución.",
+    "keepPaused": "Mantenerla pausada"
   }
 }

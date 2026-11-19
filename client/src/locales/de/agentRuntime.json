@@ -174,7 +174,7 @@
     "approve": "Freigeben",
     "recover": "Unterbrochene Phase wiederherstellen",
     "resume": "Fortsetzen",
-    "cancel": "Fortsetzung abbrechen",
+    "cancel": "Lauf abbrechen",
     "status": {
       "running": "Wird fortgesetzt…",
       "succeeded": "Erfolgreich",
@@ -196,7 +196,12 @@
     "reviewDelivery": "Implementierung abgeschlossen. Prüfe das Ergebnis im Job-Protokoll vor der Auslieferung; diese Fortsetzung hat es nicht veröffentlicht.",
     "prepareDelivery": "Auslieferung vorbereiten",
     "dismiss": "Verwerfen",
-    "selectRecovery": "Unterbrochene Versuche zur Wiederaufnahme auswählen"
+    "selectRecovery": "Wähle, welche unterbrochenen Schritte fortgesetzt werden",
+    "continue": "Fortsetzen",
+    "continueConsequence": "Der Schritt {{step}} macht dort weiter, wo er aufgehört hat; seine bisherigen Änderungen bleiben erhalten.",
+    "continueConsequenceMany": "Die unterbrochenen Schritte machen dort weiter, wo sie aufgehört haben; ihre bisherigen Änderungen bleiben erhalten.",
+    "recoveryHint": "Jeder macht dort weiter, wo er aufgehört hat, und behält seine bisherigen Änderungen. Ein ausgelassener Schritt bleibt unterbrochen.",
+    "recoveryBranch": "{{step}} · Zweig {{index}}"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",

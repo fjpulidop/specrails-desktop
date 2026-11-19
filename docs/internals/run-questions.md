@@ -60,6 +60,10 @@ into Core's answer by the host ([machine-installs](../../server/modules/machine-
 
 The card confirms in place ("Answer sent — the run continues") and announces the answer
 to every surface of the window (`announceRunQuestionAnswered`); other windows follow
-`job.interactive` / `loop.run_resumed`. The notice is "Needs you"; actions are "Answer",
+`job.interactive` / `loop.run_resumed`. Whether a run needs the person comes from one place, the run's hold
+([`loop-run-hold.ts`](../../server/modules/loops/runtime/loop-run-hold.ts)): `question` and
+`approval` need you (the inbox lists them as questions with the card); `provider_limit` and
+`budget` are pauses; `restart`, `interrupted` and `paused` wait for Resume and read like the run
+window (inbox detail `held:<kind>[:<step>]`). The notice is "Needs you"; actions are "Answer",
 "Approve" and "Reject" in every locale. A provider limit, a budget or a restart pause is
 never announced as needing the person, and the question is never under "Failure reasons".

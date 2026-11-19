@@ -39,6 +39,18 @@ export interface PhaseDefinition {
   description: string
 }
 
+export type JobHoldKind = 'restart' | 'interrupted' | 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused'
+
+/** A stopped run that still owns its job row (server `loop-run-hold.ts`). */
+export interface JobHold {
+  kind: JobHoldKind
+  /** The workflow step that was working when it stopped (`developer`); null when unknown. */
+  step: string | null
+  /** When it stopped (its last recorded activity, ISO); null when unknown. */
+  since: string | null
+  resumeAt?: string | null
+}
+
 export interface JobSummary {
   id: string
   command: string
@@ -83,6 +95,13 @@ export interface JobSummary {
    *  this between ai-steps (no session ⇒ POST /messages would 409); live flips
    *  ride the `job.interactive` WS event. GET /jobs/:id only. */
   interactiveAcceptingTurns?: boolean
+  /**
+   * Why a job whose row says `running` is not working right now (a loop run the
+   * app restart paused, an interrupted write, a usage limit, the budget, a
+   * question). Absent while it genuinely works. List and detail endpoints. Read
+   * with `jobHoldOf`; every surface shows the job through it, never the raw row.
+   */
+  hold?: JobHold | null
   /** True when a loop run is paused awaiting a human decision. GET /jobs/:id only. */
   loopPaused?: boolean
   /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */
