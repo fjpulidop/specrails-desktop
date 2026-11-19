@@ -1271,6 +1271,19 @@ describe('strip: one primary, readable detail, honest spinners', () => {
       await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/loop-runs\/run-1\/remedy$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
     })
 
+    it('continues a stopped run the runtime list no longer shows, from the run\'s own record', async () => {
+      global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const href = String(url)
+        if (init?.method === 'POST') return new Response('{}', { status: 201 })
+        if (href.includes('/attempts')) return new Response(JSON.stringify({ chain: null, continuable: true }), { status: 200 })
+        if (href.includes('/agent-runtime/runs')) return new Response(JSON.stringify({ runs: [] }), { status: 200 })
+        return new Response('{}', { status: 200 })
+      }) as unknown as typeof fetch
+      renderStrip(snapshot({ decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'run_stopped', railIndex: 2, runIds: ['run-1'] }))
+      fireEvent.click(await screen.findByTestId('rail-pr-continue'))
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/loop-runs\/run-1\/remedy$/), expect.objectContaining({ method: 'POST' })))
+    })
+
     it('offers no Continue for an attempt a later one already took over', async () => {
       routeFetch([run({ engineVersion: 2, canResume: false, forkSuccessor: 'fork-1' })])
       renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2, runIds: ['run-1'] }))

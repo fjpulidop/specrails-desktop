@@ -135,7 +135,7 @@ Las ejecuciones de Implement comprueban por sí mismas la interfaz y el comporta
 
 Una ejecución que detuviste lo dice (**Detuviste esta ejecución**) y ofrece el mismo **Continuar**, nunca un relanzamiento desde cero.
 
-Los intentos de un mismo trabajo son una unidad. La ventana de la ejecución muestra en cuál estás, por ejemplo *Intento 3 de 4 · continuado desde el paso Desarrollador del intento 2*; pulsa para ver cada intento, abrir cualquiera y qué cambió entre ellos (quién continuó, desde qué paso, la guía enviada). La bandeja, el tablero en vivo, la lista de jobs y **⌘K** muestran solo el último intento, con su número: un intento fallido anterior que otro tomó no cuenta ya como algo que te necesita.
+Los intentos de un mismo trabajo son una unidad. La ventana de la ejecución muestra en cuál estás, por ejemplo *Intento 3 de 4 · continuado desde el paso Desarrollador del intento 2*; pulsa para ver cada intento, abrir cualquiera y qué cambió entre ellos (quién continuó, desde qué paso, la guía enviada). La bandeja, el tablero en vivo, la lista de trabajos y **⌘K** muestran solo el último intento, con su número: un intento fallido anterior que otro tomó no cuenta ya como algo que te necesita.
 
 Cuando la causa se conoce y más trabajo puede arreglarla (tareas sin terminar, una herramienta que falta, un error pasajero del proveedor, un intento atascado), Specrails continúa **una vez** por sí mismo y escribe *Specrails continuó automáticamente* en el historial de la ejecución. Nunca lo hace por credenciales o secretos, denegaciones de políticas, límites de gasto, límites de uso, una parada que elegiste o el mismo fallo dos veces. Desactívalo en **Ajustes → Agentes de Specrails → Continuar ejecuciones fallidas**.
 

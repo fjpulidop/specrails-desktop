@@ -28,6 +28,7 @@ import { MergePreviewLine } from './MergePreviewLine'
 import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import { useContinueRemedies } from '../../recovery/hooks/useContinueRemedies'
+import { useAttemptChain } from '../../recovery/hooks/useAttemptChain'
 import { SafetyArchiveNotice } from './SafetyArchiveNotice'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
@@ -103,8 +104,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
   const canResume = failedRun !== null && failedRun.canResume && !failedRun.active
   const relaunchBlocked = failedRun !== null && (failedRun.active || failedRun.status === 'running' || failedRun.status === 'paused')
-  // A settled definition run continues where it failed or stopped, keeping its work (never a relaunch from the base).
-  const continuable = !canResume && !relaunchBlocked && failedRun !== null && failedRun.engineVersion === 2 && !failedRun.forkSuccessor && decision.loopId !== FLOW_SPEC_LOOP_ID
+  // A settled definition run continues where it failed or stopped, keeping its work (never a relaunch
+  // from the base). The runtime list omits settled runs, so the run's own record says whether it can.
+  const continuity = useAttemptChain(stripProjectId, implementationFailedStrip ? failedRunId : null, decision.statusCode)
+  const continuable = !canResume && !relaunchBlocked && decision.loopId !== FLOW_SPEC_LOOP_ID
+    && (failedRun ? failedRun.engineVersion === 2 && !failedRun.forkSuccessor : continuity.continuable)
   const continueRemedies = useContinueRemedies(stripProjectId, continuable ? failedRunId : null, null, { enabled: implementationFailedStrip && continuable })
   const continueRun = continueRemedies.continue ?? null
   // An Intent session → Spec run relaunches from its Intent (mission card): the rail relaunch refuses that loop.

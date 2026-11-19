@@ -197,6 +197,10 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                       const look = jobStatusLook(job.status)
                       return <RunStatePill state={look.state} label={tJobs(look.labelKey)} data-testid="agent-job-status" />
                     })()}
+                    {/* A continued run is its chain's one row; it names its attempt. */}
+                    {job.attempt && job.attempt.number > 1 && (
+                      <span className="text-caption text-muted-foreground num" data-testid="agent-job-attempt">{tJobs('recent.attempt', { number: job.attempt.number })}</span>
+                    )}
                     <span className="ml-auto text-caption text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))
