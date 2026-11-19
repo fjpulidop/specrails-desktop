@@ -263,3 +263,20 @@ export function buildPrTitle(tickets: TicketNamingInput[], opts: { loopName?: st
     type, change, ref, breaking,
   })
 }
+
+/**
+ * The delivered goal in one line, from the run's own OpenSpec proposal ("What
+ * Changes"): its first bullet or sentence, without Markdown. Used as the commit
+ * and PR subject when the person's answer changed what the run built, so the
+ * subject never says the opposite of the delivery. Null when nothing usable.
+ */
+export function deliveredGoalLine(whatChanges: string | null | undefined): string | null {
+  if (!whatChanges) return null
+  for (const raw of whatChanges.split(/\r?\n/)) {
+    const line = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').replace(/[`*_]+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim()
+    if (!/[\p{L}\p{N}]/u.test(line) || /^#/.test(line)) continue
+    const sentence = (/^(.+?[.!?])(\s|$)/u.exec(line)?.[1] ?? line).replace(/[.!?]+$/u, '').trim()
+    return sentence || null
+  }
+  return null
+}

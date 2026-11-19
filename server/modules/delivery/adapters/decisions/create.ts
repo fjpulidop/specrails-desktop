@@ -1,7 +1,8 @@
 import { publishDraftPr } from '../../runtime/pr-publisher'
 import { deliverRailAsPr } from '../../runtime/rail-pr-delivery'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
-import { batchBranchNameFor, buildPrTitle } from '../../runtime/pr-naming'
+import { batchBranchNameFor, buildPrTitle, deliveredGoalLine } from '../../runtime/pr-naming'
+import { personAnsweredDuring } from '../../runtime/rail-isolated-launch-support'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges, type PrBodyReviewBrief } from '../../runtime/pr-body'
 import { readSettleEvidence } from '../../runtime/delivery-evidence'
 import { buildWhatToLookAt } from '../../runtime/review-brief'
@@ -116,7 +117,11 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     reviewBrief = null
   }
 
-  const title = buildPrTitle(ticketData, { loopName: row.loop_name })
+  // A single-ticket delivery the person's answer shaped is titled by what it delivered
+  // (as its commit is); the ticket title stays in the body's heading.
+  const answeredGoal = ticketData.length === 1 && snap.runIds.some((runId) => personAnsweredDuring(deps.db, runId))
+    ? deliveredGoalLine(deliveredChangeOf(row.settle_evidence, ticketData[0].ticketId)) : null
+  const title = buildPrTitle(answeredGoal ? [{ ...ticketData[0], title: answeredGoal }] : ticketData, { loopName: row.loop_name })
   const body = buildCanonicalPrBody({
     loopName: row.loop_name,
     baseBranch: row.base_branch,

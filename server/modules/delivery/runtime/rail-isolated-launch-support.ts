@@ -9,10 +9,10 @@ import { normalizeSpecIntent, type SpecIntent } from '../../specs/domain/intent'
 import { readStore } from '../../specs/runtime/ticket-store'
 import type { GitRunner, WorktreeHandle, CommitWorktreeResult } from '../../../worktree-manager'
 import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
-import { ticketRef, buildPrTitle } from './pr-naming'
+import { ticketRef, buildPrTitle, deliveredGoalLine } from './pr-naming'
 import { readHeadSha, ticketNamingInput } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
-import { readSettleEvidence } from './delivery-evidence'
+import { readSettleEvidence, readChangeSummary } from './delivery-evidence'
 import {
   boundPrDiagnostic, getPrDelivery, readSpecSnapshot, type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrImplementationOutcome,
 } from './rail-pr-store'
@@ -109,14 +109,36 @@ export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly numbe
  * continuing an existing PR whose branch name may predate the current ticket
  * key. Keep the local id as a fallback/cross-reference for Specrails.
  */
-export function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, partial = false): string {
+export function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, partial = false, opts: { worktreePath?: string } = {}): string {
   const input = ticketNamingInput(ctx, ticketId)
   const ref = ticketRef(input)
+  // The person answered a question during the run: what it built follows the answer,
+  // which may reverse the ticket title. The subject says what was delivered (the
+  // run's own proposal); the ticket title stays in the body with the reference.
+  const delivered = !partial && opts.worktreePath ? answeredDeliveryGoal(ctx.db, runId, opts.worktreePath) : null
   const subject = partial
     ? buildPrTitle([{ ...input, labels: ['chore'] }])
-    : buildPrTitle([input])
+    : buildPrTitle([delivered ? { ...input, title: delivered } : input])
   const run = runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')
-  return `${subject}\n\nRun: ${run}${ref !== String(ticketId) ? `\nTicket: ticket-${ticketId}` : ''}${partial ? '\n(partial)' : ''}`
+  const ticketTitle = delivered && input.title ? `\nTicket title: ${input.title.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ').slice(0, 300)}` : ''
+  return `${subject}\n\nRun: ${run}${ref !== String(ticketId) ? `\nTicket: ticket-${ticketId}` : ''}${ticketTitle}${partial ? '\n(partial)' : ''}`
+}
+
+/** Runs where the person answered a question: the log records "▶ Answer received" / "human decision received". */
+export function personAnsweredDuring(db: DbInstance, runId: string): boolean {
+  try {
+    return !!db.prepare(`SELECT 1 FROM events WHERE job_id = ? AND (payload LIKE '%Answer received%' OR payload LIKE '%human decision received%') LIMIT 1`).get(runId)
+  } catch { return false }
+}
+
+/** The delivered goal line when the person's answer shaped the run; null otherwise. */
+export function answeredDeliveryGoal(db: DbInstance, runId: string, worktreePath: string): string | null {
+  if (!personAnsweredDuring(db, runId)) return null
+  try {
+    return deliveredGoalLine(readChangeSummary(worktreePath, {
+      readFile: p => fs.readFileSync(p, 'utf8'), listDir: p => fs.readdirSync(p), fileExists: p => fs.existsSync(p), fileMtimeMs: p => fs.statSync(p).mtimeMs,
+    })?.whatChanges)
+  } catch { return null }
 }
 
 export function commitFailureSummary(result: CommitWorktreeResult): string {

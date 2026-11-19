@@ -1123,6 +1123,7 @@
         "../../runtime/pr-body",
         "../../runtime/pr-naming",
         "../../runtime/pr-publisher",
+        "../../runtime/rail-isolated-launch-support",
         "../../runtime/rail-pr-delivery",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",

@@ -71,7 +71,7 @@ export function startIsolatedRuns(stage: RunLaunchStageInput): RunLaunchStageRes
     onFinished: (runId, outcome, stallReason) => ctx.onLoopRunFinished(runId, outcome, { ...runFinishedOpts, ...(stallReason ? { stallReason } : {}) }),
     recordRunProvenance, markWorktree,
     hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
-    commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial),
+    commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial, { worktreePath: run.handle.worktreePath }),
     intentFor: (run) => runIntent(ctx, run),
     forkChain: runId => definitionForkChain(ctx.db, runId),
   })
