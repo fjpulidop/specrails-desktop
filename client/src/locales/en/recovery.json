@@ -155,7 +155,7 @@
   },
   "stopped": {
     "headline": "You stopped this run",
-    "why": "Nothing is lost. Continue picks it up where it stopped, in the same worktree.",
+    "why": "Nothing is lost.",
     "whyNoContinue": "Its work stays in its worktree. Start over runs it again from the base."
   },
   "lineage": {

@@ -155,7 +155,7 @@
   },
   "stopped": {
     "headline": "你停止了此次运行",
-    "why": "没有任何损失。继续会在同一个 worktree 中从停止处接着运行。",
+    "why": "没有任何损失。",
     "whyNoContinue": "其工作保留在 worktree 中。从头开始会从基线重新运行。"
   },
   "lineage": {

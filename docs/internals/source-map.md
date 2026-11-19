@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1772 source/build files. Nearby tests are linked where names
+Includes 1782 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -980,15 +980,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [EnvironmentPlanOffer.tsx](../../client/src/features/recovery/components/EnvironmentPlanOffer.tsx)
 - [FailureAnalysisPanel.tsx](../../client/src/features/recovery/components/FailureAnalysisPanel.tsx)
 - [FailureDiagnosisCard.tsx](../../client/src/features/recovery/components/FailureDiagnosisCard.tsx)
+- [RunLineage.tsx](../../client/src/features/recovery/components/RunLineage.tsx)
+- [StoppedRunCard.tsx](../../client/src/features/recovery/components/StoppedRunCard.tsx)
 
 ## client/src/features/recovery/hooks
 
+- [useAttemptChain.ts](../../client/src/features/recovery/hooks/useAttemptChain.ts)
+- [useContinueRemedies.ts](../../client/src/features/recovery/hooks/useContinueRemedies.ts)
 - [useFailureAnalysis.ts](../../client/src/features/recovery/hooks/useFailureAnalysis.ts)
-- [useIncompleteTasksRemedies.ts](../../client/src/features/recovery/hooks/useIncompleteTasksRemedies.ts)
 - [useRunDiagnosis.ts](../../client/src/features/recovery/hooks/useRunDiagnosis.ts)
 
 ## client/src/features/recovery/lib
 
+- [attempt-chain.ts](../../client/src/features/recovery/lib/attempt-chain.ts)
 - [failure-diagnosis.ts](../../client/src/features/recovery/lib/failure-diagnosis.ts)
 
 ## client/src/features/settings/components
@@ -1001,6 +1005,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AppUpdateSection.tsx](../../client/src/features/settings/components/AppUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppUpdateSection.test.tsx)
 - [AppearanceSection.tsx](../../client/src/features/settings/components/AppearanceSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppearanceSection.test.tsx)
 - [AttentionSettingsSection.tsx](../../client/src/features/settings/components/AttentionSettingsSection.tsx)
+- [AutoContinueSection.tsx](../../client/src/features/settings/components/AutoContinueSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AutoContinueSection.test.tsx)
 - [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
 - [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
 - [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
@@ -1468,6 +1473,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [path-resolver.ts](../../server/path-resolver.ts) · [test](../../server/path-resolver.test.ts)
 - [plugin-manager.ts](../../server/plugin-manager.ts) · [test](../../server/plugin-manager.test.ts)
 - [plugins-router.ts](../../server/plugins-router.ts) · [test](../../server/plugins-router.test.ts)
+- [pre-assembly-specs.ts](../../server/pre-assembly-specs.ts) · [test](../../server/pre-assembly-specs.test.ts)
 - [process-admission.ts](../../server/process-admission.ts) · [test](../../server/process-admission.test.ts)
 - [process-fault-handlers.ts](../../server/process-fault-handlers.ts) · [test](../../server/process-fault-handlers.test.ts)
 - [provider-detection.ts](../../server/provider-detection.ts) · [test](../../server/provider-detection.test.ts)
@@ -1500,6 +1506,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server / project
 
+- [project-context-auto-continue.ts](../../server/project-context-auto-continue.ts) · [test](../../server/project-context-auto-continue.test.ts)
 - [project-context-broadcast.ts](../../server/project-context-broadcast.ts)
 - [project-context-budget.ts](../../server/project-context-budget.ts)
 - [project-context-intent.ts](../../server/project-context-intent.ts)
@@ -1964,6 +1971,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-brief.ts](../../server/modules/delivery/runtime/review-brief.ts) · [test](../../server/modules/delivery/runtime/review-brief.test.ts)
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
 - [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
+- [run-continuation.ts](../../server/modules/delivery/runtime/run-continuation.ts) · [test](../../server/modules/delivery/runtime/run-continuation.test.ts)
 - [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
 - [run-review-diagnosis.ts](../../server/modules/delivery/runtime/run-review-diagnosis.ts) · [test](../../server/modules/delivery/runtime/run-review-diagnosis.test.ts)
 - [worktree-preparation-pool.ts](../../server/modules/delivery/runtime/worktree-preparation-pool.ts) · [test](../../server/modules/delivery/runtime/worktree-preparation-pool.test.ts)
@@ -2157,6 +2165,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-turn-limits.ts](../../server/modules/loops/runtime/loop-turn-limits.ts) · [test](../../server/modules/loops/runtime/loop-turn-limits.test.ts)
 - [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
 - [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)
+- [run-attempts.ts](../../server/modules/loops/runtime/run-attempts.ts) · [test](../../server/modules/loops/runtime/run-attempts.test.ts)
 
 ## server/modules/missions/runtime
 
@@ -2247,6 +2256,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/recovery
 
 - [analysis.ts](../../server/modules/recovery/analysis.ts) · [test](../../server/modules/recovery/__tests__/analysis.test.ts)
+- [continuation.ts](../../server/modules/recovery/continuation.ts) · [test](../../server/modules/recovery/__tests__/continuation.test.ts)
 - [domain.ts](../../server/modules/recovery/domain.ts)
 - [index.ts](../../server/modules/recovery/index.ts)
 

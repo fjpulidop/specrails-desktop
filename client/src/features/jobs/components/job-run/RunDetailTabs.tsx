@@ -144,10 +144,13 @@ function RunDetailTabsView({
   const openLogs = useRef(onOpenLogs)
   useEffect(() => { openLogs.current = onOpenLogs }, [onOpenLogs])
 
+  // A diagnosis, or a stopped run's Continue card, opens its tab when it arrives (unless the person chose the log).
+  const hasContinuity = !!continuityContent
   useEffect(() => {
-    if (showDiagnosis && !observedDiagnosis.current && !explicitLogChoice.current) setActiveTab('failure')
-    if (showDiagnosis) observedDiagnosis.current = true
-  }, [showDiagnosis])
+    const leads = showDiagnosis || hasContinuity
+    if (leads && !observedDiagnosis.current && !explicitLogChoice.current) setActiveTab('failure')
+    if (leads) observedDiagnosis.current = true
+  }, [showDiagnosis, hasContinuity])
   useEffect(() => {
     if (!failureAvailable) setActiveTab('log')
   }, [failureAvailable])

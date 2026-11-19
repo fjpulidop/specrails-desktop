@@ -155,7 +155,7 @@
   },
   "stopped": {
     "headline": "Detuviste esta ejecución",
-    "why": "No se pierde nada. Continuar la retoma donde se detuvo, en el mismo worktree.",
+    "why": "No se pierde nada.",
     "whyNoContinue": "Su trabajo se queda en su worktree. Empezar de nuevo la ejecuta otra vez desde la base."
   },
   "lineage": {

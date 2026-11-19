@@ -18,6 +18,9 @@ already persist, one project at a time, plus the [inbox](../inbox/README.md) ite
 
 ## How a card is placed
 
+- **One card per attempt chain.** A loop run that a later attempt continued (an adopted fork) is
+  history, never a card: the chain shows its latest attempt, which carries `attempt: { number, of }`.
+  Same rule as the inbox and the jobs list (`supersededAttemptSql`, `loops/runtime/run-attempts.ts`).
 - **Needs you = the inbox.** The route projects the inbox with the same sources as
   `GET /api/inbox` (`createInboxSources`) and lands each item on the run it speaks for (delivery id or
   loop-run id). Every item, a review included, is in Needs you, so the column count is the inbox count. An item

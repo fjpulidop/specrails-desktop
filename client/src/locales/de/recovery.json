@@ -155,7 +155,7 @@
   },
   "stopped": {
     "headline": "Du hast diesen Lauf angehalten",
-    "why": "Nichts geht verloren. Fortsetzen macht dort weiter, wo er angehalten wurde, im selben Worktree.",
+    "why": "Nichts geht verloren.",
     "whyNoContinue": "Seine Arbeit bleibt in seinem Worktree. Neu beginnen startet ihn erneut ab der Basis."
   },
   "lineage": {

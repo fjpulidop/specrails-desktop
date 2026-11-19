@@ -174,12 +174,16 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     res.status(outcome.status).json(outcome.body)
   })
 
-  // The attempt chain a run belongs to (oldest first), for the run window's lineage. Null without lineage.
+  // The attempt chain a run belongs to (oldest first), for the run window's lineage (null without
+  // lineage), and whether Continue applies: a settled or paused definition run no later attempt took over.
   router.get('/:projectId/loop-runs/:id/attempts', (req: Request, res: Response) => {
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
-    try { res.json({ chain: readAttemptChain(c.db, runId) }) }
-    catch { res.json({ chain: null }) }
+    const continuable = run.engine_version === 2 && (run.status === 'completed' ? run.final_outcome !== 'success' : run.status === 'paused' && run.restart_reason !== 'fork')
+      && !readDefinitionSuccessor(c.db, runId)
+    let chain: ReturnType<typeof readAttemptChain> = null
+    try { chain = readAttemptChain(c.db, runId) } catch { chain = null }
+    res.json({ chain, continuable })
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running

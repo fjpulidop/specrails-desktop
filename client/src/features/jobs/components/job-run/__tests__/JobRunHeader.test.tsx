@@ -438,6 +438,15 @@ describe('JobRunHeader failure diagnosis', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/p1/loop-runs/job-1/remedy'), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
   })
 
+  it('offers Continue for a stopped run the runtime list no longer shows, from the run\'s own record', async () => {
+    vi.mocked(fetch).mockImplementation(async (url) => String(url).includes('/attempts') ? response({ chain: null, continuable: true }) : response({ runs: [] }))
+    renderHeader({ ...failedJob, command: 'loop:factory:implement #16', status: 'canceled', failureDiagnosis: null }, [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    await screen.findByTestId('stopped-run-card')
+    expect(screen.getByRole('tab', { name: 'Continue' })).toHaveAttribute('aria-selected', 'true')
+    await userEvent.setup().click(screen.getByTestId('failure-remedy-continue'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/loop-runs/job-2/remedy'), expect.objectContaining({ method: 'POST' })))
+  })
+
   it('offers Continue for a run the person stopped, with Start over apart', async () => {
     const user = userEvent.setup()
     const onRerun = vi.fn()

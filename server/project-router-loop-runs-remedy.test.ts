@@ -94,4 +94,14 @@ describe('continue remedy route', () => {
     expect(result.body.guided).toBeUndefined()
     expect(runtime.signal).not.toHaveBeenCalled()
   })
+
+  it('serves the attempt chain and whether Continue applies', async () => {
+    db.prepare("UPDATE loop_runs SET fork_of = 'run', fork_cut_json = ? WHERE id = 'child'").run(JSON.stringify({ fromNodePath: 'developer', scopeId: 'root', visit: 2 }))
+    let result = await api().get('/api/p/loop-runs/run/attempts')
+    expect(result.body).toMatchObject({ continuable: true, chain: { runId: 'run', attempt: 1, attempts: [{ runId: 'run', attempt: 1 }, { runId: 'child', attempt: 2, fromStep: 'developer' }] } })
+    db.prepare("INSERT INTO definition_fork_operations (project_id, source_run_id, request_id, child_run_id, request_json, adopted) VALUES ('p','run','r','child','{}',1)").run()
+    result = await api().get('/api/p/loop-runs/run/attempts')
+    expect(result.body.continuable).toBe(false)
+    expect((await api().get('/api/p/loop-runs/nope/attempts')).status).toBe(404)
+  })
 })

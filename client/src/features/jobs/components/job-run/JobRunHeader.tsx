@@ -186,8 +186,11 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   // ── Failure diagnosis: what stopped the run, why, and the remedies this surface can really run ──
   const diagnosis = useMemo(() => readFailureDiagnosis(job.failureDiagnosis), [job.failureDiagnosis])
   const showDiagnosis = !!diagnosis && isTerminal && (job.status === 'failed' || job.status === 'canceled')
+  // The chain this run belongs to ("Attempt 3 · continued from the developer step of attempt 2")
+  // and whether Continue applies (the runtime list omits settled runs, a stop among them).
+  const continuity = useAttemptChain(projectId, job.command.startsWith('loop:') ? job.id : null, job.status)
   // Continue: a settled definition run that no later attempt took over yet.
-  const definitionRunId = run?.engineVersion === 2 && !run.forkSuccessor ? run.runId : null
+  const definitionRunId = run?.engineVersion === 2 && !run.forkSuccessor ? run.runId : continuity.continuable ? job.id : null
   const stopped = isTerminal && job.status === 'canceled' && !diagnosis
   const continueRemedies = useContinueRemedies(projectId, definitionRunId, diagnosis, { enabled: isTerminal && (stopped || showDiagnosis), onContinued: onOpenRun })
   const diagnosisHandlers: RemedyHandlers = { ...continueRemedies }
@@ -201,8 +204,6 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const continuityContent = stopped && (diagnosisHandlers.continue || diagnosisHandlers.retry)
     ? <StoppedRunCard onContinue={diagnosisHandlers.continue} onStartOver={diagnosisHandlers.retry} />
     : null
-  // The chain this run belongs to: "Attempt 3 · continued from the developer step of attempt 2".
-  const chain = useAttemptChain(projectId, job.command.startsWith('loop:') ? job.id : null, job.status)
   // The card (or the stopped card) offers Start over itself, so the surface's own Run again steps aside.
   const diagnosisOffersRetry = (showDiagnosis && !!diagnosis && offersStartOver(diagnosis, diagnosisHandlers)) || (!!continuityContent && !!diagnosisHandlers.retry)
   const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
@@ -357,7 +358,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         )}
   </>)
   const statusTrail = (<>
-        <RunLineage chain={chain} onOpenRun={onOpenRun} />
+        <RunLineage chain={continuity.chain} onOpenRun={onOpenRun} />
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}

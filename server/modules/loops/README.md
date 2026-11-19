@@ -30,6 +30,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/loop-role-engines.ts](runtime/loop-role-engines.ts)
 - [runtime/loop-run-manager.ts](runtime/loop-run-manager.ts)
 - [runtime/loop-runs-store.ts](runtime/loop-runs-store.ts)
+- [runtime/run-attempts.ts](runtime/run-attempts.ts): attempt chains along `fork_of`, the one superseded-attempt rule every list shares, and the `run_continuations` record
 - [runtime/loop-turn-limits.ts](runtime/loop-turn-limits.ts) — effective per-step Maximum turns (`GET /loops/:id` `turnLimits`; `null` = no limit on a Core advertising `unlimitedTurns`, where Implement/PR-CI write roles also drop their 300 ceiling) and the turn-limit failure hint the runtime bridge appends
 - [runtime/loops-router.ts](runtime/loops-router.ts)
 - [runtime/loops-store.ts](runtime/loops-store.ts)
