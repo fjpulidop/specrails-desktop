@@ -201,7 +201,7 @@ const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
 // The Implement recipe's own end reasons (Desktop data, fixed templates): known causes even when
 // an older Core sends no classification, or a low-confidence one.
 const INCOMPLETE_TASKS = /approved tasks (?:are )?still incomplete/i
-const SPEC_INVALID = /still fails OpenSpec validation|OpenSpec could not archive change/i
+const SPEC_INVALID = /Not implemented: the person declined this ticket|still fails OpenSpec validation|OpenSpec could not archive change/i
 const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host blocker\b|^Host blocker \(/im
 const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
 // Core's own sentence for a host precondition (a fixed template, not a guess).

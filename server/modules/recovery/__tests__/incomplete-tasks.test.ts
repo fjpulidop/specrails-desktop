@@ -29,6 +29,7 @@ describe('incomplete tasks diagnosis', () => {
       ['Implementation attempt limit reached (3/3) with approved tasks still incomplete after 2 unblock attempt(s). Incomplete: []. Unblock summary: x', 'incomplete_tasks'],
       ['The plan for change c still fails OpenSpec validation or the plan contract after 2 repair(s), so it was not implemented.', 'spec_invalid'],
       ['OpenSpec could not archive change c. The implementation was verified and reviewed.', 'spec_invalid'],
+      ['Not implemented: the person declined this ticket for this repository. Reason: wrong repository', 'spec_invalid'],
       ['Automatic correction made no candidate changes. Host verification is valid: true.', 'blocked'],
       ['Automatic correction limit reached (3/3). Acceptance policy: approved == true', 'blocked'],
       ['Developer reported a host blocker (credential): log in to the registry Evidence: 401', 'environment'],

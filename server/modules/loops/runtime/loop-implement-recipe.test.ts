@@ -217,3 +217,16 @@ describe('host blockers', () => {
     expect(compile(configurableImplementGraph())).toEqual(definition)
   })
 })
+it('ends the run when the person declines the ticket for this repository instead of asking the same question again', () => {
+  const graph = configurableImplementGraph()
+  const edge = (source: string, label: string) => graph.edges.find(item => item.source === source && item.label === label)?.target
+  const params = (id: string) => graph.nodes.find(node => node.id === id)!.data!.params
+  expect(edge('architect', 'next')).toBe('plan-declined')
+  expect(params('plan-declined')!.expr).toBe('$outputs.architect.structured.confidence == "declined"')
+  expect([edge('plan-declined', 'true'), edge('plan-declined', 'false')]).toEqual(['declined', 'confidence'])
+  expect((params('architect')!.structuredOutput as { properties: { confidence: { enum: string[] } } }).properties.confidence.enum).toContain('declined')
+  expect(String(params('architect')!.prompt)).toContain('return confidence declined')
+  expect(graph.nodes.find(node => node.id === 'declined')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('Not implemented: the person declined this ticket') })
+  const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
+  expect(definition.nodes['declined']).toMatchObject({ kind: 'end' })
+})
