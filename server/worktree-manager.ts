@@ -397,10 +397,25 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
     : [...workers, 'worktree', 'add', '-b', branch, wt, base]
   const res = await git.run(args, input.repoDir)
   if (res.code !== 0) {
-    throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)
+    const reason = res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`
+    // `worktree add -b` creates the branch before it writes the checkout. A failed add (a full
+    // disk, a permission error) must not leave that branch, the half-written directory or its
+    // registration behind: each retry would otherwise mint another suffixed branch.
+    await rollBackFailedWorktreeAdd(git, input.repoDir, wt, hasBranch ? null : branch)
+    const full = /No space left on device|ENOSPC/i.test(reason)
+    throw new Error(full
+      ? `The disk that holds the run checkouts is full, so git could not create the worktree for ${branch} (${reason}). Free disk space there, then launch again.`
+      : `git worktree add failed for ${branch}: ${reason}`)
   }
   await ensurePrNeverStageExcludes(git, wt)
   return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: !hasBranch }
+}
+
+/** Best effort: undo what a failed `git worktree add` left (its new branch, directory and registration). */
+async function rollBackFailedWorktreeAdd(git: GitRunner, repoDir: string, wt: string, createdBranch: string | null): Promise<void> {
+  try { await fs.promises.rm(wt, { recursive: true, force: true }) } catch { /* nothing was written */ }
+  await git.run(['worktree', 'prune'], repoDir).catch(() => undefined)
+  if (createdBranch) await git.run(['branch', '-D', createdBranch], repoDir).catch(() => undefined)
 }
 
 /** A run checkout could not populate a submodule its base commit records. */

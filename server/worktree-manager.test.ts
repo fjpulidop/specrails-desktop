@@ -131,6 +131,24 @@ describe('createWorktree (resume-aware)', () => {
     await expect(createWorktree(git, base)).rejects.toThrow(/boom/)
   })
 
+  it('removes the branch and registration a failed add created, and keeps a branch that existed', async () => {
+    // lowdisk: each launch on a full disk left another fix/2-…-N branch behind.
+    const fresh = fakeGit({ addFails: true })
+    await expect(createWorktree(fresh.git, { ...base, branch: 'fix/2-x' })).rejects.toThrow(/boom/)
+    expect(fresh.calls).toContainEqual(['worktree', 'prune'])
+    expect(fresh.calls).toContainEqual(['branch', '-D', 'fix/2-x'])
+    const existing = fakeGit({ addFails: true, branchExists: true })
+    await expect(createWorktree(existing.git, { ...base, branch: 'fix/2-x' })).rejects.toThrow(/boom/)
+    expect(existing.calls.some((c) => c[0] === 'branch' && c[1] === '-D')).toBe(false)
+  })
+
+  it('names a full disk instead of git\'s raw error', async () => {
+    const { git } = fakeGit({ addFails: true })
+    const full: GitRunner = { run: async (args, cwd) => (args[0] === 'worktree' && args[1] === 'add'
+      ? { code: 128, stdout: '', stderr: "fatal: could not write to '/wt/ticket-3/.git': No space left on device" } : git.run(args, cwd)) }
+    await expect(createWorktree(full, base)).rejects.toThrow(/The disk that holds the run checkouts is full.*Free disk space there, then launch again/)
+  })
+
   it('uses the preferred conventional branch name when provided', async () => {
     const { git, addCalls } = fakeGit()
     const h = await createWorktree(git, { ...base, branch: 'feat/PROJ-3-add-dark-mode' })
