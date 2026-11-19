@@ -80,7 +80,7 @@ describe('settings registry', () => {
       nav.click()
       await waitFor(() => expect(findSettingAnchor(entry.id), `${entry.id} not visible in ${entry.section}`).toBeTruthy())
     }
-  })
+  }, 20_000) // Mounts the whole settings page and walks every section: slow on a loaded CI runner.
 
   it('lands on the project setting: switches nothing else, flashes the block and focuses its control', async () => {
     render(<SettingsPage />, { route: '/settings?setting=projectBudget' })

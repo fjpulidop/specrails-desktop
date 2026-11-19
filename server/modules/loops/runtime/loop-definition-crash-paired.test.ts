@@ -23,6 +23,11 @@ async function reserveAdmission(): Promise<() => void> {
   await previous
   return release
 }
+function killPid(pid: number) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return
+  if (process.platform === 'win32') { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true }); return }
+  for (const target of [-pid, pid]) { try { process.kill(target, 'SIGKILL') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error } }
+}
 function killTree(child: ChildProcess) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return
   if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true })
@@ -79,6 +84,8 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).co
         expect(calls()).toHaveLength(1)
         expect(readFileSync(path.join(cwd, 'value.txt'), 'utf8')).toBe(mode === 'write' ? 'partial' : 'baseline')
         killTree(original.child); await original.exit
+        // Core runs in its own process group, so killing the host leaves it alive: crash it too.
+        if (existsSync(path.join(root, 'core-pid'))) killPid(Number(readFileSync(path.join(root, 'core-pid'), 'utf8')))
         if (process.platform !== 'win32') expect(original.child.signalCode).toBe('SIGKILL')
       } finally {
         releaseAdmission()

@@ -22,7 +22,7 @@ const executors = createLoopExecutors({ env: process.env })
 const invoke = executors.runDefinition
 executors.runDefinition = async input => { process.stderr.write('Preparing retained runtime\n'); const result = await invoke({ ...input,
   onPrepared(metadata) { process.stderr.write('Retained runtime prepared\n'); input.onPrepared?.(metadata) },
-  onSpawn(child) { process.stderr.write('Core process spawned\n'); input.onSpawn?.(child) },
+  onSpawn(child) { process.stderr.write('Core process spawned\n'); if (child.pid) writeFileSync(path.join(root, 'core-pid'), String(child.pid)); input.onSpawn?.(child) },
   onLine(line, source) { process.stderr.write(line + '\n'); input.onLine?.(line, source) }, onRuntimeEvent(event) {
   appendFileSync(path.join(root, 'events.jsonl'), JSON.stringify(event) + '\n')
   input.onRuntimeEvent(event)
