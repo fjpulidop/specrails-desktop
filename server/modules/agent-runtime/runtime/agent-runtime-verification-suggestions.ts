@@ -36,30 +36,46 @@ function readJson(file: string): Record<string, unknown> | undefined {
   } catch { return undefined }
 }
 function packageManager(root: string): PackageManager {
+  const declared = readJson(path.join(root, 'package.json'))?.packageManager
+  const named = typeof declared === 'string' ? /^(npm|pnpm|yarn|bun)@/.exec(declared.trim())?.[1] as PackageManager | undefined : undefined
   if (exists(root, 'pnpm-lock.yaml')) return 'pnpm'
   if (exists(root, 'yarn.lock')) return 'yarn'
   if (exists(root, 'bun.lockb') || exists(root, 'bun.lock')) return 'bun'
-  return 'npm'
+  return named ?? 'npm'
 }
-function runScript(manager: PackageManager, script: string): { command: string; args: string[] } {
+/**
+ * The command that runs the repository's package manager. A manager the
+ * repository uses (its lockfile, or `packageManager`) but the host does not
+ * have on PATH (no global yarn, no corepack on Node 25) runs through `npx`
+ * at the version the repository pins, so verification works instead of
+ * ending in `spawn yarn ENOENT`. Nothing is installed globally.
+ */
+function managerCommand(manager: PackageManager, pkg: Record<string, unknown>, findExecutable: (name: string) => string | null): { command: string; prefix: string[] } {
+  if (manager === 'npm' || findExecutable(process.platform === 'win32' ? `${manager}.cmd` : manager) || findExecutable(manager)) return { command: manager, prefix: [] }
+  const pinned = typeof pkg.packageManager === 'string' ? /^(yarn|pnpm|bun)@([0-9][^+\s]*)/.exec(pkg.packageManager.trim()) : null
+  const version = pinned && pinned[1] === manager ? pinned[2] : manager === 'yarn' ? '1' : 'latest'
+  return { command: 'npx', prefix: ['--yes', `${manager}@${version}`] }
+}
+function runScript(manager: PackageManager, script: string, invocation: { command: string; prefix: string[] } = { command: manager, prefix: [] }): { command: string; args: string[] } {
   // `npm test` and `npm run <x>` are the portable forms; on Windows the npm
   // shim is resolved by Core's verification runner, never through a shell.
-  if (script === 'test') return { command: manager, args: ['test'] }
-  return { command: manager, args: ['run', script] }
+  if (script === 'test') return { command: invocation.command, args: [...invocation.prefix, 'test'] }
+  return { command: invocation.command, args: [...invocation.prefix, 'run', script] }
 }
-function nodeSuggestions(repository: Repository): VerificationSuggestion[] {
+function nodeSuggestions(repository: Repository, findExecutable: (name: string) => string | null = defaultProbe.findExecutable): VerificationSuggestion[] {
   const pkg = readJson(path.join(repository.path, 'package.json'))
   if (!pkg) return []
   const scripts = pkg.scripts && typeof pkg.scripts === 'object' && !Array.isArray(pkg.scripts) ? pkg.scripts as Record<string, unknown> : {}
   const manager = packageManager(repository.path)
+  const invocation = managerCommand(manager, pkg, findExecutable)
   const out: VerificationSuggestion[] = []
   for (const candidate of SCRIPT_CANDIDATES) {
     const name = candidate.names.find((script) => typeof scripts[script] === 'string' && String(scripts[script]).trim() && !NPM_TEST_PLACEHOLDER.test(String(scripts[script])))
-    if (name) out.push({ repositoryId: repository.id, ...runScript(manager, name), reason: `package.json ${candidate.label} "${name}"` })
+    if (name) out.push({ repositoryId: repository.id, ...runScript(manager, name, invocation), reason: `package.json ${candidate.label} "${name}"` })
   }
   if (!out.length) {
     const build = BUILD_SCRIPTS.find((script) => typeof scripts[script] === 'string' && String(scripts[script]).trim())
-    if (build) out.push({ repositoryId: repository.id, ...runScript(manager, build), reason: `package.json build script "${build}" (no test or type check script found)` })
+    if (build) out.push({ repositoryId: repository.id, ...runScript(manager, build, invocation), reason: `package.json build script "${build}" (no test or type check script found)` })
   }
   return out
 }
@@ -90,14 +106,14 @@ function otherSuggestions(repository: Repository): VerificationSuggestion[] {
 /** Deterministic, offline detection of a repository's own checks. Repositories
  *  with nothing recognisable produce no entry: the architect proposes commands
  *  at run time, and Core admits repositories that have no automated check. */
-export function suggestVerificationCommands(repositories: Repository[]): VerificationSuggestion[] {
+export function suggestVerificationCommands(repositories: Repository[], findExecutable: (name: string) => string | null = defaultProbe.findExecutable): VerificationSuggestion[] {
   const out: VerificationSuggestion[] = []
   for (const repository of repositories) {
     const workspaces = repository.workspacePaths ?? (repository.workspacePath ? [repository.workspacePath] : [repository.path])
     for (const workspace of workspaces) {
       if (!workspace || !fs.existsSync(workspace)) continue
       const member = { ...repository, path: workspace }
-      const node = nodeSuggestions(member)
+      const node = nodeSuggestions(member, findExecutable)
       const checks = node.length ? node : otherSuggestions(member)
       const cwd = path.relative(repository.path, workspace).split(path.sep).join('/')
       out.push(...checks.map(check => cwd ? { ...check, cwd, reason: `${cwd}: ${check.reason}` } : check))
