@@ -135,9 +135,18 @@ describe('host blockers', () => {
       expect(String(reviewer.prompt)).toContain('{{run.humanChecks}}')
       expect(String(reviewer.prompt)).toContain('brief.humanChecks')
       expect((reviewer.structuredOutput as { properties: Record<string, unknown> }).properties.brief).toMatchObject({ required: ['humanChecks'] })
+      // A reviewer that omits the brief (a terse model, an older fixture) still reviews: the brief is advisory, never a schema failure.
+      expect((reviewer.structuredOutput as { required: string[] }).required).not.toContain('brief')
       for (const id of ['developer', 'fixer', 'unblock']) expect(String(definition.nodes[id].params.prompt)).toContain('$SPECRAILS_BROWSE')
       expect(String(definition.nodes.architect.params.prompt)).toContain('completable AND checkable by the run itself')
     }
+  })
+  it('lets write roles ask the person a decision only on a Core that advertises roleDecisions', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
+    for (const id of ['developer', 'unblock', 'fixer']) expect(asking.nodes[id].params).toMatchObject({ decisions: 'ask' })
+    for (const id of ['architect', 'reviewer']) expect(asking.nodes[id].params).not.toHaveProperty('decisions')
+    const older = compile(configurableImplementGraph(paired))
+    for (const id of ['developer', 'unblock', 'fixer']) expect(older.nodes[id].params).not.toHaveProperty('decisions')
   })
   it('asks for [human] tasks only from a Core whose contract understands them', () => {
     const tagged = compile(configurableImplementGraph({ ...paired, humanTasks: 1 }))
