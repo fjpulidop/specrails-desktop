@@ -936,6 +936,29 @@ export async function coreAnnouncesReviewBrief(): Promise<boolean> {
   }
 }
 
+/**
+ * The evidence of a multi-repository delivery as a whole: its group row records none,
+ * each repository delivery records its own. One run reviews and verifies every
+ * repository, so a unit is kept once per ticket and run (the first repository's,
+ * which is the primary one in listing order); human rules are merged by text. Null
+ * when no repository recorded evidence. The harvest is the weakest one recorded.
+ */
+export function groupSettleEvidence(children: ReadonlyArray<DeliverySettleEvidence | null>): DeliverySettleEvidence | null {
+  const present = children.filter((item): item is DeliverySettleEvidence => item !== null)
+  if (!present.length) return null
+  const units: DeliveryUnitEvidence[] = [], seen = new Set<string>()
+  for (const unit of present.flatMap((item) => item.units)) {
+    const key = JSON.stringify([unit.ticketId, unit.runId ?? null])
+    if (seen.has(key)) continue
+    seen.add(key); units.push(unit)
+  }
+  const rank = { ok: 0, partial: 1, failed: 2 } as const
+  const harvest = present.map((item) => item.harvest).reduce((worst, next) => (rank[next] > rank[worst] ? next : worst), 'ok' as DeliverySettleEvidence['harvest'])
+  const rules = present.flatMap((item) => item.humanRules ?? [])
+  const humanRules = rules.filter((rule, index) => rules.findIndex((other) => JSON.stringify(other) === JSON.stringify(rule)) === index)
+  return { schemaVersion: 1, harvest, harvestedAt: present.map((item) => item.harvestedAt).sort().at(-1)!, units, ...(humanRules.length ? { humanRules } : {}) }
+}
+
 /** Parse a persisted settle_evidence column value (null-tolerant). */
 export function readSettleEvidence(raw: string | null | undefined): DeliverySettleEvidence | null {
   if (!raw) return null

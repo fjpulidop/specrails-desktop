@@ -14,7 +14,7 @@ import { resolveProjectExecution } from '../../../workspace-resolution'
 import { getActivePrDeliveryByRail, appendPrDeliverySafetyArchive, getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage, transitionDecision, updatePrDeliverySettleEvidence } from './rail-pr-store'
 import { composeReviewPacket } from './review-packet'
 import { composeDeliveryChanges, composeFileDiff } from './delivery-changes'
-import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
+import { readSettleEvidence, groupSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS, runBringBackLocalChanges, runDiscardRestoreBranch, runRestoreLocalChanges } from './rail-pr-decision'
@@ -72,6 +72,13 @@ export function registerRailReviewRoutes(router: Router): void {
         }
       } catch (err) {
         console.warn('[rails-router] packet evidence heal skipped:', err instanceof Error ? err.message : String(err))
+      }
+      // "All repositories" of a multi-repository delivery: the group row records no
+      // evidence of its own, so the packet speaks for the repositories' evidence together
+      // instead of claiming nothing was verified or reviewed.
+      if (!repositoryId && !readSettleEvidence(row.settle_evidence)) {
+        const grouped = groupSettleEvidence(listRepositoryDeliveries(c.db, row.id).map((child) => readSettleEvidence(child.settle_evidence)))
+        if (grouped) row = { ...row, settle_evidence: JSON.stringify(grouped) }
       }
       const packet = composeReviewPacket({ db: c.db, row, flowSettlement: c.flow?.settlementForDelivery(row.id) ?? null, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the

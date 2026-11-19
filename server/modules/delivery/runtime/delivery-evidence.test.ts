@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  groupSettleEvidence,
+  type DeliverySettleEvidence,
   readChangeSummary,
   projectDefinitionRuntimeEvidence,
   healRuntimeEvidence,
@@ -818,3 +820,19 @@ describe('delivered change summary (OpenSpec proposal)', () => {
     } finally { fs.rmSync(wt, { recursive: true, force: true }) }
   })
 })
+
+describe('groupSettleEvidence', () => {
+  const unit = (runId: string, ticketId = 1) => ({ ticketId, runId, reviewerStepId: 'reviewer', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null } as unknown as DeliverySettleEvidence['units'][number])
+  const evidence = (harvest: DeliverySettleEvidence['harvest'], harvestedAt: string, units: DeliverySettleEvidence['units']): DeliverySettleEvidence => ({ schemaVersion: 1, harvest, harvestedAt, units })
+  it('keeps one unit per ticket and run, the weakest harvest and the latest time', () => {
+    const grouped = groupSettleEvidence([evidence('ok', '2026-01-01T00:00:01.000Z', [unit('r1')]), null, evidence('partial', '2026-01-01T00:00:02.000Z', [unit('r1'), unit('r1', 2)])])
+    expect(grouped?.units.map((u) => [u.ticketId, u.runId])).toEqual([[1, 'r1'], [2, 'r1']])
+    expect(grouped?.harvest).toBe('partial')
+    expect(grouped?.harvestedAt).toBe('2026-01-01T00:00:02.000Z')
+  })
+  it('is null when no repository recorded evidence', () => {
+    expect(groupSettleEvidence([null, null])).toBeNull()
+    expect(groupSettleEvidence([])).toBeNull()
+  })
+})
+
