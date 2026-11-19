@@ -183,6 +183,12 @@ describe('runtime project configuration', () => {
   it('suggests each repository\'s own checks offline, without a model call or writing configuration', async () => {
     fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ name: 'example', scripts: { test: 'vitest run', typecheck: 'tsc --noEmit', build: 'tsc' } }))
     fs.writeFileSync(path.join(directory, 'pnpm-lock.yaml'), '')
+    // The host's own pnpm decides between `pnpm` and the npx fallback; pin it
+    // so the expectation does not depend on what the machine has installed.
+    const bin = path.join(directory, 'fake-bin')
+    fs.mkdirSync(bin, { recursive: true })
+    for (const name of ['pnpm', 'pnpm.cmd']) fs.writeFileSync(path.join(bin, name), '', { mode: 0o755 })
+    vi.stubEnv('PATH', bin)
     const response = await request(app).get('/api/projects/example/agent-runtime/verification-suggestions').expect(200)
     expect(response.body.repositories).toEqual([{ id: 'primary-example', name: 'example' }].map((entry) => ({ ...entry, name: expect.any(String) })))
     expect(response.body.suggestions).toEqual([
