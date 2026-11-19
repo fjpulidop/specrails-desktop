@@ -578,6 +578,9 @@ export interface PacketTicketSection {
   solution: string | null
   /** Solution content beyond the visible digest (markdown). */
   solutionOverflow?: string | null
+  /** The delivered OpenSpec proposal's `## What Changes` / `## Why` (agent-authored, reviewed). */
+  whatChanged?: string | null
+  whyChanged?: string | null
   labels: string[]
   implementationOutcome: string | null
   deliveryOutcome: string | null

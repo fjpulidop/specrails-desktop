@@ -133,7 +133,12 @@ export interface DeliveryUnitEvidence {
   /** Baseline-on-touch record (Core `baselineOnTouch: 1`). Absent without the
    *  capability or when the setting was off for the run. */
   baseline?: DeliveryBaseline
+  /** The delivered OpenSpec proposal's own account of the change (`## Why`, `## What Changes`),
+   *  harvested from the run checkout. Agent-authored and reviewed, never a host measurement. */
+  changeSummary?: DeliveryChangeSummary
 }
+
+export interface DeliveryChangeSummary { change: string; why: string | null; whatChanges: string | null }
 
 /** A human-only project rule (`.specrails/rules.json`, Core `rulesInventory: 1`). */
 export interface DeliveryHumanRule { text: string; source: string | null }
@@ -450,6 +455,49 @@ function readConfidenceFromWorktree(
  * per-unit try/catch turns internal errors into `partial`/`failed` harvest
  * status while absence of a source stays `ok` (absence is honest data).
  */
+const CHANGE_SUMMARY_SECTION_MAX = 2000
+
+/** The body of the first `## <heading>` section (up to the next `## `), trimmed and bounded. */
+function markdownSection(markdown: string, heading: RegExp): string | null {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n')
+  const start = lines.findIndex((line) => /^##\s+/.test(line) && heading.test(line.replace(/^##\s+/, '')))
+  if (start < 0) return null
+  const end = lines.findIndex((line, index) => index > start && /^##\s+/.test(line))
+  const body = lines.slice(start + 1, end < 0 ? undefined : end).join('\n').trim()
+  if (!body) return null
+  return body.length > CHANGE_SUMMARY_SECTION_MAX ? `${body.slice(0, CHANGE_SUMMARY_SECTION_MAX - 1)}…` : body
+}
+
+/**
+ * The run's own OpenSpec proposal: the newest `proposal.md` among the checkout's active and
+ * archived changes (the checkout gives every older file its checkout time; the run writes its
+ * proposal later). Without it the packet only had the spec's own text and said "No summary was
+ * recorded" for most deliveries.
+ */
+export function readChangeSummary(worktreePath: string, io: Pick<EvidenceFsIO, 'readFile' | 'listDir' | 'fileExists' | 'fileMtimeMs'>): DeliveryChangeSummary | null {
+  const changesDir = path.join(worktreePath, 'openspec', 'changes')
+  const candidates: Array<{ change: string; file: string }> = []
+  const list = (dir: string): string[] => { try { return io.listDir(dir) } catch { return [] } }
+  for (const entry of list(changesDir)) {
+    if (entry === 'archive') {
+      for (const archived of list(path.join(changesDir, 'archive'))) candidates.push({ change: archived.replace(/^\d{4}-\d{2}-\d{2}-/, ''), file: path.join(changesDir, 'archive', archived, 'proposal.md') })
+    } else {
+      candidates.push({ change: entry, file: path.join(changesDir, entry, 'proposal.md') })
+    }
+  }
+  let newest: { change: string; file: string; mtime: number } | null = null
+  for (const candidate of candidates) {
+    if (!io.fileExists(candidate.file)) continue
+    const mtime = io.fileMtimeMs(candidate.file)
+    if (!newest || mtime > newest.mtime) newest = { ...candidate, mtime }
+  }
+  if (!newest) return null
+  const markdown = io.readFile(newest.file)
+  const why = markdownSection(markdown, /^why\b/i)
+  const whatChanges = markdownSection(markdown, /^what\s+changes\b/i)
+  return why || whatChanges ? { change: newest.change, why, whatChanges } : null
+}
+
 export function harvestDeliveryEvidence(
   io: EvidenceHarvestIO,
   units: readonly EvidenceHarvestUnit[],
@@ -490,6 +538,12 @@ export function harvestDeliveryEvidence(
       }
     } catch {
       unitErrored = true
+    }
+    try {
+      const summary = unit.worktreePath ? readChangeSummary(unit.worktreePath, fsIo) : null
+      if (summary) evidence.changeSummary = summary
+    } catch {
+      // Best-effort narrative: a missing or unreadable proposal never marks the harvest errored.
     }
     try {
       if (unit.worktreePath) {

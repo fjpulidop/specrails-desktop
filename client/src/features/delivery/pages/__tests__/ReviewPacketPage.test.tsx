@@ -194,6 +194,26 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getByText('This build cost $2.50')).toBeInTheDocument()
   })
 
+  it('shows what the delivered proposal says changed, and why, instead of "No summary was recorded"', async () => {
+    respond({
+      packet: packet({ sections: [{
+        ...packet().sections[0],
+        solution: null,
+        solutionOverflow: null,
+        whatChanged: '- `parse()` accepts `w` and `d` components.\n- Version bumped to 1.5.0.',
+        whyChanged: 'Callers convert days by hand.',
+      }] }),
+    })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('What was done'))
+    const block = screen.getByTestId('packet-what-changed')
+    expect(block).toHaveTextContent('What changed')
+    expect(block).toHaveTextContent('Version bumped to 1.5.0.')
+    expect(block).toHaveTextContent('Callers convert days by hand.')
+    expect(screen.queryByText('No summary was recorded.')).not.toBeInTheDocument()
+  })
+
   it('renders the spec narrative as markdown — lists stay lists, code reads as code, the overflow sits behind a disclosure', async () => {
     respond({
       packet: packet({ sections: [{

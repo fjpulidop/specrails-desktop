@@ -132,6 +132,11 @@
     "title": "Planned approach (from the spec)",
     "caveat": "What the request proposed — not a report of what the AI did. The facts above are what actually changed."
   },
+  "delivered": {
+    "title": "What changed",
+    "caveat": "From the delivered OpenSpec proposal: written by the agent and checked by the reviewer.",
+    "why": "Why"
+  },
   "outcome": {
     "succeeded": "Implemented",
     "failed": "Could not be completed",

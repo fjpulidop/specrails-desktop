@@ -132,6 +132,11 @@
     "title": "Approccio previsto (dalla spec)",
     "caveat": "Ciò che la richiesta proponeva, non un resoconto di ciò che ha fatto l'IA. I fatti qui sopra sono ciò che è cambiato davvero."
   },
+  "delivered": {
+    "title": "Cosa è cambiato",
+    "caveat": "Dalla proposta OpenSpec consegnata: scritta dall'agente e verificata dal revisore.",
+    "why": "Perché"
+  },
   "outcome": {
     "succeeded": "Implementato",
     "failed": "Non è stato possibile completarlo",

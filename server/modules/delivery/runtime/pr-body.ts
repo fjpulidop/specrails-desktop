@@ -26,6 +26,8 @@ export interface PrBodyTicket extends TicketNamingInput {
   description?: string | null
   /** The unit branch carrying this ticket's work (keys into the changes map). */
   branch?: string | null
+  /** The delivered OpenSpec proposal's `## What Changes`, when the run left one. */
+  whatChanged?: string | null
 }
 
 export interface BranchChanges {
@@ -230,6 +232,8 @@ function ticketSection(t: PrBodyTicket, changes: Map<string, BranchChanges> | nu
   if (narrative.problem) {
     chunks.push('**Problem**', clampText(narrative.problem, PROBLEM_MAX))
   }
+  const delivered = t.whatChanged?.trim()
+  if (delivered) chunks.push('**What changed**', clampText(delivered, SOLUTION_MAX))
   if (narrative.solution) {
     chunks.push('**Solution**', clampText(narrative.solution, SOLUTION_MAX))
     if (narrative.overflow) {

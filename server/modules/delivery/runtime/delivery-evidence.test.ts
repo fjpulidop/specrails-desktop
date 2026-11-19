@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  readChangeSummary,
   projectDefinitionRuntimeEvidence,
   healRuntimeEvidence,
   CONFIDENCE_RAW_CAP,
@@ -787,5 +788,33 @@ describe('reviewer finding locations (Core contract 5.9)', () => {
     const old = readRuntimeEvidence('dir', 'run', io)
     expect(old?.findings).toEqual(findings)
     expect(old && 'findingLocations' in old).toBe(false)
+  })
+})
+
+describe('delivered change summary (OpenSpec proposal)', () => {
+  const fs = require('fs') as typeof import('fs')
+  const os = require('os') as typeof import('os')
+  const path = require('path') as typeof import('path')
+  const io = { readFile: (p: string) => fs.readFileSync(p, 'utf8'), listDir: (p: string) => fs.readdirSync(p), fileExists: (p: string) => fs.existsSync(p), fileMtimeMs: (p: string) => fs.statSync(p).mtimeMs }
+  it('reads Why and What Changes from the run\'s own (newest) proposal, archived or active', () => {
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'change-summary-'))
+    try {
+      const old = path.join(wt, 'openspec/changes/archive/2026-01-02-older-change')
+      const mine = path.join(wt, 'openspec/changes/archive/2026-11-19-add-weeks')
+      fs.mkdirSync(old, { recursive: true }); fs.mkdirSync(mine, { recursive: true })
+      fs.writeFileSync(path.join(old, 'proposal.md'), '## Why\n\nolder\n\n## What Changes\n\n- older\n')
+      fs.utimesSync(path.join(old, 'proposal.md'), new Date(1000), new Date(1000))
+      fs.writeFileSync(path.join(mine, 'proposal.md'), '# Proposal\n\n## Why\n\nCallers convert days by hand.\n\n## What Changes\n\n- `parse()` accepts `w` and `d`.\n- No **BREAKING** changes.\n\n## Impact\n\n- src/index.js\n')
+      expect(readChangeSummary(wt, io)).toEqual({ change: 'add-weeks', why: 'Callers convert days by hand.', whatChanges: '- `parse()` accepts `w` and `d`.\n- No **BREAKING** changes.' })
+    } finally { fs.rmSync(wt, { recursive: true, force: true }) }
+  })
+  it('is null without a proposal or without either section', () => {
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'change-summary-'))
+    try {
+      expect(readChangeSummary(wt, io)).toBeNull()
+      fs.mkdirSync(path.join(wt, 'openspec/changes/c'), { recursive: true })
+      fs.writeFileSync(path.join(wt, 'openspec/changes/c/proposal.md'), '# Proposal\n\n## Impact\n\n- x\n')
+      expect(readChangeSummary(wt, io)).toBeNull()
+    } finally { fs.rmSync(wt, { recursive: true, force: true }) }
   })
 })

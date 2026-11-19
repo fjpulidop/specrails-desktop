@@ -188,6 +188,14 @@ describe('buildCanonicalPrBody', () => {
     expect(body).not.toContain('engineer owns the merge')
   })
 
+  it('leads with what the delivered proposal says changed', () => {
+    const t = ticket({ whatChanged: '- `parse()` accepts `w` and `d` components.\n- Version bumped to 1.5.0.' })
+    const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!) })
+    expect(body).toContain('**What changed**\n\n- `parse()` accepts `w` and `d` components.')
+    expect(body.indexOf('**What changed**')).toBeLessThan(body.indexOf('**Solution**'))
+    expect(buildCanonicalPrBody({ ...base, tickets: [ticket()], changes: changesFor(t.branch!) })).not.toContain('**What changed**')
+  })
+
   it('jira-linked ticket heads with the key (no # prefix)', () => {
     const t = ticket({ jiraKey: 'SKILLS-101' })
     const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!) })

@@ -85,6 +85,16 @@ function delivery(over: {
   return composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
 }
 
+describe('what the delivery changed', () => {
+  it('shows the delivered proposal\'s What Changes and Why for its ticket', () => {
+    const packet = delivery({ evidence: evidence({ changeSummary: { change: 'add-weeks', why: 'Callers convert days by hand.', whatChanges: '- `parse()` accepts `w` and `d`.' } }) })
+    expect(packet.sections[0]).toMatchObject({ whatChanged: '- `parse()` accepts `w` and `d`.', whyChanged: 'Callers convert days by hand.' })
+  })
+  it('stays null without a harvested proposal', () => {
+    expect(delivery().sections[0]).toMatchObject({ whatChanged: null, whyChanged: null })
+  })
+})
+
 describe('selectVariant', () => {
   const row = (over: Record<string, unknown>) => ({
     decision: 'on_review', implementation_outcome: 'succeeded', delivery_outcome: 'ready', status_code: null,

@@ -81,6 +81,10 @@ export interface PacketTicketSection {
   title: string | null
   problem: string | null
   solution: string | null
+  /** The delivered proposal's account of the change (`## What Changes`) and its reason (`## Why`):
+   *  agent-authored, reviewed; null when the run left no proposal. */
+  whatChanged?: string | null
+  whyChanged?: string | null
   /** Solution content beyond the visible digest (markdown; the UI renders it behind a disclosure). */
   solutionOverflow: string | null
   labels: string[]
@@ -541,6 +545,12 @@ function followUpReportSource(evidence: DeliverySettleEvidence | null): string |
   return parts.length > 0 ? parts.join('\n') : null
 }
 
+/** The delivered proposal's summary for one ticket, from settle evidence. */
+function changeNarrative(evidence: DeliverySettleEvidence | null, ticketId: number): { whatChanged: string | null; whyChanged: string | null } {
+  const summary = evidence?.units.find((unit) => unit.ticketId === ticketId && unit.changeSummary)?.changeSummary ?? null
+  return { whatChanged: summary?.whatChanges ?? null, whyChanged: summary?.why ?? null }
+}
+
 export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null }: ComposeReviewPacketInput): ReviewPacket {
   const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
@@ -575,6 +585,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
       title: snap?.title ?? null,
       problem: narrative.problem,
       solution: narrative.solution,
+      ...changeNarrative(evidence, ticketId),
       solutionOverflow: narrative.overflow,
       labels: snap?.labels ?? [],
       implementationOutcome: unitRows[0]?.implementationOutcome ?? null,

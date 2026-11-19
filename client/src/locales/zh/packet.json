@@ -132,6 +132,11 @@
     "title": "计划方案（来自 Spec）",
     "caveat": "这是需求中提出的方案，而不是 AI 实际所做的报告。上方的事实才是真正发生的变更。"
   },
+  "delivered": {
+    "title": "变更内容",
+    "caveat": "来自交付的 OpenSpec 提案：由智能体撰写，经审阅者检查。",
+    "why": "原因"
+  },
   "outcome": {
     "succeeded": "已实现",
     "failed": "未能完成",

@@ -132,6 +132,11 @@
     "title": "Geplanter Ansatz (laut Spec)",
     "caveat": "Was die Anfrage vorschlug – kein Bericht darüber, was die KI getan hat. Die Fakten oben zeigen, was sich tatsächlich geändert hat."
   },
+  "delivered": {
+    "title": "Was sich geändert hat",
+    "caveat": "Aus dem gelieferten OpenSpec-Vorschlag: vom Agenten geschrieben und vom Reviewer geprüft.",
+    "why": "Warum"
+  },
   "outcome": {
     "succeeded": "Umgesetzt",
     "failed": "Konnte nicht abgeschlossen werden",

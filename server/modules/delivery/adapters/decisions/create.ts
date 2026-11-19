@@ -120,7 +120,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
   const body = buildCanonicalPrBody({
     loopName: row.loop_name,
     baseBranch: row.base_branch,
-    tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId) })),
+    tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId), whatChanged: deliveredChangeOf(row.settle_evidence, t.ticketId) })),
     changes,
     costUsd,
     reviewBrief,
@@ -246,5 +246,14 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
       prState: after?.prState ?? row.pr_state,
       ...(detail ? { detail } : {}),
     },
+  }
+}
+
+/** The delivered proposal's `## What Changes` for one ticket, from durable settle evidence. */
+function deliveredChangeOf(rawEvidence: string | null | undefined, ticketId: number): string | null {
+  try {
+    return readSettleEvidence(rawEvidence)?.units.find((unit) => unit.ticketId === ticketId && unit.changeSummary)?.changeSummary?.whatChanges ?? null
+  } catch {
+    return null
   }
 }

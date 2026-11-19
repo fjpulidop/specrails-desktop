@@ -853,6 +853,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">{t('churn.batchNotSplittable')}</p>
               )}
+              {section.whatChanged ? (
+                <div className="mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2" data-testid="packet-what-changed">
+                  <p className="text-label text-foreground">{t('delivered.title')}</p>
+                  <p className="mt-1 text-xs italic text-muted-foreground">{t('delivered.caveat')}</p>
+                  <PacketMarkdown className="mt-2">{section.whatChanged}</PacketMarkdown>
+                  {section.whyChanged ? (
+                    <>
+                      <p className="mt-2 text-label text-muted-foreground">{t('delivered.why')}</p>
+                      <PacketMarkdown className="mt-1">{section.whyChanged}</PacketMarkdown>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               {section.solution ? (
                 <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
                   <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground">
@@ -861,7 +874,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <p className="mt-1 text-xs italic text-muted-foreground">{t('planned.caveat')}</p>
                   <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
                 </details>
-              ) : (
+              ) : section.whatChanged ? null : (
                 <p className="mt-1 text-xs text-muted-foreground">{t('noSolutionRecorded')}</p>
               )}
             </li>
