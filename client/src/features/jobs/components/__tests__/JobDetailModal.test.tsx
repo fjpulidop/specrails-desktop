@@ -165,7 +165,8 @@ describe('JobDetailModal', () => {
     expect(card).toHaveTextContent('Which backend?')
     expect(screen.getAllByText('Which backend?')).toHaveLength(1)
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Answer' }))
+    // The header's Answer takes the person to the card.
+    await user.click(screen.getAllByRole('button', { name: 'Answer' }).find(button => !card.contains(button))!)
     expect(screen.getByTestId('run-question-input')).toHaveFocus()
     expect(screen.getByTestId('run-question-send')).toBeDisabled()
     await user.type(screen.getByTestId('run-question-input'), 'Redis')

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1796 source/build files. Nearby tests are linked where names
+Includes 1800 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -74,6 +74,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [settings-search.ts](../../client/src/components/command-palette/settings-search.ts)
 - [snippet.ts](../../client/src/components/command-palette/snippet.ts)
 - [useScopedSearch.ts](../../client/src/components/command-palette/useScopedSearch.ts)
+
+## client/src/components/run-question
+
+- [RunQuestionCard.tsx](../../client/src/components/run-question/RunQuestionCard.tsx) · [test](../../client/src/components/run-question/__tests__/RunQuestionCard.test.tsx)
+- [run-question.ts](../../client/src/components/run-question/run-question.ts)
 
 ## client/src/components/ui
 
@@ -565,7 +570,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/components
 
 - [InteractiveJobComposer.tsx](../../client/src/features/jobs/components/InteractiveJobComposer.tsx) · [test](../../client/src/features/jobs/components/__tests__/InteractiveJobComposer.test.tsx)
-- [InterruptQuestion.tsx](../../client/src/features/jobs/components/InterruptQuestion.tsx)
 - [JobComparisonModal.tsx](../../client/src/features/jobs/components/JobComparisonModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobComparisonModal.test.tsx)
 - [JobDetailModal.tsx](../../client/src/features/jobs/components/JobDetailModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobDetailModal.test.tsx)
 - [JobTicketHeader.tsx](../../client/src/features/jobs/components/JobTicketHeader.tsx)
@@ -579,6 +583,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
 - [LoopRunDetail.tsx](../../client/src/features/jobs/components/job-run/LoopRunDetail.tsx)
 - [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
+- [RunQuestionDock.tsx](../../client/src/features/jobs/components/job-run/RunQuestionDock.tsx)
 - [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
 - [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
 
@@ -1327,6 +1332,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [attention-policy.ts](../../client/src/lib/attention/attention-policy.ts) · [test](../../client/src/lib/attention/__tests__/attention-policy.test.ts)
 - [attention-prefs-store.ts](../../client/src/lib/attention/attention-prefs-store.ts) · [test](../../client/src/lib/attention/__tests__/attention-prefs-store.test.ts)
 - [dock-badge.ts](../../client/src/lib/attention/dock-badge.ts) · [test](../../client/src/lib/attention/__tests__/dock-badge.test.ts)
+- [mission-screen.ts](../../client/src/lib/attention/mission-screen.ts)
 - [native-notify.ts](../../client/src/lib/attention/native-notify.ts) · [test](../../client/src/lib/attention/__tests__/native-notify.test.ts)
 - [window-focus.ts](../../client/src/lib/attention/window-focus.ts)
 
@@ -2413,6 +2419,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/shared
 
 - [git-branch-name.ts](../../server/shared/git-branch-name.ts)
+- [run-question.ts](../../server/shared/run-question.ts) · [test](../../server/shared/run-question.test.ts)
 
 ## server/shell-integration
 

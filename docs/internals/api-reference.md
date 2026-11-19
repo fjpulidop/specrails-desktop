@@ -279,8 +279,8 @@ The paired companion reads the [Needs-you inbox](#needs-you-inbox-app-wide) and 
 | Method | Path | Tier | Forwards to |
 |--------|------|------|-------------|
 | `GET` | `/v1/inbox` | none (read) | `GET /api/inbox`, narrowed to the device's granted projects; each item gains `companion: { actions: [{ id, tier, enabled }], runId?, sourceId?, railIndex?, expectedDecision? }` |
-| `GET` | `/v1/projects/:pid/inbox/runs/:runId/question` | none (read) | `GET /agent-runtime/runs/:runId`; answers `{ pending, question?, requestedAt? }` |
-| `POST` | `/v1/projects/:pid/inbox/answer` | `write` | body `{ runId, answer }` (1-20000 chars) -> `POST /loop-runs/:runId/resume { answer, interruptId }` (workflow runs) or `POST /agent-runtime/runs/:runId/resume { answer }`; `409 no_pending_question` when nothing waits |
+| `GET` | `/v1/projects/:pid/inbox/runs/:runId/question` | none (read) | `GET /agent-runtime/runs/:runId`; answers `{ pending, question?, requestedAt?, card? }` (`card`: the structured question card, see [run questions](run-questions.md)) |
+| `POST` | `/v1/projects/:pid/inbox/answer` | `write` | body `{ runId, answer, optionId? }` (1-20000 chars; `optionId` must be a choice of the run's card, `400` otherwise) -> `POST /loop-runs/:runId/resume { answer, interruptId, optionId? }` (workflow runs) or `POST /agent-runtime/runs/:runId/resume { answer }`; `409 no_pending_question` when nothing waits |
 | `POST` | `/v1/projects/:pid/inbox/resume` | `ai-spawn` | body `{ runId, runCap?: "ignore" \| runCapUsd?: number }` -> `POST /loop-runs/:runId/resume`; the budget `409` body is passed through so the phone can offer Continue / Raise |
 | `POST` | `/v1/projects/:pid/inbox/retry` | `ai-spawn` | body `{ sourceId, railIndex }` (`sourceId` is a delivery id or `run:<id>`) -> `POST /rails/:railIndex/relaunch { sourceId }` |
 | `POST` | `/v1/projects/:pid/inbox/create-pr` | `destructive` (pushes a branch) | body `{ prDeliveryId, expectedDecision: "on_review" }` -> `POST /rails/pr-decision { action: "create-pr" }`; the answer is narrowed to `{ ok, decision, prUrl, prState, detail }` |
@@ -427,7 +427,7 @@ Example — queue a command on a specific provider:
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
 | `DELETE` | `/jobs` | Purge completed jobs (optional `{ from, to }` window) |
 | `PATCH` | `/jobs/:id/priority` | Re-rank a queued job |
-| `POST` | `/jobs/:id/messages` | Send one more user turn to a running **interactive** job (queued behind the active turn). Body `{ text }`. Manager-agnostic: QueueManager is tried first, then the loop engine's active ai-step session. `202` accepted, `400` missing text, `403` interactive jobs disabled, `409` no active interactive session (unknown / non-interactive / finalized / a loop run between steps) |
+| `POST` | `/jobs/:id/messages` | Send one more user turn to a running **interactive** job (queued behind the active turn). Body `{ text }`. Manager-agnostic: QueueManager is tried first, then the loop engine's active ai-step session. A loop run paused on a person also takes `{ text, interruptId, optionId? }` (an answer, `optionId` one of the question card's choices), `{ text: '', interruptId, approve: true }` or, when its card says `canReject`, `{ text: <reason>, interruptId, reject: true }` (see [run questions](run-questions.md)). `202` accepted, `400` missing text or a malformed `optionId` / `reject`, `403` interactive jobs disabled, `409` no active interactive session (unknown / non-interactive / finalized / a loop run between steps) |
 | `POST` | `/jobs/:id/finalize` | Finalize a running interactive job (SIGTERM the resident child; final totals + terminal status are stamped when it closes). For a loop run this settles the **current step** and the loop advances. `202` scheduled, `403` interactive jobs disabled, `409` not an active interactive session |
 | `GET` | `/jobs/:jobId/diagnostic` | Stream a diagnostic ZIP (telemetry + profile + plugins snapshots) |
 

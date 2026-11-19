@@ -90,6 +90,11 @@ reaches it), and the reviewer judges criteria by that evidence. With Core's `ver
 developer: a broken setup or host precondition ends at `host-blocked-baseline` before any AI spend,
 and `{{outputs.baseline.summary}}` tells the developer, fixer and reviewer which failures predate
 the change.
+With Core's `questionOptions: 1` the architect also returns `questionOptions` (ending with
+`not-here`), `recommendedOption` and `questionWhy`, the `clarify` question carries them
+(`optionsFrom: 'architect'`, `endsRun: ['not-here']`) and a rejected approval ends at `rejected`
+with the person's reason; every pause a person answers is rendered as one card
+([run questions](../../../docs/internals/run-questions.md)).
 `configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
 and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
 (and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.

@@ -282,7 +282,7 @@ describe('JobRunHeader', () => {
 
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ pendingApproval: { stepId: 'archive', reason: 'Review before completion' }, nextStep: 'archive' })] }))
     const view2 = renderHeader(failedJob, [], { projectId: 'p1' })
-    expect(await screen.findByRole('button', { name: 'Approve completion' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
     view2.unmount()
 
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, canSettle: true, canCancel: true })] }))
@@ -292,20 +292,13 @@ describe('JobRunHeader', () => {
     expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument()
   })
 
-  it('surfaces a pending architect question: row-1 opens Details, the answer submits from there', async () => {
-    const user = userEvent.setup()
+  it('an answerable question has no place in the header or under Failure reasons: Answer goes to its card', async () => {
     const question = { stepId: 'architect', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend?' }
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ pendingQuestion: question })] }))
     renderHeader(failedJob, [], { projectId: 'p1' })
-    await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByText('Which cache backend?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Your answer')).toHaveFocus()
-    const answer = screen.getByRole('button', { name: 'Answer and resume' })
-    expect(answer).toBeDisabled()
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(answer)
-    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
-    await waitFor(() => expect(screen.getByLabelText('Your answer')).toHaveValue(''))
+    expect(await screen.findByRole('button', { name: 'Answer' })).toBeInTheDocument()
+    expect(screen.queryByText('Which cache backend?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
   it('keeps chrome compact without an inline diagnosis or Details', () => {
@@ -314,25 +307,6 @@ describe('JobRunHeader', () => {
     expect(within(chrome).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
     expect(within(chrome).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Log' })).toBeVisible()
-  })
-
-  it('reopens a question repeatedly and preserves failed answer drafts without duplicate polling', async () => {
-    const user = userEvent.setup()
-    const pendingQuestion = { stepId: 'architect', requestedAt: '', question: 'Which cache?' }
-    vi.mocked(fetch).mockImplementation(async (_input, init) => init?.method === 'POST' ? response({ message: 'Answer rejected' }, false) : response({ runs: [run({ pendingQuestion })] }))
-    renderHeader(failedJob, [], { projectId: 'p1' })
-    const questionButton = await screen.findByRole('button', { name: 'Answer the question' })
-    await user.click(questionButton)
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    await user.click(screen.getByRole('button', { name: 'Details' }))
-    await user.click(questionButton)
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ detail: 'Answer rejected' })))
-    await user.click(screen.getByRole('tab', { name: 'Log' }))
-    await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
-    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
-    expect(vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith('/agent-runtime/runs/job-2') && !init?.method)).toHaveLength(1)
   })
 
   it('renders the runtime metrics inside Details, without an evidence panel the run has no evidence for', async () => {

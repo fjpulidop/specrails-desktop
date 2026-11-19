@@ -9,15 +9,20 @@ function useSharedWebSocketOptional(): ReturnType<typeof useSharedWebSocket> | n
   try { return useSharedWebSocket() } catch { return null }
 }
 
+/** A run window's question, the engine that answers it and, for a runtime execution, its own id. */
+export interface RunWindowQuestion { question: RunQuestion; engine: 1 | 2; runId?: string }
+
 /** The question of a run window: the live pause's card, else what its runtime execution still asks. */
-export function runWindowQuestion(job: { question?: unknown; loopPauseReason?: string | null; loopPaused?: boolean; loopPauseKind?: string | null }, run: RuntimeRun | undefined): { question: RunQuestion; engine: 1 | 2 } | null {
+export function runWindowQuestion(job: { question?: unknown; loopPauseReason?: string | null; loopPaused?: boolean; loopPauseKind?: string | null }, run: RuntimeRun | undefined): RunWindowQuestion | null {
   const card = readRunQuestion(job.question)
   if (card) return { question: card, engine: 2 }
   const runtime = answerableRun(run)
   if (runtime) {
     const structured = readRunQuestion(runtime.question)
-    if (structured) return { question: structured, engine: runtime.engineVersion === 2 ? 2 : 1 }
-    return { question: plainRunQuestion(runtime.pendingQuestion!.question, runtime.engineVersion === 2 ? runtime.pendingQuestion!.stepId : ''), engine: runtime.engineVersion === 2 ? 2 : 1 }
+    const engine = runtime.engineVersion === 2 ? 2 : 1
+    // The runtime execution answers under its own id.
+    if (structured) return { question: structured, engine, runId: runtime.runId }
+    return { question: plainRunQuestion(runtime.pendingQuestion!.question, engine === 2 ? runtime.pendingQuestion!.stepId : ''), engine, runId: runtime.runId }
   }
   // A legacy loop pause (no Core interrupt) still asks in plain words.
   if (job.loopPaused && !job.loopPauseKind && job.loopPauseReason) return { question: plainRunQuestion(job.loopPauseReason), engine: 2 }
@@ -31,7 +36,7 @@ export function runWindowQuestion(job: { question?: unknown; loopPauseReason?: s
 export function RunQuestionDock({ projectId, runId, initial, onAnswered }: {
   projectId: string
   runId: string
-  initial: { question: RunQuestion; engine: 1 | 2 } | null
+  initial: RunWindowQuestion | null
   onAnswered?: () => void
 }) {
   const [current, setCurrent] = useState(initial)
@@ -62,7 +67,7 @@ export function RunQuestionDock({ projectId, runId, initial, onAnswered }: {
   if (!current) return null
   return (
     <div className="shrink-0 px-3 py-2" data-run-question-dock={runId}>
-      <RunQuestionCard question={current.question} projectId={projectId} runId={runId} engine={current.engine}
+      <RunQuestionCard question={current.question} projectId={projectId} runId={current.runId ?? runId} engine={current.engine}
         onAnswered={() => { answeredHere.current = true; setTimeout(() => { if (answeredHere.current) { answeredHere.current = false; setCurrent(null) } }, 4000) }} />
     </div>
   )
