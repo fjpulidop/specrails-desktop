@@ -93,7 +93,10 @@ describe('resolveProjectExecution — LEGACY (the gate stays closed)', () => {
     const exec = resolveProjectExecution({ slug: 'acme', path: repo }, home)
     expect(exec.relocated).toBe(false)
     expect(exec.cwd).toBe(repo)
-    expect(exec.env).toEqual({})
+    // Only the spec store already points at the workspace the project is being
+    // assembled into, so specs never split across the mid-assembly flip.
+    expect(exec.env).toEqual({ SPECRAILS_TICKETS_PATH: exec.ticketsPath })
+    expect(exec.ticketsPath).toBe(path.join(home, '.specrails', 'projects', 'acme', 'workspace', '.specrails', 'local-tickets.json'))
   })
 })
 

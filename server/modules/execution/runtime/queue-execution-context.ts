@@ -45,7 +45,8 @@ export function resolveQueueExecution(projectSlug: string | null, cwd: string | 
  */
 export function resolveQueueTicketsPath(projectSlug: string | null, cwd: string | undefined): string {
   const exec = resolveQueueExecution(projectSlug, cwd)
-  if (exec.relocated) return exec.ticketsPath
+  // Relocated, or a new project still being assembled: the workspace store.
+  if (exec.relocated || exec.env.SPECRAILS_TICKETS_PATH) return exec.ticketsPath
   return resolveTicketStoragePath(cwd ?? process.cwd())
 }
 

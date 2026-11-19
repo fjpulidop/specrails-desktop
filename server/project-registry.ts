@@ -35,10 +35,10 @@ import {
   restoreRegistryEntry,
   type ProjectEntry,
 } from './artifact-registry'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectTicketsPath } from './workspace-resolution'
 import { startProjectEnvWarmup, stopProjectEnvWarmup } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, readStore } from './modules/specs/runtime/ticket-store'
+import { readStore } from './modules/specs/runtime/ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
 import type { MilestoneProgressBroadcaster } from './modules/builder/runtime/milestone-progress'
@@ -596,8 +596,7 @@ export class ProjectRegistry {
     if (repository.isPrimary) throw new RepositoryValidationError('The primary repository cannot be removed or relocated here', 'primary_repository_protected', 409)
     const context = this._contexts.get(projectId)
     if (!context) throw new RepositoryValidationError('Load this project before removing or relocating a repository', 'project_unavailable', 503)
-    const execution = resolveProjectExecution({ slug: project.slug, path: project.path })
-    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(project.path))
+    const store = readStore(resolveProjectTicketsPath({ slug: project.slug, path: project.path }))
     const ticketIds = Object.values(store.tickets).filter((ticket) => ticket.repositoryIds?.includes(repositoryId)).map((ticket) => ticket.id)
     const references = getRepositoryExecutionReferences(context.db, repositoryId)
     if (ticketIds.length || references.runIds.length || references.deliveryIds.length) {
