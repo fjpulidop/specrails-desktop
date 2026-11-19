@@ -82,6 +82,11 @@ export function openProjectProcessAdmission(projectId: string): void {
 
 const admissionWaiters = new Map<string, Set<() => void>>()
 
+/** The app is open but this project's admission is not yet (hydration or startup recovery). */
+export function isProjectAdmissionPending(projectId: string): boolean {
+  return appOpen && closedProjects.has(projectId)
+}
+
 /**
  * Admission for work a person asked for while the project is still being
  * hydrated (the restart dialog's Resume arrives seconds after boot, before

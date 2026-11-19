@@ -38,6 +38,7 @@ import { registerGitRoutes } from './project-router-git'
 import { registerRulesRoutes } from './project-router-rules'
 import { registerSearchRoutes } from './project-router-search'
 import { formatDescriptionWithCriteria, type ProjectRoutesDeps } from './project-router-helpers'
+import { awaitProcessAdmission, isProjectAdmissionPending, ProcessAdmissionClosedError } from './process-admission'
 
 // Re-export the spec helpers from their new home so existing importers
 // (`import { ... } from './project-router'`) keep working unchanged.
@@ -73,6 +74,20 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     }
     registry.touchProject(projectId)
     req.projectCtx = ctx
+    // A project that was just registered (or reloaded) is still being reconciled
+    // for a moment before it admits work: a request that changes it waits for that,
+    // bounded, instead of answering 409 for the first seconds after registration.
+    if (req.method !== 'GET' && req.method !== 'HEAD' && isProjectAdmissionPending(projectId)) {
+      void awaitProcessAdmission(projectId).then(() => {
+        if (registry.getContext(projectId) !== ctx) { res.status(404).json({ error: 'Project not found' }); return }
+        next()
+      }, (error: unknown) => {
+        if (!(error instanceof ProcessAdmissionClosedError)) { next(error); return }
+        res.setHeader('Retry-After', '2')
+        res.status(409).json({ error: 'project_recovery_in_progress', retryable: true })
+      })
+      return
+    }
     next()
   })
 
