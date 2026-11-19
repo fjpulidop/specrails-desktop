@@ -267,9 +267,14 @@ export const PR_NEVER_STAGE_PATHS = [
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'
 const PR_NEVER_STAGE_EXCLUDE_MARKER_END = '# /specrails: never stage private agent artifacts'
+// The rail overlay's manifest sits at every rail worktree root. Commits already exclude it
+// literally, but untracked it showed in `git status`, and reviewers kept raising it as a human
+// check ("confirm .sr-rail-overlay.json is host-owned and not committed").
+const OVERLAY_MANIFEST_EXCLUDE = '/.sr-rail-overlay.json'
 const PR_NEVER_STAGE_EXCLUDE_BLOCK = [
   PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN,
   ...PR_NEVER_STAGE_PATHS,
+  OVERLAY_MANIFEST_EXCLUDE,
   PR_NEVER_STAGE_EXCLUDE_MARKER_END,
 ].join('\n')
 

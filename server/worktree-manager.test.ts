@@ -462,6 +462,26 @@ describe('commitWorktree', () => {
     }
   })
 
+  it('hides the overlay manifest from git status so agents never see it as untracked work', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-overlay-status-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      fs.writeFileSync(path.join(dir, '.sr-rail-overlay.json'), '{"version":2}\n')
+      fs.mkdirSync(path.join(dir, 'pkg'))
+      fs.writeFileSync(path.join(dir, 'pkg', '.sr-rail-overlay.json'), 'a project file of the same name, deeper\n')
+      expect(git(['status', '--porcelain', '--untracked-files=all'])).toBe('?? pkg/.sr-rail-overlay.json\n')
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('never commits Core run state that lands in the checkout of an unassembled project', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-core-state-'))
     const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
