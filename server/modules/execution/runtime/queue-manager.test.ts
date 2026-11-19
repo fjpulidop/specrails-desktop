@@ -2781,7 +2781,7 @@ describe('QueueManager', () => {
       expect(spawnArgs).toContain('gpt-5.3-codex')
     })
 
-    it('defaults to gpt-6.1-sol model when no resolvedModel is set', () => {
+    it('defaults to gpt-6.2-sol model when no resolvedModel is set', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/codex'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -2792,7 +2792,7 @@ describe('QueueManager', () => {
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
-      expect(spawnArgs).toContain('gpt-6.1-sol')
+      expect(spawnArgs).toContain('gpt-6.2-sol')
     })
 
     it('translates /specrails:<name> → $<name> when targeting codex', () => {

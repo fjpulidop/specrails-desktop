@@ -56,22 +56,22 @@ describe('codexAdapter — identity', () => {
     ])
   })
 
-  it('reports a model catalog with gpt-6.1-sol default', () => {
+  it('reports a model catalog with gpt-6.2-sol default', () => {
     const cat = codexAdapter.modelCatalog()
     expect(cat.length).toBeGreaterThan(0)
     const defaults = cat.filter((m) => m.default === true)
     expect(defaults).toHaveLength(1)
-    expect(defaults[0].value).toBe('gpt-6.1-sol')
-    expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
+    expect(defaults[0].value).toBe('gpt-6.2-sol')
+    expect(codexAdapter.defaultModel()).toBe('gpt-6.2-sol')
   })
 
-  it('catalogs gpt-6.1-sol first, then Terra, Astra, GPT-6 Sol/Luna and the legacy GPT-5.6 family', () => {
+  it('catalogs gpt-6.2-sol first, then Terra, Astra, GPT-6 Sol/Luna and the legacy GPT-5.6 family and the replaced 6.1 Sol / 6 Astra', () => {
     const values = codexAdapter.modelCatalog().map((m) => m.value)
-    expect(values).toEqual(['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values).toEqual(['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6.2-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6.1-sol', 'gpt-6-astra'])
     expect(values).not.toEqual(expect.arrayContaining(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']))
     // The newest Sol model is the default.
-    expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
-    expect(codexAdapter.modelCatalog().find((m) => m.value === 'gpt-6-astra')).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
+    expect(codexAdapter.defaultModel()).toBe('gpt-6.2-sol')
+    expect(codexAdapter.modelCatalog().find((m) => m.value === 'gpt-6.2-astra')).toEqual({ value: 'gpt-6.2-astra', label: 'GPT-6.2 Astra' })
   })
 
   it('maps the new 6.x efforts and the per-model Terra CLI floor', () => {
@@ -79,7 +79,7 @@ describe('codexAdapter — identity', () => {
     expect(codexAdapter.reasoningEffortsForModel('gpt-6-sol')).toEqual(['low', 'medium', 'high', 'xhigh'])
     expect(codexAdapter.reasoningEffortsForModel('gpt-6-luna')).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
     expect(codexModelMinCliVersion('gpt-6.1-terra')).toBe('0.159.0')
-    expect(codexModelMinCliVersion('gpt-6.1-sol')).toBeUndefined()
+    expect(codexModelMinCliVersion('gpt-6.2-sol')).toBeUndefined()
     expect(_CODEX_MIN_VERSION).toBe('0.128.0')
   })
 
@@ -509,9 +509,9 @@ describe('codexAdapter — fixture directory invariants', () => {
 
 describe('coordinated workspace scope', () => {
   it('keeps the workspace sandbox on for the first scoped rail invocation', () => {
-    const args = codexAdapter.buildArgs('rail-job', { prompt: 'implement', model: 'gpt-6-astra', scopedWorkingDirectories: true })
+    const args = codexAdapter.buildArgs('rail-job', { prompt: 'implement', model: 'gpt-6.2-astra', scopedWorkingDirectories: true })
     expect(args).toContain('workspace-write')
     expect(args).not.toContain('danger-full-access')
-    expect(codexAdapter.buildArgs('rail-job', { prompt: 'legacy', model: 'gpt-6-astra' })).toContain('danger-full-access')
+    expect(codexAdapter.buildArgs('rail-job', { prompt: 'legacy', model: 'gpt-6.2-astra' })).toContain('danger-full-access')
   })
 })

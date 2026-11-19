@@ -141,18 +141,18 @@ describe('ChatInput', () => {
     expect(onModelChange).toHaveBeenCalledWith('opus')
   })
 
-  it('when provider=codex, dropdown lists gpt-6.1-sol as the first option', () => {
+  it('when provider=codex, dropdown lists gpt-6.2-sol as the first option', () => {
     render(
       <ChatInput
         {...defaultProps}
         provider="codex"
-        model="gpt-6.1-sol"
+        model="gpt-6.2-sol"
       />
     )
     openSelect(screen.getByRole('combobox'))
     const options = screen.getAllByRole('option').map((o) => o.textContent)
-    expect(options[0]).toBe('GPT-6.1 Sol')
-    expect(options).toContain('GPT-6 Astra')
+    expect(options[0]).toBe('GPT-6.2 Sol')
+    expect(options).toContain('GPT-6.2 Astra')
     expect(options.some((label) => /GPT-5\.(5|4|3)\b/.test(label ?? ''))).toBe(false)
   })
 

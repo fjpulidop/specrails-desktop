@@ -28,7 +28,7 @@ describe('workflow protocol diagnosis (Core contract 5.16)', () => {
   it('suggests a stronger model only when the catalog marks the model that ran as small', () => {
     expect(strongerModelFor('claude', 'haiku', catalog)).toEqual({ provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' })
     expect(strongerModelFor('claude', 'claude-haiku-5-5', catalog)).toMatchObject({ model: 'sonnet' })
-    expect(strongerModelFor('codex', 'gpt-6-luna', catalog)).toEqual({ provider: 'codex', model: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' })
+    expect(strongerModelFor('codex', 'gpt-6-luna', catalog)).toEqual({ provider: 'codex', model: 'gpt-6.2-sol', label: 'GPT-6.2 Sol' })
     for (const [provider, model] of [['claude', 'opus'], ['claude', 'sonnet'], ['codex', 'gpt-6.1-terra'], ['local', 'qwen'], ['claude', null]] as const)
       expect(strongerModelFor(provider, model, catalog), `${provider}/${model}`).toBeNull()
   })

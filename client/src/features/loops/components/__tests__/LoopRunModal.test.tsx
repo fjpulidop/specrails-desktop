@@ -72,14 +72,14 @@ describe('LoopRunModal', () => {
     pick(within(dialog).getByTestId('run-project-select'), 'Project Two')
     pick(within(dialog).getByLabelText('Provider'), 'Codex')
     const modelSel = within(dialog).getByTestId('run-model-select')
-    // Codex catalog, default GPT-6.1 Sol; no Claude models present.
-    expect(modelSel).toHaveTextContent('GPT-6.1 Sol')
+    // Codex catalog, default GPT-6.2 Sol; no Claude models present.
+    expect(modelSel).toHaveTextContent('GPT-6.2 Sol')
     openSelect(modelSel)
-    expect(screen.getByRole('option', { name: 'GPT-6.1 Sol' })).toHaveAttribute('data-state', 'checked')
+    expect(screen.getByRole('option', { name: 'GPT-6.2 Sol' })).toHaveAttribute('data-state', 'checked')
     expect(screen.queryByRole('option', { name: 'Claude Sonnet 5.5' })).not.toBeInTheDocument()
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
-    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-6.1-sol' }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-6.2-sol' }))
   })
 
   it('offers only Kimi low/high/max effort and submits a valid default', () => {

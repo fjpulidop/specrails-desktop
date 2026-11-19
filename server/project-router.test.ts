@@ -214,7 +214,7 @@ describe('project-router', () => {
   })
 
   describe('blueprint generation settings', () => {
-    const preferred = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' }
+    const preferred = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
     function setup() {
       const context = makeContext(db)
       context.project.providers = ['claude', 'codex', 'kimi']
@@ -264,7 +264,7 @@ describe('project-router', () => {
       const response = await request(app).get('/api/projects/proj-1/blueprint/generation-settings')
       expect(response.status).toBe(200)
       expect(response.body.providers.map((entry: { provider: string }) => entry.provider)).toEqual(['codex', 'claude'])
-      expect(response.body.selection).toEqual({ provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: null })
+      expect(response.body.selection).toEqual({ provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null })
     })
 
     it('[spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] captures the provider on single-provider milestone conversations', async () => {
@@ -272,7 +272,7 @@ describe('project-router', () => {
       contexts.get('proj-1')!.project.providers = ['codex']
       const response = await request(app).post('/api/projects/proj-1/chat/conversations').send({ kind: 'milestone', milestone: 'm2' })
       expect(response.status).toBe(201)
-      expect(response.body.conversation).toMatchObject({ provider: 'codex', model: 'gpt-6.1-sol' })
+      expect(response.body.conversation).toMatchObject({ provider: 'codex', model: 'gpt-6.2-sol' })
       expect(JSON.parse(response.body.conversation.context_scope)).toEqual({ milestone: 'm2' })
     })
 
@@ -4138,8 +4138,8 @@ describe('project-router', () => {
       const res = await request(app).get('/api/projects/proj-1/default-spec-model')
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
-      expect(res.body.model).toBe('gpt-6.1-sol')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+      expect(res.body.model).toBe('gpt-6.2-sol')
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6.2-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6.1-sol', 'gpt-6-astra'])
     })
 
     it('honors install-config defaults.model when valid', async () => {
@@ -4274,7 +4274,7 @@ describe('project-router', () => {
 
       const modelByProvider: Record<string, string> = {
         claude: 'opus',
-        codex: 'gpt-6.1-sol',
+        codex: 'gpt-6.2-sol',
         gemini: 'gemini-3.5-flash',
         kimi: 'k3',
       }
@@ -4335,7 +4335,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'sonnet', 'opus'],
-      ['codex', 'gpt-6.1-sol', 'gpt-6-astra'],
+      ['codex', 'gpt-6.2-sol', 'gpt-6.2-astra'],
       ['gemini', 'gemini-3.5-flash', 'gemini-3.1-pro-preview'],
       ['kimi', 'k3', 'kimi-for-coding'],
     ] as const)(
@@ -4362,7 +4362,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'opus', 'haiku'],
-      ['codex', 'gpt-6-astra', 'gpt-5.6-luna'],
+      ['codex', 'gpt-6.2-astra', 'gpt-5.6-luna'],
       ['gemini', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'],
       ['kimi', 'kimi-for-coding', 'kimi-for-coding-highspeed'],
     ] as const)(
@@ -4403,7 +4403,7 @@ describe('project-router', () => {
 
       const patched = await request(app)
         .patch('/api/projects/proj-1/agent-models')
-        .send({ overrides: { 'sr-architect': 'gpt-6-astra' } })
+        .send({ overrides: { 'sr-architect': 'gpt-6.2-astra' } })
 
       expect(patched.status).toBe(200)
       const config = fs.readFileSync(
@@ -4411,7 +4411,7 @@ describe('project-router', () => {
         'utf8',
       )
       expect(config).toContain('provider: codex')
-      expect(config).toContain('defaults: { model: gpt-6.1-sol }')
+      expect(config).toContain('defaults: { model: gpt-6.2-sol }')
       expect(config).not.toContain('sonnet')
     })
 
@@ -4522,7 +4522,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'opus'],
-      ['codex', 'gpt-6-astra'],
+      ['codex', 'gpt-6.2-astra'],
       ['gemini', 'gemini-3.1-pro-preview'],
     ] as const)(
       'keeps the existing .claude agent projection byte-identical for %s',
@@ -4747,7 +4747,7 @@ describe('project-router multi-provider', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
       expect(res.body.providers).toEqual(['claude', 'codex'])
-      expect(res.body.allowed.some((m: { value: string }) => m.value === 'gpt-6.1-sol')).toBe(true)
+      expect(res.body.allowed.some((m: { value: string }) => m.value === 'gpt-6.2-sol')).toBe(true)
     })
 
     it('falls back to the primary provider when ?provider= is not installed', async () => {
@@ -4785,7 +4785,7 @@ describe('project-router multi-provider', () => {
       expect(res.status).toBe(201)
       expect(res.body.conversation.provider).toBe('codex')
       // codex model default
-      expect(res.body.conversation.model).toBe('gpt-6.1-sol')
+      expect(res.body.conversation.model).toBe('gpt-6.2-sol')
     })
 
     it('rejects an aiEngine not installed for the project', async () => {

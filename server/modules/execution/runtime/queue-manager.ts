@@ -352,7 +352,7 @@ export class QueueManager {
       /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
-      /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.1-sol'. */
+      /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.2-sol'. */
       resolvedModel?: string
       /** Global Specrails Agents defaults layer (app Settings ▸ Specrails
        *  Agents). Resolved AT SPAWN TIME so a settings change applies to the

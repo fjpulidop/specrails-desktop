@@ -1391,7 +1391,7 @@ describe('ChatManager', () => {
       expect(promptArg).not.toContain('---')
     })
 
-    it('defaults to gpt-6.1-sol when conversation.model is empty string', async () => {
+    it('defaults to gpt-6.2-sol when conversation.model is empty string', async () => {
       // Create a conversation with empty model — simulates a null/missing model override
       createConversation(dbCodex, { id: 'codex-conv-empty-model', model: '' })
       const child = createMockChildProcess()
@@ -1403,7 +1403,7 @@ describe('ChatManager', () => {
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
-      expect(spawnArgs).toContain('gpt-6.1-sol')
+      expect(spawnArgs).toContain('gpt-6.2-sol')
     })
 
     it('captures real thread_id from codex thread.started event on successful close', async () => {
