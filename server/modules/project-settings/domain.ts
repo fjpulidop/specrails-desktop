@@ -60,6 +60,11 @@ export interface ProjectSettings {
    *  `baselineOnTouch: 1`). Off by default; forwarded to Core only when the
    *  active Core announces the capability. */
   baselineOnTouch: boolean
+  /** Copy this project's gitignored environment files (`.env`, `.env.local`,
+   *  `.env.<name>`) from each repository root into every run worktree, so tests
+   *  that need them can run. Off by default: agents in the run can read them.
+   *  Never committed (only gitignored files are copied) and never shown. */
+  worktreeEnvFiles: boolean
 }
 
 /** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
@@ -179,7 +184,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents
   }
-  for (const key of ['jiraPostClarifications', 'baselineOnTouch'] as const) {
+  for (const key of ['jiraPostClarifications', 'baselineOnTouch', 'worktreeEnvFiles'] as const) {
     if (values[key] === undefined) continue
     if (typeof values[key] !== 'boolean') throw new SettingsValidationError(`${key} must be a boolean`)
     patch[key] = values[key] as boolean

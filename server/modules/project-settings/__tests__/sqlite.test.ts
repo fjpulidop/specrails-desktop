@@ -127,3 +127,15 @@ describe('phase-3 switch persistence', () => {
     expect(db.prepare(`SELECT COUNT(*) AS n FROM queue_state WHERE key IN ('config.jira_post_clarifications','config.baseline_on_touch')`).get()).toEqual({ n: 0 })
   })
 })
+
+describe('environment files in runs (worktreeEnvFiles)', () => {
+  it('is off by default, stored only while on and kept per project', () => {
+    const a = setup(), b = setup()
+    expect(a.service.getSettings().worktreeEnvFiles).toBe(false)
+    expect(a.service.updateSettings({ worktreeEnvFiles: true }).worktreeEnvFiles).toBe(true)
+    expect(a.db.prepare("SELECT value FROM queue_state WHERE key = 'config.worktree_env_files'").get()).toEqual({ value: 'true' })
+    expect(b.service.getSettings().worktreeEnvFiles).toBe(false)
+    a.service.updateSettings({ worktreeEnvFiles: false })
+    expect(a.db.prepare("SELECT value FROM queue_state WHERE key = 'config.worktree_env_files'").get()).toBeUndefined()
+  })
+})

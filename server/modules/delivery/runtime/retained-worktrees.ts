@@ -24,6 +24,7 @@ import {
   type RetainedDeliveryFacts, type RetainedGitEvidence, type RetainedWorktreeEvaluation, type RetainedWorktreeKind,
 } from '../domain/retained-worktrees'
 import { ignoredPathIsSafeCopy } from './ignored-copy-identity'
+import { copiedEnvFilePaths } from '../../../worktree-env-files'
 import { appendPrDeliverySafetyArchive, toPrDeliverySnapshot, type RailPrDeliveryRow } from './rail-pr-store'
 import {
   durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, isRegenerableIgnoredPath, releaseRailWorktrees,
@@ -198,7 +199,7 @@ function lastActivity(candidate: RetainedWorktreeCandidate): number | null {
   return times.length > 0 ? Math.max(...times) : null
 }
 
-/** Overlay paths Specrails itself put in the worktree (persisted fingerprints + live warm links). */
+/** Overlay paths Specrails itself put in the worktree (persisted fingerprints + live warm links + env-file copies). */
 function overlayExcludes(candidate: RetainedWorktreeCandidate): string[] {
   const persisted = candidate.delivery && candidate.branch
     ? (durableOverlayCleanupEvidence(toPrDeliverySnapshot(candidate.delivery).branches).get(candidate.branch) ?? [])
@@ -207,7 +208,9 @@ function overlayExcludes(candidate: RetainedWorktreeCandidate): string[] {
     : []
   let warm: string[] = []
   try { warm = authenticateWarmNodeModulesLinks(candidate.repoDir, candidate.worktreePath).map((entry) => entry.path) } catch { warm = [] }
-  return [...new Set([...persisted, ...warm])]
+  let envFiles: string[] = []
+  try { envFiles = copiedEnvFilePaths(candidate.worktreePath) } catch { envFiles = [] }
+  return [...new Set([...persisted, ...warm, ...envFiles])]
 }
 
 function settlementIgnored(candidate: RetainedWorktreeCandidate): readonly string[] {

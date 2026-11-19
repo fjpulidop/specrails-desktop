@@ -997,3 +997,56 @@ describe('durableSettlementIgnoredPaths', () => {
     expect(out.has('feat/a')).toBe(false)
   })
 })
+
+describe('releaseRailWorktrees with copied env files (worktreeEnvFiles)', () => {
+  it('deletes the copies with the worktree, even after the run edited one, and never archives them', async () => {
+    const { syncWorktreeEnvFiles } = await import('../../../worktree-env-files')
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-env-')))
+    const repo = path.join(root, 'repo')
+    const worktree = path.join(root, 'worktree')
+    fs.mkdirSync(repo)
+    const runGit = (args: string[], cwd: string): { code: number; stdout: string; stderr: string } => {
+      const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
+      return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
+    }
+    const mustGit = (args: string[], cwd = repo): void => {
+      const result = runGit(args, cwd)
+      if (result.code !== 0) throw new Error(result.stderr || result.stdout)
+    }
+    mustGit(['init', '-b', 'main'])
+    mustGit(['config', 'user.email', 'specrails@example.test'])
+    mustGit(['config', 'user.name', 'Specrails Test'])
+    fs.writeFileSync(path.join(repo, '.gitignore'), '.env*\n')
+    fs.writeFileSync(path.join(repo, 'README.md'), 'base\n')
+    mustGit(['add', '.'])
+    mustGit(['commit', '-m', 'base'])
+    fs.writeFileSync(path.join(repo, '.env'), 'APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+    fs.writeFileSync(path.join(repo, '.env.local'), 'TOKEN=fake-token-value\n')
+    mustGit(['worktree', 'add', '-b', 'feat/env', worktree, 'main'])
+    const git: GitRunner = { run: async (args, cwd) => runGit(args, cwd) }
+    const synced = await syncWorktreeEnvFiles({ git, repoDir: repo, worktreePath: worktree, enabled: true })
+    expect(synced.copied.sort()).toEqual(['.env', '.env.local'])
+    // The run regenerated its key (Laravel `key:generate` rewrites .env).
+    fs.writeFileSync(path.join(worktree, '.env'), 'APP_KEY=base64:REGENERATEDREGENERATED=\n')
+    const expected = runGit(['rev-parse', '--verify', 'HEAD'], worktree).stdout.trim()
+    const db = initDb(':memory:')
+    createRailWorktree(db, { id: 'env', railIndex: 0, ticketId: 1, branch: 'feat/env', worktreePath: worktree, mergeState: 'built' })
+    const archives: string[] = []
+    await expect(releaseRailWorktrees({
+      db, git, repoDir: repo, worktreeIds: ['env'],
+      expectedHeadByBranch: new Map([['feat/env', expected]]),
+      overlayEvidenceByBranch: new Map(),
+      // The settlement snapshot never listed them (they were excluded at capture).
+      settlementIgnoredByBranch: new Map([['feat/env', []]]),
+      onSafetyArchive: (archive) => { archives.push(archive) },
+    })).resolves.toEqual([])
+    expect(getRailWorktree(db, 'env')?.merge_state).toBe('released')
+    expect(fs.existsSync(worktree)).toBe(false)
+    expect(archives).toEqual([])
+    expect(overlayQuarantineRoots(worktree)).toEqual([])
+    // The person's files are untouched.
+    expect(fs.readFileSync(path.join(repo, '.env'), 'utf8')).toBe('APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+    db.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+})

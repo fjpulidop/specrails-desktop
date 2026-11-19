@@ -70,8 +70,13 @@ export function logLinesFromEvents(events: readonly EventLike[]): string[] {
 }
 
 /** The tail the model reads: the last lines, within a character budget. */
-export function failureEvidence(input: Omit<FailureEvidence, 'lines' | 'truncated'> & { events: readonly EventLike[] }): FailureEvidence {
-  const all = logLinesFromEvents(input.events)
+export function failureEvidence(input: Omit<FailureEvidence, 'lines' | 'truncated'> & {
+  events: readonly EventLike[]
+  /** Applied to every line before it can leave the machine (the project's copied env values). */
+  redact?: (line: string) => string
+}): FailureEvidence {
+  const redact = input.redact
+  const all = redact ? logLinesFromEvents(input.events).map(redact) : logLinesFromEvents(input.events)
   const tail: string[] = []
   let size = 0
   for (let index = all.length - 1; index >= 0 && tail.length < MAX_LINES; index--) {

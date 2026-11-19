@@ -44,7 +44,7 @@ const STALLED = /Implementation attempt limit reached|Automatic correction made 
 /** How much of a stall's full end reason the next attempt reads (the diagnosis detail is a one-line summary). */
 const STALL_REASON_LIMIT = 2_000
 
-export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null, evidence: { completionReasons?: readonly unknown[] | null } = {}): string | null {
+export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null, evidence: { completionReasons?: readonly unknown[] | null; envFilesCopied?: readonly string[] | null } = {}): string | null {
   if (!diagnosis || diagnosis.confidence !== 'high') return null
   switch (diagnosis.kind) {
     case 'incomplete_tasks': return unfinishedTasksGuidance(diagnosis.incompleteTasks ?? [])
@@ -56,6 +56,8 @@ export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 
         blocker ? `What was missing: ${blocker.reason}` : diagnosis.detail ? `What stopped it: ${diagnosis.detail}` : null,
         command ? `It failed running \`${command}\`${blocker?.cwd ? ` in ${blocker.cwd}` : ''}.` : null,
         blocker?.requiredAction ? `What it needs: ${blocker.requiredAction}` : null,
+        // The person turned on the project's env-file copy for this Continue.
+        evidence.envFilesCopied?.length ? `Specrails copied the project's environment files into this worktree: ${evidence.envFilesCopied.join(', ')}. Use them as they are: do not recreate them from an example, never print their values, and never commit them.` : null,
         // A machine-wide install is the person's: they were asked, and continuing means they ran it.
         blocker?.install ? `The person was asked to run \`${blocker.install}\` themselves. Check that it is available now; never install it machine-wide yourself, and if it is still missing return the structured blocker with the same install.` : INSTALL_RULE,
       ].filter((line): line is string => !!line).join('\n')

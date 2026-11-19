@@ -105,3 +105,75 @@ describe('continue remedy route', () => {
     expect((await api().get('/api/p/loop-runs/nope/attempts')).status).toBe(404)
   })
 })
+
+describe('"Copy this project\'s .env into runs" remedy', () => {
+  const fsMod = () => import('fs')
+  const ENV_BLOCKER = { kind: 'environment', confidence: 'high', phase: 'baseline', rounds: null, resetAt: null, detail: 'The tests need APP_KEY', resumablePhase: null, source: 'core',
+    blocker: { kind: 'environment', reason: 'No application encryption key has been specified (APP_KEY).', command: 'php', args: ['artisan', 'test'], cwd: '.', requiredAction: 'cp .env.example .env in this worktree' } }
+
+  async function fixture() {
+    const fs = await fsMod(), os = await import('os'), path = await import('path'), { execFileSync } = await import('child_process')
+    const gitEnv = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' }
+    const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, env: gitEnv, encoding: 'utf8' }).trim()
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'remedy env ')))
+    const repo = path.join(root, 'repo'), worktree = path.join(root, 'wt')
+    fs.mkdirSync(repo); git(repo, 'init', '-q', '-b', 'main')
+    fs.writeFileSync(path.join(repo, '.gitignore'), '.env\n'); git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'i')
+    fs.writeFileSync(path.join(repo, '.env'), 'APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+    git(repo, 'worktree', 'add', '-q', '-b', 'run', worktree)
+    return { fs, path, root, repo, worktree }
+  }
+  function seedRun(repo: string, worktree: string) {
+    db.prepare('UPDATE loop_runs SET failure_diagnosis = ?, run_request_json = ?, runtime_metadata_json = ? WHERE id = \'run\'').run(
+      serializeDiagnosis(ENV_BLOCKER as never),
+      JSON.stringify({ runId: 'run', projectId: 'p', loopId: 'loop', cwd: worktree, repoDir: worktree, isolation: { branch: 'run', worktreePath: worktree } }),
+      JSON.stringify({ source: 'definition' }))
+    void repo
+  }
+  function apiAt(repo: string) {
+    const app = express(), router = express.Router()
+    app.use(express.json())
+    registerLoopRunRoutes({ router, ctx: () => ({ db, project: { id: 'p', path: repo, slug: 'p' }, loopRunManager: { beginDefinitionResume: begin, isDefinitionRunActive: () => false, cancelDefinition: vi.fn(), isDisposed: () => false }, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api', router)
+    return request(app)
+  }
+
+  it('is offered on an env-file blocker while the setting is off, and gone once it is on', async () => {
+    const { readRunDiagnosis } = await import('./modules/recovery/adapters/sqlite')
+    seedRun('/repo', '/wt')
+    expect(readRunDiagnosis(db, 'run')?.remedies[0]).toBe('copy-env-files')
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.worktree_env_files', 'true')").run()
+    expect(readRunDiagnosis(db, 'run')?.remedies).not.toContain('copy-env-files')
+  })
+
+  it('turns the project setting on, copies .env into the run worktree and continues with guidance naming it', async () => {
+    const { fs, path, root, repo, worktree } = await fixture()
+    try {
+      seedRun(repo, worktree)
+      runtime.probe.mockResolvedValue({ status: 'completed', resumable: true, lease: null, pendingInterrupts: [], recoverableSteps: [], scopes: [{ scopeId: 'root', nodePath: 'baseline', visits: 1, status: 'failed' }] })
+      const result = await apiAt(repo).post('/api/p/loop-runs/run/remedy').send({ remedy: 'copy-env-files' })
+      expect(result.status).toBe(201)
+      expect(result.body).toMatchObject({ remedy: 'continue', envFilesEnabled: true, envFilesCopied: ['.env'] })
+      expect((db.prepare("SELECT value FROM queue_state WHERE key = 'config.worktree_env_files'").get() as { value: string }).value).toBe('true')
+      expect(fs.readFileSync(path.join(worktree, '.env'), 'utf8')).toBe('APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+      expect(fs.statSync(path.join(worktree, '.env')).mode & 0o777).toBe(0o600)
+      const text = runtime.signal.mock.calls[0]?.[2] as string
+      expect(text).toContain('copied the project\'s environment files into this worktree: .env')
+      expect(text).not.toContain('FAKEFAKE')
+      expect(begin).toHaveBeenCalled()
+    } finally { fs.rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('changes nothing when the project has no .env to copy', async () => {
+    const { fs, path, root, repo, worktree } = await fixture()
+    try {
+      fs.rmSync(path.join(repo, '.env'))
+      seedRun(repo, worktree)
+      const result = await apiAt(repo).post('/api/p/loop-runs/run/remedy').send({ remedy: 'copy-env-files' })
+      expect(result.status).toBe(409)
+      expect(result.body.error).toBe('env_files_unavailable')
+      expect(db.prepare("SELECT value FROM queue_state WHERE key = 'config.worktree_env_files'").get()).toBeUndefined()
+      expect(begin).not.toHaveBeenCalled()
+    } finally { fs.rmSync(root, { recursive: true, force: true }) }
+  })
+})

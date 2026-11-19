@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1798 source/build files. Nearby tests are linked where names
+Includes 1801 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1012,6 +1012,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
 - [EditorSection.tsx](../../client/src/features/settings/components/EditorSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EditorSection.test.tsx)
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
+- [EnvFilesSection.tsx](../../client/src/features/settings/components/EnvFilesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EnvFilesSection.test.tsx)
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
 - [MachineInstallsSection.tsx](../../client/src/features/settings/components/MachineInstallsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MachineInstallsSection.test.tsx)
@@ -1501,6 +1502,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [workspace-manager.ts](../../server/workspace-manager.ts) · [test](../../server/workspace-manager.test.ts)
 - [workspace-resolution.ts](../../server/workspace-resolution.ts) · [test](../../server/workspace-resolution.test.ts)
 - [worktree-env-discovery.ts](../../server/worktree-env-discovery.ts) · [test](../../server/worktree-env-discovery.test.ts)
+- [worktree-env-files.ts](../../server/worktree-env-files.ts) · [test](../../server/worktree-env-files.test.ts)
 - [worktree-manager.ts](../../server/worktree-manager.ts) · [test](../../server/worktree-manager.test.ts)
 - [worktree-node-modules.ts](../../server/worktree-node-modules.ts) · [test](../../server/worktree-node-modules.test.ts)
 - [worktree-overlay.ts](../../server/worktree-overlay.ts) · [test](../../server/worktree-overlay.test.ts)
@@ -1977,6 +1979,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
 - [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
 - [run-continuation.ts](../../server/modules/delivery/runtime/run-continuation.ts) · [test](../../server/modules/delivery/runtime/run-continuation.test.ts)
+- [run-env-files.ts](../../server/modules/delivery/runtime/run-env-files.ts) · [test](../../server/modules/delivery/runtime/run-env-files.test.ts)
 - [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
 - [run-review-diagnosis.ts](../../server/modules/delivery/runtime/run-review-diagnosis.ts) · [test](../../server/modules/delivery/runtime/run-review-diagnosis.test.ts)
 - [worktree-preparation-pool.ts](../../server/modules/delivery/runtime/worktree-preparation-pool.ts) · [test](../../server/modules/delivery/runtime/worktree-preparation-pool.test.ts)

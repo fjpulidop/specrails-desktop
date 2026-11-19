@@ -9,6 +9,7 @@ const initial: ProjectSettings = {
   agentAuditRetentionDays: 30,
   jiraPostClarifications: false,
   baselineOnTouch: false,
+  worktreeEnvFiles: false,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -152,5 +153,8 @@ describe('phase-3 opt-in switches', () => {
     expect(repository.update).toHaveBeenCalledWith({ jiraPostClarifications: true, baselineOnTouch: false })
     expect(() => service.updateSettings({ baselineOnTouch: 'yes' })).toThrow('baselineOnTouch must be a boolean')
     expect(() => service.updateSettings({ jiraPostClarifications: 1 })).toThrow('jiraPostClarifications must be a boolean')
+    service.updateSettings({ worktreeEnvFiles: true })
+    expect(repository.update).toHaveBeenLastCalledWith({ worktreeEnvFiles: true })
+    expect(() => service.updateSettings({ worktreeEnvFiles: 'on' })).toThrow('worktreeEnvFiles must be a boolean')
   })
 })

@@ -47,6 +47,7 @@ import type { IsolatedLaunchIO } from './rail-isolated-launch-contracts'
 import { RUN_STOPPED_DETAIL, isStoppedByPerson } from './rail-isolated-launch-contracts'
 import { COMMIT_SHA_RE, branchRecords, errorDetail, runIntent } from './rail-isolated-launch-support'
 import { createIsolatedRunSettlement } from './rail-isolated-run-settlement'
+import { copiedEnvFilePaths } from '../../../worktree-env-files'
 
 async function recoveryCommitObjectExists(
   git: GitRunner,
@@ -335,7 +336,8 @@ async function inspectRecoveryWorktree(
   repoDir: string,
   row: { branch: string; worktree_path: string },
 ): Promise<RecoveryWorktreeInspection> {
-  const overlayExcludes = recoveryOverlayExcludes(repoDir, row.worktree_path)
+  // Env-file copies (opt-in setting) are the person's files, not the run's work.
+  const overlayExcludes = [...new Set([...recoveryOverlayExcludes(repoDir, row.worktree_path), ...copiedEnvFilePaths(row.worktree_path)])]
   try {
     const [status, actualBranch, head, branchRef] = await Promise.all([
       git.run([

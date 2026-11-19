@@ -1093,6 +1093,7 @@
       "runtime/rails-store.ts",
       "runtime/review-wip-gate.ts",
       "runtime/run-continuation.ts",
+      "runtime/run-env-files.ts",
       "runtime/run-records.ts",
       "runtime/run-review-diagnosis.ts"
     ],
@@ -1401,6 +1402,7 @@
         "../../../providers",
         "../../../repo-lock",
         "../../../workspace-resolution",
+        "../../../worktree-env-files",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
@@ -1525,6 +1527,7 @@
         "./pr-naming"
       ],
       "runtime/pr-ci/pr-ci-admission-runtime.ts": [
+        "../../../../db",
         "../../../../feature-flags",
         "../../../../ids",
         "../../../../process-admission",
@@ -1778,6 +1781,7 @@
       "runtime/rail-isolated-launch-support.ts": [
         "../../../db",
         "../../../project-registry",
+        "../../../worktree-env-files",
         "../../../worktree-manager",
         "../../execution/runtime/revision-seed",
         "../../specs/domain/intent",
@@ -1814,6 +1818,7 @@
         "../../../project-registry",
         "../../../repo-lock",
         "../../../workspace-resolution",
+        "../../../worktree-env-files",
         "../../../worktree-manager",
         "../../../worktree-overlay",
         "../../agent-runtime/runtime/agent-runtime-paths",
@@ -2003,6 +2008,7 @@
         "../../../db",
         "../../../repo-lock",
         "../../../util/git-index-lock",
+        "../../../worktree-env-files",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
@@ -2151,6 +2157,7 @@
       "runtime/retained-worktrees.ts": [
         "../../../db",
         "../../../repo-lock",
+        "../../../worktree-env-files",
         "../../../worktree-manager",
         "../../../worktree-node-modules",
         "../../../worktree-overlay",
@@ -2193,6 +2200,16 @@
         "./definition-fork",
         "./incomplete-tasks-remedy",
         "node:crypto"
+      ],
+      "runtime/run-env-files.ts": [
+        "../../../db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../worktree-env-files",
+        "../../../worktree-manager",
+        "../../loops/runtime/loop-runs-store",
+        "fs",
+        "path"
       ],
       "runtime/run-records.ts": [
         "fs",

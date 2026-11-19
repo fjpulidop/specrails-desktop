@@ -18,6 +18,7 @@ import {
   type OverlayManifestRecord,
 } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
+import { copiedEnvFilePaths } from '../../../worktree-env-files'
 import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 import { ignoredPathIsSafeCopy } from './ignored-copy-identity'
 import { inspectIndexLock } from '../../../util/git-index-lock'
@@ -44,6 +45,8 @@ export interface ReleaseRailWorktreesInput {
   /** Injectable live authenticator for the app-created warm-dependency links
    * (`node_modules` symlinks into the base checkout). Production omits it. */
   authenticateWarmLinks?: typeof authenticateWarmNodeModulesLinks
+  /** Injectable reader of the env-file copies Specrails made. Production omits it. */
+  copiedEnvFiles?: typeof copiedEnvFilePaths
   /** Called exactly once for each persistent quarantine batch root, before
    * anything that must be KEPT is moved beneath it. Never called when release
    * only removed Specrails's own unchanged kit (no folder survives then). One
@@ -189,10 +192,16 @@ type DiscardProof =
   | { via: 'record'; record: OverlayManifestRecord }
   /** v1 managed local settings holding nothing but Specrails-owned entries. */
   | { via: 'settings' }
+  /** A copy of the person's env file (setting `worktreeEnvFiles`): deleted with
+   * the worktree, never archived, whatever the run did to it. */
+  | { via: 'env-copy' }
 
 function proofHolds(target: string, rel: string, proof: DiscardProof): boolean {
   if (proof.via === 'evidence') return matchesOverlayCleanupEvidenceAtPath(target, proof.evidence)
   if (proof.via === 'record') return matchesOverlayManifestRecord(target, rel, proof.record)
+  if (proof.via === 'env-copy') {
+    try { return fs.lstatSync(target).isFile() } catch { return false }
+  }
   return isSpecrailsOnlyLocalSettings(target)
 }
 
@@ -237,6 +246,16 @@ async function verifyReleaseEvidence(
   ]
   const discardable = new Map<string, DiscardProof>(overlayEntries.map((entry) => [entry.path, { via: 'evidence', evidence: entry }]))
   for (const entry of overlayEntries) seenPaths.add(entry.path)
+  // Env-file copies (opt-in): the person's own files hold the bytes, and a
+  // secret must never land in the safety archive, so they are discarded.
+  for (const rel of (input.copiedEnvFiles ?? copiedEnvFilePaths)(worktree.worktree_path)) {
+    if (seenPaths.has(rel)) continue
+    const fingerprint = fingerprintOverlayCleanupPath(path.join(worktree.worktree_path, ...rel.split('/')))
+    if (!fingerprint) continue
+    overlayEntries.push({ path: rel, ...fingerprint })
+    discardable.set(rel, { via: 'env-copy' })
+    seenPaths.add(rel)
+  }
   // Overlay paths whose allocation proof was revoked (the agent edited
   // CLAUDE.md, a source changed mid-run, a link was replaced): they never
   // reach the PR (commit exclusions), so they must not hold the worktree

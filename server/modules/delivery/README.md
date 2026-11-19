@@ -118,6 +118,27 @@ unknown next, conflicting last (fewest conflicted paths first), then fewest sibl
 conflicts, then the touch-list overlap and ticket id as before.
 Tests: [`runtime/merge-preview.test.ts`](runtime/merge-preview.test.ts) (real Git).
 
+## Environment files in run worktrees (opt-in)
+
+With the project setting `worktreeEnvFiles` on (off by default), `materializeIsolatedWorktree`
+calls `syncWorktreeEnvFiles` ([server/worktree-env-files.ts](../../worktree-env-files.ts)) on
+every run checkout of every repository (rail allocation, `prepareIsolatedWorktree`, PR CI):
+regular files named `.env` / `.env.<name>` directly in the repository root (never
+`.env.example|sample|template`, links, directories, files over 256 KB, or files tracked in the
+checkout or the worktree) are recopied atomically with mode 0600; copies whose source is gone, or
+all copies when the setting is off, are removed. Only files Git ignores in the worktree are
+copied; one the repository does not ignore is first added by exact path to a marked Specrails
+block of `info/exclude` (common dir, like the never-stage block; never a `.gitignore`). The copies
+join `overlayExcludes` and a manifest in the worktree's private git dir
+(`specrails-env-files.json`, read by `copiedEnvFilePaths`), so settlement's ignored snapshot,
+retained-worktree evaluation and recovery never count them as the run's output, and release
+deletes them with the worktree (`via: 'env-copy'`, never the safety archive). The environment
+blocker remedy `copy-env-files` ([runtime/run-env-files.ts](runtime/run-env-files.ts)) enables the
+setting and copies into a stopped run's existing worktrees before Continue. Values are redacted
+from failure-analysis uploads and problem reports. Tests:
+[`server/worktree-env-files.test.ts`](../../worktree-env-files.test.ts),
+[`runtime/run-env-files.test.ts`](runtime/run-env-files.test.ts).
+
 ## Submodules in run worktrees
 
 `git worktree add` leaves submodules empty, so a repository whose code or tests import
