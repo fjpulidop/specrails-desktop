@@ -1419,7 +1419,9 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const row = mkDelivery()
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id, railIndex: 0,
+      detail: expect.stringMatching(/^Rail 1 has a delivery waiting for your review/),
+      action: 'Review that delivery first (create its PR, approve or discard it), or launch these specs on another rail.' })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled() // the guard sits before the probe
   })
@@ -1477,7 +1479,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled()
   })
@@ -1500,7 +1502,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled()
   })
@@ -1808,7 +1810,7 @@ describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-r
     const res = await request(launchApp()).post('/rails/0/launch')
       .send({ loopId: 'factory:implement', targetPrNumber: 151 })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 
@@ -1973,7 +1975,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     const res = await request(appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
       .post('/rails/0/launch').send({ loopId: 'factory:implement' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
   })
 
   it('shared-cwd loop launch claims the open addenda for the run and briefs the engine with them', async () => {
@@ -2503,7 +2505,7 @@ describe('rails-router DELETE /:railIndex', () => {
     } as CreatePrDeliveryInput)
     const res = await request(appWith(db)).delete('/rails/1')
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
   })
 })
 
