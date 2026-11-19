@@ -121,6 +121,17 @@ describe('live board projection', () => {
     expect(byId['p1:delivery:d-going'].status).not.toHaveProperty('paused')
   })
 
+  it('says a building delivery\'s question once: the run\'s inbox item lands on the delivery card in Needs you', () => {
+    loopRun(alpha, 'p1', 'r-asks', { rail: 1 })
+    pauseLoopRun(alpha, 'r-asks')
+    alpha.prepare(`UPDATE loop_runs SET runtime_status_json = ? WHERE id = 'r-asks'`).run(JSON.stringify({ pendingInterrupts: [{ id: 'i9', nodePath: 'clarify', kind: 'question', value: { prompt: 'Which store?' } }] }))
+    createPrDelivery(alpha, { id: 'd-asks', railIndex: 1, loopId: 'loop-a', railKey: '1-loop-a', ticketIds: [7], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    alpha.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-asks"]' WHERE id = 'd-asks'`).run()
+    const cards = snapshot().cards.filter((c) => c.question?.interruptId === 'i9' || c.attention?.subjectId === 'r-asks')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({ id: 'p1:delivery:d-asks', column: 'needs', question: { text: 'Which store?', asker: 'planner' } })
+  })
+
   it('agrees with the inbox: every inbox item is on the board exactly once', () => {
     loopRun(alpha, 'p1', 'r-old-fail', { rail: 3, startedAt: at(-40 * HOUR) })
     finishLoopRun(alpha, 'r-old-fail', { outcome: 'failed', finishedAt: at(-36 * HOUR) })

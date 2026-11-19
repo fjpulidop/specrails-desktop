@@ -377,6 +377,9 @@
     "failed": "Não foi possível enviar sua resposta",
     "showMore": "Ver tudo",
     "showLess": "Ver menos",
-    "notice": "Precisa de você"
+    "notice": "Precisa de você",
+    "notHere": "Não fazer aqui",
+    "notHereMeaning": "Este ticket não pertence a este repositório; a execução termina sem alterações.",
+    "sentEnds": "Resposta enviada: a execução termina."
   }
 }

@@ -307,6 +307,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         // is not working: the card wears the paused run's state, so the board never says
         // "Running" with a growing timer while nothing moves.
         const paused = !live && row.decision === 'building' ? own.find((r) => r.status === 'paused') ?? null : null
+        const pausedQuestion = paused ? runQuestionFromStatus(paused.runtime_status_json) : null
         const starts = own.map((r) => toIso(r.started_at)).filter((v): v is string => !!v).sort()
         const terminal = !['building', 'on_review', 'pr_draft', 'pr_ready'].includes(row.decision)
         const chain = chainCost(ids)
@@ -315,7 +316,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           status: { source: 'delivery', decision: row.decision, statusCode: row.status_code, ...(paused ? { paused: true } : {}) },
           title: deliveryTitle(row),
           phase: live ? steps.get(live.id) ?? null : null,
-          question: paused ? runQuestionFromStatus(paused.runtime_status_json) : null, steps: null,
+          question: pausedQuestion, steps: null,
           provider: own.find((r) => r.provider)?.provider ?? null,
           model: own.find((r) => r.model)?.model ?? null,
           startedAt: starts[0] ?? toIso(row.created_at),
@@ -329,7 +330,8 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           conversationId: row.origin_conversation_id,
           jobId: ids.length > 0 ? ids[ids.length - 1] : null,
           deliveryId: row.id,
-          subjectIds: [row.id],
+          // A paused run's question is the inbox's item: it lands on this card, so the board says it once.
+          subjectIds: paused && pausedQuestion ? [row.id, paused.id] : [row.id],
           attempt: attemptOf(ids[ids.length - 1]),
         })
       }

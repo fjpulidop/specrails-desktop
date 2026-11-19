@@ -19,7 +19,7 @@ export interface RunQuestionCardProps {
   projectName?: string | null
   /** 1: a legacy runtime execution. */
   engine?: 1 | 2
-  /** `compact`: a card inside a list row (inbox, live board); the run window uses the full card. */
+  /** `compact`: inside a row that is already a card (inbox, live board, mission card), so no card chrome of its own; the run window uses the full card. */
   density?: 'compact' | 'full'
   /** After the server accepted the answer. */
   onAnswered?: (answer: RunAnswer) => void
@@ -57,6 +57,13 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
   useEffect(() => { if (autoFocus) firstControl.current?.focus() }, [autoFocus])
   useEffect(() => { if (mode !== 'choose') textareaRef.current?.focus() }, [mode])
 
+  // What happens next, said once the server took the answer: a choice that ends the run says so.
+  function confirmation(answer: RunAnswer): string {
+    if (answer.type === 'approve') return t('runQuestion.approved')
+    if (answer.type === 'reject') return t('runQuestion.rejected')
+    return answer.type === 'option' && question.endsRun.includes(answer.optionId) ? t('runQuestion.sentEnds') : t('runQuestion.sent')
+  }
+
   async function send(answer: RunAnswer, key: string): Promise<void> {
     if (sending || sent) return
     setSending(key)
@@ -64,7 +71,7 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
       await submitRunAnswer({ projectId, runId, question, answer, engine })
       setSent(answer)
       // The confirmation also survives the surface dropping the answered question.
-      toast.success(answer.type === 'approve' ? t('runQuestion.approved') : answer.type === 'reject' ? t('runQuestion.rejected') : t('runQuestion.sent'))
+      toast.success(confirmation(answer))
       announceRunQuestionAnswered({ projectId, runId })
       onAnswered?.(answer)
     } catch (error) {
@@ -75,7 +82,7 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
   }
 
   if (sent) {
-    const words = sent.type === 'approve' ? t('runQuestion.approved') : sent.type === 'reject' ? t('runQuestion.rejected') : t('runQuestion.sent')
+    const words = confirmation(sent)
     return (
       <div role="status" data-testid="run-question-sent" className={cn('flex items-center gap-2 rounded-card border border-accent-success/30 bg-accent-success/5 px-3 py-2 text-body text-foreground', className)}>
         <CheckCircle2 className="h-4 w-4 shrink-0 text-accent-success" aria-hidden />
@@ -88,8 +95,10 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
   // A machine-wide install reads in the person's language: the tool, the exact command, Install / I'll do it myself.
   const install = question.install
   const installChoice = (id: string): id is 'install' | 'self' => !!install && (id === 'install' || id === 'self')
-  const labelOf = (option: RunQuestion['options'][number]): string => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}`) : option.label
-  const meaningOf = (option: RunQuestion['options'][number]): string | undefined => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}Meaning`) : option.meaning
+  // The planner's fixed last choice ("not in this repository") reads in the person's language too.
+  const notHere = (id: string): boolean => question.asker === 'planner' && id === 'not-here'
+  const labelOf = (option: RunQuestion['options'][number]): string => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}`) : notHere(option.id) ? t('runQuestion.notHere') : option.label
+  const meaningOf = (option: RunQuestion['options'][number]): string | undefined => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}Meaning`) : notHere(option.id) ? t('runQuestion.notHereMeaning') : option.meaning
   const who = isApproval ? t('runQuestion.approval') : t(`runQuestion.asker.${question.asker}`)
   const fullText = install ? t('loops:core.machineInstall.question', { tool: install.tool }) : question.text
   const folded = !expanded && fullText.length > FOLD_AT
@@ -116,7 +125,7 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
       data-testid="run-question-card"
       data-asker={question.asker}
       data-kind={question.kind}
-      className={cn('space-y-3 rounded-card border border-accent-primary/30 bg-card', compact ? 'p-3' : 'p-4', className)}
+      className={cn('space-y-3', compact ? '' : 'rounded-card border border-accent-primary/30 bg-card p-4', className)}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >

@@ -377,6 +377,9 @@
     "failed": "Couldn't send your answer",
     "showMore": "Show all",
     "showLess": "Show less",
-    "notice": "Needs you"
+    "notice": "Needs you",
+    "notHere": "Don't do it here",
+    "notHereMeaning": "This ticket does not belong in this repository; the run ends without changes.",
+    "sentEnds": "Answer sent — the run ends."
   }
 }

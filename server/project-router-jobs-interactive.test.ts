@@ -381,4 +381,11 @@ describe('the question card on /jobs/:id', () => {
     expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'x', optionId: 'Bad Id' })).status).toBe(400)
     expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'x', reject: true, approve: true })).status).toBe(400)
   })
+
+  it('a structured answer for a run not paused in this process is a 409, so the card resumes the retained run', async () => {
+    const { app } = buildApp({ queueOwns: false, loopOwns: false })
+    const res = await request(app).post('/api/projects/p1/jobs/run-r/messages').send({ text: 'SQLite', interruptId: 'q1', optionId: 'sqlite' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('not_paused_here')
+  })
 })

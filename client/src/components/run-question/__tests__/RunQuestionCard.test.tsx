@@ -57,6 +57,12 @@ describe('RunQuestionCard', () => {
     stop()
   })
 
+  it('a choice that ends the run says so when it is sent', async () => {
+    render(<RunQuestionCard question={planner} projectId="p1" runId="run-1" />)
+    fireEvent.click(screen.getAllByTestId('run-question-option')[2])
+    expect(await screen.findByTestId('run-question-sent')).toHaveTextContent('Answer sent — the run ends.')
+  })
+
   it('takes another answer as free text', async () => {
     render(<RunQuestionCard question={planner} projectId="p1" runId="run-1" />)
     fireEvent.click(screen.getByTestId('run-question-other'))

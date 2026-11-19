@@ -377,6 +377,9 @@
     "failed": "Impossibile inviare la risposta",
     "showMore": "Mostra tutto",
     "showLess": "Mostra meno",
-    "notice": "Ti aspetta"
+    "notice": "Ti aspetta",
+    "notHere": "Non farlo qui",
+    "notHereMeaning": "Questo ticket non appartiene a questo repository; l’esecuzione termina senza modifiche.",
+    "sentEnds": "Risposta inviata: l’esecuzione termina."
   }
 }

@@ -377,6 +377,9 @@
     "failed": "无法发送你的回答",
     "showMore": "显示全部",
     "showLess": "收起",
-    "notice": "需要你处理"
+    "notice": "需要你处理",
+    "notHere": "不在这里做",
+    "notHereMeaning": "这个工单不属于此仓库；运行将结束且不做任何更改。",
+    "sentEnds": "已发送回答，运行结束。"
   }
 }

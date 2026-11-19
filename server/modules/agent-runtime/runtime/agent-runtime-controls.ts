@@ -119,6 +119,8 @@ export interface RuntimeRunSummary {
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
+  /** The question card (see shared/run-question): who asks, the question, its choices. */
+  question?: RunQuestion | null
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
   /** A settled continuation (blocked/failed/interrupted/succeeded) can be dismissed from the rail card; it stays in the history. */
   canDismiss?: boolean
@@ -507,7 +509,7 @@ export class AgentRuntimeControls {
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: hostWorking ? 'running' : superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkReserved ? undefined : state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
+        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), question: forkReserved ? null : state.question ?? null, steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
         canSettle: forkReserved ? false : definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)

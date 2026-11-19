@@ -45,14 +45,16 @@ export function BuildingRunBody({ model }: { model: PrDecisionCardModel }) {
               : runOnly ? t('prCard.title.buildingInPlace')
                 : envelope.loopId === FLOW_SPEC_LOOP_ID ? t('prCard.title.flowSpecBuilding') : t('prCard.title.building')}
         </span>
-        {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
+        {/* A question says "Needs you" in the title; a second "Paused" pill would contradict it. */}
+        {FEATURE_MISSION_RAIL_CARDS && !(buildingPaused && pausedQuestion) && <MissionRunStatusPill status={runStatus} />}
         {FEATURE_MISSION_RAIL_CARDS && (
           <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-muted-foreground">
             {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
           </span>
         )}
       </div>
-      {phaseLine && <div className="mt-1 flex items-center pl-[22px]">{phaseLine}</div>}
+      {/* The step a paused run stopped at is a node id; its question card says what it waits for. */}
+      {phaseLine && !(buildingPaused && pausedQuestion) && <div className="mt-1 flex items-center pl-[22px]">{phaseLine}</div>}
       {(ticketChips || !runOnly) && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
           {!runOnly && <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />}

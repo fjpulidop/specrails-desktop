@@ -377,6 +377,9 @@
     "failed": "Deine Antwort konnte nicht gesendet werden",
     "showMore": "Alles anzeigen",
     "showLess": "Weniger anzeigen",
-    "notice": "Braucht dich"
+    "notice": "Braucht dich",
+    "notHere": "Nicht hier umsetzen",
+    "notHereMeaning": "Dieses Ticket gehört nicht in dieses Repository; der Lauf endet ohne Änderungen.",
+    "sentEnds": "Antwort gesendet – der Lauf endet."
   }
 }

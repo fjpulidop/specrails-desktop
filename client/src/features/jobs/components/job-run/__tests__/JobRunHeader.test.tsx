@@ -301,6 +301,14 @@ describe('JobRunHeader', () => {
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
+  it('a run waiting on the person says Needs you, never the node id it paused at', async () => {
+    const question = { stepId: 'clarify', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend?' }
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, nextStep: 'clarify', pendingQuestion: question })] }))
+    renderHeader(failedJob, [], { projectId: 'p1' })
+    expect(await screen.findByText('Needs you')).toBeInTheDocument()
+    expect(screen.queryByText(/clarify/)).not.toBeInTheDocument()
+  })
+
   it('keeps chrome compact without an inline diagnosis or Details', () => {
     renderHeader(failedJob)
     const chrome = screen.getByTestId('run-detail-bar')

@@ -377,6 +377,9 @@
     "failed": "Impossible d’envoyer votre réponse",
     "showMore": "Tout afficher",
     "showLess": "Afficher moins",
-    "notice": "Vous attend"
+    "notice": "Vous attend",
+    "notHere": "Ne pas le faire ici",
+    "notHereMeaning": "Ce ticket n’appartient pas à ce dépôt ; l’exécution s’arrête sans modification.",
+    "sentEnds": "Réponse envoyée — l’exécution s’arrête."
   }
 }

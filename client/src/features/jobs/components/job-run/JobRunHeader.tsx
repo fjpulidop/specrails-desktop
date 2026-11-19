@@ -1,4 +1,5 @@
 import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
+import { readRunQuestion } from '../../../../components/run-question/run-question'
 import { focusRunQuestion } from './RunQuestionDock'
 import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useMemo, useState, type ReactNode } from 'react'
@@ -133,14 +134,17 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     const def = phaseDefinitions.find((d) => phases[d.key] === 'running')
     return def?.label ?? null
   }, [phases, phaseDefinitions])
-  const runtimePhaseLabel = run?.nextStep ? tRuntime(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) : null
+  // A step the runtime names by a node id (`clarify`, `map[0]/ask`) has no words for the person: show none.
+  const runtimePhaseLabel = run?.nextStep ? tRuntime(`roles.${run.nextStep}`, { defaultValue: '' }) || null : null
   const phaseLabel = runningPhaseLabel ?? runtimePhaseLabel
 
   const { key: activityKey, arg: activityArg } = resolveActivityLabel(activity, isRunning)
   const activityLabel = activityArg != null
     ? t(`statusPanel.activity.${activityKey}`, { arg: activityArg })
     : t(`statusPanel.activity.${activityKey}`)
-  const liveLine = isRunning
+  // A run waiting on the person says so, not "Working…".
+  const waitsOnPerson = !!readRunQuestion(job.question) || !!answerableRun(run)
+  const liveLine = waitsOnPerson ? t('common:runQuestion.notice') : isRunning
     ? (phaseLabel ? t('runHeader.phaseActivity', { phase: phaseLabel, activity: activityLabel }) : activityLabel)
     : run && !run.active && run.nextStep && (run.canResume || run.pendingQuestion || run.pendingApproval)
       ? t('runHeader.phaseActivity', {
@@ -238,7 +242,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   ) : null
 
   const evidenceChip = run && projectId ? <RuntimeEvidenceChip projectId={projectId} run={run} /> : null
-  const acceptsInstructions = !!run && !!projectId && steeringAcceptsInstructions(run)
+  // While the run waits on the person its question card is the one input; instructions come after.
+  const acceptsInstructions = !waitsOnPerson && !!run && !!projectId && steeringAcceptsInstructions(run)
   const composer = acceptsInstructions && run && projectId
     ? <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />
     : null

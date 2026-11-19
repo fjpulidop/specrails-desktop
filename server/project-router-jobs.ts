@@ -397,8 +397,10 @@ return
     if (interruptId !== undefined && (typeof interruptId !== 'string' || !interruptId)) { res.status(400).json({ error: 'Invalid interruptId' }); return }
     if (approve !== undefined && typeof approve !== 'boolean') { res.status(400).json({ error: 'Invalid approval' }); return }
     // A structured answer (Core questionOptions): the chosen option, or a rejection whose text is the reason.
-    if (optionId !== undefined && (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId) || !loopPaused)) { res.status(400).json({ error: 'Invalid optionId' }); return }
-    if (reject !== undefined && (reject !== true || approve === true || !loopPaused)) { res.status(400).json({ error: 'Invalid rejection' }); return }
+    if (optionId !== undefined && (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId))) { res.status(400).json({ error: 'Invalid optionId' }); return }
+    if (reject !== undefined && (reject !== true || approve === true)) { res.status(400).json({ error: 'Invalid rejection' }); return }
+    // Not paused in this process (retained over a restart): the caller resumes the retained run instead.
+    if ((optionId !== undefined || reject !== undefined) && !loopPaused) { res.status(409).json({ error: 'not_paused_here', detail: 'Resume the retained run with POST /loop-runs/:id/resume' }); return }
     if ((typeof text !== 'string' || !text.trim()) && !(loopPaused && approve === true)) {
       res.status(400).json({ error: 'text is required' })
       return
