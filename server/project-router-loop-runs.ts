@@ -14,9 +14,11 @@ import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
 import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
-import { INCOMPLETE_TASKS_REMEDIES, IncompleteTasksRemedyError, browserRetryInstruction, prepareIncompleteTasksFork, type IncompleteTasksRemedy } from './modules/delivery/runtime/incomplete-tasks-remedy'
+import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
+import { normalizeContinueRemedy, planContinuation, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
+import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
 import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
-import { parseStoredDiagnosis } from './modules/recovery'
+import { continuationGuidance, parseStoredDiagnosis } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent } from './db'
@@ -159,44 +161,29 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
-  // A run that stopped with approved tasks unticked continues as a fork: to review with the
-  // remaining items as human checks, or from the developer with the browser and install guidance.
+  // Continue a failed or stopped run, keeping its work: in place when the runtime can resume it,
+  // otherwise as the next attempt from the step that failed or stopped, with the cause's guidance.
+  // `continue-to-review` hands the remaining checks to a person. `retry-with-browser` is the older id of `continue`.
   router.post('/:projectId/loop-runs/:id/remedy', async (req: Request, res: Response) => {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
-    const remedy = (req.body ?? {}).remedy as unknown
-    if (!(INCOMPLETE_TASKS_REMEDIES as readonly unknown[]).includes(remedy)) { res.status(400).json({ error: 'invalid_remedy' }); return }
-    try {
-      assertProcessAdmission(c.project.id)
-      const budgetRejection = c.dailyBudgetRejection?.() ?? null
-      if (budgetRejection) { res.status(409).json(budgetRejection); return }
-      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId, true)
-      if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
-      const input = prepareIncompleteTasksFork(c.db, runId, remedy as IncompleteTasksRemedy, probe)
-      const result = await forkDefinitionRun(c, runId, input)
-      // A fork re-runs the prompts its run was compiled with; runs from before the browser tool
-      // never hear of it there. The restarted developer gets the guidance as an operator
-      // instruction, queued before the fork resumes so its first turn reads it.
-      let guided: boolean | undefined
-      if (remedy === 'retry-with-browser') {
-        const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
-        const tasks = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)?.incompleteTasks ?? []
-        try {
-          await signalDefinitionRun(c, result.loopRunId, browserRetryInstruction(tasks), `remedy-browser-${result.loopRunId}`.slice(0, 128))
-          guided = true
-        } catch (error) {
-          guided = false
-          console.warn(`[remedy] could not queue the browser guidance for ${result.loopRunId}: ${error instanceof Error ? error.message : String(error)}`)
-        }
-      }
-      const resumed = await resumeDefinitionRunFromStop(c, result.loopRunId)
-      res.status(201).json({ ...result, remedy, resumed: resumed.ok, ...(guided === undefined ? {} : { guided }), ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
-    } catch (error) {
-      if (error instanceof IncompleteTasksRemedyError) { res.status(409).json({ error: error.code, detail: error.message }); return }
-      const detail = error instanceof Error ? error.message : String(error)
-      res.status(409).json({ error: 'runtime_fork_rejected', detail })
-    }
+    const remedy = normalizeContinueRemedy((req.body ?? {}).remedy)
+    if (!remedy) { res.status(400).json({ error: 'invalid_remedy' }); return }
+    const outcome = await continueDefinitionRun(c, runId, remedy)
+    res.status(outcome.status).json(outcome.body)
+  })
+
+  // The attempt chain a run belongs to (oldest first), for the run window's lineage (null without
+  // lineage), and whether Continue applies: a settled or paused definition run no later attempt took over.
+  router.get('/:projectId/loop-runs/:id/attempts', (req: Request, res: Response) => {
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    const continuable = run.engine_version === 2 && (run.status === 'completed' ? run.final_outcome !== 'success' : run.status === 'paused' && run.restart_reason !== 'fork')
+      && !readDefinitionSuccessor(c.db, runId)
+    let chain: ReturnType<typeof readAttemptChain> = null
+    try { chain = readAttemptChain(c.db, runId) } catch { chain = null }
+    res.json({ chain, continuable })
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
@@ -499,6 +486,57 @@ export async function settleCompletedDefinitionRun(c: ProjectContext, runId: str
   const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
   if (!snapshot) throw new Error('Original isolated settlement snapshot is unavailable')
   await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+}
+
+export interface ContinueOptions {
+  /** Specrails continued on its own (recorded, and bounded to one per chain by the caller). */
+  automatic?: boolean
+}
+
+/**
+ * Continue a failed or stopped definition run (the person's Continue and the
+ * automatic continuation). Keeps every piece of work: resumes in place when the
+ * runtime can, otherwise forks the next attempt from the step that failed or
+ * stopped. The cause's guidance is queued as an operator instruction before the
+ * run goes on, so its next agent turn reads it. Returns the HTTP outcome.
+ */
+export async function continueDefinitionRun(c: ProjectContext, runId: string, remedy: ContinueRemedy, options: ContinueOptions = {}): Promise<{ status: number; body: object }> {
+  try {
+    assertProcessAdmission(c.project.id)
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) return { status: 409, body: budgetRejection }
+    const successor = readDefinitionSuccessor(c.db, runId)
+    if (successor) return { status: 409, body: { error: 'runtime_fork_owns_worktree', detail: 'This attempt was already continued', loopRunId: successor } }
+    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId, true)
+    if (probe.status === 'unavailable') return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } }
+    const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
+    const diagnosis = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)
+    const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
+    const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
+    // Checks handed to a person need no guidance; Continue carries the cause's.
+    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis) : null
+    let guided: boolean | undefined
+    if (guidance) {
+      try {
+        await signalDefinitionRun(c, target, guidance, `continue-${target}-${Date.now().toString(36)}`.slice(0, 128))
+        guided = true
+      } catch (error) {
+        guided = false
+        console.warn(`[continue] could not queue the guidance for ${target}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    try {
+      recordRunContinuation(c.db, { runId: target, sourceRunId: runId, remedy, mode: plan.mode, fromStep: plan.fromStep, cause: diagnosis?.kind ?? null, guidance: guided ? guidance : null, automatic: !!options.automatic })
+    } catch (error) { console.warn(`[continue] could not record the continuation of ${runId}:`, error instanceof Error ? error.message : error) }
+    const resumed = plan.mode === 'fork' ? await resumeDefinitionRunFromStop(c, target) : await resumeDefinitionRunFromStop(c, runId)
+    return { status: plan.mode === 'fork' ? 201 : 202, body: { loopRunId: target, remedy, mode: plan.mode, fromStep: plan.fromStep, resumed: resumed.ok, ...(guided === undefined ? {} : { guided }),
+      ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) } }
+  } catch (error) {
+    if (error instanceof IncompleteTasksRemedyError) return { status: 409, body: { error: error.code, detail: error.message } }
+    if (error instanceof ProcessAdmissionClosedError) return { status: 409, body: { error: 'process_admission_closed', detail: error.message } }
+    const detail = error instanceof Error ? error.message : String(error)
+    return { status: detail === 'runtime_status_unavailable' ? 503 : 409, body: { error: 'runtime_fork_rejected', detail } }
+  }
 }
 
 /**

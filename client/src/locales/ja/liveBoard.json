@@ -89,7 +89,8 @@
       "siblings_one": "{{count}} 件の run と重複",
       "siblings_other": "{{count}} 件の run と重複",
       "baseMoved": "ベースが前進"
-    }
+    },
+    "attempt": "試行 {{number}}"
   },
   "empty": {
     "title": "実行中のものはありません",

@@ -83,7 +83,7 @@
     "implementationFailed": "Implementation failed",
     "implementationFailedHint": "The implementation run failed. Open the run log, then discard this card before relaunching.",
     "runStopped": "Stopped",
-    "runStoppedHint": "You stopped this run before it delivered. Relaunch it when you want to continue, or discard this card.",
+    "runStoppedHint": "You stopped this run before it delivered. Continue picks it up where it stopped, or discard this card.",
     "prFailed": "PR failed",
     "prFailedDetail": "PR failed",
     "createDegraded": "Couldn't publish the PR — {{detail}}. Retry when resolved.",
@@ -184,7 +184,9 @@
     "fixCi": "Fix CI / conflicts",
     "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
     "fixCiStarted": "CI watch started",
-    "fixCiFailed": "The CI loop could not start"
+    "fixCiFailed": "The CI loop could not start",
+    "continue": "Continue",
+    "continueHint": "Keeps everything and goes on from where the run failed or stopped, in the same worktree."
   },
   "railsBoard": {
     "title": "Rails",

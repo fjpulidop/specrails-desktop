@@ -252,7 +252,8 @@
       "networkError": "Erro de rede"
     },
     "emptyCta": "Abrir o quadro de specs",
-    "loading": "Carregando jobs…"
+    "loading": "Carregando jobs…",
+    "attempt": "Tentativa {{number}}"
   },
   "activeJob": {
     "none": "Nenhum job ativo",
@@ -389,6 +390,7 @@
     "graph": "Grafo de execução",
     "detail": "Detalhe do registo",
     "navigation": "Detalhe da execução",
-    "sections": "Secções do registo"
+    "sections": "Secções do registo",
+    "stopped": "Continuar"
   }
 }

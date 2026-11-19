@@ -252,7 +252,8 @@
       "networkError": "Error de red"
     },
     "emptyCta": "Abrir el tablero de specs",
-    "loading": "Cargando trabajos…"
+    "loading": "Cargando trabajos…",
+    "attempt": "Intento {{number}}"
   },
   "activeJob": {
     "none": "Ningún trabajo activo",
@@ -389,6 +390,7 @@
     "graph": "Grafo de ejecución",
     "detail": "Detalle del registro",
     "navigation": "Detalle de ejecución",
-    "sections": "Secciones del registro"
+    "sections": "Secciones del registro",
+    "stopped": "Continuar"
   }
 }

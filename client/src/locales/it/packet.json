@@ -95,7 +95,10 @@
     "acceptanceCheckPassed": "Controllo del revisore superato: {{name}}",
     "acceptanceCheckFailed": "Controllo del revisore FALLITO: {{name}}",
     "reviewerSummary": "Riepilogo del revisore IA:",
-    "reviewerFinding": "Il revisore IA ha segnalato:"
+    "reviewerFinding": "Il revisore IA ha segnalato:",
+    "earlierAttempts_one": "{{count}} esecuzione precedente di questo controllo",
+    "earlierAttempts_other": "{{count}} esecuzioni precedenti di questo controllo",
+    "earlierAttempt": "Fallito con codice di uscita {{exitCode}} ({{seconds}} s), prima della correzione che lo ha fatto passare"
   },
   "watch": {
     "humanReviewRecommended": "Il revisore IA ha dato {{overall}}/100 e consiglia che una persona lo guardi.",

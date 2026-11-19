@@ -100,7 +100,7 @@
     "implementationFailed": "実装に失敗しました",
     "implementationFailedHint": "実装の実行に失敗しました。実行ログを開き、再実行する前にこのカードを破棄してください。",
     "runStopped": "停止",
-    "runStoppedHint": "何も納品される前にこの実行を停止しました。続けたいときに再実行するか、このカードを破棄してください。",
+    "runStoppedHint": "納品前にこの実行を停止しました。続行すると止まったところから再開します。不要ならこのカードを破棄してください。",
     "prFailed": "PR 失敗",
     "prFailedDetail": "PR 失敗",
     "createDegraded": "PR を公開できませんでした — {{detail}}。解決後に再試行してください。",
@@ -184,7 +184,9 @@
     "fixCi": "CI / コンフリクトを修正",
     "fixCiTooltip": "チェックを待ち、失敗とコンフリクトを修正して、グリーンになるまでこの PR にプッシュします",
     "fixCiStarted": "CI 監視を開始しました",
-    "fixCiFailed": "CI ループを開始できませんでした"
+    "fixCiFailed": "CI ループを開始できませんでした",
+    "continue": "続行",
+    "continueHint": "すべてを残し、実行が失敗または停止したところから同じ worktree で再開します。"
   },
   "railsBoard": {
     "title": "レール",

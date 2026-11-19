@@ -601,5 +601,17 @@
     "projectsHeading": "Projekte",
     "projectsDescription": "Schalte ein Projekt aus, um seine Benachrichtigungen stummzuschalten. Seine Einträge bleiben im Posteingang.",
     "saveFailed": "Die Benachrichtigungseinstellungen konnten nicht gespeichert werden"
+  },
+  "autoContinue": {
+    "title": "Fehlgeschlagene Läufe fortsetzen",
+    "description": "Wenn ein Lauf aus einem Grund fehlschlägt, den Specrails beheben kann, setzt es ihn einmal selbst fort und vermerkt das im Verlauf.",
+    "toggleLabel": "Einmal automatisch fortsetzen",
+    "stateOn": "An: Specrails setzt einen behebbaren Fehler einmal fort.",
+    "stateOff": "Aus: Ein fehlgeschlagener Lauf wartet, bis du ihn fortsetzt.",
+    "explainWhen": "Unerledigte Aufgaben, ein fehlendes Werkzeug, ein vorübergehender Anbieterfehler oder ein Stillstand: Der nächste Versuch behält die ganze Arbeit und bekommt die nötigen Hinweise.",
+    "explainNever": "Nie bei Zugangsdaten oder Geheimnissen, Richtlinienablehnungen, Ausgabenlimits, Nutzungslimits, einem von dir gewählten Stopp oder demselben Fehler zweimal.",
+    "enabled": "Specrails setzt behebbare Fehler einmal fort",
+    "disabled": "Fehlgeschlagene Läufe warten auf dich",
+    "saveFailed": "Die Einstellung konnte nicht gespeichert werden"
   }
 }

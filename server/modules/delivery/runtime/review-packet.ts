@@ -62,6 +62,16 @@ export interface PacketProofItem {
   values?: Record<string, string | number>
   /** Verbatim agent output, shown only inside an explicitly-labelled block. */
   rawExcerpt?: string
+  /** Earlier runs of the same verification, superseded by this final one: history, shown collapsed, never proof. */
+  earlier?: PacketProofAttempt[]
+}
+
+/** One earlier run of a verification command (the packet's collapsed history). */
+export interface PacketProofAttempt {
+  passed: boolean
+  exitCode: number | string
+  seconds: number | string
+  rawExcerpt?: string
 }
 
 export interface PacketTicketSection {
@@ -295,6 +305,8 @@ function buildProof(
   evidence: DeliveryUnitEvidence[] | null,
   churn: ChurnRow[],
   confidence: DeliveryConfidenceScore | null,
+  /** The run delivered (its final verification gated the delivery). */
+  settled = false,
 ): PacketProofItem[] {
   const proof: PacketProofItem[] = []
 
@@ -327,13 +339,24 @@ function buildProof(
   // by the runtime, not the agent's claim — so it belongs with the facts.
   const runtimeUnits = (evidence ?? []).map((unit) => unit.runtime).filter((r): r is NonNullable<typeof r> => !!r)
   const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun))
-  for (const command of hostCommands.slice(0, 6)) {
-    const passed = command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
+  const passedOf = (command: (typeof hostCommands)[number]) => command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
+  const secondsOf = (command: (typeof hostCommands)[number]) => command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?'
+  // A delivered packet proves the FINAL verification: when a command later passed, its earlier
+  // failed runs are history (collapsed under it), not proof. A failed packet keeps every run.
+  const finalOnly = settled
+  const proven = finalOnly
+    ? hostCommands.filter((command, index) => passedOf(command) ? hostCommands.findIndex((other) => other.label === command.label && passedOf(other)) === index
+      : !hostCommands.some((other) => other.label === command.label && passedOf(other)) && hostCommands.map((other) => other.label).lastIndexOf(command.label) === index)
+    : hostCommands
+  for (const command of proven.slice(0, 6)) {
+    const passed = passedOf(command)
+    const earlier = finalOnly ? hostCommands.filter((other) => other !== command && other.label === command.label && !passedOf(other)) : []
     proof.push({
       tier: 'app-verified',
       code: passed ? 'proof.hostCommandPassed' : 'proof.hostCommandFailed',
-      values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?' },
+      values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: secondsOf(command) },
       ...(command.outputTail ? { rawExcerpt: command.outputTail } : {}),
+      ...(earlier.length ? { earlier: earlier.slice(0, 6).map((other) => ({ passed: false, exitCode: other.exitCode ?? '?', seconds: secondsOf(other), ...(other.outputTail ? { rawExcerpt: other.outputTail } : {}) })) } : {}),
     })
   }
 
@@ -619,7 +642,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     failedCount,
     totalCount: units.length > 0 ? new Set(units.map((u) => u.ticketId)).size : ticketIds.length,
     sections,
-    proof: buildProof(units, evidence?.units ?? null, churn, confidence),
+    proof: buildProof(units, evidence?.units ?? null, churn, confidence, variant !== 'failed'),
     watchOut: buildWatchOut(confidence, churn, variant),
     confidence,
     whatToLookAt: buildWhatToLookAt(evidence?.units ?? []),

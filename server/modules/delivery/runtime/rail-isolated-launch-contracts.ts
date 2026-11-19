@@ -197,7 +197,7 @@ export interface SettledRun {
 }
 
 /** What a branch record says when a person stopped its run before delivery. */
-export const RUN_STOPPED_DETAIL = 'Stopped before delivery; partial changes stay in its original worktree. Relaunch it when you want to continue.'
+export const RUN_STOPPED_DETAIL = 'Stopped before delivery. Continue picks it up where it stopped, in the same worktree, with everything it did so far.'
 
 /**
  * A person stopped every run of this delivery before it delivered: report a

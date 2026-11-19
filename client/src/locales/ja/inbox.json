@@ -86,5 +86,6 @@
   "mute": {
     "mute": "{{project}} の通知をミュート",
     "unmute": "{{project}} の通知を再開"
-  }
+  },
+  "attempt": "試行 {{number}}"
 }

@@ -17,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [delivery](../delivery/README.md)
 - [integrations](../integrations/README.md)
 - [loops](../loops/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
 - [settings](../settings/README.md)

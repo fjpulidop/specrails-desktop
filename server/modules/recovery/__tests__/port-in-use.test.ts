@@ -29,9 +29,9 @@ describe('port_in_use diagnosis', () => {
     expect(d.kind).toBe('unknown')
   })
 
-  it('ranks resume and retry before the logs, and survives storage with its port', () => {
+  it('ranks Continue before the logs and Start over, and survives storage with its port', () => {
     const d = deriveFailureDiagnosis({ outcome: 'failed', stepId: 'verify', portConflict: conflict })
-    expect(presentFailureDiagnosis(d).remedies).toEqual(['resume', 'retry', 'open-logs'])
+    expect(presentFailureDiagnosis(d).remedies).toEqual(['continue', 'open-logs', 'retry'])
     expect(parseStoredDiagnosis(serializeDiagnosis(d))).toMatchObject({ kind: 'port_in_use', port: 3000, source: 'desktop' })
   })
 

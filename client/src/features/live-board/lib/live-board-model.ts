@@ -50,6 +50,8 @@ export interface LiveCard {
   attention: InboxItem | null
   /** A delivery card's last merge preview (server: delivery merge preview); null/absent when none yet. */
   mergePreview?: LiveMergePreview | null
+  /** A continued run's place in its attempt chain: the chain is one card, showing its latest attempt. */
+  attempt?: { number: number; of: number } | null
 }
 
 export interface LiveMergePreview {
@@ -138,7 +140,16 @@ function readCard(raw: unknown): LiveCard | null {
     deliveryId: str(v.deliveryId),
     attention,
     mergePreview: readMergePreview(v.mergePreview),
+    attempt: readAttempt(v.attempt),
   }
+}
+
+/** `{ number, of }` of an attempt chain, defensively: anything else is no chain. */
+export function readAttempt(raw: unknown): { number: number; of: number } | null {
+  const v = raw as Record<string, unknown> | null
+  if (!v || typeof v !== 'object') return null
+  const number = v.number, of = v.of
+  return Number.isInteger(number) && Number.isInteger(of) && (number as number) >= 1 && (of as number) >= 2 && (number as number) <= (of as number) ? { number: number as number, of: of as number } : null
 }
 
 const MERGE_STATUSES = new Set(['clean', 'conflicts', 'already_merged', 'unknown'])

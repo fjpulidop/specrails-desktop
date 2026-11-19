@@ -130,7 +130,7 @@ describe('inbox projection: failure diagnosis', () => {
     run('r-limit', 0)
     finishLoopRun(db, 'r-limit', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'stalled', stallReason: 'provider_limit', providerLimit: { kind: 'session_limit', message: "You've hit your session limit", resetsAt: '3am (Europe/Madrid)' } }) })
     const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
-    expect(item).toMatchObject({ kind: 'blocked', detail: "You've hit your session limit", diagnosis: { kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] } })
+    expect(item).toMatchObject({ kind: 'blocked', detail: "You've hit your session limit", diagnosis: { kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', remedies: ['continue', 'open-logs', 'retry'] } })
     expect(item.version).toContain('provider_limit')
   })
 
@@ -139,7 +139,7 @@ describe('inbox projection: failure diagnosis', () => {
     run('r-tests', 1); finishLoopRun(db, 'r-tests', { outcome: 'failed', finishedAt: iso(-50_000), failureDiagnosis: diagnose({ outcome: 'failed', core: { kind: 'tests_failed', phase: 'fixer', rounds: 4, resumablePhase: 'fixer', confidence: 'high' } }) })
     const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
     expect(byId['r-env']).toMatchObject({ kind: 'blocked', diagnosis: { kind: 'environment', remedies: expect.arrayContaining(['fix-environment']) } })
-    expect(byId['r-tests']).toMatchObject({ kind: 'failed', diagnosis: { kind: 'tests_failed', rounds: 4, remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] } })
+    expect(byId['r-tests']).toMatchObject({ kind: 'failed', diagnosis: { kind: 'tests_failed', rounds: 4, remedies: ['continue', 'edit-spec', 'open-logs', 'retry'] } })
   })
 
   it('never claims a cause for a run finished before diagnosis existed', () => {

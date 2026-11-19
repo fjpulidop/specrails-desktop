@@ -89,7 +89,8 @@
       "siblings_one": "Choca con {{count}} ejecución",
       "siblings_other": "Choca con {{count}} ejecuciones",
       "baseMoved": "Base avanzada"
-    }
+    },
+    "attempt": "intento {{number}}"
   },
   "empty": {
     "title": "No hay nada en marcha",

@@ -85,6 +85,14 @@ export interface LiveRunFacts {
   deliveryId: string | null
   /** The inbox subject ids that speak for this run (its delivery, or the run itself). */
   subjectIds: string[]
+  /** Where this run stands in its attempt chain ("attempt 3"), when it continued an earlier one. */
+  attempt?: LiveAttempt | null
+}
+
+/** A continued run's place in its chain; the chain is one card showing its latest attempt. */
+export interface LiveAttempt {
+  number: number
+  of: number
 }
 
 export interface LiveCard<A extends LiveAttentionRef = LiveAttentionRef> extends Omit<LiveRunFacts, 'kind' | 'subjectIds' | 'sourceId'> {

@@ -252,7 +252,8 @@
       "networkError": "ネットワークエラー"
     },
     "emptyCta": "スペックボードを開く",
-    "loading": "ジョブを読み込み中…"
+    "loading": "ジョブを読み込み中…",
+    "attempt": "試行 {{number}}"
   },
   "activeJob": {
     "none": "アクティブなジョブはありません",
@@ -389,6 +390,7 @@
     "graph": "実行グラフ",
     "detail": "ログ詳細",
     "navigation": "実行詳細",
-    "sections": "ログのセクション"
+    "sections": "ログのセクション",
+    "stopped": "続行"
   }
 }

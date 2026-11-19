@@ -3,6 +3,7 @@ import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
 import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
+import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
 import type { ProjectInboxSource } from '../ports'
 import type { PresentedFailureDiagnosis } from '../../recovery'
@@ -69,9 +70,15 @@ function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): 
   return null
 }
 
+function attemptField(position: { attempt: number; attempts: number } | undefined): { attempt?: { number: number; of: number } } {
+  return position ? { attempt: { number: position.attempt, of: position.attempts } } : {}
+}
+
 /** Deliveries that wait for a decision or ended badly, mirroring the client's `deliveryAttention`. */
 function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], nowIso: string): InboxItem[] {
   const out: InboxItem[] = []
+  const lastRun = (row: RailPrDeliveryRow): string | undefined => parseJsonArray(row.run_ids).filter((v): v is string => typeof v === 'string').pop()
+  const attempts = readRunAttempts(handle.db, rows.map(lastRun).filter((id): id is string => !!id))
   for (const row of rows) {
     const decision = row.decision
     const changesRequested = decision === 'implementation_failed' && row.status_code === 'review_changes_requested'
@@ -96,6 +103,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       conversationId: row.origin_conversation_id,
       decision,
       ...(Number.isInteger(row.rail_index) ? { railIndex: row.rail_index } : {}),
+      ...attemptField(attempts.get(lastRun(row) ?? '')),
     })
   }
   return out
@@ -113,7 +121,8 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
     SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis
     FROM loop_runs r
     WHERE r.project_id = ?
-      AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id = r.id AND f.adopted = 1)
+      -- An attempt a later one continued is history: the chain speaks through its latest attempt.
+      AND NOT ${supersededAttemptSql('r')}
       AND (
         (r.status = 'paused' AND COALESCE(r.restart_reason, '') != 'fork')
         OR (r.status = 'completed' AND r.final_outcome IN ('failed','blocked','stalled') AND r.finished_at >= ?
@@ -127,6 +136,7 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
     LIMIT 100
   `).all(handle.project.id, since) as RunRow[]
   const out: InboxItem[] = []
+  const attempts = readRunAttempts(handle.db, rows.map((run) => run.id))
   for (const run of rows) {
     // A paused run waits on the person (a question, a usage limit, a budget, a restart) while its
     // delivery is still building, and the inbox lists no building delivery: never hide it behind one.
@@ -142,6 +152,7 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       conversationId: null,
       diagnosis: null as PresentedFailureDiagnosis | null,
       ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),
+      ...attemptField(attempts.get(run.id)),
     }
     if (run.status === 'paused') {
       // provider-quota: waiting for a usage-limit reset (live, or retained over a restart).

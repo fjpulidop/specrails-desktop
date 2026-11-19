@@ -601,5 +601,17 @@
     "projectsHeading": "Projects",
     "projectsDescription": "Turn a project off to mute its notifications. Its items still show in the inbox.",
     "saveFailed": "Couldn't save the notification settings"
+  },
+  "autoContinue": {
+    "title": "Continue failed runs",
+    "description": "When a run fails for a cause Specrails knows how to fix, it continues it once by itself and says so in the run’s history.",
+    "toggleLabel": "Continue automatically, once",
+    "stateOn": "On: Specrails continues a fixable failure once.",
+    "stateOff": "Off: a failed run waits for you to continue it.",
+    "explainWhen": "Unfinished tasks, a missing tool, a provider error of the moment or a stall: the next attempt keeps all the work and gets the guidance it needs.",
+    "explainNever": "Never for credentials or secrets, policy denials, spend limits, usage limits, a stop you chose or the same failure twice.",
+    "enabled": "Specrails will continue fixable failures once",
+    "disabled": "Failed runs will wait for you",
+    "saveFailed": "Could not save the setting"
   }
 }

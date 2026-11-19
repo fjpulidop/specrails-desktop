@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "保留在 PR 之外的文件",
           "keywords": "存储, 磁盘, 安全存档, 保留的文件, 隔离, 清理, 删除"
+        },
+        "autoContinue": {
+          "label": "自动继续失败的运行",
+          "keywords": "继续, 重试, 失败的运行, 自动, 恢复"
         }
       }
-    }
+    },
+    "jumpAttempt": "第 {{number}} 次尝试"
   },
   "toasts": {
     "queued": "{{name}} 已加入队列",

@@ -121,13 +121,25 @@ For a failed or canceled job with a diagnosis, **Failure reasons** opens with th
 - **Environment** — the machine cannot run the checks (credentials, a missing toolchain, a failing setup command). *Fix the environment* shows exactly what to run or change.
 - **Port in use** — the run's own check or server could not start because another process already held its port (`EADDRINUSE`). It is not counted as failed tests. Each run worktree gets its own ports through `PORT` and `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; a project that reads `PORT` never collides. Stop the other process, or have the project read `PORT`, then **Run again**.
 - **Blocked**, **ran out of time**, **went quiet** and **stopped unexpectedly** name the limit or the process that stopped the run.
-- **Unfinished tasks** — the run did the work but left approved tasks unticked, for example a visual check. The card lists them. **Continue to review** keeps the work and sends it to review with what is left as a *check by hand* in the review packet; **Retry with the browser** restarts the developer, which checks the UI itself with the built-in browser tool and installs any tool it is missing.
+- **Unfinished tasks** — the run did the work but left approved tasks unticked, for example a visual check. The card lists them. **Continue** keeps the work and restarts the developer with the browser tool and the install rule for exactly those tasks; when every task left is a check only a person can make, **Continue to review** sends it to review with them as *checks by hand* in the review packet.
 - **Spec rejected** — OpenSpec rejected the plan or the spec and planning could not repair it. **Edit spec and relaunch**.
 - **Unknown cause** — the run's own records do not name a cause, and the app does not guess. The card leads with the AI analysis instead, labelled as such, or offers **Analyze with AI** as the first action; the end of the log stays one click away.
 
-Under the diagnosis you get up to three ranked remedies, and only the ones that can work here: **Resume from** the phase that stopped, **Run again**, **Edit spec and relaunch** (the spec's addenda carry your change into the next run), **Fix the environment** and **Open logs at the failure**. The same cause appears as a one-line label in the [inbox](../getting-started/the-dashboard-tour), and the mission's run card shows the same card.
+Under the diagnosis you get up to three ranked remedies, and only the ones that can work here, each with one line under it saying what it does to your work: **Continue**, **Continue to review**, **Edit spec and relaunch** (the spec's addenda carry your change into the next run), **Fix the environment** and **Open logs at the failure**. **Start over** waits in the **⋯** menu: it starts a fresh run from the base, and this attempt's work is not carried over (it stays in the old worktree). The same cause appears as a one-line label in the [inbox](../getting-started/the-dashboard-tour), and the mission's run card shows the same card.
 
 Implement runs check UI and visual behaviour themselves: every run gets a headless browser tool (`$SPECRAILS_BROWSE`) that opens the app on the run's own port, or a page of the repository, at desktop and phone sizes, and returns screenshots the agent reads. A check only a person can make (taste, a real device, real credentials) is planned as a *human check*: the run never fails on it, and it reaches you as a check by hand in the review packet.
+
+### Continuing a run {#continue}
+
+**Continue** is the one way forward for a failed or stopped run. It keeps everything the run did and goes on in the same worktree: a paused run resumes in place; a failed or stopped one goes on as its next *attempt*, from the step that failed or where you stopped it. It also tells the agent what went wrong: for unfinished tasks, the exact tasks with the browser tool and the rule to install what is missing; for a host problem, what was missing and how to install it; after a passing provider error, nothing (the same step simply runs again).
+
+A run you stopped says so (**You stopped this run**) and offers the same **Continue**, never a relaunch from scratch.
+
+Attempts of the same work are one unit. The run window shows where this one stands, for example *Attempt 3 of 4 · continued from the Developer step of attempt 2*; click it to see every attempt, open any of them, and what changed between them (who continued it, from which step, the guidance sent). The inbox, the live board, the jobs list and **⌘K** show the latest attempt only, with its number: an earlier failed attempt that a later one took over no longer counts as something that needs you.
+
+When the cause is known and more work can fix it (unfinished tasks, a missing tool, a passing provider error, a stalled attempt), Specrails continues **once** by itself and writes *Specrails continued automatically* in the run's history. It never does for credentials or secrets, policy denials, spend limits, usage limits, a stop you chose or the same failure twice. Turn it off in **Settings → Specrails agents → Continue failed runs**.
+
+When the AI analysis below suggests a next step that is one of these remedies, it shows as a button beside the step.
 
 ### AI analysis {#ai-failure-analysis}
 

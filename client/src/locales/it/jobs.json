@@ -252,7 +252,8 @@
       "networkError": "Errore di rete"
     },
     "emptyCta": "Apri la bacheca delle spec",
-    "loading": "Caricamento dei job…"
+    "loading": "Caricamento dei job…",
+    "attempt": "Tentativo {{number}}"
   },
   "activeJob": {
     "none": "Nessun job attivo",
@@ -389,6 +390,7 @@
     "graph": "Grafo di esecuzione",
     "detail": "Dettaglio del log",
     "navigation": "Dettaglio esecuzione",
-    "sections": "Sezioni del log"
+    "sections": "Sezioni del log",
+    "stopped": "Continua"
   }
 }

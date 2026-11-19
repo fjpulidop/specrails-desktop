@@ -9,7 +9,7 @@ import { Loader2, RotateCcw } from 'lucide-react'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../../lib/feature-flags'
 import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
 import { useRunDiagnosis } from '../../../recovery/hooks/useRunDiagnosis'
-import { useIncompleteTasksRemedies } from '../../../recovery/hooks/useIncompleteTasksRemedies'
+import { useContinueRemedies } from '../../../recovery/hooks/useContinueRemedies'
 import type { RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
 import { useLastFailedStep } from '../../../loops/lib/failed-step'
@@ -52,22 +52,26 @@ export function useRunDiagnosisSection(args: {
     Boolean(runFailure) || decision === 'implementation_failed' || runStatus === 'failed' || runStatus === 'stalled'
   ) && !runStopped
   const diagnosis = useRunDiagnosis(envelope.projectId, diagnosisRunId, failedRunForDiagnosis && runStatus !== 'running' && runStatus !== 'paused', envelope.updatedAt ?? null)
-  const incompleteTasksRemedies = useIncompleteTasksRemedies(envelope.projectId, diagnosisRunId, diagnosis, setLogRunId)
-  const diagnosisHandlers: RemedyHandlers = {}
-  if (actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
-    diagnosisHandlers.resume = { run: () => void runtime.act(actionableRun, 'resume'), busy: runtime.busy !== null, disabled: busy !== null }
+  // Continue keeps the work and goes on from the step that failed, or where the person stopped it.
+  const settled = runStatus !== 'running' && runStatus !== 'paused'
+  const continueRemedies = useContinueRemedies(envelope.projectId, flowSpecRun ? null : diagnosisRunId, diagnosis, { enabled: settled && (!!diagnosis || runStopped), onContinued: setLogRunId })
+  const diagnosisHandlers: RemedyHandlers = { ...continueRemedies }
+  if (!diagnosisHandlers.continue && actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
+    diagnosisHandlers.continue = { run: () => void runtime.act(actionableRun, 'resume'), busy: runtime.busy !== null, disabled: busy !== null }
   }
   if (!relaunchBlocked) diagnosisHandlers.retry = { run: () => void relaunch(), busy: relaunching, disabled: runtimeBusy || busy !== null }
   if (envelope.ticketIds.length > 0) diagnosisHandlers['edit-spec'] = { run: () => openTicketDetailInProject(envelope.projectId, envelope.ticketIds[0]) }
   if (diagnosisRunId) diagnosisHandlers['open-logs'] = { run: () => setLogRunId(diagnosisRunId) }
-  Object.assign(diagnosisHandlers, incompleteTasksRemedies)
-  // #14: when the diagnosis card renders its remedies, it owns the retry/resume
+  // #14: when the diagnosis card renders its remedies, it owns the Continue / Start over
   // primary; the implementation_failed branch below must not add a second one.
-  const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)
+  const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.continue)
+  // A stopped run continues where it stopped (never a relaunch from the base).
+  const stoppedContinue = runStopped && !flowSpecRun ? continueRemedies.continue ?? null : null
   // Repeat from the step that failed (a Core fork at that exact attempt): the
   // work before it is kept, unlike "Run again" from the start.
+  // Continue already goes on from that step; the explicit row is for a run the card cannot continue.
   const failedStep = useLastFailedStep(envelope.projectId, diagnosisRunId,
-    failedRunForDiagnosis && decision === 'implementation_failed' && runStatus !== 'running' && runStatus !== 'paused')
+    failedRunForDiagnosis && decision === 'implementation_failed' && settled && !diagnosisHandlers.continue)
   const stepFork = useDefinitionFork(diagnosisRunId ?? undefined, envelope.projectId)
   const repeatStepRow = failedStep ? (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-label" data-testid="mission-run-repeat-step">
@@ -95,5 +99,5 @@ export function useRunDiagnosisSection(args: {
     </div>
   ) : null
 
-  return { runStopped, diagnosis, diagnosisOwnsPrimary, diagnosisCard, repeatStepRow }
+  return { runStopped, stoppedContinue, diagnosis, diagnosisOwnsPrimary, diagnosisCard, repeatStepRow }
 }

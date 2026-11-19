@@ -95,7 +95,10 @@
     "acceptanceCheckPassed": "Reviewer-Prüfung bestanden: {{name}}",
     "acceptanceCheckFailed": "Reviewer-Prüfung FEHLGESCHLAGEN: {{name}}",
     "reviewerSummary": "Zusammenfassung des KI-Reviewers:",
-    "reviewerFinding": "Der KI-Reviewer merkte an:"
+    "reviewerFinding": "Der KI-Reviewer merkte an:",
+    "earlierAttempts_one": "{{count}} früherer Lauf dieser Prüfung",
+    "earlierAttempts_other": "{{count}} frühere Läufe dieser Prüfung",
+    "earlierAttempt": "Mit Exit-Code {{exitCode}} fehlgeschlagen ({{seconds}} s), vor der Korrektur, die sie bestehen ließ"
   },
   "watch": {
     "humanReviewRecommended": "Der KI-Reviewer gab {{overall}}/100 und empfiehlt eine menschliche Prüfung.",

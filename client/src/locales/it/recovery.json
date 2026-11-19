@@ -41,9 +41,9 @@
   },
   "why": {
     "provider_limit": {
-      "resetsAt": "Si azzera alle {{time}}. Riprendi allora o eseguila con un altro provider.",
-      "reset": "Si azzera {{resetAt}}. Riprendi allora o eseguila con un altro provider.",
-      "noReset": "Attendi l'azzeramento del limite e riprendi, oppure eseguila con un altro provider."
+      "resetsAt": "Si azzera alle {{time}}. Continua allora, oppure usa un altro provider.",
+      "reset": "Si azzera {{resetAt}}. Continua allora, oppure usa un altro provider.",
+      "noReset": "Attendi che il limite si azzeri e poi continua, oppure usa un altro provider."
     },
     "environment": "Il problema non è la modifica in sé. La macchina ha bisogno di qualcosa prima.",
     "port_in_use": "Il problema non è la modifica: qualcos'altro occupava la porta. Fermalo oppure fai leggere PORT al progetto (ogni esecuzione ha la sua), poi esegui di nuovo.",
@@ -52,7 +52,7 @@
     "timeout": "Ha raggiunto il limite di tempo prima di finire.",
     "tool_inactivity": "Ha smesso di usare strumenti e di rispondere per troppo tempo.",
     "crash": "Il processo del provider o la sua connessione è morto a metà esecuzione.",
-    "incomplete_tasks": "Tutto il resto è fatto. Se ciò che manca è un controllo che solo una persona può fare, prosegui alla revisione con esso come controllo a mano; altrimenti riprova e lascia che l'esecuzione lo completi con il suo browser e i suoi strumenti.",
+    "incomplete_tasks": "Tutto il resto è fatto. Continua completa ciò che resta con il browser e i suoi strumenti; una verifica che solo una persona può fare può andare in revisione.",
     "spec_invalid": "Il piano o la specifica non ha superato OpenSpec e la pianificazione non è riuscita a ripararlo.",
     "workflow_protocol": {
       "plain": "Ha concluso il turno senza i passaggi che Specrails richiede, anche dopo un promemoria. Il lavoro precedente a quel passaggio è conservato: riprendi da lì.",
@@ -61,17 +61,17 @@
     "unknown": "I registri dell'esecuzione non indicano la causa. Una lettura del log con l'IA di solito la trova."
   },
   "remedies": {
-    "label": "Modi per ripartire"
+    "label": "Modi per ripartire",
+    "more": "Altri modi per riprendere"
   },
   "remedy": {
-    "resume": "Riprendi",
-    "resumeFrom": "Riprendi da {{phase}}",
-    "retry": "Esegui di nuovo",
+    "retry": "Ricomincia da capo",
     "editSpec": "Modifica la spec e rilancia",
     "fixEnvironment": "Sistema l'ambiente",
     "openLogs": "Apri il log al punto del guasto",
     "continueToReview": "Prosegui alla revisione",
-    "retryWithBrowser": "Riprova con il browser"
+    "continue": "Continua",
+    "continueFrom": "Continua da {{phase}}"
   },
   "environment": {
     "command": "Comando",
@@ -80,7 +80,7 @@
     "inDirectory": "in {{cwd}}",
     "requiredAction": "Azione richiesta",
     "generic": "L'ambiente richiede attenzione prima che l'esecuzione possa continuare.",
-    "then": "Quando è fatto, riprendi l'esecuzione."
+    "then": "Fatto questo, continua l'esecuzione."
   },
   "logTail": {
     "title": "Fine del log"
@@ -120,7 +120,11 @@
       "incompleteTasks": "Attività incomplete",
       "other": "Altro"
     },
-    "interrupted": "L'analisi si è interrotta (l'app si è riavviata nel frattempo). Riprova."
+    "interrupted": "L'analisi si è interrotta (l'app si è riavviata nel frattempo). Riprova.",
+    "action": {
+      "changeModel": "Cambia modello",
+      "changeModelFor": "Cambia il modello di {{role}}"
+    }
   },
   "facts": {
     "label": "Dove è fallito",
@@ -138,8 +142,45 @@
   },
   "remedyResult": {
     "continued": "Si prosegue alla revisione con il resto come controlli a mano.",
-    "retried": "Nuovo tentativo dallo sviluppatore con il browser e i suoi strumenti.",
     "notResumed": "L'esecuzione proseguita non è partita",
-    "failed": "Impossibile proseguire l'esecuzione"
+    "failed": "Impossibile proseguire l'esecuzione",
+    "continuing": "L'esecuzione prosegue.",
+    "continuingFrom": "Si riprende dal passaggio {{step}}."
+  },
+  "consequence": {
+    "continue": "Mantiene tutto e riparte dal passaggio fallito.",
+    "continueTasks": "Mantiene tutto e rifà solo ciò che mancava, con il browser e le istruzioni per installare.",
+    "continueEnvironment": "Mantiene tutto; l'agente sa cosa manca, lo installa e prosegue.",
+    "continueLimit": "Mantiene tutto e prosegue appena il provider accetta di nuovo richieste.",
+    "continueTransient": "Mantiene tutto ed esegue di nuovo lo stesso passaggio.",
+    "continueStopped": "Riprende da dove si è fermata, nello stesso worktree, con tutto ciò che ha fatto finora.",
+    "continueToReview": "La manda subito in revisione, con ciò che resta come verifiche a mano.",
+    "editSpec": "Apre la spec; modificarla avvia una nuova esecuzione.",
+    "fixEnvironment": "Mostra cosa serve alla macchina e il comando da eseguire.",
+    "openLogs": "Scorre il log fino al passaggio fallito.",
+    "retry": "Una nuova esecuzione dalla base. Il lavoro di questo tentativo non viene ripreso; resta nel vecchio worktree.",
+    "analyze": "L'IA legge il log e spiega perché si è fermata."
+  },
+  "stopped": {
+    "headline": "Hai fermato questa esecuzione",
+    "why": "Non si perde nulla.",
+    "whyNoContinue": "Il suo lavoro resta nel suo worktree. Ricomincia da capo la riesegue dalla base."
+  },
+  "lineage": {
+    "title": "Tentativi",
+    "explain": "Ogni tentativo ha continuato il precedente mantenendone il lavoro. L’ultimo vale per tutti.",
+    "attempt": "Tentativo {{attempt}} di {{total}}",
+    "attemptShort": "Tentativo {{attempt}}",
+    "continuedFromStep": "continuato dal passaggio {{step}} del tentativo {{attempt}}",
+    "continuedFrom": "continuato dal tentativo {{attempt}}",
+    "supersededBy": "il tentativo {{attempt}} ha preso il posto",
+    "automatic": "Specrails ha continuato automaticamente",
+    "this": "questo",
+    "open": "Apri",
+    "fromStep": "Dal passaggio {{step}}",
+    "byAutomatic": "Specrails ha continuato automaticamente",
+    "byPerson": "Continuato da te",
+    "byReview": "Mandato in revisione con verifiche a mano",
+    "guidance": "Istruzioni inviate all'agente"
   }
 }

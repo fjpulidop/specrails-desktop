@@ -1,3 +1,4 @@
+import { AutoContinueSection } from '../components/AutoContinueSection'
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
@@ -446,6 +447,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('specrailsAgents')}>
               <SettingAnchor id="providers"><ProviderConnectionsCard /></SettingAnchor>
               <SettingAnchor id="subagentsApp"><GlobalSubagentsSection /></SettingAnchor>
+              <SettingAnchor id="autoContinue"><AutoContinueSection /></SettingAnchor>
               <MissionConnectorsSection />
             </div>
 

@@ -252,7 +252,8 @@
       "networkError": "网络错误"
     },
     "emptyCta": "打开规格看板",
-    "loading": "正在加载任务…"
+    "loading": "正在加载任务…",
+    "attempt": "第 {{number}} 次尝试"
   },
   "activeJob": {
     "none": "没有进行中的任务",
@@ -389,6 +390,7 @@
     "graph": "执行图",
     "detail": "日志详情",
     "navigation": "运行详情",
-    "sections": "日志分区"
+    "sections": "日志分区",
+    "stopped": "继续"
   }
 }

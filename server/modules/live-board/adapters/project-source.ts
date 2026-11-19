@@ -1,5 +1,6 @@
 import type { DbInstance } from '../../../db'
 import { readSpecSnapshot } from '../../delivery/runtime/rail-pr-store'
+import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { toIso, type DayWindow, type LiveRunFacts, type LiveSteps } from '../domain'
 import type { ProjectLiveBoardSource } from '../ports'
 
@@ -239,6 +240,8 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           FROM loop_runs r LEFT JOIN jobs j ON j.id = r.id
           WHERE r.project_id = ? AND (r.status IN ('running','paused')
             OR (julianday(r.finished_at) >= julianday(?) AND julianday(r.finished_at) < julianday(?)))
+            -- One card per attempt chain: an attempt a later one continued is history.
+            AND NOT ${supersededAttemptSql('r')}
           ORDER BY r.started_at DESC
           LIMIT ${ROW_CAP}
         `).all(projectId, day.from, day.to) as LoopRunRow[]
@@ -258,6 +261,11 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
       const running = loopRuns.filter((row) => row.status === 'running').map((row) => row.id)
       const steps = guard(projectId, 'loop steps', new Map<string, string>(), () => currentSteps(db, running))
       const ciMissions = guard(projectId, 'CI missions', new Map<string, string>(), () => ciRunMissions(db, projectId, loopRuns.map((row) => row.id)))
+      const attempts = guard(projectId, 'attempt chains', new Map() as ReturnType<typeof readRunAttempts>, () => readRunAttempts(db, [...loopRuns.map((row) => row.id), ...deliveryRunIds]))
+      const attemptOf = (id: string | null | undefined) => {
+        const position = id ? attempts.get(id) : undefined
+        return position ? { number: position.attempt, of: position.attempts } : null
+      }
       const liveMissions = guard(projectId, 'live run missions', new Map() as ReadonlyMap<string, { originConversationId?: string }>, () => handle.liveRunMissions?.() ?? new Map())
 
       for (const row of deliveries) {
@@ -286,6 +294,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           jobId: ids.length > 0 ? ids[ids.length - 1] : null,
           deliveryId: row.id,
           subjectIds: [row.id],
+          attempt: attemptOf(ids[ids.length - 1]),
         })
       }
 
@@ -312,6 +321,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           conversationId: liveMissions.get(row.id)?.originConversationId ?? ciMissions.get(row.id) ?? null,
           jobId: row.id, deliveryId: null,
           subjectIds: [row.id],
+          attempt: attemptOf(row.id),
         })
       }
 
@@ -378,6 +388,7 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           railIndex: null, ticketIds: [], conversationId: null,
           jobId: row.id, deliveryId: null,
           subjectIds: [row.id],
+          attempt: attemptOf(row.id),
         })
       }
       return runs

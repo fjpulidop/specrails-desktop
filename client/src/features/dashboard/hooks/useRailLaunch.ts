@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { notifyError } from '../../../lib/notify-error'
+import { useLaunchGuard } from '../../provider-quota/lib/useLaunchPreflight'
 import { openBudgetPanel } from '../../../lib/app-settings-events'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
@@ -47,6 +48,7 @@ export function useRailLaunch(args: {
     railPrDecisions, railPrDecisionsHydrated, reviewWipLimit, pendingReview,
   } = args
   const { t } = useTranslation('dashboard')
+  const launchGuard = useLaunchGuard()
   const railProvider = (r: { aiEngine?: string | null } | undefined) => railProviderOf(r, railProviders)
   // Confirm-before-launch when the rail targets an EXISTING PR (mis-pick must
   // be visible before any work starts on that PR's head branch).
@@ -90,6 +92,15 @@ export function useRailLaunch(args: {
     return { eligible, skipped }
   }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap, tickets, reviewWipLimit, pendingReview.length])
 
+  /** Run the Launch-all preflight for one rail; true (after telling the person why) when a check fails. */
+  async function launchBlocked(rail: RailState, retry: () => void): Promise<boolean> {
+    if (!activeProjectId) return false
+    const blocked = await launchGuard(activeProjectId, [railProvider(rail) ?? ''])
+    if (!blocked) return false
+    notifyError(blocked.message, { detail: blocked.failed.join(' · ') || null, retry })
+    return true
+  }
+
   async function handleToggle(railId: string) {
     const rail = rails.find((r) => r.id === railId)
     const railIndex = serverRailIndex(rails, railId)
@@ -108,6 +119,10 @@ export function useRailLaunch(args: {
     }
 
     if (rail.ticketIds.length === 0) return
+
+    // The same launch checks as Launch all (sign-in, disk): a signed-out provider blocks here, with
+    // the same words, instead of failing a moment later inside the run.
+    if (await launchBlocked(rail, () => void handleToggle(railId))) return
 
     // Deliver-into-existing-PR: name the exact PR before launching into it.
     if (rail.targetPr) {

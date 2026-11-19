@@ -100,7 +100,7 @@
     "implementationFailed": "Implementierung fehlgeschlagen",
     "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
     "runStopped": "Gestoppt",
-    "runStoppedHint": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst, oder verwirf diese Karte.",
+    "runStoppedHint": "Du hast diesen Lauf vor der Lieferung angehalten. Fortsetzen macht dort weiter, wo er angehalten wurde, oder verwirf diese Karte.",
     "prFailed": "PR fehlgeschlagen",
     "prFailedDetail": "PR fehlgeschlagen",
     "createDegraded": "PR konnte nicht veröffentlicht werden — {{detail}}. Nach Behebung erneut versuchen.",
@@ -184,7 +184,9 @@
     "fixCi": "CI / Konflikte reparieren",
     "fixCiTooltip": "Auf die Checks warten, Fehler und Konflikte beheben und in diesen PR pushen, bis er grün ist",
     "fixCiStarted": "CI-Überwachung gestartet",
-    "fixCiFailed": "Die CI-Schleife konnte nicht starten"
+    "fixCiFailed": "Die CI-Schleife konnte nicht starten",
+    "continue": "Fortsetzen",
+    "continueHint": "Behält alles und macht dort weiter, wo der Lauf fehlschlug oder angehalten wurde, im selben Worktree."
   },
   "railsBoard": {
     "title": "Rails",

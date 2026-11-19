@@ -348,6 +348,19 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.queryByTestId('mission-run-diagnosis')).toBeNull()
   })
 
+  it('a stopped run continues where it stopped; starting over from the base waits in the menu', async () => {
+    const original = global.fetch
+    const fetchMock = vi.fn(async () => httpRes(201, { loopRunId: 'fork-1', mode: 'fork', fromStep: 'developer', resumed: true }))
+    global.fetch = fetchMock as unknown as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', statusCode: 'run_stopped', implementationOutcome: 'failed', runIds: ['r1'] })} />)
+      expect(screen.getByTestId('agent-pr-run-stopped')).toHaveTextContent('Continue picks it up where it stopped, in the same worktree.')
+      expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
+      fireEvent.click(screen.getByTestId('mission-run-continue'))
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/remedy$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
+    } finally { global.fetch = original }
+  })
+
   it('pr_draft with a PR: Publish + Discard + #number link, no Create PR', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'sr/acme/batch-x' })} />)
     expect(screen.getByText('Draft PR created')).toBeInTheDocument()

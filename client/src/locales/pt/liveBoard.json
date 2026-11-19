@@ -89,7 +89,8 @@
       "siblings_one": "Sobrepõe {{count}} run",
       "siblings_other": "Sobrepõe {{count}} runs",
       "baseMoved": "Base avançou"
-    }
+    },
+    "attempt": "tentativa {{number}}"
   },
   "empty": {
     "title": "Nada em execução",

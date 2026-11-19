@@ -13,8 +13,8 @@ describe('workflow protocol diagnosis (Core contract 5.16)', () => {
   it('keeps Core\'s record, continues from the step and suggests the provider\'s default model for a small one', () => {
     const diagnosis = deriveFailureDiagnosis({ outcome: 'failed', core, stepId: 'architect' })
     expect(diagnosis).toMatchObject({ kind: 'workflow_protocol', confidence: 'high', source: 'core', role: 'plan', provider: 'claude', model: 'haiku', missingSteps: ['instructions tasks'] })
-    expect(rankRemedies(diagnosis)).toEqual(['resume', 'retry', 'open-logs'])
-    expect(presentFailureDiagnosis(diagnosis, catalog)).toMatchObject({ remedies: ['resume', 'retry', 'open-logs'], strongerModel: { provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' } })
+    expect(rankRemedies(diagnosis)).toEqual(['continue', 'open-logs', 'retry'])
+    expect(presentFailureDiagnosis(diagnosis, catalog)).toMatchObject({ remedies: ['continue', 'open-logs', 'retry'], strongerModel: { provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' } })
     // The stored record keeps the fields a later read presents.
     expect(parseStoredDiagnosis(serializeDiagnosis(diagnosis))).toMatchObject({ role: 'plan', model: 'haiku', missingSteps: ['instructions tasks'] })
   })

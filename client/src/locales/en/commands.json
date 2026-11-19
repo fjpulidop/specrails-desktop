@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "Files kept outside a PR",
           "keywords": "storage, disk, safety archive, kept files, quarantine, cleanup, delete"
+        },
+        "autoContinue": {
+          "label": "Continue failed runs automatically",
+          "keywords": "continue, retry, failed run, automatic, recovery"
         }
       }
-    }
+    },
+    "jumpAttempt": "Attempt {{number}}"
   },
   "toasts": {
     "queued": "{{name}} queued",

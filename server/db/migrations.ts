@@ -2185,6 +2185,29 @@ const MIGRATIONS: Migration[] = [
   // real phases, providers and models where the stored Core events prove it,
   // and drop the deterministic completion check's $0 non-invocation rows.
   reattributeCoreV1Invocations,
+
+  // Migration 96: how each continued attempt of a run chain came to be (the
+  // remedy, the step it continued from, the guidance sent, whether Specrails
+  // continued on its own). One row per continuation: a fork records the new
+  // attempt, a resume in place records the same run again.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS run_continuations (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id         TEXT NOT NULL,
+        source_run_id  TEXT NOT NULL,
+        remedy         TEXT NOT NULL,
+        mode           TEXT NOT NULL,
+        from_step      TEXT,
+        cause          TEXT,
+        guidance       TEXT,
+        automatic      INTEGER NOT NULL DEFAULT 0 CHECK (automatic IN (0, 1)),
+        created_at     TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_run_continuations_run ON run_continuations(run_id);
+      CREATE INDEX IF NOT EXISTS idx_run_continuations_source ON run_continuations(source_run_id);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

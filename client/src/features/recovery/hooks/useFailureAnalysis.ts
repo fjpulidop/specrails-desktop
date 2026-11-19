@@ -13,6 +13,19 @@ export interface FailureAnalysis {
   failedStep: string | null
   evidence: string[]
   nextSteps: string[]
+  /** Aligned with `nextSteps`: the remedy a step names (older readings have none). */
+  nextStepActions?: Array<AnalysisAction | null>
+}
+
+/** A next step the AI mapped to an existing remedy; the panel offers it as a button only where the surface can run it. */
+export type AnalysisActionKind = 'continue' | 'continue-to-review' | 'edit-spec' | 'change-model'
+export interface AnalysisAction { kind: AnalysisActionKind; step?: string; role?: string }
+const ACTION_KINDS: readonly string[] = ['continue', 'continue-to-review', 'edit-spec', 'change-model']
+
+/** The action a next step names, read defensively (a stale or foreign shape is plain advice). */
+export function stepAction(analysis: Pick<FailureAnalysis, 'nextStepActions'>, index: number): AnalysisAction | null {
+  const raw = analysis.nextStepActions?.[index]
+  return raw && typeof raw === 'object' && ACTION_KINDS.includes(raw.kind) ? raw : null
 }
 
 export type FailureAnalysisState =

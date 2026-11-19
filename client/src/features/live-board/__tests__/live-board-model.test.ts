@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GitPullRequest } from 'lucide-react'
 import {
-  LAYOUT_KEY, NO_FILTERS, columnsOf, countVisible, lanesOf, primaryOf, providersOf, readLayout, readLiveBoardSnapshot, readLiveBoardWindowResult, writeLayout,
+  LAYOUT_KEY, NO_FILTERS, columnsOf, readAttempt, countVisible, lanesOf, primaryOf, providersOf, readLayout, readLiveBoardSnapshot, readLiveBoardWindowResult, writeLayout,
   type LiveCard,
 } from '../lib/live-board-model'
 import { liveCardLook } from '../lib/live-board-run-state'
@@ -160,5 +160,12 @@ describe('what a card does and how it looks', () => {
     expect(readLiveBoardWindowResult({ action: 'inbox' })).toEqual({ action: 'inbox' })
     expect(readLiveBoardWindowResult({ action: 'delete', card: c })).toBeNull()
     expect(readLiveBoardWindowResult({ action: 'open', card: { id: 'x' } })).toBeNull()
+  })
+})
+
+describe('attempt chains on the board', () => {
+  it('reads a chain position defensively', () => {
+    expect(readAttempt({ number: 3, of: 4 })).toEqual({ number: 3, of: 4 })
+    for (const junk of [null, { number: 1, of: 1 }, { number: 5, of: 4 }, { number: '2', of: 3 }, 'x']) expect(readAttempt(junk)).toBeNull()
   })
 })

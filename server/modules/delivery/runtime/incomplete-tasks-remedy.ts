@@ -18,7 +18,7 @@ import { existsSync, readFileSync, writeFileSync, lstatSync } from 'node:fs'
 import path from 'node:path'
 import { readDefinitionRun } from '../../loops/runtime/loop-runs-store'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
-import { parseStoredDiagnosis } from '../../recovery'
+import { parseStoredDiagnosis, unfinishedTasksGuidance } from '../../recovery'
 import type { DefinitionForkRequest } from './definition-fork'
 import type { DbInstance } from '../../../db'
 
@@ -55,27 +55,8 @@ function latestVisit(probe: DefinitionRunProbe, nodePath: string): number | null
   return typeof visits === 'number' && Number.isSafeInteger(visits) && visits > 0 ? visits : null
 }
 
-/**
- * The operator instruction "Retry with the browser" sends to the restarted
- * developer. A fork re-runs the graph and role prompts its run was compiled
- * from, and runs compiled before the browser tool existed never learn about
- * it from their prompts: the instruction carries the guidance itself, names
- * the exact unfinished tasks and forbids leaving them for a person. Pure.
- */
-export function browserRetryInstruction(incompleteTasks: readonly string[]): string {
-  const tasks = incompleteTasks.length
-    ? incompleteTasks.map((task) => `- ${task.length > 600 ? `${task.slice(0, 600)}…` : task}`).join('\n')
-    : '- (the unticked tasks in tasks.md)'
-  return [
-    'Specrails retried this run because these approved tasks were left unticked:',
-    tasks,
-    '',
-    'You CAN do them yourself in this run. A headless browser tool is available as `$SPECRAILS_BROWSE` (run `"$SPECRAILS_BROWSE" --help`).',
-    'Start the app on this run\'s port (`$PORT`) with `--start "<the command that serves the app>"` or point `--url` at a file or `http://127.0.0.1:$PORT/`, set the state you need with `--eval` / `--click` / `--type` actions, and take screenshots at the viewports that matter (for example `--viewport 1440x900 --viewport 390x844`).',
-    'Read the PNGs it prints, check the console errors in report.json, then write what you observed where the task asks (for example the README note) and tick the task.',
-    'If a tool you need is missing, install it (project-local or the Specrails cache). Never leave a task undone because a tool is missing, and never hand a check to a person that the browser tool can do.',
-  ].join('\n')
-}
+/** The guidance a continued developer gets for unfinished tasks (kept under its older name). */
+export const browserRetryInstruction = unfinishedTasksGuidance
 
 export class IncompleteTasksRemedyError extends Error {
   constructor(readonly code: string, message: string) { super(message) }

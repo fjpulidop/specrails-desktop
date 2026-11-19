@@ -375,6 +375,17 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.queryByText('App')).not.toBeInTheDocument()
   })
 
+  it('runs the Launch-all checks first and blocks a signed-out provider with the same words', async () => {
+    mockFetch({ '/launch-preflight': () => ({ status: 200, body: { chips: [{ id: 'claude', kind: 'provider', state: 'fail', providerId: 'claude', status: 'signed-out' }], blocking: true, checkedAt: '' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    expect(await screen.findByText('Fix the failed check before launching.')).toBeInTheDocument()
+    expect(screen.getByText(/signed out — sign in first/)).toBeInTheDocument()
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+    expect(calls.find((c) => c.url.includes('/api/launch-preflight'))!.url).toContain('projectId=p1')
+  })
+
   it('clears Launching after a rejected launch even under Strict Mode and remains editable', async () => {
     mockFetch({ '/launch': () => ({ status: 400, body: { error: 'repository_scope_incomplete', detail: 'Spec scope changed concurrently.' } }) })
     render(<StrictMode><AgentRailLaunchCard proposal={proposal()} proposalIndex={0} messageId="m1" conversationId="c1" projectId="p1" intent={null} /></StrictMode>)

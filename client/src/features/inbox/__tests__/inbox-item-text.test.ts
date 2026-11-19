@@ -10,6 +10,13 @@ const mk = (over: Partial<InboxItem> = {}): InboxItem => ({
 })
 const text = (item: InboxItem) => inboxItemText(item, i18n.t.bind(i18n), 'en')
 
+describe('inboxItemText: attempt chains', () => {
+  it('names the attempt of a continued run', () => {
+    expect(text(mk({ title: 'Implement · #14', attempt: { number: 3, of: 3 } })).title).toBe('Implement · #14 · attempt 3')
+    expect(text(mk({ title: 'Implement · #14' })).title).toBe('Implement · #14')
+  })
+})
+
 describe('one wording per inbox item (row, live board card, notification)', () => {
   it('names a reached cap by the cap, with its figures, and says the work is paused', () => {
     const cap = mk({ id: 'p1:budget:cap', kind: 'budget', action: 'raise-cap', title: 'Daily cap reached', cap: { scope: 'project', period: 'day', budgetUsd: 5, spentUsd: 5.12, resetsAt: '' } })

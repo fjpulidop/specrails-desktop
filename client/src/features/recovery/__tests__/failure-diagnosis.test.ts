@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  availableRemedies, headlineKey, humanizePhase, logTailLines, openLogsAtFailure, readFailureDiagnosis, whyKey,
+  availableRemedies, consequenceKey, headlineKey, offersStartOver, humanizePhase, logTailLines, openLogsAtFailure, readFailureDiagnosis, whyKey,
   type FailureDiagnosis, type RemedyHandlers,
 } from '../lib/failure-diagnosis'
 
-const base: FailureDiagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core', remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] }
+const base: FailureDiagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core', remedies: ['continue', 'edit-spec', 'open-logs', 'retry'] }
 const handler = () => ({ run: vi.fn() })
 
 describe('readFailureDiagnosis', () => {
   it('reads the wire record and drops unknown remedies', () => {
-    expect(readFailureDiagnosis({ ...base, remedies: ['resume', 'teleport', 'retry'] })).toMatchObject({ kind: 'tests_failed', rounds: 4, remedies: ['resume', 'retry'] })
+    expect(readFailureDiagnosis({ ...base, remedies: ['continue', 'teleport', 'retry'] })).toMatchObject({ kind: 'tests_failed', rounds: 4, remedies: ['continue', 'retry'] })
+    // The older ids of Continue read as Continue, once.
+    expect(readFailureDiagnosis({ ...base, remedies: ['resume', 'retry-with-browser', 'retry'] })?.remedies).toEqual(['continue', 'retry'])
   })
   it('never presents low confidence or an unknown kind as a cause', () => {
     expect(readFailureDiagnosis({ ...base, confidence: 'low' })).toMatchObject({ kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] })
@@ -26,17 +28,22 @@ describe('readFailureDiagnosis', () => {
 })
 
 describe('availableRemedies', () => {
-  it('shows the ranked remedies the surface can run, at most three', () => {
-    const all: RemedyHandlers = { resume: handler(), retry: handler(), 'edit-spec': handler(), 'open-logs': handler() }
-    expect(availableRemedies(base, all)).toEqual(['resume', 'edit-spec', 'open-logs'])
+  it('shows the ranked remedies the surface can run, at most three, with Start over kept apart', () => {
+    const all: RemedyHandlers = { continue: handler(), retry: handler(), 'edit-spec': handler(), 'open-logs': handler() }
+    expect(availableRemedies(base, all)).toEqual(['continue', 'edit-spec', 'open-logs'])
+    expect(offersStartOver(base, all)).toBe(true)
+    expect(offersStartOver(base, { continue: handler() })).toBe(false)
+    expect(consequenceKey('continue', { kind: 'incomplete_tasks' })).toBe('consequence.continueTasks')
+    expect(consequenceKey('continue', null)).toBe('consequence.continueStopped')
+    expect(consequenceKey('edit-spec', base)).toBe('consequence.editSpec')
   })
   it('skips remedies the surface has no action for', () => {
     expect(availableRemedies(base, { 'open-logs': handler() })).toEqual(['open-logs'])
     expect(availableRemedies(base, {})).toEqual([])
   })
   it('offers fixing the environment without a handler, only for environment failures', () => {
-    expect(availableRemedies({ ...base, kind: 'environment', remedies: ['fix-environment', 'resume'] }, {})).toEqual(['fix-environment'])
-    expect(availableRemedies({ ...base, kind: 'blocked', remedies: ['fix-environment', 'resume'] }, {})).toEqual([])
+    expect(availableRemedies({ ...base, kind: 'environment', remedies: ['fix-environment', 'continue'] }, {})).toEqual(['fix-environment'])
+    expect(availableRemedies({ ...base, kind: 'blocked', remedies: ['fix-environment', 'continue'] }, {})).toEqual([])
   })
 })
 
@@ -109,10 +116,10 @@ describe('port_in_use', () => {
 })
 
 describe('incomplete tasks on the wire', () => {
-  it('reads the task list and the two new remedies', async () => {
+  it('reads the task list and its remedies (the older retry id as Continue)', async () => {
     const { readFailureDiagnosis } = await import('../lib/failure-diagnosis')
     const read = readFailureDiagnosis({ kind: 'incomplete_tasks', confidence: 'high', incompleteTasks: ['4.1 Note', 7, ''], remedies: ['continue-to-review', 'retry-with-browser', 'bogus'] })
-    expect(read).toMatchObject({ kind: 'incomplete_tasks', incompleteTasks: ['4.1 Note'], remedies: ['continue-to-review', 'retry-with-browser'] })
+    expect(read).toMatchObject({ kind: 'incomplete_tasks', incompleteTasks: ['4.1 Note'], remedies: ['continue-to-review', 'continue'] })
     expect(readFailureDiagnosis({ kind: 'spec_invalid', confidence: 'high', remedies: [] })?.kind).toBe('spec_invalid')
   })
 })

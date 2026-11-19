@@ -995,6 +995,12 @@ export function touchProject(db: DbInstance, id: string): void {
   ).run(id)
 }
 
+/** Specrails continues a failed run once by itself when the cause is known and fixable (default on). */
+export const AUTO_CONTINUE_RUNS_KEY = 'auto_continue_runs'
+export function getAutoContinueRuns(db: DbInstance): boolean {
+  return getDesktopSetting(db, AUTO_CONTINUE_RUNS_KEY) !== 'false'
+}
+
 /** App-global "Allow sub-agents" for missions without a project (default on; only an explicit opt-out disables it). */
 export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
 

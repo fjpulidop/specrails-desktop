@@ -371,9 +371,14 @@
         "safetyArchives": {
           "label": "Arquivos guardados fora de um PR",
           "keywords": "armazenamento, disco, arquivo de segurança, arquivos guardados, quarentena, limpar, excluir"
+        },
+        "autoContinue": {
+          "label": "Continuar automaticamente execuções falhadas",
+          "keywords": "continuar, repetir, execução falhada, automático, recuperação"
         }
       }
-    }
+    },
+    "jumpAttempt": "Tentativa {{number}}"
   },
   "toasts": {
     "queued": "{{name}} em fila",

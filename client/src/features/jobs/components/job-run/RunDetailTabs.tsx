@@ -1,5 +1,6 @@
 import { Activity, useId, useState, useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { openProjectSettings } from '../../../../lib/app-settings-events'
 import { ChartNoAxesColumn } from 'lucide-react'
 import { Popover } from '../../../../components/ui/popover'
 import type { EventRow, JobSummary } from '../../../../types'
@@ -59,7 +60,7 @@ export function failureFactsFrom(events: readonly EventRow[], job: JobSummary): 
 }
 
 /** The AI analysis, told what the deterministic card already says so it does not repeat it. */
-function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[]; controller?: FailureAnalysisController }) {
+function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller, handlers }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[]; controller?: FailureAnalysisController; handlers: RemedyHandlers }) {
   const { t } = useTranslation('recovery')
   const { headline, phaseName } = useDiagnosisText(diagnosis)
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(tail) : null
@@ -71,6 +72,9 @@ function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller }: { 
       auto={diagnosis.kind !== 'provider_limit'}
       known={[shown, recorded?.reason, diagnosis.detail, diagnosis.blocker?.reason]}
       controller={controller}
+      actions={{ continue: handlers.continue, 'continue-to-review': handlers['continue-to-review'], 'edit-spec': handlers['edit-spec'],
+        // A role's model is chosen in the project's agent settings.
+        'change-model': { run: () => openProjectSettings('agentRuntime') } }}
     />
   )
 }
@@ -96,6 +100,8 @@ export interface RunDetailTabsProps {
   pendingQuestion?: boolean
   diagnosisHandlers?: RemedyHandlers
   diagnosisTail?: readonly string[]
+  /** A stopped run's Continue card, shown where a failure's diagnosis would be. */
+  continuityContent?: ReactNode
   hasDetails?: boolean
   detailsRequest?: number
   statusLead?: ReactNode
@@ -110,16 +116,16 @@ export function RunDetailTabs(props: RunDetailTabsProps) {
 
 function RunDetailTabsView({
   surface, showDiagnosis, diagnosis, pendingQuestion = false,
-  diagnosisHandlers = {}, diagnosisTail, detailsContent, questionContent, metaContent, composer, events, hasDetails = true,
+  diagnosisHandlers = {}, diagnosisTail, continuityContent, detailsContent, questionContent, metaContent, composer, events, hasDetails = true,
   isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job,
 }: RunDetailTabsProps) {
   const { t, i18n } = useTranslation('jobs')
   const id = useId()
-  const failureAvailable = showDiagnosis || pendingQuestion
+  const failureAvailable = showDiagnosis || pendingQuestion || !!continuityContent
   // One AI reading for the card (which leads with it when the app names no cause) and the panel below it.
   const analysisShown = !!(showDiagnosis && diagnosis && job.status === 'failed')
   const analysis = useFailureAnalysis(projectId, job.id, i18n.language, { auto: diagnosis?.kind !== 'provider_limit', enabled: analysisShown })
-  const [activeTab, setActiveTab] = useState<RunDetailTab>(showDiagnosis ? 'failure' : 'log')
+  const [activeTab, setActiveTab] = useState<RunDetailTab>(showDiagnosis || continuityContent ? 'failure' : 'log')
   const [logSection, setLogSection] = useState<RunLogSection>(() => loadJobRunLogSection(surface))
   const [visited, setVisited] = useState({
     graph: !showDiagnosis && isLoop && logSection === 'graph',
@@ -138,10 +144,13 @@ function RunDetailTabsView({
   const openLogs = useRef(onOpenLogs)
   useEffect(() => { openLogs.current = onOpenLogs }, [onOpenLogs])
 
+  // A diagnosis, or a stopped run's Continue card, opens its tab when it arrives (unless the person chose the log).
+  const hasContinuity = !!continuityContent
   useEffect(() => {
-    if (showDiagnosis && !observedDiagnosis.current && !explicitLogChoice.current) setActiveTab('failure')
-    if (showDiagnosis) observedDiagnosis.current = true
-  }, [showDiagnosis])
+    const leads = showDiagnosis || hasContinuity
+    if (leads && !observedDiagnosis.current && !explicitLogChoice.current) setActiveTab('failure')
+    if (leads) observedDiagnosis.current = true
+  }, [showDiagnosis, hasContinuity])
   useEffect(() => {
     if (!failureAvailable) setActiveTab('log')
   }, [failureAvailable])
@@ -271,7 +280,7 @@ function RunDetailTabsView({
       <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-1 min-w-0" data-testid="run-detail-bar">
         {statusLead && <div className="flex items-center gap-2 shrink-0">{statusLead}</div>}
         <div role="tablist" aria-label={t('runDetail.navigation')} className="flex gap-1">
-          {views.map(value => renderTab(value, t(`runDetail.${value}`), selectedView, views, selectView))}
+          {views.map(value => renderTab(value, t(value === 'failure' && continuityContent && !showDiagnosis ? 'runDetail.stopped' : `runDetail.${value}`), selectedView, views, selectView))}
         </div>
         {(metaContent || details) && (
           <div className="flex shrink-0 items-center gap-1.5" data-testid="run-detail-meta">
@@ -294,8 +303,9 @@ function RunDetailTabsView({
               />
             )}
             {showDiagnosis && diagnosis && job.status === 'failed' && (
-              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} controller={analysis} />
+              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} controller={analysis} handlers={diagnosisHandlers} />
             )}
+            {continuityContent}
             {pendingQuestion && questionContent}
           </div>
         </Activity>

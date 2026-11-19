@@ -100,7 +100,7 @@
     "implementationFailed": "Implementação falhou",
     "implementationFailedHint": "A execução de implementação falhou. Abra o log da execução e descarte este cartão antes de relançar.",
     "runStopped": "Interrompida",
-    "runStoppedHint": "Você interrompeu esta execução antes de entregar algo. Reinicie quando quiser continuar ou descarte este cartão.",
+    "runStoppedHint": "Parou esta execução antes de entregar. Continuar retoma onde parou, ou descarte este cartão.",
     "prFailed": "PR falhou",
     "prFailedDetail": "PR falhou",
     "createDegraded": "Não foi possível publicar a PR — {{detail}}. Tente novamente quando estiver resolvido.",
@@ -184,7 +184,9 @@
     "fixCi": "Corrigir CI / conflitos",
     "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
     "fixCiStarted": "Acompanhamento do CI iniciado",
-    "fixCiFailed": "Não foi possível iniciar o loop de CI"
+    "fixCiFailed": "Não foi possível iniciar o loop de CI",
+    "continue": "Continuar",
+    "continueHint": "Mantém tudo e continua onde a execução falhou ou parou, no mesmo worktree."
   },
   "railsBoard": {
     "title": "Rails",

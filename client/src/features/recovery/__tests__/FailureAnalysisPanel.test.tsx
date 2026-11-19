@@ -13,6 +13,18 @@ const reply = (body: unknown, ok = true) => Promise.resolve(new Response(JSON.st
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('FailureAnalysisPanel', () => {
+  it('turns a next step that names a remedy this surface has into its button, and keeps the rest as advice', () => {
+    const state = { ...ready, analysis: { ...ready.analysis, category: 'incomplete_tasks', nextSteps: ['Continue from the developer step', 'Run the developer on a stronger model', 'Read the README'],
+      nextStepActions: [{ kind: 'continue', step: 'developer' }, { kind: 'change-model', role: 'developer' }, null] } }
+    const run = vi.fn()
+    render(<FailureAnalysisPanel jobId="j1" auto={false} controller={{ state, run: vi.fn() } as never} actions={{ continue: { run } }} />)
+    fireEvent.click(screen.getByTestId('failure-analysis-action-continue'))
+    expect(run).toHaveBeenCalledTimes(1)
+    // No handler for a model change here, and the third step is plain advice.
+    expect(screen.queryByTestId('failure-analysis-action-change-model')).toBeNull()
+    expect(screen.getByText('Read the README')).toBeInTheDocument()
+  })
+
   it('asks for an analysis when none is saved and shows it as an AI reading', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => init?.method === 'POST' ? reply(ready) : reply({ status: 'none' }))
     render(<FailureAnalysisPanel projectId="p1" jobId="j1" auto />)

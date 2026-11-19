@@ -41,9 +41,9 @@
   },
   "why": {
     "provider_limit": {
-      "resetsAt": "将于 {{time}} 重置。届时恢复，或改用其他提供商运行。",
-      "reset": "将于 {{resetAt}} 重置。届时恢复，或改用其他提供商运行。",
-      "noReset": "等待限额重置后恢复，或改用其他提供商运行。"
+      "resetsAt": "将于 {{time}} 重置。届时继续，或换用其他提供方运行。",
+      "reset": "将于 {{resetAt}} 重置。届时继续，或换用其他提供方运行。",
+      "noReset": "等待限额重置后继续，或换用其他提供方运行。"
     },
     "environment": "问题不在改动本身，机器需要先准备好一些东西。",
     "port_in_use": "问题不在于这次变更：有其他程序占用了该端口。停止它，或让项目读取 PORT（每次运行都有自己的端口），然后重新运行。",
@@ -52,7 +52,7 @@
     "timeout": "在完成之前达到了时间上限。",
     "tool_inactivity": "它太久没有使用工具，也没有回复。",
     "crash": "提供商进程或其连接在运行中断开了。",
-    "incomplete_tasks": "其余工作都已完成。如果剩下的是只有人才能做的检查，就继续进入评审，并把它列为人工检查；否则重试，让运行用浏览器和工具完成它。",
+    "incomplete_tasks": "其余都已完成。继续会用浏览器和工具完成剩余部分；只能由人完成的检查可以改为送去评审。",
     "spec_invalid": "计划或规范未通过 OpenSpec，规划也无法修复。",
     "workflow_protocol": {
       "plain": "即使收到提醒，它仍在未执行 Specrails 要求的步骤时结束了回合。该步骤之前的工作已保留：从该步骤继续。",
@@ -61,17 +61,17 @@
     "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。"
   },
   "remedies": {
-    "label": "恢复方式"
+    "label": "恢复方式",
+    "more": "更多恢复方式"
   },
   "remedy": {
-    "resume": "继续",
-    "resumeFrom": "从{{phase}}继续",
-    "retry": "再次运行",
+    "retry": "从头开始",
     "editSpec": "编辑规格并重新启动",
     "fixEnvironment": "修复环境",
     "openLogs": "在失败处打开日志",
     "continueToReview": "继续进入评审",
-    "retryWithBrowser": "使用浏览器重试"
+    "continue": "继续",
+    "continueFrom": "从{{phase}}继续"
   },
   "environment": {
     "command": "命令",
@@ -80,7 +80,7 @@
     "inDirectory": "位于 {{cwd}}",
     "requiredAction": "需要的操作",
     "generic": "需要先处理环境问题，运行才能继续。",
-    "then": "处理完成后，继续运行。"
+    "then": "完成后，继续运行。"
   },
   "logTail": {
     "title": "日志末尾"
@@ -120,7 +120,11 @@
       "incompleteTasks": "未完成的任务",
       "other": "其他"
     },
-    "interrupted": "分析被中断了（运行时应用重新启动了）。请重试。"
+    "interrupted": "分析被中断了（运行时应用重新启动了）。请重试。",
+    "action": {
+      "changeModel": "更换模型",
+      "changeModelFor": "更换{{role}}的模型"
+    }
   },
   "facts": {
     "label": "失败位置",
@@ -138,8 +142,45 @@
   },
   "remedyResult": {
     "continued": "正在进入评审，剩余项作为人工检查。",
-    "retried": "正在从开发者步骤使用浏览器和工具重试。",
     "notResumed": "继续的运行未能启动",
-    "failed": "无法继续运行"
+    "failed": "无法继续运行",
+    "continuing": "正在继续运行。",
+    "continuingFrom": "正在从{{step}}步骤继续。"
+  },
+  "consequence": {
+    "continue": "保留全部内容，从失败的步骤继续。",
+    "continueTasks": "保留全部内容，只重做缺少的部分，并附上浏览器和安装指引。",
+    "continueEnvironment": "保留全部内容；告诉代理缺少什么，由它安装后继续。",
+    "continueLimit": "保留全部内容，待提供方重新接受请求后继续。",
+    "continueTransient": "保留全部内容，重新运行同一步骤。",
+    "continueStopped": "在同一个 worktree 中从停止处继续，保留目前所做的一切。",
+    "continueToReview": "立即送去评审，剩余事项列为人工检查。",
+    "editSpec": "打开规格；修改后会启动新的运行。",
+    "fixEnvironment": "显示机器需要什么以及要运行的命令。",
+    "openLogs": "滚动到日志中失败的步骤。",
+    "retry": "从基线重新运行。此次尝试的工作不会带过去，仍保留在旧的 worktree 中。",
+    "analyze": "AI 阅读日志并说明停止原因。"
+  },
+  "stopped": {
+    "headline": "你停止了此次运行",
+    "why": "没有任何损失。",
+    "whyNoContinue": "其工作保留在 worktree 中。从头开始会从基线重新运行。"
+  },
+  "lineage": {
+    "title": "尝试",
+    "explain": "每次尝试都接续上一次并保留其工作。最新一次代表全部。",
+    "attempt": "第 {{attempt}} 次尝试（共 {{total}} 次）",
+    "attemptShort": "第 {{attempt}} 次尝试",
+    "continuedFromStep": "从第 {{attempt}} 次尝试的{{step}}步骤继续",
+    "continuedFrom": "接续第 {{attempt}} 次尝试",
+    "supersededBy": "第 {{attempt}} 次尝试已接手",
+    "automatic": "Specrails 已自动继续",
+    "this": "本次",
+    "open": "打开",
+    "fromStep": "从{{step}}步骤",
+    "byAutomatic": "Specrails 自动继续",
+    "byPerson": "由你继续",
+    "byReview": "附人工检查送去评审",
+    "guidance": "发送给代理的指引"
   }
 }

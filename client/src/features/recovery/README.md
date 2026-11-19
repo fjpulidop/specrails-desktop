@@ -9,8 +9,11 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
+- [components/RunLineage.tsx](components/RunLineage.tsx)
+- [components/StoppedRunCard.tsx](components/StoppedRunCard.tsx)
+- [hooks/useAttemptChain.ts](hooks/useAttemptChain.ts)
+- [hooks/useContinueRemedies.ts](hooks/useContinueRemedies.ts)
 - [hooks/useFailureAnalysis.ts](hooks/useFailureAnalysis.ts)
-- [hooks/useIncompleteTasksRemedies.ts](hooks/useIncompleteTasksRemedies.ts)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
 
@@ -39,12 +42,21 @@ and the server-ranked `remedies`.
   run card (`AgentPrDecisionCard`, which the run strip opens as its panel) and, as a plain
   sentence, the inbox row. The card is presentational: each surface hands it the handlers it can
   really run.
-- **Remedies map to existing actions only.** *Resume from X* (the runtime resume of the run),
-  *Try again* (the surface's own run-again / relaunch), *Edit spec and relaunch* (opens the spec,
-  whose addenda iterate on it), *Fix the environment* (shows the blocker's required action and a
-  copyable command; it runs nothing) and *Open logs at the failure* (scrolls to the last failed
-  step, else the log). A remedy without a handler is not offered; at most three show, in the
-  server's ranking. There is no per-run engine switch in the app, so none is offered.
+- **Remedies map to existing actions only.** *Continue* (the one primary: `useContinueRemedies`,
+  `POST /loop-runs/:id/remedy`, keeps the work and goes on from the step that failed or stopped with
+  the cause's guidance; a surface without a definition run passes its in-place resume),
+  *Continue to review* (unfinished tasks that only a person can check), *Edit spec and relaunch*
+  (opens the spec, whose addenda iterate on it), *Fix the environment* (shows the blocker's required
+  action and a copyable command; it runs nothing) and *Open logs at the failure*. Each button has its
+  one-line consequence under it (`consequenceKey`). *Start over* (the surface's run-again / relaunch)
+  is never a button: it waits in the card's menu with its warning (this attempt's work is not carried
+  over and stays in the old worktree). A remedy without a handler is not offered; at most three show,
+  in the server's ranking. Older wire ids (`resume`, `retry-with-browser`) read as `continue`.
+- **A stopped run.** `StoppedRunCard` (Job Detail's *Continue* tab) says the person stopped it and
+  offers the same Continue, never a relaunch from the base.
+- **Attempt chains.** `useAttemptChain` (`GET /loop-runs/:id/attempts`) gives the chain and whether
+  Continue applies; `RunLineage` is the run window's line ("Attempt 3 of 4 · continued from the
+  Developer step of attempt 2") and its popover of every attempt and what changed.
 - **No invented diagnosis.** A low-confidence or unrecognised record is read as `unknown`
   (`readFailureDiagnosis`): the card says "Unknown cause", shows the raw tail of the log and offers
   only logs and a retry.
@@ -73,9 +85,12 @@ the ordinary validation); nothing is offered once the settings carry it.
 
 ## Unfinished tasks and unknown causes
 
-- `incomplete_tasks` lists the unticked tasks and ranks **Continue to review** and **Retry with
-  the browser** first. [useIncompleteTasksRemedies](hooks/useIncompleteTasksRemedies.ts) runs them
-  (`POST /loop-runs/:id/remedy`, a fork of the same run); Job Detail and the mission run card wire it.
+- `incomplete_tasks` lists the unticked tasks and leads with **Continue** (the developer finishes
+  them with the browser and install guidance); **Continue to review** follows when they are a
+  person's checks. [useContinueRemedies](hooks/useContinueRemedies.ts) runs both; Job Detail, the
+  mission run card and the rail strip wire it.
+- An AI next step that names a remedy this surface has becomes its button (`FailureAnalysisPanel`
+  `actions`); anything else stays advice.
 - When the app's own records name no cause, the card takes the surface's AI reading (`ai` prop,
   one [useFailureAnalysis](hooks/useFailureAnalysis.ts) shared with the panel below it): a ready
   reading leads the card, labelled *From AI analysis*; while it runs the card says so; with none,

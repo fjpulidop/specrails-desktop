@@ -542,7 +542,11 @@
       "failing_pr": "{{pr}}: 失敗したチェック: {{checks}}"
     },
     "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。",
-    "runStoppedNote": "何も納品される前にこの実行を停止しました。続けたいときに再実行してください。"
+    "runStoppedNote": "納品前にこの実行を停止しました。続行すると、同じ worktree で止まったところから再開します。",
+    "runStoppedNoteNoContinue": "納品前にこの実行を停止しました。作業は worktree に残っています。",
+    "continue": "続行",
+    "startOver": "最初からやり直す",
+    "startOverHint": "ベースから新しく実行します。この試行の作業は古い worktree に残ります。"
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -813,7 +817,8 @@
       "feature_unavailable": "Intent は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました。何も起動していません。",
       "review_wip_limit_reached": "レビュー上限に達しました。何も起動していません。",
-      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。"
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
+      "launch_preflight_blocked": "起動する前に失敗したチェックを解決してください。"
     },
     "stub": {
       "launched": "起動しました → レール {{rail}}",

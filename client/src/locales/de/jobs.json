@@ -252,7 +252,8 @@
       "networkError": "Netzwerkfehler"
     },
     "emptyCta": "Spec-Board öffnen",
-    "loading": "Jobs werden geladen…"
+    "loading": "Jobs werden geladen…",
+    "attempt": "Versuch {{number}}"
   },
   "activeJob": {
     "none": "Kein aktiver Job",
@@ -389,6 +390,7 @@
     "graph": "Ausführungsgraph",
     "detail": "Protokolldetails",
     "navigation": "Ausführungsdetails",
-    "sections": "Protokollbereiche"
+    "sections": "Protokollbereiche",
+    "stopped": "Fortsetzen"
   }
 }

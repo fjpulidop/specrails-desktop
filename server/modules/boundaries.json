@@ -1079,6 +1079,7 @@
       "runtime/rails-router.ts",
       "runtime/rails-store.ts",
       "runtime/review-wip-gate.ts",
+      "runtime/run-continuation.ts",
       "runtime/run-records.ts",
       "runtime/run-review-diagnosis.ts"
     ],
@@ -2168,6 +2169,15 @@
         "../adapters/review-wip-store",
         "../domain/review-wip"
       ],
+      "runtime/run-continuation.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-runs-store",
+        "../../recovery",
+        "./definition-fork",
+        "./incomplete-tasks-remedy",
+        "node:crypto"
+      ],
       "runtime/run-records.ts": [
         "fs",
         "path"
@@ -2356,7 +2366,8 @@
       ],
       "runtime/job-listing.ts": [
         "../../../db",
-        "../../../types"
+        "../../../types",
+        "../../loops/runtime/run-attempts"
       ],
       "runtime/job-output-stream.ts": [
         "../../../db",
@@ -2541,6 +2552,7 @@
         "../../delivery/runtime/rail-pr-store",
         "../../execution",
         "../../loops/runtime/loop-limit-pauses",
+        "../../loops/runtime/run-attempts",
         "../../recovery",
         "../../recovery/adapters/sqlite",
         "../domain",
@@ -2691,6 +2703,7 @@
       "adapters/project-source.ts": [
         "../../../db",
         "../../delivery/runtime/rail-pr-store",
+        "../../loops/runtime/run-attempts",
         "../domain",
         "../ports"
       ],
@@ -2730,7 +2743,8 @@
       "runtime/loop-runs-store.ts",
       "runtime/loop-turn-limits.ts",
       "runtime/loops-router.ts",
-      "runtime/loops-store.ts"
+      "runtime/loops-store.ts",
+      "runtime/run-attempts.ts"
     ],
     "dependencies": {
       "runtime/builtin-loops.ts": [
@@ -3138,6 +3152,9 @@
         "../../../db",
         "./loop-graph",
         "crypto"
+      ],
+      "runtime/run-attempts.ts": [
+        "../../../db"
       ]
     }
   },
@@ -3569,11 +3586,16 @@
       "analysis.ts": [
         "crypto"
       ],
+      "continuation.ts": [
+        "./domain"
+      ],
       "domain.ts": [
-        "../../provider-limit"
+        "../../provider-limit",
+        "./continuation"
       ],
       "index.ts": [
         "./analysis",
+        "./continuation",
         "./domain"
       ]
     }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchLaunchPreflight, type PreflightReport } from './launch-preflight'
+import { chipText } from '../components/LaunchPreflightChips'
 
 /**
  * The preflight of one dialog session: fetched when the dialog opens (and
@@ -27,4 +29,20 @@ export function useLaunchPreflight(open: boolean, projectId: string | null | und
     return () => controller.current?.abort()
   }, [open, run])
   return { report, loading, recheck: () => run(true) }
+}
+
+/**
+ * The Launch-all checks for a launch without a dialog (a rail's Play, a mission's
+ * Launch): resolves to what failed, worded like the dialog's chips, or null when
+ * nothing blocks. A check that cannot run never blocks: the launch reports its own errors.
+ */
+export function useLaunchGuard(): (projectId: string, providers: readonly string[]) => Promise<{ message: string; failed: string[] } | null> {
+  const { t, i18n } = useTranslation('providerQuota')
+  return useCallback(async (projectId, providers) => {
+    let report: PreflightReport | null = null
+    try { report = await fetchLaunchPreflight(projectId, providers.length ? providers : ['']) } catch { return null }
+    if (!report?.blocking) return null
+    const failed = report.chips.filter((chip) => chip.state === 'fail').map((chip) => chipText(chip, (key, options) => String(t(key, options)), i18n.language))
+    return { message: String(t('preflight.blocking')), failed }
+  }, [t, i18n.language])
 }

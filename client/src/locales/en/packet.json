@@ -95,7 +95,10 @@
     "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
     "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",
     "reviewerSummary": "The AI reviewer's summary:",
-    "reviewerFinding": "The AI reviewer noted:"
+    "reviewerFinding": "The AI reviewer noted:",
+    "earlierAttempts_one": "{{count}} earlier run of this check",
+    "earlierAttempts_other": "{{count}} earlier runs of this check",
+    "earlierAttempt": "Failed with exit code {{exitCode}} ({{seconds}} s), before the fix that made it pass"
   },
   "watch": {
     "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",

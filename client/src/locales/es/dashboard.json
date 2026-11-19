@@ -83,7 +83,7 @@
     "implementationFailed": "Implementación fallida",
     "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
     "runStopped": "Detenida",
-    "runStoppedHint": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar o descarta esta tarjeta.",
+    "runStoppedHint": "Detuviste esta ejecución antes de entregar. Continuar la retoma donde se detuvo; o descarta esta tarjeta.",
     "prFailed": "PR fallida",
     "prFailedDetail": "PR fallida",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",
@@ -184,7 +184,9 @@
     "fixCi": "Arreglar CI / conflictos",
     "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
     "fixCiStarted": "Vigilancia del CI iniciada",
-    "fixCiFailed": "No se pudo iniciar el loop de CI"
+    "fixCiFailed": "No se pudo iniciar el loop de CI",
+    "continue": "Continuar",
+    "continueHint": "Conserva todo y sigue desde donde la ejecución falló o se detuvo, en el mismo worktree."
   },
   "railsBoard": {
     "title": "Rails",

@@ -89,7 +89,8 @@
       "siblings_one": "Überschneidet {{count}} Run",
       "siblings_other": "Überschneidet {{count}} Runs",
       "baseMoved": "Basis weiter"
-    }
+    },
+    "attempt": "Versuch {{number}}"
   },
   "empty": {
     "title": "Nichts läuft",

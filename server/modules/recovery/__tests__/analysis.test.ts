@@ -49,4 +49,16 @@ describe('failure analysis', () => {
     expect(() => parseFailureAnalysis('no json here', evidence)).toThrow(/no JSON/)
     expect(() => parseFailureAnalysis(JSON.stringify({ headline: 'h' }), evidence)).toThrow(/missing headline or cause/)
   })
+
+  it('turns a next step into an action only when it names an existing remedy', () => {
+    const evidence = failureEvidence({ job, diagnosis: null, events: [log('x')] })
+    const analysis = parseFailureAnalysis(JSON.stringify({ headline: 'h', cause: 'c', category: 'agent_error', failedStep: 'developer', nextSteps: [
+      { text: 'Continue from the developer step', action: { kind: 'continue', step: 'developer' } },
+      { text: 'Run the developer on a stronger model', action: { kind: 'change-model', role: 'developer', step: 'x; rm -rf /' } },
+      { text: 'Delete the repository', action: { kind: 'nuke' } },
+    ] }), evidence)
+    expect(analysis.nextSteps).toEqual(['Continue from the developer step', 'Run the developer on a stronger model', 'Delete the repository'])
+    expect(analysis.nextStepActions).toEqual([{ kind: 'continue', step: 'developer' }, { kind: 'change-model', role: 'developer' }, null])
+    expect(failureAnalysisPrompt('en')).toContain('"continue-to-review"')
+  })
 })

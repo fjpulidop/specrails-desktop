@@ -71,7 +71,8 @@ export function companionTargetsFor(item: InboxItem): { ids: CompanionActionId[]
   if (item.kind === 'failed' || item.kind === 'blocked') {
     const primary = primaryRemedy(item)
     const isRun = item.action === 'open-run'
-    if (primary === 'resume' && isRun) return { ids: ['resume'], target: { runId: item.subjectId } }
+    // `continue` is the desktop's Continue (`resume` is its older id); the phone's Resume runs it.
+    if ((primary === 'continue' || primary === 'resume') && isRun) return { ids: ['resume'], target: { runId: item.subjectId } }
     if (primary === 'retry' && typeof item.railIndex === 'number') {
       return { ids: ['retry'], target: { sourceId: isRun ? `run:${item.subjectId}` : item.subjectId, railIndex: item.railIndex } }
     }
@@ -185,6 +186,12 @@ export function createMobileInboxRouter({ db, upstream }: { db: DbInstance; upst
       narrowed.runCapUsd = body.runCapUsd
     }
     if (!tierGate(res, 'resume')) return
+    // A run that already ended (failed or stopped) is continued, the desktop's Continue; a paused one resumes.
+    try {
+      const current = await upstream('GET', `${base(pid)}/loop-runs/${encodeURIComponent(runId)}`)
+      const status = (record(record(current.json).loopRun)).status
+      if (current.status === 200 && status === 'completed') { await send(res, 'POST', `${base(pid)}/loop-runs/${encodeURIComponent(runId)}/remedy`, { remedy: 'continue' }); return }
+    } catch { /* the plain resume below answers with the desktop's own error */ }
     await send(res, 'POST', `${base(pid)}/loop-runs/${encodeURIComponent(runId)}/resume`, narrowed)
   })
 

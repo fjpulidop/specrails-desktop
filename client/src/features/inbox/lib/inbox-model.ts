@@ -35,6 +35,8 @@ export interface InboxItem {
   diagnosis: FailureDiagnosis | null
   /** Which cap and where it stands; set only on a `raise-cap` item. */
   cap: InboxCap | null
+  /** A continued run's attempt ("attempt 3"): the chain is one item, its latest attempt. */
+  attempt?: { number: number; of: number } | null
 }
 
 export interface InboxSnapshot {
@@ -45,6 +47,13 @@ export interface InboxSnapshot {
 
 const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira']
 const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap']
+
+function readAttempt(raw: unknown): { number: number; of: number } | null {
+  const a = raw as Record<string, unknown> | null
+  if (!a || typeof a !== 'object' || !Number.isInteger(a.number) || !Number.isInteger(a.of)) return null
+  const number = a.number as number, of = a.of as number
+  return number >= 1 && of >= 2 && number <= of ? { number, of } : null
+}
 
 function readCap(raw: unknown): InboxCap | null {
   const c = raw as Record<string, unknown> | null
@@ -74,6 +83,7 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       conversationId: str('conversationId'),
       diagnosis: readFailureDiagnosis(v.diagnosis),
       cap: readCap(v.cap),
+      attempt: readAttempt(v.attempt),
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {

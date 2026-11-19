@@ -252,7 +252,8 @@
       "networkError": "Network error"
     },
     "emptyCta": "Open specs board",
-    "loading": "Loading jobs…"
+    "loading": "Loading jobs…",
+    "attempt": "Attempt {{number}}"
   },
   "activeJob": {
     "none": "No active job",
@@ -389,6 +390,7 @@
     "graph": "Execution graph",
     "detail": "Log detail",
     "navigation": "Run detail",
-    "sections": "Log sections"
+    "sections": "Log sections",
+    "stopped": "Continue"
   }
 }

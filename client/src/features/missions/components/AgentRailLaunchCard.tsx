@@ -12,6 +12,7 @@
 // glass surface, header row with rail + `#` chips + status pill, muted rationale,
 // motion enter, reduced-motion safe, `data-agent-interactive` on every control.
 
+import { useLaunchGuard } from '../../provider-quota/lib/useLaunchPreflight'
 import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FollowUpProposal } from '../../rails/lib/rail-launch-draft'
@@ -232,6 +233,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [loadError, setLoadError] = useState(false)
   const [busy, setBusy] = useState<'launch' | 'dismiss' | 'scope' | null>(null)
   const [scopeEdit, setScopeEdit] = useState<{ ticketId: number; repositoryIds: string[] } | null>(null)
+  const preflightGuard = useLaunchGuard()
   const [inlineError, setInlineError] = useState<{ error: string; detail?: string; action?: string } | null>(null)
   // A server code the locale knows is the headline. Anything else (`network`,
   // `HTTP 502`, an unmapped code) gets a generic, localized headline that
@@ -527,6 +529,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       }
     }
     try {
+      // The same launch checks as Launch all: a signed-out provider stops here, worded like the dialog.
+      const blocked = await preflightGuard(projectId, [effectiveEngine ?? ''])
+      if (blocked) { setInlineError({ error: 'launch_preflight_blocked', detail: blocked.failed.join(' · ') || undefined }); return }
       let railIndex = resolvedRailIndex
       const wantsName = config.railName.trim().slice(0, 60)
       if (railIndex === null) {

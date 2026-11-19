@@ -41,9 +41,9 @@
   },
   "why": {
     "provider_limit": {
-      "resetsAt": "It resets at {{time}}. Resume then, or run it on another provider.",
-      "reset": "It resets {{resetAt}}. Resume then, or run it on another provider.",
-      "noReset": "Wait for the limit to reset, then resume, or run it on another provider."
+      "resetsAt": "It resets at {{time}}. Continue then, or run it on another provider.",
+      "reset": "It resets {{resetAt}}. Continue then, or run it on another provider.",
+      "noReset": "Wait for the limit to reset, then continue, or run it on another provider."
     },
     "environment": "The change itself isn't the problem. The machine needs something first.",
     "port_in_use": "The change itself isn't the problem: something else held the port. Stop it, or have the project read PORT (each run gets its own), then run again.",
@@ -52,7 +52,7 @@
     "timeout": "It reached its time limit before finishing.",
     "tool_inactivity": "It stopped using tools and replying for too long.",
     "crash": "The provider process or its connection died mid-run.",
-    "incomplete_tasks": "Everything else is done. If what is left is a check only a person can make, continue to review with it listed as a check by hand; otherwise retry and let the run finish it with its browser and tools.",
+    "incomplete_tasks": "Everything else is done. Continue finishes what is left with the browser and its tools; a check only a person can make can go to review instead.",
     "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
     "workflow_protocol": {
       "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: resume from it.",
@@ -61,17 +61,17 @@
     "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it."
   },
   "remedies": {
-    "label": "Ways to recover"
+    "label": "Ways to recover",
+    "more": "More ways to recover"
   },
   "remedy": {
-    "resume": "Resume",
-    "resumeFrom": "Resume from {{phase}}",
-    "retry": "Run again",
+    "retry": "Start over",
     "editSpec": "Edit spec and relaunch",
     "fixEnvironment": "Fix the environment",
     "openLogs": "Open logs at the failure",
     "continueToReview": "Continue to review",
-    "retryWithBrowser": "Retry with the browser"
+    "continue": "Continue",
+    "continueFrom": "Continue from {{phase}}"
   },
   "environment": {
     "command": "Command",
@@ -80,7 +80,7 @@
     "inDirectory": "in {{cwd}}",
     "requiredAction": "Required action",
     "generic": "The environment needs attention before the run can continue.",
-    "then": "When that is done, resume the run."
+    "then": "When that is done, continue the run."
   },
   "logTail": {
     "title": "End of the log"
@@ -120,7 +120,11 @@
       "incompleteTasks": "Unfinished tasks",
       "other": "Other"
     },
-    "interrupted": "The analysis was interrupted (the app restarted while it ran). Try again."
+    "interrupted": "The analysis was interrupted (the app restarted while it ran). Try again.",
+    "action": {
+      "changeModel": "Change the model",
+      "changeModelFor": "Change the {{role}} model"
+    }
   },
   "facts": {
     "label": "Where it failed",
@@ -138,8 +142,45 @@
   },
   "remedyResult": {
     "continued": "Continuing to review with the remaining items as checks by hand.",
-    "retried": "Retrying from the developer with the browser and its tools.",
     "notResumed": "The continued run did not start",
-    "failed": "Could not continue the run"
+    "failed": "Could not continue the run",
+    "continuing": "Continuing the run.",
+    "continuingFrom": "Continuing from the {{step}} step."
+  },
+  "consequence": {
+    "continue": "Keeps everything and goes on from the step that failed.",
+    "continueTasks": "Keeps everything and redoes only what was missing, with the browser and install guidance.",
+    "continueEnvironment": "Keeps everything; the agent is told what is missing and installs it, then goes on.",
+    "continueLimit": "Keeps everything and goes on once the provider accepts requests again.",
+    "continueTransient": "Keeps everything and runs the same step again.",
+    "continueStopped": "Picks it up where it stopped, in the same worktree, with everything it did so far.",
+    "continueToReview": "Sends it to review now, with what is left listed as checks by hand.",
+    "editSpec": "Opens the spec; a change to it starts a new run.",
+    "fixEnvironment": "Shows what the machine needs and the command to run.",
+    "openLogs": "Scrolls to the failed step in the log.",
+    "retry": "A fresh run from the base. This attempt's work is not carried over; it stays in the old worktree.",
+    "analyze": "The AI reads the log and says why it stopped."
+  },
+  "stopped": {
+    "headline": "You stopped this run",
+    "why": "Nothing is lost.",
+    "whyNoContinue": "Its work stays in its worktree. Start over runs it again from the base."
+  },
+  "lineage": {
+    "title": "Attempts",
+    "explain": "Each attempt continued the one before it, keeping its work. The latest one speaks for all of them.",
+    "attempt": "Attempt {{attempt}} of {{total}}",
+    "attemptShort": "Attempt {{attempt}}",
+    "continuedFromStep": "continued from the {{step}} step of attempt {{attempt}}",
+    "continuedFrom": "continued from attempt {{attempt}}",
+    "supersededBy": "attempt {{attempt}} took over",
+    "automatic": "Specrails continued automatically",
+    "this": "this one",
+    "open": "Open",
+    "fromStep": "From the {{step}} step",
+    "byAutomatic": "Specrails continued automatically",
+    "byPerson": "Continued by you",
+    "byReview": "Sent to review with checks by hand",
+    "guidance": "Guidance sent to the agent"
   }
 }

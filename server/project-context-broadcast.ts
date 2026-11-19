@@ -30,10 +30,12 @@ export interface ProjectBroadcastTaps {
   milestoneProgress: MilestoneProgressBroadcaster | null
   specTriage: SpecTriageService | null
   flowService: IntentService | null
+  /** Automatic continuation of a failed run (project-context-auto-continue.ts). */
+  autoContinue: { observe(msg: WsMessage): void } | null
 }
 
 export function createProjectBroadcastTaps(): ProjectBroadcastTaps {
-  return { milestoneChains: null, milestoneProgress: null, specTriage: null, flowService: null }
+  return { milestoneChains: null, milestoneProgress: null, specTriage: null, flowService: null, autoContinue: null }
 }
 
 /**
@@ -61,6 +63,8 @@ export function createProjectBroadcast(opts: {
     taps.milestoneProgress?.observe(msg)
     // Spec triage: a created/edited spec schedules a debounced triage scan.
     taps.specTriage?.observe(msg)
+    // A failed run whose cause is known and fixable is continued once by itself.
+    taps.autoContinue?.observe(msg)
     // Intent settlement: an Intent session delivery that reached review settles its Intent.
     const flowService = taps.flowService
     if (msg.type === 'rail.pr_state' && flowService) {

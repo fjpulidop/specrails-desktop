@@ -86,5 +86,6 @@
   "mute": {
     "mute": "Silenciar las notificaciones de {{project}}",
     "unmute": "Volver a activar las notificaciones de {{project}}"
-  }
+  },
+  "attempt": "intento {{number}}"
 }

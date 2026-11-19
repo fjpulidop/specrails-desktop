@@ -272,6 +272,18 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(await screen.findByText('This build cost —')).toBeInTheDocument()
   })
 
+  it('proves the final verification and folds the earlier failed runs away as history', async () => {
+    respond({ packet: packet({ proof: [{ tier: 'app-verified', code: 'proof.hostCommandPassed', values: { label: 'node --test test/', exitCode: 0, seconds: 1 }, rawExcerpt: 'ok 3',
+      earlier: [{ passed: false, exitCode: 1, seconds: 2, rawExcerpt: 'not ok 3' }] }] }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('How it was checked'))
+    const history = await screen.findByTestId('packet-proof-earlier')
+    expect(history.tagName).toBe('DETAILS')
+    expect(history).not.toHaveAttribute('open')
+    expect(history).toHaveTextContent('1 earlier run of this check')
+    expect(history).toHaveTextContent('Failed with exit code 1 (2 s), before the fix that made it pass')
+  })
+
   it('says the reviewer score is unavailable rather than implying a good one', async () => {
     respond({ packet: packet({ confidence: null }) })
     renderPage()

@@ -89,7 +89,8 @@
       "siblings_one": "Overlaps {{count}} run",
       "siblings_other": "Overlaps {{count}} runs",
       "baseMoved": "Base moved"
-    }
+    },
+    "attempt": "attempt {{number}}"
   },
   "empty": {
     "title": "Nothing is running",

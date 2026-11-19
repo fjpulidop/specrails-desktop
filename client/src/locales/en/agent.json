@@ -542,7 +542,11 @@
       "failing_pr": "{{pr}}: failing checks: {{checks}}"
     },
     "ciBuildingHint": "It waits for the checks, fixes code failures and pushes to the same PR. Failures that are not the code's fault are reported, not retried.",
-    "runStoppedNote": "You stopped this run before it delivered. Relaunch it when you want to continue."
+    "runStoppedNote": "You stopped this run before it delivered. Continue picks it up where it stopped, in the same worktree.",
+    "runStoppedNoteNoContinue": "You stopped this run before it delivered. Its work stays in its worktree.",
+    "continue": "Continue",
+    "startOver": "Start over",
+    "startOverHint": "A fresh run from the base; this attempt's work stays in the old worktree."
   },
   "specDraft": {
     "heading": "Spec draft",
@@ -813,7 +817,8 @@
       "feature_unavailable": "Intent is not available",
       "daily_budget_exceeded": "Daily limit reached. Nothing was launched.",
       "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
-      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+      "launch_preflight_blocked": "Fix the failed check before launching."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",
