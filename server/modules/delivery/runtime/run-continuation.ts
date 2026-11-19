@@ -50,10 +50,26 @@ function rootScopes(probe: DefinitionRunProbe) {
  * diagnosis names, else the one the runtime marks interrupted, else the first
  * step that did not finish. Null when the ledger names none.
  */
-export function stoppedStep(probe: DefinitionRunProbe, diagnosis: Pick<FailureDiagnosis, 'phase' | 'resumablePhase'> | null): { nodePath: string; visit: number } | null {
-  const scopes = rootScopes(probe)
+interface DefinitionNodeShape { kind?: unknown; params?: { blockerFrom?: unknown } }
+
+export function stoppedStep(
+  probe: DefinitionRunProbe,
+  diagnosis: Pick<FailureDiagnosis, 'phase' | 'resumablePhase'> | null,
+  nodes: Readonly<Record<string, unknown>> = {},
+): { nodePath: string; visit: number } | null {
+  const node = (path: string) => nodes[path] as DefinitionNodeShape | undefined
+  // An `end` node only reports how the run ended ("Fixer reported a host blocker"):
+  // forking from it replays the same end. Go on from the step whose output it
+  // reports (`blockerFrom`), else from where the run otherwise stopped.
+  const isEnd = (path: string) => node(path)?.kind === 'end'
+  const scopes = rootScopes(probe).filter((scope) => !isEnd(scope.nodePath))
   const unfinished = scopes.filter((scope) => STOPPED_AT.includes(scope.status))
-  const named = [diagnosis?.resumablePhase, diagnosis?.phase].filter((value): value is string => !!value)
+  const reporter = (path: string | null | undefined): string | null => {
+    if (!path || !isEnd(path)) return path ?? null
+    const from = node(path)?.params?.blockerFrom
+    return typeof from === 'string' && from ? from : null
+  }
+  const named = [diagnosis?.resumablePhase, diagnosis?.phase].map(reporter).filter((value): value is string => !!value)
   const recoverable = new Set(probe.recoverableSteps.filter((step) => step.scopeId === 'root').map((step) => step.nodePath))
   const pick = named.map((name) => scopes.find((scope) => scope.nodePath === name)).find(Boolean)
     ?? unfinished.find((scope) => recoverable.has(scope.nodePath))
@@ -88,7 +104,7 @@ export function planContinuation(db: DbInstance, runId: string, remedy: Continue
     const developer = rootScopes(probe).find((scope) => scope.nodePath === 'developer')
     if (developer) return { mode: 'fork', fromStep: 'developer', request: { requestId: requestId(runId, 'continue'), fromNodePath: 'developer', scopeId: 'root', visit: developer.visits!, state: { $vars: { implementationAttempts: 0, unblockAttempts: 0, lastImplementationHash: '' } } } }
   }
-  const step = stoppedStep(probe, diagnosis)
+  const step = stoppedStep(probe, diagnosis, nodes)
   if (!step) throw new IncompleteTasksRemedyError('remedy_not_applicable', 'The run has no step to continue from')
   return { mode: 'fork', fromStep: step.nodePath, request: { requestId: requestId(runId, 'continue'), fromNodePath: step.nodePath, scopeId: 'root', visit: step.visit } }
 }

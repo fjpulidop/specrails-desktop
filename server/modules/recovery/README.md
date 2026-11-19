@@ -41,7 +41,8 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
   "Start over" from the base. `continue-to-review` is ranked only when every unfinished task reads as
   a person's check (`remainingAreHumanChecks`). `resume` and `retry-with-browser` are older ids of
   `continue` (the route maps them). `POST /loop-runs/:id/remedy` applies them
-  ([run-continuation.ts](../delivery/runtime/run-continuation.ts) plans how, `continueDefinitionRun`
+  ([run-continuation.ts](../delivery/runtime/run-continuation.ts) plans how, never from an `end` node: a
+  host blocker's end goes on from the step that reported it (`blockerFrom`), `continueDefinitionRun`
   in `server/project-router-loop-runs.ts` applies it).
 - `copy-env-files` is ranked first for a high-confidence `environment` diagnosis that names a
   missing `.env` / `APP_KEY` (`needsEnvFiles`) while the project's `worktreeEnvFiles` setting is off

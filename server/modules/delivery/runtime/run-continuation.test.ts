@@ -41,6 +41,17 @@ describe('Continue: how a run goes on', () => {
     expect(stoppedStep(probe(scopes, { recoverableSteps: [{ attemptId: 'x', nodePath: 'verify', scopeId: 'root' }] }), null)).toEqual({ nodePath: 'verify', visit: 3 })
   })
 
+  it('never forks from an end node: a host blocker continues from the step that reported it', () => {
+    // The Implement recipe ends on `fixer-blocked` (kind end, blockerFrom fixer); forking there replayed the end.
+    frozen.value = { row: { status: 'completed' }, metadata: { definition: { nodes: { verify: {}, fixer: {}, 'fixer-blocked': { kind: 'end', params: { blockerFrom: 'fixer', outcome: 'failure' } }, done: { kind: 'end' } } } } }
+    const scopes = [scope('verify', 'succeeded', 2), scope('fixer', 'succeeded', 1), scope('fixer-blocked', 'succeeded', 1)]
+    const plan = planContinuation(db, 'run', 'continue', probe(scopes, { status: 'failed' }), diagnosis({ kind: 'environment', phase: 'fixer-blocked' }))
+    expect(plan).toMatchObject({ mode: 'fork', fromStep: 'fixer', request: { fromNodePath: 'fixer', visit: 1 } })
+    // An end with no reporter falls back to where the run stopped, never to the end itself.
+    const fallback = [scope('verify', 'failed', 2), scope('done', 'failed', 1)]
+    expect(planContinuation(db, 'run', 'continue', probe(fallback, { status: 'failed' }), diagnosis({ kind: 'environment', phase: 'done' })).fromStep).toBe('verify')
+  })
+
   it('resumes a paused run in place', () => {
     frozen.value = { row: { status: 'paused' }, metadata: { definition: { nodes: {} } } }
     expect(planContinuation(db, 'run', 'continue', probe([], { status: 'paused', resumable: true }), diagnosis({ kind: 'provider_limit', resumablePhase: 'reviewer' }))).toEqual({ mode: 'resume', fromStep: 'reviewer' })
