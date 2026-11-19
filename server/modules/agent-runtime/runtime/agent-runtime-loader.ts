@@ -1,6 +1,6 @@
 import type { RuntimeConfig } from './agent-runtime-settings'
 import { existsSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { getCoreRuntimeStatus } from '../../../core-runtime'
@@ -34,6 +34,10 @@ export interface CoreAgentRuntimeModule {
   rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string> & { fixer?: string }
   validateRuntimeConfig(input: unknown): unknown
   validateWorkflowDefinition(input: unknown, options?: { configPath?: string; structural?: boolean }): WorkflowDefinitionValidation
+  /** Off-event-loop variants for the launch path: each spawns the Core CLI, which held the
+   *  event loop for 0.5–2 s per launch while it ran synchronously. */
+  validateRuntimeConfigAsync?(input: unknown): Promise<unknown>
+  validateWorkflowDefinitionAsync?(input: unknown, options?: { configPath?: string; structural?: boolean }): Promise<WorkflowDefinitionValidation>
   [key: string]: unknown
 }
 
@@ -115,7 +119,8 @@ export function findCoreAgentRuntimeEntry(): string | null {
 /** The api probe is stable for executable package content; settings saves need not respawn it.
  * Validation stays uncached because its answer depends on the submitted configuration. */
 const apiProbeCache = new Map<string, { fingerprint: string; api: RuntimeApi }>()
-export function resetCoreAgentRuntimeApiCache(): void { apiProbeCache.clear() }
+const rolePromptCache = new Map<string, { fingerprint: string; defaults: Record<'architect' | 'developer' | 'reviewer', string> & { fixer?: string } }>()
+export function resetCoreAgentRuntimeApiCache(): void { apiProbeCache.clear(); rolePromptCache.clear() }
 
 export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
   const cli = findCoreAgentRuntimeCli()
@@ -126,6 +131,17 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
   const invoke = (args: string[], input?: string): string => execFileSync(resolveCoreNodeRuntime(), [cli, ...args], {
     cwd: dirname(cli), env: windowsSpawnEnv(process.env), input, encoding: 'utf8',
     timeout: 15_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  const invokeAsync = (args: string[], input?: string): Promise<string> => new Promise((resolveOutput, reject) => {
+    const child = execFile(resolveCoreNodeRuntime(), [cli, ...args], {
+      cwd: dirname(cli), env: windowsSpawnEnv(process.env), encoding: 'utf8',
+      timeout: 15_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true,
+    }, (error, stdout) => {
+      if (!error) { resolveOutput(stdout); return }
+      // Same shape execFileSync throws: callers read `status` and `stdout`.
+      reject(Object.assign(error, { status: typeof (error as { code?: unknown }).code === 'number' ? (error as { code: number }).code : null, stdout }))
+    })
+    child.stdin?.end(input ?? '')
   })
   const fingerprint = runtimeEntryFingerprint(cli)
   const cached = apiProbeCache.get(cli)
@@ -163,15 +179,39 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
       return readWorkflowCatalog(JSON.parse(invoke(['workflows', 'list'])))
     },
     rolePromptDefaults() {
+      // The catalog is part of the package: one probe per package content, not one per launch.
+      const memo = rolePromptCache.get(cli)
+      if (memo?.fingerprint === fingerprint) return { ...memo.defaults }
       const result = JSON.parse(invoke(['prompts']))
       if (result.type !== 'runtime-role-prompts' || !['architect', 'developer', 'reviewer'].every(role => typeof result.defaults?.[role] === 'string' && result.defaults[role].trim())) throw new Error('Core role prompt catalog is unavailable. Update the paired Core bundle.')
-      return result.defaults
+      rolePromptCache.set(cli, { fingerprint, defaults: result.defaults })
+      return { ...result.defaults }
     },
     validateRuntimeConfig(input: unknown): unknown {
       requireRuntimeCapabilities(api, input)
       const result = JSON.parse(invoke(['validate', '--stdin'], JSON.stringify(input))) as { type?: string }
       if (result.type !== 'runtime-config-valid') throw new Error('Core did not validate the runtime configuration')
       return input
+    },
+    async validateRuntimeConfigAsync(input: unknown): Promise<unknown> {
+      requireRuntimeCapabilities(api, input)
+      const result = JSON.parse(await invokeAsync(['validate', '--stdin'], JSON.stringify(input))) as { type?: string }
+      if (result.type !== 'runtime-config-valid') throw new Error('Core did not validate the runtime configuration')
+      return input
+    },
+    async validateWorkflowDefinitionAsync(input: unknown, options?: { configPath?: string; structural?: boolean }): Promise<WorkflowDefinitionValidation> {
+      if (api.capabilities?.workflowDefinitions !== 1) throw new Error('Installed Core does not support workflow definitions. Update the paired Core package.')
+      const args = ['workflows', 'validate', '--stdin', ...(options?.configPath ? ['--config', options.configPath] : []), ...(options?.structural !== false && !options?.configPath ? ['--structural'] : [])]
+      let output: string
+      try { output = await invokeAsync(args, JSON.stringify(input)) }
+      catch (error) {
+        const failure = error as { status?: unknown; stdout?: unknown }
+        if (failure.status !== 1 || typeof failure.stdout !== 'string') throw error
+        const result = readDefinitionValidation(JSON.parse(failure.stdout))
+        if (result.ok) throw error
+        return result
+      }
+      return readDefinitionValidation(JSON.parse(output))
     },
     validateWorkflowDefinition(input: unknown, options?: { configPath?: string; structural?: boolean }): WorkflowDefinitionValidation {
       if (api.capabilities?.workflowDefinitions !== 1) throw new Error('Installed Core does not support workflow definitions. Update the paired Core package.')

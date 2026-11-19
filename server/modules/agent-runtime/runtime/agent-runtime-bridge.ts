@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
-import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
+import { retainAgentRuntime, prepareRetainedAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-process'
@@ -280,8 +280,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const workflowOrigins = { ...bindWorkflowRoleDefaults(config, draft), ...selectedOrigins }
     if (options.loopConfig) for (const role of Object.keys(config.roles ?? {})) workflowOrigins[role] = 'loop-role'
     const override = options.loopConfig ? undefined : options.providerOverride
-    runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
+    if (runtime.validateRuntimeConfigAsync) await runtime.validateRuntimeConfigAsync(JSON.parse(JSON.stringify(config)))
+    else runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
+    await prepareRetainedAgentRuntime(cli)
     cli = retainAgentRuntime(cli, options.contextPath)
     args[0] = cli
     saveHostContext(options)
@@ -297,7 +299,9 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (readFileSync(scopedPath, 'utf8') !== serialized) throw new Error('Desktop runtime configuration changed; start a new run')
     }
     if (definitionEngine) {
-      const validation = runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
+      const validation = runtime.validateWorkflowDefinitionAsync
+        ? await runtime.validateWorkflowDefinitionAsync(draft, { configPath: scopedPath, structural: false })
+        : runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
       if (!validation.ok) throw new Error('definition_invalid: ' + validation.errors.map(error => `${error.path ?? error.nodeId ?? 'graph'}: ${error.message}`).join('; '))
       const definitionPath = join(dirname(options.contextPath), 'desktop-workflow-definition.json')
       const serializedDefinition = JSON.stringify(validation.definition, null, 2) + '\n'

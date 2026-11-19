@@ -17,6 +17,7 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOrigina
   const original = await importOriginal<typeof import('../../agent-runtime/runtime/agent-runtime-package')>()
   const selected = new Map<string, string>()
   return { ...original,
+    prepareRetainedAgentRuntime: async () => {},
     retainAgentRuntime: (cli: string, contextPath: string) => { selected.set(contextPath, cli); return cli },
     resolveRetainedAgentRuntime: (contextPath: string) => {
       const cli = selected.get(contextPath)

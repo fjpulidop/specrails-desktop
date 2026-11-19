@@ -6,7 +6,7 @@ import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
 const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: { ...(fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {}), ...fixture.capabilities } }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
-vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async () => {}, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
 import { configureCoreChildRegistry } from '../../../util/core-child-process'
