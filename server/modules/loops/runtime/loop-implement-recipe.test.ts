@@ -206,6 +206,9 @@ describe('host blockers', () => {
     // Asking for a command the host never runs deadlocked runs: the fixer had nothing to change.
     expect(nodes.reviewer.params.prompt).toContain('A command outside the host plan')
     expect(nodes.reviewer.params.prompt).toContain('is never an issue the developer can close')
+    // A Tauri run hit the correction limit asking to delete the Cargo.lock cargo regenerates and to amend design.md.
+    expect(nodes.reviewer.params.prompt).toContain('never ask to delete or revert it')
+    expect(nodes.reviewer.params.prompt).toContain('which are frozen')
   })
   it('compiles the pre-blocker shape when the installed Core does not advertise hostBlockers', () => {
     const definition = compile(configurableImplementGraph({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }))
