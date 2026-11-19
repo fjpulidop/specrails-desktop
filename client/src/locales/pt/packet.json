@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "Não foi gerada pontuação do revisor.",
     "evidenceUnavailable": "sem evidência",
     "hostCommandPassed": "O runtime executou {{label}} por si próprio: código de saída {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "O runtime executou {{label}} por si próprio, mas a verificação só lê o conteúdo de ficheiros e não executa o código: código de saída {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "O runtime executou {{label}} por si próprio e FALHOU: código de saída {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Verificação do revisor aprovada: {{name}}",
     "acceptanceCheckFailed": "Verificação do revisor FALHOU: {{name}}",

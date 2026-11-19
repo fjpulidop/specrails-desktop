@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "No reviewer score was produced.",
     "evidenceUnavailable": "evidence unavailable",
     "hostCommandPassed": "The runtime ran {{label}} itself: exit code {{exitCode}} ({{seconds}}s)",
+    "hostStaticCheckPassed": "The runtime ran {{label}} itself, but it only reads file contents and does not run the code: exit code {{exitCode}} ({{seconds}}s)",
     "hostCommandFailed": "The runtime ran {{label}} itself and it FAILED: exit code {{exitCode}} ({{seconds}}s)",
     "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
     "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",

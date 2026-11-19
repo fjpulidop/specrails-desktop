@@ -52,6 +52,8 @@ export interface DeliveryRuntimeCommand {
   outputTail: string | null
   /** The repository the host ran it in (Core's receipt), when the run had several. */
   repositoryId?: string
+  /** The command and its arguments as run (bounded), when the label is a name, not the command. */
+  commandLine?: string
 }
 
 /** One acceptance check the runtime recorded (host-run or reviewer static). */
@@ -675,6 +677,7 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
       required: document?.required !== false,
       hostRun: origin.includes('host'),
       outputTail: combined ? combined.slice(-RUNTIME_OUTPUT_TAIL_CAP) : null,
+      ...(() => { const line = [str(raw.command, 200), ...strList(raw.args, 16)].filter(Boolean).join(' ').slice(0, 400); return line ? { commandLine: line } : {} })(),
     })
   }
   const acceptance = isRecord(state.acceptance) ? state.acceptance : null

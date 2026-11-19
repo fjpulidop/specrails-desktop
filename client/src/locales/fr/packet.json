@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "Aucun score de relecteur produit.",
     "evidenceUnavailable": "preuves indisponibles",
     "hostCommandPassed": "Le runtime a exécuté {{label}} lui-même : code de sortie {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Le runtime a exécuté {{label}} lui-même, mais cette vérification lit seulement le contenu de fichiers et n'exécute pas le code : code de sortie {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Le runtime a exécuté {{label}} lui-même et cela a ÉCHOUÉ : code de sortie {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Vérification du relecteur réussie : {{name}}",
     "acceptanceCheckFailed": "Vérification du relecteur ÉCHOUÉE : {{name}}",

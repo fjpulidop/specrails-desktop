@@ -27,6 +27,7 @@
  * launder a self-report into a measurement. `testEvidence` states which test
  * FILES changed, which is all the diff can actually prove.
  */
+import { isStaticFileCheck } from '../domain/static-check'
 import { isDocumentationPath, isTestFilePath } from '../../../util/test-file-path'
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
@@ -364,7 +365,8 @@ function buildProof(
     const earlier = finalOnly ? hostCommands.filter((other) => other !== command && other.label === command.label && !passedOf(other)) : []
     proof.push({
       tier: 'app-verified',
-      code: passed ? 'proof.hostCommandPassed' : 'proof.hostCommandFailed',
+      // A pass of a check that only reads file text is labelled as such, never as a run of the code.
+      code: passed ? (isStaticFileCheck(command.commandLine ?? command.label) ? 'proof.hostStaticCheckPassed' : 'proof.hostCommandPassed') : 'proof.hostCommandFailed',
       values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: secondsOf(command) },
       ...(command.outputTail ? { rawExcerpt: command.outputTail } : {}),
       ...(earlier.length ? { earlier: earlier.slice(0, 6).map((other) => ({ passed: false, exitCode: other.exitCode ?? '?', seconds: secondsOf(other), ...(other.outputTail ? { rawExcerpt: other.outputTail } : {}) })) } : {}),

@@ -530,8 +530,8 @@ describe('programmatic-runtime evidence (core-host pipeline dir)', () => {
     const unit = out.units[0]
     expect(unit.sentinel).toBe('absent')
     expect(unit.runtime?.commands).toEqual([
-      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed, 0 failed' },
-      { label: 'lint', outcome: 'failed', exitCode: null, durationMs: null, required: true, hostRun: false, outputTail: null },
+      { label: 'npm test', commandLine: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed, 0 failed' },
+      { label: 'lint', commandLine: 'npm run lint', outcome: 'failed', exitCode: null, durationMs: null, required: true, hostRun: false, outputTail: null },
     ])
     expect(unit.runtime?.checks.map((c) => [c.name, c.hostRun, c.status])).toEqual([['primary: npm test', true, 'passed'], ['Contract Layer review', false, 'passed']])
     expect(unit.runtime?.findings).toEqual(['Faithful port.', 'All tasks traceable.'])

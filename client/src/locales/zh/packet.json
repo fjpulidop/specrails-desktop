@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "未生成审阅者评分。",
     "evidenceUnavailable": "无证据",
     "hostCommandPassed": "运行时自行执行了 {{label}}：退出码 {{exitCode}}（{{seconds}} 秒）",
+    "hostStaticCheckPassed": "运行时自行执行了 {{label}}，但它只读取文件内容，并不运行代码：退出码 {{exitCode}}（{{seconds}} 秒）",
     "hostCommandFailed": "运行时自行执行了 {{label}} 但失败：退出码 {{exitCode}}（{{seconds}} 秒）",
     "acceptanceCheckPassed": "审查检查通过：{{name}}",
     "acceptanceCheckFailed": "审查检查失败：{{name}}",

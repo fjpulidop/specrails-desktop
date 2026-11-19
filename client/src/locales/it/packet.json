@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "Nessun punteggio del revisore prodotto.",
     "evidenceUnavailable": "prove non disponibili",
     "hostCommandPassed": "Il runtime ha eseguito {{label}} da solo: codice di uscita {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Il runtime ha eseguito {{label}} da solo, ma il controllo legge solo il contenuto dei file e non esegue il codice: codice di uscita {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Il runtime ha eseguito {{label}} da solo ed è FALLITO: codice di uscita {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Controllo del revisore superato: {{name}}",
     "acceptanceCheckFailed": "Controllo del revisore FALLITO: {{name}}",

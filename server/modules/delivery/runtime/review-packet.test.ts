@@ -633,6 +633,16 @@ describe('programmatic-runtime evidence in the proof', () => {
     expect(passed[0]).toMatchObject({ rawExcerpt: 'final: 5 tests', values: { seconds: 2 } })
   })
 
+  it('labels a passed check that only reads file text as a file-content check, not a run of the code', () => {
+    const weak = { ...runtime, commands: [
+      { label: 'Health.cs has Heal', commandLine: `python3 -c import pathlib; assert 'Heal(' in pathlib.Path('Assets/Scripts/Health.cs').read_text()`, outcome: 'passed', exitCode: 0, durationMs: 40, required: true, hostRun: true, outputTail: null },
+      { label: 'npm test', commandLine: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 900, required: true, hostRun: true, outputTail: 'ok' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: weak }) })
+    expect(packet.proof.filter((p) => p.code === 'proof.hostStaticCheckPassed')).toEqual([expect.objectContaining({ tier: 'app-verified', values: { label: 'Health.cs has Heal', exitCode: 0, seconds: 1 } })])
+    expect(packet.proof.filter((p) => p.code === 'proof.hostCommandPassed').map((p) => p.values?.label)).toEqual(['npm test'])
+  })
+
   it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {
     const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: null }) })
     expect(packet.proof.some((p) => p.code === 'proof.noVerificationReported')).toBe(true)

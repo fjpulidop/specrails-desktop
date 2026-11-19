@@ -1284,6 +1284,7 @@
         "./state"
       ],
       "domain/state.ts": [],
+      "domain/static-check.ts": [],
       "index.ts": [
         "./domain/decision-policy",
         "./domain/review-wip",
@@ -2190,6 +2191,7 @@
         "../../audit/adapters/sqlite",
         "../../loops/runtime/loop-factory",
         "../../specs/runtime/spec-addenda-core",
+        "../domain/static-check",
         "./delivery-evidence",
         "./pr-body",
         "./pr-follow-up",

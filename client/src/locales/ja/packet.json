@@ -91,6 +91,7 @@
     "reviewerScoreUnavailable": "レビュアースコアは生成されませんでした。",
     "evidenceUnavailable": "証跡なし",
     "hostCommandPassed": "ランタイムが {{label}} を自ら実行しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "hostStaticCheckPassed": "ランタイムが {{label}} を自ら実行しましたが、ファイルの内容を読むだけでコードは実行しません: 終了コード {{exitCode}}（{{seconds}} 秒）",
     "hostCommandFailed": "ランタイムが {{label}} を自ら実行し、失敗しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
     "acceptanceCheckPassed": "レビュアーのチェックに合格: {{name}}",
     "acceptanceCheckFailed": "レビュアーのチェックに失敗: {{name}}",

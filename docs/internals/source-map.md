@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1815 source/build files. Nearby tests are linked where names
+Includes 1816 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1921,6 +1921,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [retained-worktrees.ts](../../server/modules/delivery/domain/retained-worktrees.ts)
 - [review-wip.ts](../../server/modules/delivery/domain/review-wip.ts)
 - [state.ts](../../server/modules/delivery/domain/state.ts)
+- [static-check.ts](../../server/modules/delivery/domain/static-check.ts) · [test](../../server/modules/delivery/domain/static-check.test.ts)
 
 ## server/modules/delivery/runtime
 
