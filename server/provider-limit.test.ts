@@ -35,7 +35,11 @@ describe('classifyProviderLimit', () => {
   it('extracts reset hints in the common shapes and caps their length', () => {
     expect(extractLimitReset('resets 3am (Europe/Madrid)')).toBe('3am (Europe/Madrid)')
     expect(extractLimitReset('limit reached, resets at 14:00.')).toBe('14:00')
-    expect(extractLimitReset('resets in 2 hours')).toBe('2 hours')
+    // The relative form keeps its "in", which resolveResetText needs to schedule the resume.
+    expect(extractLimitReset('resets in 2 hours')).toBe('in 2 hours')
+    // codex: "… or try again at 3:32 AM." / "Try again in 2 hours."
+    expect(extractLimitReset('codex execution failed (exit 1). You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/settings/usage to purchase more credits or try again at 3:32 AM.')).toBe('3:32 AM')
+    expect(extractLimitReset("You've reached your usage limit. Try again in 2 hours.")).toBe('in 2 hours')
     expect(extractLimitReset('no reset here')).toBeNull()
     expect(describeProviderLimit({ kind: 'quota', message: 'Quota exceeded', resetsAt: 'in 2 hours' })).toBe('Quota exceeded — resets in 2 hours')
     expect(describeProviderLimit({ kind: 'quota', message: 'Quota exceeded', resetsAt: null })).toBe('Quota exceeded')
