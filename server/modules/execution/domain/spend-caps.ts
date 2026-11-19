@@ -109,7 +109,8 @@ export function capRejection(status: CapStatus): DailyBudgetRejection {
 /** What a run's turns cost so far: the largest (the next turn's expected cost) and the latest. */
 export interface RunTurnCosts { largestUsd: number | null; lastUsd: number | null }
 
-const usd = (value: number): string => `$${value.toFixed(2)}`
+/** Dollars as the person reads them; a sub-cent spend (small models) keeps a third decimal so "$0.036 of $0.04" stays true. */
+const usd = (value: number): string => `$${value.toFixed(Math.abs(value * 100 - Math.round(value * 100)) > 1e-6 && Math.abs(value) < 10 ? 3 : 2)}`
 
 /**
  * The per-run soft cap, reached by one run's provider-reported cost, or about to be:
@@ -124,10 +125,11 @@ export function runCapRejection(capUsd: number, runCostUsd: number, turns: RunTu
       detail: `This run's cost ${usd(runCostUsd)} is ${usd(overshoot)} over its per-run cap of ${usd(capUsd)}${turns.lastUsd !== null ? `: its last turn cost ${usd(turns.lastUsd)}, more than the cap had left` : ''}.`,
       action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
   }
-  if (toCents(runCostUsd) >= toCents(capUsd) || turns.largestUsd === null) {
+  // Exact, not rounded to cents: $0.0356 has not reached a $0.04 cap; it is paused before a turn that would cross it.
+  if (runCostUsd >= capUsd - 1e-9 || turns.largestUsd === null) {
     return { ...base, detail: `This run's cost ${usd(runCostUsd)} has reached the per-run cap of ${usd(capUsd)}.`, action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
   }
-  const projected = fromCents(toCents(runCostUsd) + toCents(turns.largestUsd))
+  const projected = runCostUsd + turns.largestUsd
   return { ...base, nextTurnUsd: turns.largestUsd,
     detail: `This run has spent ${usd(runCostUsd)} of its ${usd(capUsd)} per-run cap, and its next turn is expected to cost about ${usd(turns.largestUsd)} (its largest turn so far), which would take it to ${usd(projected)}.`,
     action: `Continue without the cap, or raise the per-run cap to at least ${usd(projected)}, and the run resumes from the next step.` }

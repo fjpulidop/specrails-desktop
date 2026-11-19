@@ -92,6 +92,8 @@ describe('per-run soft cap', () => {
       detail: 'This run has spent $1.96 of its $2.00 per-run cap, and its next turn is expected to cost about $1.96 (its largest turn so far), which would take it to $3.92.',
       action: 'Continue without the cap, or raise the per-run cap to at least $3.92, and the run resumes from the next step.' })
     expect(runCapRejection(2, 2, { largestUsd: 1, lastUsd: 1 })).toMatchObject({ detail: "This run's cost $2.00 has reached the per-run cap of $2.00." })
+    // A small model's sub-cent spend is shown as it is, not rounded up to the cap (live haiku run: $0.0356 of $0.04).
+    expect(runCapRejection(0.04, 0.03561898, { largestUsd: 0.02, lastUsd: 0.02 }).detail).toBe('This run has spent $0.036 of its $0.04 per-run cap, and its next turn is expected to cost about $0.02 (its largest turn so far), which would take it to $0.056.')
   })
 })
 
