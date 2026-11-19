@@ -88,3 +88,4 @@ it('stops advertising an answered question once Core resumes the run (GET loop-r
   project({ type: 'runtime-result', engineVersion: 2, runId, status: 'succeeded', revision: 60, eventCursor: metadata.finalCursor, pendingInterrupts: [], completion: { ok: true, verified: true, reasons: [] } })
   expect(status()).toMatchObject({ status: 'succeeded', pendingInterrupts: [] })
 })
+

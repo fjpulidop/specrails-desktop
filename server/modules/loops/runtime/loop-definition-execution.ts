@@ -6,7 +6,7 @@
  */
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { runDefinitionLoop } from './loop-definition-run'
-import { getLoopRun, readDefinitionRun, saveDefinitionRun } from './loop-runs-store'
+import { getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
 import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
 import { parseCoreFailure } from '../../recovery/domain'
 import { classifyProviderLimit } from '../../../provider-limit'
@@ -109,7 +109,12 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
   const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
     onPrepared: metadata => { saveDefinitionRun(db, runId, metadata) },
-    invoke: input => { host.claimDefinition({ ...req, runId }); return executors.runDefinition!(input) }, isCancelled: () => host.isCancelled(runId),
+    invoke: input => {
+      host.claimDefinition({ ...req, runId })
+      // Resuming answers the stored pause: the API shows the run working from now, not after Core's first event.
+      if (input.resume) { try { recordDefinitionRunning(db, runId, getLoopRun(db, runId)?.core_event_cursor ?? 0) } catch { /* the projection settles it on workflow_resumed */ } }
+      return executors.runDefinition!(input)
+    }, isCancelled: () => host.isCancelled(runId),
     remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes * 60_000 - activeDurationMs) : undefined,
     onLine: logLine, onRuntimeEvent: event => { auditTap?.(event); projectEvent(event); observeTurns(event) }, onSpawn: child => {
       host.setActiveChild(runId, child)

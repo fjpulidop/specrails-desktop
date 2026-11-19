@@ -400,3 +400,32 @@ describe('a Core run stopped by a signal Specrails did not send', () => {
     expect(getLoopRun(db, 'sig')!.failure_diagnosis).toBeNull()
   })
 })
+
+// GET loop-runs/:id served the paused checkpoint (with the answered question) until Core's first event.
+describe('a resumed Core run', () => {
+  it('shows as running with no pending question as soon as Desktop resumes it', async () => {
+    const { recordDefinitionCheckpoint } = await import('./loop-runs-store')
+    const prepared = { contextPath: '/frozen/context.json', runtimeDirectory: '/frozen', configPath: '/frozen/config.json', definitionPath: '/frozen/definition.json', definitionHash: 'a'.repeat(64), definition: {}, context: {} }
+    const question = { id: 'q1', kind: 'question', nodePath: 'ask', value: { prompt: 'Which?' } }
+    let seenOnResume: unknown
+    const runDefinition = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+      if (!input.resume) {
+        input.onPrepared?.(prepared)
+        recordDefinitionCheckpoint(db, 'q-run', { revision: 3, eventCursor: 2, status: 'paused', pendingInterrupts: [question] })
+        return { text: '', runtimeStatus: 'paused' as const, pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' as const }] }
+      }
+      seenOnResume = JSON.parse(getLoopRun(db, 'q-run')!.runtime_status_json!)
+      return { text: 'done', runtimeStatus: 'succeeded' as const, completion: { ok: true, verified: true, reasons: [] } }
+    })
+    const m = new LoopRunManager(db, () => {}, { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }, () => 1000, {})
+    const running = m.run({ runId: 'q-run', loopId: 'test-loop', projectId: 'p1', cwd: '/repo', provider: 'claude', model: 'sonnet', graph: { nodes: [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'a', type: 'core', position: { x: 0, y: 100 }, data: { kind: 'prompt', params: { text: 'Read', access: 'read', engine: { provider: 'claude' } } } }],
+    edges: [{ id: 's', source: 'start', target: 'a' }], config: { maxIterations: 3, timeoutMinutes: 0 } } })
+    await vi.waitFor(() => expect(m.isPaused('q-run')).toBe(true))
+    expect(JSON.parse(getLoopRun(db, 'q-run')!.runtime_status_json!)).toMatchObject({ status: 'paused', pendingInterrupts: [question] })
+    expect(m.sendInteractiveTurn('q-run', 'Answer', { interruptId: 'q1' })).toBe(true)
+    expect((await running).outcome).toBe('success')
+    expect(seenOnResume).toEqual({ revision: 3, eventCursor: 2, status: 'running', pendingInterrupts: [] })
+  })
+})
