@@ -226,6 +226,9 @@ it('ends the run when the person declines the ticket for this repository instead
   expect([edge('plan-declined', 'true'), edge('plan-declined', 'false')]).toEqual(['declined', 'confidence'])
   expect((params('architect')!.structuredOutput as { properties: { confidence: { enum: string[] } } }).properties.confidence.enum).toContain('declined')
   expect(String(params('architect')!.prompt)).toContain('return confidence declined')
+  // Never plan a publish/deploy, nor a rewrite onto a toolchain that is not installed.
+  expect(String(params('architect')!.prompt)).toContain('Publishing or deploying')
+  expect(String(params('architect')!.prompt)).toContain('cannot be verified here: ask with low confidence')
   expect(graph.nodes.find(node => node.id === 'declined')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('Not implemented: the person declined this ticket') })
   const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
   expect(definition.nodes['declined']).toMatchObject({ kind: 'end' })
