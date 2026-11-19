@@ -274,10 +274,18 @@ const PR_NEVER_STAGE_EXCLUDE_MARKER_END = '# /specrails: never stage private age
 // literally, but untracked it showed in `git status`, and reviewers kept raising it as a human
 // check ("confirm .sr-rail-overlay.json is host-owned and not committed").
 const OVERLAY_MANIFEST_EXCLUDE = '/.sr-rail-overlay.json'
+// Build and tool caches the run's own checks write (a React delivery committed the
+// tsconfig.tsbuildinfo that `tsc -b` left behind). Ignored only while UNTRACKED: a repository
+// that tracks one of these keeps committing its changes.
+export const GENERATED_ARTIFACT_EXCLUDES = [
+  '*.tsbuildinfo', '.DS_Store', '__pycache__/', '*.py[co]', '.pytest_cache/', '.mypy_cache/', '.ruff_cache/',
+  '.swiftpm/', '/.build/', '.dart_tool/', '.gradle/', 'node_modules/', '/target/',
+] as const
 const PR_NEVER_STAGE_EXCLUDE_BLOCK = [
   PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN,
   ...PR_NEVER_STAGE_PATHS,
   OVERLAY_MANIFEST_EXCLUDE,
+  ...GENERATED_ARTIFACT_EXCLUDES,
   PR_NEVER_STAGE_EXCLUDE_MARKER_END,
 ].join('\n')
 

@@ -482,6 +482,33 @@ describe('commitWorktree', () => {
     }
   })
 
+  it('never commits build caches the checks leave untracked, but keeps committing tracked ones', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-generated-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.mkdirSync(path.join(dir, 'pkg', '__pycache__'), { recursive: true })
+      fs.writeFileSync(path.join(dir, 'tracked.tsbuildinfo'), 'v1\n')
+      git(['add', '-A'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      fs.writeFileSync(path.join(dir, 'tsconfig.tsbuildinfo'), '{}\n')
+      fs.writeFileSync(path.join(dir, 'pkg', '__pycache__', 'm.cpython-312.pyc'), 'x')
+      fs.mkdirSync(path.join(dir, 'target', 'debug'), { recursive: true })
+      fs.writeFileSync(path.join(dir, 'target', 'debug', 'app'), 'bin')
+      fs.writeFileSync(path.join(dir, 'tracked.tsbuildinfo'), 'v2\n')
+      fs.writeFileSync(path.join(dir, 'App.tsx'), 'export {}\n')
+      const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [])
+      expect(result.error).toBeUndefined()
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD']).slice(0, -1).split('\0').sort()
+      expect(committed).toEqual(['App.tsx', 'tracked.tsbuildinfo'])
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('never commits Core run state that lands in the checkout of an unassembled project', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-core-state-'))
     const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
