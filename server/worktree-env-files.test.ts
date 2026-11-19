@@ -23,7 +23,8 @@ function write(file: string, content: string | Buffer) { fs.mkdirSync(path.dirna
 beforeEach(() => {
   root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wt env files ')))
   savedEnv = { GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM: process.env.GIT_CONFIG_NOSYSTEM }
-  fs.writeFileSync(path.join(root, 'gitconfig'), '')
+  // The commit path under test uses the process git config; a bare CI runner has no identity.
+  fs.writeFileSync(path.join(root, 'gitconfig'), '[user]\n\tname = t\n\temail = t@t\n')
   process.env.GIT_CONFIG_GLOBAL = path.join(root, 'gitconfig'); process.env.GIT_CONFIG_NOSYSTEM = '1'
   app = path.join(root, 'app'); fs.mkdirSync(app); git(app, 'init', '-q', '-b', 'main')
   write(path.join(app, '.gitignore'), '.env*\n!.env.example\n!.env.ci\n')
