@@ -20,6 +20,7 @@
 import type { GitRunner } from '../../../worktree-manager'
 import { splitDescriptionAtContractLayer } from '../../conversations/runtime/explore-contract-refine'
 import { ticketRef, type TicketNamingInput } from './pr-naming'
+import { isTestFilePath } from '../../../util/test-file-path'
 
 export interface PrBodyTicket extends TicketNamingInput {
   description?: string | null
@@ -38,15 +39,12 @@ export interface BranchChanges {
   failed: boolean
 }
 
-const TEST_FILE_RE = /(\.test\.[jt]sx?|\.spec\.[jt]sx?)$/
 const PROBLEM_MAX = 600
 const SOLUTION_MAX = 900
 const OVERFLOW_MAX = 3000
 const MAX_TEST_FILES_LISTED = 20
 
-export function isTestFilePath(p: string): boolean {
-  return TEST_FILE_RE.test(p) || p.includes('__tests__/')
-}
+export { isTestFilePath }
 
 /**
  * Per-branch diffstat + touched test files via `git diff` against the base

@@ -27,6 +27,7 @@
  * launder a self-report into a measurement. `testEvidence` states which test
  * FILES changed, which is all the diff can actually prove.
  */
+import { isDocumentationPath, isTestFilePath } from '../../../util/test-file-path'
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
@@ -236,7 +237,6 @@ function agentActionsForRuns(db: DbInstance, runIds: readonly string[]): PacketA
   }
 }
 
-const TEST_FILE_RE = /(\.test\.|\.spec\.|(^|\/)__tests__\/)/
 
 /** Per-provenance churn for one delivery run, from file_story_contributions. */
 interface ChurnRow {
@@ -311,7 +311,7 @@ function buildProof(
   const proof: PacketProofItem[] = []
 
   // ── Tier 1: what Specrails measured itself ────────────────────────────────
-  const testFiles = [...new Set(churn.filter((row) => TEST_FILE_RE.test(row.file_path)).map(churnIdentity))]
+  const testFiles = [...new Set(churn.filter((row) => isTestFilePath(row.file_path)).map(churnIdentity))]
   const totalFiles = new Set(churn.map(churnIdentity)).size
   const added = churn.reduce((sum, row) => sum + (row.added_lines || 0), 0)
   const removed = churn.reduce((sum, row) => sum + (row.removed_lines || 0), 0)
@@ -440,8 +440,8 @@ function buildWatchOut(
   for (const flag of (confidence?.flags ?? []).slice(0, 3)) {
     out.push({ tier: 'reviewer-score', code: 'watch.reviewerFlag', rawExcerpt: flag })
   }
-  const codeFiles = churn.filter((row) => !TEST_FILE_RE.test(row.file_path))
-  const testFiles = churn.filter((row) => TEST_FILE_RE.test(row.file_path))
+  const codeFiles = churn.filter((row) => !isTestFilePath(row.file_path) && !isDocumentationPath(row.file_path))
+  const testFiles = churn.filter((row) => isTestFilePath(row.file_path))
   if (out.length < 3 && variant !== 'no-changes' && codeFiles.length > 0 && testFiles.length === 0) {
     out.push({ tier: 'app-verified', code: 'watch.noTestsForChangedCode', values: { files: codeFiles.length } })
   }
@@ -584,7 +584,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
         filesTouched: new Set(unitChurn.map(churnIdentity)).size,
         addedLines: unitChurn.reduce((sum, c) => sum + (c.added_lines || 0), 0),
         removedLines: unitChurn.reduce((sum, c) => sum + (c.removed_lines || 0), 0),
-        testFilesTouched: [...new Set(unitChurn.filter((c) => TEST_FILE_RE.test(c.file_path)).map((c) => !repositoryId && c.repository_id ? `${c.repository_id}:${c.file_path}` : c.file_path))],
+        testFilesTouched: [...new Set(unitChurn.filter((c) => isTestFilePath(c.file_path)).map((c) => !repositoryId && c.repository_id ? `${c.repository_id}:${c.file_path}` : c.file_path))],
       },
       runIds: unitRunIds,
     }

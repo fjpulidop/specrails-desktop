@@ -292,6 +292,28 @@ describe('composeReviewPacket — watch out', () => {
     expect(packet.watchOut).toEqual([])
   })
 
+  it.each([
+    ['Java', 'src/main/java/bench/Money.java', 'src/test/java/bench/MoneyTest.java'],
+    ['Go', 'server.go', 'server_test.go'],
+    ['Python', 'app/temps.py', 'tests/test_temps.py'],
+    ['Swift', 'Sources/Habits/Habit.swift', 'Tests/HabitsTests/HabitTests.swift'],
+    ['Rust', 'src/lib.rs', 'tests/echo.rs'],
+  ])('counts %s tests as tests: no false "no tests" watch-out or proof', (_stack, code, test) => {
+    churn([{ path: code }, { path: test }, { path: 'openspec/specs/cap/spec.md' }])
+    const packet = delivery({
+      evidence: evidence({ confidence: { changeName: 'c', overall: 96, aspects: {}, flags: [], raw: null } }),
+    })
+    expect(packet.watchOut).toEqual([])
+    expect(packet.proof.map((item) => item.code)).not.toContain('proof.noTestFilesChanged')
+    expect(packet.sections[0]?.churn?.testFilesTouched ?? [test]).toEqual([test])
+  })
+
+  it('does not count OpenSpec artifacts as code that needs tests', () => {
+    churn([{ path: 'openspec/changes/c/proposal.md' }, { path: 'openspec/specs/cap/spec.md' }, { path: 'README.md' }])
+    const packet = delivery()
+    expect(packet.watchOut.map((item) => item.code)).not.toContain('watch.noTestsForChangedCode')
+  })
+
   it('does not warn about missing tests on a no-change run', () => {
     const packet = delivery({ decision: 'no_changes', deliveryOutcome: 'no_changes', statusCode: 'no_changes' })
     expect(packet.watchOut.map((item) => item.code)).not.toContain('watch.noTestsForChangedCode')

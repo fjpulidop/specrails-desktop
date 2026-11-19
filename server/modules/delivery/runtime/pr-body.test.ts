@@ -29,6 +29,15 @@ describe('isTestFilePath', () => {
     ['server/db.ts', false],
     ['client/src/latest.tsx', false],
     ['server/protest.ts', false],
+    ['src/test/java/bench/MoneyTest.java', true],
+    ['server_test.go', true],
+    ['tests/test_temps.py', true],
+    ['Tests/HabitsTests/HabitTests.swift', true],
+    ['src-tauri/tests/search.rs', true],
+    ['test/widget_test.dart', true],
+    ['openspec/specs/duration/spec.md', false],
+    ['src/main/java/bench/Money.java', false],
+    ['src/contest.go', false],
   ])('%s → %s', (p, expected) => {
     expect(isTestFilePath(p)).toBe(expected)
   })
