@@ -1486,6 +1486,7 @@
         "./multi-repo-execution-store",
         "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch",
+        "./rail-isolated-launch-contracts",
         "./rail-pr-store",
         "./rail-pr-ticket-effects",
         "node:path"
@@ -3807,8 +3808,7 @@
         "../../../types",
         "../../../workspace-resolution",
         "chokidar",
-        "fs",
-        "path"
+        "fs"
       ],
       "runtime/triage-runner.ts": [
         "../../../providers",
