@@ -345,7 +345,9 @@ function buildProof(
   // failed runs are history (collapsed under it), not proof. A failed packet keeps every run.
   const finalOnly = settled
   const proven = finalOnly
-    ? hostCommands.filter((command, index) => passedOf(command) ? hostCommands.findIndex((other) => other.label === command.label && passedOf(other)) === index
+    // The LAST passing run of a command is the proof: an earlier pass is the baseline taken
+    // before the change (or a pass the change later invalidated), never the final state.
+    ? hostCommands.filter((command, index) => passedOf(command) ? hostCommands.map((other) => other.label === command.label && passedOf(other)).lastIndexOf(true) === index
       : !hostCommands.some((other) => other.label === command.label && passedOf(other)) && hostCommands.map((other) => other.label).lastIndexOf(command.label) === index)
     : hostCommands
   for (const command of proven.slice(0, 6)) {

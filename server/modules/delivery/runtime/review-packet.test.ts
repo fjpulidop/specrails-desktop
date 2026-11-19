@@ -589,6 +589,18 @@ describe('programmatic-runtime evidence in the proof', () => {
       earlier: [{ passed: false, exitCode: 1, seconds: 1, rawExcerpt: 'not ok 3 - clears four lines' }] })
   })
 
+  it('proves the LAST passing run, not the baseline taken before the change', () => {
+    const baselineThenFinal = { ...runtime, commands: [
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 1000, required: true, hostRun: true, outputTail: 'baseline: 3 tests' },
+      { label: 'npm test', outcome: 'failed', exitCode: 1, durationMs: 1000, required: true, hostRun: true, outputTail: 'not ok 4' },
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 2000, required: true, hostRun: true, outputTail: 'final: 5 tests' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: baselineThenFinal }) })
+    const passed = packet.proof.filter((p) => p.code === 'proof.hostCommandPassed')
+    expect(passed).toHaveLength(1)
+    expect(passed[0]).toMatchObject({ rawExcerpt: 'final: 5 tests', values: { seconds: 2 } })
+  })
+
   it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {
     const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: null }) })
     expect(packet.proof.some((p) => p.code === 'proof.noVerificationReported')).toBe(true)
