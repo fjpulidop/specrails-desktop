@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1804 source/build files. Nearby tests are linked where names
+Includes 1814 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1407,6 +1407,22 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [test-scripts.mjs](../../scripts/test-scripts.mjs)
 - [verified-client.mjs](../../scripts/verified-client.mjs) · [test](../../scripts/verified-client.test.mjs)
 - [verify-chromium-bundle.mjs](../../scripts/verify-chromium-bundle.mjs) · [test](../../scripts/verify-chromium-bundle.test.mjs)
+
+## scripts/benchmark
+
+- [index.mjs](../../scripts/benchmark/index.mjs)
+
+## scripts/benchmark/lib
+
+- [api.mjs](../../scripts/benchmark/lib/api.mjs)
+- [args.mjs](../../scripts/benchmark/lib/args.mjs)
+- [driver.mjs](../../scripts/benchmark/lib/driver.mjs)
+- [isolation.mjs](../../scripts/benchmark/lib/isolation.mjs)
+- [quota.mjs](../../scripts/benchmark/lib/quota.mjs)
+- [report.mjs](../../scripts/benchmark/lib/report.mjs)
+- [repos.mjs](../../scripts/benchmark/lib/repos.mjs)
+- [scenarios.mjs](../../scripts/benchmark/lib/scenarios.mjs)
+- [server.mjs](../../scripts/benchmark/lib/server.mjs)
 
 ## server / agent
 
