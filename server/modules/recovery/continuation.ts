@@ -56,7 +56,8 @@ export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 
         blocker ? `What was missing: ${blocker.reason}` : diagnosis.detail ? `What stopped it: ${diagnosis.detail}` : null,
         command ? `It failed running \`${command}\`${blocker?.cwd ? ` in ${blocker.cwd}` : ''}.` : null,
         blocker?.requiredAction ? `What it needs: ${blocker.requiredAction}` : null,
-        INSTALL_RULE,
+        // A machine-wide install is the person's: they were asked, and continuing means they ran it.
+        blocker?.install ? `The person was asked to run \`${blocker.install}\` themselves. Check that it is available now; never install it machine-wide yourself, and if it is still missing return the structured blocker with the same install.` : INSTALL_RULE,
       ].filter((line): line is string => !!line).join('\n')
     }
     case 'port_in_use': return [
@@ -136,7 +137,8 @@ export function autoContinueVerdict(input: {
   if (diagnosis.kind === 'incomplete_tasks') return { continue: true, reason: 'unfinished_tasks' }
   if (diagnosis.kind === 'environment') {
     // An unnamed or other kind of host blocker (network, scope, a variable) is the person's to resolve.
-    return diagnosis.blocker && INSTALLABLE_BLOCKERS.has(diagnosis.blocker.kind) ? { continue: true, reason: 'missing_tool' } : { continue: false, reason: 'person_must_resolve' }
+    // A machine-wide install the person was asked for and kept for themselves (or the host may not run) is theirs too.
+    return diagnosis.blocker && INSTALLABLE_BLOCKERS.has(diagnosis.blocker.kind) && !diagnosis.blocker.install ? { continue: true, reason: 'missing_tool' } : { continue: false, reason: 'person_must_resolve' }
   }
   // The provider's service was down for a moment and Core already retried for about a minute:
   // continuing at once would meet the same outage (the night of 2026-11-19 it did, 15 s later).

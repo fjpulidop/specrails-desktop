@@ -613,5 +613,17 @@
     "enabled": "Specrails continuera une fois les échecs réparables",
     "disabled": "Les exécutions en échec vous attendront",
     "saveFailed": "Impossible d'enregistrer le réglage"
+  },
+  "machineInstalls": {
+    "title": "Installations retenues",
+    "description": "Installations à l'échelle de la machine que vous avez approuvées pour une exécution. Specrails les relance sans demander ; révoquez-en une pour être consulté la prochaine fois.",
+    "empty": "Rien n'est retenu pour l'instant. Quand une exécution a besoin d'installer un outil sur toute la machine, elle vous demande d'abord.",
+    "approvedAt": "Approuvée le {{date}}",
+    "uses_one": "Utilisée une fois",
+    "uses_other": "Utilisée {{count}} fois",
+    "revoke": "Révoquer",
+    "revoked": "Accord révoqué. Specrails demandera avant de la relancer.",
+    "revokeFailed": "Impossible de révoquer l'accord",
+    "loadFailed": "Impossible de charger les installations retenues"
   }
 }

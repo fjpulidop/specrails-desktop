@@ -613,5 +613,17 @@
     "enabled": "Specrails will continue fixable failures once",
     "disabled": "Failed runs will wait for you",
     "saveFailed": "Could not save the setting"
+  },
+  "machineInstalls": {
+    "title": "Remembered installs",
+    "description": "Machine-wide installs you approved for a run. Specrails runs them again without asking; revoke one to be asked next time.",
+    "empty": "Nothing remembered yet. When a run needs a tool installed machine-wide, it asks you first.",
+    "approvedAt": "Approved {{date}}",
+    "uses_one": "Used once",
+    "uses_other": "Used {{count}} times",
+    "revoke": "Revoke",
+    "revoked": "Approval revoked. Specrails will ask before running it again.",
+    "revokeFailed": "Could not revoke the approval",
+    "loadFailed": "Could not load the remembered installs"
   }
 }

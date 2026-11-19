@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "Fehlgeschlagene Läufe automatisch fortsetzen",
           "keywords": "fortsetzen, wiederholen, fehlgeschlagener Lauf, automatisch, Wiederherstellung"
+        },
+        "machineInstalls": {
+          "label": "Gemerkte Installationen",
+          "keywords": "installieren, brew, rechnerweit, Werkzeug, Zustimmung, widerrufen"
         }
       }
     },

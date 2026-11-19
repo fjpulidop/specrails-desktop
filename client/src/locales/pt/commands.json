@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "Continuar automaticamente execuções falhadas",
           "keywords": "continuar, repetir, execução falhada, automático, recuperação"
+        },
+        "machineInstalls": {
+          "label": "Instalações lembradas",
+          "keywords": "instalar, brew, toda a máquina, ferramenta, aprovação, revogar"
         }
       }
     },

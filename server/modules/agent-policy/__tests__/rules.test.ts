@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateShell, evaluateToolCall, type GitFacts, type PolicyFacts } from '../domain/rules'
 import { readScript } from '../domain/shell'
+import { parseInstallCommand } from '../../machine-installs'
 
 const RUN = '/sr/worktrees/run-1'
 const OTHER_REPO = '/Users/u/code/app'
@@ -225,5 +226,18 @@ describe('machine-wide installs', () => {
 
   it('tells the agent what to do instead', () => {
     expect(evaluateShell('rustup target add wasm32-unknown-unknown', facts())?.reason).toMatch(/`rustup target add` changes this machine for every project.*toolchain blocker/)
+    expect(evaluateShell('brew install terraform', facts())?.reason).toContain('the host asks the person once and installs it outside the run')
+  })
+
+  it('still denies the agent every install the host may run for the person (ask once runs outside the run, never through the agent)', () => {
+    for (const command of [
+      'brew install terraform', 'brew install --cask docker', 'npm install -g @scope/cli@2.1.0', 'npm i --global typescript', 'pnpm add -g turbo', 'bun add -g serve', 'yarn global add serve',
+      'cargo install --locked wasm-pack', 'go install golang.org/x/tools/gopls@latest', 'gem install --user-install bundler', 'pipx install poetry', 'pip3 install --user black',
+      'rustup target add wasm32-unknown-unknown', 'rustup component add clippy', 'rustup toolchain install nightly', 'dotnet tool install -g dotnet-ef', 'sdkmanager "platforms;android-34"',
+      'scoop install jq', 'winget install jq',
+    ]) {
+      expect(parseInstallCommand(command).ok, command).toBe(true)
+      expect(rule(command), command).toBe('machine-install')
+    }
   })
 })

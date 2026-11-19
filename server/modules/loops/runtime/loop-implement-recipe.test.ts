@@ -148,6 +148,22 @@ describe('host blockers', () => {
     const older = compile(configurableImplementGraph(paired))
     for (const id of ['developer', 'unblock', 'fixer']) expect(older.nodes[id].params).not.toHaveProperty('decisions')
   })
+  it('asks the person once for a machine-wide install only on a Core that advertises machineInstalls', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, verificationSummary: 1, machineInstalls: 1 }))
+    for (const id of ['developer', 'unblock', 'fixer']) {
+      expect(asking.nodes[id].params).toMatchObject({ machineInstalls: 'ask' })
+      expect(JSON.stringify(asking.nodes[id].params.structuredOutput)).toContain('"install"')
+      expect(String(asking.nodes[id].params.prompt)).toContain('return the structured blocker with kind toolchain, the failing command, the exact install command as install')
+    }
+    for (const id of ['verify', 'baseline']) expect(asking.nodes[id].params).toMatchObject({ machineInstalls: 'ask', hostBlockers: true })
+    for (const id of ['architect', 'reviewer']) expect(asking.nodes[id].params).not.toHaveProperty('machineInstalls')
+    // A blocker that still names an install (the person kept it for themselves) ends the run instead of another verification.
+    for (const id of ['developer-blocker-kind', 'fixer-blocker-kind', 'unblock-blocker']) expect(String(asking.nodes[id].params.expr)).toMatch(/matches\(\$outputs\.(developer|fixer|unblock)\.structured\.blocker\.install, \/\\S\/\)/)
+    const older = compile(configurableImplementGraph(paired))
+    for (const id of ['developer', 'unblock', 'fixer', 'verify']) expect(older.nodes[id].params).not.toHaveProperty('machineInstalls')
+    expect(JSON.stringify(older.nodes.developer.params.structuredOutput)).not.toContain('"install"')
+    expect(String(older.nodes['developer-blocker-kind'].params.expr)).not.toContain('install')
+  })
   it('asks for [human] tasks only from a Core whose contract understands them', () => {
     const tagged = compile(configurableImplementGraph({ ...paired, humanTasks: 1 }))
     expect(String(tagged.nodes.architect.params.prompt)).toContain('[human]')

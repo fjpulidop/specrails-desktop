@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "Continue failed runs automatically",
           "keywords": "continue, retry, failed run, automatic, recovery"
+        },
+        "machineInstalls": {
+          "label": "Remembered installs",
+          "keywords": "install, brew, machine-wide, tool, approval, revoke"
         }
       }
     },

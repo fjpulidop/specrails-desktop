@@ -22,6 +22,9 @@ import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 import { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
+import { createMachineInstalls } from './modules/machine-installs'
+import { createProcessInstallRunner } from './modules/machine-installs/adapters/process'
+import { createSqliteApprovalStore } from './modules/machine-installs/adapters/sqlite'
 import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, worktreeEnvPassthroughWarning } from './project-env'
 import { projectSupportsProfiles } from './project-profile-support'
 import { resolveProjectRepository } from './project-repositories'
@@ -81,6 +84,7 @@ export function createProjectLoopRuntime(deps: {
   getProjectContext: () => ProjectContext | null
 }): LoopRunManager {
   const { project, db, publishRunClarifications } = deps
+  const machineInstalls = createMachineInstalls({ store: createSqliteApprovalStore(deps.desktopDb), runner: createProcessInstallRunner() })
   const loopRunManager = new LoopRunManager(db, deps.broadcast, createLoopExecutors({
     pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
     // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -107,6 +111,8 @@ export function createProjectLoopRuntime(deps: {
   }), undefined, { dailyBudget: deps.dailyBudgetRejection, runCapDefault: deps.runCapDefault, agentAudit: deps.agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
     // Core machine interrupts (pr-ci-loop): one dispatcher per project, with the PR handlers bound to this project's records.
     hostTasks: () => hostTaskDispatcher,
+    // Machine-wide installs a run asks for: approvals live in the app database (machine-wide, like the tool).
+    machineInstalls: () => machineInstalls,
     // Stop on a paused/recovered Core run: Core records it, Desktop settles it.
     cancelRetained: runId => {
       const projectContext = deps.getProjectContext()

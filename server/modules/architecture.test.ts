@@ -91,6 +91,9 @@ const coreDependencies: Record<string, string[]> = {
   // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
   'project-rules/domain.ts': [],
   // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
+  'machine-installs/domain.ts': [],
+  'machine-installs/application.ts': ['./domain'],
+  'machine-installs/index.ts': ['./application', './domain'],
   'inbox/domain.ts': [],
   'inbox/ports.ts': ['./domain'],
   'inbox/application.ts': ['./domain', './ports'],

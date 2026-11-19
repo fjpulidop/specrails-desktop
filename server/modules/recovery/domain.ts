@@ -31,6 +31,8 @@ export interface FailureBlocker {
   args: string[]
   cwd: string
   requiredAction: string
+  /** The exact machine-wide install the run asked the person for (Core `machineInstalls`); the person's step. */
+  install?: string
 }
 
 export interface FailureDiagnosis {
@@ -141,7 +143,8 @@ export function parseBlocker(raw: unknown): FailureBlocker | null {
   const requiredAction = optionalText(value.requiredAction, 600)
   if (!reason || !requiredAction) return null
   const args = Array.isArray(value.args) ? value.args.filter((a): a is string => typeof a === 'string').slice(0, 16).map((a) => a.slice(0, 256)) : []
-  return { kind: optionalText(value.kind, 40) ?? 'environment', reason, command: optionalText(value.command, 512) ?? '', args, cwd: optionalText(value.cwd, 512) ?? '', requiredAction }
+  const install = typeof value.install === 'string' && !/[\r\n]/.test(value.install) ? optionalText(value.install, 300) : null
+  return { kind: optionalText(value.kind, 40) ?? 'environment', reason, command: optionalText(value.command, 512) ?? '', args, cwd: optionalText(value.cwd, 512) ?? '', requiredAction, ...(install ? { install } : {}) }
 }
 
 /**
