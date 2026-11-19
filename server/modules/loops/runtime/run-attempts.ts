@@ -104,6 +104,28 @@ export function readRunAttempts(db: DbInstance, runIds: readonly string[]): Map<
   return out
 }
 
+/**
+ * Every run of each given run's chain, oldest attempt first. Only runs that
+ * belong to a chain of more than one attempt are returned. A chain card adds
+ * its attempts' costs up from this (the earlier attempts have no card).
+ */
+export function readAttemptChainRunIds(db: DbInstance, runIds: readonly string[]): Map<string, string[]> {
+  const positions = readRunAttempts(db, runIds)
+  if (!positions.size) return new Map()
+  const chains = buildAttemptChains(lineageRows(db, [...positions.keys()]))
+  const byRoot = new Map<string, RunAttempt[]>()
+  for (const item of chains.values()) {
+    const list = byRoot.get(item.rootRunId) ?? []
+    list.push(item)
+    byRoot.set(item.rootRunId, list)
+  }
+  const out = new Map<string, string[]>()
+  for (const [runId, position] of positions) {
+    out.set(runId, (byRoot.get(position.rootRunId) ?? []).sort((a, b) => a.attempt - b.attempt).map((item) => item.runId))
+  }
+  return out
+}
+
 /** How a continued attempt came to be (migration 96). */
 export interface RunContinuation {
   runId: string
@@ -165,6 +187,9 @@ export interface ChainAttemptView {
   fromStep: string | null
   /** How it was continued (the fork that created it first, then any resume in place). */
   continuations: RunContinuation[]
+  /** This attempt's own recorded cost (null when unknown); `costEstimated` marks a rate-card estimate. */
+  costUsd: number | null
+  costEstimated: boolean
 }
 
 /** The whole chain a run belongs to, oldest attempt first (the run window's lineage). Null for a run without lineage. */
@@ -174,13 +199,16 @@ export function readAttemptChain(db: DbInstance, runId: string): { runId: string
   const chains = buildAttemptChains(lineageRows(db, [runId]))
   const members = [...chains.values()].filter((item) => item.rootRunId === position.rootRunId).sort((a, b) => a.attempt - b.attempt)
   const continuations = readRunContinuations(db, members.map((member) => member.runId))
-  const read = db.prepare('SELECT status, final_outcome, started_at, finished_at, fork_cut_json FROM loop_runs WHERE id = ?')
+  const read = db.prepare(`SELECT r.status, r.final_outcome, r.started_at, r.finished_at, r.fork_cut_json, r.total_cost_usd, j.total_cost_usd_estimated AS cost_estimated
+    FROM loop_runs r LEFT JOIN jobs j ON j.id = r.id WHERE r.id = ?`)
   const attempts = members.map((member): ChainAttemptView => {
-    const row = read.get(member.runId) as { status: string; final_outcome: string | null; started_at: string; finished_at: string | null; fork_cut_json: string | null }
+    const row = read.get(member.runId) as { status: string; final_outcome: string | null; started_at: string; finished_at: string | null; fork_cut_json: string | null; total_cost_usd: number | null; cost_estimated: number | null }
     let fromStep: string | null = null
     try { const cut = row.fork_cut_json ? JSON.parse(row.fork_cut_json) as { fromNodePath?: unknown } : null; fromStep = typeof cut?.fromNodePath === 'string' ? cut.fromNodePath : null } catch { fromStep = null }
     return { runId: member.runId, attempt: member.attempt, status: row.status, outcome: row.final_outcome, startedAt: row.started_at, finishedAt: row.finished_at,
-      fromStep, continuations: continuations.get(member.runId) ?? [] }
+      fromStep, continuations: continuations.get(member.runId) ?? [],
+      costUsd: typeof row.total_cost_usd === 'number' ? row.total_cost_usd : null,
+      costEstimated: typeof row.total_cost_usd === 'number' && row.cost_estimated === 1 }
   })
   return { runId, attempt: position.attempt, attempts }
 }

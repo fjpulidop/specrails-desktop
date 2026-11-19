@@ -140,6 +140,22 @@ function MergePreviewChip({ preview }: { preview: LiveMergePreview }) {
 }
 
 /** One run: its state, kind (and project when there are several), title, phrase, progress, engine, time, cost and its one action. */
+/**
+ * The card's cost line. A chain card's cost is every attempt added up, as
+ * analytics counts it. Billed and estimated stay apart: an all-estimate cost
+ * reads `~$x`; a cost that is only partly estimated keeps the billed reading
+ * and names the estimated part.
+ */
+function costLabel(card: Pick<LiveCard, 'costUsd' | 'costEstimated' | 'costEstimatedUsd'>, t: (key: string, options?: Record<string, unknown>) => string): { text: string; hint: string | null } | null {
+  if (card.costUsd === null || card.costUsd <= 0) return null
+  if (!card.costEstimated) return { text: formatUsd(card.costUsd), hint: null }
+  const estimated = card.costEstimatedUsd
+  if (estimated === null || estimated >= card.costUsd - 1e-9) {
+    return { text: t('liveBoard:card.costEstimated', { cost: formatUsd(card.costUsd) }), hint: t('liveBoard:card.costEstimatedHint') }
+  }
+  return { text: formatUsd(card.costUsd), hint: t('liveBoard:card.costIncludesEstimate', { cost: t('liveBoard:card.costEstimated', { cost: formatUsd(estimated) }) }) }
+}
+
 export function LiveBoardCard({ card, actions, now, compact = false, showProject = false }: LiveBoardCardProps) {
   const { t } = useTranslation(['liveBoard', 'inbox'])
   const kindLabel = useKindLabel()
@@ -161,6 +177,13 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
   // Resume and Retry act on the run; the run itself still opens.
   const secondaryOpen = primary.kind === 'inbox' && (primary.item.action === 'resume-run' || primary.item.action === 'retry-jira' || primary.item.action === 'raise-cap') && canOpen(card)
   const settledStopped = card.column === 'done' && look.state === 'stopped'
+  const cost = costLabel(card, t)
+  const attemptCost = card.attempt && card.attempt.costUsd !== null && card.attempt.costUsd > 0
+    ? t('liveBoard:card.attemptCost', {
+      cost: card.attempt.costEstimated ? t('liveBoard:card.costEstimated', { cost: formatUsd(card.attempt.costUsd) }) : formatUsd(card.attempt.costUsd),
+      of: card.attempt.of,
+    })
+    : null
   return (
     <li
       className={cn('flex min-w-0 flex-col gap-1.5 rounded-card border border-border/60 bg-card px-3 py-2.5 shadow-1', compact && 'w-full sm:w-64')}
@@ -192,8 +215,10 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
         )}
         {card.attempt && (
           // Earlier attempts are this card's history, never cards of their own.
-          <span className="shrink-0 text-caption text-muted-foreground num" data-testid="live-card-attempt">
+          // The card's cost is the chain's; this attempt's own cost is here.
+          <span className="shrink-0 text-caption text-muted-foreground num" title={attemptCost ?? undefined} data-testid="live-card-attempt">
             {t('liveBoard:card.attempt', { number: card.attempt.number })}
+            {attemptCost && <span className="sr-only"> ({attemptCost})</span>}
           </span>
         )}
       </div>
@@ -209,10 +234,10 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
         {card.provider && <span className="truncate">{providerLabel(card.provider)}</span>}
         {time && <span className="shrink-0">{time}</span>}
         <span className="flex-1" aria-hidden />
-        {card.costUsd !== null && card.costUsd > 0 && (
-          <span className="shrink-0" title={card.costEstimated ? t('liveBoard:card.costEstimatedHint') : undefined}>
-            {card.costEstimated ? t('liveBoard:card.costEstimated', { cost: formatUsd(card.costUsd) }) : formatUsd(card.costUsd)}
-            {card.costEstimated && <span className="sr-only"> ({t('liveBoard:card.costEstimatedHint')})</span>}
+        {cost && (
+          <span className="shrink-0" title={cost.hint ?? undefined} data-testid="live-card-cost">
+            {cost.text}
+            {cost.hint && <span className="sr-only"> ({cost.hint})</span>}
           </span>
         )}
       </div>

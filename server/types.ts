@@ -952,6 +952,7 @@ export interface RailPrStateMessage {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
+    failureDetail?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
@@ -1807,6 +1808,7 @@ export interface PrDecisionCardEnvelope {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
+    failureDetail?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>

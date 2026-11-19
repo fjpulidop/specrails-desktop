@@ -77,6 +77,7 @@
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimación según tarifa, no coste facturado",
+    "costIncludesEstimate": "Incluye {{cost}} estimado según tarifa, no facturado",
     "mergeConflicts_one": "Choca con la base en {{count}} archivo",
     "mergeConflicts_other": "Choca con la base en {{count}} archivos",
     "mergeSiblings_one": "Choca con {{count}} ejecución más",
@@ -90,7 +91,8 @@
       "siblings_other": "Choca con {{count}} ejecuciones",
       "baseMoved": "Base avanzada"
     },
-    "attempt": "intento {{number}}"
+    "attempt": "intento {{number}}",
+    "attemptCost": "Este intento: {{cost}}. El coste de la tarjeta cubre los {{of}} intentos."
   },
   "empty": {
     "title": "No hay nada en marcha",

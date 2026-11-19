@@ -12,12 +12,12 @@ import type { JiraSyncManager } from './jira/jira-sync-manager'
 import { releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './modules/delivery/runtime/rails-store'
 import type { QueueManager } from './modules/execution/runtime/queue-manager'
 import { settleSpecAddendaAt } from './modules/specs/runtime/spec-addenda'
-import { applyJobOutcomeToTickets, isFlowHeldTicket, mutateStore, readStore, resolveTicketStoragePath, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { applyJobOutcomeToTickets, isFlowHeldTicket, mutateStore, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { isTerminalJobStatus } from './project-context-broadcast'
 import type { ProjectContext } from './project-registry'
 import type { RailUpdatedMessage, TicketUpdatedMessage, WsMessage } from './types'
 import type { WebhookManager } from './webhook-manager'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectTicketsPath } from './workspace-resolution'
 
 export type JobFinishedHandler = NonNullable<NonNullable<ConstructorParameters<typeof QueueManager>[4]>['onJobFinished']>
 
@@ -113,10 +113,7 @@ export function createJobFinishedHandler(deps: {
       try {
         // Relocate-artifacts gate: write the job outcome to the workspace
         // ticket store when relocated, else the repo-relative store (legacy).
-        const outcomeExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-        const ticketFile = outcomeExec.relocated
-          ? outcomeExec.ticketsPath
-          : resolveTicketStoragePath(project.path)
+        const ticketFile = resolveProjectTicketsPath({ slug: project.slug, path: project.path })
         const now = new Date().toISOString()
         const causallyOwnedTicketIds = completedTicketIds.filter((ticketId) => {
           if (!ownershipReadable) return false
@@ -162,8 +159,7 @@ export function createJobFinishedHandler(deps: {
     // status effect above: an already on_review spec still settles them.
     if (completedTicketIds.length > 0 && affectsTickets) {
       try {
-        const addendaExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-        const addendaFile = addendaExec.relocated ? addendaExec.ticketsPath : resolveTicketStoragePath(project.path)
+        const addendaFile = resolveProjectTicketsPath({ slug: project.slug, path: project.path })
         const settled = settleSpecAddendaAt(addendaFile, completedTicketIds, jobId, ticketOutcomeStatus)
         for (const tid of settled.changedTicketIds) {
           const ticket = settled.store?.tickets[String(tid)]

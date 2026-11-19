@@ -3,8 +3,8 @@ import { resolveHome } from '../../../../artifact-registry'
 import { type TicketNamingInput } from '../../runtime/pr-naming'
 import { getLinkByLocalId } from '../../../../jira/jira-db'
 import { type RailPrDeliveryRow } from '../../runtime/rail-pr-store'
-import { readStore, resolveTicketStoragePath } from '../../../specs/runtime/ticket-store'
-import { resolveProjectExecution } from '../../../../workspace-resolution'
+import { readStore } from '../../../specs/runtime/ticket-store'
+import { resolveProjectTicketsPath } from '../../../../workspace-resolution'
 import { listChainsTouchingDelivery } from '../../../builder/runtime/milestone-chain-store'
 import { PrDecisionDeps } from './contracts'
 
@@ -63,8 +63,7 @@ export function loadPrTicketData(deps: PrDecisionDeps, ticketIds: number[]): PrT
 
 export function resolveTicketFile(deps: PrDecisionDeps): string {
   if (deps.ticketFile) return deps.ticketFile
-  const exec = resolveProjectExecution({ slug: deps.project.slug, path: deps.project.path })
-  return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(deps.project.path)
+  return resolveProjectTicketsPath({ slug: deps.project.slug, path: deps.project.path })
 }
 
 

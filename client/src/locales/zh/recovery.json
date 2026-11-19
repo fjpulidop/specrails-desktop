@@ -181,6 +181,8 @@
     "byAutomatic": "Specrails 自动继续",
     "byPerson": "由你继续",
     "byReview": "附人工检查送去评审",
-    "guidance": "发送给代理的指引"
+    "guidance": "发送给代理的指引",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "按价目表估算，并非实际计费"
   }
 }

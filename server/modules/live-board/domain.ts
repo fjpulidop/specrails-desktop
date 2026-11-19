@@ -70,10 +70,18 @@ export interface LiveRunFacts {
   model: string | null
   startedAt: string | null
   finishedAt: string | null
-  /** Recorded cost of the run (null when unknown); `costEstimated` marks a rate-card estimate. */
+  /**
+   * Recorded cost of the run (null when unknown). A chain card (an attempt
+   * chain) carries the chain's total, every attempt's cost added up, the way
+   * analytics counts it; its latest attempt's own cost is on `attempt`.
+   * `costEstimated` marks a cost that is, at least in part, a rate-card
+   * estimate; `costEstimatedUsd` is that estimated part (equal to `costUsd`
+   * when all of it is estimated), so billed and estimated stay apart.
+   */
   costUsd: number | null
   costEstimated: boolean
-  /** Cost recorded today (the local day) for this run; null when nothing was recorded. */
+  costEstimatedUsd: number | null
+  /** Cost recorded today (the local day) for this run, every attempt of its chain included; null when nothing was recorded. */
   costTodayUsd: number | null
   railIndex: number | null
   ticketIds: number[]
@@ -93,6 +101,9 @@ export interface LiveRunFacts {
 export interface LiveAttempt {
   number: number
   of: number
+  /** The latest attempt's own recorded cost (null when unknown); the card's `costUsd` is the chain's. */
+  costUsd: number | null
+  costEstimated: boolean
 }
 
 export interface LiveCard<A extends LiveAttentionRef = LiveAttentionRef> extends Omit<LiveRunFacts, 'kind' | 'subjectIds' | 'sourceId'> {
@@ -325,7 +336,7 @@ export function projectCards<A extends LiveAttentionRef>(read: ProjectRead<A>, d
     cards.push({
       id: item.id, projectId: read.projectId, projectName: read.projectName,
       kind: attentionKind(item), status: { source: 'attention' }, title: item.title, phase: null, question: null, steps: null,
-      provider: null, model: null, startedAt: null, finishedAt: null, costUsd: null, costEstimated: false, costTodayUsd: null,
+      provider: null, model: null, startedAt: null, finishedAt: null, costUsd: null, costEstimated: false, costEstimatedUsd: null, costTodayUsd: null,
       railIndex: typeof item.railIndex === 'number' ? item.railIndex : null, ticketIds: [], conversationId: item.conversationId,
       jobId: null, deliveryId: null, column, urgency: columnUrgency(column), at: item.at, attention: item,
     })

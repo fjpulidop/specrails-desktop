@@ -13,9 +13,9 @@ import { createPluginsRouter } from './plugins-router'
 import { createCodeExplorerRouter, filterCodeExplorerActivityPaths } from './modules/code/runtime/code-explorer-router'
 import { listCodeActivity, parseCodeActivityQuery, CodeActivityQueryError } from './modules/code/runtime/code-activity'
 import { createJiraRouter } from './jira-router'
-import { resolveTicketStoragePath, mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
+import { mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { LocalTicket } from './types'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectExecution, resolveProjectTicketsPath } from './workspace-resolution'
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint, writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
@@ -377,8 +377,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   // storagePath). Existing in-repo projects are byte-identical.
   const ticketPath = (req: Request): string => {
     const project = ctx(req).project
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
   }
   // Milestone batch commit (add-project-builder D7): insert one blueprint
   // milestone's generated specs as `M<n>`-labeled todo tickets, flip that

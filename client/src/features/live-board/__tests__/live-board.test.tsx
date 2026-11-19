@@ -46,7 +46,7 @@ const card = (over: Record<string, unknown>) => ({
   projectId: 'p1', projectName: 'Alpha', kind: 'loop', column: 'working', urgency: 2, at: AT,
   status: { source: 'loop-run', status: 'running', outcome: null, restartReason: null },
   title: 'Run', phase: null, question: null, steps: null, provider: 'claude', model: null, startedAt: AT, finishedAt: null,
-  costUsd: null, costEstimated: false, costTodayUsd: null, railIndex: null, ticketIds: [], conversationId: null, jobId: null, deliveryId: null, attention: null,
+  costUsd: null, costEstimated: false, costEstimatedUsd: null, costTodayUsd: null, railIndex: null, ticketIds: [], conversationId: null, jobId: null, deliveryId: null, attention: null,
   ...over,
 })
 let body: Record<string, unknown>
@@ -245,6 +245,29 @@ describe('live board (by status)', () => {
     })
     act(() => { vi.advanceTimersByTime(2_500) })
     expect(calls()).toBe(2)
+  })
+})
+
+describe('live board chain cards', () => {
+  it('shows the chain\'s total cost, keeps the estimated part apart, and names the latest attempt\'s own cost', async () => {
+    body.cards = [
+      // attempt 4 of 4: $2.15 across the chain, $0.25 of it a rate-card estimate; this attempt $0.40.
+      card({ id: 'p1:loop-run:fork-c', title: 'Chain run', jobId: 'fork-c', costUsd: 2.15, costEstimated: true, costEstimatedUsd: 0.25,
+        attempt: { number: 4, of: 4, costUsd: 0.4, costEstimated: false } }),
+      card({ id: 'p1:loop-run:codex', title: 'Codex run', jobId: 'codex', costUsd: 0.3, costEstimated: true, costEstimatedUsd: 0.3 }),
+    ]
+    body.lanes = [{ conversationId: null, title: null, provider: null, projectIds: ['p1'], cardIds: ['p1:loop-run:fork-c', 'p1:loop-run:codex'], todayCostUsd: 2.45, urgency: 1 }]
+    mount()
+    await screen.findByText('Chain run')
+    const chainCost = within(cardEl('p1:loop-run:fork-c')).getByTestId('live-card-cost')
+    expect(chainCost).toHaveTextContent('$2.15')
+    expect(chainCost.textContent).not.toMatch(/^~/)
+    expect(chainCost).toHaveAttribute('title', 'Includes ~$0.25 estimated from the rate card, not billed')
+    const attempt = within(cardEl('p1:loop-run:fork-c')).getByTestId('live-card-attempt')
+    expect(attempt).toHaveTextContent('attempt 4')
+    expect(attempt).toHaveAttribute('title', "This attempt: $0.40. The card's cost covers all 4 attempts.")
+    // A cost that is all estimate keeps its estimate reading.
+    expect(within(cardEl('p1:loop-run:codex')).getByTestId('live-card-cost').textContent).toMatch(/^~\$0\.30/)
   })
 })
 

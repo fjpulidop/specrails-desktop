@@ -386,6 +386,8 @@ export interface RailPrUnitOutcome {
   finalSha?: string | null
   changed?: boolean
   failureCode?: string | null
+  /** The unit's own settlement detail, apart from the delivery's statusDetail. */
+  failureDetail?: string | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
   worktreePath?: string | null
 }

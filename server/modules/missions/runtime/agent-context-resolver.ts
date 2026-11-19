@@ -3,7 +3,7 @@ import { readSpecAddenda } from '../../specs/runtime/spec-addenda-core'
 import { getJob, getJobEvents, listJobs, type DbInstance } from '../../../db'
 import { getProject, listProjects, type ProjectRow } from '../../../desktop-db'
 import type { ProjectContext, ProjectRegistry } from '../../../project-registry'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import { readStore, resolveTicketStoragePath, type Ticket } from '../../specs/runtime/ticket-store'
 import { getProjectRepositories, resolveProjectRepository } from '../../../project-repositories'
 import { resolveSafePath, isDeniedRelPath } from '../../code/runtime/code-explorer-router'
@@ -112,8 +112,7 @@ function resolveProjectForJob(
 
 function ticketFileFor(project: ProjectRow): string {
   try {
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
   } catch {
     return resolveTicketStoragePath(project.path)
   }

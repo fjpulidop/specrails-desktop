@@ -77,6 +77,7 @@
     "actionLabel": "{{action}}：{{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "按价目表估算，并非实际计费",
+    "costIncludesEstimate": "含按价目表估算的 {{cost}}，并非实际计费",
     "mergeConflicts_one": "与基线在 {{count}} 个文件中冲突",
     "mergeConflicts_other": "与基线在 {{count}} 个文件中冲突",
     "mergeSiblings_one": "与另外 {{count}} 个运行冲突",
@@ -90,7 +91,8 @@
       "siblings_other": "与 {{count}} 个运行重叠",
       "baseMoved": "基线已前进"
     },
-    "attempt": "第 {{number}} 次尝试"
+    "attempt": "第 {{number}} 次尝试",
+    "attemptCost": "本次尝试：{{cost}}。卡片费用涵盖全部 {{of}} 次尝试。"
   },
   "empty": {
     "title": "没有正在运行的内容",

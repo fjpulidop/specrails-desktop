@@ -8,12 +8,12 @@ import type { Request, Response } from 'express'
 import type { ProjectContext } from '../../../project-registry'
 import { getRail, MAX_RAILS, type RailState } from './rails-store'
 import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
 import { getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { recommendedLoopForTickets } from '../../specs/domain/triage'
-import { readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
+import { readStore } from '../../specs/runtime/ticket-store'
 import type { RailUpdatedMessage } from '../../../types'
 
 // Extend Express Request to carry resolved ProjectContext (declared in project-router)
@@ -63,8 +63,7 @@ export function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): v
 /** Ticket ids currently `on_review` (best-effort: an unreadable store ⇒ none). */
 export function onReviewTicketIds(c: ProjectContext): Set<number> {
   try {
-    const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
-    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(c.project.path))
+    const store = readStore(resolveProjectTicketsPath({ slug: c.project.slug, path: c.project.path }))
     return new Set(Object.values(store.tickets).filter((t) => t.status === 'on_review').map((t) => t.id))
   } catch {
     return new Set()
@@ -75,8 +74,7 @@ export function onReviewTicketIds(c: ProjectContext): Set<number> {
  *  of the rail, in rail order (best-effort: an unreadable store ⇒ null). */
 export function recommendedLoopForRail(c: ProjectContext, ticketIds: readonly number[]): string | null {
   try {
-    const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
-    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(c.project.path))
+    const store = readStore(resolveProjectTicketsPath({ slug: c.project.slug, path: c.project.path }))
     return recommendedLoopForTickets(ticketIds.map((id) => store.tickets[String(id)]))
   } catch {
     return null

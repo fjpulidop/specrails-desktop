@@ -1,10 +1,8 @@
-import path from 'path'
 import fs from 'fs'
 import { FSWatcher } from 'chokidar'
 import type { WsMessage, LocalTicket } from '../../../types'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 
-const TICKET_FILE = '.specrails/local-tickets.json'
 const DEBOUNCE_MS = 150
 
 interface TicketFileData {
@@ -47,8 +45,7 @@ export class TicketWatcher {
 
     // Relocate-artifacts gate: watch the workspace ticket file when relocated,
     // else the repo-relative file (byte-identical for existing projects).
-    const exec = resolveProjectExecution({ path: this._projectPath })
-    const filePath = exec.relocated ? exec.ticketsPath : path.join(this._projectPath, TICKET_FILE)
+    const filePath = resolveProjectTicketsPath({ path: this._projectPath })
 
     // Seed initial revision so we can detect external changes
     this._lastRevision = this._readRevision(filePath)

@@ -77,6 +77,7 @@
     "actionLabel": "{{action}}: {{title}}",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten",
+    "costIncludesEstimate": "Enthält {{cost}} geschätzt nach Preisliste, nicht abgerechnet",
     "mergeConflicts_one": "Konflikt mit der Basis in {{count}} Datei",
     "mergeConflicts_other": "Konflikt mit der Basis in {{count}} Dateien",
     "mergeSiblings_one": "Kollidiert mit {{count}} anderen Run",
@@ -90,7 +91,8 @@
       "siblings_other": "Überschneidet {{count}} Runs",
       "baseMoved": "Basis weiter"
     },
-    "attempt": "Versuch {{number}}"
+    "attempt": "Versuch {{number}}",
+    "attemptCost": "Dieser Versuch: {{cost}}. Die Kosten der Karte umfassen alle {{of}} Versuche."
   },
   "empty": {
     "title": "Nichts läuft",

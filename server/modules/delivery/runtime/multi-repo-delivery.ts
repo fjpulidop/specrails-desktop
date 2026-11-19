@@ -1,6 +1,6 @@
 import { newId } from '../../../ids'
 import { withRepoLock } from '../../../repo-lock'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { actionAllowed, executePrDecision, type PrDecisionDeps, type PrDecisionInput, type PrDecisionResult } from './rail-pr-decision'
 import {
@@ -50,7 +50,7 @@ export async function executeRepositoryGroupDecision(deps: PrDecisionDeps, input
   const outcomes: Array<{ repositoryId: string; status: number; body: Record<string, unknown> }> = []
   try {
     deps.assertAdmission?.()
-    const ticketFile = deps.ticketFile ?? resolveProjectExecution(deps.project).ticketsPath
+    const ticketFile = deps.ticketFile ?? resolveProjectTicketsPath(deps.project)
     for (const { row, action } of steps) {
       const current = getPrDelivery(deps.db, row.id)
       if (!current || current.parent_delivery_id !== parent.id || current.repository_path !== row.repository_path) {

@@ -14,7 +14,7 @@ import { readHeadSha, ticketNamingInput } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
 import { readSettleEvidence } from './delivery-evidence'
 import {
-  getPrDelivery, readSpecSnapshot, type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrImplementationOutcome,
+  boundPrDiagnostic, getPrDelivery, readSpecSnapshot, type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrImplementationOutcome,
 } from './rail-pr-store'
 import { getRail } from './rails-store'
 import { buildRevisionSeed } from '../../execution/runtime/revision-seed'
@@ -261,6 +261,7 @@ export function branchRecords(results: readonly SettledRun[]): DeliverBranchReco
     finalSha: result.finalSha,
     ...(result.changed === undefined ? {} : { changed: result.changed }),
     failureCode: result.failureCode ?? null,
+    ...(result.failureDetail ? { failureDetail: boundPrDiagnostic(result.failureDetail) } : {}),
     branchOwnership: result.run.branchOwnership,
     worktreePath: result.run.handle.worktreePath,
     overlayExcludes: result.run.overlayExcludes,

@@ -9,9 +9,9 @@
 import type { ProjectRow } from './desktop-db'
 import { descriptionWithIntent } from './modules/specs/domain/intent'
 import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
-import { readStore, resolveTicketStoragePath } from './modules/specs/runtime/ticket-store'
+import { readStore } from './modules/specs/runtime/ticket-store'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectTicketsPath } from './workspace-resolution'
 
 export interface ProjectTicketAccess {
   /** The ticket file the project's specs live in right now. */
@@ -24,14 +24,12 @@ export interface ProjectTicketAccess {
 
 export function createProjectTicketAccess(project: Pick<ProjectRow, 'slug' | 'path'>): ProjectTicketAccess {
   const ticketStorePath = (): string => {
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
   }
 
   const readFlowTicket = (ticketId: number) => {
     try {
-      const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-      return readStore(exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)).tickets[String(ticketId)]
+      return readStore(ticketStorePath()).tickets[String(ticketId)]
     } catch {
       return undefined
     }
@@ -39,9 +37,7 @@ export function createProjectTicketAccess(project: Pick<ProjectRow, 'slug' | 'pa
 
   const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
     try {
-      const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-      const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
-      const t = readStore(ticketFile).tickets[String(ticketId)]
+      const t = readStore(ticketStorePath()).tickets[String(ticketId)]
       if (!t) return undefined
       // Expose every field a loop prompt can reference via `{{spec.*}}`.
       return {

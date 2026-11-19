@@ -8,8 +8,8 @@
 // ticket field — in particular never `description`.
 import { createHash } from 'crypto'
 import { newId } from '../../../ids'
-import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { mutateStore, readStore, type Ticket, type TicketStore } from './ticket-store'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import {
   addendumCanonicalContent,
   injectableAddenda,
@@ -32,8 +32,7 @@ export function specAddendumHash(input: SpecAddendumInput): string {
 
 /** The ticket store a project's addenda live in (workspace when relocated, else the repo). */
 export function ticketStorePathForProject(project: { slug: string; path: string }): string {
-  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-  return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+  return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
 }
 
 export interface CreateSpecAddendumMeta {

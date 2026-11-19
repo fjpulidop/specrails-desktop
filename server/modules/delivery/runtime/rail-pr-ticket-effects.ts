@@ -8,9 +8,9 @@ import {
   type PrDeliveryPatch,
   type PrDeliveryStatusCode,
 } from './rail-pr-store'
-import { mutateStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
+import { mutateStore } from '../../specs/runtime/ticket-store'
 import { readSpecAddendaSnapshot, reopenSpecAddenda, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import type { TicketUpdatedMessage, WsMessage } from '../../../types'
 
 export interface RailPrTicketEffect {
@@ -88,8 +88,7 @@ export function transitionClaimedDecisionWithTicketEffect(
 
 function resolveTicketFile(deps: RailPrTicketEffectDeps): string {
   if (deps.ticketFile) return deps.ticketFile
-  const execution = resolveProjectExecution({ slug: deps.project.slug, path: deps.project.path })
-  return execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(deps.project.path)
+  return resolveProjectTicketsPath({ slug: deps.project.slug, path: deps.project.path })
 }
 
 function parseTicketIds(raw: string): number[] {
