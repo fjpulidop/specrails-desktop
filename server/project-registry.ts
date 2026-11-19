@@ -108,6 +108,9 @@ export interface ProjectContext {
   // ── Loops (the Loops feature) ──────────────────────────────────────────────
   /** App-driven loop engine for this project (Loops mode rails). */
   loopRunManager: LoopRunManager
+  /** Loop runs that were active when this context loaded and that startup recovery has not
+   *  reconciled yet: no process here drives them, so they show as paused by the restart. */
+  restartPendingRunIds?: Set<string>
   /** Maps loopRunId → rail metadata for active rail-launched loop runs. */
   railLoopRuns: Map<string, {
     railIndex: number
@@ -769,6 +772,7 @@ export class ProjectRegistry {
       milestoneProgress, ...budget, agentAudit,
     }
     projectContext = ctx
+    ctx.restartPendingRunIds = new Set(orphanLoopRuns.map(run => run.id))
     ctx.milestoneChains = milestoneChains
     attachProjectServices(ctx, { db, ticketStorePath: tickets.ticketStorePath, taps })
     // Intent mode: use cases bound to THIS project's connection; the mission host

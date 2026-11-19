@@ -84,7 +84,9 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // with an empty body. That click is the person's explicit recovery (see resumeRetainedDefinitionRun).
     const controls: unknown = req.body ?? {}
     const restartResume = !!run && isRestartResume(run, controls)
-    const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume })
+    // Any Continue of a run the restart paused (also one naming the attempts to recover)
+    // waits out the dead Core child's lease instead of answering runtime_run_active.
+    const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume, waitForStaleLease: !!run && run.status === 'paused' && run.restart_reason === 'restart' })
     res.status(outcome.status).json(outcome.body)
   })
 
@@ -560,7 +562,7 @@ export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: stri
   return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${outcome.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
 }
 
-export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown, options: { restartResume?: boolean } = {}): Promise<{ status: number; body: object }> {
+export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown, options: { restartResume?: boolean; waitForStaleLease?: boolean } = {}): Promise<{ status: number; body: object }> {
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
@@ -576,7 +578,7 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
     // Restart resume: the Core child the restart killed still holds its lease (up to a
     // minute) and the restart dialog offers Resume at boot, so wait it out (bounded)
     // instead of answering runtime_run_active. Nothing in this process runs it.
-    const staleWait = options.restartResume ? staleLeaseWaitMs(probe.lease, Date.now(), residentHere) : 0
+    const staleWait = options.restartResume || options.waitForStaleLease ? staleLeaseWaitMs(probe.lease, Date.now(), residentHere) : 0
     if (staleWait > 0) {
       await new Promise((resolve) => setTimeout(resolve, staleWait))
       probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)

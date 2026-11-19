@@ -105,6 +105,21 @@ describe('live board projection', () => {
     expect(board.lanes[0]).toMatchObject({ title: 'Records and screens', provider: 'claude', cardIds: ['p1:delivery:d1', 'p1:loop-run:r-live'] })
   })
 
+  it('on boot, a run the restart cut off reads as paused by the restart before recovery reconciles its row', () => {
+    loopRun(alpha, 'p1', 'r-boot', { rail: 1 })
+    createPrDelivery(alpha, { id: 'd-boot', railIndex: 1, loopId: 'loop-a', railKey: '1-loop-a', ticketIds: [7], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    alpha.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-boot"]' WHERE id = 'd-boot'`).run()
+    loopRun(alpha, 'p1', 'r-free')
+    const inbox = collectInbox(createInboxSources({ listContexts: () => contexts() } as never, () => NOW.getTime()), () => NOW)
+    const board = collectLiveBoard({
+      sources: [createProjectLiveBoardSource({ project: { id: 'p1', name: 'Alpha' }, db: alpha, restartPending: new Set(['r-boot', 'r-free']) })],
+      attention: inbox.items, missions: createMissionDirectory(desktop), todaySpend: { read: () => ({ costUsd: 0, estimated: false }) }, day: DAY, now: () => NOW,
+    })
+    const byId = Object.fromEntries(board.cards.map((c) => [c.id, c]))
+    expect(byId['p1:delivery:d-boot'].status).toMatchObject({ source: 'delivery', decision: 'building', paused: true })
+    expect(byId['p1:loop-run:r-free'].status).toMatchObject({ source: 'loop-run', status: 'paused', restartReason: 'restart' })
+  })
+
   it('shows a building delivery whose run is paused as paused, not running', () => {
     // A restart paused the auto-continued attempt; the card said "Running" with a growing timer.
     loopRun(alpha, 'p1', 'r-paused', { rail: 1 })

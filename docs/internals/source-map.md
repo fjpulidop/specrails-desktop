@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1796 source/build files. Nearby tests are linked where names
+Includes 1798 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1327,6 +1327,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [attention-policy.ts](../../client/src/lib/attention/attention-policy.ts) · [test](../../client/src/lib/attention/__tests__/attention-policy.test.ts)
 - [attention-prefs-store.ts](../../client/src/lib/attention/attention-prefs-store.ts) · [test](../../client/src/lib/attention/__tests__/attention-prefs-store.test.ts)
 - [dock-badge.ts](../../client/src/lib/attention/dock-badge.ts) · [test](../../client/src/lib/attention/__tests__/dock-badge.test.ts)
+- [mission-screen.ts](../../client/src/lib/attention/mission-screen.ts)
 - [native-notify.ts](../../client/src/lib/attention/native-notify.ts) · [test](../../client/src/lib/attention/__tests__/native-notify.test.ts)
 - [window-focus.ts](../../client/src/lib/attention/window-focus.ts)
 
@@ -2155,6 +2156,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-run-context.ts](../../server/modules/loops/runtime/loop-run-context.ts)
 - [loop-run-contract.ts](../../server/modules/loops/runtime/loop-run-contract.ts)
 - [loop-run-events.ts](../../server/modules/loops/runtime/loop-run-events.ts)
+- [loop-run-hold.ts](../../server/modules/loops/runtime/loop-run-hold.ts) · [test](../../server/modules/loops/runtime/loop-run-hold.test.ts)
 - [loop-run-launch.ts](../../server/modules/loops/runtime/loop-run-launch.ts)
 - [loop-run-ledger.ts](../../server/modules/loops/runtime/loop-run-ledger.ts)
 - [loop-run-manager.ts](../../server/modules/loops/runtime/loop-run-manager.ts) · [test](../../server/modules/loops/runtime/loop-run-manager.test.ts)
