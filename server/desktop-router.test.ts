@@ -233,6 +233,25 @@ describe('desktop-router', () => {
   // ─── POST /projects ────────────────────────────────────────────────────────
 
   describe('POST /api/projects', () => {
+    it('leaves out an auto-detected Kimi whose readiness probe fails instead of rejecting the registration', async () => {
+      const detection = await import('./provider-detection')
+      vi.mocked(detection.getDetectedIdsSync).mockReturnValueOnce(['claude', 'codex', 'kimi'])
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({ installed: true, executable: false })
+      vi.mocked(checkCoreCompat).mockResolvedValue({ compatible: true, contractFound: true, supportedProviders: ['kimi'] } as any)
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({ path: '/projects/implicit-kimi' })
+      expect(res.status).toBe(201)
+      expect(res.body.project.providers).toEqual(['claude', 'codex'])
+    })
+
+    it('still refuses an EXPLICIT Kimi selection whose readiness probe fails', async () => {
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({ installed: true, executable: false })
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({ path: '/projects/explicit-kimi', providers: ['kimi'] })
+      expect(res.status).toBe(409)
+      expect(res.body.code).toBe('provider_cli_unusable')
+    })
+
     it('returns 400 when path is missing', async () => {
       const { app } = createApp()
       const res = await request(app).post('/api/projects').send({})

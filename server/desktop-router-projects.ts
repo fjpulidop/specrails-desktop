@@ -255,9 +255,18 @@ export function registerProjectRoutes(router: Router, deps: {
       })
       return
     }
+    // Only an EXPLICIT provider selection is a contract the caller asked for.
+    // When the set was defaulted from the detection snapshot, an auto-detected
+    // provider that fails its readiness probe right now (a slow `--version`
+    // under load, a broken shim) is left out instead of rejecting the whole
+    // registration for a provider nobody requested.
+    const providersExplicit = (Array.isArray(providersRaw) && providersRaw.length > 0) || typeof provider === 'string'
     if (providers.includes('kimi')) {
       const readiness = await detectProviderReadiness(getAdapter('kimi'))
-      if (readiness.issue) {
+      if (readiness.issue && !providersExplicit) {
+        providers = providers.filter((p) => p !== 'kimi')
+        if (providers.length === 0) providers = ['claude']
+      } else if (readiness.issue) {
         res.status(409).json({
           code: readiness.issue.code,
           provider: 'kimi',
@@ -266,8 +275,13 @@ export function registerProjectRoutes(router: Router, deps: {
         })
         return
       }
+    }
+    if (providers.includes('kimi')) {
       const core = await checkCoreCompat()
-      if (!coreCompatSupportsProvider(core, 'kimi')) {
+      if (!coreCompatSupportsProvider(core, 'kimi') && !providersExplicit) {
+        providers = providers.filter((p) => p !== 'kimi')
+        if (providers.length === 0) providers = ['claude']
+      } else if (!coreCompatSupportsProvider(core, 'kimi')) {
         res.status(409).json({
           code: 'core_provider_unsupported',
           provider: 'kimi',
