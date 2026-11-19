@@ -19,16 +19,16 @@ function fixture() {
   const context = file('pipeline/run/desktop-context.json', '{}')
   return { cli, context }
 }
-it('retains the executable and dependency contents across replacement of the active package', () => {
+it('retains the executable and dependency contents across replacement of the active package', async () => {
   const { cli, context } = fixture()
   const retained = retainAgentRuntime(cli, context)
   fs.writeFileSync(cli, 'throw Error("new executable")')
   fs.writeFileSync(path.join(root, 'active/node_modules/fixture/index.js'), 'throw Error("changed dependency")')
-  expect(resolveRetainedAgentRuntime(context)).toBe(retained)
+  expect(await resolveRetainedAgentRuntime(context)).toBe(retained)
   expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
   expect(retainAgentRuntime(cli, context)).toBe(retained)
 })
-it('detects same-length edits with preserved timestamps and refuses a corrupt retained dependency', () => {
+it('detects same-length edits with preserved timestamps and refuses a corrupt retained dependency', async () => {
   const { cli, context } = fixture()
   const before = runtimeEntryFingerprint(cli), stat = fs.statSync(cli)
   fs.writeFileSync(cli, 'console.log(require("fixturX"))'); fs.utimesSync(cli, stat.atime, stat.mtime)
@@ -36,11 +36,11 @@ it('detects same-length edits with preserved timestamps and refuses a corrupt re
   fs.writeFileSync(cli, 'console.log(require("fixture"))')
   const retained = retainAgentRuntime(cli, context)
   fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
-  expect(() => resolveRetainedAgentRuntime(context)).toThrow('integrity')
+  await expect(resolveRetainedAgentRuntime(context)).rejects.toThrow('integrity')
 })
-it('never guesses an unrecorded original runtime from the active installation', () => {
+it('never guesses an unrecorded original runtime from the active installation', async () => {
   const { context } = fixture()
-  expect(() => resolveRetainedAgentRuntime(context)).toThrow('unrecorded')
+  await expect(resolveRetainedAgentRuntime(context)).rejects.toThrow('unrecorded')
 })
 it('retains nested dependency versions without copying development packages', () => {
   const { cli, context } = fixture()
@@ -59,22 +59,22 @@ it('retains nested dependency versions without copying development packages', ()
 })
 
 
-it.skipIf(!process.env.SPECRAILS_EFFICIENCY_CORE_ROOT)('boots the actual paired Core from its retained production dependency closure', () => {
+it.skipIf(!process.env.SPECRAILS_EFFICIENCY_CORE_ROOT)('boots the actual paired Core from its retained production dependency closure', async () => {
   const cli = path.join(process.env.SPECRAILS_EFFICIENCY_CORE_ROOT!, 'dist/agent-runtime/cli.js')
   const context = file('pipeline/paired/desktop-context.json', '{}')
   const retained = retainAgentRuntime(cli, context)
   const api = JSON.parse(execFileSync(process.execPath, [retained, 'api'], { encoding: 'utf8', timeout: 30000 }))
   expect(api).toMatchObject({ type: 'runtime-api', apiVersion: 1, workflowVersions: ['7'] })
-  expect(resolveRetainedAgentRuntime(context)).toBe(retained)
+  expect(await resolveRetainedAgentRuntime(context)).toBe(retained)
 }, 120000)
 
 
-it('retains a package reached through a directory alias using its real CLI path', () => {
+it('retains a package reached through a directory alias using its real CLI path', async () => {
   const { context } = fixture()
   const alias = path.join(root, 'alias')
   fs.symlinkSync(path.join(root, 'active'), alias, process.platform === 'win32' ? 'junction' : 'dir')
   const retained = retainAgentRuntime(path.join(alias, 'dist/agent-runtime/cli.js'), context)
-  expect(resolveRetainedAgentRuntime(context)).toBe(retained)
+  expect(await resolveRetainedAgentRuntime(context)).toBe(retained)
   expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
 })
 
@@ -106,12 +106,12 @@ it('inspection shares one verification per retained package and re-verifies afte
   } finally { reads.mockRestore() }
 })
 
-it('execution keeps the uncached synchronous integrity check', async () => {
+it('execution keeps the uncached integrity check', async () => {
   const { cli, context } = fixture()
   const retained = retainAgentRuntime(cli, context)
   expect(await resolveRetainedAgentRuntimeForInspection(context)).toBe(retained)
   fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
-  expect(() => resolveRetainedAgentRuntime(context)).toThrow('integrity')
+  await expect(resolveRetainedAgentRuntime(context)).rejects.toThrow('integrity')
 })
 
 it('retains one shared copy per Core build for every run instead of copying it into each run', async () => {
@@ -130,7 +130,7 @@ it('retains one shared copy per Core build for every run instead of copying it i
     expect(b).toBe(a)
     expect(a.startsWith(path.join(root, 'shared'))).toBe(true)
     expect(fs.existsSync(path.join(root, 'worktree-b/.specrails/pipeline/runtime-packages'))).toBe(false)
-    expect(resolveRetainedAgentRuntime(second)).toBe(a)
+    expect(await resolveRetainedAgentRuntime(second)).toBe(a)
     expect(execFileSync(process.execPath, [b], { encoding: 'utf8' }).trim()).toBe('original dependency')
     // A per-pipeline collection ignores pins into the shared cache.
     expect(collectUnreferencedRuntimePackages(path.join(root, 'worktree-b/.specrails/pipeline'), { dryRun: true, minimumAgeMs: 86_400_000, now: Date.now() })).toEqual([])
@@ -180,7 +180,7 @@ it('collects old shared Core builds, keeping the recent ones and every one a run
     expect(fs.readdirSync(cache).filter(name => /^[a-f0-9]{64}$/.test(name)).sort()).toEqual([builds[0]!.digest, builds[2]!.digest, builds[3]!.digest, builds[4]!.digest].sort())
     expect(fs.readdirSync(cache).some(name => name.startsWith('.garbage-'))).toBe(false)
     // The retained run still resumes on its own package; the current build is untouched.
-    expect(resolveRetainedAgentRuntime(builds[0]!.context)).toBe(builds[0]!.cli)
+    expect(await resolveRetainedAgentRuntime(builds[0]!.context)).toBe(builds[0]!.cli)
     expect(execFileSync(process.execPath, [builds[4]!.cli], { encoding: 'utf8' }).trim()).toBe('build 4')
     // A package used within the age floor is never collected, even when nothing pins it.
     fs.rmSync(path.join(root, 'projects/app/worktrees/run-3'), { recursive: true })
@@ -223,10 +223,55 @@ it('prepares the shared package off the event loop so the launch only pins it', 
     expect(copy).not.toHaveBeenCalled()
     expect(retained).toBe(path.join(root, 'cache', packages[0]!, 'dist/agent-runtime/cli.js'))
     expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
-    // The async digest names the package exactly as the synchronous integrity check does.
-    expect(resolveRetainedAgentRuntime(context)).toBe(retained)
+    // The execution gate's async digest names the package exactly as the synchronous retention digest did.
+    expect(await resolveRetainedAgentRuntime(context)).toBe(retained)
     copy.mockRestore()
   } finally {
     configureSharedRuntimePackageCache(null)
   }
+})
+
+it('the execution gate digests with async I/O and agrees with the synchronous retention digest', async () => {
+  const { cli, context } = fixture()
+  const retained = retainAgentRuntime(cli, context)
+  const syncReads = vi.spyOn(fs, 'readFileSync')
+  try {
+    expect(await resolveRetainedAgentRuntime(context)).toBe(retained)
+    // Only the small pin file is read synchronously; the package contents are not.
+    expect(syncReads.mock.calls.map(([target]) => path.basename(String(target)))).toEqual(['desktop-runtime-package.json'])
+  } finally { syncReads.mockRestore() }
+})
+
+it('a burst of execution gates never reuses a digest that started before the request', async () => {
+  const { cli } = fixture()
+  const { configureSharedRuntimePackageCache } = await import('./agent-runtime-package')
+  configureSharedRuntimePackageCache(path.join(root, 'shared'))
+  try {
+    const contexts = ['a', 'b', 'c', 'd'].map(run => file(`w-${run}/.specrails/pipeline/run-${run}/desktop-context.json`, '{}'))
+    const retained = contexts.map(context => retainAgentRuntime(cli, context))
+    expect(new Set(retained).size).toBe(1)
+    const original = fs.promises.readFile.bind(fs.promises) as (...args: unknown[]) => Promise<Buffer>
+    const reads = vi.spyOn(fs.promises, 'readFile')
+    const fileCount = async () => { reads.mockClear(); await resolveRetainedAgentRuntime(contexts[0]!); return reads.mock.calls.length }
+    const perDigest = await fileCount()
+    expect(perDigest).toBeGreaterThan(0)
+    // Four simultaneous resumes on one shared package: one running digest plus one queued behind it.
+    reads.mockClear()
+    expect(await Promise.all(contexts.map(context => resolveRetainedAgentRuntime(context)))).toEqual(retained)
+    expect(reads.mock.calls.length).toBe(2 * perDigest)
+    // A tamper landing after a digest already read the file is caught by every later request:
+    // the first digest has read the original bytes and is held before it finishes.
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    let readsDone = 0
+    reads.mockImplementation((async (...args: unknown[]) => { const content = await original(...args); readsDone++; await held; return content }) as typeof fs.promises.readFile)
+    const first = resolveRetainedAgentRuntime(contexts[0]!)
+    while (readsDone < perDigest) await new Promise(resolve => setImmediate(resolve))
+    fs.writeFileSync(path.resolve(retained[0]!, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
+    const later = resolveRetainedAgentRuntime(contexts[1]!)
+    release()
+    expect(await first).toBe(retained[0])
+    await expect(later).rejects.toThrow('integrity')
+    reads.mockRestore()
+  } finally { configureSharedRuntimePackageCache(null) }
 })

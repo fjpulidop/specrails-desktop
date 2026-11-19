@@ -19,7 +19,7 @@ import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summar
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
 const loginShell = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
-vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => loader.cli, resolveRetainedAgentRuntimeForInspection: async () => loader.cli }))
+vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: async () => loader.cli, resolveRetainedAgentRuntimeForInspection: async () => loader.cli }))
 vi.mock('../../../path-resolver', () => ({
   resolveBundledNodeExe: () => process.execPath,
   readEnvFromLoginShellSyncDetailed: (names: string[]) => ({ values: loginShell.read(names) ?? {}, status: 'ok', exitCode: 0, shell: '/bin/zsh', names }),

@@ -23,7 +23,7 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOrigina
   return { ...original,
     prepareRetainedAgentRuntime: async () => {},
     retainAgentRuntime: (cli: string, contextPath: string) => { selected.set(contextPath, cli); return cli },
-    resolveRetainedAgentRuntime: (contextPath: string) => selected.get(contextPath) ?? null,
+    resolveRetainedAgentRuntime: async (contextPath: string) => selected.get(contextPath) ?? null,
   }
 })
 

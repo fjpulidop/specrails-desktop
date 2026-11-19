@@ -15,7 +15,7 @@ vi.mock('./agent-runtime-package', async original => {
   const selected = new Map<string, string>()
   return { ...await original<typeof import('./agent-runtime-package')>(),
     retainAgentRuntime: (cli: string, context: string) => { selected.set(context, cli); return cli },
-    resolveRetainedAgentRuntime: (context: string) => selected.get(context),
+    resolveRetainedAgentRuntime: async (context: string) => selected.get(context),
   }
 })
 const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT

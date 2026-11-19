@@ -229,7 +229,7 @@ export function applyPhase3RuntimeSwitches(config: RuntimeConfig, capabilities: 
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
   const definitionEngine = options.engineVersion === 2 || options.definitionPath !== undefined || options.prepareDefinition !== undefined
   if (options.resume && (options.definitionPath || options.prepareDefinition || options.workflowRoleBindings || options.loopConfig)) throw new Error('Resume must use the frozen workflow definition and role bindings')
-  const selectedCli = options.resume ? resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
+  const selectedCli = options.resume ? await resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
   if (!options.resume && (!options.configPath || !options.change)) throw new Error('New programmatic runs require configuration and a change name')
@@ -549,7 +549,7 @@ function readHostPause(value: unknown): DefinitionHostPause | undefined {
 
 /** True when the run's retained Core announces cooperative pause (`pauseRuns`). */
 export async function retainedRuntimeSupportsPause(options: AgentRuntimeControlBase): Promise<boolean> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const events = await runControlProcess([cli, 'api'], options)
   const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
   return capabilities?.pauseRuns === 1
@@ -561,7 +561,7 @@ const CONTROL_TIMEOUT_MS = 60_000
 /** Check the retained package before recording a host operation that requires
  * recoverable publication. Older forks cannot safely retry a lost receipt. */
 export async function assertRetainedForkSupport(options: AgentRuntimeControlBase): Promise<void> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const events = await runControlProcess([cli, 'api'], options)
   const api = events.find(event => event.type === 'runtime-api')
   const capabilities = api?.capabilities as Record<string, unknown> | undefined
@@ -664,7 +664,7 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'signal' }): Promise<AgentRuntimeSignalResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'pause' }): Promise<AgentRuntimePauseResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation): Promise<AgentRuntimeForkResult | AgentRuntimeCancelResult | AgentRuntimeSignalResult | AgentRuntimePauseResult> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const admitted = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown }
   if (typeof admitted.runId !== 'string' || admitted.runId !== options.runId) throw new Error('runtime_scope_changed: Frozen context belongs to another run')
   const args = [cli, options.kind, '--context', options.contextPath]
