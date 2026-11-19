@@ -223,6 +223,8 @@ it('prepares the shared package off the event loop so the launch only pins it', 
     expect(copy).not.toHaveBeenCalled()
     expect(retained).toBe(path.join(root, 'cache', packages[0]!, 'dist/agent-runtime/cli.js'))
     expect(execFileSync(process.execPath, [retained], { encoding: 'utf8' }).trim()).toBe('original dependency')
+    // The async digest names the package exactly as the synchronous integrity check does.
+    expect(resolveRetainedAgentRuntime(context)).toBe(retained)
     copy.mockRestore()
   } finally {
     configureSharedRuntimePackageCache(null)

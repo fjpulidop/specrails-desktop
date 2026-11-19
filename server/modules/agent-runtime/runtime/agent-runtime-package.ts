@@ -57,20 +57,42 @@ function treeDigest(root: string, entries = fs.readdirSync(root).sort()): string
 /** Same digest as treeDigest, computed with async I/O so a 100 MB+ retained
  * package (its full production dependency closure) never blocks the event loop. */
 async function treeDigestAsync(root: string, entries: string[]): Promise<string> {
-  const hash = createHash('sha256')
-  let files = 0, bytes = 0
-  const visit = async (relative: string): Promise<void> => {
+  // Same order and bytes as treeDigest. The walk lists directories one at a time; the
+  // per-file stat and read run in bounded parallel batches (a sequential await per file
+  // took ~1.5 min for the ~16k files of a Core package on a busy event loop).
+  const files: string[] = []
+  const walk = async (relative: string): Promise<void> => {
     const file = path.join(root, relative), stat = await fs.promises.lstat(file)
     if (stat.isSymbolicLink()) throw new Error('Retained Core package contains a symbolic link')
-    if (stat.isDirectory()) for (const name of (await fs.promises.readdir(file)).sort()) await visit(path.posix.join(relative, name))
-    else if (stat.isFile()) {
-      if (++files > 100_000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
-      hash.update(JSON.stringify([relative, stat.size])).update('\0').update(await fs.promises.readFile(file)).update('\0')
-    } else throw new Error('Core runtime package contains a nonregular file')
+    if (stat.isDirectory()) {
+      const children = (await fs.promises.readdir(file, { withFileTypes: true })).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      for (const child of children) {
+        const childRelative = path.posix.join(relative, child.name)
+        if (child.isDirectory() || child.isSymbolicLink()) await walk(childRelative)
+        else if (child.isFile()) files.push(childRelative)
+        else throw new Error('Core runtime package contains a nonregular file')
+      }
+    } else if (stat.isFile()) files.push(relative)
+    else throw new Error('Core runtime package contains a nonregular file')
   }
-  for (const entry of entries) if (fs.existsSync(path.join(root, entry))) await visit(entry)
+  for (const entry of entries) if (fs.existsSync(path.join(root, entry))) await walk(entry)
+  if (files.length > 100_000) throw new Error('Core runtime package exceeds retention limits')
+  const hash = createHash('sha256')
+  let bytes = 0
+  for (let index = 0; index < files.length; index += IO_BATCH) {
+    const batch = files.slice(index, index + IO_BATCH)
+    const contents = await Promise.all(batch.map((relative) => fs.promises.readFile(path.join(root, relative))))
+    batch.forEach((relative, offset) => {
+      const content = contents[offset]
+      if ((bytes += content.length) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
+      hash.update(JSON.stringify([relative, content.length])).update('\0').update(content).update('\0')
+    })
+  }
   return hash.digest('hex')
 }
+
+/** Files read or copied at once by the async package paths. */
+const IO_BATCH = 64
 
 /** Retained packages are content-addressed and written once. Read-only
  * inspection (status/evidence) reuses a successful verification of the same
@@ -205,37 +227,41 @@ function copyInstalledPackage(source: string, destination: string): void {
   install(source, destination, true)
 }
 
-/** copyInstalledPackage with async I/O: the same selection, resolution and limits. */
+/** copyInstalledPackage with async I/O: the same selection, resolution and limits. The
+ * closure is planned first (one directory listing at a time), then files are copied in
+ * bounded parallel batches. */
 async function copyInstalledPackageAsync(source: string, destination: string): Promise<void> {
   const installed = new Map<string, string>()
   const copying = new Set<string>()
-  let files = 0, bytes = 0, packages = 0
-  const copy = async (from: string, to: string, boundary: string): Promise<void> => {
+  const planned: Array<{ from: string; to: string; mode: number }> = []
+  let bytes = 0, packages = 0
+  const plan = async (from: string, to: string, boundary: string): Promise<void> => {
     const stat = await fs.promises.lstat(from)
     if (stat.isSymbolicLink()) {
       const resolved = await fs.promises.realpath(from), relative = path.relative(boundary, resolved)
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Core package symlink escapes its package')
-      await copy(resolved, to, boundary)
+      await plan(resolved, to, boundary)
     } else if (stat.isDirectory()) {
       const real = await fs.promises.realpath(from)
       if (copying.has(real)) throw new Error('Core package contains a cyclic symbolic link')
       copying.add(real)
-      await fs.promises.mkdir(to, { recursive: true })
-      try { for (const name of (await fs.promises.readdir(from)).sort()) if (!['node_modules', '.git', '.bin'].includes(name)) await copy(path.join(from, name), path.join(to, name), boundary) }
+      try { for (const name of (await fs.promises.readdir(from)).sort()) if (!['node_modules', '.git', '.bin'].includes(name)) await plan(path.join(from, name), path.join(to, name), boundary) }
       finally { copying.delete(real) }
     } else if (stat.isFile()) {
-      if (++files > 100_000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
-      await fs.promises.mkdir(path.dirname(to), { recursive: true })
-      await fs.promises.copyFile(from, to)
-      await fs.promises.chmod(to, stat.mode & 0o777)
+      if (planned.length >= 100_000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error('Core runtime package exceeds retention limits')
+      planned.push({ from, to, mode: stat.mode & 0o777 })
     } else throw new Error('Core package contains a nonregular file')
   }
   const install = async (from: string, to: string, root = false): Promise<void> => {
     if (++packages > 2000) throw new Error('Core dependency closure exceeds retention limits')
-    if (root) { for (const entry of SHIPPED) if (fs.existsSync(path.join(from, entry))) await copy(path.join(from, entry), path.join(to, entry), from) }
-    else await copy(from, to, from)
+    if (root) { for (const entry of SHIPPED) if (fs.existsSync(path.join(from, entry))) await plan(path.join(from, entry), path.join(to, entry), from) }
+    else await plan(from, to, from)
+    // Resolution below reads `to`: its package.json must exist before nested lookups.
+    await fs.promises.mkdir(to, { recursive: true })
+    const manifest = path.join(from, 'package.json')
+    if (fs.existsSync(manifest)) await fs.promises.copyFile(manifest, path.join(to, 'package.json'))
     installed.set(await fs.promises.realpath(to), from)
-    const pkg = JSON.parse(await fs.promises.readFile(path.join(from, 'package.json'), 'utf8'))
+    const pkg = JSON.parse(await fs.promises.readFile(manifest, 'utf8'))
     for (const name of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).sort()) {
       if (!SAFE_PACKAGE.test(name)) throw new Error('Invalid Core package dependency')
       let dependency: string
@@ -249,6 +275,13 @@ async function copyInstalledPackageAsync(source: string, destination: string): P
     }
   }
   await install(source, destination, true)
+  for (let index = 0; index < planned.length; index += IO_BATCH) {
+    await Promise.all(planned.slice(index, index + IO_BATCH).map(async ({ from, to, mode }) => {
+      await fs.promises.mkdir(path.dirname(to), { recursive: true })
+      await fs.promises.copyFile(from, to)
+      await fs.promises.chmod(to, mode)
+    }))
+  }
 }
 
 const preparing = new Map<string, Promise<void>>()
