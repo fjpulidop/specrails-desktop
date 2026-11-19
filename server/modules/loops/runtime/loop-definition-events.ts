@@ -2,7 +2,7 @@ import { appendEvent, type DbInstance } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { estimateCostUsd } from '../../accounting/runtime/pricing'
 import { distributeIntEvenly } from '../../../util/distribute-int'
-import { completeLoopStepRecovery, readLoopJobUsage, recordDefinitionCheckpoint, setLoopStepSettledResult, stageLoopStepRecovery, type LoopStepRecoveryPayload } from './loop-runs-store'
+import { completeLoopStepRecovery, readLoopJobUsage, recordDefinitionCheckpoint, recordDefinitionRunning, setLoopStepSettledResult, stageLoopStepRecovery, type LoopStepRecoveryPayload } from './loop-runs-store'
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): string | undefined => typeof value === 'string' && value.length > 0 ? value : undefined
@@ -119,6 +119,8 @@ export function createDefinitionEventProjection(input: {
       }
       persist(event.type, event)
       if (durableId) db.prepare('UPDATE loop_runs SET core_event_cursor=MAX(COALESCE(core_event_cursor,0),?) WHERE id=? AND engine_version=2').run(workflow?.sequence ?? event.sequence, runId)
+      // A resumed run is running: its stored checkpoint must not keep the answered question.
+      if (workflow && (workflow.type === 'workflow_resumed' || workflow.type === 'workflow_started') && Number.isSafeInteger(workflow.sequence)) recordDefinitionRunning(db, runId, workflow.sequence as number)
       if (event.type === 'runtime-result') recordDefinitionCheckpoint(db, runId, {
         ...(event.revision === undefined ? {} : { revision: event.revision as number }),
         ...(event.eventCursor === undefined ? {} : { eventCursor: event.eventCursor as number }),

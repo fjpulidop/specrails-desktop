@@ -137,6 +137,27 @@ export function recordDefinitionCheckpoint(db: DbInstance, runId: string, checkp
   })()
 }
 
+/**
+ * Core resumed (or started) the run: the last checkpoint's pause is over. Its
+ * pending questions or approvals were answered or are being re-asked by the
+ * running process, so the stored status must stop advertising them while the
+ * run works (a GET kept showing the old question for a whole resumed run).
+ * Core's next runtime-result writes the full checkpoint again.
+ */
+export function recordDefinitionRunning(db: DbInstance, runId: string, eventCursor: number): void {
+  const row = getLoopRun(db, runId)
+  if (!row || row.engine_version !== 2) return
+  let prior: DefinitionCheckpoint = {}
+  try { prior = row.runtime_status_json ? JSON.parse(row.runtime_status_json) as DefinitionCheckpoint : {} } catch { prior = {} }
+  if (prior.status === 'running' && !(prior.pendingInterrupts?.length)) return
+  recordDefinitionCheckpoint(db, runId, {
+    ...(prior.revision === undefined ? {} : { revision: prior.revision }),
+    eventCursor: Math.max(eventCursor, row.core_event_cursor ?? 0),
+    status: 'running',
+    pendingInterrupts: [],
+  })
+}
+
 /** Startup preserves the job and launch ownership; no terminal callback is queued. */
 export function markDefinitionRestart(db: DbInstance, runId: string, checkpoint: DefinitionCheckpoint = {}): void {
   db.transaction(() => {

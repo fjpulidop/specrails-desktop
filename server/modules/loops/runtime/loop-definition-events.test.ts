@@ -67,3 +67,24 @@ it('keeps a host-task step in progress while the host works, and ends it when Co
   project({ ...ask, event: { ...ask.event, id: `${runId}:6`, sequence: 6, type: 'step_paused', request: { kind: 'question' } } })
   expect(ends().at(-1)).toMatchObject({ status: 'paused', nodePath: 'ask' })
 })
+
+it('stops advertising an answered question once Core resumes the run (GET loop-runs/:id stayed stale)', () => {
+  let sequence = 0
+  const project = createDefinitionEventProjection({ db, runId, projectId: 'p1', ticketIds: [1], nextSequence: () => ++sequence, broadcast: () => {} })
+  events.slice(0, metadata.pausedEventCount).forEach(project)
+  const question = { id: '68d9bdca56302d07b64ce1097c31f17e', kind: 'question', nodePath: 'ask', value: { prompt: 'Accept fixture?' } }
+  project({ type: 'runtime-result', engineVersion: 2, runId, status: 'paused', revision: 40, eventCursor: 18, pendingInterrupts: [question] })
+  const status = () => JSON.parse(getLoopRun(db, runId)!.runtime_status_json!) as { status: string; pendingInterrupts: unknown[]; revision?: number }
+  expect(status()).toMatchObject({ status: 'paused', pendingInterrupts: [question] })
+  // The person answered: Core's resume stream replays the committed events, then resumes.
+  const resumed = createDefinitionEventProjection({ db, runId, projectId: 'p1', ticketIds: [1], nextSequence: () => ++sequence, broadcast: () => {} })
+  const resumeAt = events.findIndex(event => (event.event as { type?: string } | undefined)?.type === 'workflow_resumed')
+  events.slice(metadata.pausedEventCount, resumeAt).forEach(resumed)
+  expect(status().pendingInterrupts).toHaveLength(1)
+  resumed(events[resumeAt]!)
+  expect(status()).toEqual({ revision: 40, eventCursor: expect.any(Number), status: 'running', pendingInterrupts: [] })
+  // A replay of the same resume changes nothing; Core's next result is authoritative again.
+  resumed(events[resumeAt]!)
+  project({ type: 'runtime-result', engineVersion: 2, runId, status: 'succeeded', revision: 60, eventCursor: metadata.finalCursor, pendingInterrupts: [], completion: { ok: true, verified: true, reasons: [] } })
+  expect(status()).toMatchObject({ status: 'succeeded', pendingInterrupts: [] })
+})
