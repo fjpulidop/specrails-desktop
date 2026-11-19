@@ -61,7 +61,7 @@ describe.skipIf(process.platform === 'win32')('worktree process reaper with real
     const kept = startBackgroundProcess(`"${process.execPath}" "${script(worktree, 'dev.cjs')}"`, worktree, 'chat-1', 'project-1')
     await until(() => alive(kept.pid))
 
-    const reaper = installAppWorktreeProcessReaper(registry as never, { graceMs: 300, log: () => {} })
+    const reaper = installAppWorktreeProcessReaper(registry as never, { graceMs: 300, log: () => {}, reapContainers: async () => [] })
     const result = await reaper({ worktreePaths: [worktree], reason: 'test' })
 
     expect(result.reaped.map((p) => p.pid)).toEqual([leftover])
@@ -82,7 +82,7 @@ describe.skipIf(process.platform === 'win32')('worktree process reaper with real
     db.prepare(`INSERT INTO rail_worktrees (id, rail_index, ticket_id, run_id, branch, worktree_path) VALUES ('w1',0,1,'r1','b1',?), ('w2',0,2,'r2','b2',?)`).run(settled, running)
     expect(listSettledRailWorktreePaths(db)).toEqual([settled])
 
-    installAppWorktreeProcessReaper(registry as never, { graceMs: 300, log: () => {} })
+    installAppWorktreeProcessReaper(registry as never, { graceMs: 300, log: () => {}, reapContainers: async () => [] })
     const reaped = await sweepSettledRunWorktrees({ listContexts: () => [{ db, project: { id: 'p' } }] } as never)
     expect(reaped).toBe(1)
     await until(() => !alive(settledLeftover), 5000)

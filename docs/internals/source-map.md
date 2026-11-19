@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1786 source/build files. Nearby tests are linked where names
+Includes 1787 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -2346,6 +2346,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [terminal-marks-store.ts](../../server/modules/terminals/runtime/terminal-marks-store.ts) · [test](../../server/modules/terminals/runtime/terminal-marks-store.test.ts)
 - [terminal-osc-parser.ts](../../server/modules/terminals/runtime/terminal-osc-parser.ts) · [test](../../server/modules/terminals/runtime/terminal-osc-parser.test.ts)
 - [terminal-settings.ts](../../server/modules/terminals/runtime/terminal-settings.ts) · [test](../../server/modules/terminals/runtime/terminal-settings.test.ts)
+- [worktree-container-reaper.ts](../../server/modules/terminals/runtime/worktree-container-reaper.ts) · [test](../../server/modules/terminals/runtime/worktree-container-reaper.test.ts)
 - [worktree-process-reaper.ts](../../server/modules/terminals/runtime/worktree-process-reaper.ts) · [test](../../server/modules/terminals/runtime/worktree-process-reaper.test.ts)
 
 ## server/plugins

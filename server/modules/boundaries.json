@@ -3939,6 +3939,7 @@
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
       "runtime/terminal-settings.ts",
+      "runtime/worktree-container-reaper.ts",
       "runtime/worktree-process-reaper.ts"
     ],
     "dependencies": {
@@ -4044,6 +4045,10 @@
       "runtime/terminal-settings.ts": [
         "../../../db",
         "os"
+      ],
+      "runtime/worktree-container-reaper.ts": [
+        "node:child_process",
+        "node:path"
       ],
       "runtime/worktree-process-reaper.ts": [
         "../domain/mission-resources",

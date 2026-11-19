@@ -20,6 +20,7 @@ import {
   createWorktreeProcessReaper, installWorktreeProcessReaper, reapWorktreeLeftovers,
   type WorktreeProcessReaper, type WorktreeProcessReaperDeps,
 } from './modules/terminals/runtime/worktree-process-reaper'
+import { reapWorktreeContainers } from './modules/terminals/runtime/worktree-container-reaper'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getProjectRow' | 'desktopDb' | 'listProjects'>
 
@@ -47,6 +48,7 @@ export function installAppWorktreeProcessReaper(
     readProcessTable: createProcessTableReader(),
     listProtectedRootPids: (table) => listAppResourceRoots(registry, table).map((root) => root.pid),
     listForbiddenPaths: () => forbiddenReapPaths(registry),
+    reapContainers: (paths, context) => reapWorktreeContainers(paths, { windows: process.platform === 'win32', context }),
     ...overrides,
   })
   installWorktreeProcessReaper(reaper)
