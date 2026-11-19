@@ -102,7 +102,10 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).co
       expect(await restarted.exit, restarted.output()).toBe(0)
       const initial = json('initial-probe'), recovery = json('recovery-probe'), final = json('result')
       expect(initial.status).toBe(mode === 'pause' ? 'paused' : 'running')
-      if (mode !== 'pause') expect(initial.lease.active).toBe(true)
+      // The crashed child's lease is unexpired. A Core whose lease owners name their process
+      // reports it inactive at once (that process is gone from this machine); an older Core keeps
+      // it active until the TTL passes. Either way recovery must not duplicate billing.
+      if (mode !== 'pause') expect(initial.lease.active).toBe(!/^pid:\d+@/.test(String(initial.lease.owner)))
       expect(recovery.recoverableSteps).toHaveLength(mode === 'write' ? 1 : 0)
       if (mode === 'write') expect(recovery.recoverableSteps[0]).toMatchObject({ nodePath: 'work' })
       expect(final.result).toMatchObject({ outcome: 'success', totalCostUsd: null })
