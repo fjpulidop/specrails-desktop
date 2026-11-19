@@ -202,6 +202,8 @@ const BASELINE_CODE = /baseline_characterization_failed|^Baseline blocked:/i
 // an older Core sends no classification, or a low-confidence one.
 const INCOMPLETE_TASKS = /approved tasks (?:are )?still incomplete/i
 const INTERRUPTED_WRITE = /interrupted write requires explicit recovery/i
+// Desktop's own sentence (loops `unrequestedStopText`) for a Core stopped by a signal it did not send.
+export const EXTERNAL_STOP = /a stop Specrails did not request/
 const SPEC_INVALID = /Not implemented: the person declined this ticket|still fails OpenSpec validation|OpenSpec could not archive change/i
 const RECIPE_HOST_BLOCKER = /\b(?:Developer|Fixer|Unblock) reported a host blocker\b|^Host blocker \(/im
 const RECIPE_STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
@@ -272,6 +274,7 @@ export function deriveFailureDiagnosis(input: DeriveInput): FailureDiagnosis {
   if (HOST_PRECONDITION.test(text)) return make('environment', 'high')
   // Core refused to re-run a step that writes files because a restart cut it off and the
   // resume did not authorize recovering it. Nothing about the work failed: Continue re-runs it.
+  if (EXTERNAL_STOP.test(text)) return make('crash', 'high', { detail: oneSentence(text), resumablePhase: input.stepId ?? null })
   if (INTERRUPTED_WRITE.test(text)) return make('crash', 'high', { detail: 'A restart cut off a step that writes files, and the resume did not re-run it. Continue re-runs that step from its saved state.' })
   const skipped = WORKFLOW_PROTOCOL.exec(text)
   if (skipped) {

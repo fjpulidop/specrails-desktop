@@ -22,6 +22,12 @@ function limitedProvider(req: LoopRunRequest): string {
 }
 import type { LoopRunContext } from './loop-run-context'
 
+/** The run's record for a Core process stopped by a signal Specrails did not send (recovery EXTERNAL_STOP). */
+export function unrequestedStopText(errorText: string | undefined, step: string | null): string {
+  const signal = /\((SIG[A-Z]+)\)/.exec(errorText ?? '')?.[1] ?? 'a termination signal'
+  return `The run's Core process received ${signal}, a stop Specrails did not request: something outside the app (a script, a terminal or the system) ended it${step ? ` during the ${step} step` : ''}. The work so far is kept; Continue resumes from that step.`
+}
+
 /** Node kinds whose step is a provider turn (the runtime graph names each node's kind). */
 const AI_NODE_KINDS: ReadonlySet<string> = new Set(['role-turn', 'prompt', 'implementation', 'implementation-step', 'derive-change', 'agent'])
 
@@ -65,9 +71,12 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
       }
     })
   }
+  // The step Core was running last: an unrequested stop names it.
+  let lastStep: string | null = null
   // A provider turn starting is where the next turn's budget is checked ahead.
   const observeTurns = (event: Record<string, unknown>): void => {
     const workflow = event.type === 'workflow-event' ? event.event as { type?: unknown; nodePath?: unknown } | undefined : undefined
+    if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string') lastStep = workflow.nodePath
     if (event.type === 'runtime-graph' && Array.isArray(event.nodes)) {
       for (const node of event.nodes as Array<{ path?: unknown; kind?: unknown }>) if (typeof node?.path === 'string' && AI_NODE_KINDS.has(String(node.kind))) aiNodes.add(node.path)
     } else if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string' && aiNodes.has(workflow.nodePath)) requestBudgetPause(2)
@@ -160,4 +169,14 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   if (result.durationMs !== undefined) state.totalDuration = result.durationMs
   if (result.errorText) logLine(result.errorText, 'stderr')
   state.outcome = result.runtimeStatus === 'succeeded' ? 'success' : result.runtimeStatus === 'cancelled' ? 'stopped' : result.runtimeStatus === 'blocked' ? 'blocked' : 'failed'
+  // Core cancelled the run on a signal nobody in Specrails sent (no Stop, no shutdown):
+  // a script, a terminal or the system stopped its process. That is not the person's
+  // stop: the record says what happened and the run stays continuable from its step.
+  if (result.runtimeStatus === 'cancelled' && !host.isCancelled(runId) && !host.isDisposed()) {
+    const text = unrequestedStopText(result.errorText, lastStep)
+    state.outcome = 'failed'
+    state.failureText = text
+    state.failedStepId = lastStep ?? undefined
+    logLine(`\n■ ${text}`, 'stderr')
+  }
 }

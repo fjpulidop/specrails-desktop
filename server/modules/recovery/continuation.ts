@@ -12,7 +12,7 @@
  * spend caps, a usage limit, a spec to edit), for a stop the person chose, for a
  * cause it cannot name, or when the attempt failed exactly like the one before.
  */
-import type { FailureDiagnosis, FailureKind } from './domain'
+import { EXTERNAL_STOP, type FailureDiagnosis, type FailureKind } from './domain'
 
 const TASK_TEXT = 600
 
@@ -130,6 +130,8 @@ export function autoContinueVerdict(input: {
   const words = [diagnosis.detail, diagnosis.blocker?.reason, diagnosis.blocker?.requiredAction].filter(Boolean).join(' ')
   if (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'spec_invalid' || PERSON_ONLY.test(words)) return { continue: false, reason: 'person_must_resolve' }
   if (input.chainAlreadyContinued) return { continue: false, reason: 'already_continued' }
+  // Someone outside the app stopped the process on purpose: Continue is theirs to press.
+  if (diagnosis.detail && EXTERNAL_STOP.test(diagnosis.detail)) return { continue: false, reason: 'not_auto_fixable' }
   if (input.previous && failureFingerprint(input.previous) === failureFingerprint(diagnosis)) return { continue: false, reason: 'repeated_failure' }
   if (diagnosis.kind === 'incomplete_tasks') return { continue: true, reason: 'unfinished_tasks' }
   if (diagnosis.kind === 'environment') {

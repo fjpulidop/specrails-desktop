@@ -359,3 +359,44 @@ describe('Core definitions: budget gate before re-invoking with a human decision
     })
   })
 })
+
+// The 2026-11-19 i18n-fr run: a restart script's process-tree kill sent SIGTERM to its Core
+// process; Core cancelled the run and Desktop recorded the person's "stopped", with no reason.
+describe('a Core run stopped by a signal Specrails did not send', () => {
+  const at = '2026-11-19T01:41:23.000Z'
+  const request = (): LoopRunRequest => ({ runId: 'sig', loopId: 'test-loop', projectId: 'p1', cwd: '/repo', provider: 'claude', model: 'haiku', graph: { nodes: [
+    { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+    { id: 'a', type: 'core', position: { x: 0, y: 100 }, data: { kind: 'prompt', params: { text: 'Read', access: 'read', engine: { provider: 'claude' } } } },
+    { id: 'end', type: 'core', position: { x: 0, y: 200 }, data: { kind: 'end', params: { outcome: 'success' } } }],
+  edges: [{ id: 's', source: 'start', target: 'a' }, { id: 'e', source: 'a', target: 'end', label: 'next' }], config: { maxIterations: 3, timeoutMinutes: 0 } } })
+  const cancelledBySignal = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+    input.onRuntimeEvent({ type: 'workflow-event', event: { id: 'sig:1', runId: 'sig', sequence: 1, type: 'step_started', nodePath: 'reviewer', scopeId: 'root', visit: 2, attempt: 1, attemptId: 'attempt-r', timestamp: at } })
+    return { text: '', runtimeStatus: 'cancelled' as const, failed: true, errorText: 'Process termination requested (SIGTERM)' }
+  })
+
+  it('records why, keeps it continuable from its step, and is not a stop the person chose', async () => {
+    const ex: LoopExecutors = { runDefinition: cancelledBySignal, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, {})
+    expect((await m.run(request())).outcome).toBe('failed')
+    const row = getLoopRun(db, 'sig')!
+    expect(row.final_outcome).toBe('failed')
+    const diagnosis = JSON.parse(row.failure_diagnosis!)
+    expect(diagnosis).toMatchObject({ kind: 'crash', confidence: 'high', phase: 'reviewer', resumablePhase: 'reviewer' })
+    expect(diagnosis.detail).toBe("The run's Core process received SIGTERM, a stop Specrails did not request: something outside the app (a script, a terminal or the system) ended it during the reviewer step. The work so far is kept; Continue resumes from that step.")
+    const { autoContinueVerdict, parseStoredDiagnosis } = await import('../../recovery')
+    expect(autoContinueVerdict({ enabled: true, outcome: 'failed', diagnosis: parseStoredDiagnosis(row.failure_diagnosis), chainAlreadyContinued: false })).toEqual({ continue: false, reason: 'not_auto_fixable' })
+  })
+
+  it('still settles the person\'s own Stop as stopped', async () => {
+    let release!: () => void
+    const runDefinition = vi.fn(async () => { await new Promise<void>(resolve => { release = resolve }); return { text: '', runtimeStatus: 'cancelled' as const, failed: true, errorText: 'Process termination requested (SIGTERM)' } })
+    const ex: LoopExecutors = { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, () => {}, ex, () => 1000, {})
+    const running = m.run(request())
+    await vi.waitFor(() => expect(runDefinition).toHaveBeenCalled())
+    m.cancel('sig')
+    release()
+    expect((await running).outcome).toBe('stopped')
+    expect(getLoopRun(db, 'sig')!.failure_diagnosis).toBeNull()
+  })
+})
