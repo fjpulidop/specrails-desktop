@@ -55,8 +55,8 @@
     "incomplete_tasks": "Alles andere ist erledigt. Fortsetzen erledigt den Rest mit dem Browser und seinen Werkzeugen; eine Prüfung, die nur ein Mensch machen kann, kann stattdessen zur Prüfung gehen.",
     "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
     "workflow_protocol": {
-      "plain": "Es hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Die Arbeit vor diesem Schritt bleibt erhalten: setze dort fort.",
-      "stronger": "{{model}} ist ein kleines Modell und hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Setze bei diesem Schritt fort; passiert es wieder, wähle {{stronger}} für diese Rolle."
+      "plain": "Es hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Die Arbeit vor diesem Schritt bleibt erhalten: setze ab dort fort.",
+      "stronger": "{{model}} ist ein kleines Modell und hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Setze ab diesem Schritt fort; passiert es wieder, wähle {{stronger}} für diese Rolle."
     },
     "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist."
   },

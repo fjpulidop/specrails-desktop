@@ -55,8 +55,8 @@
     "incomplete_tasks": "Tout le reste est fait. Continuer termine ce qui reste avec le navigateur et ses outils ; une vérification que seule une personne peut faire peut aller en relecture.",
     "spec_invalid": "Le plan ou la spécification n'a pas passé OpenSpec, et la planification n'a pas pu le réparer.",
     "workflow_protocol": {
-      "plain": "Il a terminé son tour sans les étapes que Specrails exige, même après un rappel. Le travail avant cette étape est conservé : reprenez à partir d'elle.",
-      "stronger": "{{model}} est un petit modèle et a terminé son tour sans les étapes que Specrails exige, même après un rappel. Reprenez à cette étape ; si cela se reproduit, choisissez {{stronger}} pour ce rôle."
+      "plain": "Il a terminé son tour sans les étapes que Specrails exige, même après un rappel. Le travail avant cette étape est conservé : continuez à partir d'elle.",
+      "stronger": "{{model}} est un petit modèle et a terminé son tour sans les étapes que Specrails exige, même après un rappel. Continuez depuis cette étape ; si cela se reproduit, choisissez {{stronger}} pour ce rôle."
     },
     "unknown": "Les enregistrements de l'exécution ne donnent pas la cause. Une lecture du journal par l'IA la trouve généralement."
   },

@@ -55,8 +55,8 @@
     "incomplete_tasks": "Everything else is done. Continue finishes what is left with the browser and its tools; a check only a person can make can go to review instead.",
     "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
     "workflow_protocol": {
-      "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: resume from it.",
-      "stronger": "{{model}} is a small model and ended its turn without the steps Specrails requires, even after a reminder. Resume from that step; if it happens again, choose {{stronger}} for this role."
+      "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: continue from it.",
+      "stronger": "{{model}} is a small model and ended its turn without the steps Specrails requires, even after a reminder. Continue from that step; if it happens again, choose {{stronger}} for this role."
     },
     "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it."
   },

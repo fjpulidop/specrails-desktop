@@ -211,24 +211,27 @@ describe('FailureDiagnosisCard: unfinished tasks and causes only an AI reading n
     expect(screen.getByTestId('failure-remedy-analyze')).toBeDisabled()
   })
 
-  it('says which role\'s model skipped the OpenSpec steps, resumes from the step and suggests the stronger model', async () => {
+  it('says which role\'s model skipped the OpenSpec steps, continues from the step and suggests the stronger model', async () => {
     const h = handlers()
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'workflow_protocol', phase: 'architect', rounds: null, resumablePhase: 'architect', role: 'plan', model: 'haiku',
       strongerModel: { provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' }, detail: 'The plan model (claude/haiku) skipped the required OpenSpec steps (instructions tasks) even after a corrective reminder.',
       remedies: ['resume', 'retry', 'open-logs'] })} handlers={h} />)
     expect(screen.getByTestId('failure-diagnosis-card')).toHaveAttribute('data-tone', 'caution')
     expect(screen.getByTestId('failure-headline')).toHaveTextContent('The Plan model skipped required OpenSpec steps')
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('Claude Haiku is a small model and ended its turn without the steps Specrails requires, even after a reminder. Resume from that step; if it happens again, choose Claude Sonnet 5.5 for this role.')
-    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button')
-    expect(buttons.map((b) => b.textContent)).toEqual(['Resume from Architect', 'Run again', 'Open logs at the failure'])
+    // The older `resume` wire id is Continue; the copy names the same action as the button.
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('Claude Haiku is a small model and ended its turn without the steps Specrails requires, even after a reminder. Continue from that step; if it happens again, choose Claude Sonnet 5.5 for this role.')
+    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button').filter((b) => b.dataset.testid !== 'failure-remedy-more')
+    expect(buttons.map((b) => b.textContent)).toEqual(['Continue from Architect', 'Open logs at the failure'])
+    // Start over waits in the menu, apart.
+    expect(screen.getByTestId('failure-remedy-more')).toBeInTheDocument()
     await userEvent.click(buttons[0])
-    expect(h.resume.run).toHaveBeenCalledTimes(1)
+    expect(h.continue.run).toHaveBeenCalledTimes(1)
   })
 
   it('does not suggest another model when the one that skipped the steps is not small', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'workflow_protocol', phase: 'architect', rounds: null, resumablePhase: 'architect', role: null, model: 'opus', strongerModel: null, remedies: ['resume', 'retry', 'open-logs'] })} handlers={handlers()} />)
     expect(screen.getByTestId('failure-headline')).toHaveTextContent('The model skipped required OpenSpec steps')
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('The work before that step is kept: resume from it.')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('The work before that step is kept: continue from it.')
     expect(screen.getByTestId('failure-why')).not.toHaveTextContent('choose')
   })
 })
