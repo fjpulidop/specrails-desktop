@@ -463,6 +463,12 @@ describe('usage-limit pause controls (provider-quota)', () => {
 })
 
 describe('resuming a run a Desktop restart interrupted', () => {
+  it('authorizes recovery of the cut-off step when a limit pause retained over a restart resumes', async () => {
+    const { limitResumeOptions } = await import('./project-router-loop-runs')
+    expect(limitResumeOptions({ status: 'paused', restart_reason: 'restart' })).toEqual({ restartResume: true })
+    expect(limitResumeOptions({ status: 'paused', restart_reason: 'limit_paused' })).toEqual({ restartResume: false })
+    expect(limitResumeOptions(undefined)).toEqual({ restartResume: false })
+  })
   it('treats the empty-handed Resume of a restart-paused run as the explicit recovery of its interrupted steps', async () => {
     const { isRestartResume, restartRecoveryControls } = await import('./project-router-loop-runs')
     const interrupted = { status: 'paused', restart_reason: 'restart' }

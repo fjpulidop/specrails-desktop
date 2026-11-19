@@ -94,7 +94,11 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       projectName: handle.project.name,
       kind,
       title: deliveryTitle(row),
-      detail: oneLine(row.status_detail) ?? (failed ? oneLine(diagnosis?.detail) ?? row.status_code : null),
+      // The run's diagnosis is the cause; a settlement note (for example why the
+      // partial work of a failed run could not be committed) is only a consequence.
+      detail: failed
+        ? oneLine(diagnosis?.detail) ?? oneLine(row.status_detail) ?? row.status_code
+        : oneLine(row.status_detail),
       diagnosis,
       at: toIso((waiting ? row.on_review_at : null) ?? row.updated_at, nowIso),
       version: `${decision}:${row.status_code ?? ''}:${row.pr_state}`,

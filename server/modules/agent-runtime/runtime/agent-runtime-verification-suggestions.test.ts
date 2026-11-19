@@ -20,12 +20,26 @@ describe('suggestVerificationCommands', () => {
       repo('web', { 'package.json': JSON.stringify({ scripts: { test: 'vitest run', 'type-check': 'tsc -p .', lint: 'eslint .', build: 'vite build' } }), 'yarn.lock': '' }),
       repo('placeholder', { 'package.json': JSON.stringify({ scripts: { test: 'echo "Error: no test specified" && exit 1', build: 'tsc' } }) }),
       repo('empty', { 'package.json': JSON.stringify({ name: 'nothing' }) }),
-    ])
+    ], name => `/usr/local/bin/${name}`)
     expect(suggestions).toEqual([
       { repositoryId: 'web', command: 'yarn', args: ['test'], reason: 'package.json test script "test"' },
       { repositoryId: 'web', command: 'yarn', args: ['run', 'type-check'], reason: 'package.json type check script "type-check"' },
       { repositoryId: 'web', command: 'yarn', args: ['run', 'lint'], reason: 'package.json lint script "lint"' },
       { repositoryId: 'placeholder', command: 'npm', args: ['run', 'build'], reason: 'package.json build script "build" (no test or type check script found)' },
+    ])
+  })
+  it('runs a package manager the host lacks through npx at the version the repository pins', () => {
+    const suggestions = suggestVerificationCommands([
+      repo('classic', { 'package.json': JSON.stringify({ packageManager: 'yarn@1.22.22', scripts: { test: 'node --test' } }), 'yarn.lock': '' }),
+      repo('unpinned', { 'package.json': JSON.stringify({ scripts: { test: 'node --test' } }), 'yarn.lock': '' }),
+      repo('declared', { 'package.json': JSON.stringify({ packageManager: 'pnpm@9.15.0', scripts: { lint: 'eslint .' } }) }),
+      repo('plain', { 'package.json': JSON.stringify({ scripts: { test: 'node --test' } }) }),
+    ], () => null)
+    expect(suggestions.map(({ repositoryId, command, args }) => ({ repositoryId, command, args }))).toEqual([
+      { repositoryId: 'classic', command: 'npx', args: ['--yes', 'yarn@1.22.22', 'test'] },
+      { repositoryId: 'unpinned', command: 'npx', args: ['--yes', 'yarn@1', 'test'] },
+      { repositoryId: 'declared', command: 'npx', args: ['--yes', 'pnpm@9.15.0', 'run', 'lint'] },
+      { repositoryId: 'plain', command: 'npm', args: ['test'] },
     ])
   })
   it('recognises other ecosystems and returns nothing for repositories without a known check', () => {

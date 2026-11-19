@@ -85,7 +85,9 @@ function readRetainedPin(contextPath: string): { pin: RuntimePackagePin; expecte
   const pinFile = path.join(path.dirname(contextPath), 'desktop-runtime-package.json')
   if (!fs.existsSync(pinFile)) throw new Error('Original runtime identity is unrecorded. Restore a proven original Core package before continuing this saved execution.')
   const pin = JSON.parse(fs.readFileSync(pinFile, 'utf8')) as RuntimePackagePin
-  const expected = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages', pin.integrity)
+  const local = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages', pin.integrity)
+  const shared = sharedPackageCache ? path.join(sharedPackageCache, pin.integrity) : null
+  const expected = shared && pin.root === shared ? shared : local
   if (pin.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(pin.integrity) || pin.root !== expected || !fs.existsSync(expected) || fs.realpathSync(expected) !== path.resolve(expected)
     || typeof pin.cli !== 'string' || path.isAbsolute(pin.cli) || pin.cli.split(/[\\/]/).includes('..')) throw new Error('The original retained Core package is unavailable or invalid. Restore it before continuing.')
   return { pin, expected }
@@ -108,6 +110,52 @@ export async function resolveRetainedAgentRuntimeForInspection(contextPath: stri
   }
   return retainedCli(expected, pin)
 }
+
+function resolveDependency(name: string, from: string): string {
+  const require = createRequire(path.join(from, 'package.json'))
+  try { return packageRoot(require.resolve(name + '/package.json'), name) }
+  catch { return packageRoot(require.resolve(name), name) }
+}
+
+/** A cheap identity of the source package and every production dependency it
+ * resolves: path, size, mtime, inode and mode of each file, without reading
+ * contents. Any rebuild or reinstall changes it; it never replaces the content
+ * digest of what is retained. */
+function sourceStamp(source: string): string {
+  const hash = createHash('sha256')
+  const seen = new Set<string>()
+  const files = (dir: string, entries?: string[]): void => {
+    for (const name of entries ?? fs.readdirSync(dir).sort()) {
+      if (!entries && ['node_modules', '.git', '.bin'].includes(name)) continue
+      const file = path.join(dir, name)
+      if (!fs.existsSync(file)) continue
+      const stat = fs.statSync(file)
+      if (stat.isDirectory()) files(file)
+      else hash.update(JSON.stringify([file, stat.size, stat.mtimeMs, stat.ino, stat.mode])).update('\0')
+    }
+  }
+  const visit = (root: string, top: boolean): void => {
+    const real = fs.realpathSync(root)
+    if (seen.has(real)) return
+    seen.add(real)
+    files(real, top ? SHIPPED : undefined)
+    const pkg = JSON.parse(fs.readFileSync(path.join(real, 'package.json'), 'utf8'))
+    for (const name of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).sort()) {
+      try { visit(resolveDependency(name, real), false) } catch { hash.update(`missing:${name}\0`) }
+    }
+  }
+  visit(source, true)
+  return hash.digest('hex')
+}
+
+/** Content-addressed packages this process already retained, by source stamp. */
+const retainedBySource = new Map<string, { stamp: string; integrity: string }>()
+let sharedPackageCache: string | null = null
+/** Where launches retain Core packages: one content-addressed cache shared by every
+ * run (each package is copied once per Core build instead of once per worktree).
+ * Pins into it are accepted by resolution and left alone by per-pipeline collection. */
+export function configureSharedRuntimePackageCache(directory: string | null): void { sharedPackageCache = directory ? path.resolve(directory) : null; retainedBySource.clear() }
+export function sharedRuntimePackageCache(): string | null { return sharedPackageCache }
 
 /** Copy only the selected package and its installed production dependency
  * closure. Resolution follows npm's actual nested versions, without downloads. */
@@ -134,11 +182,6 @@ function copyInstalledPackage(source: string, destination: string): void {
       fs.copyFileSync(from, to)
       fs.chmodSync(to, stat.mode & 0o777)
     } else throw new Error('Core package contains a nonregular file')
-  }
-  const resolveDependency = (name: string, from: string): string => {
-    const require = createRequire(path.join(from, 'package.json'))
-    try { return packageRoot(require.resolve(name + '/package.json'), name) }
-    catch { return packageRoot(require.resolve(name), name) }
   }
   const install = (from: string, to: string, root = false): void => {
     if (++packages > 2000) throw new Error('Core dependency closure exceeds retention limits')
@@ -168,8 +211,19 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   const root = packageRoot(realCli)
   const relativeCli = path.relative(root, realCli)
   if (relativeCli.startsWith('..') || path.isAbsolute(relativeCli)) throw new Error('Core CLI escapes its package')
-  const cache = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages')
+  const cache = sharedPackageCache ?? path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages')
   fs.mkdirSync(cache, { recursive: true, mode: 0o700 })
+  const writePin = (integrity: string, retained: string): string => {
+    const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
+    try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
+    return path.join(retained, relativeCli)
+  }
+  // The same unchanged source was already retained into this shared cache by this
+  // process: pin it again instead of copying and hashing ~16k files per launch.
+  const stamp = sharedPackageCache ? sourceStamp(root) : null
+  const known = stamp ? retainedBySource.get(root) : undefined
+  if (stamp && known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return writePin(known.integrity, path.join(cache, known.integrity))
   return withRuntimePackageLock(cache, () => {
     const staged = path.join(cache, '.staged-' + randomUUID())
     try {
@@ -182,10 +236,8 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
         try { fs.renameSync(staged, retained) }
         catch (error) { if (!fs.existsSync(retained) || treeDigest(retained) !== integrity) throw error }
       }
-      const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
-      try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
-      return path.join(retained, relativeCli)
+      if (stamp) retainedBySource.set(root, { stamp, integrity })
+      return writePin(integrity, retained)
     } finally { fs.rmSync(staged, { recursive: true, force: true }) }
   })
 }

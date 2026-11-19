@@ -148,6 +148,15 @@ describe('inbox projection: failure diagnosis', () => {
     expect(item).toMatchObject({ kind: 'failed', detail: 'failed', diagnosis: { kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] } })
   })
 
+  it('leads a failed delivery with its run\'s cause, not the settlement note about its partial work', () => {
+    run('r-env-del', 0)
+    finishLoopRun(db, 'r-env-del', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'failed', errorText: 'Verification cannot run in this environment: `deno` is not installed or not on PATH' }) })
+    delivery('d-env', 0, 'implementation_failed', { runIds: ['r-env-del'], statusCode: 'implementation_failed', statusDetail: 'OpenSpec delivery blocked by new active changes: "openspec/changes/runtime-1". Archive the intended change and review unrelated work before delivery; files were preserved.' })
+    const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
+    expect(item.detail).toMatch(/deno/)
+    expect(item.detail).not.toMatch(/OpenSpec delivery blocked/)
+  })
+
   it('explains a failed delivery through its last run', () => {
     run('r-del', 0)
     finishLoopRun(db, 'r-del', { outcome: 'stalled', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'stalled', stallReason: 'idle_timeout' }) })

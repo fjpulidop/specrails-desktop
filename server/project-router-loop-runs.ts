@@ -44,7 +44,7 @@ import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo
 import { getRails, getRail, createRail, deleteRail, MAX_RAILS } from './modules/delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from './modules/delivery/runtime/rail-pr-store'
 import { isolationApplies } from './modules/delivery/runtime/rail-isolation'
-import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
+import { assertProcessAdmission, awaitProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 const pendingCancellations = new WeakMap<object, Map<string, Promise<void>>>()
 
@@ -107,7 +107,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
     if (body.action === 'resume') {
       if (live) { c.loopRunManager.resolveLimitPause(runId, { action: 'resume' }); res.status(202).json({ loopRunId: runId, resumed: true }); return }
-      const outcome = await resumeRetainedDefinitionRun(c, runId, {})
+      const outcome = await resumeRetainedDefinitionRun(c, runId, {}, limitResumeOptions(run))
       res.status(outcome.status).json(outcome.body); return
     }
     if (body.action === 'switch' && typeof body.provider === 'string') {
@@ -500,6 +500,10 @@ export interface ContinueOptions {
  * stopped. The cause's guidance is queued as an operator instruction before the
  * run goes on, so its next agent turn reads it. Returns the HTTP outcome.
  */
+function completionReasonsOf(completion: unknown): unknown[] | null {
+  return completion && typeof completion === 'object' && Array.isArray((completion as { reasons?: unknown }).reasons) ? (completion as { reasons: unknown[] }).reasons : null
+}
+
 export async function continueDefinitionRun(c: ProjectContext, runId: string, remedy: ContinueRemedy, options: ContinueOptions = {}): Promise<{ status: number; body: object }> {
   try {
     assertProcessAdmission(c.project.id)
@@ -514,7 +518,7 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
     // Checks handed to a person need no guidance; Continue carries the cause's.
-    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis) : null
+    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion) }) : null
     let guided: boolean | undefined
     if (guidance) {
       try {
@@ -560,7 +564,7 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
-    assertProcessAdmission(c.project.id)
+    await awaitProcessAdmission(c.project.id)
     // Continuing a workflow is cost-incurring: same gate as a rail launch.
     const budgetRejection = c.dailyBudgetRejection?.() ?? null
     if (budgetRejection) { return { status: 409, body: budgetRejection } }
@@ -621,6 +625,16 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
 }
 
 /** An empty-handed resume of a run paused by a Desktop restart (no answer, no explicit recovery). */
+/**
+ * A usage-limit resume (the person's click or the automatic one at the reset) of a
+ * run retained over a Desktop restart authorizes re-running the step the restart cut
+ * off, as the restart dialog's Resume does; without it Core refuses with "An
+ * interrupted write requires explicit recovery" and the run fails.
+ */
+export function limitResumeOptions(run: { status: string; restart_reason?: string | null } | undefined): { restartResume: boolean } {
+  return { restartResume: !!run && isRestartResume(run, {}) }
+}
+
 export function isRestartResume(run: { status: string; restart_reason?: string | null }, controls: unknown): boolean {
   if (run.status !== 'paused' || run.restart_reason !== 'restart') return false
   const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>

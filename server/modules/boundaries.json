@@ -270,6 +270,7 @@
       ],
       "runtime/agent-runtime-metrics.ts": [],
       "runtime/agent-runtime-package-gc.ts": [
+        "./agent-runtime-package",
         "./agent-runtime-package-lock",
         "node:crypto",
         "node:fs",
@@ -3619,6 +3620,7 @@
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/spec-search.ts",
+      "runtime/spec-title.ts",
       "runtime/ticket-store.ts",
       "runtime/ticket-trash-service.ts",
       "runtime/ticket-trash.ts",
@@ -3785,6 +3787,7 @@
         "../../../util/search-snippet",
         "./ticket-store"
       ],
+      "runtime/spec-title.ts": [],
       "runtime/ticket-store.ts": [
         "../domain/intent",
         "../domain/non-goals",

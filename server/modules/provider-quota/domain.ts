@@ -263,7 +263,15 @@ export function resolveResetText(text: string | null | undefined, now: number): 
   return nextWallClock(hour, minute, zone, now)
 }
 
-/** The next instant after `now` whose wall clock in `zone` (local when null) reads hour:minute. */
+/**
+ * A provider that refuses again moments after its announced reset still names the
+ * reset that just passed ("try again at 3:32 AM" at 3:33). That is the same reset,
+ * late, not tomorrow's: within this window the passed instant is returned and the
+ * pause's resume floor retries shortly, instead of waiting a whole day.
+ */
+const JUST_PASSED_RESET_MS = 30 * 60_000
+
+/** The next instant after `now` whose wall clock in `zone` (local when null) reads hour:minute (or one that just passed). */
 function nextWallClock(hour: number, minute: number, zone: string | null, now: number): string | null {
   const offsetAt = (instant: number): number | null => {
     if (!zone) return -new Date(instant).getTimezoneOffset() * 60_000
@@ -277,14 +285,14 @@ function nextWallClock(hour: number, minute: number, zone: string | null, now: n
   const offset = offsetAt(now)
   if (offset === null) return null
   const local = new Date(now + offset)
-  for (let day = 0; day <= 2; day++) {
+  for (let day = -1; day <= 2; day++) {
     const wall = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + day, hour, minute)
     // Two passes settle a DST change between now and the target.
     let candidate = wall - offset
     const corrected = offsetAt(candidate)
     if (corrected === null) return null
     candidate = wall - corrected
-    if (candidate > now) return new Date(candidate).toISOString()
+    if (candidate > now - JUST_PASSED_RESET_MS) return new Date(candidate).toISOString()
   }
   return null
 }

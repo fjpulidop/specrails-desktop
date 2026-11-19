@@ -113,3 +113,33 @@ it('execution keeps the uncached synchronous integrity check', async () => {
   fs.writeFileSync(path.resolve(retained, '../../../node_modules/fixture/index.js'), 'module.exports="tampered"')
   expect(() => resolveRetainedAgentRuntime(context)).toThrow('integrity')
 })
+
+it('retains one shared copy per Core build for every run instead of copying it into each run', async () => {
+  const { cli } = fixture()
+  const { configureSharedRuntimePackageCache, collectUnreferencedRuntimePackages } = await import('./agent-runtime-package')
+  configureSharedRuntimePackageCache(path.join(root, 'shared'))
+  try {
+    const first = file('worktree-a/.specrails/pipeline/run-a/desktop-context.json', '{}')
+    const second = file('worktree-b/.specrails/pipeline/run-b/desktop-context.json', '{}')
+    const copies = vi.spyOn(fs, 'copyFileSync')
+    const a = retainAgentRuntime(cli, first)
+    const copiedOnce = copies.mock.calls.length
+    expect(copiedOnce).toBeGreaterThan(0)
+    const b = retainAgentRuntime(cli, second)
+    expect(copies.mock.calls.length).toBe(copiedOnce)
+    expect(b).toBe(a)
+    expect(a.startsWith(path.join(root, 'shared'))).toBe(true)
+    expect(fs.existsSync(path.join(root, 'worktree-b/.specrails/pipeline/runtime-packages'))).toBe(false)
+    expect(resolveRetainedAgentRuntime(second)).toBe(a)
+    expect(execFileSync(process.execPath, [b], { encoding: 'utf8' }).trim()).toBe('original dependency')
+    // A per-pipeline collection ignores pins into the shared cache.
+    expect(collectUnreferencedRuntimePackages(path.join(root, 'worktree-b/.specrails/pipeline'), { dryRun: true, minimumAgeMs: 86_400_000, now: Date.now() })).toEqual([])
+    // A rebuilt Core is retained again, under its new content digest.
+    fs.writeFileSync(path.join(root, 'active/node_modules/fixture/index.js'), 'module.exports="rebuilt dependency"')
+    const third = file('worktree-c/.specrails/pipeline/run-c/desktop-context.json', '{}')
+    const c = retainAgentRuntime(cli, third)
+    expect(c).not.toBe(a)
+    expect(execFileSync(process.execPath, [c], { encoding: 'utf8' }).trim()).toBe('rebuilt dependency')
+    expect(execFileSync(process.execPath, [a], { encoding: 'utf8' }).trim()).toBe('original dependency')
+  } finally { configureSharedRuntimePackageCache(null) }
+})

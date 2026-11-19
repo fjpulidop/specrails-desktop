@@ -7,6 +7,14 @@ const diagnosis = (patch: Partial<FailureDiagnosis>): FailureDiagnosis => ({
 const blocker = (kind: string, reason = 'pnpm is not installed', requiredAction = 'Install pnpm') => ({ kind, reason, command: 'pnpm', args: ['test'], cwd: '.', requiredAction })
 
 describe('continuation guidance', () => {
+  it('hands the next attempt the full stall reason with the reviewer findings, not the cut one-line detail', () => {
+    const full = 'Automatic correction made no candidate changes. Host verification is valid: true. Acceptance policy: approved == true. Latest review findings: README.md must document the color option default (blue) with an example. Fixer diagnosis: nothing left to change'
+    const text = continuationGuidance(diagnosis({ kind: 'blocked', detail: full.slice(0, 120) + '…' }), { completionReasons: [full, 'unverified'] })!
+    expect(text).toContain('README.md must document the color option default')
+    expect(text).toContain('Fixer diagnosis: nothing left to change')
+    // Without the completion it still falls back to the detail.
+    expect(continuationGuidance(diagnosis({ kind: 'blocked', detail: full.slice(0, 120) }))).toContain('Automatic correction made no candidate changes')
+  })
   it('sends the exact unfinished tasks with the browser and install rule', () => {
     const text = continuationGuidance(diagnosis({ kind: 'incomplete_tasks', incompleteTasks: ['5.2 Visual review at 390px'] }))!
     expect(text).toContain('5.2 Visual review at 390px')

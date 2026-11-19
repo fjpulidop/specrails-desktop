@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { withRuntimePackageLock } from './agent-runtime-package-lock'
+import { sharedRuntimePackageCache } from './agent-runtime-package'
 
 const DIGEST = /^[a-f0-9]{64}$/
 const STAGED = /^\.staged-[a-f0-9-]{36}$/
@@ -34,6 +35,9 @@ export function collectUnreferencedRuntimePackages(pipelineRoot: string, options
       const stat = fs.lstatSync(pinFile)
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16_384) throw new Error('Invalid runtime package pin')
       const pin = JSON.parse(fs.readFileSync(pinFile, 'utf8'))
+      // A pin into the shared launch cache does not reference this cache.
+      const shared = sharedRuntimePackageCache()
+      if (shared && typeof pin.integrity === 'string' && DIGEST.test(pin.integrity) && pin.root === path.join(shared, pin.integrity)) continue
       if (pin.schemaVersion !== 1 || typeof pin.integrity !== 'string' || !DIGEST.test(pin.integrity) ||
         pin.root !== path.join(cache, pin.integrity) || typeof pin.cli !== 'string' || !pin.cli || path.isAbsolute(pin.cli) || pin.cli.split(/[\\/]/).includes('..')) throw new Error('Runtime package pin scope is invalid')
       referenced.add(pin.integrity)

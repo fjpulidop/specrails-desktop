@@ -96,6 +96,14 @@ describe('resolveResetText', () => {
     expect(resolveResetText('2026-11-18T14:00:00Z', T0)).toBe('2026-11-18T14:00:00.000Z')
   })
 
+  it('reads a reset that passed moments ago as that reset, late, never as tomorrow', () => {
+    // Codex refused again at 3:33 Madrid with "try again at 3:32 AM".
+    const justAfter = Date.parse('2026-11-19T02:33:30.000Z')
+    expect(resolveResetText('3:32 AM (Europe/Madrid)', justAfter)).toBe('2026-11-19T02:32:00.000Z')
+    // Long after the reset, the next one is meant.
+    expect(resolveResetText('3:32 AM (Europe/Madrid)', Date.parse('2026-11-19T04:00:00.000Z'))).toBe('2026-11-20T02:32:00.000Z')
+  })
+
   it('returns null for anything it cannot pin down', () => {
     expect(resolveResetText('3', T0)).toBeNull()
     expect(resolveResetText('soon', T0)).toBeNull()

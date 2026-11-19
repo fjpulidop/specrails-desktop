@@ -41,7 +41,10 @@ const STALLED = /Implementation attempt limit reached|Automatic correction made 
  * The operator instruction that goes with a continuation, or null when the cause
  * needs none (a crash, a timeout, a usage limit: the same step simply runs again).
  */
-export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null): string | null {
+/** How much of a stall's full end reason the next attempt reads (the diagnosis detail is a one-line summary). */
+const STALL_REASON_LIMIT = 2_000
+
+export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null, evidence: { completionReasons?: readonly unknown[] | null } = {}): string | null {
   if (!diagnosis || diagnosis.confidence !== 'high') return null
   switch (diagnosis.kind) {
     case 'incomplete_tasks': return unfinishedTasksGuidance(diagnosis.incompleteTasks ?? [])
@@ -61,13 +64,21 @@ export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 
       'Serve and check the app on this run\'s own port (`$PORT`), never on a fixed port, and stop any server you start when you are done.',
     ].join('\n')
     case 'blocked': return diagnosis.detail && STALLED.test(diagnosis.detail) ? [
-      `Specrails continued this run after the previous attempt stalled: ${diagnosis.detail}`,
+      // The full end reason carries the reviewer's findings and the fixer's diagnosis that the
+      // one-line detail cuts ("Latest r…"); the next attempt needs them to change approach.
+      `Specrails continued this run after the previous attempt stalled: ${stallReason(diagnosis.detail, evidence.completionReasons)}`,
       'Re-read the approved tasks and the last failing output, and change approach instead of repeating the last edit.',
       'Checks that need a browser can use `$SPECRAILS_BROWSE` (run `"$SPECRAILS_BROWSE" --help`).',
       INSTALL_RULE,
     ].join('\n') : null
     default: return null
   }
+}
+
+function stallReason(detail: string, reasons: readonly unknown[] | null | undefined): string {
+  const full = (reasons ?? []).find((reason): reason is string => typeof reason === 'string' && STALLED.test(reason))
+  if (!full) return detail
+  return full.length > STALL_REASON_LIMIT ? `${full.slice(0, STALL_REASON_LIMIT)}…` : full
 }
 
 /** Every remaining task reads as a check only a person can make (a `[human]` tag or manual wording). Pure, conservative. */
