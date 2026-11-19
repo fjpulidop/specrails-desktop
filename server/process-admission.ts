@@ -75,6 +75,30 @@ export function beginProjectProcessQuiescence(projectId: string): void {
 export function openProjectProcessAdmission(projectId: string): void {
   closedProjects.delete(projectId)
   projectGenerations.set(projectId, (projectGenerations.get(projectId) ?? 0) + 1)
+  const waiting = admissionWaiters.get(projectId)
+  admissionWaiters.delete(projectId)
+  for (const wake of waiting ?? []) wake()
+}
+
+const admissionWaiters = new Map<string, Set<() => void>>()
+
+/**
+ * Admission for work a person asked for while the project is still being
+ * hydrated (the restart dialog's Resume arrives seconds after boot, before
+ * startup recovery opens the project): wait for it to open, bounded, instead
+ * of refusing with "Process admission is closed". Shutdown still refuses at once.
+ */
+export async function awaitProcessAdmission(projectId: string, timeoutMs = 30_000): Promise<void> {
+  if (!appOpen || !closedProjects.has(projectId)) { assertProcessAdmission(projectId); return }
+  await new Promise<void>((resolve) => {
+    const waiters = admissionWaiters.get(projectId) ?? new Set<() => void>()
+    admissionWaiters.set(projectId, waiters)
+    const done = (): void => { clearTimeout(timer); waiters.delete(done); resolve() }
+    const timer = setTimeout(done, timeoutMs)
+    timer.unref?.()
+    waiters.add(done)
+  })
+  assertProcessAdmission(projectId)
 }
 
 /** @internal Test isolation only; production shutdown is intentionally final. */
@@ -83,4 +107,5 @@ export function resetProcessAdmissionForTests(): void {
   appGeneration += 1
   projectGenerations.clear()
   closedProjects.clear()
+  admissionWaiters.clear()
 }

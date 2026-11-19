@@ -44,7 +44,7 @@ import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo
 import { getRails, getRail, createRail, deleteRail, MAX_RAILS } from './modules/delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from './modules/delivery/runtime/rail-pr-store'
 import { isolationApplies } from './modules/delivery/runtime/rail-isolation'
-import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
+import { assertProcessAdmission, awaitProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 const pendingCancellations = new WeakMap<object, Map<string, Promise<void>>>()
 
@@ -564,7 +564,7 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
-    assertProcessAdmission(c.project.id)
+    await awaitProcessAdmission(c.project.id)
     // Continuing a workflow is cost-incurring: same gate as a rail launch.
     const budgetRejection = c.dailyBudgetRejection?.() ?? null
     if (budgetRejection) { return { status: 409, body: budgetRejection } }
