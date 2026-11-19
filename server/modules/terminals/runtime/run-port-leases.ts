@@ -202,5 +202,5 @@ export const runPortLeases: RunPortLeaseTable = createRunPortLeaseTable()
  *  gets the browser tool (`$SPECRAILS_BROWSE`), which may open loopback only on these ports. */
 export function withRunPortEnv(env: NodeJS.ProcessEnv, worktreePath: string | undefined | null): NodeJS.ProcessEnv {
   const extra = runPortLeases.env(worktreePath, env)
-  return Object.keys(extra).length ? { ...env, ...runBrowseToolEnv(), ...extra } : env
+  return Object.keys(extra).length ? { ...env, ...runBrowseToolEnv(worktreePath), ...extra } : env
 }

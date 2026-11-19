@@ -115,8 +115,12 @@ export function ensureBrowseTool(options: EnsureBrowseToolOptions = {}): string 
 }
 
 /** Env a run process receives: the launcher, when installed. Empty otherwise. */
-export function runBrowseToolEnv(): Record<string, string> {
-  return installedLauncher ? { SPECRAILS_BROWSE: installedLauncher } : {}
+/** Where a run's browser captures land: inside its checkout, never committed (see PR_NEVER_STAGE_PATHS). */
+export const BROWSE_EVIDENCE_DIR = '.specrails/browser-evidence'
+
+export function runBrowseToolEnv(worktreePath?: string | null): Record<string, string> {
+  if (!installedLauncher) return {}
+  return { SPECRAILS_BROWSE: installedLauncher, ...(worktreePath ? { SPECRAILS_BROWSE_EVIDENCE: path.join(worktreePath, BROWSE_EVIDENCE_DIR) } : {}) }
 }
 
 /** Test seam: forget the installed launcher. */

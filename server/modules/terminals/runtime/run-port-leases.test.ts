@@ -95,4 +95,10 @@ describe('run process environment', () => {
     expect(env.PLAYWRIGHT_BROWSERS_PATH).toBeUndefined()
     expect(withRunPortEnv({ PATH: '/bin' }, home)).toEqual({ PATH: '/bin' })
   })
+  it('points the browser tool at an evidence directory inside the run checkout, so the reviewer reads the same captures', () => {
+    vi.stubEnv('SPECRAILS_REGISTRY_HOME', home)
+    resetBrowseToolForTests('/tools/specrails-browse')
+    const env = withRunPortEnv({ PATH: '/bin' }, worktree('r10'))
+    expect(env.SPECRAILS_BROWSE_EVIDENCE).toBe(path.join(worktree('r10'), '.specrails', 'browser-evidence'))
+  })
 })

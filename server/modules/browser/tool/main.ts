@@ -231,7 +231,12 @@ async function main(): Promise<void> {
   const url = options.url ?? (env.PORT ? `http://127.0.0.1:${env.PORT}/` : fail('--start without --url needs $PORT'))
   const refused = refusedUrl(url, policy)
   if (refused) fail(`refused ${url}: ${refused}`)
-  const out = options.out ? path.resolve(options.out) : fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-browse-'))
+  // A run exports its evidence directory (inside the run checkout, never committed) so the
+  // reviewer can read the same screenshots and console the developer judged; outside a run the
+  // capture goes to a temporary directory.
+  const evidenceRoot = env.SPECRAILS_BROWSE_EVIDENCE ? path.resolve(env.SPECRAILS_BROWSE_EVIDENCE) : null
+  if (evidenceRoot) fs.mkdirSync(evidenceRoot, { recursive: true })
+  const out = options.out ? path.resolve(options.out) : fs.mkdtempSync(evidenceRoot ? path.join(evidenceRoot, 'capture-') : path.join(os.tmpdir(), 'specrails-browse-'))
   fs.mkdirSync(out, { recursive: true })
   const app = options.start ? await startApp(options.start, url, options.startTimeoutMs, out) : null
   const { module: playwright, dir } = loadPlaywright()

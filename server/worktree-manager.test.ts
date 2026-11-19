@@ -500,6 +500,8 @@ describe('commitWorktree', () => {
       fs.writeFileSync(path.join(dir, '.specrails', 'pipeline', 'runtime-packages', 'abc', 'node_modules', 'dep', 'index.js'), '\n')
       fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite'), 'db')
       fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite-wal'), 'wal')
+      fs.mkdirSync(path.join(dir, '.specrails', 'browser-evidence', 'capture-1'), { recursive: true })
+      fs.writeFileSync(path.join(dir, '.specrails', 'browser-evidence', 'capture-1', 'desktop.png'), 'png')
       fs.writeFileSync(path.join(dir, 'app.py'), 'code = 1\n')
 
       const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [])

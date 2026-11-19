@@ -263,6 +263,9 @@ export const PR_NEVER_STAGE_PATHS = [
   '.specrails/engine-store.sqlite',
   '.specrails/engine-store.sqlite-wal',
   '.specrails/engine-store.sqlite-shm',
+  // The run browser tool's captures (screenshots, console, page text): review evidence, never PR content.
+  '.specrails/browser-evidence',
+  '.specrails/browser-evidence/**',
 ] as const
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'
