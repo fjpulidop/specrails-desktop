@@ -9,6 +9,7 @@ import { useEffect, useRef, type MutableRefObject } from 'react'
 import i18n from '../../../lib/i18n'
 import { appAttention } from '../../../lib/attention/app-attention'
 import type { AttentionCenter, AttentionEvent } from '../../../lib/attention/attention-center'
+import { isMissionOnScreen } from '../../../lib/attention/mission-screen'
 import { isMainFocused } from '../../../lib/attention/window-focus'
 import { INBOX_PARAM, JOB_PARAM, REVIEW_PARAM } from '../../../lib/places'
 import { inboxItemText } from '../lib/inbox-item-text'
@@ -50,8 +51,14 @@ export function useInboxAttention({ status, snapshot, visible, locationRef, uiMo
   const seeded = useRef(false)
   const openRef = useRef(open)
   openRef.current = open
+  const pending = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (status !== 'ready') return
+    // An item answered or dismissed since (often in the mission's own window) is no longer
+    // waiting: it must not come back in the "N things need you" return toast.
+    const stillVisible = new Set(visible.map((item) => `inbox:${inboxItemKey(item)}`))
+    for (const key of pending.current) if (!stillVisible.has(key)) center.forget(key)
+    pending.current = stillVisible
     const now = Date.now()
     const { announce, ledger } = planAnnouncements(readAnnounced(now), snapshot, visible, !seeded.current, now)
     seeded.current = true
@@ -66,7 +73,9 @@ export function useInboxAttention({ status, snapshot, visible, locationRef, uiMo
         projectId: item.projectId,
         title,
         body,
-        isOnScreen: (focus) => isMainFocused(focus) && inboxItemOnScreen(item, locationRef.current, uiModeRef.current),
+        // Its own place in the main window, or the mission it belongs to (main window or its own window).
+        isOnScreen: (focus) => (isMainFocused(focus) && inboxItemOnScreen(item, locationRef.current, uiModeRef.current))
+          || (!!item.conversationId && isMissionOnScreen(item.conversationId, focus)),
         open: () => openRef.current(item),
       }
       void center.dispatch(event)

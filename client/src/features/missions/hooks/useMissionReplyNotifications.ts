@@ -14,14 +14,12 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import i18n from '../../../lib/i18n'
 import { appAttention } from '../../../lib/attention/app-attention'
 import type { AttentionCenter } from '../../../lib/attention/attention-center'
-import { isMainFocused, type WindowFocus } from '../../../lib/attention/window-focus'
+import { missionOnScreen, publishMissionScreen, type MissionScreen } from '../../../lib/attention/mission-screen'
 import { useAgentChat } from '../context/AgentChatContext'
 import { PRIMARY_PANE, useMissionSplitViews } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useOpenMission } from './useOpenMission'
 
-/** Routes that cover the Mission-mode centre (the mission is not visible behind them). */
-const CENTRE_ROUTES = ['/loops', '/plugins', '/docs', '/settings']
 const SNIPPET_CHARS = 140
 
 /** The reply's first words, as plain text. */
@@ -37,26 +35,7 @@ export function replySnippet(text: string | undefined): string {
   return chars.length <= SNIPPET_CHARS ? plain : `${chars.slice(0, SNIPPET_CHARS - 1).join('')}…`
 }
 
-export interface MissionScreen {
-  uiMode: 'kanban' | 'agent'
-  pathname: string
-  activeId: string | null
-  primaryVisible: boolean
-  splitIds: readonly string[]
-  chatOpen: boolean
-  /** conversationId → the label of the native window it is detached to. */
-  detached: ReadonlyMap<string, string>
-}
-
-/** Is this mission what the person is looking at, given the focus? */
-export function missionOnScreen(conversationId: string, screen: MissionScreen, focus: WindowFocus): boolean {
-  const windowLabel = screen.detached.get(conversationId)
-  if (windowLabel) return focus.label === windowLabel
-  if (!isMainFocused(focus)) return false
-  if (screen.uiMode === 'kanban') return screen.chatOpen && screen.activeId === conversationId
-  if (screen.splitIds.includes(conversationId)) return true
-  return screen.primaryVisible && screen.activeId === conversationId && !CENTRE_ROUTES.some((route) => screen.pathname.startsWith(route))
-}
+export { missionOnScreen, type MissionScreen }
 
 export function useMissionReplyNotifications({ pathname, center = appAttention }: { pathname: string; center?: AttentionCenter }): void {
   const agentChat = useAgentChat()
@@ -78,6 +57,8 @@ export function useMissionReplyNotifications({ pathname, center = appAttention }
     chatOpen: agentChat.visibility === 'open',
     detached: new Map(windows.transfers.filter((transfer) => transfer.state === 'detached').map((transfer) => [transfer.conversationId, transfer.windowLabel])),
   }
+  publishMissionScreen(screenRef.current)
+  useEffect(() => () => publishMissionScreen(null), [])
   const lookupRef = useRef({ conversations: agentChat.conversations, projects, openMission, openChat: agentChat.open, focusWindow: windows.focus })
   lookupRef.current = { conversations: agentChat.conversations, projects, openMission, openChat: agentChat.open, focusWindow: windows.focus }
 

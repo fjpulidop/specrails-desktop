@@ -1,3 +1,4 @@
+import { publishMissionScreen } from '../../../lib/attention/mission-screen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { MutableRefObject } from 'react'
@@ -156,5 +157,28 @@ describe('useInboxAttention', () => {
     renderHook((p) => useInboxAttention(p), { initialProps: next.props([a, b, c]) })
     expect(next.events).toEqual([])
     expect(Object.keys(readAnnounced())).toContain(inboxItemKey(c))
+  })
+
+  it('an item whose mission is in front of the person (main window or its own window) is on screen', () => {
+    const { events, props } = setup()
+    const { rerender } = renderHook((p) => useInboxAttention(p), { initialProps: props([]) })
+    rerender(props([mk({ id: 'q', kind: 'question', action: 'open-run', subjectId: 'r1', conversationId: 'm1' })]))
+    const event = events[0]
+    publishMissionScreen({ uiMode: 'agent', pathname: '/', activeId: 'm2', primaryVisible: true, splitIds: [], chatOpen: false, detached: new Map([['m1', 'mission-m1']]) })
+    expect(event.isOnScreen?.({ appFocused: true, label: 'mission-m1' })).toBe(true)
+    expect(event.isOnScreen?.({ appFocused: true, label: 'main' })).toBe(false)
+    publishMissionScreen({ uiMode: 'agent', pathname: '/', activeId: 'm1', primaryVisible: true, splitIds: [], chatOpen: false, detached: new Map() })
+    expect(event.isOnScreen?.({ appFocused: true, label: 'main' })).toBe(true)
+    publishMissionScreen(null)
+  })
+
+  it('an item answered or dismissed since is forgotten for the return toast', () => {
+    const { props } = setup()
+    const center = props([]).center
+    const a = mk({ id: 'a' }), b = mk({ id: 'b' })
+    const { rerender } = renderHook((p) => useInboxAttention(p), { initialProps: props([a, b]) })
+    rerender(props([a, b], [a]))
+    expect(center.forget).toHaveBeenCalledWith(`inbox:${inboxItemKey(b)}`)
+    expect(center.forget).not.toHaveBeenCalledWith(`inbox:${inboxItemKey(a)}`)
   })
 })

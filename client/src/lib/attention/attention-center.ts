@@ -36,6 +36,8 @@ export interface AttentionEvent {
 export interface AwayEntry {
   key: string
   open?: () => void
+  /** The event's own on-screen check: on return, an item already in front of the person is not announced again. */
+  isOnScreen?: (focus: WindowFocus) => boolean
 }
 
 export interface AttentionCenterDeps {
@@ -147,7 +149,7 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
       })
       // Away: remembered for the return toast even when the system refused the
       // notification (permission denied), so the person still hears about it.
-      if (!focus.appFocused) away = [...away.filter((entry) => entry.key !== event.key), { key: event.key, open }]
+      if (!focus.appFocused) away = [...away.filter((entry) => entry.key !== event.key), { key: event.key, open, isOnScreen: event.isOnScreen }]
       else if (!shown) showToast(event)
       return decision
     },
