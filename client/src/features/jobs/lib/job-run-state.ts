@@ -3,16 +3,17 @@
 // jobs pane, the command palette). The labels and tooltips stay the jobs'
 // own: they say more than the state's name (a zombie, a skipped pipeline job).
 
-import type { JobStatus } from '../../../types'
+import type { TFunction } from 'i18next'
+import type { JobHold, JobHoldKind, JobStatus, JobSummary } from '../../../types'
 import type { RunState } from '../../../components/ui/run-state/run-state'
 import type { PhaseState } from '../hooks/usePipeline'
 
 export interface JobStatusLook {
   state: RunState
   /** `jobs:` key of the visible name. */
-  labelKey: `statusLabel.${string}`
+  labelKey: `statusLabel.${string}` | `held.label.${string}`
   /** `jobs:` key of the explanation. */
-  tooltipKey: `statusTooltip.${string}`
+  tooltipKey: `statusTooltip.${string}` | `held.tooltip.${string}`
 }
 
 export const JOB_STATUS_LOOK = {
@@ -26,9 +27,69 @@ export const JOB_STATUS_LOOK = {
   skipped: { state: 'stopped', labelKey: 'statusLabel.skipped', tooltipKey: 'statusTooltip.skipped' },
 } as const satisfies Record<JobStatus, JobStatusLook>
 
-/** The look of a job status; an unknown value (a newer server) reads as queued. */
-export function jobStatusLook(status: string): JobStatusLook {
+/**
+ * A stopped run that still owns its job row (the row stays `running` for its
+ * tickets and worktree) in the vocabulary: paused by a restart, an interrupted
+ * write or the budget; blocked on a provider's usage limit; asking the person.
+ */
+export const HELD_RUN_STATE = {
+  restart: 'paused',
+  interrupted: 'paused',
+  provider_limit: 'blocked',
+  budget: 'paused',
+  question: 'needs-input',
+  approval: 'needs-input',
+  paused: 'paused',
+} as const satisfies Record<JobHoldKind, RunState>
+
+const isHoldKind = (value: unknown): value is JobHoldKind =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(HELD_RUN_STATE, value)
+
+/** The hold of a job its row calls running; null when it works (or the payload is malformed). */
+export function jobHoldOf(job: Pick<JobSummary, 'status' | 'hold'> | null | undefined): JobHold | null {
+  const hold = job?.hold
+  if (!job || job.status !== 'running' || !hold || typeof hold !== 'object' || !isHoldKind(hold.kind)) return null
+  return {
+    kind: hold.kind,
+    step: typeof hold.step === 'string' && hold.step ? hold.step : null,
+    since: typeof hold.since === 'string' && Number.isFinite(Date.parse(hold.since)) ? hold.since : null,
+    ...(typeof hold.resumeAt === 'string' ? { resumeAt: hold.resumeAt } : {}),
+  }
+}
+
+/** True only while the job genuinely works: running and not held. */
+export function isJobLive(job: Pick<JobSummary, 'status' | 'hold'> | null | undefined): boolean {
+  return job?.status === 'running' && !jobHoldOf(job)
+}
+
+/** The status a log/graph surface should treat the job as: a held run is `paused` (settled for now, not working). */
+export function jobDisplayStatus(job: Pick<JobSummary, 'status' | 'hold'>): string {
+  return jobHoldOf(job) ? 'paused' : job.status
+}
+
+/**
+ * The look of a job: its hold when it has one, else its status. A bare status
+ * string still works (an unknown value, a newer server, reads as queued).
+ */
+export function jobStatusLook(job: string | Pick<JobSummary, 'status' | 'hold'>): JobStatusLook {
+  const status = typeof job === 'string' ? job : job.status
+  const hold = typeof job === 'string' ? null : jobHoldOf(job)
+  if (hold) return { state: HELD_RUN_STATE[hold.kind], labelKey: `held.label.${hold.kind}`, tooltipKey: `held.tooltip.${hold.kind}` }
   return isJobStatus(status) ? JOB_STATUS_LOOK[status] : JOB_STATUS_LOOK.queued
+}
+
+/** `agentRuntime:roles.developer` when known, else the step id in words (`spec-review` → `Spec review`). */
+export function holdStepName(t: TFunction, step: string): string {
+  const words = step.split('/').pop()!.replace(/[-_]+/g, ' ').trim()
+  return t(`agentRuntime:roles.${step}`, { defaultValue: words ? words[0]!.toUpperCase() + words.slice(1) : step })
+}
+
+/** One plain sentence: why the run is not working ("The app restarted during the Developer step."). */
+export function describeJobHold(t: TFunction, hold: JobHold): string {
+  const withStep = hold.step && (hold.kind === 'restart' || hold.kind === 'interrupted')
+  return withStep
+    ? t(`jobs:held.reason.${hold.kind}`, { step: holdStepName(t, hold.step!) })
+    : t(`jobs:held.reason.${hold.kind}${hold.kind === 'restart' || hold.kind === 'interrupted' ? 'NoStep' : ''}`)
 }
 
 function isJobStatus(status: string): status is JobStatus {

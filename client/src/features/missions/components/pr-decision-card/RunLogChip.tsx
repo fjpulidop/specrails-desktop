@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../../../lib/utils'
 import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { useRunVitals, formatRunElapsed } from '../../../jobs/hooks/useRunVitals'
+import { describeJobHold } from '../../../jobs/lib/job-run-state'
 import { dailyBudgetPausedMessage } from '../../../../lib/daily-budget'
 import { formatUsd } from '../../../analytics/lib/format'
 import { providerLabel } from '../../../provider-quota/lib/labels'
@@ -42,7 +43,9 @@ export function RunLogChip({
   const limitReason = vitals.pauseLimit
     ? [tQuota('pause.title', { provider: providerLabel(vitals.pauseLimit.providerId) }), vitals.pauseLimit.resumeAt && vitals.pauseLimit.autoResume ? tQuota('mission.scheduled', { time: formatResetTime(vitals.pauseLimit.resumeAt, i18n.language) }) : null].filter(Boolean).join(' — ')
     : null
-  const pausedReason = vitals.pauseBudget ? dailyBudgetPausedMessage(t, vitals.pauseBudget) : limitReason ?? vitals.pausedReason
+  // A held run (an app restart, an interrupted step) says why in the person's words.
+  const holdReason = vitals.hold && vitals.hold.kind !== 'provider_limit' && vitals.hold.kind !== 'budget' ? describeJobHold(i18n.t, vitals.hold) : null
+  const pausedReason = vitals.pauseBudget ? dailyBudgetPausedMessage(t, vitals.pauseBudget) : limitReason ?? holdReason ?? vitals.pausedReason
   const budgetPaused = vitals.pauseBudget !== null
   const label = ticketLabel ?? runId.slice(0, 8)
   const elapsed = vitals.elapsedMs != null ? formatRunElapsed(vitals.elapsedMs) : null

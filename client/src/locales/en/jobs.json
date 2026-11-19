@@ -392,5 +392,41 @@
     "navigation": "Run detail",
     "sections": "Log sections",
     "stopped": "Continue"
+  },
+  "held": {
+    "label": {
+      "restart": "Paused",
+      "interrupted": "Interrupted",
+      "provider_limit": "Usage limit",
+      "budget": "Spending limit",
+      "question": "Needs your answer",
+      "approval": "Needs your approval",
+      "paused": "Paused"
+    },
+    "tooltip": {
+      "restart": "The app restarted while this run was working. Nothing runs until you continue it.",
+      "interrupted": "A step stopped before it finished. Nothing runs until you continue it.",
+      "provider_limit": "The provider's usage limit was reached. The run waits for it to reset.",
+      "budget": "The spending limit was reached. Nothing runs until you continue it.",
+      "question": "The run asked you something and waits for your answer.",
+      "approval": "The run waits for your approval to go on.",
+      "paused": "Nothing runs until you continue it."
+    },
+    "reason": {
+      "restart": "The app restarted during the {{step}} step.",
+      "restartNoStep": "The app restarted while the run was working.",
+      "interrupted": "The {{step}} step stopped before it finished.",
+      "interruptedNoStep": "A step stopped before it finished.",
+      "provider_limit": "Waiting for the provider's usage limit to reset.",
+      "budget": "The spending limit was reached.",
+      "question": "Waiting for your answer.",
+      "approval": "Waiting for your approval.",
+      "paused": "Nothing runs until you continue it."
+    },
+    "stoppedTime": "Time it worked until it stopped",
+    "cancelRun": "Cancel run",
+    "cancelRunConfirmTitle": "Cancel this paused run?",
+    "cancelRunConfirmDescription": "It ends as stopped and nothing more runs. Its changes stay in its worktree, and you can still continue it later from the run window.",
+    "keepPaused": "Keep it paused"
   }
 }

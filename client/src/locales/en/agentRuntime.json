@@ -174,7 +174,7 @@
     "approve": "Approve completion",
     "recover": "Recover interrupted phase",
     "resume": "Resume",
-    "cancel": "Cancel continuation",
+    "cancel": "Cancel run",
     "status": {
       "running": "Continuing…",
       "succeeded": "Succeeded",
@@ -196,7 +196,12 @@
     "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
     "prepareDelivery": "Prepare delivery",
     "dismiss": "Dismiss",
-    "selectRecovery": "Select the interrupted attempts to recover"
+    "selectRecovery": "Choose which interrupted steps to continue",
+    "continue": "Continue",
+    "continueConsequence": "The {{step}} step resumes where it stopped; its partial changes are kept.",
+    "continueConsequenceMany": "The interrupted steps resume where they stopped; their partial changes are kept.",
+    "recoveryHint": "Each one resumes where it stopped and keeps its partial changes. A step you leave out stays interrupted.",
+    "recoveryBranch": "{{step}} · branch {{index}}"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",

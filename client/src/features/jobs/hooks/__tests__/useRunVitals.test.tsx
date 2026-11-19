@@ -220,3 +220,23 @@ describe('useRunVitals budget_paused (rail-loop-budget-guard)', () => {
     expect(budgetText()).toBe('1|-')
   })
 })
+
+describe('useRunVitals — a held run', () => {
+  it('reads paused from its hold and its elapsed stops where it stopped (no ticking)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jobRes({ id: 'run-1', status: 'running', started_at: new Date(T0 - 600_000).toISOString(), finished_at: null,
+      hold: { kind: 'restart', step: 'developer', since: new Date(T0 - 120_000).toISOString() } })))
+    function HeldProbe() {
+      const v = useRunVitals('p1', 'run-1', { live: true })
+      return <div data-testid="held">{`${v.paused ? 1 : 0}|${v.hold?.kind ?? '-'}|${v.elapsedMs ?? '-'}`}</div>
+    }
+    render(<HeldProbe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(screen.getByTestId('held').textContent).toBe('1|restart|480000')
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+    expect(screen.getByTestId('held').textContent).toBe('1|restart|480000')
+    // Continued: the clock runs again.
+    act(() => emitWs({ type: 'loop.run_resumed', loopRunId: 'run-1' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(screen.getByTestId('held').textContent).toBe(`0|-|${600_000 + 7_000}`)
+  })
+})

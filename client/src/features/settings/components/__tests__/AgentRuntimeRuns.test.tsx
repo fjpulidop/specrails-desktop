@@ -14,8 +14,9 @@ describe('AgentRuntimeRuns', () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, recoverableSteps: ['attempt-7'], status: 'interrupted' })] }))
     render(<AgentRuntimeRuns projectId="p1" />)
-    await user.click(await screen.findByRole('checkbox', { name: 'attempt-7' }))
-    await user.click(await screen.findByRole('button', { name: 'Recover interrupted phase' }))
+    // One interrupted attempt: one Continue, no checkbox of raw ids.
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+    expect(screen.queryByRole('checkbox')).toBeNull()
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ recover: ['attempt-7'] }) }))
   })
 
@@ -45,7 +46,7 @@ describe('AgentRuntimeRuns', () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, canResume: false, canCancel: true, active: true })] }))
     render(<AgentRuntimeRuns projectId="p1" />)
-    await user.click(await screen.findByRole('button', { name: 'Cancel continuation' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel run' }))
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/cancel', expect.objectContaining({ method: 'POST', body: '{}' }))
   })
 
@@ -95,7 +96,7 @@ describe('AgentRuntimeRuns', () => {
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/run-1/resume', expect.objectContaining({ body: '{}' }))
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'running', canResume: false, canCancel: true, active: true })] }))
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
-    await user.click(await screen.findByRole('button', { name: 'Cancel continuation' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel run' }))
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/run-1/cancel', expect.objectContaining({ method: 'POST', body: '{}' }))
   })
 

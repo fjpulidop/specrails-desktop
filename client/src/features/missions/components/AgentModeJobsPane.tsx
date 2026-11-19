@@ -194,7 +194,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                 >
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const look = jobStatusLook(job.status)
+                      const look = jobStatusLook(job)
                       return <RunStatePill state={look.state} label={tJobs(look.labelKey)} data-testid="agent-job-status" />
                     })()}
                     {/* A continued run is its chain's one row; it names its attempt. */}

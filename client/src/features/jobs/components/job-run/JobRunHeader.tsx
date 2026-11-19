@@ -37,7 +37,7 @@ import {
   type JobRunSurface,
   type PipelineTotals,
 } from './job-run-model'
-import { jobStatusLook } from '../../lib/job-run-state'
+import { describeJobHold, jobHoldOf, jobStatusLook } from '../../lib/job-run-state'
 
 export interface JobRunDetailsContext {
   diagnosis: FailureDiagnosis | null
@@ -107,18 +107,24 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const { t: tRecovery } = useTranslation('recovery')
-  const isRunning = job.status === 'running'
+  // A run that stopped without settling keeps its row running (it still owns
+  // its tickets and worktree): its hold says why, and nothing here is live.
+  const hold = jobHoldOf(job)
+  const isRunning = job.status === 'running' && !hold
   const isQueued = job.status === 'queued'
   const isLoopJob = job.command.startsWith('loop:')
-  const statusInfo = jobStatusLook(job.status)
+  const statusInfo = jobStatusLook(job)
 
   // Live wall-clock tick (1 s) while running — the only genuinely live number.
+  // A held run shows the time it worked until it stopped.
   const now = useNow(1000, isRunning)
   const elapsed = job.finished_at
     ? formatWallClock(job.started_at, job.finished_at)
     : isRunning
       ? formatWallClock(job.started_at, now)
-      : '—'
+      : hold?.since
+        ? formatWallClock(job.started_at, Date.parse(hold.since))
+        : '—'
 
   const activity = useJobActivity(job.id, events)
   const ownRuntime = useRuntimeRuns(projectId, { jobId: job.id, enabled: !!projectId && !sharedRuntime })
@@ -141,7 +147,9 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     : t(`statusPanel.activity.${activityKey}`)
   const liveLine = isRunning
     ? (phaseLabel ? t('runHeader.phaseActivity', { phase: phaseLabel, activity: activityLabel }) : activityLabel)
-    : run && !run.active && run.nextStep && (run.canResume || run.pendingQuestion || run.pendingApproval)
+    : hold
+      ? describeJobHold(t, hold)
+      : run && !run.active && run.nextStep && (run.canResume || run.pendingQuestion || run.pendingApproval)
       ? t('runHeader.phaseActivity', {
           phase: tRuntime(`runs.status.${run.status}`, { defaultValue: run.status }),
           activity: tRuntime('runs.phase', { phase: runtimePhaseLabel }),
@@ -152,7 +160,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
   // ── Details content ───────────────────────────────────────────────────
   const final = finalMetricsFor(job)
-  const isTerminal = !isRunning && !isQueued
+  const isTerminal = job.status !== 'running' && !isQueued
   const modifiedFiles = useMemo(() => (isTerminal ? extractModifiedFiles(events) : []), [events, isTerminal])
   const hasLiveCounters = isRunning && activity.turns > 0
   const runtimeError = runtime.runs.length > 0 ? runtime.error : ''
@@ -162,7 +170,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const busy = runtime.busy !== null
   const runtimeActions = run ? (
     <>
-      {run.canResume && !answerable && (
+      {/* A run that is working right now never offers Continue (the runtime poll can lag the resume). */}
+      {run.canResume && !answerable && !isRunning && (
         run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy} onRecover={attempts => void runtime.act(run, 'recover', attempts)} /> :
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>
           {run.recoverableSteps.length ? tRuntime('runs.recover') : run.pendingApproval ? tRuntime('runs.approve') : tRuntime('runs.resume')}
@@ -177,7 +186,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {run.canSettle && (
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'settle')}>{tRuntime('runs.prepareDelivery')}</Button>
       )}
-      {run.canCancel && (
+      {/* While the row is running the surface's own Stop / Cancel run ends it: one control, not two. */}
+      {run.canCancel && job.status !== 'running' && (
         <Button size="sm" variant="secondary" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'cancel')}>{tRuntime('runs.cancel')}</Button>
       )}
     </>
@@ -350,11 +360,12 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         ) : (
         <span
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
-          title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
+          title={isRunning ? t('statusPanel.liveTooltip') : hold ? t('held.stoppedTime') : t('statusPanel.duration')}
+          data-testid="job-run-elapsed"
         >
           {isRunning && <RunStateDot state="working" />}
           {elapsed}
-        {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
+        <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : hold ? t('held.stoppedTime') : t('statusPanel.duration')})</span></span>
         )}
   </>)
   const statusTrail = (<>
@@ -362,7 +373,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
-            <span className="truncate" data-testid="job-run-activity">{liveLine}</span>
+            <span className="truncate" data-testid="job-run-activity" title={liveLine}>{liveLine}</span>
           </span>
         )}
         {!liveLine && <span className="flex-1" />}
@@ -380,7 +391,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {/* Row 2 — pipeline chips, exactly once */}
       {phaseDefinitions.length > 0 && (
         <div className="px-3 pb-2 pt-2 overflow-x-auto">
-          <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
+          <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} held={!!hold} />
         </div>
       )}
     </div>}

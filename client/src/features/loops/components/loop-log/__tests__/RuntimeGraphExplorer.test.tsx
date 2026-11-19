@@ -189,3 +189,20 @@ it('draws node states from the run-state vocabulary: failed glyph and stroke, le
   // Legend lamps never pulse.
   expect(legend.querySelector('[data-live-ring]')).toBeNull()
 })
+
+it('the step a held run stopped in reads Interrupted in the paused lamp, never the live running style', async () => {
+  // A held job (the app restarted mid developer step) is shown with jobDisplayStatus 'paused': settled for now.
+  const { jobDisplayStatus } = await import('../../../../jobs/lib/job-run-state')
+  const status = jobDisplayStatus({ status: 'running', hold: { kind: 'restart', step: 'developer', since: null } })
+  const roleTopology: RuntimeTopology = { entry: 'developer', nodes: [{ id: 'developer', kind: 'role-turn', label: 'Developer', ends: { next: null } }], components: {} }
+  const open = segment('dev-attempt', 'root', 'ok')
+  open.meta.nodePath = open.meta.nodeId = 'developer'; delete open.end
+  render(<RuntimeGraphExplorer topology={roleTopology} segments={[open]} settled={status !== 'running' && status !== 'queued'} onFocus={vi.fn()} />)
+  const node = await screen.findByTestId('node-developer')
+  expect(node).toHaveTextContent('Interrupted')
+  expect(node).not.toHaveTextContent('Running')
+  expect(node).toHaveAttribute('data-border', 'var(--color-accent-warning)')
+  // The node's kind is named in words, not the raw `role-turn` id.
+  expect(node).toHaveTextContent('Agent step')
+  expect(node).not.toHaveTextContent('role-turn')
+})

@@ -200,3 +200,13 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('j-42')).toBeInTheDocument()
   })
 })
+
+describe('AgentModeJobsPane — a run stopped by an app restart', () => {
+  it('lists it as Paused, never as running', () => {
+    mockJobs = [{ ...job('j-held', 'running', 'loop: Implement #15'), hold: { kind: 'restart', step: 'developer', since: new Date().toISOString() } }]
+    renderPane()
+    const pill = screen.getByTestId('agent-job-status')
+    expect(pill).toHaveTextContent('Paused')
+    expect(pill).not.toHaveTextContent('Running')
+  })
+})

@@ -392,5 +392,41 @@
     "navigation": "运行详情",
     "sections": "日志分区",
     "stopped": "继续"
+  },
+  "held": {
+    "label": {
+      "restart": "已暂停",
+      "interrupted": "已中断",
+      "provider_limit": "用量上限",
+      "budget": "支出上限",
+      "question": "等待你的回答",
+      "approval": "等待你的批准",
+      "paused": "已暂停"
+    },
+    "tooltip": {
+      "restart": "此运行工作时应用重启了。在你继续之前不会运行任何内容。",
+      "interrupted": "某个步骤在完成前停止了。在你继续之前不会运行任何内容。",
+      "provider_limit": "已达到提供商的用量上限。运行将等待其重置。",
+      "budget": "已达到支出上限。在你继续之前不会运行任何内容。",
+      "question": "运行向你提了一个问题，正在等待你的回答。",
+      "approval": "运行正在等待你的批准才能继续。",
+      "paused": "在你继续之前不会运行任何内容。"
+    },
+    "reason": {
+      "restart": "应用在 {{step}} 步骤期间重启了。",
+      "restartNoStep": "应用在运行工作时重启了。",
+      "interrupted": "{{step}} 步骤在完成前停止了。",
+      "interruptedNoStep": "某个步骤在完成前停止了。",
+      "provider_limit": "正在等待提供商的用量上限重置。",
+      "budget": "已达到支出上限。",
+      "question": "正在等待你的回答。",
+      "approval": "正在等待你的批准。",
+      "paused": "在你继续之前不会运行任何内容。"
+    },
+    "stoppedTime": "停止前的工作时长",
+    "cancelRun": "取消运行",
+    "cancelRunConfirmTitle": "取消这个已暂停的运行？",
+    "cancelRunConfirmDescription": "它将以已停止结束，不再运行任何内容。它的更改保留在其工作树中，之后你仍可以从运行窗口继续它。",
+    "keepPaused": "保持暂停"
   }
 }

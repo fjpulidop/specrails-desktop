@@ -5,13 +5,21 @@ import { cn } from '../../../lib/utils'
 import type { PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { phaseRunState } from '../lib/job-run-state'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 interface PipelineProgressProps {
   phases: PhaseMap
   phaseDefinitions: PhaseDefinition[]
+  /** The run is stopped (held): its last phase reads paused, never live. */
+  held?: boolean
 }
 
-export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressProps) {
+/** A phase's state in the vocabulary; the phase a held run stopped in is paused. */
+function phaseLook(state: PhaseState, held: boolean): RunState {
+  return held && state === 'running' ? 'paused' : phaseRunState(state)
+}
+
+export function PipelineProgress({ phases, phaseDefinitions, held = false }: PipelineProgressProps) {
   if (phaseDefinitions.length === 0) return null
 
   return (
@@ -22,14 +30,14 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
           idx < phaseDefinitions.length - 1
             ? (phases[phaseDefinitions[idx + 1].key] ?? 'idle')
             : null
-        const look = runStateLook(phaseRunState(state))
+        const look = runStateLook(phaseLook(state, held))
 
         return (
           <div key={phaseDef.key} className="flex items-center">
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex flex-col items-center gap-1.5 cursor-default px-4">
-                  <PhaseNode state={state} />
+                  <PhaseNode state={state} held={held} />
                   <span className={cn('text-label transition-colors', look.text)}>
                     {phaseDef.label}
                   </span>
@@ -47,7 +55,7 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
                   'h-px w-12 -mt-5 shrink-0 transition-all duration-200',
                   nextState === 'done' || state === 'done'
                     ? 'bg-accent-success/40'
-                    : nextState === 'running'
+                    : nextState === 'running' && !held
                       ? 'bg-accent-info/40'
                       : 'bg-border/30',
                 )}
@@ -68,14 +76,14 @@ const NODE_FILL: Record<PhaseState, string> = {
 }
 
 /** A phase's lamp: the running phase is the pulsing info LiveDot (never a pulsing node); the rest show their state's glyph. */
-function PhaseNode({ state }: { state: PhaseState }) {
-  const runState = phaseRunState(state)
+function PhaseNode({ state, held }: { state: PhaseState; held: boolean }) {
+  const runState = phaseLook(state, held)
   const look = runStateLook(runState)
   const Icon = look.icon
   return (
     <div
       data-run-state={runState}
-      className={cn('flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200', NODE_FILL[state])}
+      className={cn('flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200', runState === 'paused' ? 'bg-accent-warning/10 ring-1 ring-accent-warning/30' : NODE_FILL[state])}
     >
       {Icon
         ? <Icon aria-hidden className={cn('w-6 h-6', look.text, state === 'idle' && 'opacity-20')} />

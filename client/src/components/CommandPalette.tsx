@@ -1001,7 +1001,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
             <span className="flex-1 truncate">{jobLabel(job)}</span>
             {(() => {
-              const look = jobStatusLook(job.status)
+              const look = jobStatusLook(job)
               return (
                 <span data-run-state={look.state} className={cn('inline-flex items-center gap-1.5 text-caption font-medium', runStateLook(look.state).text)}>
                   <RunStateDot state={look.state} />

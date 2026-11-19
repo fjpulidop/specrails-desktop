@@ -65,6 +65,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
   leading?: ReactNode
 }) {
   const { t } = useTranslation('jobs')
+  const { t: tLoops } = useTranslation('loops')
   const theme = useActiveTheme()
   const [fullscreen, setFullscreen] = useState(false)
   const [trail, setTrail] = useState<Array<{ path: string; body: RuntimeTopologyBody }>>([])
@@ -137,7 +138,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
             <span className="min-w-0 break-words">{node.label}</span>
           </strong>
           <span className="mt-1 flex items-center gap-1.5 text-caption text-muted-foreground">
-            <span>{node.kind}</span><span aria-hidden>·</span><span style={unvisited ? undefined : { color }}>{t(`loopExplorer.graphState.${state}`)}</span>
+            <span>{tLoops(`builder.core.pieces.${node.kind}`, { defaultValue: node.kind })}</span><span aria-hidden>·</span><span style={unvisited ? undefined : { color }}>{t(`loopExplorer.graphState.${state}`)}</span>
             {count > 1 && <span className="ml-auto rounded-full bg-muted px-1.5 num">×{count}</span>}
           </span>
         </span>
@@ -153,7 +154,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
     // Entry first gives the existing deterministic layout the real Core root.
     nodes.sort((a, b) => a.id === view.body.entry ? -1 : b.id === view.body.entry ? 1 : 0)
     return { nodes: layoutLoop(nodes, edges, 'vertical'), edges }
-  }, [view.body, states, t, pathOnly])
+  }, [view.body, states, t, tLoops, pathOnly])
 
   // The step to keep in view: running first, then one that needs attention,
   // then the last one that ran.

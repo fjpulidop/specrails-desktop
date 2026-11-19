@@ -356,7 +356,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
       {/* Job rows */}
       <div className="space-y-0.5">
         {filteredJobs.slice(0, displayLimit).map((job) => {
-          const statusInfo = jobStatusLook(job.status)
+          const statusInfo = jobStatusLook(job)
           const duration = formatWallDuration(job.started_at, job.finished_at)
           const tokens = formatTokens(
             ((job.tokens_in ?? 0) +

@@ -42,3 +42,41 @@ describe('job status → run state', () => {
     expect(phaseRunState('running')).toBe('working')
   })
 })
+
+describe('a held job (its row says running, its run is stopped)', async () => {
+  const { describeJobHold, isJobLive, jobDisplayStatus, jobHoldOf, HELD_RUN_STATE } = await import('../job-run-state')
+  const i18n = (await import('../../../../lib/i18n')).default
+  const running = (hold?: unknown) => ({ status: 'running' as const, hold: hold as never })
+
+  it('reads through its hold on every surface, never as running', () => {
+    expect(jobStatusLook(running({ kind: 'restart', step: 'developer', since: null }))).toMatchObject({ state: 'paused', labelKey: 'held.label.restart' })
+    expect(jobStatusLook(running({ kind: 'interrupted', step: null, since: null })).state).toBe('paused')
+    expect(jobStatusLook(running({ kind: 'provider_limit', step: null, since: null })).state).toBe('blocked')
+    expect(jobStatusLook(running({ kind: 'budget', step: null, since: null })).state).toBe('paused')
+    expect(jobStatusLook(running({ kind: 'question', step: null, since: null })).state).toBe('needs-input')
+    expect(jobStatusLook(running()).state).toBe('working')
+    expect(Object.values(HELD_RUN_STATE)).not.toContain('working')
+  })
+
+  it('is not live and shows as paused to the log and graph, and ignores a hold on a settled row or a malformed one', () => {
+    expect(isJobLive(running({ kind: 'restart', step: null, since: null }))).toBe(false)
+    expect(jobDisplayStatus(running({ kind: 'restart', step: null, since: null }))).toBe('paused')
+    expect(isJobLive(running())).toBe(true)
+    expect(jobHoldOf({ status: 'completed', hold: { kind: 'restart', step: null, since: null } })).toBeNull()
+    expect(jobHoldOf(running({ kind: 'nonsense' }))).toBeNull()
+  })
+
+  it('says why in plain words, with the step by its role name', () => {
+    const t = i18n.getFixedT('en')
+    expect(describeJobHold(t, { kind: 'restart', step: 'developer', since: null })).toBe('The app restarted during the Developer step.')
+    expect(describeJobHold(t, { kind: 'restart', step: null, since: null })).toBe('The app restarted while the run was working.')
+    expect(describeJobHold(t, { kind: 'interrupted', step: 'spec-review', since: null })).toBe('The Spec review step stopped before it finished.')
+  })
+
+  it('says it in Spanish too', async () => {
+    const { loadLanguage } = await import('../../../../lib/i18n')
+    await loadLanguage('es')
+    expect(describeJobHold(i18n.getFixedT('es'), { kind: 'restart', step: 'developer', since: null })).toBe('La app se reinició durante el paso Desarrollador.')
+    expect(i18n.getFixedT('es')('jobs:held.label.restart')).toBe('Pausado')
+  })
+})

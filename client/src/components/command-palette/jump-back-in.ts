@@ -92,7 +92,7 @@ function missionEntry(mission: JumpMission, src: JumpSources): JumpEntry {
 function jobEntry(job: JumpJob, projectId: string | null): JumpEntry {
   return {
     kind: 'job', key: `job:${job.id}`, id: job.id,
-    at: ms(job.finished_at ?? job.started_at ?? job.enqueued_at), state: jobStatusLook(job.status).state, projectId, title: jobLabel(job),
+    at: ms(job.finished_at ?? job.started_at ?? job.enqueued_at), state: jobStatusLook(job).state, projectId, title: jobLabel(job),
     // A continued run is its chain's one row (the server folds earlier attempts); it says which attempt.
     ...(job.attempt && job.attempt.number > 1 ? { attempt: job.attempt.number } : {}),
   }

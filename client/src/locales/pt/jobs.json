@@ -392,5 +392,41 @@
     "navigation": "Detalhe da execução",
     "sections": "Secções do registo",
     "stopped": "Continuar"
+  },
+  "held": {
+    "label": {
+      "restart": "Pausado",
+      "interrupted": "Interrompido",
+      "provider_limit": "Limite de uso",
+      "budget": "Limite de gastos",
+      "question": "Aguarda sua resposta",
+      "approval": "Aguarda sua aprovação",
+      "paused": "Pausado"
+    },
+    "tooltip": {
+      "restart": "O app reiniciou enquanto esta execução trabalhava. Nada é executado até você continuá-la.",
+      "interrupted": "Uma etapa parou antes de terminar. Nada é executado até você continuá-la.",
+      "provider_limit": "O limite de uso do provedor foi atingido. A execução aguarda ele ser restabelecido.",
+      "budget": "O limite de gastos foi atingido. Nada é executado até você continuá-la.",
+      "question": "A execução fez uma pergunta e aguarda sua resposta.",
+      "approval": "A execução aguarda sua aprovação para seguir.",
+      "paused": "Nada é executado até você continuá-la."
+    },
+    "reason": {
+      "restart": "O app reiniciou durante a etapa {{step}}.",
+      "restartNoStep": "O app reiniciou enquanto a execução trabalhava.",
+      "interrupted": "A etapa {{step}} parou antes de terminar.",
+      "interruptedNoStep": "Uma etapa parou antes de terminar.",
+      "provider_limit": "Aguardando o limite de uso do provedor ser restabelecido.",
+      "budget": "O limite de gastos foi atingido.",
+      "question": "Aguardando sua resposta.",
+      "approval": "Aguardando sua aprovação.",
+      "paused": "Nada é executado até você continuá-la."
+    },
+    "stoppedTime": "Tempo de trabalho até parar",
+    "cancelRun": "Cancelar execução",
+    "cancelRunConfirmTitle": "Cancelar esta execução pausada?",
+    "cancelRunConfirmDescription": "Ela termina como parada e nada mais é executado. Suas alterações ficam na worktree dela, e você ainda pode continuá-la depois pela janela da execução.",
+    "keepPaused": "Manter pausada"
   }
 }

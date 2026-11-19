@@ -288,7 +288,7 @@ describe('JobRunHeader', () => {
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, canSettle: true, canCancel: true })] }))
     renderHeader(completedJob, [], { projectId: 'p1' })
     expect(await screen.findByRole('button', { name: 'Prepare delivery' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel continuation' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel run' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument()
   })
 
@@ -584,5 +584,67 @@ describe('JobRunHeader evidence chip and run instructions', () => {
     expect(screen.queryByLabelText('Additional instructions')).not.toBeInTheDocument()
     await user.click(chip)
     expect(screen.getByRole('dialog', { name: 'Sent instructions' })).toHaveTextContent('Applied by the agent')
+  })
+})
+
+describe('JobRunHeader — a run that stopped without settling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [] }))
+  })
+
+  // The real case: Implement #15, the app restarted mid developer step; the row stays running.
+  const heldJob = (hold: JobSummary['hold']): JobSummary => ({
+    id: 'aacf0cbb', command: 'loop: Implement #15', started_at: '2026-11-19T14:35:16.000Z', finished_at: null, status: 'running',
+    duration_ms: null, total_cost_usd: null, tokens_in: null, tokens_out: null, num_turns: null, hold,
+  })
+  const restartHold = { kind: 'restart' as const, step: 'developer', since: '2026-11-19T14:51:45.000Z' }
+  const interruptedRun = (overrides = {}) => run({
+    runId: 'aacf0cbb', engineVersion: 2, status: 'interrupted', nextStep: 'developer', canResume: true, canCancel: true,
+    recoverableSteps: ['a3e7afe4-3510-4a54-be11-9858ef5c4c12'],
+    recoveryAttempts: [{ attemptId: 'a3e7afe4-3510-4a54-be11-9858ef5c4c12', nodePath: 'developer', scopeId: 'root', effect: 'write' }],
+    ...overrides,
+  })
+
+  it('reads Paused with the reason in plain words, never Running, and its clock stops where it stopped', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderHeader(heldJob(restartHold))
+      expect(screen.getByTestId('job-status')).toHaveTextContent('Paused')
+      expect(screen.queryByText('Running')).not.toBeInTheDocument()
+      expect(screen.getByTestId('job-run-activity')).toHaveTextContent('The app restarted during the Developer step.')
+      expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent('16m 29s')
+      await act(async () => { vi.advanceTimersByTime(5000) })
+      expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent('16m 29s')
+      expect(screen.getByTestId('job-run-elapsed')).toHaveAttribute('title', 'Time it worked until it stopped')
+    } finally { vi.useRealTimers() }
+  })
+
+  it.each([
+    [{ kind: 'interrupted' as const, step: 'fixer', since: null }, 'Interrupted', 'The Fixer step stopped before it finished.'],
+    [{ kind: 'provider_limit' as const, step: null, since: null }, 'Usage limit', "Waiting for the provider's usage limit to reset."],
+    [{ kind: 'budget' as const, step: null, since: null }, 'Spending limit', 'The spending limit was reached.'],
+    [{ kind: 'question' as const, step: 'architect', since: null }, 'Needs your answer', 'Waiting for your answer.'],
+  ])('a %o hold has its own label and reason', (hold, label, reason) => {
+    renderHeader(heldJob(hold))
+    expect(screen.getByTestId('job-status')).toHaveTextContent(label)
+    expect(screen.getByTestId('job-run-activity')).toHaveTextContent(reason)
+  })
+
+  it('one Continue recovers exactly the interrupted attempts (recover[]), says what it does, and shows no raw ids', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [interruptedRun()] }))
+    const view = renderHeader(heldJob(restartHold), [], { projectId: 'p1' })
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    expect(screen.getByTestId('runtime-recovery-consequence')).toHaveTextContent('The Developer step resumes where it stopped; its partial changes are kept.')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(view.container.textContent).not.toMatch(/a3e7afe4|· root ·/)
+    // The surface's own Cancel run ends a held run; the runtime's duplicate stays out.
+    expect(screen.queryByRole('button', { name: 'Cancel run' })).not.toBeInTheDocument()
+    vi.mocked(fetch).mockResolvedValue(response({ loopRunId: 'aacf0cbb' }))
+    await user.click(button)
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/aacf0cbb/resume', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ recover: ['a3e7afe4-3510-4a54-be11-9858ef5c4c12'] }),
+    }))
   })
 })
