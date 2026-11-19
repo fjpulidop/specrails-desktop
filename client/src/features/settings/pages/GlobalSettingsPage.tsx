@@ -1,4 +1,5 @@
 import { AutoContinueSection } from '../components/AutoContinueSection'
+import { MachineInstallsSection } from '../components/MachineInstallsSection'
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
@@ -448,6 +449,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               <SettingAnchor id="providers"><ProviderConnectionsCard /></SettingAnchor>
               <SettingAnchor id="subagentsApp"><GlobalSubagentsSection /></SettingAnchor>
               <SettingAnchor id="autoContinue"><AutoContinueSection /></SettingAnchor>
+              <SettingAnchor id="machineInstalls"><MachineInstallsSection /></SettingAnchor>
               <MissionConnectorsSection />
             </div>
 

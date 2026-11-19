@@ -17,6 +17,7 @@ import { formatUsd } from '../../../lib/format-usd'
 import { notifyError } from '../../../lib/notify-error'
 import type { RuntimeRunsState } from './job-run/useRuntimeRuns'
 import { answerableRun } from './job-run/job-run-model'
+import { InterruptQuestion } from './InterruptQuestion'
 
 /** Radix Select items cannot use an empty value; this stands for "no interrupt picked" (state ''). */
 const NO_INTERRUPT = '__no-interrupt__'
@@ -223,12 +224,13 @@ export function InteractiveJobComposer({
   const setDraft = (value: string): void => { if (questionRun) runtime!.setAnswer(questionRun.runId, value); else setText(value) }
   const answering = !!questionRun && runtime!.busy === questionRun.runId
 
-  async function handleSend(approve = false): Promise<void> {
-    if (questionRun) {
+  async function handleSend(approve = false, choice?: string): Promise<void> {
+    if (questionRun && choice === undefined) {
       if (draft.trim() && !answering) await runtime!.act(questionRun, 'answer')
       return
     }
-    const body = text.trim()
+    // A structured option answers with its id (Core `options`), whatever the text box holds.
+    const body = choice ?? text.trim()
     if ((!body && !approve) || sending || waiting || (pending.length > 0 && !selectedInterrupt) || (needsApproval && !approve)) return
     setSending(true)
     try {
@@ -238,7 +240,7 @@ export function InteractiveJobComposer({
         body: JSON.stringify({ text: body, ...(selectedInterrupt ? { interruptId: selectedInterrupt.id } : {}), ...(approve ? { approve: true } : {}) }),
       })
       if (res.ok) {
-        setText('')
+        if (choice === undefined) setText('')
         if (selectedInterrupt) { setPending([]); setInterruptId(''); dispatch({ type: 'accepting', accepting: false }) }
         requestAnimationFrame(() => textareaRef.current?.focus())
       } else if (res.status === 409 && kind === 'loop-step' && !pending.length) {
@@ -407,7 +409,8 @@ export function InteractiveJobComposer({
               </SelectContent>
             </Select>
           </label>
-          {selectedInterrupt && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
+          {selectedInterrupt && selectedInterrupt.kind === 'question' && <InterruptQuestion value={selectedInterrupt.value} busy={sending || waiting} onChoose={(id) => void handleSend(false, id)} />}
+          {selectedInterrupt && selectedInterrupt.kind !== 'question' && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
           {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}
         </div>
       )}

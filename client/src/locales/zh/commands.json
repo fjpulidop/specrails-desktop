@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "自动继续失败的运行",
           "keywords": "继续, 重试, 失败的运行, 自动, 恢复"
+        },
+        "machineInstalls": {
+          "label": "已记住的安装",
+          "keywords": "安装, brew, 全机, 工具, 批准, 撤销"
         }
       }
     },

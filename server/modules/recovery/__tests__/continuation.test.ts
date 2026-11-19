@@ -51,6 +51,15 @@ describe('automatic continuation guards', () => {
   const verdict = (d: FailureDiagnosis | null, patch: Partial<Parameters<typeof autoContinueVerdict>[0]> = {}) =>
     autoContinueVerdict({ enabled: true, outcome: 'failed', diagnosis: d, chainAlreadyContinued: false, ...patch })
 
+  it('never continues by itself a machine-wide install the person kept for themselves (it would ask again for nothing)', () => {
+    const asked = { ...blocker('toolchain', 'terraform is missing', 'Run `brew install terraform` yourself, then continue the run.'), install: 'brew install terraform' }
+    expect(verdict(diagnosis({ kind: 'environment', blocker: asked }))).toEqual({ continue: false, reason: 'person_must_resolve' })
+    // The person's Continue tells the agent the install is theirs, never to run it.
+    const text = continuationGuidance(diagnosis({ kind: 'environment', blocker: asked }))!
+    expect(text).toContain('The person was asked to run `brew install terraform` themselves')
+    expect(text).toContain('never install it machine-wide yourself')
+    expect(text).not.toContain('install it yourself (project-local')
+  })
   it('continues once for unfinished tasks, a missing tool, a transient error and a stall', () => {
     expect(verdict(diagnosis({ kind: 'incomplete_tasks', incompleteTasks: ['x'] }))).toEqual({ continue: true, reason: 'unfinished_tasks' })
     expect(verdict(diagnosis({ kind: 'environment', blocker: blocker('toolchain') }))).toEqual({ continue: true, reason: 'missing_tool' })

@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "Continuer automatiquement les exécutions en échec",
           "keywords": "continuer, réessayer, exécution en échec, automatique, reprise"
+        },
+        "machineInstalls": {
+          "label": "Installations retenues",
+          "keywords": "installer, brew, machine, outil, accord, révoquer"
         }
       }
     },

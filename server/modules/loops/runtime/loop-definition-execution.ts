@@ -5,6 +5,7 @@
  * task dispatcher, then maps Core's terminal status onto the run outcome.
  */
 import { createDefinitionEventProjection } from './loop-definition-events'
+import { probeDefinitionRun } from './loop-definition-recovery'
 import { runDefinitionLoop } from './loop-definition-run'
 import { getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
 import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
@@ -124,6 +125,13 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
       host.clearActiveChild(runId); budgetPauseRequested = false; if (result.runtimeStatus === 'paused') host.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; state.totalDuration = result.durationMs }
       try { host.options.onDefinitionInvocationEnd?.(runId, exactTicketIds, result.runtimeStatus) } catch { /* advisory observer */ }
     }, awaitHumanDecision: (reason, pending) => awaitHumanDecision(ctx, reason, pending),
+    // Machine-wide installs (Core `machineInstalls`): the host runs an approved install itself,
+    // outside the run, with its output in the run log; a remembered approval never asks again.
+    ...(host.options.machineInstalls?.() ? { machineInstalls: {
+      autoAnswer: interrupt => host.options.machineInstalls!()!.autoAnswer(interrupt, line => logLine(line)),
+      answer: (interrupt, text) => host.options.machineInstalls!()!.answer(interrupt, text, line => logLine(line)),
+      lookup: async interruptId => (await probeDefinitionRun({ db, cwd: req.cwd, env: process.env }, runId)).pendingInterrupts.find(item => item.id === interruptId) ?? null,
+    } } : {}),
     // Machine interrupts (Core `hostTasks`): Desktop performs the effect
     // itself and resumes Core with the typed result — never a person.
     resolveHostTask: async interrupt => {

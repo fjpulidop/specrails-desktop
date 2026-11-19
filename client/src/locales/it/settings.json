@@ -613,5 +613,17 @@
     "enabled": "Specrails continuerà una volta gli errori risolvibili",
     "disabled": "Le esecuzioni fallite ti aspetteranno",
     "saveFailed": "Impossibile salvare l'impostazione"
+  },
+  "machineInstalls": {
+    "title": "Installazioni ricordate",
+    "description": "Installazioni a livello di macchina che hai approvato per un'esecuzione. Specrails le riesegue senza chiedere; revocane una per ricevere la domanda la prossima volta.",
+    "empty": "Ancora nulla di ricordato. Quando un'esecuzione ha bisogno di installare uno strumento su tutta la macchina, te lo chiede prima.",
+    "approvedAt": "Approvata il {{date}}",
+    "uses_one": "Usata una volta",
+    "uses_other": "Usata {{count}} volte",
+    "revoke": "Revoca",
+    "revoked": "Approvazione revocata. Specrails chiederà prima di eseguirla di nuovo.",
+    "revokeFailed": "Impossibile revocare l'approvazione",
+    "loadFailed": "Impossibile caricare le installazioni ricordate"
   }
 }

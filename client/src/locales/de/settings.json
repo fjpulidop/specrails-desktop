@@ -613,5 +613,17 @@
     "enabled": "Specrails setzt behebbare Fehler einmal fort",
     "disabled": "Fehlgeschlagene Läufe warten auf dich",
     "saveFailed": "Die Einstellung konnte nicht gespeichert werden"
+  },
+  "machineInstalls": {
+    "title": "Gemerkte Installationen",
+    "description": "Rechnerweite Installationen, denen du für einen Lauf zugestimmt hast. Specrails führt sie ohne Nachfrage erneut aus; widerrufe eine, um beim nächsten Mal gefragt zu werden.",
+    "empty": "Noch nichts gemerkt. Braucht ein Lauf ein rechnerweit installiertes Werkzeug, fragt er dich zuerst.",
+    "approvedAt": "Zugestimmt am {{date}}",
+    "uses_one": "Einmal verwendet",
+    "uses_other": "{{count}}-mal verwendet",
+    "revoke": "Widerrufen",
+    "revoked": "Zustimmung widerrufen. Specrails fragt, bevor es sie erneut ausführt.",
+    "revokeFailed": "Zustimmung konnte nicht widerrufen werden",
+    "loadFailed": "Gemerkte Installationen konnten nicht geladen werden"
   }
 }

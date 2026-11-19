@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1788 source/build files. Nearby tests are linked where names
+Includes 1796 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -565,6 +565,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/components
 
 - [InteractiveJobComposer.tsx](../../client/src/features/jobs/components/InteractiveJobComposer.tsx) · [test](../../client/src/features/jobs/components/__tests__/InteractiveJobComposer.test.tsx)
+- [InterruptQuestion.tsx](../../client/src/features/jobs/components/InterruptQuestion.tsx)
 - [JobComparisonModal.tsx](../../client/src/features/jobs/components/JobComparisonModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobComparisonModal.test.tsx)
 - [JobDetailModal.tsx](../../client/src/features/jobs/components/JobDetailModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobDetailModal.test.tsx)
 - [JobTicketHeader.tsx](../../client/src/features/jobs/components/JobTicketHeader.tsx)
@@ -1013,6 +1014,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
+- [MachineInstallsSection.tsx](../../client/src/features/settings/components/MachineInstallsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MachineInstallsSection.test.tsx)
 - [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
 - [MissionConnectorsSection.tsx](../../client/src/features/settings/components/MissionConnectorsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MissionConnectorsSection.test.tsx)
 - [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
@@ -2168,6 +2170,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
 - [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)
 - [run-attempts.ts](../../server/modules/loops/runtime/run-attempts.ts) · [test](../../server/modules/loops/runtime/run-attempts.test.ts)
+
+## server/modules/machine-installs
+
+- [application.ts](../../server/modules/machine-installs/application.ts)
+- [domain.ts](../../server/modules/machine-installs/domain.ts)
+- [index.ts](../../server/modules/machine-installs/index.ts)
+
+## server/modules/machine-installs/adapters
+
+- [http.ts](../../server/modules/machine-installs/adapters/http.ts)
+- [process.ts](../../server/modules/machine-installs/adapters/process.ts)
+- [sqlite.ts](../../server/modules/machine-installs/adapters/sqlite.ts)
 
 ## server/modules/missions/runtime
 

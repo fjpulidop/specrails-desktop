@@ -375,6 +375,10 @@
         "autoContinue": {
           "label": "失敗した実行を自動で続行",
           "keywords": "続行, 再試行, 失敗した実行, 自動, 復旧"
+        },
+        "machineInstalls": {
+          "label": "記憶したインストール",
+          "keywords": "インストール, brew, マシン全体, ツール, 承認, 取り消し"
         }
       }
     },

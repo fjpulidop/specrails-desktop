@@ -263,6 +263,29 @@ describe('Core workflow human controls',()=>{
     await user.click(screen.getByRole('button',{name:'Approve and continue'}))
     await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'yes',interruptId:'a1',approve:true})})))
   })
+  it('asks a machine-wide install with the exact command and answers with the chosen option id',async()=>{
+    const user=userEvent.setup()
+    const value={kind:'question',prompt:'This run needs terraform. Install it with `brew install terraform`?',options:[{id:'install',label:'Install',meaning:'Core meaning'},{id:'self',label:"I'll do it myself",meaning:'Core meaning'}],data:{kind:'machine-install',command:'brew install terraform',tool:'terraform'}}
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'developer',kind:'question',value}]} />)
+    expect(screen.getByText('This run needs terraform. Install it with this command?')).toBeInTheDocument()
+    expect(screen.getByTestId('machine-install-command')).toHaveTextContent('brew install terraform')
+    expect(screen.getByText(/won't ask again for this command/)).toBeInTheDocument()
+    expect(screen.getByText(/outside the run, and the run continues by itself/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button',{name:'Install'}))
+    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'install',interruptId:'q1'})})))
+  })
+  it("answers I'll do it myself with the self option, and renders any other question's options as given",async()=>{
+    const user=userEvent.setup()
+    const install={kind:'question',prompt:'x',options:[{id:'install',label:'Install',meaning:''},{id:'self',label:"I'll do it myself",meaning:''}],data:{kind:'machine-install',command:'brew install jq',tool:'jq'}}
+    const view=render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'developer',kind:'question',value:install}]} />)
+    await user.click(screen.getByRole('button',{name:"I'll do it myself"}))
+    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'self',interruptId:'q1'})})))
+    view.unmount()
+    render(<InteractiveJobComposer jobId="run-2" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q2',nodePath:'ask',kind:'question',value:{prompt:'Keep the old API?',options:[{id:'keep',label:'Keep it',meaning:'Both stay'}]}}]} />)
+    expect(screen.getByText('Keep the old API?')).toBeInTheDocument()
+    expect(screen.getByText('Both stay')).toBeInTheDocument()
+    expect(screen.getByRole('button',{name:'Keep it'})).toBeInTheDocument()
+  })
   it('requires selection among concurrent questions and sends its exact interrupt id',async()=>{
     const user=userEvent.setup()
     render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'map[0]/ask',kind:'question'},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)

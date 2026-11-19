@@ -2819,6 +2819,7 @@
         "../../provider-quota/runtime/quota-reports",
         "../../recovery/domain",
         "./loop-definition-events",
+        "./loop-definition-recovery",
         "./loop-definition-run",
         "./loop-run-context",
         "./loop-run-contract",
@@ -3021,6 +3022,7 @@
         "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../execution/runtime/interactive-job-session",
+        "../../machine-installs",
         "./loop-decider",
         "./loop-definition-run",
         "./loop-graph",
@@ -3172,6 +3174,36 @@
       ],
       "runtime/run-attempts.ts": [
         "../../../db"
+      ]
+    }
+  },
+  "machine-installs": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "adapters/process.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../application",
+        "express"
+      ],
+      "adapters/process.ts": [
+        "../../../util/win-spawn",
+        "../application"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db",
+        "../application"
+      ],
+      "application.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain"
       ]
     }
   },

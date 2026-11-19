@@ -4,6 +4,7 @@
  * payloads (loop-step log explorer contract) and the budget-pause vocabulary.
  * Re-exported unchanged by `loop-run-manager.ts`, the module's public entry.
  */
+import type { MachineInstalls } from '../../machine-installs'
 import type { ChildProcess } from 'node:child_process'
 import type { CoreCompletionSnapshot } from '../../../core-completion'
 import type { CoreCompletionCheck, CoreRunInput } from '../../../core-execution'
@@ -473,6 +474,9 @@ export interface LoopRunManagerOptions {
   /** Resolver of Core MACHINE interrupts (`host-task`, Core `hostTasks`), bound at
    *  composition. Absent ⇒ a host task fails its node instead of waiting. */
   hostTasks?: () => HostTaskDispatcher | undefined
+  /** Machine-wide installs a run asks the person for (Core `machineInstalls`), bound at composition.
+   *  Absent ⇒ an install question waits for the person like any question and Install installs nothing. */
+  machineInstalls?: () => MachineInstalls | undefined
   /** Cancels a Core run this process does not drive (paused or recovered after
    *  a restart): records the cancellation in Core and settles the run here.
    *  Bound at composition; absent ⇒ only Core is told. */
