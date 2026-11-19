@@ -14,6 +14,9 @@
  * - `rm-outside-run`      recursive deletion (`rm -r`, `rimraf`, `find -delete`, `git clean -f`) outside the run directory or a temp dir
  * - `secret-access`       reading or writing ~/.ssh, ~/.aws, ~/.gnupg, keychains, or the Specrails secret store
  * - `policy-tamper`       writing the policy hook's own files
+ * - `machine-install`     installing or changing a tool machine-wide (`brew install`, `npm i -g`,
+ *                         `cargo install`, `rustup target add`, …): every project shares it, so the
+ *                         run reports a toolchain blocker with the install for the person instead
  *
  * Git rules come from `server/git-guardrails.ts` (single source of truth with
  * the app's own push path). Pure apart from the injected `facts` readers.
@@ -33,6 +36,7 @@ export const POLICY_RULES = [
   'rm-outside-run',
   'secret-access',
   'policy-tamper',
+  'machine-install',
   'policy-error',
 ] as const
 export type PolicyRule = typeof POLICY_RULES[number]
@@ -315,6 +319,50 @@ function evaluateSecrets(command: SimpleCommand, facts: PolicyFacts): PolicyDeci
   return null
 }
 
+// ─── Machine-wide installs ───────────────────────────────────────────────────
+
+const PACKAGE_MANAGERS = new Set(['brew', 'apt', 'apt-get', 'dnf', 'yum', 'pacman', 'zypper', 'apk', 'port', 'choco', 'winget', 'scoop', 'snap', 'flatpak'])
+const PACKAGE_MANAGER_VERBS = new Set(['install', 'reinstall', 'upgrade', 'uninstall', 'remove', 'update', 'tap', 'link', 'unlink', 'add', 'dist-upgrade'])
+const GLOBAL_FLAGS = new Set(['-g', '--global', '--location=global'])
+const VERSION_MANAGERS = new Set(['nvm', 'fnm', 'volta', 'asdf', 'mise', 'rtx', 'pyenv', 'rbenv', 'goenv', 'sdk', 'jenv', 'n'])
+const VERSION_MANAGER_VERBS = new Set(['install', 'uninstall', 'global', 'default', 'alias', 'use', 'plugin', 'pin'])
+
+/** A `gem install` with an explicit install dir stays out of the system gems. */
+function gemIsLocal(command: SimpleCommand): boolean {
+  return command.words.some((w) => w.text === '--install-dir' || w.text.startsWith('--install-dir=') || w.text === '-i')
+}
+
+function machineInstall(command: SimpleCommand): string | null {
+  const words = command.words.map((w) => w.text)
+  const [head, verb] = words
+  if (!head) return null
+  const tail = words.slice(1)
+  if (PACKAGE_MANAGERS.has(head) && verb && PACKAGE_MANAGER_VERBS.has(verb)) return `${head} ${verb}`
+  if (['npm', 'pnpm', 'bun'].includes(head) && tail.some((w) => GLOBAL_FLAGS.has(w)) && tail.some((w) => ['install', 'i', 'add', 'uninstall', 'remove', 'rm', 'update', 'link'].includes(w))) return `${head} ${verb} -g`
+  if (head === 'yarn' && verb === 'global') return 'yarn global'
+  if (head === 'cargo' && (verb === 'install' || verb === 'uninstall')) return `cargo ${verb}`
+  if (head === 'go' && verb === 'install') return 'go install'
+  if (head === 'gem' && (verb === 'install' || verb === 'uninstall' || verb === 'update') && !gemIsLocal(command)) return `gem ${verb}`
+  if (head === 'pipx' && verb && ['install', 'uninstall', 'upgrade', 'inject', 'ensurepath'].includes(verb)) return `pipx ${verb}`
+  if ((head === 'pip' || head === 'pip3') && verb === 'install' && tail.some((w) => w === '--user' || w === '--break-system-packages')) return `${head} install ${tail.includes('--user') ? '--user' : '--break-system-packages'}`
+  if (head === 'rustup' && verb && (['update', 'default', 'self'].includes(verb) || (['target', 'toolchain', 'component'].includes(verb) && ['add', 'install', 'remove', 'uninstall'].includes(words[2] ?? '')))) return `rustup ${words.slice(1, verb === 'update' || verb === 'default' ? 2 : 3).join(' ')}`
+  if (head === 'corepack' && (verb === 'enable' || verb === 'disable' || verb === 'install')) return `corepack ${verb}`
+  if (VERSION_MANAGERS.has(head) && verb && VERSION_MANAGER_VERBS.has(verb) && !(head === 'n' && words.length < 3)) return `${head} ${verb}`
+  if (head === 'dotnet' && ((verb === 'tool' && tail.some((w) => GLOBAL_FLAGS.has(w))) || verb === 'workload')) return `dotnet ${verb}`
+  if (head === 'xcode-select' && tail.some((w) => w === '--install' || w === '-s' || w === '--switch')) return 'xcode-select'
+  if (head === 'softwareupdate' || head === 'sdkmanager') return head
+  return null
+}
+
+function evaluateMachineInstall(command: SimpleCommand): PolicyDecision | null {
+  const what = machineInstall(command)
+  if (!what) return null
+  return {
+    rule: 'machine-install',
+    reason: `\`${what}\` changes this machine for every project, so a run never does it. Keep the work done, leave the task unticked and report a toolchain blocker with the exact install the person should run.`,
+  }
+}
+
 function evaluateCommand(command: SimpleCommand, facts: PolicyFacts): PolicyDecision | null {
   if (command.words.length === 0 && command.redirects.length === 0) return null
   const secret = evaluateSecrets(command, facts)
@@ -324,7 +372,7 @@ function evaluateCommand(command: SimpleCommand, facts: PolicyFacts): PolicyDeci
   if (head === 'gh' && command.words[1]?.text === 'pr' && command.words[2]?.text === 'merge') {
     return { rule: 'gh-pr-merge', reason: 'Pull requests are merged by a person, not from inside an agent turn.' }
   }
-  return evaluateDeletion(command, facts)
+  return evaluateMachineInstall(command) ?? evaluateDeletion(command, facts)
 }
 
 /** Evaluate a Bash command line. */

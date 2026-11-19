@@ -11,6 +11,7 @@
       "rm-outside-run": "在运行目录之外删除",
       "secret-access": "访问凭据",
       "policy-tamper": "修改策略文件",
+      "machine-install": "全机安装",
       "policy-error": "无法验证的高风险命令"
     }
   },

@@ -11,6 +11,7 @@
       "rm-outside-run": "Delete outside the run",
       "secret-access": "Credential access",
       "policy-tamper": "Policy file change",
+      "machine-install": "Machine-wide install",
       "policy-error": "Unverifiable risky command"
     }
   },

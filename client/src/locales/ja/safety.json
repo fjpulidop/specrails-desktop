@@ -11,6 +11,7 @@
       "rm-outside-run": "実行ディレクトリ外の削除",
       "secret-access": "認証情報へのアクセス",
       "policy-tamper": "ポリシーファイルの変更",
+      "machine-install": "マシン全体へのインストール",
       "policy-error": "検証できない危険なコマンド"
     }
   },

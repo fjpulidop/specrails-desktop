@@ -11,6 +11,7 @@
       "rm-outside-run": "Eliminazione fuori dal run",
       "secret-access": "Accesso alle credenziali",
       "policy-tamper": "Modifica dei file della policy",
+      "machine-install": "Installazione su tutto il computer",
       "policy-error": "Comando rischioso non verificabile"
     }
   },

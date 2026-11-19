@@ -11,6 +11,7 @@
       "rm-outside-run": "Suppression hors du run",
       "secret-access": "Accès aux identifiants",
       "policy-tamper": "Modification des fichiers de la politique",
+      "machine-install": "Installation sur toute la machine",
       "policy-error": "Commande risquée invérifiable"
     }
   },

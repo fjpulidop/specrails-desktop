@@ -11,6 +11,7 @@
       "rm-outside-run": "Löschen außerhalb des Runs",
       "secret-access": "Zugriff auf Zugangsdaten",
       "policy-tamper": "Änderung der Richtliniendateien",
+      "machine-install": "Installation für den ganzen Rechner",
       "policy-error": "Nicht prüfbarer riskanter Befehl"
     }
   },

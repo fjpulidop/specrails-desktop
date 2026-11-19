@@ -184,3 +184,46 @@ describe('shell reader', () => {
     for (const text of ['"unterminated', "'x", '$(', '`', 'a <<', '\\', '((', '${']) expect(() => readScript(text, { cwd: '/r', home: '/h' })).not.toThrow()
   })
 })
+
+describe('machine-wide installs', () => {
+  it('denies installs and toolchain changes every project shares', () => {
+    for (const command of [
+      'rustup target add wasm32-unknown-unknown > /tmp/x.log 2>&1',
+      'rustup toolchain install nightly',
+      'rustup component add clippy',
+      'rustup default stable',
+      'brew install terraform',
+      'sudo apt-get install -y dotnet-sdk-8.0',
+      'npm install -g typescript',
+      'npm i --global pnpm',
+      'pnpm add -g vite',
+      'yarn global add serve',
+      'cargo install wasm-pack',
+      'go install golang.org/x/tools/gopls@latest',
+      'gem install rails',
+      'pipx install jupyter',
+      'pip3 install --user nbclient',
+      'pip install --break-system-packages nbformat',
+      'corepack enable',
+      'nvm install 22',
+      'asdf install elixir 1.17',
+      'dotnet tool install -g dotnet-format',
+      'cd /tmp && brew upgrade node',
+    ]) expect(rule(command), command).toBe('machine-install')
+  })
+
+  it('leaves workspace-local installs and reads alone', () => {
+    for (const command of [
+      'npm install', 'npm install ms', 'npm ci', 'npx --yes yarn@1.22.22 install', 'pnpm add -D vitest',
+      'python3 -m venv .venv && .venv/bin/pip install -r requirements.txt', 'pip install -r requirements.txt',
+      'cargo build --release --target wasm32-unknown-unknown', 'cargo test', 'go test ./...', 'go build ./...',
+      'bundle install', 'gem install --install-dir vendor/gems rake', 'brew list', 'brew --prefix',
+      'rustup target list --installed', 'rustup show', 'npx playwright install chromium', 'composer install',
+      'nvm ls', 'asdf current', 'dotnet test', 'echo npm install -g typescript',
+    ]) expect(rule(command), command).toBeNull()
+  })
+
+  it('tells the agent what to do instead', () => {
+    expect(evaluateShell('rustup target add wasm32-unknown-unknown', facts())?.reason).toMatch(/`rustup target add` changes this machine for every project.*toolchain blocker/)
+  })
+})

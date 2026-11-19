@@ -15,6 +15,7 @@ export const POLICY_RULES = [
   'rm-outside-run',
   'secret-access',
   'policy-tamper',
+  'machine-install',
   'policy-error',
 ] as const
 export type PolicyRule = typeof POLICY_RULES[number]

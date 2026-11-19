@@ -11,6 +11,7 @@
       "rm-outside-run": "Borrado fuera de la ejecución",
       "secret-access": "Acceso a credenciales",
       "policy-tamper": "Cambio en los ficheros de la política",
+      "machine-install": "Instalación en todo el equipo",
       "policy-error": "Comando de riesgo no verificable"
     }
   },
