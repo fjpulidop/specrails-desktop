@@ -14,6 +14,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-history.ts](runtime/agent-runtime-history.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
 - [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
+- [runtime/agent-runtime-package-schedule.ts](runtime/agent-runtime-package-schedule.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
 - [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
 - [runtime/agent-runtime-retention-records.ts](runtime/agent-runtime-retention-records.ts)
@@ -153,6 +154,14 @@ with async I/O and reused per retained root for 5 minutes. The synchronous,
 uncached `resolveRetainedAgentRuntime` remains the gate for anything that runs
 the package (resume, recovery, signal). Before this split each rail read hashed
 the package synchronously (~2 s of blocked event loop per request).
+
+Launches retain Core once per build in the shared cache
+`<data home>/.specrails/runtime-packages` (`<digest>/`, plus `.refs/<digest>/` records
+naming every pin file written into it). `agent-runtime-package-schedule.ts` collects it
+five minutes after boot and every six hours: it keeps the three most recently used
+builds, every build a pin still names (recorded references, the data home's workspaces
+and worktrees, each project's own `.specrails/pipeline`) and anything used within the
+last hour; the rest is renamed aside under the package lock and deleted asynchronously.
 
 ## Recovery diagnosis
 

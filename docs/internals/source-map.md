@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1783 source/build files. Nearby tests are linked where names
+Includes 1786 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1708,6 +1708,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-metrics.ts](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts)
 - [agent-runtime-package-gc.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-gc.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package-gc.test.ts)
 - [agent-runtime-package-lock.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-lock.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package-lock.test.ts)
+- [agent-runtime-package-refs.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-refs.ts)
+- [agent-runtime-package-schedule.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-schedule.ts)
 - [agent-runtime-package.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package.test.ts)
 - [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts)
 - [agent-runtime-recovery.ts](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.test.ts)
@@ -2293,6 +2295,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [spec-search.ts](../../server/modules/specs/runtime/spec-search.ts) · [test](../../server/modules/specs/runtime/spec-search.test.ts)
+- [spec-title.ts](../../server/modules/specs/runtime/spec-title.ts) · [test](../../server/modules/specs/runtime/spec-title.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
 - [ticket-trash-service.ts](../../server/modules/specs/runtime/ticket-trash-service.ts)
 - [ticket-trash.ts](../../server/modules/specs/runtime/ticket-trash.ts) · [test](../../server/modules/specs/runtime/ticket-trash.test.ts)
