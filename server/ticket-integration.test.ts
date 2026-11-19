@@ -213,6 +213,22 @@ describe('E1: POST /tickets persists correct JSON to disk', () => {
 
 // ─── E2: PATCH /tickets/:id → disk reflects update ───────────────────────────
 
+describe('E1b: spec titles must be visible single-line text', () => {
+  it('refuses invisible-only and over-long titles on create and edit, and normalizes the rest', async () => {
+    const ctx = makeContext(db, tmpDir)
+    const { app } = createApp(new Map([['proj-1', ctx]]))
+    expect((await request(app).post('/api/projects/proj-1/tickets').send({ title: '\u200b\u200b' })).status).toBe(400)
+    const long = await request(app).post('/api/projects/proj-1/tickets').send({ title: 'x'.repeat(301) })
+    expect(long.status).toBe(400)
+    expect(long.body.error).toMatch(/description/)
+    const ok = await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Add\u200b a\n flag' })
+    expect(ok.status).toBe(201)
+    expect((await request(app).patch('/api/projects/proj-1/tickets/1').send({ title: '\u202e' })).status).toBe(400)
+    await request(app).patch('/api/projects/proj-1/tickets/1').send({ title: ' New\ttitle ' })
+    expect(readDiskStore(tmpDir).tickets['1'].title).toBe('New title')
+  })
+})
+
 describe('E2: PATCH /tickets/:id updates JSON on disk', () => {
   it('reflects updated fields in the JSON file', async () => {
     const ctx = makeContext(db, tmpDir)

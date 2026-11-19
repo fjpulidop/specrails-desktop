@@ -8,6 +8,7 @@ import type { Request, Response } from 'express'
 import { validateNonGoals } from './modules/specs/domain/non-goals'
 import { validateSpecIntent } from './modules/specs/domain/intent'
 import { softDeleteTicket } from './modules/specs/runtime/ticket-trash'
+import { normalizeSpecTitle } from './modules/specs/runtime/spec-title'
 import { readStore, mutateStore, filterTickets, isValidStatus, isValidPriority, validatePriorityForStatus, clampShortSummary, normalizeRegressionOfMetadata, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, LocalTicket } from './types'
 import { formatDescriptionWithCriteria } from './project-router-helpers'
@@ -86,8 +87,9 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
   // POST /:projectId/tickets — Create new ticket
   router.post('/:projectId/tickets', (req: Request, res: Response) => {
     const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source, nonGoals: rawNonGoals, intent: rawIntent } = req.body ?? {}
-    if (!title || typeof title !== 'string' || !title.trim()) {
-      res.status(400).json({ error: 'title is required' }); return
+    const normalizedTitle = normalizeSpecTitle(title)
+    if (!normalizedTitle.ok) {
+      res.status(400).json({ error: normalizedTitle.error }); return
     }
     const createNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
     if (createNonGoals && !createNonGoals.ok) {
@@ -120,7 +122,7 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
         const ticket: Ticket = {
           ...repositoryScope(req, res),
           id,
-          title: title.trim(),
+          title: normalizedTitle.title,
           description: typeof description === 'string' ? description : '',
           status: finalStatus,
           priority: finalPriority as Ticket['priority'],
@@ -179,8 +181,9 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
     if (priority !== undefined && priority !== null && !isValidPriority(priority)) {
       res.status(400).json({ error: 'priority must be one of: critical, high, medium, low' }); return
     }
-    if (title !== undefined && (typeof title !== 'string' || !title.trim())) {
-      res.status(400).json({ error: 'title cannot be empty' }); return
+    const patchTitle = title === undefined ? null : normalizeSpecTitle(title, 'title cannot be empty')
+    if (patchTitle && !patchTitle.ok) {
+      res.status(400).json({ error: patchTitle.error }); return
     }
     if (acceptanceCriteria !== undefined) {
       if (!Array.isArray(acceptanceCriteria) || !acceptanceCriteria.every((c) => typeof c === 'string')) {
@@ -199,7 +202,7 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
         const err = validatePriorityForStatus(nextStatus, nextPriority as never)
         if (err) { validationError = err; return }
         Object.assign(ticket, repositoryScope(req, res))
-        if (title !== undefined) ticket.title = title.trim()
+        if (patchTitle?.ok) ticket.title = patchTitle.title
         if (description !== undefined) ticket.description = description
         if (acceptanceCriteria !== undefined) {
           // Fold criteria into the description body under a `## Acceptance Criteria`
