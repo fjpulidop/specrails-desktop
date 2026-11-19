@@ -131,7 +131,7 @@ describe('companion inbox decisions', () => {
     it('shows the pending question', async () => {
       runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' } }
       const res = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
-      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't' })
+      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't', card: null })
     })
 
     it('answers a workflow run through the loop-run resume the desktop uses, pinned to the exact question', async () => {
@@ -139,6 +139,18 @@ describe('companion inbox decisions', () => {
       const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: '  SQLite  ', evil: 1 })
       expect(res.status).toBe(200)
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1' } })
+    })
+
+    it('shows the structured card and answers by a choice the question offered (Core questionOptions)', async () => {
+      const card = { interruptId: 's1', kind: 'question', asker: 'planner', text: 'Which database?', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'pg', label: 'Postgres' }], endsRun: [], mayEndRun: true, canReject: false }
+      runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' }, question: card }
+      const shown = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
+      expect(shown.body.card).toMatchObject({ asker: 'planner', options: [{ id: 'sqlite' }, { id: 'pg' }] })
+      const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'SQLite', optionId: 'sqlite' })
+      expect(res.status).toBe(200)
+      expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1', optionId: 'sqlite' } })
+      const refused = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'x', optionId: 'mongo' })
+      expect(refused.status).toBe(400)
     })
 
     it('answers a v1 runtime run through the agent-runtime resume', async () => {

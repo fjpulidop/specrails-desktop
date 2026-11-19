@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Review bereit",
-    "question": "Wartet auf deine Antwort",
+    "question": "Braucht dich",
     "failed": "Fehlgeschlagen",
     "blocked": "Blockiert",
     "budget": "Wegen Budget pausiert",

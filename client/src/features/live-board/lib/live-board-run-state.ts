@@ -10,7 +10,7 @@ import type { JobStatus, RailPrDecision } from '../../../types'
 import { jobStatusLook } from '../../jobs/lib/job-run-state'
 import { loopRunRunState } from '../../loops/lib/loop-run-state'
 import { deliveryLook, deliveryOverrideOf, DELIVERY_DECISION_LOOK } from '../../delivery/lib/delivery-run-state'
-import { inboxKindRunState } from '../../inbox/lib/inbox-run-state'
+import { inboxItemRunState } from '../../inbox/lib/inbox-run-state'
 import type { LiveCard, LiveRunStatus } from './live-board-model'
 
 export interface LiveCardLook {
@@ -52,6 +52,6 @@ export function liveStatusLook(status: LiveRunStatus, extensionRunState?: Extens
 export function liveCardLook(card: Pick<LiveCard, 'status' | 'attention'>, extensionRunState?: ExtensionRunState): LiveCardLook {
   const own = liveStatusLook(card.status, extensionRunState)
   if (!card.attention) return own
-  const state = inboxKindRunState(card.attention.kind)
+  const state = inboxItemRunState(card.attention)
   return { state, objectIcon: own.state === state ? own.objectIcon : null }
 }

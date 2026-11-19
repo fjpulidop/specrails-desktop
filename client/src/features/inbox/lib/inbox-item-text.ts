@@ -56,7 +56,20 @@ function usageLimitOf(item: InboxItem, t: Translate, language: string): { kindLa
  * stays for a hover), a reached cap names the cap and shows its figures, a run
  * paused at a provider's usage limit names that limit and says when it continues.
  */
+/** A run held by a restart, an interruption or a plain pause (`held:<kind>[:<step>]`), worded like the run window. */
+function heldOf(item: InboxItem, t: Translate): { kindLabel: string; detail: string } | null {
+  if (item.kind !== 'blocked' || !item.detail?.startsWith('held:')) return null
+  const [, kind = 'paused', ...rest] = item.detail.split(':')
+  const step = rest.join(':')
+  const known = ['restart', 'interrupted', 'paused'].includes(kind) ? kind : 'paused'
+  const stepName = step ? String(t(`agentRuntime:roles.${step}`, { defaultValue: '' })) : ''
+  const detail = stepName && known !== 'paused' ? t(`jobs:held.reason.${known}`, { step: stepName }) : t(`jobs:held.reason.${known}${known === 'paused' ? '' : 'NoStep'}`)
+  return { kindLabel: String(t(`jobs:held.label.${known}`)), detail: String(detail) }
+}
+
 export function inboxItemText(item: InboxItem, t: Translate, language: string): InboxItemText {
+  const held = heldOf(item, t)
+  if (held) return { title: item.attempt ? `${item.title} · ${String(t('inbox:attempt', { number: item.attempt.number }))}` : item.title, kindLabel: held.kindLabel, detail: held.detail, rawDetail: null }
   const cause = causeOf(item, t)
   const rawNoCause = !cause && item.kind === 'failed'
   const limit = usageLimitOf(item, t, language)

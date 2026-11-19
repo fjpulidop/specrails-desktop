@@ -14,6 +14,7 @@ import { formatUsd } from '../../../analytics/lib/format'
 import { providerLabel } from '../../../provider-quota/lib/labels'
 import { formatResetTime } from '../../../provider-quota/lib/format-reset'
 import type { MissionRunVitalsSnapshot } from '../mission-run-strip'
+import type { RunQuestion } from '../../../../components/run-question/run-question'
 
 /**
  * One per-run "View log" chip: the run's ticket ref + live vitals (elapsed ·
@@ -31,7 +32,7 @@ export function RunLogChip({
   ticketLabel: string | null
   live: boolean
   onOpen: (runId: string) => void
-  onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => void
+  onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean; question?: RunQuestion | null }) => void
   /** The run strip's totals (elapsed · billed cost · progress) — ticks while live. */
   onSnapshot?: (runId: string, snapshot: MissionRunVitalsSnapshot) => void
 }) {
@@ -52,8 +53,8 @@ export function RunLogChip({
   const showCost = vitals.costUsd != null && vitals.costUsd > 0
   const dot = <span aria-hidden className="opacity-40">·</span>
   useEffect(() => {
-    onVitals?.(runId, { paused: vitals.paused, pausedReason, budgetPaused })
-  }, [onVitals, runId, vitals.paused, pausedReason, budgetPaused])
+    onVitals?.(runId, { paused: vitals.paused, pausedReason, budgetPaused, question: vitals.question })
+  }, [onVitals, runId, vitals.paused, pausedReason, budgetPaused, vitals.question])
   useEffect(() => {
     onSnapshot?.(runId, { running: vitals.running, loaded: vitals.loaded, status: vitals.status, elapsedMs: vitals.elapsedMs, costUsd: vitals.costUsd })
   }, [onSnapshot, runId, vitals.running, vitals.loaded, vitals.status, vitals.elapsedMs, vitals.costUsd])

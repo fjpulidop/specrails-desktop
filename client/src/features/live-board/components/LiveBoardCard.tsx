@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { RunQuestionCard } from '../../../components/run-question/RunQuestionCard'
 import { Button } from '../../../components/ui/button'
 import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { runStateLook } from '../../../components/ui/run-state/run-state'
@@ -171,11 +172,15 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
   const meta = [showProject ? card.projectName : null, kind].filter(Boolean).join(' · ')
   const stateLabel = t(runStateLook(look.state).labelKey)
   const question = card.question
-  const primaryLabel = primary.kind === 'inbox' ? t(`inbox:${primaryLabelKey(primary.item)}`)
+  // The run that asks: the inbox item's subject, else the card's own run.
+  const questionRunId = card.attention?.kind === 'question' ? card.attention.subjectId : card.jobId
+  const answersInline = !!question && !!questionRunId
+  const primaryLabel = answersInline && primary.kind === 'inbox' && primary.item.kind === 'question' ? null
+    : primary.kind === 'inbox' ? t(`inbox:${primaryLabelKey(primary.item)}`)
     : primary.kind === 'review' ? t('liveBoard:card.openReview')
       : primary.kind === 'open' ? t('liveBoard:card.open') : null
   // Resume and Retry act on the run; the run itself still opens.
-  const secondaryOpen = primary.kind === 'inbox' && (primary.item.action === 'resume-run' || primary.item.action === 'retry-jira' || primary.item.action === 'raise-cap') && canOpen(card)
+  const secondaryOpen = primary.kind === 'inbox' && (answersInline || primary.item.action === 'resume-run' || primary.item.action === 'retry-jira' || primary.item.action === 'raise-cap') && canOpen(card)
   const settledStopped = card.column === 'done' && look.state === 'stopped'
   const cost = costLabel(card, t)
   const attemptCost = card.attempt && card.attempt.costUsd !== null && card.attempt.costUsd > 0
@@ -222,10 +227,10 @@ export function LiveBoardCard({ card, actions, now, compact = false, showProject
           </span>
         )}
       </div>
-      {question && (
-        <blockquote className="line-clamp-3 rounded-control bg-muted px-2 py-1 text-caption text-foreground" data-testid="live-card-question">
-          <span className="sr-only">{t('liveBoard:card.question')}: </span>{question}
-        </blockquote>
+      {question && questionRunId && (
+        <div data-testid="live-card-question">
+          <RunQuestionCard question={question} projectId={card.projectId} runId={questionRunId} density="compact" />
+        </div>
       )}
       {attentionText ? <AttentionPhrase text={attentionText} withDetail={!question} /> : <RunPhrase card={card} />}
       {card.mergePreview ? <MergePreviewChip preview={card.mergePreview} /> : null}

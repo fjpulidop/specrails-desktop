@@ -11,6 +11,7 @@ export interface PhaseDefinition {
 
 import type { ProjectRow } from './desktop-db'
 import type { AttentionPrefs } from './modules/inbox/attention-prefs'
+import type { RunQuestion } from './shared/run-question'
 export type { ProjectRow }
 
 // ─── ProposalRow re-export ────────────────────────────────────────────────────
@@ -1045,6 +1046,8 @@ export interface LoopRunPausedMessage {
   budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
   /** `limit_paused`: the provider refused on its usage limit; resumes at `resumeAt` when `autoResume`. */
   limit?: { providerId: string; resumeAt: string | null; autoResume: boolean; message: string; pausedAt: string; switchable: boolean }
+  /** A human-decision pause of a definition run: the question card every surface renders. */
+  question?: RunQuestion | null
 }
 
 export interface LoopRunResumedMessage {
@@ -2054,6 +2057,8 @@ export interface JobInteractiveMessage {
   /** Settle mode of the session that just started/settled (loops are 'auto'). */
   settleMode: 'finalize' | 'auto'
   timestamp: string
+  /** The question card a paused definition run waits on; null once it is answered. */
+  question?: RunQuestion | null
 }
 
 /**

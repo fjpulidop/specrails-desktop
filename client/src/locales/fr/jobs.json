@@ -382,7 +382,7 @@
     "details": "Détails",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Rapporté par le fournisseur jusqu'ici ; les chiffres définitifs arrivent à la fin du job.",
-    "questionPending": "Répondre à la question"
+    "questionPending": "Répondre"
   },
   "runDetail": {
     "failure": "Causes de l’échec",
@@ -399,8 +399,8 @@
       "interrupted": "Interrompu",
       "provider_limit": "Limite d’utilisation",
       "budget": "Limite de dépenses",
-      "question": "Attend votre réponse",
-      "approval": "Attend votre approbation",
+      "question": "Vous attend",
+      "approval": "Vous attend",
       "paused": "En pause"
     },
     "tooltip": {

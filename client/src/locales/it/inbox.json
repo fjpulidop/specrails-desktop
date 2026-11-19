@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Revisione pronta",
-    "question": "In attesa della tua risposta",
+    "question": "Ti aspetta",
     "failed": "Fallito",
     "blocked": "Bloccato",
     "budget": "In pausa per budget",

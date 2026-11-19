@@ -382,7 +382,7 @@
     "details": "详情",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "截至目前由提供方上报；最终数据在任务结束时给出。",
-    "questionPending": "回答问题"
+    "questionPending": "回答"
   },
   "runDetail": {
     "failure": "失败原因",
@@ -399,8 +399,8 @@
       "interrupted": "已中断",
       "provider_limit": "用量上限",
       "budget": "支出上限",
-      "question": "等待你的回答",
-      "approval": "等待你的批准",
+      "question": "需要你处理",
+      "approval": "需要你处理",
       "paused": "已暂停"
     },
     "tooltip": {

@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "评审就绪",
-    "question": "等待你的回答",
+    "question": "需要你处理",
     "failed": "失败",
     "blocked": "已阻塞",
     "budget": "因预算暂停",

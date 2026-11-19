@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "レビュー準備完了",
-    "question": "回答待ち",
+    "question": "あなたの対応が必要",
     "failed": "失敗",
     "blocked": "ブロック中",
     "budget": "予算で一時停止",

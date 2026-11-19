@@ -382,7 +382,7 @@
     "details": "詳細",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "これまでにプロバイダーが報告した値です。最終的な数値はジョブ終了時に届きます。",
-    "questionPending": "質問に回答"
+    "questionPending": "回答"
   },
   "runDetail": {
     "failure": "失敗の原因",
@@ -399,8 +399,8 @@
       "interrupted": "中断",
       "provider_limit": "利用上限",
       "budget": "支出上限",
-      "question": "回答待ち",
-      "approval": "承認待ち",
+      "question": "あなたの対応が必要",
+      "approval": "あなたの対応が必要",
       "paused": "一時停止"
     },
     "tooltip": {

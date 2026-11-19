@@ -51,7 +51,7 @@ let desktopDb: DbInstance, scratch: string
 beforeEach(() => { desktopDb = initDesktopDb(':memory:'); scratch = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'machine installs pairing '))) })
 afterEach(() => { desktopDb.close(); rmSync(scratch, { recursive: true, force: true }) })
 
-async function runNeedingRustTarget(id: string, decide: (pending: DefinitionInterrupt[]) => string | null) {
+async function runNeedingRustTarget(id: string, decide: (pending: DefinitionInterrupt[]) => string | { text: string; optionId: string } | null) {
   const root = path.join(scratch, id), repository = path.join(root, 'repo'), backlog = path.join(root, 'backlog'), bin = path.join(root, 'bin')
   mkdirSync(repository, { recursive: true }); mkdirSync(backlog); mkdirSync(bin)
   const marker = path.join(root, 'wasm32-installed'), installLog = path.join(root, 'rustup.log')
@@ -81,8 +81,10 @@ async function runNeedingRustTarget(id: string, decide: (pending: DefinitionInte
     isCancelled: () => false, remainingMs: () => undefined, onLine: line => lines.push(line), onRuntimeEvent: () => {}, onSpawn: () => {}, onInvocationEnd: () => {},
     awaitHumanDecision: async (_reason, pending) => {
       asked.push(pending)
-      const text = decide(pending)
-      return text === null ? { action: 'stop' } : { action: 'resume', text, interruptId: pending[0]!.id }
+      const choice = decide(pending)
+      if (choice === null) return { action: 'stop' }
+      // The question card answers by option id, with the localized label as its text.
+      return typeof choice === 'string' ? { action: 'resume', text: choice, interruptId: pending[0]!.id } : { action: 'resume', ...choice, interruptId: pending[0]!.id }
     },
     machineInstalls: {
       autoAnswer: interrupt => installs.autoAnswer(interrupt, line => lines.push(line)),
@@ -102,6 +104,12 @@ it.skipIf(!coreMachineInstalls)('asks once with the exact command; Install runs 
     data: { kind: 'machine-install', command: 'rustup target add wasm32-unknown-unknown', tool: 'the Rust target wasm32-unknown-unknown' } } })
   expect(readFileSync(installLog, 'utf8').trim()).toBe('target add wasm32-unknown-unknown')
   expect(lines.join('\n')).toContain('Installed with rustup target add wasm32-unknown-unknown. The run continues.')
+  expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+
+it.skipIf(!coreMachineInstalls)('the question card\'s Install (option id, localized label) runs the approved install like the id itself', async () => {
+  const { result, installLog } = await runNeedingRustTarget('ask-install-card', () => ({ text: 'Instalar', optionId: 'install' }))
+  expect(readFileSync(installLog, 'utf8').trim()).toBe('target add wasm32-unknown-unknown')
   expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
 }, 180_000)
 

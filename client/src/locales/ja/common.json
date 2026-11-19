@@ -343,5 +343,43 @@
   "errors": {
     "technicalDetails": "技術的な詳細",
     "copyDetails": "詳細をコピー"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "プランナーが判断を求めています",
+      "developer": "開発者があなたの判断を求めています",
+      "fixer": "修正担当があなたの判断を求めています",
+      "reviewer": "レビュー担当があなたの判断を求めています",
+      "install": "Specrails があなたの許可を求めています",
+      "run": "実行があなたの回答を待っています"
+    },
+    "approval": "実行があなたの承認を待っています",
+    "recommended": "おすすめ",
+    "other": "別の回答…",
+    "otherLabel": "あなたの回答",
+    "otherPlaceholder": "回答を入力",
+    "answer": "回答",
+    "approve": "承認",
+    "reject": "却下",
+    "rejectLabel": "却下する理由は？",
+    "rejectPlaceholder": "理由",
+    "back": "戻る",
+    "sending": "送信中…",
+    "consequence": {
+      "waits": "回答するまで、実行は費用なしで待機します。",
+      "mayEnd": "ここで行うべきではないと答えると、実行は終了します。",
+      "endsRunOption": "「{{label}}」を選ぶと実行は終了します。",
+      "reject": "却下すると実行は終了します。アーカイブもマージもされません。"
+    },
+    "sent": "回答を送信しました。実行を続けます。",
+    "approved": "承認しました。実行を続けます。",
+    "rejected": "却下しました。実行は終了します。",
+    "failed": "回答を送信できませんでした",
+    "showMore": "すべて表示",
+    "showLess": "表示を減らす",
+    "notice": "あなたの対応が必要",
+    "notHere": "ここでは行わない",
+    "notHereMeaning": "この spec はこのリポジトリのものではありません。変更なしで実行を終了します。",
+    "sentEnds": "回答を送信しました。実行は終了します。"
   }
 }

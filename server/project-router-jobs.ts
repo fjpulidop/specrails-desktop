@@ -1,3 +1,4 @@
+import { runQuestionFrom, runQuestionFromStatus } from './shared/run-question'
 // Domain routes extracted from project-router.ts (jobs).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
@@ -393,14 +394,19 @@ if (!isInteractiveJobsEnabled() && !loopPaused) {
 res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
 return
 }
-    const { text, interruptId, approve } = req.body ?? {}
+    const { text, interruptId, approve, optionId, reject } = req.body ?? {}
     if (interruptId !== undefined && (typeof interruptId !== 'string' || !interruptId)) { res.status(400).json({ error: 'Invalid interruptId' }); return }
     if (approve !== undefined && typeof approve !== 'boolean') { res.status(400).json({ error: 'Invalid approval' }); return }
+    // A structured answer (Core questionOptions): the chosen option, or a rejection whose text is the reason.
+    if (optionId !== undefined && (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId))) { res.status(400).json({ error: 'Invalid optionId' }); return }
+    if (reject !== undefined && (reject !== true || approve === true)) { res.status(400).json({ error: 'Invalid rejection' }); return }
+    // Not paused in this process (retained over a restart): the caller resumes the retained run instead.
+    if ((optionId !== undefined || reject !== undefined) && !loopPaused) { res.status(409).json({ error: 'not_paused_here', detail: 'Resume the retained run with POST /loop-runs/:id/resume' }); return }
     if ((typeof text !== 'string' || !text.trim()) && !(loopPaused && approve === true)) {
       res.status(400).json({ error: 'text is required' })
       return
     }
-const control = { ...(interruptId ? { interruptId } : {}), ...(approve !== undefined ? { approve } : {}) }
+const control = { ...(interruptId ? { interruptId } : {}), ...(approve !== undefined ? { approve } : {}), ...(optionId ? { optionId } : {}), ...(reject === true ? { reject: true } : {}) }
 const accepted = loopPaused
   ? (c.loopRunManager?.sendInteractiveTurn(jobId, typeof text === 'string' ? text : '', control) ?? false)
   : c.queueManager.sendInteractiveTurn(jobId, text) || (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
@@ -708,6 +714,9 @@ const loopPauseBudget = c.loopRunManager?.budgetPause?.(jobId) ?? null
 // provider-quota: a run waiting for a usage-limit reset (live pause, or retained over a restart).
 const loopPauseLimit = c.loopRunManager?.limitPause?.(jobId) ?? (loopRun?.status === 'paused' ? readLimitPause(db, jobId) : null)
 const pendingInterrupts = c.loopRunManager?.pendingInterrupts?.(jobId) ?? []
+// The one question card every surface renders: the live pause first, else the retained Core status
+// (a run paused across a restart). Only a run still paused asks anything.
+const question = runQuestionFrom(pendingInterrupts) ?? (loopRun?.status === 'paused' && !loopPauseBudget && !loopPauseLimit ? runQuestionFromStatus(loopRun.runtime_status_json) : null)
 if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
 const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
 const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
@@ -716,7 +725,7 @@ interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? '
 }
 const continuationActive = isRuntimeContinuationActive(c, jobId)
 const hold = job.status === 'running' && !continuationActive ? (() => { try { return readRunHolds(db, [jobId], runHoldSources(c)).get(jobId) ?? null } catch { return null } })() : null
-const annotated = { ...job, ...(continuationActive ? { status: 'running', finished_at: null } : {}), ...(hold ? { hold } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused: loopPaused || !!hold, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), pendingInterrupts, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
+const annotated = { ...job, ...(continuationActive ? { status: 'running', finished_at: null } : {}), ...(hold ? { hold } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused: loopPaused || !!hold, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), pendingInterrupts, question, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

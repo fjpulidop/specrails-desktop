@@ -382,7 +382,7 @@
     "details": "Details",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Bisher vom Anbieter gemeldet; die endgültigen Zahlen kommen, wenn der Job endet.",
-    "questionPending": "Frage beantworten"
+    "questionPending": "Antworten"
   },
   "runDetail": {
     "failure": "Fehlerursachen",
@@ -399,8 +399,8 @@
       "interrupted": "Unterbrochen",
       "provider_limit": "Nutzungslimit",
       "budget": "Ausgabenlimit",
-      "question": "Wartet auf deine Antwort",
-      "approval": "Wartet auf deine Freigabe",
+      "question": "Braucht dich",
+      "approval": "Braucht dich",
       "paused": "Pausiert"
     },
     "tooltip": {

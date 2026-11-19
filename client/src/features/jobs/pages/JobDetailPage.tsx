@@ -20,6 +20,7 @@ import { useRuntimeRuns } from '../components/job-run/useRuntimeRuns'
 import { computePipelineTotals } from '../components/job-run/job-run-model'
 import { JobTicketHeader } from '../components/JobTicketHeader'
 import { InteractiveJobComposer } from '../components/InteractiveJobComposer'
+import { RunQuestionDock, runWindowQuestion } from '../components/job-run/RunQuestionDock'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { cn } from '../../../lib/utils'
 import { LogViewer } from '../components/LogViewer'
@@ -435,7 +436,8 @@ export default function JobDetailPage() {
   // and must Finalize (no auto-terminate). FEATURE-gated via the server flag —
   // job.interactive is only ever set when the feature is on.
   const isInteractive = !!job.interactive
-  const isInteractiveRunning = isInteractive && isRunning
+  // A held run (a restart, a limit, a question) has nothing to steer: its card or its Resume speaks for it.
+  const isInteractiveRunning = isInteractive && isRunning && !held
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
@@ -646,6 +648,10 @@ export default function JobDetailPage() {
           agent (queued server-side), see live turn totals, and settle per the
           session's mode (Finalize for freestyle, quiet wrap-up for auto). */}
       {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+      {/* The run's question: its one place in the run window, answered inline. */}
+      {job && activeProjectId && (
+        <RunQuestionDock projectId={activeProjectId} runId={job.id} initial={runWindowQuestion(job, runtime.runs[0])} onAnswered={runtime.refresh} />
+      )}
       {job && activeProjectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
         <RunLimitPause projectId={activeProjectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
       )}

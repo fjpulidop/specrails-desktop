@@ -343,3 +343,49 @@ describe('budget_paused loop runs (rail-loop-budget-guard)', () => {
       loopPauseBudget: { scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: '2026-10-22T00:00:00.000Z' } })
   })
 })
+
+// questionOptions: the run's question card and structured answers on the job's turn door.
+describe('the question card on /jobs/:id', () => {
+  const pending = [{ id: 'q1', nodePath: 'clarify', kind: 'question', value: { kind: 'question', prompt: 'Which store?', text: 'Which store?', asker: 'architect', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'files', label: 'Files' }] } }]
+  function buildPausedApp(accept = true): { app: Express; send: ReturnType<typeof vi.fn> } {
+    const send = vi.fn(() => accept)
+    const app = express()
+    app.use(express.json())
+    const router = Router()
+    const ctx = () => ({
+      db,
+      project: { id: 'p1', slug: 's1', path: '/repo', provider: 'claude', providers: ['claude'] },
+      queueManager: { getJobs: () => [], phasesForCommand: () => [], getInteractiveSettleMode: () => null, sendInteractiveTurn: vi.fn(() => false) },
+      loopRunManager: { isPaused: () => true, isInteractiveJob: () => false, pausedReason: () => 'Which store?', budgetPause: () => null, limitPause: () => null, pendingInterrupts: () => pending, sendInteractiveTurn: send },
+    })
+    registerJobsRoutes({ router, ctx, ticketPath: () => undefined } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    return { app, send }
+  }
+
+  it('GET reports the card (who asks in plain words, the choices) and never a node path', async () => {
+    createJob(db, { id: 'run-q', command: 'loop: Implement', started_at: new Date().toISOString(), interactive: true })
+    const res = await request(buildPausedApp().app).get('/api/projects/p1/jobs/run-q')
+    expect(res.body.job.question).toMatchObject({ interruptId: 'q1', asker: 'planner', text: 'Which store?', options: [{ id: 'sqlite' }, { id: 'files' }] })
+    expect(JSON.stringify(res.body.job.question)).not.toContain('clarify')
+  })
+
+  it('POST answers by option id or with free text, and a rejection carries its reason', async () => {
+    const { app, send } = buildPausedApp()
+    expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'SQLite', interruptId: 'q1', optionId: 'sqlite' })).status).toBe(202)
+    expect(send).toHaveBeenLastCalledWith('run-q', 'SQLite', { interruptId: 'q1', optionId: 'sqlite' })
+    expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'Postgres please', interruptId: 'q1' })).status).toBe(202)
+    expect(send).toHaveBeenLastCalledWith('run-q', 'Postgres please', { interruptId: 'q1' })
+    expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'Not yet', interruptId: 'a1', reject: true })).status).toBe(202)
+    expect(send).toHaveBeenLastCalledWith('run-q', 'Not yet', { interruptId: 'a1', reject: true })
+    expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'x', optionId: 'Bad Id' })).status).toBe(400)
+    expect((await request(app).post('/api/projects/p1/jobs/run-q/messages').send({ text: 'x', reject: true, approve: true })).status).toBe(400)
+  })
+
+  it('a structured answer for a run not paused in this process is a 409, so the card resumes the retained run', async () => {
+    const { app } = buildApp({ queueOwns: false, loopOwns: false })
+    const res = await request(app).post('/api/projects/p1/jobs/run-r/messages').send({ text: 'SQLite', interruptId: 'q1', optionId: 'sqlite' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('not_paused_here')
+  })
+})

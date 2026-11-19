@@ -13,12 +13,13 @@ import { compactRelativeTime } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
 import { primaryLabelKey, type InboxItem } from '../lib/inbox-model'
-import { inboxKindRunState } from '../lib/inbox-run-state'
+import { inboxItemRunState } from '../lib/inbox-run-state'
 import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { runStateLook } from '../../../components/ui/run-state/run-state'
 import { useInboxItemText } from '../hooks/useInboxItemText'
 import { useAttentionPrefs } from '../../../hooks/useAttentionPrefs'
 import { notifyError } from '../../../lib/notify-error'
+import { RunQuestionCard } from '../../../components/run-question/RunQuestionCard'
 
 export { primaryLabelKey } from '../lib/inbox-model'
 
@@ -44,7 +45,7 @@ function useProjectMute(projectId: string, projectName: string) {
  */
 function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const { t } = useTranslation('inbox')
-  const state = inboxKindRunState(item.kind)
+  const state = inboxItemRunState(item)
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
   // A failed or blocked run says WHY in plain words; an unknown cause says so, the raw outcome (often English) stays on hover.
@@ -68,10 +69,19 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
           </p>
           <p className="truncate text-caption text-muted-foreground">
             <span className={runStateLook(state).text}>{kindLabel}</span>
-            {detailText && <span title={rawDetail ?? undefined}>{` · ${detailText}`}</span>}
+            {detailText && !item.question && <span title={rawDetail ?? undefined}>{` · ${detailText}`}</span>}
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>
         </div>
+        {item.kind === 'question' && item.question ? (
+          // The question itself, answerable right here; the run stays one click away.
+          <div className="space-y-1.5">
+            <RunQuestionCard question={item.question} projectId={item.projectId} runId={item.subjectId} density="compact" />
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-caption text-muted-foreground" data-testid="inbox-open-run" onClick={() => { void inbox.runPrimary(item) }}>
+              {t('actions.open')}
+            </Button>
+          </div>
+        ) : (
         <div>
           <Button
             size="sm"
@@ -86,6 +96,7 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
             {working ? t('working') : t(primaryLabelKey(item))}
           </Button>
         </div>
+        )}
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger

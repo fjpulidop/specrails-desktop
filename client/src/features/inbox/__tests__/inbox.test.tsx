@@ -120,7 +120,7 @@ describe('Inbox panel', () => {
     expect(groups.map((g) => g.getAttribute('data-project-id'))).toEqual(['p1', 'p2'])
     expect(within(groups[0]).getAllByTestId('inbox-row')).toHaveLength(2)
     expect(within(groups[1]).getAllByTestId('inbox-row')).toHaveLength(2)
-    expect(within(dialog).getByText('Waiting for your answer')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Needs you').length).toBeGreaterThan(1)
   })
 
   it('says why a blocked run stopped, in the diagnosis\' plain words', async () => {

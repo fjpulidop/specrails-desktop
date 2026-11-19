@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { onRunQuestionAnswered } from '../../../components/run-question/run-question'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -144,6 +145,15 @@ export function InboxProvider({ children, dockBadge: injectedBadge }: { children
       if (nudgeTimer.current) clearTimeout(nudgeTimer.current)
     }
   }, [registerHandler, unregisterHandler, refresh])
+
+  // An answer from any surface of this window hides its question at once (then the read-model confirms).
+  useEffect(() => onRunQuestionAnswered(({ projectId, runId }) => {
+    setSnapshotItems((previous) => {
+      const next = previous.filter((item) => !(item.kind === 'question' && item.projectId === projectId && item.subjectId === runId))
+      return next.length === previous.length ? previous : next
+    })
+    void refresh()
+  }), [refresh])
 
   // Gentle poll while visible + refresh on return to the window.
   useEffect(() => {

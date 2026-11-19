@@ -6,7 +6,6 @@ import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
@@ -17,10 +16,7 @@ import { formatUsd } from '../../../lib/format-usd'
 import { notifyError } from '../../../lib/notify-error'
 import type { RuntimeRunsState } from './job-run/useRuntimeRuns'
 import { answerableRun } from './job-run/job-run-model'
-import { InterruptQuestion } from './InterruptQuestion'
 
-/** Radix Select items cannot use an empty value; this stands for "no interrupt picked" (state ''). */
-const NO_INTERRUPT = '__no-interrupt__'
 
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
@@ -151,7 +147,6 @@ export function InteractiveJobComposer({
   runtime,
 }: InteractiveJobComposerProps) {
   const { t } = useTranslation('jobs')
-  const { t: tl } = useTranslation('loops')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const questionRun = answerableRun(runtime?.runs[0])
   const [pending, setPending] = useState<PendingInterrupt[]>(pendingInterrupts ?? [])
@@ -224,13 +219,12 @@ export function InteractiveJobComposer({
   const setDraft = (value: string): void => { if (questionRun) runtime!.setAnswer(questionRun.runId, value); else setText(value) }
   const answering = !!questionRun && runtime!.busy === questionRun.runId
 
-  async function handleSend(approve = false, choice?: string): Promise<void> {
-    if (questionRun && choice === undefined) {
+  async function handleSend(approve = false): Promise<void> {
+    if (questionRun) {
       if (draft.trim() && !answering) await runtime!.act(questionRun, 'answer')
       return
     }
-    // A structured option answers with its id (Core `options`), whatever the text box holds.
-    const body = choice ?? text.trim()
+    const body = text.trim()
     if ((!body && !approve) || sending || waiting || (pending.length > 0 && !selectedInterrupt) || (needsApproval && !approve)) return
     setSending(true)
     try {
@@ -240,7 +234,7 @@ export function InteractiveJobComposer({
         body: JSON.stringify({ text: body, ...(selectedInterrupt ? { interruptId: selectedInterrupt.id } : {}), ...(approve ? { approve: true } : {}) }),
       })
       if (res.ok) {
-        if (choice === undefined) setText('')
+        setText('')
         if (selectedInterrupt) { setPending([]); setInterruptId(''); dispatch({ type: 'accepting', accepting: false }) }
         requestAnimationFrame(() => textareaRef.current?.focus())
       } else if (res.status === 409 && kind === 'loop-step' && !pending.length) {
@@ -284,6 +278,10 @@ export function InteractiveJobComposer({
       dispatch({ type: 'finalize-reject' })
     }
   }
+
+  // A pending question or approval has one place in the run window: the question card
+  // docked above (RunQuestionDock). The composer steps aside instead of asking it twice.
+  if (pending.length > 0 || questionRun) return null
 
   const sendDisabled = questionRun
     ? answering || !draft.trim()
@@ -396,31 +394,7 @@ export function InteractiveJobComposer({
       {/* Quiet mode hint: auto jobs finish themselves; between loop steps the
           waiting explainer replaces it. Finalize mode needs no hint (the button
           IS the contract, unchanged). */}
-      {pending.length > 0 && (
-        <div className="space-y-2 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3">
-          <label className="block text-sm">{tl('core.selectInterrupt')}
-            <Select value={interruptId || NO_INTERRUPT} onValueChange={next => setInterruptId(next === NO_INTERRUPT ? '' : next)}>
-              <SelectTrigger aria-label={tl('core.selectInterrupt')} className="mt-1 border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_INTERRUPT}>{tl('core.selectInterrupt')}</SelectItem>
-                {pending.map(item => <SelectItem key={item.id} value={item.id}>{item.nodePath} · {tl(`core.${item.kind === 'question' ? 'answerQuestion' : 'approval'}`)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </label>
-          {selectedInterrupt && selectedInterrupt.kind === 'question' && <InterruptQuestion value={selectedInterrupt.value} busy={sending || waiting} onChoose={(id) => void handleSend(false, id)} />}
-          {selectedInterrupt && selectedInterrupt.kind !== 'question' && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
-          {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}
-        </div>
-      )}
-      {questionRun && (
-        <div data-testid="composer-runtime-question" className="space-y-1 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3 text-sm">
-          <p className="font-medium">{tRuntime('runs.question')}</p>
-          <p className="whitespace-pre-wrap">{questionRun.pendingQuestion!.question}</p>
-        </div>
-      )}
-      {mode === 'auto' && !pending.length && !questionRun && (
+      {mode === 'auto' && (
         <p className="text-caption leading-snug text-muted-foreground">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>

@@ -152,6 +152,11 @@ export interface AgentRuntimeInvocationOptions {
   invalidate?: string[]
   /** Answers the pending architect question on resume. */
   answer?: string
+  /** Core `questionOptions`: the chosen option of the pending question (`--option`). */
+  optionId?: string
+  /** Core `questionOptions`: reject this approval interrupt with `reason` (`--reject … --reason …`). */
+  reject?: string
+  reason?: string
   interruptId?: string
   /** Host resolution of one pending `host-task` interrupt (Core `hostTasks`); requires `interruptId`. */
   hostResult?: { outcome: string; output?: unknown }
@@ -352,6 +357,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   if (options.answer !== undefined) {
     if (!options.resume) throw new Error('Answers apply to runtime resume')
     args.push('--answer', options.answer)
+    if (options.optionId) args.push('--option', options.optionId)
+  }
+  if (options.reject) {
+    if (!options.resume || !options.reason?.trim()) throw new Error('A rejection applies to runtime resume and needs a reason')
+    args.push('--reject', options.reject, '--reason', options.reason)
   }
   if (options.interruptId) { if (!options.resume) throw new Error('Interrupt selection applies to resume'); args.push('--interrupt-id', options.interruptId) }
   if (options.hostResult) {

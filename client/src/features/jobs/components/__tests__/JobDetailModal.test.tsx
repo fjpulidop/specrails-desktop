@@ -146,7 +146,7 @@ describe('JobDetailModal', () => {
     expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-log-section')!)).toEqual({ page: 'graph', modal: 'graph' })
   })
 
-  it('reveals question-only Details, retains a failed answer and removes the tab after settlement', async () => {
+  it('shows the question once, as its card above the log: Answer goes there, a refused answer keeps its draft, no Failure reasons tab', async () => {
     const user = userEvent.setup()
     let pending = true
     let rejectAnswer = true
@@ -161,22 +161,22 @@ describe('JobDetailModal', () => {
         : { job: mockJob, events: [] } }
     })
     render(<JobDetailModal jobId={mockJob.id} projectId="mission" onClose={onClose} />)
-    await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Answer and resume' })).toBeDisabled()
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    const card = await screen.findByTestId('run-question-card')
+    expect(card).toHaveTextContent('Which backend?')
+    expect(screen.getAllByText('Which backend?')).toHaveLength(1)
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+    // The header's Answer takes the person to the card.
+    await user.click(screen.getAllByRole('button', { name: 'Answer' }).find(button => !card.contains(button))!)
+    expect(screen.getByTestId('run-question-input')).toHaveFocus()
+    expect(screen.getByTestId('run-question-send')).toBeDisabled()
+    await user.type(screen.getByTestId('run-question-input'), 'Redis')
+    await user.click(screen.getByTestId('run-question-send'))
     const { toast } = await import('sonner')
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not update this run.', expect.objectContaining({ description: 'Answer rejected' })))
-    await user.click(screen.getByRole('tab', { name: 'Log' }))
-    await user.click(screen.getByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't send your answer", expect.objectContaining({ description: 'Answer rejected' })))
+    expect(screen.getByTestId('run-question-input')).toHaveValue('Redis')
     rejectAnswer = false
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument())
-    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByLabelText('Your answer')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('run-question-send'))
+    expect(await screen.findByTestId('run-question-sent')).toHaveTextContent('Answer sent — the run continues.')
     expect(fetch).toHaveBeenCalledWith('/api/projects/mission/agent-runtime/runs/r/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
   })
 

@@ -13,6 +13,7 @@ import { BUDGET_PAUSED, LIMIT_PAUSED, type LoopBudgetBreach, type LoopLimitPause
 import { clearLimitPause, saveLimitPause } from './loop-limit-pauses'
 import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
+import { runQuestionFrom } from '../../../shared/run-question'
 
 export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pending?: DefinitionInterrupt[]): Promise<Exclude<PausedHumanDecision, { action: 'switch' }>> {
   const { host, req, runId, state, exactTicketIds } = ctx
@@ -20,7 +21,9 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
   const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
     host.parkPause(runId, { reason, pending, resolve })
   })
-  logLine(`\n■ Loop paused — needs a human decision: ${reason}`, 'stderr')
+  // The card every surface renders; null for a legacy (non-definition) pause, which keeps its plain reason.
+  const question = runQuestionFrom(pending)
+  logLine(question ? `\n■ Needs you — ${question.kind === 'approval' ? 'approval' : 'question'}: ${reason}` : `\n■ Loop paused — needs a human decision: ${reason}`, 'stderr')
   try { markJobInteractive(host.db, runId) } catch { /* best-effort */ }
   pauseLoopRun(host.db, runId, runCounters(state))
   const pausedAt = new Date(host.now()).toISOString()
@@ -31,12 +34,14 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     railIndex: req.railIndex ?? null,
     reason,
     ticketIds: exactTicketIds,
+    ...(question ? { question } : {}),
   })
   host.emit({
     type: 'job.interactive',
     projectId: req.projectId,
     jobId: runId,
     acceptingTurns: true,
+    ...(question ? { question } : {}),
     // Only human interrupts reach a person; host tasks are resolved by the host.
     pendingInterrupts: pending?.filter((item): item is DefinitionInterrupt & { kind: 'question' | 'approval' | 'gate' } => item.kind !== 'host-task'),
     settleMode: 'auto',
@@ -53,7 +58,12 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
   resumeLoopRun(host.db, runId)
   const answer = decision.text.trim()
   const resumedAt = new Date(host.now()).toISOString()
-  logLine(`\n▶ Loop resumed — human decision received${answer ? `:\n${answer}` : '.'}`)
+  const chosen = decision.optionId ? question?.options.find(option => option.id === decision.optionId)?.label : undefined
+  logLine(!question
+    ? `\n▶ Loop resumed — human decision received${answer ? `:\n${answer}` : '.'}`
+    : decision.reject
+      ? `\n▶ Rejected by you${answer ? `: ${answer}` : '.'}`
+      : `\n▶ Answer received — the run continues${chosen ? `: ${chosen}` : answer ? `:\n${answer}` : '.'}`)
   ctx.history.push(`Human decision: ${truncate(answer)}`)
   host.emit({
     type: 'loop.run_resumed',
@@ -68,6 +78,8 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     jobId: runId,
     acceptingTurns: false,
     pendingInterrupts: [],
+    // The card every surface shows is answered: they drop it now.
+    ...(question ? { question: null } : {}),
     settleMode: 'auto',
     timestamp: resumedAt,
   })

@@ -1,3 +1,4 @@
+import { runQuestionFrom, type RunQuestion } from '../../../shared/run-question'
 import { collectRuntimeRetention } from './agent-runtime-retention'
 import { runtimeRetentionHostPorts, recoverHostRuntimeRetention } from './agent-runtime-retention-host'
 import { readRuntimeExpiration, readRuntimeRetentionPolicy, saveRuntimeRetentionPolicy } from './agent-runtime-retention-records'
@@ -84,6 +85,8 @@ interface RuntimeInspection {
 }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  /** The question card a paused definition run waits on (see loops/runtime/run-question). */
+  question?: RunQuestion | null
   lease?: { active: boolean } | null
   recoverableSteps?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
   pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate' | 'host-task'; value?: unknown }>
@@ -116,6 +119,8 @@ export interface RuntimeRunSummary {
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
+  /** The question card (see shared/run-question): who asks, the question, its choices. */
+  question?: RunQuestion | null
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
   /** A settled continuation (blocked/failed/interrupted/succeeded) can be dismissed from the rail card; it stays in the history. */
   canDismiss?: boolean
@@ -217,7 +222,9 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   let selection: unknown
   try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
   const catalog = metricsCatalogFor(state)
-  return { ...state, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
+  // The question card (shared with every surface); null when nothing waits on the person.
+  const question = state.engineVersion === 2 ? runQuestionFrom(state.pendingInterrupts ?? []) : null
+  return { ...state, question, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
 }
 
 /** One controller per ProjectContext; Core's durable lease remains the final
@@ -502,7 +509,7 @@ export class AgentRuntimeControls {
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: hostWorking ? 'running' : superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkReserved ? undefined : state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
+        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), question: forkReserved ? null : state.question ?? null, steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
         canSettle: forkReserved ? false : definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)

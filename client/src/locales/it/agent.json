@@ -346,7 +346,7 @@
       "building": "Implementazione in un worktree isolato…",
       "buildingInPlace": "Implementazione nella cartella del progetto…",
       "buildingExistingPr": "Applicazione delle modifiche su una PR esistente…",
-      "paused": "Serve una decisione umana",
+      "paused": "In pausa",
       "on_review": "Implementazione pronta per la revisione",
       "pr_draft": "PR in bozza creata",
       "pr_draft_degraded": "Consegna della PR incompleta",
@@ -1411,7 +1411,7 @@
     "paused": "In pausa. Ti aspetta",
     "pausedReason": "In pausa: {{reason}}",
     "decision": {
-      "approval": "In attesa della tua approvazione",
+      "approval": "Ti aspetta",
       "changes": "Il revisore ha chiesto modifiche",
       "on_review": "Pronto per la tua revisione",
       "pr_draft": "PR in bozza pronta da pubblicare",

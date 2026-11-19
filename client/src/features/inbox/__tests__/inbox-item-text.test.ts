@@ -43,6 +43,6 @@ describe('one wording per inbox item (row, live board card, notification)', () =
 
   it('keeps the server detail of a question (the question itself)', () => {
     const question = mk({ kind: 'question', action: 'open-run', title: 'Split check', detail: 'Every 10 lines or 8?' })
-    expect(text(question)).toMatchObject({ kindLabel: 'Waiting for your answer', detail: 'Every 10 lines or 8?' })
+    expect(text(question)).toMatchObject({ kindLabel: 'Needs you', detail: 'Every 10 lines or 8?' })
   })
 })

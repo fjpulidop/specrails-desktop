@@ -1,4 +1,6 @@
 import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
+import { readRunQuestion } from '../../../../components/run-question/run-question'
+import { focusRunQuestion } from './RunQuestionDock'
 import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
@@ -131,25 +133,28 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const runtime = sharedRuntime ?? ownRuntime
   const run: RuntimeRun | undefined = runtime.runs[0]
 
-  const [detailsRequest, setDetailsRequest] = useState(0)
+  const [detailsRequest] = useState(0)
 
   // ── Phase + activity line ──────────────────────────────────────────────
   const runningPhaseLabel = useMemo(() => {
     const def = phaseDefinitions.find((d) => phases[d.key] === 'running')
     return def?.label ?? null
   }, [phases, phaseDefinitions])
-  const runtimePhaseLabel = run?.nextStep ? tRuntime(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) : null
+  // A step the runtime names by a node id (`clarify`, `map[0]/ask`) has no words for the person: show none.
+  const runtimePhaseLabel = run?.nextStep ? tRuntime(`roles.${run.nextStep}`, { defaultValue: '' }) || null : null
   const phaseLabel = runningPhaseLabel ?? runtimePhaseLabel
 
   const { key: activityKey, arg: activityArg } = resolveActivityLabel(activity, isRunning)
   const activityLabel = activityArg != null
     ? t(`statusPanel.activity.${activityKey}`, { arg: activityArg })
     : t(`statusPanel.activity.${activityKey}`)
-  const liveLine = isRunning
+  // A run waiting on the person says so, not "Working…".
+  // The run's hold is the one classification of "needs you": a question or an approval.
+  const waitsOnPerson = hold?.kind === 'question' || hold?.kind === 'approval' || !!readRunQuestion(job.question) || !!answerableRun(run)
+  // A held run says why (its pill already says "Needs you" for a question); a waiting runtime run says Needs you.
+  const liveLine = hold ? describeJobHold(t, hold) : waitsOnPerson ? t('common:runQuestion.notice') : isRunning
     ? (phaseLabel ? t('runHeader.phaseActivity', { phase: phaseLabel, activity: activityLabel }) : activityLabel)
-    : hold
-      ? describeJobHold(t, hold)
-      : run && !run.active && run.nextStep && (run.canResume || run.pendingQuestion || run.pendingApproval)
+    : run && !run.active && run.nextStep && (run.canResume || run.pendingQuestion || run.pendingApproval)
       ? t('runHeader.phaseActivity', {
           phase: tRuntime(`runs.status.${run.status}`, { defaultValue: run.status }),
           activity: tRuntime('runs.phase', { phase: runtimePhaseLabel }),
@@ -178,9 +183,10 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </Button>
       )}
       {answerable && (
-        <Button size="sm" variant="outline" className="h-7 border-accent-warning/40 text-accent-warning hover:bg-accent-warning/10" onClick={() => setDetailsRequest(request => request + 1)}>
+        // The question lives in its card above the log; this takes the person there.
+        <Button size="sm" variant="outline" className="h-7 border-accent-primary/40 text-accent-primary hover:bg-accent-primary/10" onClick={() => focusRunQuestion(job.id)}>
           <MessageCircleQuestion className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-          {t('runHeader.questionPending')}
+          {t('common:runQuestion.answer')}
         </Button>
       )}
       {run.canSettle && (
@@ -236,31 +242,18 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
 
-  const question = run?.pendingQuestion ? (
-    <div className="space-y-2 text-xs" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-      <p className="font-medium">{tRuntime('runs.question')}</p>
+  // A question no one can answer any more (already answered, the run needs recovery first) is shown read-only;
+  // an answerable one has its card above the log (RunQuestionDock), never here or under "Failure reasons".
+  const question = run?.pendingQuestion && !answerable ? (
+    <div className="space-y-1 text-xs">
+      <p className="font-medium">{t(`common:runQuestion.asker.run`)}</p>
       <p className="whitespace-pre-wrap">{run.pendingQuestion.question}</p>
-      {answerable && (
-        <>
-          <label className="block space-y-1">{tRuntime('runs.answerLabel')}
-            <textarea
-              className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-              maxLength={20000}
-              placeholder={tRuntime('runs.answerPlaceholder')}
-              value={runtime.answers[run.runId] ?? ''}
-              onChange={(event) => runtime.setAnswer(run.runId, event.target.value)}
-            />
-          </label>
-          <Button size="sm" disabled={busy || !runtime.answers[run.runId]?.trim()} onClick={() => void runtime.act(run, 'answer')}>
-            {tRuntime('runs.answer')}
-          </Button>
-        </>
-      )}
     </div>
   ) : null
 
   const evidenceChip = run && projectId ? <RuntimeEvidenceChip projectId={projectId} run={run} /> : null
-  const acceptsInstructions = !!run && !!projectId && steeringAcceptsInstructions(run)
+  // While the run waits on the person its question card is the one input; instructions come after.
+  const acceptsInstructions = !waitsOnPerson && !!run && !!projectId && steeringAcceptsInstructions(run)
   const composer = acceptsInstructions && run && projectId
     ? <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />
     : null
@@ -395,7 +388,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
     </div>}
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, continuityContent, hasDetails, detailsContent, questionContent: answerable ? question : null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: false, diagnosisHandlers, diagnosisTail, continuityContent, hasDetails, detailsContent, questionContent: null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }

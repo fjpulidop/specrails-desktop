@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "Choisir la question ou approbation en attente",
-    "answerQuestion": "Répondre à la question",
+    "answerQuestion": "Répondre",
     "approval": "Approbation",
-    "approveContinue": "Approuver et continuer",
+    "approveContinue": "Approuver",
     "paused": "En pause",
     "acceptance": "Acceptation",
     "verified": "Vérifié",

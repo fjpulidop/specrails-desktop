@@ -41,6 +41,7 @@ import {
 } from './loop-runs-store'
 import { BUILTIN_CONSTANTS } from './loop-constants'
 import type { DefinitionInterrupt, DefinitionResumeControls } from './loop-definition-run'
+import { runQuestionFrom } from '../../../shared/run-question'
 import { insertLoopInvocation } from './loop-step-accounting'
 import { seedChangeId } from './loop-run-vars'
 import { runInteractiveAiStep } from './loop-interactive-ai-step'
@@ -327,14 +328,18 @@ export class LoopRunManager {
     return structuredClone(this._pausedHumanDecisions.get(jobId)?.pending ?? [])
   }
 
-  sendInteractiveTurn(jobId: string, text: string, control?: { interruptId?: string; approve?: boolean }): boolean {
+  sendInteractiveTurn(jobId: string, text: string, control?: { interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }): boolean {
     if (this.definitionForkOwnsRun(jobId)) return false
     const paused = this._pausedHumanDecisions.get(jobId)
     if (paused?.budget) return this.resumeBudgetPause(jobId).status === 'resumed'
     if (paused) {
       if (paused.pending?.length) {
         const selected = control?.interruptId ? paused.pending.find(item => item.id === control.interruptId) : paused.pending.length === 1 ? paused.pending[0] : undefined
-        if (!selected || (selected.kind !== 'question' && control?.approve !== true)) return false
+        if (!selected || (selected.kind !== 'question' && control?.approve !== true && control?.reject !== true)) return false
+        // A choice must be one the question offered; a rejection needs a rejectable approval and a reason.
+        const question = runQuestionFrom([selected])
+        if (control?.optionId && (selected.kind !== 'question' || !question?.options.some(option => option.id === control.optionId))) return false
+        if (control?.reject && (!question?.canReject || control.approve === true || !text.trim())) return false
       }
       this._pausedHumanDecisions.delete(jobId)
       paused.resolve({ action: 'resume', text, ...control })
@@ -471,7 +476,8 @@ export class LoopRunManager {
       const request = readDefinitionRun(this.db, runId)?.request
       if (!request) throw new Error('runtime_run_not_found: Frozen workflow is unavailable')
       this.claimDefinition({ ...request, runId })
-      if (!this.sendInteractiveTurn(runId,input.answer ?? '',{interruptId,approve: Boolean(input.approve?.length)})) {
+      const rejected = input.reject ? { interruptId: input.reject, reject: true } : {}
+      if (!this.sendInteractiveTurn(runId,input.answer ?? input.reason ?? '',{interruptId,approve: Boolean(input.approve?.length),...(input.optionId ? { optionId: input.optionId } : {}),...rejected})) {
         this.releaseDefinition(runId)
         throw new Error('runtime_run_active: Select a pending question or approval')
       }

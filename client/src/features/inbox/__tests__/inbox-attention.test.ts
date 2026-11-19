@@ -138,7 +138,7 @@ describe('useInboxAttention', () => {
     rerender(props([first, second]))
     rerender(props([first, second]))
     expect(events).toHaveLength(1)
-    expect(events[0]).toMatchObject({ category: 'question', projectId: 'p2', subjectKey: 'question:run:r9', title: 'Waiting for your answer', body: 'Beta · Implement · #4' })
+    expect(events[0]).toMatchObject({ category: 'question', projectId: 'p2', subjectKey: 'question:run:r9', title: 'Needs you', body: 'Beta · Implement · #4' })
     events[0].open?.()
     expect(open).toHaveBeenCalledWith(second)
     expect(JSON.parse(localStorage.getItem(ANNOUNCED_KEY)!)).toHaveProperty([inboxItemKey(second)])
