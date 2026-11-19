@@ -110,6 +110,10 @@ function ensureFocusListener(): void {
   if (focusListenerInstalled) return
   if (typeof window === 'undefined') return
   window.addEventListener('focus', () => {
+    // Only a mounted Add Project / builder surface needs a re-probe (the person may have just
+    // installed a tool). The probe runs ~12 synchronous `--version` checks on the server, so a
+    // listener left from an earlier dialog froze the whole app for 1-2.5 s on every focus.
+    if (subscribers.size === 0) return
     cache.fetchedAt = 0
     cache.data = null
     void fetchPrerequisites().catch(() => { /* surfaced via subscribers */ })
