@@ -93,7 +93,7 @@ import './providers'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
 import { resolveSpecrailsHome } from './util/specrails-home'
-import { configureSharedRuntimePackageCache } from './modules/agent-runtime/runtime/agent-runtime-package'
+import { configureSharedRuntimePackageCache, scheduleSharedRuntimePackageCollection } from './modules/agent-runtime/runtime/agent-runtime-package-schedule'
 import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
 import { logRejection } from './util/log-rejection'
 import { checkCoreCompat } from './core-compat'
@@ -669,6 +669,9 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
   }
   registry.loadAll()
   _registry = registry
+  // The shared launch cache keeps the current and recent Core builds and every one a
+  // run's pin still names; older builds are collected off the startup path.
+  scheduleSharedRuntimePackageCollection({ projectsRoot: path.join(resolveSpecrailsHome(), '.specrails', 'projects'), pipelineRoots: () => registry.listProjects().map(project => path.join(project.path, '.specrails', 'pipeline')) })
   // Leftover test/preview servers of settled runs are reaped by worktree path.
   installAppWorktreeProcessReaper(registry)
   _getProjectCount = () => registry.listProjects().length
