@@ -34,6 +34,7 @@ const coreDependencies: Record<string, string[]> = {
   'delivery/domain/decision-policy.ts': ['./state'],
   'delivery/domain/merge-preview.ts': [],
   'delivery/domain/retained-worktrees.ts': [],
+  'delivery/domain/static-check.ts': [],
   'delivery/domain/review-wip.ts': ['./state'],
   'delivery/index.ts': ['./domain/decision-policy', './domain/state', './domain/review-wip'],
   'agent-sessions/domain/protocol.ts': [],

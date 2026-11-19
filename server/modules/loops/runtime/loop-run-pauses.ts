@@ -55,7 +55,7 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     return { action: 'stop' }
   }
 
-  resumeLoopRun(host.db, runId)
+  resumeLoopRun(host.db, runId, new Date(host.now()))
   const answer = decision.text.trim()
   const resumedAt = new Date(host.now()).toISOString()
   const chosen = decision.optionId ? question?.options.find(option => option.id === decision.optionId)?.label : undefined
@@ -131,7 +131,7 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
     if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
     const still = host.budgetBreach(runId)
     if (still) { current = still; continue }
-    resumeLoopRun(host.db, runId)
+    resumeLoopRun(host.db, runId, new Date(host.now()))
     const resumedAt = new Date(host.now()).toISOString()
     logLine(`\n▶ Loop resumed — the daily budget allows the next step.`)
     host.emit({
@@ -222,7 +222,7 @@ export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<Lo
     return { action: 'stop' }
   }
   if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
-  resumeLoopRun(host.db, runId)
+  resumeLoopRun(host.db, runId, new Date(host.now()))
   logLine(decision.action === 'switch'
     ? `\n▶ Loop continues on ${decision.provider} — the earlier steps go along as context.`
     : `\n▶ Loop resumed after the ${limit.providerId} usage limit — retrying the step.`)
