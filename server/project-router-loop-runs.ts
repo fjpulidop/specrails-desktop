@@ -500,6 +500,10 @@ export interface ContinueOptions {
  * stopped. The cause's guidance is queued as an operator instruction before the
  * run goes on, so its next agent turn reads it. Returns the HTTP outcome.
  */
+function completionReasonsOf(completion: unknown): unknown[] | null {
+  return completion && typeof completion === 'object' && Array.isArray((completion as { reasons?: unknown }).reasons) ? (completion as { reasons: unknown[] }).reasons : null
+}
+
 export async function continueDefinitionRun(c: ProjectContext, runId: string, remedy: ContinueRemedy, options: ContinueOptions = {}): Promise<{ status: number; body: object }> {
   try {
     assertProcessAdmission(c.project.id)
@@ -514,7 +518,7 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
     // Checks handed to a person need no guidance; Continue carries the cause's.
-    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis) : null
+    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion) }) : null
     let guided: boolean | undefined
     if (guidance) {
       try {
