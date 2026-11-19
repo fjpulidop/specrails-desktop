@@ -740,7 +740,14 @@ export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<Loop
 }
 
 export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
-  db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL WHERE id = ? AND status = 'paused'`).run(id)
+  const resumed = db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL WHERE id = ? AND status = 'paused'`).run(id).changes > 0
+  // A delivery a restart or a Continue fork left "waiting for workflow recovery" is building
+  // again the moment its run resumes; it said so for the whole continued attempt.
+  if (resumed) {
+    db.prepare(`UPDATE rail_pr_deliveries SET status_code = 'implementation_running', status_detail = NULL
+                 WHERE decision = 'building' AND status_code = 'restart_pending'
+                   AND EXISTS (SELECT 1 FROM json_each(rail_pr_deliveries.run_ids) WHERE json_each.value = ?)`).run(id)
+  }
   return getLoopRun(db, id)
 }
 
