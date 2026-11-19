@@ -96,6 +96,7 @@ export function strongerModelFor(provider: string | null | undefined, model: str
 }
 
 const DETAIL_LIMIT = 280
+const CORE_DETAIL_LIMIT = 900
 
 export function oneSentence(value: unknown, max = DETAIL_LIMIT): string | null {
   if (typeof value !== 'string') return null
@@ -163,7 +164,8 @@ export function parseCoreFailure(raw: unknown): FailureDiagnosis | null {
     rounds,
     resetAt: kind === 'provider_limit' ? optionalText(value.resetAt, 80) : null,
     ...(kind === 'provider_limit' ? { resetsAt: typeof value.resetsAt === 'string' && Number.isFinite(Date.parse(value.resetsAt)) ? new Date(value.resetsAt).toISOString() : null } : {}),
-    detail: oneSentence(value.detail),
+    // Core clamps its own details; a stalled correction's names the reviewer's open issues.
+    detail: oneSentence(value.detail, CORE_DETAIL_LIMIT),
     resumablePhase: optionalText(value.resumablePhase, 200),
     blocker: parseBlocker(value.blocker),
     ...(kind === 'port_in_use' ? { port: validPort(value.port) } : {}),
