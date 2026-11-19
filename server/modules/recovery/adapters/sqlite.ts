@@ -25,7 +25,17 @@ export function readRunDiagnosis(db: DbInstance, runId: string): PresentedFailur
   const run = db.prepare('SELECT status, final_outcome, failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as RunRow | undefined
   if (!run || run.status !== 'completed' || !isDiagnosableOutcome(run.final_outcome)) return null
   const stored = parseStoredDiagnosis(run.failure_diagnosis)
-  return presentFailureDiagnosis(stored ?? deriveFailureDiagnosis({ outcome: run.final_outcome }), providerCatalog)
+  return presentFailureDiagnosis(stored ?? deriveFailureDiagnosis({ outcome: run.final_outcome }), providerCatalog, { envFilesEnabled: readEnvFilesSetting(db) })
+}
+
+/** The project's `worktreeEnvFiles` setting (row present only while on; see project-settings). */
+function readEnvFilesSetting(db: DbInstance): boolean {
+  try {
+    const row = db.prepare("SELECT value FROM queue_state WHERE key = 'config.worktree_env_files'").get() as { value: string } | undefined
+    return row?.value === 'true'
+  } catch {
+    return true // unknown: offer nothing extra
+  }
 }
 
 /**

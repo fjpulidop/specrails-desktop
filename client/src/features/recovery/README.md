@@ -47,7 +47,9 @@ and the server-ranked `remedies`.
   the cause's guidance; a surface without a definition run passes its in-place resume),
   *Continue to review* (unfinished tasks that only a person can check), *Edit spec and relaunch*
   (opens the spec, whose addenda iterate on it), *Fix the environment* (shows the blocker's required
-  action and a copyable command; it runs nothing) and *Open logs at the failure*. Each button has its
+  action and a copyable command; it runs nothing), *Copy this project's .env into runs* (`copy-env-files`,
+  ranked first by the server for a missing `.env` / `APP_KEY` while the project setting is off: it turns the
+  setting on and continues through the same route) and *Open logs at the failure*. Each button has its
   one-line consequence under it (`consequenceKey`). *Start over* (the surface's run-again / relaunch)
   is never a button: it waits in the card's menu with its warning (this attempt's work is not carried
   over and stays in the old worktree). A remedy without a handler is not offered; at most three show,

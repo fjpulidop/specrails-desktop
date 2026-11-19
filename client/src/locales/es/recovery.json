@@ -76,7 +76,8 @@
     "openLogs": "Abrir el registro en el fallo",
     "continueToReview": "Continuar a revisión",
     "continue": "Continuar",
-    "continueFrom": "Continuar desde {{phase}}"
+    "continueFrom": "Continuar desde {{phase}}",
+    "copyEnvFiles": "Copiar el .env de este proyecto en las ejecuciones"
   },
   "environment": {
     "command": "Comando",
@@ -150,7 +151,9 @@
     "notResumed": "La ejecución continuada no arrancó",
     "failed": "No se pudo continuar la ejecución",
     "continuing": "Continuando la ejecución.",
-    "continuingFrom": "Continuando desde el paso {{step}}."
+    "continuingFrom": "Continuando desde el paso {{step}}.",
+    "envFilesCopied": "Se copió {{files}} en la ejecución. Continuando.",
+    "envFilesUnavailable": "Este proyecto no tiene ningún archivo .env que copiar. Créalo en tu copia de trabajo y vuelve a intentarlo."
   },
   "consequence": {
     "continue": "Conserva todo y sigue desde el paso que falló.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Muestra qué necesita la máquina y el comando que hay que ejecutar.",
     "openLogs": "Lleva al paso fallido en el registro.",
     "retry": "Una ejecución nueva desde la base. El trabajo de este intento no se arrastra; se queda en el worktree anterior.",
-    "analyze": "La IA lee el registro y explica por qué se detuvo."
+    "analyze": "La IA lee el registro y explica por qué se detuvo.",
+    "copyEnvFiles": "Activa el ajuste en este proyecto y continúa. Los agentes de sus ejecuciones pueden leer estos archivos; nunca se incluyen en commits ni se muestran en las revisiones."
   },
   "stopped": {
     "headline": "Detuviste esta ejecución",

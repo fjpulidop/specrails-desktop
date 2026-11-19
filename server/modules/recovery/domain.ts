@@ -20,7 +20,7 @@ export type FailureSource = 'core' | 'desktop'
  * cause's guidance); `retry` is "Start over" from the base. `resume` and `retry-with-browser` are the
  * older ids of `continue`: still read, never ranked.
  */
-export const REMEDY_IDS = ['continue', 'resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser'] as const
+export const REMEDY_IDS = ['continue', 'resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review', 'retry-with-browser', 'copy-env-files'] as const
 export type RemedyId = (typeof REMEDY_IDS)[number]
 
 /** The structured host precondition behind an `environment` failure (Core's HostBlocker, bounded). */
@@ -326,9 +326,32 @@ export function rankRemedies(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confide
   }
 }
 
-export function presentFailureDiagnosis(diagnosis: FailureDiagnosis, catalog?: ModelCatalogLookup): PresentedFailureDiagnosis {
+// A missing environment file (`.env`, `.env.testing`) or a value only it holds (Laravel's APP_KEY).
+const ENV_FILE_NEED = /(?:^|[\s`'"(/])\.env(?:\.[A-Za-z0-9_-]+)?\b|\bAPP_KEY\b|\bdotenv\b|\benvironment file\b/i
+
+/**
+ * True when a high-confidence host blocker says the run is missing the
+ * repository's environment file, which the project's `worktreeEnvFiles`
+ * setting can copy into the run worktree.
+ */
+export function needsEnvFiles(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker'>): boolean {
+  if (diagnosis.kind !== 'environment' || diagnosis.confidence !== 'high') return false
+  const blocker = diagnosis.blocker
+  const text = [diagnosis.detail, blocker?.reason, blocker?.requiredAction, blocker?.command, ...(blocker?.args ?? [])].filter(Boolean).join('\n')
+  return ENV_FILE_NEED.test(text)
+}
+
+export interface PresentOptions {
+  /** The project's `worktreeEnvFiles` setting; when off, an env-file blocker offers to turn it on and continue. */
+  envFilesEnabled?: boolean
+}
+
+export function presentFailureDiagnosis(diagnosis: FailureDiagnosis, catalog?: ModelCatalogLookup, options: PresentOptions = {}): PresentedFailureDiagnosis {
   const strongerModel = diagnosis.kind === 'workflow_protocol' && catalog ? strongerModelFor(diagnosis.provider, diagnosis.model, catalog) : null
-  return { ...diagnosis, remedies: rankRemedies(diagnosis), ...(diagnosis.kind === 'workflow_protocol' ? { strongerModel } : {}) }
+  const ranked = rankRemedies(diagnosis)
+  // The one-click remedy is Continue with the setting turned on first.
+  const remedies: RemedyId[] = options.envFilesEnabled === false && needsEnvFiles(diagnosis) ? ['copy-env-files', ...ranked] : ranked
+  return { ...diagnosis, remedies, ...(diagnosis.kind === 'workflow_protocol' ? { strongerModel } : {}) }
 }
 
 /** Outcomes that deserve a diagnosis. */

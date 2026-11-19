@@ -76,7 +76,8 @@
     "openLogs": "失敗箇所のログを開く",
     "continueToReview": "レビューへ進む",
     "continue": "続行",
-    "continueFrom": "{{phase}} から続行"
+    "continueFrom": "{{phase}} から続行",
+    "copyEnvFiles": "このプロジェクトの .env を実行にコピー"
   },
   "environment": {
     "command": "コマンド",
@@ -150,7 +151,9 @@
     "notResumed": "続行した実行が開始しませんでした",
     "failed": "実行を続行できませんでした",
     "continuing": "実行を続行しています。",
-    "continuingFrom": "{{step}} ステップから続行しています。"
+    "continuingFrom": "{{step}} ステップから続行しています。",
+    "envFilesCopied": "{{files}} を実行にコピーしました。続行します。",
+    "envFilesUnavailable": "このプロジェクトにはコピーする .env ファイルがありません。作業コピーに作成してから、もう一度お試しください。"
   },
   "consequence": {
     "continue": "すべてを残したまま、失敗したステップから再開します。",
@@ -164,7 +167,8 @@
     "fixEnvironment": "マシンに必要なものと実行するコマンドを表示します。",
     "openLogs": "ログの失敗したステップへ移動します。",
     "retry": "ベースから新しく実行します。この試行の作業は引き継がれず、古い worktree に残ります。",
-    "analyze": "AI がログを読み、止まった理由を説明します。"
+    "analyze": "AI がログを読み、止まった理由を説明します。",
+    "copyEnvFiles": "このプロジェクトの設定をオンにして続行します。実行のエージェントはこれらのファイルを読み取れます。コミットされることも、レビューに表示されることもありません。"
   },
   "stopped": {
     "headline": "この実行を停止しました",

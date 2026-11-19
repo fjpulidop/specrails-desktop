@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "已记住的安装",
           "keywords": "安装, brew, 全机, 工具, 批准, 撤销"
+        },
+        "envFiles": {
+          "label": "运行中的环境文件",
+          "keywords": "env 文件, .env, dotenv, APP_KEY, 密钥, 环境, 工作树"
         }
       }
     },

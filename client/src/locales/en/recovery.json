@@ -76,7 +76,8 @@
     "openLogs": "Open logs at the failure",
     "continueToReview": "Continue to review",
     "continue": "Continue",
-    "continueFrom": "Continue from {{phase}}"
+    "continueFrom": "Continue from {{phase}}",
+    "copyEnvFiles": "Copy this project's .env into runs"
   },
   "environment": {
     "command": "Command",
@@ -150,7 +151,9 @@
     "notResumed": "The continued run did not start",
     "failed": "Could not continue the run",
     "continuing": "Continuing the run.",
-    "continuingFrom": "Continuing from the {{step}} step."
+    "continuingFrom": "Continuing from the {{step}} step.",
+    "envFilesCopied": "Copied {{files}} into the run. Continuing.",
+    "envFilesUnavailable": "This project has no .env file to copy. Create it in your checkout, then try again."
   },
   "consequence": {
     "continue": "Keeps everything and goes on from the step that failed.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Shows what the machine needs and the command to run.",
     "openLogs": "Scrolls to the failed step in the log.",
     "retry": "A fresh run from the base. This attempt's work is not carried over; it stays in the old worktree.",
-    "analyze": "The AI reads the log and says why it stopped."
+    "analyze": "The AI reads the log and says why it stopped.",
+    "copyEnvFiles": "Turns on the setting for this project and continues. Agents in its runs can read these files; they are never committed or shown in reviews."
   },
   "stopped": {
     "headline": "You stopped this run",

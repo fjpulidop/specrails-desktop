@@ -156,6 +156,14 @@ describe('secrets and tampering', () => {
     expect(evaluateToolCall('Read', { file_path: `${RUN}/key` }, facts({}, {}, { [`${RUN}/key`]: '/Users/u/.ssh/id_rsa' }))?.rule).toBe('secret-access')
   })
 
+  it('lets a run read the env file copied into its worktree, never the secret stores', () => {
+    // worktreeEnvFiles copies `.env` into the run: reading it there is the point.
+    expect(evaluateToolCall('Read', { file_path: `${RUN}/.env` }, facts())).toBeNull()
+    expect(rule('cat .env')).toBeNull()
+    expect(rule('cat ~/.ssh/id_rsa')).toBe('secret-access')
+    expect(evaluateToolCall('Read', { file_path: '/Users/u/.aws/credentials' }, facts())?.rule).toBe('secret-access')
+  })
+
   it('denies changing the hook files', () => {
     expect(evaluateToolCall('Write', { file_path: '/Users/u/.specrails/agent-policy/specrails-policy-hook-x.cjs', content: '' }, facts())?.rule).toBe('policy-tamper')
     expect(rule('rm /Users/u/.specrails/agent-policy/specrails-policy-hook-x.cjs')).toBe('policy-tamper')

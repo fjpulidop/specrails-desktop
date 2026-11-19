@@ -379,6 +379,10 @@
         "machineInstalls": {
           "label": "Installations retenues",
           "keywords": "installer, brew, machine, outil, accord, révoquer"
+        },
+        "envFiles": {
+          "label": "Fichiers d'environnement dans les exécutions",
+          "keywords": "fichiers env, .env, dotenv, APP_KEY, secrets, environnement, worktree"
         }
       }
     },

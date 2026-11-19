@@ -41,6 +41,13 @@ describe('availableRemedies', () => {
     expect(availableRemedies(base, { 'open-logs': handler() })).toEqual(['open-logs'])
     expect(availableRemedies(base, {})).toEqual([])
   })
+  it('reads and offers the env-file remedy only with its handler', () => {
+    const env: FailureDiagnosis = { ...base, kind: 'environment', remedies: ['copy-env-files', 'continue', 'fix-environment'] }
+    expect(readFailureDiagnosis(env)?.remedies).toEqual(['copy-env-files', 'continue', 'fix-environment'])
+    expect(availableRemedies(env, { continue: handler(), 'copy-env-files': handler() })).toEqual(['copy-env-files', 'continue', 'fix-environment'])
+    expect(availableRemedies(env, { continue: handler() })).toEqual(['continue', 'fix-environment'])
+    expect(consequenceKey('copy-env-files', env)).toBe('consequence.copyEnvFiles')
+  })
   it('offers fixing the environment without a handler, only for environment failures', () => {
     expect(availableRemedies({ ...base, kind: 'environment', remedies: ['fix-environment', 'continue'] }, {})).toEqual(['fix-environment'])
     expect(availableRemedies({ ...base, kind: 'blocked', remedies: ['fix-environment', 'continue'] }, {})).toEqual([])

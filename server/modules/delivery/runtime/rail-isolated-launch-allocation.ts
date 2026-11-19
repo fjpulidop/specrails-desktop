@@ -573,6 +573,7 @@ async function allocateUnit(stage: AllocationStageInput, plan: AllocationPlan, u
         return headSha
       },
       overlay: overlaySources,
+      copyEnvFiles: getProjectSettings(ctx.db).worktreeEnvFiles,
       onDegraded: (warnings) => notifyOverlayDegraded(unit.ticketId, warnings),
     }, io)
     handle = prepared.handle

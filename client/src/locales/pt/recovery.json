@@ -76,7 +76,8 @@
     "openLogs": "Abrir o registro na falha",
     "continueToReview": "Continuar para a revisão",
     "continue": "Continuar",
-    "continueFrom": "Continuar a partir de {{phase}}"
+    "continueFrom": "Continuar a partir de {{phase}}",
+    "copyEnvFiles": "Copiar o .env deste projeto para as execuções"
   },
   "environment": {
     "command": "Comando",
@@ -150,7 +151,9 @@
     "notResumed": "A execução continuada não arrancou",
     "failed": "Não foi possível continuar a execução",
     "continuing": "A continuar a execução.",
-    "continuingFrom": "A continuar a partir do passo {{step}}."
+    "continuingFrom": "A continuar a partir do passo {{step}}.",
+    "envFilesCopied": "{{files}} copiado para a execução. Continuando.",
+    "envFilesUnavailable": "Este projeto não tem nenhum arquivo .env para copiar. Crie-o na sua cópia de trabalho e tente novamente."
   },
   "consequence": {
     "continue": "Mantém tudo e continua a partir do passo que falhou.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Mostra o que a máquina precisa e o comando a executar.",
     "openLogs": "Leva ao passo que falhou no registo.",
     "retry": "Uma execução nova a partir da base. O trabalho desta tentativa não é aproveitado; fica no worktree antigo.",
-    "analyze": "A IA lê o registo e explica porque parou."
+    "analyze": "A IA lê o registo e explica porque parou.",
+    "copyEnvFiles": "Ativa a configuração neste projeto e continua. Os agentes nas suas execuções podem ler esses arquivos; eles nunca são incluídos em commits nem mostrados nas revisões."
   },
   "stopped": {
     "headline": "Parou esta execução",

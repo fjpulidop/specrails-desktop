@@ -625,5 +625,14 @@
     "revoked": "Aprobación revocada. Specrails preguntará antes de volver a ejecutarla.",
     "revokeFailed": "No se pudo revocar la aprobación",
     "loadFailed": "No se pudieron cargar las instalaciones recordadas"
+  },
+  "envFiles": {
+    "title": "Archivos de entorno en las ejecuciones",
+    "description": "Copia los archivos .env ignorados por Git de este proyecto (.env, .env.local, .env.test y otros .env.<nombre>) de cada repositorio al worktree de cada ejecución, para que las pruebas que los necesitan puedan ejecutarse. Desactivado por defecto.",
+    "label": "Copiar los archivos .env de este proyecto en las ejecuciones",
+    "consequence": "Los agentes de las ejecuciones de este proyecto pueden leer estos archivos. Nunca se incluyen en commits ni se muestran en las revisiones.",
+    "enabled": "Las ejecuciones reciben ahora los archivos .env de este proyecto",
+    "disabled": "Las ejecuciones ya no reciben los archivos .env de este proyecto",
+    "saveFailed": "No se pudo guardar el ajuste de archivos de entorno"
   }
 }

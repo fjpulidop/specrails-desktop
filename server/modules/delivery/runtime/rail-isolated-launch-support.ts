@@ -23,6 +23,7 @@ import type { ActivePrContinuationTarget } from './active-pr-continuation'
 import type { ProjectContext } from '../../../project-registry'
 import type { IsolatedLaunchInput, AllocatedRun, SettledRun } from './rail-isolated-launch-contracts'
 import { PrContinuationIsolationError } from './rail-isolated-launch-contracts'
+import { copiedEnvFilePaths } from '../../../worktree-env-files'
 
 /**
  * Assemble the revision briefing from the generation being revised. Reads only
@@ -226,9 +227,11 @@ export async function captureSettlementIgnoredPaths(
   overlayExcludes: readonly string[],
 ): Promise<string[] | null> {
   try {
+    // Env-file copies (opt-in) are the person's files, even when a Continue copied them after allocation.
+    const excludes = [...new Set([...overlayExcludes, ...copiedEnvFilePaths(worktreePath)])]
     const status = await git.run([
       'status', '--porcelain', '--untracked-files=all', '--ignored=matching', '--', '.',
-      ...overlayExcludes.map((entry) => `:(top,exclude,literal)${entry}`),
+      ...excludes.map((entry) => `:(top,exclude,literal)${entry}`),
     ], worktreePath)
     if (status.code !== 0) return null
     const paths: string[] = []

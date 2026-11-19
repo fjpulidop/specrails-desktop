@@ -76,7 +76,8 @@
     "openLogs": "Ouvrir le journal à l'échec",
     "continueToReview": "Continuer vers la revue",
     "continue": "Continuer",
-    "continueFrom": "Continuer depuis {{phase}}"
+    "continueFrom": "Continuer depuis {{phase}}",
+    "copyEnvFiles": "Copier le .env de ce projet dans les exécutions"
   },
   "environment": {
     "command": "Commande",
@@ -150,7 +151,9 @@
     "notResumed": "L'exécution poursuivie n'a pas démarré",
     "failed": "Impossible de poursuivre l'exécution",
     "continuing": "L'exécution continue.",
-    "continuingFrom": "Reprise depuis l'étape {{step}}."
+    "continuingFrom": "Reprise depuis l'étape {{step}}.",
+    "envFilesCopied": "{{files}} copié dans l'exécution. On continue.",
+    "envFilesUnavailable": "Ce projet n'a aucun fichier .env à copier. Créez-le dans votre copie de travail, puis réessayez."
   },
   "consequence": {
     "continue": "Garde tout et reprend à l'étape qui a échoué.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Montre ce dont la machine a besoin et la commande à lancer.",
     "openLogs": "Fait défiler le journal jusqu'à l'étape en échec.",
     "retry": "Une nouvelle exécution depuis la base. Le travail de cette tentative n'est pas repris ; il reste dans l'ancien worktree.",
-    "analyze": "L'IA lit le journal et explique pourquoi elle s'est arrêtée."
+    "analyze": "L'IA lit le journal et explique pourquoi elle s'est arrêtée.",
+    "copyEnvFiles": "Active le réglage pour ce projet et continue. Les agents de ses exécutions peuvent lire ces fichiers ; ils ne sont jamais commités ni affichés dans les revues."
   },
   "stopped": {
     "headline": "Vous avez arrêté cette exécution",

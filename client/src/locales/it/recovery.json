@@ -76,7 +76,8 @@
     "openLogs": "Apri il log al punto del guasto",
     "continueToReview": "Prosegui alla revisione",
     "continue": "Continua",
-    "continueFrom": "Continua da {{phase}}"
+    "continueFrom": "Continua da {{phase}}",
+    "copyEnvFiles": "Copia il .env di questo progetto nelle esecuzioni"
   },
   "environment": {
     "command": "Comando",
@@ -150,7 +151,9 @@
     "notResumed": "L'esecuzione proseguita non è partita",
     "failed": "Impossibile proseguire l'esecuzione",
     "continuing": "L'esecuzione prosegue.",
-    "continuingFrom": "Si riprende dal passaggio {{step}}."
+    "continuingFrom": "Si riprende dal passaggio {{step}}.",
+    "envFilesCopied": "{{files}} copiato nell'esecuzione. Si continua.",
+    "envFilesUnavailable": "Questo progetto non ha un file .env da copiare. Crealo nella tua copia di lavoro e riprova."
   },
   "consequence": {
     "continue": "Mantiene tutto e riparte dal passaggio fallito.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Mostra cosa serve alla macchina e il comando da eseguire.",
     "openLogs": "Scorre il log fino al passaggio fallito.",
     "retry": "Una nuova esecuzione dalla base. Il lavoro di questo tentativo non viene ripreso; resta nel vecchio worktree.",
-    "analyze": "L'IA legge il log e spiega perché si è fermata."
+    "analyze": "L'IA legge il log e spiega perché si è fermata.",
+    "copyEnvFiles": "Attiva l'impostazione per questo progetto e continua. Gli agenti nelle sue esecuzioni possono leggere questi file; non vengono mai inclusi nei commit né mostrati nelle revisioni."
   },
   "stopped": {
     "headline": "Hai fermato questa esecuzione",

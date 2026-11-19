@@ -34,6 +34,7 @@ import { ensurePreparedCheckout, preparedCheckoutClaimer } from './worktree-prep
 import { applyWorktreeOverlay, type OverlayCleanupEvidence } from '../../../worktree-overlay'
 import { currentPolicyHookCommand } from '../../agent-policy'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { syncWorktreeEnvFiles } from '../../../worktree-env-files'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { resolveCollisionFreeName, ticketBranchName, type TicketNamingInput } from './pr-naming'
 import type { ProjectContext } from '../../../project-registry'
@@ -92,6 +93,8 @@ export interface IsolatedWorktreeIO {
   /** Populates the checkout's submodules (`git worktree add` leaves them empty).
    *  Default: on only with the real Git runner and worktree creator, like `preparation`. */
   submodules?: typeof initializeWorktreeSubmodules
+  /** Copies the project's gitignored env files into the checkout (setting `worktreeEnvFiles`). */
+  envFiles?: typeof syncWorktreeEnvFiles
 }
 
 function worktreeSubmodules(io: IsolatedWorktreeIO): typeof initializeWorktreeSubmodules | null {
@@ -224,6 +227,10 @@ export interface MaterializeIsolatedWorktreeInput {
    *  rolls back resources this call created. Default: read HEAD. */
   verifyHead?: (handle: WorktreeHandle, git: GitRunner) => Promise<string | null>
   overlay: OverlaySources
+  /** The project's `worktreeEnvFiles` setting. true: copy (recopy) the
+   *  repository's gitignored env files; false: remove earlier copies;
+   *  omitted: leave the checkout's env files alone. */
+  copyEnvFiles?: boolean
   /** Degraded overlay/warm-link warnings (the run proceeds regardless). */
   onDegraded: (warnings: string[]) => void
 }
@@ -238,6 +245,8 @@ export interface MaterializedIsolatedWorktree {
   overlayExcludes: string[]
   overlayCleanupEvidence: OverlayCleanupEvidence[]
   warmLinkEvidence: OverlayCleanupEvidence[]
+  /** Worktree-relative env files copied from the person's checkout (also in `overlayExcludes`). */
+  envFiles: string[]
   provenanceSnapshot: WorkingTreeSnapshot | null
   branchOwnership: IsolatedBranchOwnership
   worktreeOwnership: IsolatedWorktreeOwnership
@@ -331,6 +340,16 @@ export async function materializeIsolatedWorktree(
   } catch (err) {
     input.onDegraded([err instanceof Error ? err.message : String(err)])
   }
+  // Opt-in env files: recopied on every materialization (the person may have
+  // changed them), removed when the setting is off. Only gitignored files are
+  // copied; they also join the exclusions so status/settlement never count them.
+  let envFiles: string[] = []
+  if (input.copyEnvFiles !== undefined) {
+    const synced = await (io.envFiles ?? syncWorktreeEnvFiles)({ git, repoDir: input.repoDir, worktreePath: handle.worktreePath, enabled: input.copyEnvFiles })
+    envFiles = synced.copied
+    if (envFiles.length > 0) overlayExcludes = overlayExcludes.concat(envFiles.filter((entry) => !overlayExcludes.includes(entry)))
+    if (synced.warnings.length > 0) input.onDegraded(synced.warnings)
+  }
   // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha +
   // the overlay's untracked set) so the settle diff attributes exactly the
   // run's own writes. Best-effort — a snapshot failure only loses provenance.
@@ -350,6 +369,7 @@ export async function materializeIsolatedWorktree(
     overlayExcludes,
     overlayCleanupEvidence,
     warmLinkEvidence,
+    envFiles,
     provenanceSnapshot,
     branchOwnership,
     worktreeOwnership,
@@ -471,6 +491,7 @@ export async function prepareIsolatedWorktree(
       fresh: true,
       ...(!usesWorktreePreparation(io) ? {} : { claimPrepared: preparedCheckoutClaimer(git, baseRepo, target.worktreesRoot) }),
       overlay: overlaySources,
+      copyEnvFiles: getProjectSettings(ctx.db).worktreeEnvFiles,
       onDegraded,
     }, io)
     return { ...prepared, runId, baseRef: worktreeBaseRef.baseRef, baseSha, integrationBranch: integration.branch }

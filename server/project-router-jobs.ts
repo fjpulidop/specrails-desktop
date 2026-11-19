@@ -35,6 +35,9 @@ import {
 import { resolveProvider, validateRequestedProvider } from './provider-selection'
 import type { JobRow } from './types'
 import type { DbInstance } from './db'
+import { getProjectSettings } from './db'
+import type { ProjectContext } from './project-registry'
+import { projectEnvFileSecretValues, redactEnvValues } from './worktree-env-files'
 import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { readRunAttempts } from './modules/loops/runtime/run-attempts'
 import { getProjectMetrics } from './modules/accounting/runtime/metrics'
@@ -743,6 +746,7 @@ const annotated = { ...job, ...(continuationActive ? { status: 'running', finish
       job: { command: job.command, status: job.status, provider: job.provider ?? null, model: job.model ?? null },
       diagnosis,
       events: getJobEvents(c.db, job.id),
+      ...envValueRedactor(c),
     })
     return { c, job, language, evidence, inputHash: evidenceHash(evidence, language) }
   }
@@ -899,4 +903,11 @@ function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; 
       : null,
     restartPending: c.restartPendingRunIds,
   }
+}
+
+/** Copied env values (setting `worktreeEnvFiles`) never reach the analysis provider. */
+function envValueRedactor(c: ProjectContext): { redact?: (line: string) => string } {
+  let values: string[] = []
+  try { values = projectEnvFileSecretValues(c.project, getProjectSettings(c.db).worktreeEnvFiles) } catch { values = [] }
+  return values.length ? { redact: (line: string) => redactEnvValues(line, values) } : {}
 }

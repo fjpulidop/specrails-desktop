@@ -16,12 +16,13 @@ import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDe
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
 import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
 import { normalizeContinueRemedy, planContinuation, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
+import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
 import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
 import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import { continuationGuidance, parseStoredDiagnosis } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
-import { appendEvent } from './db'
+import { appendEvent, updateProjectSettings } from './db'
 import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
@@ -170,6 +171,22 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    // "Copy this project's .env into runs": turn the project setting on, copy the env files into
+    // this run's worktree(s), then the regular Continue (its guidance names the copies).
+    if ((req.body ?? {}).remedy === 'copy-env-files') {
+      let envFilesCopied: string[]
+      try {
+        const copy = await enableEnvFilesForRun(c, runId, { enable: () => updateProjectSettings(c.db, { worktreeEnvFiles: true }) })
+        envFilesCopied = copy.copied
+        if (copy.warnings.length) console.warn(`[continue] env files for ${runId}: ${copy.warnings.join('; ')}`)
+      } catch (error) {
+        if (error instanceof EnvFilesUnavailableError) { res.status(409).json({ error: error.code, detail: error.message }); return }
+        res.status(500).json({ error: 'env_files_failed', detail: error instanceof Error ? error.message : String(error) }); return
+      }
+      const outcome = await continueDefinitionRun(c, runId, 'continue', { envFilesCopied })
+      res.status(outcome.status).json({ ...outcome.body, envFilesEnabled: true, envFilesCopied })
+      return
+    }
     const remedy = normalizeContinueRemedy((req.body ?? {}).remedy)
     if (!remedy) { res.status(400).json({ error: 'invalid_remedy' }); return }
     const outcome = await continueDefinitionRun(c, runId, remedy)
@@ -493,6 +510,8 @@ export async function settleCompletedDefinitionRun(c: ProjectContext, runId: str
 export interface ContinueOptions {
   /** Specrails continued on its own (recorded, and bounded to one per chain by the caller). */
   automatic?: boolean
+  /** Env files the person's remedy just copied into the run's worktree (named in the guidance). */
+  envFilesCopied?: string[]
 }
 
 /**
@@ -520,7 +539,7 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
     // Checks handed to a person need no guidance; Continue carries the cause's.
-    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion) }) : null
+    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null }) : null
     let guided: boolean | undefined
     if (guidance) {
       try {

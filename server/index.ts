@@ -23,6 +23,7 @@ import { installProcessFaultHandlers } from './process-fault-handlers'
 import { setDetectedProvidersSupplier } from './provider-selection'
 import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
 import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
+import { projectEnvFileSecretValues } from './worktree-env-files'
 import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
 import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
@@ -594,11 +595,24 @@ app.get('/api/token', requireLoopback, (_req, res) => {
 
 app.use('/api', requireAuth)
 
+/** Env values of the projects whose `worktreeEnvFiles` setting is on (bounded reads, never cached). */
+function optedInEnvFileValues(): string[] {
+  const values: string[] = []
+  for (const row of _registry?.listProjects() ?? []) {
+    try {
+      const context = _registry!.getContext(row.id)
+      if (context) values.push(...projectEnvFileSecretValues(context.project, getProjectSettings(context.db).worktreeEnvFiles))
+    } catch { /* an unreadable project adds nothing */ }
+  }
+  return values
+}
+
 // Crash notices, stall snapshot and the local "Report a problem" ZIP.
 app.use('/api/diagnostics', createDiagnostics({
   logRing: serverLogRing,
   probe: eventLoopProbe,
-  knownSecrets: () => [loadOrGenerateToken(), hostControlToken, getMcpToken()],
+  // Plus the env values of projects that copy their env files into runs (they can reach run logs).
+  knownSecrets: () => [loadOrGenerateToken(), hostControlToken, getMcpToken(), ...optedInEnvFileValues()],
   versions: async () => {
     const compat = await checkCoreCompat().catch(() => null)
     return { app: compat?.desktopVersion ?? PKG_VERSION, core: compat?.coreVersion ?? null, api: API_VERSION, contractSchema: compat?.contractSchemaVersion ?? null }

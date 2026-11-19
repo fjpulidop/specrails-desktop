@@ -625,5 +625,14 @@
     "revoked": "已撤销批准。再次执行前 Specrails 会先询问。",
     "revokeFailed": "无法撤销批准",
     "loadFailed": "无法加载已记住的安装"
+  },
+  "envFiles": {
+    "title": "运行中的环境文件",
+    "description": "将此项目被 Git 忽略的 .env 文件（.env、.env.local、.env.test 及其他 .env.<名称>）从每个仓库复制到每次运行的工作树中，让需要它们的测试能够运行。默认关闭。",
+    "label": "将此项目的 .env 文件复制到运行中",
+    "consequence": "此项目运行中的智能体可以读取这些文件。它们绝不会被提交，也不会在评审中显示。",
+    "enabled": "运行现在会获得此项目的 .env 文件",
+    "disabled": "运行不再获得此项目的 .env 文件",
+    "saveFailed": "无法保存环境文件设置"
   }
 }

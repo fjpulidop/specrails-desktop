@@ -625,5 +625,14 @@
     "revoked": "Accord révoqué. Specrails demandera avant de la relancer.",
     "revokeFailed": "Impossible de révoquer l'accord",
     "loadFailed": "Impossible de charger les installations retenues"
+  },
+  "envFiles": {
+    "title": "Fichiers d'environnement dans les exécutions",
+    "description": "Copie les fichiers .env ignorés par Git de ce projet (.env, .env.local, .env.test et autres .env.<nom>) de chaque dépôt vers le worktree de chaque exécution, pour que les tests qui en ont besoin puissent s'exécuter. Désactivé par défaut.",
+    "label": "Copier les fichiers .env de ce projet dans les exécutions",
+    "consequence": "Les agents des exécutions de ce projet peuvent lire ces fichiers. Ils ne sont jamais commités ni affichés dans les revues.",
+    "enabled": "Les exécutions reçoivent désormais les fichiers .env de ce projet",
+    "disabled": "Les exécutions ne reçoivent plus les fichiers .env de ce projet",
+    "saveFailed": "Impossible d'enregistrer le réglage des fichiers d'environnement"
   }
 }

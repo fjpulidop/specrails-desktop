@@ -41,8 +41,15 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
   "Start over" from the base. `continue-to-review` is ranked only when every unfinished task reads as
   a person's check (`remainingAreHumanChecks`). `resume` and `retry-with-browser` are older ids of
   `continue` (the route maps them). `POST /loop-runs/:id/remedy` applies them
-  ([run-continuation.ts](../delivery/runtime/run-continuation.ts) plans how, `continueDefinitionRun`
+  ([run-continuation.ts](../delivery/runtime/run-continuation.ts) plans how, never from an `end` node: a
+  host blocker's end goes on from the step that reported it (`blockerFrom`), `continueDefinitionRun`
   in `server/project-router-loop-runs.ts` applies it).
+- `copy-env-files` is ranked first for a high-confidence `environment` diagnosis that names a
+  missing `.env` / `APP_KEY` (`needsEnvFiles`) while the project's `worktreeEnvFiles` setting is off
+  (`presentFailureDiagnosis(…, { envFilesEnabled })`, read by [adapters/sqlite.ts](adapters/sqlite.ts)).
+  The route turns the setting on, copies the files into the run's worktrees and continues; the
+  guidance names the copies (`envFilesCopied`), never their values. `failureEvidence` takes a
+  `redact` so the copied values never reach the analysis provider.
 - Automatic continuation (`autoContinueVerdict`): once per attempt chain, only for a high-confidence
   cause more work can fix (unfinished tasks, a `toolchain`/`setup` host blocker, a crash, timeout or
   silence, a stall), never for a usage limit, `spec_invalid`, credential / secret / policy / budget

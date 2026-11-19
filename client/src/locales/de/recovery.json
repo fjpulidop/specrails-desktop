@@ -76,7 +76,8 @@
     "openLogs": "Protokoll am Fehler öffnen",
     "continueToReview": "Weiter zum Review",
     "continue": "Fortsetzen",
-    "continueFrom": "Ab {{phase}} fortsetzen"
+    "continueFrom": "Ab {{phase}} fortsetzen",
+    "copyEnvFiles": ".env dieses Projekts in Läufe kopieren"
   },
   "environment": {
     "command": "Befehl",
@@ -150,7 +151,9 @@
     "notResumed": "Der fortgesetzte Lauf ist nicht gestartet",
     "failed": "Der Lauf konnte nicht fortgesetzt werden",
     "continuing": "Der Lauf wird fortgesetzt.",
-    "continuingFrom": "Fortsetzung ab dem Schritt {{step}}."
+    "continuingFrom": "Fortsetzung ab dem Schritt {{step}}.",
+    "envFilesCopied": "{{files}} in den Lauf kopiert. Es geht weiter.",
+    "envFilesUnavailable": "Dieses Projekt hat keine .env-Datei zum Kopieren. Lege sie in deinem Checkout an und versuche es erneut."
   },
   "consequence": {
     "continue": "Behält alles und macht beim fehlgeschlagenen Schritt weiter.",
@@ -164,7 +167,8 @@
     "fixEnvironment": "Zeigt, was die Maschine braucht, und den auszuführenden Befehl.",
     "openLogs": "Springt im Log zum fehlgeschlagenen Schritt.",
     "retry": "Ein neuer Lauf ab der Basis. Die Arbeit dieses Versuchs wird nicht übernommen; sie bleibt im alten Worktree.",
-    "analyze": "Die KI liest das Log und erklärt, warum er stoppte."
+    "analyze": "Die KI liest das Log und erklärt, warum er stoppte.",
+    "copyEnvFiles": "Schaltet die Einstellung für dieses Projekt ein und macht weiter. Agenten in seinen Läufen können diese Dateien lesen; sie werden nie committet oder in Reviews angezeigt."
   },
   "stopped": {
     "headline": "Du hast diesen Lauf angehalten",
