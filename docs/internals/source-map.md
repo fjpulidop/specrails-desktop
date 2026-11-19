@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1787 source/build files. Nearby tests are linked where names
+Includes 1788 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -2426,6 +2426,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [specrails-home.ts](../../server/util/specrails-home.ts) · [test](../../server/util/specrails-home.test.ts)
 - [sqlite-migrations.ts](../../server/util/sqlite-migrations.ts) · [test](../../server/util/sqlite-migrations.test.ts)
 - [stream-display.ts](../../server/util/stream-display.ts) · [test](../../server/util/stream-display.test.ts)
+- [test-file-path.ts](../../server/util/test-file-path.ts)
 - [win-spawn.ts](../../server/util/win-spawn.ts) · [test](../../server/util/win-spawn.test.ts)
 - [windows-provider-shell.ts](../../server/util/windows-provider-shell.ts) · [test](../../server/util/windows-provider-shell.test.ts)
 - [zip.ts](../../server/util/zip.ts)

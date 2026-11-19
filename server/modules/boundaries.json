@@ -1519,6 +1519,7 @@
         "./run-records"
       ],
       "runtime/pr-body.ts": [
+        "../../../util/test-file-path",
         "../../../worktree-manager",
         "../../conversations/runtime/explore-contract-refine",
         "./pr-naming"
@@ -2166,6 +2167,7 @@
       "runtime/review-packet.ts": [
         "../../../db",
         "../../../project-repository-provenance",
+        "../../../util/test-file-path",
         "../../accounting/runtime/ai-invocations",
         "../../audit",
         "../../audit/adapters/sqlite",
