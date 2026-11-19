@@ -131,7 +131,8 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
   const { t } = useTranslation('recovery')
   const [copied, setCopied] = useState(false)
   const blocker = diagnosis.blocker
-  const command = blocker ? [blocker.command, ...blocker.args].filter(Boolean).join(' ') : ''
+  // A machine-wide install the run asked for is the one command the person runs; else the failing check.
+  const command = blocker?.install ?? (blocker ? [blocker.command, ...blocker.args].filter(Boolean).join(' ') : '')
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command)
@@ -159,7 +160,7 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
                 </button>
                 {copied && <span role="status" className="text-caption text-accent-success">{t('environment.copied')}</span>}
               </div>
-              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{command}{blocker.cwd ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{command}{blocker.cwd && !blocker.install ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
             </div>
           )}
           <p><span className="font-medium">{t('environment.requiredAction')}:</span> {blocker.requiredAction}</p>

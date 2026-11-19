@@ -19,6 +19,7 @@ export interface DefinitionCompletion {
   blocker?: DefinitionHostBlocker
 }
 import { runQuestionFrom } from '../../../shared/run-question'
+import { installQuestionOf } from '../../machine-installs'
 
 export interface DefinitionInterrupt {
   id: string
@@ -106,6 +107,18 @@ export interface DefinitionLoopExecutionPorts {
    */
   resolveHostTask?(interrupt: DefinitionInterrupt & { value: DefinitionHostTaskRequest }): Promise<{ action: 'stop' } | { action: 'resume'; result: DefinitionHostTaskResult }>
   awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }>
+  /**
+   * Machine-wide installs a run asks for (Core `machineInstalls`): an ordinary question the host
+   * may answer by itself (`autoAnswer`: a remembered approval runs the install; a command the host
+   * never runs is refused) and the person's choice it turns into Core's answer (`answer`: Install
+   * runs the approved command first). Both return the text unchanged / null for any other question.
+   */
+  machineInstalls?: {
+    autoAnswer(interrupt: DefinitionInterrupt): Promise<string | null>
+    answer(interrupt: DefinitionInterrupt, text: string): Promise<string>
+    /** The pending interrupt a continuation answers when this process did not see it pause (a restart). */
+    lookup(interruptId: string): Promise<DefinitionInterrupt | null>
+  }
   /** Host gate before re-invoking Core with a human decision (daily budget).
    *  'stop' settles the run as cancelled exactly like a Stop while paused. */
   beforeContinuation?(): Promise<'continue' | 'stop'>
@@ -121,6 +134,11 @@ export interface DefinitionLoopExecutionPorts {
 /** One retained Core process at a time; all graph scheduling remains in Core. */
 export async function runDefinitionLoop(request: LoopRunRequest, runId: string, ports: DefinitionLoopExecutionPorts): Promise<DefinitionRuntimeResult> {
   let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'optionId' | 'approve' | 'reject' | 'reason' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
+  // An answer that arrived while no process held the pause (after a restart): an Install choice still runs first.
+  if (ports.machineInstalls && continuation.answer !== undefined && continuation.interruptId) {
+    const interrupt = await ports.machineInstalls.lookup(continuation.interruptId).catch(() => null)
+    if (interrupt?.kind === 'question') continuation = installContinuation(continuation, interrupt, await ports.machineInstalls.answer(interrupt, continuation.optionId ?? continuation.answer))
+  }
   for (;;) {
     if (ports.isCancelled()) return { text: '', runtimeStatus: 'cancelled', failed: true }
     const result = await ports.invoke({ request, runId, contextPath: ports.contextPath?.(), ...continuation,
@@ -151,6 +169,20 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       }
       continue
     }
+    // A question the host answers by itself (a remembered install approval) never waits for the person.
+    let automatic: { id: string; answer: string } | null = null
+    for (const item of ports.machineInstalls ? pending.filter(entry => entry.kind === 'question') : []) {
+      const answer = await ports.machineInstalls!.autoAnswer(item)
+      if (answer !== null) { automatic = { id: item.id, answer }; break }
+    }
+    if (automatic) {
+      if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      continuation = { resume: true, answer: automatic.answer, interruptId: automatic.id }
+      if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
+        return { ...result, runtimeStatus: 'cancelled', failed: true }
+      }
+      continue
+    }
     // The person reads the question itself, never a node path.
     const reason = runQuestionFrom(pending)?.text || result.pendingQuestion?.question || result.pendingApproval?.reason || 'The run needs a decision.'
     if (!pending.length) throw new Error('Core paused without an addressable interrupt')
@@ -159,8 +191,11 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
     const selected = decision.interruptId ? pending.find(item => item.id === decision.interruptId) : pending.length === 1 ? pending[0] : undefined
     if (!selected) throw new Error('Select the pending question or approval to resume')
     if (selected.kind !== 'question' && decision.approve !== true && decision.reject !== true) throw new Error('Explicit approval is required to resume this interrupt')
+    // An install question takes the chosen option's id (install / self); the host turns it into Core's answer.
+    const answer = selected.kind === 'question' && ports.machineInstalls ? await ports.machineInstalls.answer(selected, decision.optionId ?? decision.text) : decision.text
+    if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
     continuation = selected.kind === 'question'
-      ? { resume: true, answer: decision.text, interruptId: selected.id, ...(decision.optionId ? { optionId: decision.optionId } : {}) }
+      ? installContinuation({ resume: true, answer: decision.text, interruptId: selected.id, ...(decision.optionId ? { optionId: decision.optionId } : {}) }, selected, answer)
       : decision.reject === true
         ? { resume: true, reject: selected.id, reason: decision.text, interruptId: selected.id }
         : { resume: true, approve: [selected.id], interruptId: selected.id }
@@ -168,4 +203,11 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       return { ...result, runtimeStatus: 'cancelled', failed: true }
     }
   }
+}
+
+/** A question answered by the person: an install question's answer is the host's (installed / declined), never a chosen option. */
+function installContinuation<T extends { answer?: string; optionId?: string }>(continuation: T, interrupt: DefinitionInterrupt, hostAnswer: string): T {
+  if (!installQuestionOf(interrupt)) return continuation
+  const { optionId: _chosen, ...rest } = continuation
+  return { ...rest, answer: hostAnswer } as T
 }

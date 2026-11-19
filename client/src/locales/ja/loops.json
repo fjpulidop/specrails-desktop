@@ -350,7 +350,15 @@
     "inDirectory": "{{cwd}} で実行",
     "requiredAction": "必要な対応",
     "copyCommand": "コマンドをコピー",
-    "copiedCommand": "コピーしました"
+    "copiedCommand": "コピーしました",
+    "machineInstall": {
+      "question": "この実行には {{tool}} が必要です。このコマンドでインストールしますか？",
+      "install": "インストール",
+      "installMeaning": "Specrails が実行の外でこのコマンドを一度だけ実行し、実行は自動で続きます。",
+      "self": "自分で行う",
+      "selfMeaning": "何もインストールされず、実行はこのコマンドを示して停止します。",
+      "once": "このマシンのすべてのプロジェクトに影響します。Specrails は承認を記憶し、このコマンドについて再度確認しません（設定 ▸ 記憶したインストール）。"
+    }
   },
   "conversion": {
     "title": "{{name}}をCoreに変換",

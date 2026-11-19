@@ -35,10 +35,12 @@ describe('the run question card', () => {
     expect(runQuestionFromStatus(JSON.stringify({ pendingInterrupts: [] }))).toBeNull()
   })
 
-  it('carries the install question of a machine-wide tool (asker install, exact command as detail)', () => {
-    const card = runQuestionFrom([{ id: 'i-4', nodePath: 'install-tool', kind: 'question', value: { kind: 'question', prompt: 'Install pnpm?', text: 'Install pnpm machine-wide?', asker: 'install',
-      detail: 'npm install -g pnpm@9', options: [{ id: 'install', label: 'Install', meaning: 'Specrails runs the command once.' }, { id: 'myself', label: "I'll do it myself", meaning: 'The run waits until you install it.' }], recommended: 'install' } }])
-    expect(card).toMatchObject({ asker: 'install', detail: 'npm install -g pnpm@9', recommended: 'install', options: [{ id: 'install' }, { id: 'myself' }] })
+  it('carries the machine-wide install question exactly as Core asks it (machineInstalls: options + data)', () => {
+    const card = runQuestionFrom([{ id: 'i-4', nodePath: 'developer', kind: 'question', value: { kind: 'question', prompt: 'This run needs terraform. Install it with `brew install terraform`?',
+      options: [{ id: 'install', label: 'Install', meaning: 'Specrails runs this exact command once.' }, { id: 'self', label: "I'll do it myself", meaning: 'Nothing is installed.' }],
+      data: { kind: 'machine-install', command: 'brew install terraform', tool: 'terraform' } } }])
+    expect(card).toMatchObject({ kind: 'question', asker: 'install', install: { tool: 'terraform', command: 'brew install terraform' }, detail: 'brew install terraform',
+      options: [{ id: 'install' }, { id: 'self' }], endsRun: ['self'], mayEndRun: true })
   })
 
   it('names who asks and shortens the question for a notification', () => {

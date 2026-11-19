@@ -613,5 +613,17 @@
     "enabled": "Specrails 将对可修复的失败自动继续一次",
     "disabled": "失败的运行将等你处理",
     "saveFailed": "无法保存该设置"
+  },
+  "machineInstalls": {
+    "title": "已记住的安装",
+    "description": "你为某次运行批准过的全机安装。Specrails 会不再询问直接重新执行；撤销后下次会再询问。",
+    "empty": "尚未记住任何安装。当运行需要在全机安装工具时，会先询问你。",
+    "approvedAt": "批准于 {{date}}",
+    "uses_one": "使用 1 次",
+    "uses_other": "使用 {{count}} 次",
+    "revoke": "撤销",
+    "revoked": "已撤销批准。再次执行前 Specrails 会先询问。",
+    "revokeFailed": "无法撤销批准",
+    "loadFailed": "无法加载已记住的安装"
   }
 }

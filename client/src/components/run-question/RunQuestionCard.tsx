@@ -38,7 +38,7 @@ const FOLD_AT = 420
  * Identical on every surface; answers inline and confirms in place.
  */
 export function RunQuestionCard({ question, projectId, runId, runLabel, projectName, engine = 2, density = 'full', onAnswered, className, autoFocus }: RunQuestionCardProps) {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation(['common', 'loops'])
   const [mode, setMode] = useState<'choose' | 'other' | 'reject'>(question.options.length || question.kind === 'approval' ? 'choose' : 'other')
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState<string | null>(null)
@@ -85,15 +85,22 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
   }
 
   const isApproval = question.kind === 'approval'
+  // A machine-wide install reads in the person's language: the tool, the exact command, Install / I'll do it myself.
+  const install = question.install
+  const installChoice = (id: string): id is 'install' | 'self' => !!install && (id === 'install' || id === 'self')
+  const labelOf = (option: RunQuestion['options'][number]): string => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}`) : option.label
+  const meaningOf = (option: RunQuestion['options'][number]): string | undefined => installChoice(option.id) ? t(`loops:core.machineInstall.${option.id}Meaning`) : option.meaning
   const who = isApproval ? t('runQuestion.approval') : t(`runQuestion.asker.${question.asker}`)
-  const folded = !expanded && question.text.length > FOLD_AT
-  const text = folded ? `${question.text.slice(0, FOLD_AT).trimEnd()}…` : question.text
-  const ending = question.endsRun.map((id) => question.options.find((option) => option.id === id)?.label).filter((label): label is string => !!label)
+  const fullText = install ? t('loops:core.machineInstall.question', { tool: install.tool }) : question.text
+  const folded = !expanded && fullText.length > FOLD_AT
+  const text = folded ? `${fullText.slice(0, FOLD_AT).trimEnd()}…` : fullText
+  const ending = question.endsRun.map((id) => question.options.find((option) => option.id === id)).filter((option): option is RunQuestion['options'][number] => !!option).map(labelOf)
   const consequences = [
     t('runQuestion.consequence.waits'),
     ...(ending.length ? ending.map((label) => t('runQuestion.consequence.endsRunOption', { label }))
       : question.kind === 'question' && question.mayEndRun ? [t('runQuestion.consequence.mayEnd')] : []),
     ...(isApproval && question.canReject ? [t('runQuestion.consequence.reject')] : []),
+    ...(install ? [t('loops:core.machineInstall.once')] : []),
   ]
   const where = [runLabel, projectName].filter((part): part is string => !!part).join(' · ')
   const textEntry = mode !== 'choose'
@@ -123,14 +130,14 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
 
       <div className="space-y-1.5">
         <p className="whitespace-pre-wrap text-body text-foreground" data-testid="run-question-text">{text}</p>
-        {question.text.length > FOLD_AT && (
+        {fullText.length > FOLD_AT && (
           <button type="button" className="text-caption text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => setExpanded((value) => !value)}>
             {expanded ? t('runQuestion.showLess') : t('runQuestion.showMore')}
           </button>
         )}
         {question.why && <p className="text-caption text-muted-foreground">{question.why}</p>}
         {question.detail && (
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-control border border-border/60 bg-background px-2.5 py-1.5 font-mono text-caption text-foreground">{question.detail}</pre>
+          <pre data-testid="run-question-detail" className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control border border-border/60 bg-background px-2.5 py-1.5 font-mono text-caption text-foreground">{question.detail}</pre>
         )}
       </div>
 
@@ -147,17 +154,17 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
                   data-option-id={option.id}
                   data-recommended={recommended || undefined}
                   disabled={!!sending}
-                  onClick={() => void send({ type: 'option', optionId: option.id, label: option.label }, option.id)}
+                  onClick={() => void send({ type: 'option', optionId: option.id, label: labelOf(option) }, option.id)}
                   className={cn(
                     'flex w-full flex-col items-start gap-0.5 rounded-control border px-3 py-2 text-left transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
                     recommended ? 'border-accent-primary/50 bg-accent-primary/5 hover:bg-accent-primary/10' : 'border-border/60 bg-background hover:bg-accent',
                   )}
                 >
                   <span className="flex w-full items-center gap-2">
-                    <span className="text-body font-medium text-foreground">{sending === option.id ? t('runQuestion.sending') : option.label}</span>
+                    <span className="text-body font-medium text-foreground">{sending === option.id ? t('runQuestion.sending') : labelOf(option)}</span>
                     {recommended && <span className="rounded-pill border border-accent-primary/40 px-1.5 text-caption text-accent-primary">{t('runQuestion.recommended')}</span>}
                   </span>
-                  {option.meaning && <span className="text-caption text-muted-foreground">{option.meaning}</span>}
+                  {meaningOf(option) && <span className="text-caption text-muted-foreground">{meaningOf(option)}</span>}
                   {option.detail && <code className="mt-1 block w-full whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground">{option.detail}</code>}
                 </button>
               </li>
@@ -211,7 +218,8 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
         </div>
       )}
 
-      {!textEntry && !isApproval && question.options.length > 0 && (
+      {/* An install is Install or I'll do it myself; any other question also takes the person's own words. */}
+      {!textEntry && !isApproval && !install && question.options.length > 0 && (
         <button type="button" data-testid="run-question-other" disabled={!!sending} className="text-caption text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => setMode('other')}>
           {t('runQuestion.other')}
         </button>

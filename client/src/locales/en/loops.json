@@ -350,7 +350,15 @@
     "inDirectory": "in {{cwd}}",
     "requiredAction": "Required action",
     "copyCommand": "Copy command",
-    "copiedCommand": "Copied"
+    "copiedCommand": "Copied",
+    "machineInstall": {
+      "question": "This run needs {{tool}}. Install it with this command?",
+      "install": "Install",
+      "installMeaning": "Specrails runs this command once, outside the run, and the run continues by itself.",
+      "self": "I'll do it myself",
+      "selfMeaning": "Nothing is installed; the run stops with this command for you to run.",
+      "once": "It changes this machine for every project. Specrails remembers your approval and won't ask again for this command (Settings ▸ Remembered installs)."
+    }
   },
   "conversion": {
     "title": "Convert {{name}} to Core",

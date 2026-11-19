@@ -98,6 +98,24 @@ describe('RunQuestionCard', () => {
     expect(bodyOf(fetchMock.mock.calls[0])).toEqual({ text: '', interruptId: 'a1', approve: true })
   })
 
+  it('asks a machine-wide install in the person\'s words with the exact command, and answers by option id', async () => {
+    const install: RunQuestion = { interruptId: 'i4', kind: 'question', asker: 'install', text: 'This run needs terraform. Install it with `brew install terraform`?', detail: 'brew install terraform',
+      options: [{ id: 'install', label: 'Install', meaning: 'Core English meaning' }, { id: 'self', label: "I'll do it myself", meaning: 'Core English meaning' }],
+      endsRun: ['self'], mayEndRun: true, canReject: false, install: { tool: 'terraform', command: 'brew install terraform' } }
+    render(<RunQuestionCard question={install} projectId="p1" runId="run-1" />)
+    expect(screen.getByRole('heading')).toHaveTextContent('Specrails needs your permission')
+    expect(screen.getByTestId('run-question-text')).toHaveTextContent('This run needs terraform. Install it with this command?')
+    expect(screen.getByTestId('run-question-detail')).toHaveTextContent('brew install terraform')
+    expect(screen.getAllByTestId('run-question-option')[0]).toHaveTextContent('outside the run, and the run continues by itself')
+    expect(screen.getByTestId('run-question-consequence')).toHaveTextContent("won't ask again for this command")
+    expect(screen.getByTestId('run-question-consequence')).toHaveTextContent('Choosing “I\'ll do it myself” ends the run.')
+    expect(screen.queryByTestId('run-question-other')).toBeNull()
+    expect(screen.queryByText('Core English meaning')).toBeNull()
+    fireEvent.click(screen.getAllByTestId('run-question-option')[0])
+    await screen.findByTestId('run-question-sent')
+    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({ text: 'Install', interruptId: 'i4', optionId: 'install' })
+  })
+
   it('renders the same card in a list row and in the run window', () => {
     const { container: compact } = render(<RunQuestionCard question={planner} projectId="p1" runId="run-1" density="compact" />)
     const { container: full } = render(<RunQuestionCard question={planner} projectId="p1" runId="run-1" />)

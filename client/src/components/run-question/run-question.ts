@@ -21,6 +21,8 @@ export interface RunQuestion {
   endsRun: string[]
   mayEndRun: boolean
   canReject: boolean
+  /** A machine-wide install the run needs: the tool and the exact command (choices `install` / `self`). */
+  install?: { tool: string; command: string }
 }
 
 const ASKERS: readonly string[] = ['planner', 'developer', 'fixer', 'reviewer', 'install', 'run']
@@ -40,6 +42,9 @@ export function readRunQuestion(raw: unknown): RunQuestion | null {
   })
   const ids = new Set(options.map((option) => option.id))
   const why = str('why'), detail = str('detail'), recommended = str('recommended')
+  const rawInstall = v.install as Record<string, unknown> | null | undefined
+  const install = rawInstall && typeof rawInstall === 'object' && typeof rawInstall.command === 'string' && rawInstall.command && typeof rawInstall.tool === 'string'
+    ? { command: rawInstall.command, tool: rawInstall.tool } : undefined
   return {
     interruptId: v.interruptId, kind: v.kind, text,
     asker: ASKERS.includes(String(v.asker)) ? v.asker as RunQuestionAsker : 'run',
@@ -48,6 +53,7 @@ export function readRunQuestion(raw: unknown): RunQuestion | null {
     endsRun: (Array.isArray(v.endsRun) ? v.endsRun : []).filter((id): id is string => typeof id === 'string' && ids.has(id)),
     mayEndRun: v.mayEndRun === true,
     canReject: v.kind === 'approval' && v.canReject === true,
+    ...(install ? { install } : {}),
   }
 }
 

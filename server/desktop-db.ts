@@ -840,6 +840,20 @@ function applyDesktopMigrations(db: DbInstance): void {
       const conversations = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map(c => c.name))
       if (!conversations.has('context_usage')) db.exec('ALTER TABLE agent_conversations ADD COLUMN context_usage TEXT;')
     },
+    // 41: machine-wide installs the person approved once (server/modules/machine-installs), keyed
+    // by the normalized command. Machine-wide like the tool itself: every project reuses it.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS machine_install_approvals (
+          command TEXT PRIMARY KEY,
+          manager TEXT NOT NULL,
+          tool TEXT NOT NULL,
+          approved_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          uses INTEGER NOT NULL DEFAULT 0
+        );
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

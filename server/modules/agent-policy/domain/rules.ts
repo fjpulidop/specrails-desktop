@@ -16,7 +16,7 @@
  * - `policy-tamper`       writing the policy hook's own files
  * - `machine-install`     installing or changing a tool machine-wide (`brew install`, `npm i -g`,
  *                         `cargo install`, `rustup target add`, …): every project shares it, so the
- *                         run reports a toolchain blocker with the install for the person instead
+ *                         run reports a toolchain blocker with the install; the host asks the person once
  *
  * Git rules come from `server/git-guardrails.ts` (single source of truth with
  * the app's own push path). Pure apart from the injected `facts` readers.
@@ -359,7 +359,7 @@ function evaluateMachineInstall(command: SimpleCommand): PolicyDecision | null {
   if (!what) return null
   return {
     rule: 'machine-install',
-    reason: `\`${what}\` changes this machine for every project, so a run never does it. Keep the work done, leave the task unticked and report a toolchain blocker with the exact install the person should run.`,
+    reason: `\`${what}\` changes this machine for every project, so a run never does it. Keep the work done, leave the task unticked and report a toolchain blocker with the exact install command (as \`install\` when the blocker has it): the host asks the person once and installs it outside the run.`,
   }
 }
 

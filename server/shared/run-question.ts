@@ -29,6 +29,9 @@ export interface RunQuestion {
   mayEndRun: boolean
   /** An approval Core lets the person reject with a reason. */
   canReject: boolean
+  /** A machine-wide install the run needs (Core `machineInstalls`, `data.kind === 'machine-install'`):
+   *  the card names the tool and shows the exact command; its choices are `install` and `self`. */
+  install?: { tool: string; command: string }
 }
 
 const OPTION_ID = /^[a-z0-9][a-z0-9-]{0,39}$/
@@ -79,13 +82,17 @@ export function runQuestionFrom(pending: readonly unknown[] | null | undefined):
     const raw = typeof item.value === 'string' ? item.value : undefined
     const structured = options(value?.options)
     const text = str(structured.length || value?.why ? value?.text ?? value?.prompt : value?.prompt ?? value?.text ?? value?.question ?? raw, 6000)
-    const asker = questionAsker(value?.asker, item.nodePath)
+    const data = object(value?.data)
+    const install = item.kind === 'question' && data?.kind === 'machine-install' && typeof data.command === 'string' && data.command.trim()
+      ? { command: data.command.trim().slice(0, 300), tool: str(data.tool, 120) ?? data.command.trim().split(/\s+/).pop()! } : undefined
+    const asker = install ? 'install' : questionAsker(value?.asker, item.nodePath)
     const kind = item.kind === 'question' ? 'question' : 'approval'
     const ids = new Set(structured.map(option => option.id))
-    const endsRun = Array.isArray(value?.endsRun) ? value.endsRun.filter((id): id is string => typeof id === 'string' && ids.has(id)) : []
+    // "I'll do it myself" stops the run with the command for the person to run.
+    const endsRun = install && ids.has('self') ? ['self'] : Array.isArray(value?.endsRun) ? value.endsRun.filter((id): id is string => typeof id === 'string' && ids.has(id)) : []
     const recommended = typeof value?.recommended === 'string' && ids.has(value.recommended) ? value.recommended : undefined
     const canReject = kind === 'approval' && value?.rejectable === true
-    const why = str(value?.why, 600), detail = str(value?.detail, 2000)
+    const why = str(value?.why, 600), detail = install?.command ?? str(value?.detail, 2000)
     return {
       interruptId: item.id, kind, asker,
       text: withoutNodePrefix(text ?? '', item.nodePath),
@@ -96,6 +103,7 @@ export function runQuestionFrom(pending: readonly unknown[] | null | undefined):
       // The Implement planner ends the run when the person says the ticket does not belong here.
       mayEndRun: canReject || endsRun.length > 0 || (kind === 'question' && asker === 'planner'),
       canReject,
+      ...(install ? { install } : {}),
     }
   }
   return null

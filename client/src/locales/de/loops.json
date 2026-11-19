@@ -350,7 +350,15 @@
     "inDirectory": "in {{cwd}}",
     "requiredAction": "Erforderliche Maßnahme",
     "copyCommand": "Befehl kopieren",
-    "copiedCommand": "Kopiert"
+    "copiedCommand": "Kopiert",
+    "machineInstall": {
+      "question": "Dieser Lauf braucht {{tool}}. Mit diesem Befehl installieren?",
+      "install": "Installieren",
+      "installMeaning": "Specrails führt diesen Befehl einmal außerhalb des Laufs aus, und der Lauf geht von selbst weiter.",
+      "self": "Mache ich selbst",
+      "selfMeaning": "Es wird nichts installiert; der Lauf hält mit diesem Befehl an, den du selbst ausführst.",
+      "once": "Das ändert diesen Rechner für alle Projekte. Specrails merkt sich deine Zustimmung und fragt für diesen Befehl nicht erneut (Einstellungen ▸ Gemerkte Installationen)."
+    }
   },
   "conversion": {
     "title": "{{name}} in Core umwandeln",

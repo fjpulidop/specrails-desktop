@@ -27,6 +27,8 @@ export interface FailureBlocker {
   args: string[]
   cwd: string
   requiredAction: string
+  /** The exact machine-wide install the run asked the person for: the command they run themselves. */
+  install?: string | null
 }
 
 export interface FailureDiagnosis {
@@ -65,6 +67,7 @@ function readBlocker(raw: unknown): FailureBlocker | null {
   const v = raw as Record<string, unknown>
   const reason = text(v.reason, 600), requiredAction = text(v.requiredAction, 600)
   if (!reason || !requiredAction) return null
+  const install = typeof v.install === 'string' && !/[\r\n]/.test(v.install) ? text(v.install, 300) : null
   return {
     kind: text(v.kind, 40) ?? 'environment',
     reason,
@@ -72,6 +75,7 @@ function readBlocker(raw: unknown): FailureBlocker | null {
     args: Array.isArray(v.args) ? v.args.filter((a): a is string => typeof a === 'string').slice(0, 16) : [],
     cwd: text(v.cwd, 512) ?? '',
     requiredAction,
+    ...(install ? { install } : {}),
   }
 }
 

@@ -60,6 +60,12 @@ describe('deriveFailureDiagnosis', () => {
     expect(parseStoredDiagnosis(serializeDiagnosis(diagnosis))?.blocker).toEqual(diagnosis.blocker)
     expect(parseBlocker({ reason: 'x' })).toBeNull()
   })
+  it('keeps the machine-wide install the run asked the person for (Core machineInstalls), one line only', () => {
+    const base = { kind: 'toolchain', reason: 'terraform is missing', command: 'terraform', args: ['validate'], cwd: '.', requiredAction: 'Run `brew install terraform` yourself' }
+    expect(parseBlocker({ ...base, install: 'brew install terraform' })).toMatchObject({ install: 'brew install terraform' })
+    expect(parseBlocker({ ...base, install: 'brew install x\nrm -rf /' })).not.toHaveProperty('install')
+    expect(parseBlocker(base)).not.toHaveProperty('install')
+  })
   it('says unknown, with low confidence, when nothing certain matches', () => {
     expect(deriveFailureDiagnosis({ outcome: 'failed', errorText: 'tests failed somewhere probably', stepId: 's1' }))
       .toEqual({ kind: 'unknown', confidence: 'low', phase: 's1', rounds: null, resetAt: null, detail: 'tests failed somewhere probably', resumablePhase: null, blocker: null, source: 'desktop' })

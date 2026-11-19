@@ -28,6 +28,8 @@ import { registerProjectRepositoryRoutes, registerProjectRoutes, registerSampleP
 import { createNewlyDetectedAssembler, registerProviderRoutes } from './desktop-router-providers'
 import { registerRuntimeProviderRoutes } from './desktop-router-runtime-providers'
 import { registerAppSettingsRoutes } from './desktop-router-settings'
+import { registerMachineInstallRoutes } from './modules/machine-installs/adapters/http'
+import { createSqliteApprovalStore } from './modules/machine-installs/adapters/sqlite'
 import type { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { registerWebhookRoutes } from './desktop-router-webhooks'
 import { registerQuotaRoutes } from './modules/provider-quota/adapters/http'
@@ -82,6 +84,8 @@ export function createDesktopRouter(
   registerProviderRoutes(router, { broadcast, assembleNewlyDetected })
   registerAnalyticsRoutes(router, { registry })
   registerAppSettingsRoutes(router, { registry, broadcast, missionConnectors: options.missionConnectors })
+  // Settings ▸ remembered machine-wide installs (modules/machine-installs): list and revoke.
+  registerMachineInstallRoutes(router, createSqliteApprovalStore(registry.desktopDb))
   registerAgentRegistryRoutes(router, { registry })
   registerSpecrailsTechRoutes(router, { registry })
   registerWebhookRoutes(router, { registry })
