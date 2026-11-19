@@ -202,6 +202,9 @@ describe('host blockers', () => {
     const nodes = compile(configurableImplementGraph(paired)).nodes
     expect(nodes.architect.params.prompt).toContain('Tie every acceptance criterion to the check that proves it')
     expect(nodes.architect.params.prompt).toContain('never plan to record that evidence by hand')
+    // A canvas game's plan checked "page text contains Score": it can never pass, the score is drawn on the canvas.
+    expect(nodes.architect.params.prompt).toContain('page text never contains what it draws')
+    expect(nodes.architect.params.prompt).toContain('--eval of state the code exposes for tests')
     expect(nodes.reviewer.params.prompt).toContain('name in issues the test the developer must add to a check the host already runs')
     // Asking for a command the host never runs deadlocked runs: the fixer had nothing to change.
     expect(nodes.reviewer.params.prompt).toContain('A command outside the host plan')
