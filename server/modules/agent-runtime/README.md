@@ -171,6 +171,13 @@ builds, every build a pin still names (recorded references, the data home's work
 and worktrees, each project's own `.specrails/pipeline`) and anything used within the
 last hour; the rest is renamed aside under the package lock and deleted asynchronously.
 
+The first launch on a Core build that is not in the cache yet (normally the first run
+after a Core update) copies and digests the package with async I/O before retention
+(`prepareRetainedAgentRuntime`, ~7–9 s for ~16.5k files). The run log says so:
+`[runtime] Preparing the updated Core runtime …` when the wait starts (also for a launch
+that joins another launch's preparation) and `[runtime] Core runtime ready (N s)` when
+it ends. Launches of an already retained build log nothing.
+
 ## Recovery diagnosis
 
 `GET /agent-runtime/runs/:runId/diagnosis` is a read-only assessment of the

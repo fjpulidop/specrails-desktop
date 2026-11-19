@@ -286,24 +286,37 @@ async function copyInstalledPackageAsync(source: string, destination: string): P
 
 const preparing = new Map<string, Promise<void>>()
 
+/** Observes a launch's package preparation (the run log announces the wait). */
+export interface RuntimePreparationObserver {
+  /** Called once when this launch waits for a copy of a Core build not retained yet
+   * (the first launch after a Core update); never on the fast, already-retained path. */
+  onPreparing?: () => void
+}
+
 /**
  * Materialize the Core package a launch is about to retain into the shared cache with async
  * I/O, before the launch's synchronous retention. The first launch after every Core build
  * (each app update) copied and hashed ~16k files on the event loop, freezing the app for
  * 7–8 s; concurrent launches now share one preparation and only publish under the lock.
  * Best effort: on any failure the synchronous path still retains the package itself.
+ * Resolves true when this launch waited for a preparation (copy and digest).
  */
-export async function prepareRetainedAgentRuntime(cli: string): Promise<void> {
+export async function prepareRetainedAgentRuntime(cli: string, observer: RuntimePreparationObserver = {}): Promise<boolean> {
   const cache = sharedPackageCache
-  if (!cache) return
+  if (!cache) return false
   let root: string
-  try { root = packageRoot(await fs.promises.realpath(cli)) } catch { return }
-  const stamp = sourceStamp(root)
+  try { root = packageRoot(await fs.promises.realpath(cli)) } catch { return false }
+  // Synchronous on purpose (~0.2 s for ~16k stats): an async walk measured 0.7–2 s of
+  // added latency on every launch, and this check decides whether to announce a wait.
+  let stamp: string
+  try { stamp = sourceStamp(root) } catch { return false }
   const known = retainedBySource.get(root)
-  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return
+  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return false
+  const announce = () => { try { observer.onPreparing?.() } catch { /* An observer cannot stop the launch. */ } }
   const key = root + '\0' + stamp
   const running = preparing.get(key)
-  if (running) return running
+  if (running) { announce(); await running; return true }
+  announce()
   const task = (async () => {
     await fs.promises.mkdir(cache, { recursive: true, mode: 0o700 })
     const staged = path.join(cache, '.staged-' + randomUUID())
@@ -325,7 +338,8 @@ export async function prepareRetainedAgentRuntime(cli: string): Promise<void> {
     }
   })()
   preparing.set(key, task)
-  return task
+  await task
+  return true
 }
 
 export function retainAgentRuntime(cli: string, contextPath: string): string {

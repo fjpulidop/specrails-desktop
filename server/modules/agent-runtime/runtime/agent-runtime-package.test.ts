@@ -275,3 +275,29 @@ it('a burst of execution gates never reuses a digest that started before the req
     reads.mockRestore()
   } finally { configureSharedRuntimePackageCache(null) }
 })
+
+it('announces a preparation to every launch that waits for it and stays quiet once the build is retained', async () => {
+  const { configureSharedRuntimePackageCache, prepareRetainedAgentRuntime } = await import('./agent-runtime-package')
+  const { cli } = fixture()
+  configureSharedRuntimePackageCache(path.join(root, 'cache'))
+  try {
+    const first = vi.fn(), joined = vi.fn(), later = vi.fn()
+    expect(await Promise.all([prepareRetainedAgentRuntime(cli, { onPreparing: first }), prepareRetainedAgentRuntime(cli, { onPreparing: joined })])).toEqual([true, true])
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(joined).toHaveBeenCalledTimes(1)
+    expect(await prepareRetainedAgentRuntime(cli, { onPreparing: later })).toBe(false)
+    expect(later).not.toHaveBeenCalled()
+    // A throwing observer never stops the preparation.
+    fs.writeFileSync(path.join(root, 'active/node_modules/fixture/index.js'), 'module.exports="rebuilt"')
+    expect(await prepareRetainedAgentRuntime(cli, { onPreparing: () => { throw new Error('log closed') } })).toBe(true)
+    expect(fs.readdirSync(path.join(root, 'cache')).filter((name) => /^[a-f0-9]{64}$/.test(name))).toHaveLength(2)
+  } finally { configureSharedRuntimePackageCache(null) }
+})
+
+it('does not announce anything without a shared package cache', async () => {
+  const { prepareRetainedAgentRuntime } = await import('./agent-runtime-package')
+  const { cli } = fixture()
+  const observer = vi.fn()
+  expect(await prepareRetainedAgentRuntime(cli, { onPreparing: observer })).toBe(false)
+  expect(observer).not.toHaveBeenCalled()
+})

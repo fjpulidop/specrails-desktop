@@ -224,6 +224,9 @@ export function applyPhase3RuntimeSwitches(config: RuntimeConfig, capabilities: 
   }
 }
 
+/** Run-log line while the first launch on a new Core build prepares its retained package. */
+export const CORE_PREPARING_LINE = '[runtime] Preparing the updated Core runtime (first run on this Core build; this takes a few seconds)…'
+
 /** Core owns the complete agent workflow in one managed process. The existing
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
@@ -283,7 +286,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     if (runtime.validateRuntimeConfigAsync) await runtime.validateRuntimeConfigAsync(JSON.parse(JSON.stringify(config)))
     else runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
-    await prepareRetainedAgentRuntime(cli)
+    // The first launch on a new Core build copies and digests its package (~7 s, off the
+    // event loop): say so in the run log instead of leaving it silent.
+    const preparationStarted = Date.now()
+    const runLog = (line: string) => { try { options.onLine?.(line) } catch { /* Advisory log observer. */ } }
+    if (await prepareRetainedAgentRuntime(cli, { onPreparing: () => runLog(`${CORE_PREPARING_LINE}\n`) })) runLog(`[runtime] Core runtime ready (${((Date.now() - preparationStarted) / 1000).toFixed(1)} s)\n`)
     cli = retainAgentRuntime(cli, options.contextPath)
     args[0] = cli
     saveHostContext(options)
