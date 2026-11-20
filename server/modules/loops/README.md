@@ -146,6 +146,8 @@ mutable run state and the `NodeStep` routing result).
 | `loop-step-accounting.ts` | `ai_invocations` rows and orphan step recovery (startup, teardown, settle) |
 | `loop-run-pauses.ts` | Human-decision, `budget_paused` and `limit_paused` pauses |
 | `loop-limit-pauses.ts` | Durable `limit_paused` record (`queue_state` `limit_pause:<runId>`: provider, `resumeAt`, automatic resume) that survives a restart |
+| `loop-budget-pauses.ts` | Durable record (`queue_state` `budget_pause:<runId>`) that a restart retained a run parked at its budget, so the run stays held by the budget instead of a generic restart Resume; cleared when a resume moves the run on |
+| `loop-budget-resume.ts` | Per-run cap gate for resuming such a retained run (`{ runCap: 'ignore' }` / `{ runCapUsd: n }`, 409 while the cap stands), same answers as a resident budget pause |
 | `loop-legacy-traversal.ts` | Engine-1 traversal: between-step guards and node dispatch |
 | `loop-node-ai-step.ts`, `loop-node-shell.ts`, `loop-node-decider.ts` | One executor per executable node kind |
 | `loop-phase-recovery.ts` | Single in-run `failureRecovery` retry/repair routing |

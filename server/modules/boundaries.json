@@ -2829,6 +2829,8 @@
       "runtime/builtin-loops.ts",
       "runtime/definition-cancellation.ts",
       "runtime/legacy-launch-telemetry.ts",
+      "runtime/loop-budget-pauses.ts",
+      "runtime/loop-budget-resume.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
       "runtime/loop-definition-controls.ts",
@@ -2873,6 +2875,15 @@
         "../../execution/runtime/interactive-job-session",
         "./loop-graph",
         "./loop-run-contract"
+      ],
+      "runtime/loop-budget-pauses.ts": [
+        "../../../db"
+      ],
+      "runtime/loop-budget-resume.ts": [
+        "../../../db",
+        "../../execution",
+        "./loop-run-launch",
+        "./loop-runs-store"
       ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
@@ -3145,6 +3156,7 @@
       ],
       "runtime/loop-run-hold.ts": [
         "../../../db",
+        "./loop-budget-pauses",
         "./loop-limit-pauses",
         "./loop-run-contract"
       ],
@@ -3227,6 +3239,7 @@
         "../../../db",
         "../../../db/job-search",
         "../../agent-runtime/runtime/agent-runtime-retention-records",
+        "./loop-budget-pauses",
         "./loop-run-manager",
         "node:fs",
         "path"

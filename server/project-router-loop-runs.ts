@@ -101,7 +101,6 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // Any Continue of a run the restart paused (also one naming the attempts to recover)
     // waits out the dead Core child's lease instead of answering runtime_run_active.
     const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume, waitForStaleLease: !!run && run.status === 'paused' && run.restart_reason === 'restart' })
-    if (retainedBudget && outcome.status < 300) clearRetainedBudgetPause(c.db, runId)
     res.status(outcome.status).json(outcome.body)
   })
 
@@ -738,8 +737,9 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
       return { status: 200, body: { loopRunId: runId, settled: true } }
     }
     const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
-    // A resume answers any usage-limit pause the run carried over a restart.
-    try { clearLimitPause(c.db, runId) } catch { /* the record is advisory once the run moves on */ }
+    // A resume answers any usage-limit or budget pause the run carried over a restart (the
+    // resume route answered the budget gate first), so neither holds the run once it moves on.
+    try { clearLimitPause(c.db, runId); clearRetainedBudgetPause(c.db, runId) } catch { /* the records are advisory once the run moves on */ }
     // Resident executions already own their original settlement callback.
     if (!resident) void completion.then(async result => {
       if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1834 source/build files. Nearby tests are linked where names
+Includes 1841 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1419,6 +1419,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [api.mjs](../../scripts/benchmark/lib/api.mjs)
 - [args.mjs](../../scripts/benchmark/lib/args.mjs)
+- [big-repos.mjs](../../scripts/benchmark/lib/big-repos.mjs)
 - [driver.mjs](../../scripts/benchmark/lib/driver.mjs)
 - [isolation.mjs](../../scripts/benchmark/lib/isolation.mjs)
 - [merge.mjs](../../scripts/benchmark/lib/merge.mjs)
@@ -1429,7 +1430,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [repos.mjs](../../scripts/benchmark/lib/repos.mjs)
 - [scenarios.mjs](../../scripts/benchmark/lib/scenarios.mjs)
 - [server.mjs](../../scripts/benchmark/lib/server.mjs)
+- [soak-main.mjs](../../scripts/benchmark/lib/soak-main.mjs)
+- [soak-report.mjs](../../scripts/benchmark/lib/soak-report.mjs)
+- [soak.mjs](../../scripts/benchmark/lib/soak.mjs)
 - [timings.mjs](../../scripts/benchmark/lib/timings.mjs)
+
+## scripts/benchmark/scenarios
+
+- [make-soak.mjs](../../scripts/benchmark/scenarios/make-soak.mjs)
 
 ## server / agent
 
@@ -2176,6 +2184,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [legacy-launch-telemetry.ts](../../server/modules/loops/runtime/legacy-launch-telemetry.ts) · [test](../../server/modules/loops/runtime/legacy-launch-telemetry.test.ts)
 - [loop-agents.ts](../../server/modules/loops/runtime/loop-agents.ts) · [test](../../server/modules/loops/runtime/loop-agents.test.ts)
 - [loop-ai-step-signals.ts](../../server/modules/loops/runtime/loop-ai-step-signals.ts)
+- [loop-budget-pauses.ts](../../server/modules/loops/runtime/loop-budget-pauses.ts)
+- [loop-budget-resume.ts](../../server/modules/loops/runtime/loop-budget-resume.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-compat.ts](../../server/modules/loops/runtime/loop-compat.ts) · [test](../../server/modules/loops/runtime/loop-compat.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
