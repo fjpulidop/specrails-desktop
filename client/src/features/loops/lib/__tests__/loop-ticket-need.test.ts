@@ -27,6 +27,11 @@ describe('loopNeedsTicket', () => {
     expect(loopNeedsTicket(graph([{ prompt: '{{cmd:verify}}' }]))).toBe(false) // verify doesn't consume a ticket
   })
 
+  it('needs a ticket when the definition opens a new OpenSpec change (a fork of the built-in Implement)', () => {
+    expect(loopNeedsTicket({ ...graph([{ prompt: 'Plan change {{run.changeId}}' }]), config: { maxIterations: 12, timeoutMinutes: 0, change: 'new' } })).toBe(true)
+    expect(loopNeedsTicket({ ...graph([{ prompt: 'Plan change {{run.changeId}}' }]), config: { maxIterations: 12, timeoutMinutes: 0, change: 'none' } })).toBe(false)
+  })
+
   it('handles an undefined graph', () => {
     expect(loopNeedsTicket(undefined)).toBe(false)
   })
