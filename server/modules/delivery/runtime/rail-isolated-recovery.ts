@@ -149,7 +149,12 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
   if (!pending.length) { ctx.onLoopRunFinished(runId, frozen.row.final_outcome ?? 'failed', { ticketCompletionStatus: 'on_review' }); return }
   // Terminal admission must not depend on optional, potentially large evidence
   // outputs. A failed full-status harvest stays visible in the review packet.
-  const probe = await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId)
+  // A run stopped before it ever reached Core (queued for capacity when the app
+  // restarted) has no Core result to read: it settles as the stopped run it is.
+  const neverStarted = !frozen.metadata.contextPath && frozen.row.final_outcome === 'stopped'
+  const probe: Pick<Awaited<ReturnType<typeof probeDefinitionRun>>, 'status' | 'resumable' | 'completion' | 'lease'> = neverStarted
+    ? { status: 'cancelled', resumable: false, completion: null, lease: null }
+    : await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId)
   if (probe.status === 'unavailable' || probe.lease?.active || ['paused', 'running'].includes(probe.status)) throw new Error('Core has not provided an inactive terminal result')
   const policy = frozen.metadata.definition?.delivery as { requiresVerified?: boolean } | undefined
   const accepted = probe.status === 'succeeded' && probe.completion?.ok === true && (policy?.requiresVerified === false || probe.completion.verified)
