@@ -1,4 +1,5 @@
 import { readRuntimeExpiration } from '../../agent-runtime/runtime/agent-runtime-retention-records'
+import { saveRetainedBudgetPause } from './loop-budget-pauses'
 /**
  * Loop runs store — per-project record (jobs.sqlite `loop_runs`) of each
  * executed loop. The manager creates a row at launch, updates counters as it
@@ -165,6 +166,9 @@ export function markDefinitionRestart(db: DbInstance, runId: string, checkpoint:
   db.transaction(() => {
     if (!readDefinitionRun(db, runId)) throw new Error('Frozen definition run is missing')
     recordDefinitionCheckpoint(db, runId, checkpoint)
+    // A run parked at its budget stays held by it: the restart's generic Resume must not continue it.
+    const before = db.prepare('SELECT status, restart_reason FROM loop_runs WHERE id=?').get(runId) as { status: string; restart_reason: string | null } | undefined
+    if (before?.status === 'paused' && before.restart_reason === 'budget_paused') saveRetainedBudgetPause(db, runId)
     db.prepare("UPDATE loop_runs SET status='paused',final_outcome=NULL,finished_at=NULL,restart_reason='restart' WHERE id=? AND status IN ('running','paused')").run(runId)
   })()
 }

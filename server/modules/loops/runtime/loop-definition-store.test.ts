@@ -3,6 +3,8 @@ import { createJob, getJob, initDb, type DbInstance } from '../../../db'
 import { applyMigrations } from '../../../db/migrations'
 import type { LoopRunRequest } from './loop-run-manager'
 import { clearLimitPause, listLimitPauses, readLimitPause, saveLimitPause } from './loop-limit-pauses'
+import { readRetainedBudgetPause } from './loop-budget-pauses'
+import { readRunHold } from './loop-run-hold'
 import { claimDefinitionExecution, releaseDefinitionExecution, readDefinitionExecutionClaim, createLoopRun, getLoopRun, listPendingLoopTerminalRecoveries, markDefinitionRestart, readDefinitionRun, reconcileOrphanLoopRuns, recordDefinitionCheckpoint, saveDefinitionRun, listActiveLoopRuns, listRunningLoopRuns, countRunningForLoop, listLoopRuns } from './loop-runs-store'
 
 let db: DbInstance
@@ -124,6 +126,19 @@ describe('frozen definition launch storage', () => {
     expect(getLoopRun(db, 'run')).toMatchObject({ status: 'paused', restart_reason: 'restart', final_outcome: null, finished_at: null })
     expect(getJob(db, 'run')).toEqual(job)
     expect(listPendingLoopTerminalRecoveries(db)).toHaveLength(0)
+  })
+  it('keeps a run parked at its budget held by the budget over a restart', () => {
+    // An overnight run paused at its per-run cap was marked `restart` and a generic Resume ran it past the cap.
+    saveDefinitionRun(db, 'run', { request: launch() })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='budget_paused' WHERE id='run'").run()
+    markDefinitionRestart(db, 'run', { revision: 3, eventCursor: 2, status: 'paused' })
+    expect(getLoopRun(db, 'run')).toMatchObject({ status: 'paused', restart_reason: 'restart' })
+    expect(readRetainedBudgetPause(db, 'run')).toBe(true)
+    expect(readRunHold(db, 'run')).toMatchObject({ kind: 'budget' })
+    saveDefinitionRun(db, 'plain', { request: launch('plain') })
+    markDefinitionRestart(db, 'plain', { revision: 1, eventCursor: 1, status: 'running' })
+    expect(readRetainedBudgetPause(db, 'plain')).toBe(false)
+    expect(readRunHold(db, 'plain')).toMatchObject({ kind: 'restart' })
   })
   it('retains resumable v2 runs while preserving terminal recovery for legacy and missing checkpoints', () => {
     launch('legacy')

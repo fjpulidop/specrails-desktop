@@ -216,7 +216,8 @@ describe('Core definitions: budget gate before re-invoking with a human decision
     const running = m.run(definitionRequest())
     await vi.waitFor(() => expect(m.budgetPause('d1')).not.toBeNull())
     expect(pauseDefinition).toHaveBeenCalledTimes(1)
-    expect(pauseDefinition.mock.calls[0][0]).toEqual({ runId: 'd1', contextPath: '/frozen/context.json', requestId: 'desktop-budget-pause:d1:1', reason: 'budget' })
+    // The id is unique across processes: a restarted app's first request must not reuse one Core already consumed.
+    expect(pauseDefinition.mock.calls[0][0]).toEqual({ runId: 'd1', contextPath: '/frozen/context.json', requestId: expect.stringMatching(/^desktop-budget-pause:d1:1:[0-9a-z]+$/), reason: 'budget' })
     expect(getLoopRun(db, 'd1')).toMatchObject({ status: 'paused', restart_reason: 'budget_paused' })
     expect(broadcasts.some(msg => msg.type === 'loop.run_paused' && (msg as { pauseKind?: string }).pauseKind === 'budget_paused')).toBe(true)
     expect(m.resumeBudgetPause('d1')).toMatchObject({ status: 'over_budget' })
