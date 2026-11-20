@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   classifyChangeType, batchChangeType, ticketRef, kebabTitle, ticketBranchName,
   batchBranchNameFor, resolveCollisionFreeName, titleChangeSummary, buildPrTitle,
-  formatConventionalSubject, isConventionalCommitSubject, type TicketNamingInput,
+  formatConventionalSubject, isConventionalCommitSubject, clipAtWord, type TicketNamingInput,
 } from './pr-naming'
 import { isValidBranchName } from '../../../integration-branch'
 
@@ -187,6 +187,17 @@ describe('titleChangeSummary', () => {
     const s = titleChangeSummary(`Do ${'x'.repeat(200)}`)
     expect(s.length).toBeLessThanOrEqual(72)
     expect(s.endsWith('…')).toBe(true)
+  })
+
+  it('cuts a long summary at a word break, never mid-word (bench5 live subject)', () => {
+    const s = titleChangeSummary('total(items) in src/cart.js validates its input and throws TypeError when any price is not an integer or the sum is not a safe integer')
+    expect(s).toBe('total(items) in src/cart.js validates its input and throws TypeError…')
+    expect(s.length).toBeLessThanOrEqual(72)
+  })
+
+  it('keeps a hard cut when the only word break is too early', () => {
+    expect(clipAtWord(`go ${'x'.repeat(100)}`, 20)).toBe(`go ${'x'.repeat(16)}…`)
+    expect(clipAtWord('short', 20)).toBe('short')
   })
 })
 

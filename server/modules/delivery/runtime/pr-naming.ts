@@ -198,8 +198,19 @@ export function titleChangeSummary(raw: string | null | undefined): string {
   s = s.replace(/[.\s]+$/g, '')
   if (!s) return ''
   s = decapitalizeFirst(s)
-  if (s.length > TITLE_CHANGE_MAX) s = `${s.slice(0, TITLE_CHANGE_MAX - 1).trimEnd()}…`
-  return s
+  return clipAtWord(s, TITLE_CHANGE_MAX)
+}
+
+/**
+ * At most `max` characters ending in `…`. Cuts at the last word break when one
+ * keeps at least 60 % of the room, so a subject never ends mid-word ("throws TypeError wh…").
+ */
+export function clipAtWord(s: string, max: number): string {
+  if (s.length <= max) return s
+  const room = s.slice(0, max - 1)
+  const space = room.lastIndexOf(' ')
+  const cut = space >= Math.floor(max * 0.6) ? room.slice(0, space) : room
+  return `${cut.replace(/[\s,;:\-–—]+$/u, '')}…`
 }
 
 function decapitalizeFirst(s: string): string {
@@ -235,7 +246,7 @@ export function formatConventionalSubject(input: ConventionalSubjectInput): stri
   let change = titleChangeSummary(input.change.replace(/[\p{Cc}\p{Zl}\p{Zp}:]/gu, ' '))
   if (!/[\p{L}\p{N}]/u.test(change)) change = ref ? `implement ${ref}` : 'specrails delivery'
   const budget = TITLE_MAX - prefix.length - suffix.length
-  if (change.length > budget) change = `${change.slice(0, budget - 1).trimEnd()}…`
+  change = clipAtWord(change, budget)
   const subject = `${prefix}${change}${suffix}`
   return isConventionalCommitSubject(subject) ? subject : 'chore: specrails delivery'
 }
