@@ -636,4 +636,12 @@ describe('JobRunHeader — a run that stopped without settling', () => {
       method: 'POST', body: JSON.stringify({ recover: ['a3e7afe4-3510-4a54-be11-9858ef5c4c12'] }),
     }))
   })
+
+  it('a run paused on a provider limit offers no header Continue: its limit card owns Resume now / Don\'t resume by itself', async () => {
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [interruptedRun()] }))
+    renderHeader(heldJob({ kind: 'provider_limit' as const, step: 'fixer', since: null }), [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
+  })
 })
+
