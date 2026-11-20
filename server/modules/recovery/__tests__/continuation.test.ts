@@ -65,6 +65,10 @@ describe('automatic continuation guards', () => {
     expect(verdict(diagnosis({ kind: 'environment', blocker: blocker('toolchain') }))).toEqual({ continue: true, reason: 'missing_tool' })
     expect(verdict(diagnosis({ kind: 'environment', blocker: blocker('setup', 'playwright browsers are missing', 'Run npx playwright install') }))).toEqual({ continue: true, reason: 'missing_tool' })
     for (const kind of ['crash', 'timeout', 'tool_inactivity'] as const) expect(verdict(diagnosis({ kind }))).toEqual({ continue: true, reason: 'transient_error' })
+    // A verification command at its wall-clock limit is not transient: the next attempt waits as long again.
+    expect(verdict(diagnosis({ kind: 'timeout', detail: 'A verification command failed: Verification command timed out' }))).toEqual({ continue: false, reason: 'person_must_resolve' })
+    expect(verdict(diagnosis({ kind: 'timeout', detail: 'A verification command failed: Verification command timed out: `npm test` was still running when it reached its 15 min limit and was stopped.' }))).toEqual({ continue: false, reason: 'person_must_resolve' })
+    expect(verdict(diagnosis({ kind: 'timeout', detail: 'Verification command produced no output for 5 min and was stopped: a test is probably hanging' }))).toEqual({ continue: true, reason: 'transient_error' })
     expect(verdict(diagnosis({ kind: 'blocked', detail: 'Automatic correction made no candidate changes.' }))).toEqual({ continue: true, reason: 'stalled' })
   })
 

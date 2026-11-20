@@ -1,0 +1,38 @@
+{
+  "defaults": {
+    "provider": "claude",
+    "model": "haiku",
+    "timeoutMinutes": 660
+  },
+  "scenarios": [
+    {
+      "timeoutMinutes": 660,
+      "answers": [
+        {
+          "recommended": true,
+          "once": false
+        }
+      ],
+      "expect": {
+        "status": "delivered"
+      },
+      "group": "long",
+      "name": "long-multi2",
+      "notes": "multi-repo: two large libraries, 12 + 12 tasks",
+      "repos": [
+        {
+          "template": "big-lib-a",
+          "name": "long-multi2-core"
+        },
+        {
+          "template": "big-lib-b",
+          "name": "long-multi2-ext"
+        }
+      ],
+      "ticket": {
+        "title": "Features across both libraries",
+        "description": "This change spans two repositories: `long-multi2-core` (modules money … stats) and `long-multi2-ext` (modules luhn … bloom). Implement each requirement in the repository that owns the module.\n\nExtend the library with 12 small, independent features. Each one needs unit tests in `test/unit/<module>.test.js` covering the normal case and every error case named here, and a line in CHANGELOG.md under \"Unreleased\". Follow CONTRIBUTING.md (JSDoc on every exported function; the lint runs in `npm test`).\n\n1. `src/money.js`: add `toCents(amount)` that converts a decimal amount (number or numeric string) to integer cents, rounding half away from zero; it throws `TypeError` for anything not finite.\n2. `src/slug.js`: add `slugify(text)` that lowercases, strips diacritics (NFD), replaces every run of non-alphanumerics with one `-` and trims leading/trailing `-`.\n3. `src/dates.js`: add `daysInMonth(year, month)` (month 1–12, leap years respected) that throws `RangeError` for a month outside 1–12.\n4. `src/queue.js`: add `enqueue(q, x)`, `dequeue(q)` (returns `undefined` on empty) and `size(q)`; `dequeue` must be O(1) amortised (no `Array.prototype.shift`).\n5. `src/lru.js`: add `get(cache, key)` and `set(cache, key, value)` with least-recently-used eviction once `limit` entries are stored; `get` refreshes recency.\n6. `src/csv.js`: add `parseCsvLine(line)` that splits on commas but keeps commas inside double quotes and unescapes `\"\"` to `\"`.\n7. `src/stats.js`: add `mean(xs)` and `median(xs)`; both throw `RangeError` on an empty list; `median` must not mutate its input.\n8. `src/retry.js`: add `backoff(attempt, { base = 100, cap = 10000 } = {})` returning `min(cap, base * 2 ** attempt)`; negative attempts throw `RangeError`.\n9. `src/color.js`: add `hexToRgb(hex)` returning `{ r, g, b }` for `#rrggbb` and the short `#rgb` form; invalid input throws `TypeError`.\n10. `src/words.js`: add `titleCase(s)` that capitalises every word except the small words `a, an, the, of, and, or, in` (unless first).\n11. `src/matrix.js`: add `transpose(m)` for rectangular matrices and `multiply(a, b)`, which throws `RangeError` when the inner dimensions differ.\n12. `src/range.js`: add `range(start, end, step = 1)` (end exclusive, negative steps allowed) that throws `RangeError` for a zero step.\n\nOut of scope: renaming or removing any existing export, adding dependencies.\n\nExtend the library with 12 small, independent features. Each one needs unit tests in `test/unit/<module>.test.js` covering the normal case and every error case named here, and a line in CHANGELOG.md under \"Unreleased\". Follow CONTRIBUTING.md (JSDoc on every exported function; the lint runs in `npm test`).\n\n1. `src/ini.js`: add `parseIni(text)` supporting `[section]` headers, `key = value` pairs, and `;`/`#` comments; keys before any section go to `\"\"`.\n2. `src/luhn.js`: add `isValidLuhn(s)` (spaces allowed, any other non-digit makes it invalid, fewer than 2 digits is invalid).\n3. `src/template.js`: add `render(tpl, data)` replacing `{{ name }}` (spaces optional) with HTML-escaped values; unknown names render as an empty string.\n4. `src/geo.js`: add `haversineKm(a, b)` for `{ lat, lon }` points in degrees; the result is rounded to 3 decimals.\n5. `src/bits.js`: add `isPowerOfTwo(n)` (integers only, `0` is not) and `nextPowerOfTwo(n)` for positive integers up to 2^30.\n6. `src/chunk.js`: add `chunk(xs, size)` (last chunk may be shorter) and `zip(...arrays)` truncated to the shortest array; `size < 1` throws `RangeError`.\n7. `src/path.js`: add `normalize(p)` that resolves `.` and `..` segments and duplicate slashes for POSIX paths, keeping a leading `/`.\n8. `src/heap.js`: add `push(h, x)`, `pop(h)` (returns `undefined` on empty) and `peek(h)` as a binary heap using `h.compare`.\n9. `src/crc.js`: add `crc32(input)` for a string (UTF-8) or `Uint8Array`, returning an unsigned 32-bit integer (`crc32(\"hello\")` is `907060870`).\n10. `src/duration.js`: add `formatDuration(seconds)` → `\"1h 2m 3s\"` style (omit zero units, `0` → `\"0s\"`) and `parseDuration(text)` as its inverse.\n11. `src/mask.js`: add `maskEmail(email)` keeping the first character of the local part and the domain (`ada@x.io` → `a**@x.io`); invalid emails throw `TypeError`.\n12. `src/graph.js`: add `addEdge(g, a, b)` (directed) and `topoSort(g)` (Kahn); a cycle throws `Error` whose message names one node of the cycle.\n\nOut of scope: renaming or removing any existing export, adding dependencies."
+      }
+    }
+  ]
+}

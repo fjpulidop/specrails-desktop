@@ -25,6 +25,7 @@ import { summarizeBurst, renderBurst } from './lib/parallel-report.mjs'
 import { mergeObjective, pendingDeliveries } from './lib/merge.mjs'
 import { renderReport } from './lib/report.mjs'
 import { parseArgs } from './lib/args.mjs'
+import { soakMain } from './lib/soak-main.mjs'
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const sleep = ms => new Promise(r => setTimeout(r, ms))
@@ -49,7 +50,7 @@ async function main() {
   const logFile = path.join(workDir, 'logs', 'benchmark.log')
   const log = line => { const l = `${new Date().toISOString().slice(11, 19)} ${line}`; fs.appendFileSync(logFile, l + '\n'); if (!opts.quiet) console.log(l) }
 
-  const serverOpts = { desktopDir, home: target.home, port: target.port, clientPort: target.clientPort, coreBin: opts.coreBin, pathPrepend: opts.pathPrepend, logFile: path.join(workDir, 'logs', 'server.log') }
+  const serverOpts = { desktopDir, home: target.home, port: target.port, clientPort: target.clientPort, coreBin: opts.coreBin, pathPrepend: opts.pathPrepend, inspectPort: opts.inspectPort, logFile: path.join(workDir, 'logs', 'server.log') }
   if (opts.startServer && !listenerPid(target.port)) { const s = await startServer(serverOpts); log(`server started pid ${s.pid} in ${s.readyMs} ms`) }
   if (!listenerPid(target.port)) throw new Error(`Nothing listens on port ${target.port}; pass --start-server`)
   // Install questions run the installer on the SERVER's PATH: refuse unless its brew is a fake one.
@@ -71,6 +72,14 @@ async function main() {
   }
   const cache = {}
   const server = { restart: graceful => restartServer(serverOpts, { graceful }) }
+  if (opts.soak) {
+    // Soak: a long night of runs with leak sampling, quota gating and a chaos schedule.
+    const rawFile = /\.ya?ml$/i.test(opts.scenarios) ? {} : JSON.parse(fs.readFileSync(opts.scenarios, 'utf8'))
+    if (opts.dryRun) { log(`soak dry run: ${chosen.length} scenarios, chaos ${JSON.stringify(rawFile.chaos ?? [])}`); return }
+    await soakMain({ opts, chosen: chosen.slice(0, opts.budgetRuns), rawFile, target, api, workDir, log, server, serverOpts, desktopDir, cache })
+    if (opts.stopServer) await stopServer({ port: target.port, home: target.home })
+    process.exit(0)
+  }
   if (opts.burst) {
     // Burst: prepare every scenario, then launch them all in the same instant,
     // so N rails really compete for the machine, the provider and the server.

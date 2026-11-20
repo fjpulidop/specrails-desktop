@@ -11,6 +11,7 @@
  * live manager for a page of jobs.
  */
 import type { DbInstance } from '../../../db'
+import { readRetainedBudgetPause } from './loop-budget-pauses'
 import { readLimitPause } from './loop-limit-pauses'
 import type { LoopLimitPause } from './loop-run-contract'
 
@@ -46,6 +47,8 @@ export interface RunHoldFacts {
   checkpoint: Record<string, unknown> | null
   /** A usage-limit record retained over a restart (`queue_state`). */
   retainedLimit: LoopLimitPause | null
+  /** The run was parked at its budget when a restart retained it (`queue_state`). */
+  retainedBudget?: boolean
   /** The manager's parked pause in this process; null when nothing is parked. */
   live: LiveRunPause | null
   /** The run was active when this process started and startup recovery has not reconciled it yet. */
@@ -96,7 +99,7 @@ export function deriveRunHold(facts: RunHoldFacts): RunHold | null {
   }
   if (facts.loopStatus === 'paused') {
     if (facts.retainedLimit) return at('provider_limit', facts.retainedLimit.pausedAt, { resumeAt: facts.retainedLimit.resumeAt })
-    if (facts.restartReason === 'budget_paused') return at('budget')
+    if (facts.restartReason === 'budget_paused' || facts.retainedBudget) return at('budget')
     const asked = interruptHold(interruptKinds(facts.checkpoint?.pendingInterrupts))
     if (asked) return at(asked)
     if (facts.restartReason === 'restart') return at('restart')
@@ -162,6 +165,7 @@ export function readRunHolds(db: DbInstance, jobIds: readonly string[], sources:
       const hold = deriveRunHold({
         loopStatus: row.status, restartReason: row.restart_reason, checkpoint,
         retainedLimit: row.status === 'paused' && !live ? readLimitPause(db, row.id) : null,
+        retainedBudget: row.status === 'paused' && !live ? readRetainedBudgetPause(db, row.id) : false,
         live, restartPending: sources.restartPending?.has(row.id) ?? false, lastActivityAt: isoTimestamp(row.last_event_at),
         queued: (() => { try { return sources.queued?.(row.id) ?? null } catch { return null } })(),
       })

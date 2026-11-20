@@ -24,6 +24,8 @@ import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isol
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent, updateProjectSettings } from './db'
 import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { clearRetainedBudgetPause, readRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
+import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-resume'
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { createLoopProviderSwitch, routeOverrideRequest, validateSwitchChoice } from './modules/loops/runtime/loop-provider-switch'
@@ -83,13 +85,23 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       c.loopRunManager.resolveLimitPause(runId, { action: 'resume' })
       res.status(202).json({ loopRunId: runId, resumed: true }); return
     }
+    // A run a restart retained while parked at its budget answers the budget gate first, with
+    // the same choices as a resident one; only then does it resume like any restart-paused run.
+    const retainedBudget = !!run && run.project_id === c.project.id && run.status === 'paused' && readRetainedBudgetPause(c.db, runId)
+    if (retainedBudget) {
+      const rejection = retainedRunCapRejection(c.db, runId, req.body) ?? c.dailyBudgetRejection?.() ?? null
+      if (rejection) { res.status(409).json(rejection); return }
+    }
     // A run a Desktop restart interrupted is resumed from the inbox or the restart dialog
     // with an empty body. That click is the person's explicit recovery (see resumeRetainedDefinitionRun).
-    const controls: unknown = req.body ?? {}
+    const rawBody = (req.body ?? {}) as Record<string, unknown>
+    const { runCap: _runCap, runCapUsd: _runCapUsd, ...withoutCap } = rawBody
+    const controls: unknown = retainedBudget ? withoutCap : rawBody
     const restartResume = !!run && isRestartResume(run, controls)
     // Any Continue of a run the restart paused (also one naming the attempts to recover)
     // waits out the dead Core child's lease instead of answering runtime_run_active.
     const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume, waitForStaleLease: !!run && run.status === 'paused' && run.restart_reason === 'restart' })
+    if (retainedBudget && outcome.status < 300) clearRetainedBudgetPause(c.db, runId)
     res.status(outcome.status).json(outcome.body)
   })
 

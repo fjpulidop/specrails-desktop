@@ -131,7 +131,9 @@ describe('live board projection', () => {
     createPrDelivery(alpha, { id: 'd-going', railIndex: 2, loopId: 'loop-a', railKey: '2-loop-a', ticketIds: [8], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
     alpha.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-going"]' WHERE id = 'd-going'`).run()
     const byId = Object.fromEntries(snapshot().cards.map((c) => [c.id, c]))
-    expect(byId['p1:delivery:d-paused']).toMatchObject({ column: 'working', status: { source: 'delivery', decision: 'building', paused: true } })
+    // The restart pause is an inbox item (Resume): it lands on the delivery's card, once.
+    expect(byId['p1:delivery:d-paused']).toMatchObject({ column: 'needs', status: { source: 'delivery', decision: 'building', paused: true } })
+    expect(Object.values(byId).filter((c) => c.attention?.subjectId === 'r-paused').map((c) => c.id)).toEqual(['p1:delivery:d-paused'])
     expect(byId['p1:delivery:d-going']).toMatchObject({ column: 'working', status: { source: 'delivery', decision: 'building' } })
     expect(byId['p1:delivery:d-going'].status).not.toHaveProperty('paused')
   })
@@ -145,6 +147,19 @@ describe('live board projection', () => {
     const cards = snapshot().cards.filter((c) => c.question?.interruptId === 'i9' || c.attention?.subjectId === 'r-asks')
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({ id: 'p1:delivery:d-asks', column: 'needs', question: { text: 'Which store?', asker: 'planner' } })
+  })
+
+  it('shows a delivery whose run is paused on the run cap once, in Needs you', () => {
+    // A long run paused by its per-run cap showed an attention card AND a "Working" delivery card.
+    loopRun(alpha, 'p1', 'r-capped', { rail: 1 })
+    pauseLoopRun(alpha, 'r-capped', undefined, 'budget_paused')
+    createPrDelivery(alpha, { id: 'd-capped', railIndex: 1, loopId: 'loop-a', railKey: '1-loop-a', ticketIds: [7], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    alpha.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-capped"]' WHERE id = 'd-capped'`).run()
+    const inbox = collectInbox(createInboxSources({ listContexts: contexts } as never, () => NOW.getTime()), () => NOW)
+    expect(inbox.items.some((i) => i.subjectId === 'r-capped')).toBe(true)
+    const cards = snapshot().cards.filter((c) => c.id === 'p1:delivery:d-capped' || c.attention?.subjectId === 'r-capped')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({ id: 'p1:delivery:d-capped', column: 'needs', status: { source: 'delivery', decision: 'building', paused: true } })
   })
 
   it('agrees with the inbox: every inbox item is on the board exactly once', () => {

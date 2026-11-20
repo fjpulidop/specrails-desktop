@@ -54,11 +54,17 @@ export async function waitHealthy(port, timeoutMs = 120_000) {
 export async function startServer(opts) {
   const { desktopDir, port, logFile } = opts
   if (listenerPid(port)) throw new Error(`Port ${port} is already in use`)
+  // The stopped server keeps its inspector until its debugger session ends: wait for the port,
+  // or the new server starts without one ("address already in use") and heap samples stop.
+  for (let i = 0; opts.inspectPort && listenerPid(opts.inspectPort) && i < 60; i++) await sleep(500)
   fs.mkdirSync(path.dirname(logFile), { recursive: true })
   const out = fs.openSync(logFile, 'a')
   fs.writeSync(out, `\n=== benchmark start ${new Date().toISOString()}\n`)
   const tsx = path.join(desktopDir, 'node_modules', '.bin', 'tsx')
-  const child = spawn(tsx, ['server/index.ts'], { cwd: desktopDir, env: serverEnv(opts), stdio: ['ignore', out, out], detached: true })
+  // `inspectPort` (soak mode): the server's own inspector on loopback, for heap samples over CDP.
+  // A tsx argument, not NODE_OPTIONS, so Core children and verification commands never inherit it.
+  const args = [...(opts.inspectPort ? [`--inspect=127.0.0.1:${opts.inspectPort}`] : []), 'server/index.ts']
+  const child = spawn(tsx, args, { cwd: desktopDir, env: serverEnv(opts), stdio: ['ignore', out, out], detached: true })
   child.unref()
   const readyMs = await waitHealthy(port)
   return { pid: child.pid, readyMs }

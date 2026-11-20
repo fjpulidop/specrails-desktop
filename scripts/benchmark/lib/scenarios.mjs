@@ -50,7 +50,7 @@ export function normalizeScenarios(raw) {
   const defaults = { provider: 'claude', model: 'haiku', timeoutMinutes: 25, ...(raw.defaults ?? {}) }
   if (!Array.isArray(raw.scenarios) || raw.scenarios.length === 0) throw new ScenarioError('"scenarios" must be a non-empty list')
   const seen = new Set()
-  const scenarios = raw.scenarios.map((s, i) => {
+  const scenarios = expandRepeats(raw.scenarios).map((s, i) => {
     const at = `scenarios[${i}]`
     if (!s || typeof s !== 'object') throw new ScenarioError(`${at} must be an object`)
     if (!NAME.test(String(s.name ?? ''))) throw new ScenarioError(`${at}.name must match ${NAME}`)
@@ -78,10 +78,40 @@ export function normalizeScenarios(raw) {
       ticket: { title: ticket.title.trim(), description: ticket.description ?? '' },
       provider, model: s.model ?? (provider === defaults.provider ? defaults.model : undefined),
       approvalBeforeArchive: s.approvalBeforeArchive === true, answers, actions, expect, timeoutMinutes,
-      runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '', rail: railOf(s, at),
+      runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '', rail: railOf(s, at), startAtMin: startAtOf(s, at),
     }
   })
   return { defaults, scenarios }
+}
+
+/** Soak mode: minutes after the soak starts before this scenario may launch (default 0). */
+function startAtOf(s, at) {
+  const v = Number(s.startAtMin ?? 0)
+  if (!Number.isFinite(v) || v < 0) throw new ScenarioError(`${at}.startAtMin must be a non-negative number`)
+  return v
+}
+
+/**
+ * Soak mode trickle: `repeat: { count, everyMin }` expands one scenario into `count`
+ * copies named `<name>-<k>` (k from 1), each with its own repository and
+ * `startAtMin` = base + (k - 1) × everyMin. Pure.
+ */
+export function expandRepeats(list) {
+  const out = []
+  for (const s of list) {
+    if (!s || typeof s !== 'object' || s.repeat === undefined) { out.push(s); continue }
+    const count = Number(s.repeat?.count), every = Number(s.repeat?.everyMin ?? 0)
+    if (!Number.isInteger(count) || count < 1 || count > 200 || !Number.isFinite(every) || every < 0) throw new ScenarioError(`${s.name}: repeat needs { count: 1..200, everyMin >= 0 }`)
+    const { repeat, ...rest } = s
+    for (let k = 1; k <= count; k++) {
+      const name = `${s.name}-${k}`
+      const rename = r => (typeof r === 'string' ? { template: r, name: `${name}-${r}` } : { ...r, name: `${r.name ?? `${s.name}-${r.template}`}-${k}` })
+      const repos = s.repos ? s.repos.map(rename) : undefined
+      const repo = s.repo !== undefined ? (typeof s.repo === 'string' ? { template: s.repo, name } : { ...s.repo, name: `${s.repo.name ?? s.name}-${k}` }) : undefined
+      out.push({ ...rest, name, ...(repos ? { repos } : {}), ...(repo ? { repo } : {}), startAtMin: Number(s.startAtMin ?? 0) + (k - 1) * every })
+    }
+  }
+  return out
 }
 
 /** Rail slot of a scenario (0..11); scenarios sharing a repository each take their own. */
@@ -113,7 +143,9 @@ function normalizeAnswer(a, at) {
   const modes = ['optionId', 'text', 'approve', 'reject', 'recommended'].filter(k => a[k] !== undefined)
   if (modes.length !== 1 && !(modes.length === 2 && modes.includes('optionId') && modes.includes('text'))) throw new ScenarioError(`${at} needs exactly one of optionId, text, approve, reject, recommended`)
   if (a.optionId !== undefined && !/^[a-z0-9][a-z0-9-]{0,39}$/.test(a.optionId)) throw new ScenarioError(`${at}.optionId is not a valid option id`)
-  return { kind, match: a.match, asker: a.asker, optionId: a.optionId, text: a.text, approve: a.approve === true, reject: a.reject, recommended: a.recommended === true, once: a.once !== false }
+  const delayMinutes = Number(a.delayMinutes ?? 0)
+  if (!Number.isFinite(delayMinutes) || delayMinutes < 0) throw new ScenarioError(`${at}.delayMinutes must be a non-negative number`)
+  return { kind, match: a.match, asker: a.asker, optionId: a.optionId, text: a.text, approve: a.approve === true, reject: a.reject, recommended: a.recommended === true, once: a.once !== false, delayMinutes }
 }
 
 /**
@@ -130,18 +162,19 @@ export function chooseAnswer(question, answers, used = new Set()) {
     if (a.match && !new RegExp(a.match, 'i').test(`${question.text ?? ''}\n${question.why ?? ''}\n${question.detail ?? ''}`)) continue
     const interruptId = question.interruptId
     const optionIds = (question.options ?? []).map(o => o.id)
-    if (a.approve) return { index: i, body: { text: '', interruptId, approve: true } }
-    if (a.reject !== undefined) return { index: i, body: { text: String(a.reject), interruptId, reject: true } }
+    const delayMs = (a.delayMinutes ?? 0) * 60_000
+    if (a.approve) return { index: i, delayMs, body: { text: '', interruptId, approve: true } }
+    if (a.reject !== undefined) return { index: i, delayMs, body: { text: String(a.reject), interruptId, reject: true } }
     if (a.recommended) {
       const id = question.recommended ?? optionIds[0]
       if (!id) continue
-      return { index: i, body: { text: labelOf(question, id), interruptId, optionId: id } }
+      return { index: i, delayMs, body: { text: labelOf(question, id), interruptId, optionId: id } }
     }
     if (a.optionId) {
       if (!optionIds.includes(a.optionId)) continue
-      return { index: i, body: { text: a.text ?? labelOf(question, a.optionId), interruptId, optionId: a.optionId } }
+      return { index: i, delayMs, body: { text: a.text ?? labelOf(question, a.optionId), interruptId, optionId: a.optionId } }
     }
-    return { index: i, body: { text: String(a.text), interruptId } }
+    return { index: i, delayMs, body: { text: String(a.text), interruptId } }
   }
   return null
 }

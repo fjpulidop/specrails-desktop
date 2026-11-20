@@ -59,7 +59,9 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     const contextPath = breach ? readDefinitionRun(db, runId)?.metadata.contextPath : undefined
     if (!breach || !contextPath) return
     budgetPauseRequested = true
-    const requestId = `desktop-budget-pause:${runId}:${++budgetPauseEpisode}`
+    // Unique per process too: after a restart the episode counter starts again, and Core ignores a
+    // pause whose request id it already consumed (a resumed run then ran past its cap to delivery).
+    const requestId = `desktop-budget-pause:${runId}:${++budgetPauseEpisode}:${Date.now().toString(36)}`
     if (turnsAhead > 1 && breach.period === 'run') {
       logLine(`\n■ Per-run cap: this turn and the next could take the run past its $${breach.budgetUsd.toFixed(2)} cap. The workflow pauses after this turn, and the next turn starts only if the cap allows it.`, 'stderr')
     } else {

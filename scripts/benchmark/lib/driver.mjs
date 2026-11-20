@@ -87,10 +87,21 @@ export async function prepareScenario(scenario, ctx) {
     const repoPaths = scenario.repos.map(spec => createRepo(spec, workDir))
     const id = await registerProject(api, repoPaths[0], [scenario.provider])
     await waitProjectReady(api, id)
-    for (const extra of repoPaths.slice(1)) await api.post(`/projects/${id}/repositories`, { path: extra })
+    for (const extra of repoPaths.slice(1)) {
+      const added = await api.post(`/projects/${id}/repositories`, { path: extra })
+      if (added.status >= 300 && added.status !== 409) throw new Error(`add repository ${extra}: ${added.status} ${JSON.stringify(added.data).slice(0, 200)}`)
+    }
     return id
   })())
   const projectId = await shared.get(key)
+  // A multi-repository scenario launches on every repository of its project: a spec's scope
+  // defaults to the primary repository, so without repositoryIds the run sees only that one.
+  let repositoryIds
+  if (scenario.repos.length > 1) {
+    const listed = await api.get(`/projects/${projectId}/repositories`)
+    repositoryIds = (listed.data?.repositories ?? []).map(r => r.id)
+    if (repositoryIds.length < scenario.repos.length) throw new Error(`multi-repo scenario: project has ${repositoryIds.length} repositories, expected ${scenario.repos.length}`)
+  }
   const t = await api.post(`/projects/${projectId}/tickets`, { title: scenario.ticket.title, description: scenario.ticket.description })
   if (t.status >= 300) throw new Error(`ticket: ${t.status} ${JSON.stringify(t.data).slice(0, 300)}`)
   const ticketId = (t.data.ticket ?? t.data).id
@@ -98,7 +109,7 @@ export async function prepareScenario(scenario, ctx) {
   const slot = await api.put(`/projects/${projectId}/rails/${rail}/tickets`, { ticketIds: [ticketId], mode: 'implement', aiEngine: scenario.provider })
   if (slot.status >= 300) throw new Error(`rail slot: ${slot.status} ${JSON.stringify(slot.data).slice(0, 300)}`)
   const loopId = scenario.approvalBeforeArchive ? await approvalLoop(api, ctx.cache ?? (ctx.cache = {})) : 'factory:implement'
-  const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}) }
+  const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}), ...(repositoryIds ? { repositoryIds } : {}) }
   return { projectId, ticketId, rail, body, prepareMs: Date.now() - t0 }
 }
 
@@ -130,6 +141,8 @@ export async function runScenario(scenario, ctx, prepared = null) {
     const used = new Set(); const fired = new Set()
     const deadline = started + scenario.timeoutMinutes * 60_000
     let lastPhase = null; let answeredInterrupts = new Set(); let autoResumes = 0
+    const questionSeenAt = new Map()
+    const maxAutoResumes = ctx.maxAutoResumes ?? MAX_AUTO_RESUMES
     while (Date.now() < deadline) {
       await sleep(5000)
       // The server may be restarting (another scenario's action): skip this poll, never fail the scenario.
@@ -159,7 +172,7 @@ export async function runScenario(scenario, ctx, prepared = null) {
         if (action.do !== 'cancel') await afterRestart(api, projectId, runId, result, log)
       }
       // A restart caused by ANOTHER scenario (or the person) pauses this run too: resume it once per pause.
-      if (shouldResumeHeld(job, autoResumes)) {
+      if (shouldResumeHeld(job, autoResumes, maxAutoResumes)) {
         autoResumes++
         const resumed = await api.post(`/projects/${projectId}/loop-runs/${runId}/resume`, {})
         result.notes.push(`resumed a ${job.hold.kind} hold → ${resumed.status} in ${Math.round(resumed.ms)} ms`)
@@ -169,6 +182,9 @@ export async function runScenario(scenario, ctx, prepared = null) {
       if (job?.question && !answeredInterrupts.has(job.question.interruptId)) {
         const q = job.question
         const pick = chooseAnswer(q, scenario.answers, used)
+        // A rule with delayMinutes keeps the question pending that long (a person away for hours).
+        if (!questionSeenAt.has(q.interruptId)) questionSeenAt.set(q.interruptId, Date.now())
+        if (pick?.delayMs && Date.now() - questionSeenAt.get(q.interruptId) < pick.delayMs) continue
         const entry = { t: Math.round((Date.now() - started) / 1000), asker: q.asker, kind: q.kind, text: String(q.text ?? '').slice(0, 400), options: (q.options ?? []).map(o => o.id), recommended: q.recommended ?? null, answer: pick?.body ?? null }
         result.questions.push(entry)
         if (!pick) { result.notes.push(`unanswered question: ${entry.text.slice(0, 120)}`); result.status = 'question-unanswered'; break }
@@ -239,8 +255,8 @@ export const MAX_AUTO_RESUMES = 3
  * question (a question is answered instead), at most MAX_AUTO_RESUMES times. A provider
  * limit or budget hold is never resumed by the benchmark.
  */
-export function shouldResumeHeld(job, autoResumes) {
-  return Boolean(job?.hold && ['restart', 'interrupted'].includes(job.hold.kind) && !job.question && autoResumes < MAX_AUTO_RESUMES)
+export function shouldResumeHeld(job, autoResumes, max = MAX_AUTO_RESUMES) {
+  return Boolean(job?.hold && ['restart', 'interrupted'].includes(job.hold.kind) && !job.question && autoResumes < max)
 }
 
 /** Map a settled loop run to a benchmark status. */

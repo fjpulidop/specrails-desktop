@@ -110,3 +110,39 @@ npm run benchmark -- \
 | `lib/api.mjs`, `lib/server.mjs`, `lib/driver.mjs` | HTTP client, isolated server lifecycle, scenario driver | no |
 
 Tests: `node --test scripts/benchmark/*.test.mjs` (also part of `npm run test:scripts`).
+
+## Soak (long-running) mode
+
+`--soak` runs for `--duration-min` minutes (launches stop at `--launch-until-min`) and is meant for
+overnight runs of many hours. `scenarios/make-soak.mjs` generates `scenarios/soak-night.json`.
+
+```sh
+node scripts/benchmark/index.mjs --soak --scenarios scripts/benchmark/scenarios/soak-night.json \
+  --home ~/.specrails-dev-long --port 4720 --client-port 4721 --start-server --inspect-port 9471 \
+  --core-bin <core>/bin/specrails-core.mjs --path-prepend <shim>:scripts/benchmark/fake-installers:$BENCH_INSTALLED_DIR \
+  --duration-min 700 --launch-until-min 680 --parallel 8 --budget-runs 40 \
+  --stop-at-weekly 70 --pause-at-window 75 --quota-every-s 600 --sample-every-s 60 --max-auto-resumes 12 \
+  --limit-sim-file <shim>/../limit-sim/active --work-dir /tmp/soak --report /tmp/soak/soak.md
+```
+
+- **Scheduling.** Each scenario launches at its `startAtMin`. `repeat: { count, everyMin }` expands a
+  scenario into a trickle of copies (`<name>-<k>`, each with its own repository). An answer rule with
+  `delayMinutes` leaves the question pending that long (a person away). `--max-auto-resumes` raises the
+  per-run ceiling of restart resumes for a night with several restarts.
+- **Quota.** Launching stops for good when the weekly window reaches `--stop-at-weekly`, and **waits**
+  while a short window (the 5-hour session) is at or above `--pause-at-window`; it resumes when the
+  window drops. Every reading is in the report's quota timeline.
+- **Chaos** (the scenario file's `chaos` list, `atMin` after the start): `restart` (SIGTERM, restarted
+  with the same environment), `kill` (SIGKILL), `sigstop` (`seconds`, then SIGCONT: a laptop sleep) and
+  `fake-limit` (`match`, `resetInMin`): writes `<match>|<reset words>` to `--limit-sim-file`, which a
+  `claude` shim first on the server's `PATH` reads to answer "You've hit your session limit · resets …"
+  for agents whose working directory contains `match`. It never touches the real account.
+- **Sampling** (`lib/soak.mjs`, every `--sample-every-s`, appended to `<report>.samples.jsonl`): server
+  RSS, heap/external/active handles over the server's loopback inspector (`--inspect-port`, a tsx
+  argument, so children never inherit it), open fds, server-tree and Core-child processes and RSS,
+  zombies, orphans naming the isolated home/work dir/Core, SQLite DB and WAL bytes, event rows, logs,
+  home and repository disk use, health/live-board latency, stalls, capacity active/queued, and a
+  WebSocket client connected all night (reconnects, longest silence).
+- **Report** (`lib/soak-report.mjs`, rewritten every 5 minutes): per-metric first/last/min/max/p95 and
+  least-squares slope per hour with R²; memory slopes use the longest single server process (restarts
+  reset memory). A slope above the metric's threshold with R² ≥ 0.6 is flagged as a leak.

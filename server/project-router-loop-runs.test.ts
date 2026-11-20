@@ -5,6 +5,7 @@ import { initDesktopDb } from './desktop-db'
 import { initDb, type DbInstance } from './db'
 import { createLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
+import { readRetainedBudgetPause, saveRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
 import { readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import type { ProjectRoutesDeps } from './project-router-helpers'
@@ -346,6 +347,26 @@ describe('loop runs — daily budget guard (rail-loop-budget-guard)', () => {
       await request(app).post('/api/projects/p1/loop-runs/paused-run/resume').send(bad)
       expect(resumeBudgetPause).toHaveBeenLastCalledWith('paused-run', undefined)
     }
+  })
+
+  it('a run a restart retained while parked at its per-run cap answers the cap before it resumes', async () => {
+    // After a restart nothing resident holds the pause: only its durable record says it waits on its cap.
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'capped', projectId: 'p1', loopId: 'loop-1', ticketIds: [], provider: 'claude', model: 'haiku', iterationLimit: 3, startedAt: '2026-10-21T08:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart', total_cost_usd=0.606, run_cap_usd=0.4 WHERE id='capped'").run()
+    saveRetainedBudgetPause(db, 'capped')
+    const app = express(); app.use(express.json()); const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: { budgetPause: () => null, limitPause: () => null }, dailyBudgetRejection: () => null, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    const refused = await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({})
+    expect(refused.status).toBe(409)
+    expect(refused.body).toMatchObject({ error: 'daily_budget_exceeded', period: 'run', budgetUsd: 0.4, spentUsd: 0.606 })
+    expect(readRetainedBudgetPause(db, 'capped')).toBe(true)
+    // Raising the cap below what it spent still refuses; raising it above lets the resume through.
+    expect((await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({ runCapUsd: 0.5 })).status).toBe(409)
+    const raised = await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({ runCapUsd: 3 })
+    expect(raised.body).not.toMatchObject({ period: 'run' })
+    expect(db.prepare("SELECT run_cap_usd FROM loop_runs WHERE id='capped'").get()).toEqual({ run_cap_usd: 3 })
   })
 
   it('a run paused at its per-run cap answers 409 with the run period until the person chooses', async () => {
