@@ -44,3 +44,22 @@ export function quotaSample(usage, at = new Date()) {
   for (const w of quotaWindows(usage)) (sample[w.provider] ??= {})[w.label] = w.usedPercent
   return sample
 }
+
+/**
+ * Soak mode: should launching WAIT (not stop) because a short window of `provider`
+ * (anything that is not weekly, e.g. the 5-hour session) is at or above `pauseAt`?
+ * The window resets, so the soak resumes launching when it drops. Pure.
+ */
+export function windowGate(usage, { provider, pauseAt = 85 }) {
+  const hot = quotaWindows(usage).filter(w => w.provider === provider && !w.weekly && w.usedPercent >= pauseAt)
+  if (!hot.length) return { wait: false, reason: null }
+  const w = hot[0]
+  return { wait: true, reason: `${provider} ${w.label} window at ${w.usedPercent}% (pause launches at ${pauseAt}%${w.resetsAt ? `, resets ${w.resetsAt}` : ''})` }
+}
+
+/** "1:05am (Europe/Madrid)": the provider-style reset words for a time `minutes` from `now`, in `tz`. Pure. */
+export function resetWords(now, minutes, tz = 'Europe/Madrid') {
+  const at = new Date(now.getTime() + minutes * 60_000)
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(at).map(p => [p.type, p.value]))
+  return `${parts.hour}:${parts.minute}${String(parts.dayPeriod).toLowerCase()} (${tz})`
+}

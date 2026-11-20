@@ -130,6 +130,8 @@ export async function runScenario(scenario, ctx, prepared = null) {
     const used = new Set(); const fired = new Set()
     const deadline = started + scenario.timeoutMinutes * 60_000
     let lastPhase = null; let answeredInterrupts = new Set(); let autoResumes = 0
+    const questionSeenAt = new Map()
+    const maxAutoResumes = ctx.maxAutoResumes ?? MAX_AUTO_RESUMES
     while (Date.now() < deadline) {
       await sleep(5000)
       // The server may be restarting (another scenario's action): skip this poll, never fail the scenario.
@@ -159,7 +161,7 @@ export async function runScenario(scenario, ctx, prepared = null) {
         if (action.do !== 'cancel') await afterRestart(api, projectId, runId, result, log)
       }
       // A restart caused by ANOTHER scenario (or the person) pauses this run too: resume it once per pause.
-      if (shouldResumeHeld(job, autoResumes)) {
+      if (shouldResumeHeld(job, autoResumes, maxAutoResumes)) {
         autoResumes++
         const resumed = await api.post(`/projects/${projectId}/loop-runs/${runId}/resume`, {})
         result.notes.push(`resumed a ${job.hold.kind} hold → ${resumed.status} in ${Math.round(resumed.ms)} ms`)
@@ -169,6 +171,9 @@ export async function runScenario(scenario, ctx, prepared = null) {
       if (job?.question && !answeredInterrupts.has(job.question.interruptId)) {
         const q = job.question
         const pick = chooseAnswer(q, scenario.answers, used)
+        // A rule with delayMinutes keeps the question pending that long (a person away for hours).
+        if (!questionSeenAt.has(q.interruptId)) questionSeenAt.set(q.interruptId, Date.now())
+        if (pick?.delayMs && Date.now() - questionSeenAt.get(q.interruptId) < pick.delayMs) continue
         const entry = { t: Math.round((Date.now() - started) / 1000), asker: q.asker, kind: q.kind, text: String(q.text ?? '').slice(0, 400), options: (q.options ?? []).map(o => o.id), recommended: q.recommended ?? null, answer: pick?.body ?? null }
         result.questions.push(entry)
         if (!pick) { result.notes.push(`unanswered question: ${entry.text.slice(0, 120)}`); result.status = 'question-unanswered'; break }
@@ -239,8 +244,8 @@ export const MAX_AUTO_RESUMES = 3
  * question (a question is answered instead), at most MAX_AUTO_RESUMES times. A provider
  * limit or budget hold is never resumed by the benchmark.
  */
-export function shouldResumeHeld(job, autoResumes) {
-  return Boolean(job?.hold && ['restart', 'interrupted'].includes(job.hold.kind) && !job.question && autoResumes < MAX_AUTO_RESUMES)
+export function shouldResumeHeld(job, autoResumes, max = MAX_AUTO_RESUMES) {
+  return Boolean(job?.hold && ['restart', 'interrupted'].includes(job.hold.kind) && !job.question && autoResumes < max)
 }
 
 /** Map a settled loop run to a benchmark status. */
