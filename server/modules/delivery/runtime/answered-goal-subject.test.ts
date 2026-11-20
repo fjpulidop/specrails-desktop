@@ -5,7 +5,7 @@ import path from 'node:path'
 import { initDb, createJob, appendEvent, type DbInstance } from '../../../db'
 import type { ProjectContext } from '../../../project-registry'
 import { deliveredGoalLine } from './pr-naming'
-import { worktreeCommitMessage } from './rail-isolated-launch-support'
+import { answeredCommitMessage, worktreeCommitMessage } from './rail-isolated-launch-support'
 
 // Live case (ext campaign, contra-c): the ticket said "Keep todos across restarts",
 // the person answered "keep it in memory", the run delivered in-memory only, and
@@ -45,6 +45,13 @@ describe('commit subject after an answer that changed the goal', () => {
     expect(worktreeCommitMessage(ctx(), 1, 'run-1', false, { worktreePath: dir }).split('\n')[0]).toBe('feat: keep todos across restarts (1)')
     proposal('- Memory only.')
     expect(worktreeCommitMessage(ctx(), 1, 'run-1', true, { worktreePath: dir }).split('\n')[0]).toBe('chore: keep todos across restarts (1)')
+  })
+
+  it('rebuilds the message at settle time for a run recovered after a restart (bench5), null without an answer', () => {
+    proposal('- total() stays numeric and a new formatMoney(cents) returns the money string.')
+    expect(answeredCommitMessage(ctx(), 1, 'run-1', dir)).toBeNull()
+    appendEvent(db, 'run-1', 0, { event_type: 'log', source: 'stdout', payload: JSON.stringify({ line: '\n▶ Answer received — the run continues: Keep total() numeric' }) })
+    expect(answeredCommitMessage(ctx(), 1, 'run-1', dir)!.split('\n')[0]).toBe('feat: total() stays numeric and a new formatMoney(cents) returns the money… (1)')
   })
 
   it('reads the first bullet or sentence of What Changes without Markdown', () => {

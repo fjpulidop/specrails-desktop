@@ -131,6 +131,16 @@ export function personAnsweredDuring(db: DbInstance, runId: string): boolean {
   } catch { return false }
 }
 
+/**
+ * The commit message for a run the person's answer shaped, built at settle time; null when
+ * nobody answered. A run settled after a restart commits with the message its settlement
+ * snapshot froze at launch, before any answer (bench5: "show cart totals as money strings"
+ * for a run whose answer kept total() numeric); recovery asks this first.
+ */
+export function answeredCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, worktreePath: string): string | null {
+  return answeredDeliveryGoal(ctx.db, runId, worktreePath) ? worktreeCommitMessage(ctx, ticketId, runId, false, { worktreePath }) : null
+}
+
 /** The delivered goal line when the person's answer shaped the run; null otherwise. */
 export function answeredDeliveryGoal(db: DbInstance, runId: string, worktreePath: string): string | null {
   if (!personAnsweredDuring(db, runId)) return null

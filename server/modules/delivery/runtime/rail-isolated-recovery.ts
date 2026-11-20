@@ -45,7 +45,7 @@ import {
 import type { ProjectContext } from '../../../project-registry'
 import type { IsolatedLaunchIO } from './rail-isolated-launch-contracts'
 import { RUN_STOPPED_DETAIL, isStoppedByPerson } from './rail-isolated-launch-contracts'
-import { COMMIT_SHA_RE, branchRecords, errorDetail, runIntent } from './rail-isolated-launch-support'
+import { COMMIT_SHA_RE, answeredCommitMessage, branchRecords, errorDetail, runIntent } from './rail-isolated-launch-support'
 import { createIsolatedRunSettlement } from './rail-isolated-run-settlement'
 import { copiedEnvFilePaths } from '../../../worktree-env-files'
 
@@ -190,7 +190,9 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
         // commit; interrupted/resumable Core work still owns its dirty mount.
         hasRuntimeRequest: () => probe.status !== 'failed' || probe.resumable,
         commitMessage: (_run, partial) => {
-          const message = partial ? snapshot.partialCommitMessage : snapshot.commitMessage
+          // The snapshot froze the message at launch; an answer given since may have changed the goal.
+          const answered = partial ? null : (() => { try { return answeredCommitMessage(ctx, run.ticketId, runId, run.handle.worktreePath) } catch { return null } })()
+          const message = answered ?? (partial ? snapshot.partialCommitMessage : snapshot.commitMessage)
           if (isConventionalCommitSubject(message.split('\n')[0])) return message
           const subject = formatConventionalSubject({ type: 'chore', change: 'recover follow-up', ref: String(run.ticketId) })
           return `${subject}\n\nRun: ${run.runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}${partial ? '\n(partial)' : ''}`
