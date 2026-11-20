@@ -463,6 +463,20 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
  */
 export async function cancelDefinitionRun(c: ProjectContext, runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
   const resident = c.loopRunManager.isDefinitionRunActive(runId)
+  // A restart stopped it while it waited for capacity: Core never saw it, so it settles stopped here.
+  const never = getLoopRun(c.db, runId)
+  if (!resident && never?.status === 'paused' && never.restart_reason === 'restart' && !readDefinitionRun(c.db, runId)?.metadata.contextPath) {
+    assertProcessAdmission(c.project.id)
+    const claim = readDefinitionExecutionClaim(c.db, runId)
+    if (claim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+      AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+      .run(runId, claim.owner, runId, c.project.id)
+    const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+    const result = await c.loopRunManager.stopNeverStarted(runId)
+    if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+    else c.onLoopRunFinished(runId, result.outcome)
+    return
+  }
   await c.loopRunManager.cancelDefinition(runId, requestId)
   let pending = pendingCancellations.get(c)
   if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
@@ -643,6 +657,11 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
     const successor = readDefinitionSuccessor(c.db, runId)
     if (successor) { return { status: 409, body: { error: 'runtime_fork_owns_worktree', loopRunId: successor } } }
     const observedClaim = readDefinitionExecutionClaim(c.db, runId)
+    // A run the app stopped before it reached Core (it waited, queued for
+    // capacity) has no Core context to inspect or resume: it starts afresh.
+    if (run.status === 'paused' && run.restart_reason === 'restart' && !readDefinitionRun(c.db, runId)?.metadata.contextPath) {
+      return startNeverStartedRun(c, runId, observedClaim)
+    }
     let probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
     const residentHere = c.loopRunManager.isDefinitionRunActive?.(runId) ?? false
     // Restart resume: the Core child the restart killed still holds its lease (up to a
@@ -694,6 +713,22 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   } catch (error) {
     return { status: 409, body: { error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) } }
   }
+}
+
+/** Continue a run the restart stopped while it waited for capacity: nothing ran, so it starts
+ *  from the beginning (through admission again) and settles like any recovered run. */
+function startNeverStartedRun(c: ProjectContext, runId: string, observedClaim: ReturnType<typeof readDefinitionExecutionClaim>): { status: number; body: object } {
+  if (c.loopRunManager.isDefinitionRunActive(runId)) return { status: 409, body: { error: 'runtime_run_active' } }
+  if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+    AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+    .run(runId, observedClaim.owner, runId, c.project.id)
+  const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+  const completion = c.loopRunManager.beginDefinitionResume(runId)
+  void completion.then(async result => {
+    if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+    else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
+  }).catch(error => console.error('[loop-runs] restarted queued run failed:', runId, error))
+  return { status: 202, body: { loopRunId: runId, startedAfresh: true } }
 }
 
 /** An empty-handed resume of a run paused by a Desktop restart (no answer, no explicit recovery). */

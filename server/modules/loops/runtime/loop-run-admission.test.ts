@@ -86,4 +86,41 @@ describe('capacity admission of loop runs', () => {
     await until(() => admission.snapshot().queued.length === 0)
     expect(getLoopRun(db, 'r2')?.status).toBe('running')
   })
+
+  it('the API cancellation of a queued run (no Core context yet) ends its wait', async () => {
+    const { manager, runDefinition, finish } = setup()
+    const first = manager.run(request('r1'))
+    await until(() => runDefinition.mock.calls.length === 1)
+    const second = manager.run(request('r2'))
+    await until(() => manager.queuedFor('r2') !== null)
+    await manager.cancelDefinition('r2')
+    expect((await second).outcome).toBe('stopped')
+    finish.shift()!()
+    await first
+  })
+
+  it('a run a restart stopped while queued starts afresh on Continue, or settles stopped on Stop', async () => {
+    const { manager, runDefinition } = setup()
+    void manager.run(request('r1'))
+    await until(() => runDefinition.mock.calls.length === 1)
+    void manager.run(request('r2'))
+    void manager.run(request('r3'))
+    await until(() => manager.queuedFor('r3') !== null)
+    manager.shutdown()
+    // Startup recovery pauses every run the restart cut off.
+    db.prepare("UPDATE loop_runs SET status = 'paused', restart_reason = 'restart' WHERE id IN ('r2', 'r3')").run()
+    // The routes release the dead process's claim first (as for every restart pause).
+    db.prepare("DELETE FROM definition_execution_claims WHERE run_id IN ('r2', 'r3')").run()
+    const next = setup()
+    const resumed = next.manager.beginDefinitionResume('r2')
+    await until(() => next.runDefinition.mock.calls.length === 1)
+    // Fresh: no Core resume of a run Core never saw.
+    expect((next.runDefinition.mock.calls[0] as unknown as [{ resume?: boolean }])[0].resume).toBeFalsy()
+    next.finish.shift()!()
+    expect((await resumed).outcome).toBe('success')
+    expect((await next.manager.stopNeverStarted('r3')).outcome).toBe('stopped')
+    expect(getLoopRun(db, 'r3')).toMatchObject({ status: 'completed', final_outcome: 'stopped' })
+    expect(lines('r3')).toContain('■ Stopped before it started; nothing ran.')
+    expect(next.runDefinition).toHaveBeenCalledTimes(1)
+  })
 })

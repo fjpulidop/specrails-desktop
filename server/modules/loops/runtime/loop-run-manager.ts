@@ -106,6 +106,8 @@ export class LoopRunManager {
   private readonly _pausedHumanDecisions = new Map<string, PausedRun>()
   /** Runs waiting for a machine run slot (capacity admission): aborting stops the wait. */
   private readonly _admissionWaits = new Map<string, AbortController>()
+  /** Never-started runs (stopped by a restart while queued) the person stopped: they settle without starting. */
+  private readonly _stopBeforeStart = new Set<string>()
 
   constructor(
     private readonly db: DbInstance,
@@ -273,6 +275,8 @@ export class LoopRunManager {
     if (pending) return pending
     const frozen = readDefinitionRun(this.db, runId)
     const contextPath = frozen?.metadata.contextPath
+    // Queued for capacity: Core has nothing yet, so stopping it only ends the wait (it settles stopped).
+    if (!contextPath && this._admissionWaits.has(runId)) { this.cancelResident(runId, false); return Promise.resolve() }
     if (!contextPath || !this.executors.cancelDefinition) return Promise.reject(new Error('runtime_control_unavailable: Frozen workflow cancellation is unavailable'))
     const task = this.executors.cancelDefinition({ runId, contextPath, requestId }).then(() => {
       this.cancelResident(runId, true)
@@ -483,6 +487,15 @@ export class LoopRunManager {
   }
 
   /** Synchronous admission lets HTTP reject competing writers before acknowledging a resume. */
+  /** Stop a run that never reached Core (a restart stopped it while it was queued):
+   *  it settles stopped through the ordinary settlement, having run nothing. */
+  stopNeverStarted(runId: string): Promise<LoopRunResult> {
+    this._stopBeforeStart.add(runId)
+    let task: Promise<LoopRunResult>
+    try { task = this.beginDefinitionResume(runId) } catch (error) { this._stopBeforeStart.delete(runId); return Promise.reject(error) }
+    return task.finally(() => this._stopBeforeStart.delete(runId))
+  }
+
   beginDefinitionResume(runId: string, input: DefinitionResumeControls = {}): Promise<LoopRunResult> {
     if (this._disposed) throw new Error('runtime_shutting_down: LoopRunManager is shut down')
     const active = this._definitionTasks.get(runId)
@@ -682,6 +695,11 @@ export class LoopRunManager {
    */
   private async _admit(ctx: LoopRunContext): Promise<{ release: () => void } | 'stopped' | 'disposed'> {
     const { req, runId, state } = ctx
+    if (this._stopBeforeStart.has(runId)) {
+      state.outcome = 'stopped'
+      ctx.events.logLine('■ Stopped before it started; nothing ran.')
+      return 'stopped'
+    }
     let admission: LoopRunAdmission | null = null
     try { admission = this.options.admission?.() ?? null } catch { admission = null }
     if (!admission) return { release: () => {} }
