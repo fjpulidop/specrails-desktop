@@ -45,7 +45,8 @@
       },
       "group": "long",
       "name": "epic-limit",
-      "notes": "160 tasks, 12-min suite; simulated Claude session limit at +150 min (auto-resume at the reset)",
+      "startAtMin": 45,
+      "notes": "160 tasks, 12-min suite; simulated Claude session limit at +170 min (auto-resume at the reset)",
       "repo": {
         "template": "big-lib-xl",
         "name": "epic-limit",
@@ -202,7 +203,7 @@
       },
       "group": "long",
       "name": "midnight-budget",
-      "startAtMin": 93,
+      "startAtMin": 91,
       "notes": "project daily budget set below its spend at 23:40, resumed after midnight, paused again by the new day's budget, cleared at 00:45",
       "repo": {
         "template": "big-lib-xl",
@@ -251,8 +252,8 @@
       "timeoutMinutes": 240,
       "startAtMin": 10,
       "repeat": {
-        "count": 18,
-        "everyMin": 30
+        "count": 14,
+        "everyMin": 40
       },
       "repo": {
         "template": "node-lib"
@@ -289,7 +290,7 @@
       "seconds": 240
     },
     {
-      "atMin": 150,
+      "atMin": 170,
       "do": "fake-limit",
       "match": "epic-limit",
       "resetInMin": 30
