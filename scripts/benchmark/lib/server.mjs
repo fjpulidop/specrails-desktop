@@ -54,6 +54,9 @@ export async function waitHealthy(port, timeoutMs = 120_000) {
 export async function startServer(opts) {
   const { desktopDir, port, logFile } = opts
   if (listenerPid(port)) throw new Error(`Port ${port} is already in use`)
+  // The stopped server keeps its inspector until its debugger session ends: wait for the port,
+  // or the new server starts without one ("address already in use") and heap samples stop.
+  for (let i = 0; opts.inspectPort && listenerPid(opts.inspectPort) && i < 60; i++) await sleep(500)
   fs.mkdirSync(path.dirname(logFile), { recursive: true })
   const out = fs.openSync(logFile, 'a')
   fs.writeSync(out, `\n=== benchmark start ${new Date().toISOString()}\n`)
