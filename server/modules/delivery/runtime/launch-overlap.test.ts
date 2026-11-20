@@ -34,6 +34,9 @@ describe('launch overlaps', () => {
       { railIndex: 3, state: 'running', title: 'Default quantity', files: ['src/cart.js', 'test/cart.test.js'] },
       { railIndex: 4, state: 'pending', title: 'Add a tax helper', files: ['src/cart.js'] },
     ])
+    // Rails holding specs whose launch has not created a run yet (a Launch all burst) count too.
+    db.prepare("INSERT INTO rails (rail_index, ticket_id, position, mode) VALUES (5, 3, 0, 'implement'), (6, 2, 0, 'implement')").run()
+    expect(findLaunchOverlaps({ db, railIndex: 0, ticketIds: [1], getTicketSpec }).map((o) => [o.railIndex, o.state])).toEqual([[1, 'running'], [3, 'running'], [4, 'pending'], [6, 'running']])
     // The launching rail's own runs, and specs that name no file, never overlap.
     expect(findLaunchOverlaps({ db, railIndex: 1, ticketIds: [4], getTicketSpec })).toEqual([])
   })

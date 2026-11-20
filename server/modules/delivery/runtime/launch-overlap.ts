@@ -9,6 +9,7 @@ import type { DbInstance } from '../../../db'
 import type { LoopSpec } from '../../loops/runtime/loop-graph'
 import { mentionedPaths, predictOverlaps, type LaunchOverlap, type OverlapPeer } from '../domain/launch-overlap'
 import { listActivePrDeliveries } from './rail-pr-store'
+import { getRails } from './rails-store'
 
 const PENDING = new Set(['building', 'on_review', 'pr_draft', 'pr_ready', 'pr_failed'])
 const WRITE_TOOLS = ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch', 'write_file', 'edit_file']
@@ -55,8 +56,14 @@ export function findLaunchOverlaps(input: { db: DbInstance; railIndex: number; t
       const tickets = json<number[]>(run.ticket_ids_json, []).filter((id) => Number.isInteger(id))
       peer(run.rail_index, 'running', getTicketSpec?.(tickets[0]!)?.title ?? null, tickets, [run.id])
     }
-    for (const delivery of listActivePrDeliveries(db)) {
-      if (!PENDING.has(delivery.decision)) continue
+    // Rails holding specs launch now or soon: a burst of launches (Launch all) sees
+    // each other before any of their runs exists.
+    const deliveries = listActivePrDeliveries(db).filter((delivery) => PENDING.has(delivery.decision))
+    const waitingToMerge = new Set(deliveries.filter((delivery) => delivery.decision !== 'building').map((delivery) => delivery.rail_index))
+    for (const rail of getRails(db)) {
+      if (rail.ticketIds.length && !waitingToMerge.has(rail.railIndex)) peer(rail.railIndex, 'running', getTicketSpec?.(rail.ticketIds[0]!)?.title ?? null, [...rail.ticketIds], [])
+    }
+    for (const delivery of deliveries) {
       const tickets = json<number[]>(delivery.ticket_ids, []).filter((id) => Number.isInteger(id))
       const runIds = json<unknown[]>(delivery.run_ids, []).filter((id): id is string => typeof id === 'string')
       peer(delivery.rail_index, delivery.decision === 'building' ? 'running' : 'pending', getTicketSpec?.(tickets[0]!)?.title ?? null, tickets, runIds)
