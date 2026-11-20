@@ -148,6 +148,15 @@ describe('host blockers', () => {
     const older = compile(configurableImplementGraph(paired))
     for (const id of ['developer', 'unblock', 'fixer']) expect(older.nodes[id].params).not.toHaveProperty('decisions')
   })
+  it('sends an unchanged candidate back to review when the fixer settled a decision with the person (bench5)', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
+    expect(asking.nodes['correction-progress'].ends).toMatchObject({ true: 'tasks', false: 'correction-decided' })
+    expect(asking.nodes['correction-decided'].params).toEqual({ expr: 'exists($outputs.fixer.decisions) && $outputs.fixer.decisions.length > 0' })
+    expect(asking.nodes['correction-decided'].ends).toMatchObject({ true: 'reviewer', false: 'correction-stalled' })
+    const older = compile(configurableImplementGraph(paired))
+    expect(older.nodes['correction-progress'].ends).toMatchObject({ false: 'correction-stalled' })
+    expect(older.nodes).not.toHaveProperty('correction-decided')
+  })
   it('offers planner choices and approval rejection only on a Core that advertises questionOptions', () => {
     const structured = compile(configurableImplementGraph({ ...paired, questionOptions: 1 }))
     expect(structured.nodes.clarify.params).toMatchObject({ asker: 'architect', optionsFrom: 'architect', endsRun: ['not-here'] })

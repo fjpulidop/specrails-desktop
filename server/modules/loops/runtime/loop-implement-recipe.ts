@@ -163,7 +163,11 @@ export function configurableImplementGraph(capabilities?: Record<string, number>
   // at once. Any other fixer blocker (a stale or unreproduced one included) is
   // confirmed by the host's own verification, within the correction budget.
   node('fixer-blocker-kind', 'Fixer blocker needs the person', 'condition', { expr: personBlocker('fixer') }, { true: 'fixer-blocked', false: 'verify' })
-  node('correction-progress', 'Check correction progress', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.verify.candidateHash' }, { true: 'tasks', false: 'correction-stalled' })
+  node('correction-progress', 'Check correction progress', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.verify.candidateHash' }, { true: 'tasks', false: capabilities?.roleDecisions === 1 ? 'correction-decided' : 'correction-stalled' })
+  // The fixer asked the person and their answer needs no code change ("keep it, amend the
+  // ticket"): the unchanged candidate goes back to review with that answer instead of ending as
+  // a stalled correction. The correction budget still bounds the loop.
+  if (capabilities?.roleDecisions === 1) node('correction-decided', 'Fixer settled a decision', 'condition', { expr: 'exists($outputs.fixer.decisions) && $outputs.fixer.decisions.length > 0' }, { true: 'reviewer', false: 'correction-stalled' })
   node('approve', 'Approve archive', 'approval', { reason: `Approve archiving the reviewed and verified candidate for change ${change}.`, bindCandidate: true, enabled: agents.approvalBeforeArchive === true }, { next: 'approval-policy' })
   // A Core with questionOptions lets the person reject with a reason: the run ends saying so.
   node('approval-policy', 'Approval decision', 'condition', { expr: '$outputs.approve.response.approved == true' }, { true: 'archive', false: questionOptions ? 'rejected' : 'failed' })
