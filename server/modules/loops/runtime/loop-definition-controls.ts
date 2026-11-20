@@ -6,7 +6,15 @@ import type { DefinitionRunProbe } from './loop-definition-recovery'
 export function validateDefinitionResumeControls(value: unknown, probe: DefinitionRunProbe): DefinitionResumeControls {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Resume controls must be an object')
   const body = value as Record<string, unknown>
-  if (Object.keys(body).some(key => !['answer', 'optionId', 'interruptId', 'approve', 'reject', 'reason', 'recover'].includes(key))) throw new Error('Unknown resume control')
+  if (Object.keys(body).some(key => !['answer', 'optionId', 'interruptId', 'approve', 'reject', 'reason', 'recover', 'routeOverrides'].includes(key))) throw new Error('Unknown resume control')
+  // Core routeOverrides (a switch at a usage limit): a plain resume that moves roles; Core validates the request itself.
+  if (body.routeOverrides !== undefined) {
+    const override = body.routeOverrides as { schemaVersion?: unknown; requestId?: unknown; routes?: unknown } | null
+    if (!override || typeof override !== 'object' || override.schemaVersion !== 1 || typeof override.requestId !== 'string' || !override.routes || typeof override.routes !== 'object') throw new Error('Invalid route override')
+    if (['answer', 'optionId', 'interruptId', 'approve', 'reject', 'reason'].some(key => body[key] !== undefined)) throw new Error('A route override resumes the run as is')
+    const recover = Array.isArray(body.recover) ? (body.recover as unknown[]).filter((id): id is string => typeof id === 'string' && probe.recoverableSteps.some(item => item.attemptId === id)) : undefined
+    return { routeOverrides: body.routeOverrides as DefinitionResumeControls['routeOverrides'], ...(recover?.length ? { recover } : {}) }
+  }
   if (body.answer !== undefined && (typeof body.answer !== 'string' || !body.answer.trim() || body.answer.length > 20_000)) throw new Error('Answer must be nonempty and contain at most 20000 characters')
   if (body.interruptId !== undefined && (typeof body.interruptId !== 'string' || !body.interruptId)) throw new Error('An exact interrupt ID is required')
   const ids = (key: 'approve' | 'recover'): string[] | undefined => {

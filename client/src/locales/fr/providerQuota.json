@@ -62,7 +62,18 @@
     "autoOn": "Reprendre à {{time}}",
     "autoOff": "Ne pas reprendre automatiquement",
     "continueWith": "Continuer maintenant avec {{provider}}",
-    "failed": "Impossible de mettre à jour l'exécution en pause : {{detail}}"
+    "failed": "Impossible de mettre à jour l'exécution en pause : {{detail}}",
+    "switch": {
+      "title": "Continuer maintenant avec un autre fournisseur",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "effort": "Effort de raisonnement",
+      "consequence": "Cela s'applique au reste de cette exécution : l'étape interrompue et toutes les étapes suivantes qui utilisaient {{from}} passent à {{provider}}. Le travail déjà présent dans le worktree est conservé. La conversation de l'étape ne passe pas d'un fournisseur à l'autre : l'étape redémarre avec une nouvelle session.",
+      "settingsKept": "Les réglages du projet ne changent pas.",
+      "settingsUpdated": "Les réglages d'agents du projet enverront aussi ces rôles vers {{provider}} à partir de maintenant.",
+      "remember": "Mémoriser pour ce projet",
+      "resume": "Reprendre avec {{provider}}"
+    }
   },
   "mission": {
     "title": "Limite d'utilisation de {{provider}} atteinte",

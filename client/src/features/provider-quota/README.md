@@ -19,6 +19,7 @@ and [`server/modules/launch-preflight`](../../../../server/modules/launch-prefli
 | Reset times and countdowns (re-render only when the label changes) | [lib/format-reset.ts](lib/format-reset.ts), [lib/useCountdownNow.ts](lib/useCountdownNow.ts) |
 | Launch preflight | [lib/launch-preflight.ts](lib/launch-preflight.ts), [LaunchPreflightChips](components/LaunchPreflightChips.tsx) |
 | Loop run paused at a limit | [lib/limit-pause.ts](lib/limit-pause.ts), [LimitPauseCard](components/LimitPauseCard.tsx), [RunLimitPause](components/RunLimitPause.tsx) |
+| Continue a Core run on another provider (provider/model/effort from `switchTargets`, catalogs from `loops/lib/loop-run-models` and `providers/lib/provider-capabilities`; hidden when the server offers none) | [LimitPauseCard](components/LimitPauseCard.tsx) `SwitchProvider` |
 | Mission stopped at a limit | [lib/usage-limit-row.ts](lib/usage-limit-row.ts), [MissionUsageLimitCard](components/MissionUsageLimitCard.tsx) |
 
 <!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
@@ -42,6 +43,8 @@ load every UI component. Changes to this surface require updating the boundary m
 
 ## Feature dependencies
 
+- [loops](../loops/README.md)
+- [providers](../providers/README.md)
 - [subscription-usage](../subscription-usage/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is

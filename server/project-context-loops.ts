@@ -6,6 +6,7 @@
  * architect-clarifications publisher. Terminal loop effects live in
  * `project-context-loop-outcome.ts`.
  */
+import { createLoopProviderSwitch } from './modules/loops/runtime/loop-provider-switch'
 import path from 'path'
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
@@ -86,6 +87,7 @@ export function createProjectLoopRuntime(deps: {
 }): LoopRunManager {
   const { project, db, publishRunClarifications } = deps
   const machineInstalls = createMachineInstalls({ store: createSqliteApprovalStore(deps.desktopDb), runner: createProcessInstallRunner() })
+  const providerSwitch = createLoopProviderSwitch(project)
   const loopRunManager = new LoopRunManager(db, deps.broadcast, createLoopExecutors({
     pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
     // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -116,6 +118,8 @@ export function createProjectLoopRuntime(deps: {
     machineInstalls: () => machineInstalls,
     // Machine-wide run admission (capacity): runs over capacity start queued.
     admission: () => runAdmission(),
+    // A run paused at a provider's usage limit may continue on another installed provider (Core routeOverrides).
+    providerSwitch: () => providerSwitch,
     // Stop on a paused/recovered Core run: Core records it, Desktop settles it.
     cancelRetained: runId => {
       const projectContext = deps.getProjectContext()

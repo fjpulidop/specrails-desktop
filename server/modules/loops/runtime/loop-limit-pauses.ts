@@ -22,7 +22,11 @@ function parse(value: string): LoopLimitPause | null {
     const raw = JSON.parse(value) as Partial<LoopLimitPause>
     if (typeof raw.providerId !== 'string' || typeof raw.message !== 'string' || typeof raw.pausedAt !== 'string') return null
     const resumeAt = typeof raw.resumeAt === 'string' && Number.isFinite(Date.parse(raw.resumeAt)) ? raw.resumeAt : null
-    return { providerId: raw.providerId, resumeAt, autoResume: raw.autoResume !== false, message: raw.message, pausedAt: raw.pausedAt, switchable: raw.switchable === true }
+    const switchRoles = Array.isArray(raw.switchRoles) ? raw.switchRoles.filter((role): role is string => typeof role === 'string') : undefined
+    const switchTargets = Array.isArray(raw.switchTargets) ? raw.switchTargets.filter(target => target && typeof target.provider === 'string' && typeof target.model === 'string')
+      .map(target => ({ provider: target.provider, model: target.model, effort: typeof target.effort === 'string' ? target.effort : null })) : undefined
+    return { providerId: raw.providerId, resumeAt, autoResume: raw.autoResume !== false, message: raw.message, pausedAt: raw.pausedAt, switchable: raw.switchable === true,
+      ...(switchRoles ? { switchRoles } : {}), ...(switchTargets ? { switchTargets } : {}) }
   } catch { return null }
 }
 

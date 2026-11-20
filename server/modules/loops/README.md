@@ -426,11 +426,29 @@ in a fresh session of that provider whose prompt carries the run record as
 historical data; later steps keep that provider (`state.engineOverride`).
 Core workflow runs (`loop-definition-execution.ts`, port `awaitProviderLimit`
 of `runDefinitionLoop`) resume the retained Core run, which runs the refused
-step again; they cannot change provider mid-run. The pause resumes by itself at
+step again. When the retained Core advertises `routeOverrides` and the project
+has another usable provider that does not share the limited one's quota (and is
+not refusing too), the pause also offers **Continue now with another provider**
+(`loop-provider-switch.ts`): `switchRoles` are the roles whose current route
+(frozen `desktop-runtime-config.json` plus the overrides Core accepted,
+`agent-runtime-route-overrides.ts`) spends that quota, `switchTargets` the
+providers with their starting model/effort (the project's route for those roles
+on that provider, else the provider default). The person's choice is validated
+server-side (`POST …/limit {action:'switch', provider, model, effort, remember}`),
+answers the pause (so the automatic resume for the old provider is gone), moves
+the capacity slot to the new provider (`admission.reassign`) and resumes Core
+with `--route-overrides`: the refused step and every later step of those roles
+run there with a fresh session; the worktree is kept and the frozen files are
+never edited. `Remember for this project` also saves the routes as the
+project's agent runtime role routes. The run log and the `provider_switched`
+run event say `Switched to <Provider>/<model> (<effort>) after <Old>'s usage
+limit`. A run retained over a restart switches through the retained-run resume
+(`routeOverrides` resume control). An older Core offers no switch. The pause resumes by itself at
 `resumeAt` (default on, per-run off switch) on the wake-aware clock, never
 during sleep or a dark wake. After a restart a Core run is retained paused and
 resumed at `resumeAt` (`project-context-recovery.ts`); a legacy run cannot
 survive a restart and its record is dropped. At most `MAX_LIMIT_PAUSES` (3)
 pauses per run; then it settles `stalled` / `provider_limit` as before. Tests:
 `loop-run-manager.test.ts` (usage limit), `loop-definition-run.test.ts`,
-`loop-definition-store.test.ts`, `project-router-loop-runs.test.ts`.
+`loop-definition-store.test.ts`, `project-router-loop-runs.test.ts`,
+`loop-provider-switch.test.ts`, `loop-provider-switch-paired.test.ts` (real Core).

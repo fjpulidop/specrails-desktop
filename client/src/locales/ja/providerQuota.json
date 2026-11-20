@@ -62,7 +62,18 @@
     "autoOn": "{{time}} に再開",
     "autoOff": "自動で再開しない",
     "continueWith": "今すぐ {{provider}} で続ける",
-    "failed": "一時停止中の実行を更新できませんでした：{{detail}}"
+    "failed": "一時停止中の実行を更新できませんでした：{{detail}}",
+    "switch": {
+      "title": "別のプロバイダーで今すぐ続行",
+      "provider": "プロバイダー",
+      "model": "モデル",
+      "effort": "推論エフォート",
+      "consequence": "この実行の残りに適用されます。中断したステップと、{{from}} を使っていた以降のすべてのステップが {{provider}} に切り替わります。worktree にある作業はそのまま残ります。ステップの会話はプロバイダー間で引き継がれないため、ステップは新しいセッションでやり直します。",
+      "settingsKept": "プロジェクトの設定は変わりません。",
+      "settingsUpdated": "今後、プロジェクトのエージェント設定でもこれらのロールが {{provider}} を使います。",
+      "remember": "このプロジェクトで記憶する",
+      "resume": "{{provider}} で再開"
+    }
   },
   "mission": {
     "title": "{{provider}} の利用上限に到達",

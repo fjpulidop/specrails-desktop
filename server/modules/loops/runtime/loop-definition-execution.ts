@@ -16,12 +16,16 @@ import { quotaResumeAt, reportProviderRefusal } from '../../provider-quota/runti
 import type { DefinitionRuntimeResult } from './loop-definition-run'
 import type { LoopRunRequest } from './loop-run-contract'
 
-/** The provider whose account refused: the one the quota store knows is refusing, else the run's own. */
-function limitedProvider(req: LoopRunRequest): string {
+/** The provider whose account refused: the one Core names, else the one the quota store knows is refusing, else the run's own. */
+function limitedProvider(req: LoopRunRequest, named?: string): string {
+  if (named) return named
   const candidates = [...new Set([req.provider, ...Object.values(req.graph.config.agents ?? {}).map(agent => (agent as { provider?: unknown })?.provider).filter((id): id is string => typeof id === 'string')])]
   return candidates.find(id => quotaResumeAt(id) !== null) ?? req.provider
 }
 import type { LoopRunContext } from './loop-run-context'
+import { acceptedRouteOverrides, currentRoleRoutes, type DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
+import { rolesOnProvider, routeOverrideRequest, switchedLine } from './loop-provider-switch'
+import type { ProviderSwitchTarget } from './loop-run-contract'
 
 /** The run's record for a Core process stopped by a signal Specrails did not send (recovery EXTERNAL_STOP). */
 export function unrequestedStopText(errorText: string | undefined, step: string | null): string {
@@ -94,18 +98,66 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   // person's resume) and resume the retained run; Core re-runs the refused step.
   // A run with a durable completion cannot resume, so its failure stands.
   let limitPauses = 0
-  const awaitLimit = async (result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle'> => {
+  const awaitLimit = async (result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle' | { routeOverrides: DefinitionRouteOverride }> => {
     const failure = parseCoreFailure(result.failure)
     const limited = failure?.kind === 'provider_limit' || (!failure && classifyProviderLimit(result.errorText) !== null)
     if (!limited || result.completion || host.isCancelled(runId) || host.isDisposed() || limitPauses >= MAX_LIMIT_PAUSES) return 'settle'
     limitPauses += 1
-    const provider = limitedProvider(req)
+    // Core names the refusing CLI on its failure record (routeOverrides Cores) and in its typed message.
+    const rawProvider = (result.failure as { provider?: unknown } | undefined)?.provider
+    const named = typeof rawProvider === 'string' ? rawProvider : /\b(claude|codex|gemini|kimi) usage limit reached/i.exec(result.errorText ?? '')?.[1]?.toLowerCase()
+    const provider = limitedProvider(req, named)
     const words = failure?.resetAt ?? classifyProviderLimit(result.errorText)?.resetsAt ?? null
     reportProviderRefusal(provider, failure?.resetsAt ?? words)
     const resumeAt = failure?.resetsAt ?? quotaResumeAt(provider) ?? resolveResetText(words, host.now())
     const message = failure?.detail ?? classifyProviderLimit(result.errorText)?.message ?? 'The provider refused the request on its usage limit'
-    const outcome = await awaitProviderLimit(ctx, { providerId: provider, resumeAt, message, switchable: false })
-    return outcome.action === 'stop' ? 'stop' : 'continue'
+    const switching = await switchOffer(provider)
+    const outcome = await awaitProviderLimit(ctx, { providerId: provider, resumeAt, message, switchable: switching !== null,
+      ...(switching ? { switchRoles: switching.roles, switchTargets: switching.targets } : {}) })
+    if (outcome.action === 'stop') return 'stop'
+    if (outcome.action !== 'switch' || !switching) return 'continue'
+    // Continue now on another provider (Core routeOverrides): every role that ran on the limited
+    // provider moves, for the rest of this run. Switching answered the pause, so the automatic
+    // resume scheduled for the old provider is gone with it.
+    const choice = { provider: outcome.provider, model: outcome.model, ...(outcome.effort ? { effort: outcome.effort } : {}) }
+    const request = routeOverrideRequest({ runId, sequence: acceptedRouteOverrides(switching.contextPath).length + 1, fromProvider: provider, roles: switching.roles, choice })
+    const line = switchedLine(provider, choice)
+    logLine(`\n▶ ${line}. The ${switching.roles.join(', ')} steps continue there for the rest of this run: the interrupted step starts again with a fresh session and the work already in the worktree is kept.`)
+    emitRunEvent('provider_switched', { fromProvider: provider, provider: choice.provider, model: choice.model, effort: choice.effort ?? null, roles: switching.roles, remember: outcome.remember === true, text: line })
+    // Capacity: the run's slot now counts against the new provider's slots and quota.
+    try { host.options.admission?.()?.reassign?.(runId, choice.provider) } catch { /* advisory accounting */ }
+    if (outcome.remember) {
+      try {
+        host.options.providerSwitch?.()?.remember(Object.fromEntries(switching.roles.map(role => [role, choice as { provider: string; model: string; effort?: string }])))
+        logLine(`  The project now routes ${switching.roles.join(', ')} to ${choice.provider}/${choice.model}${choice.effort ? ` (${choice.effort})` : ''}.`)
+      } catch (error) { logLine(`  The project routes could not be updated: ${error instanceof Error ? error.message : String(error)}`, 'stderr') }
+    }
+    return { routeOverrides: request }
+  }
+  /** The roles a switch moves and where they may go; null when this run cannot switch (older Core, nothing else installed). */
+  const switchOffer = async (provider: string): Promise<{ contextPath: string; roles: string[]; targets: ProviderSwitchTarget[] } | null> => {
+    const contextPath = readDefinitionRun(db, runId)?.metadata.contextPath
+    const port = host.options.providerSwitch?.()
+    if (!contextPath || !port || !executors.supportsRouteOverrides) return null
+    try {
+      if (!await executors.supportsRouteOverrides({ runId, contextPath })) return null
+      const roles = rolesOnProvider(currentRoleRoutes(contextPath), provider)
+      const targets = roles.length ? port.targets({ fromProvider: provider, roles }) : []
+      return targets.length ? { contextPath, roles, targets } : null
+    } catch (error) {
+      console.error(`[loop-run] provider switch offer for ${runId} failed: ${error instanceof Error ? error.message : String(error)}`)
+      return null
+    }
+  }
+  // A retained run resumed on another provider (the switch answered after a restart): say so like a live switch.
+  if (continuation?.routeOverrides) {
+    const moved = continuation.routeOverrides, first = Object.values(moved.routes)[0]
+    if (first?.model) {
+      const choice = { provider: first.provider, model: first.model, ...(first.effort ? { effort: first.effort } : {}) }
+      const line = switchedLine(moved.fromProvider ?? req.provider, choice)
+      logLine(`\n▶ ${line}. The ${Object.keys(moved.routes).join(', ')} steps continue there for the rest of this run: the interrupted step starts again with a fresh session and the work already in the worktree is kept.`)
+      emitRunEvent('provider_switched', { fromProvider: moved.fromProvider ?? req.provider, provider: choice.provider, model: choice.model, effort: choice.effort ?? null, roles: Object.keys(moved.routes), text: line })
+    }
   }
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
   // A run that never reached Core (it waited, queued for capacity, when the app

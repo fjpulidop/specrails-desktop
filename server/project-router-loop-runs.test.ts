@@ -462,6 +462,46 @@ describe('usage-limit pause controls (provider-quota)', () => {
   })
 })
 
+describe('continuing a limit-paused Core run on another provider (Core routeOverrides)', () => {
+  const core = { providerId: 'codex', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, message: 'codex usage limit reached', pausedAt: '2026-11-18T10:00:00.000Z', switchable: true,
+    switchRoles: ['developer', 'fixer'], switchTargets: [{ provider: 'claude', model: 'sonnet', effort: 'medium' }] }
+  function coreApp(live: typeof core | null) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='limit_paused' WHERE id='run-1'").run()
+    const resolveLimitPause = vi.fn().mockReturnValue(true)
+    const app = buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, {
+      db, loopRunManager: { run: vi.fn(), cancel: vi.fn(), limitPause: vi.fn(() => live), resolveLimitPause, budgetPause: () => null },
+    })
+    return { app, db, resolveLimitPause }
+  }
+  const post = (app: ReturnType<typeof coreApp>['app'], body: object) => request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', ...body })
+
+  it('validates the provider, model and effort server-side before the run continues', async () => {
+    const { app, resolveLimitPause } = coreApp(core)
+    // Never the exhausted provider (or one sharing its quota), nor one the card did not offer.
+    expect((await post(app, { provider: 'codex', model: 'gpt-6-sol' })).body.error).toBe('shares_quota')
+    expect((await post(app, { provider: 'gemini', model: 'gemini-3.5-flash' })).body.error).toBe('invalid_provider')
+    expect((await post(app, { provider: 'claude', model: 'gpt-6-sol' })).body.error).toBe('invalid_model')
+    expect((await post(app, { provider: 'claude', model: 'haiku', effort: 'ultra' })).body.error).toBe('invalid_effort')
+    expect((await post(app, { provider: 'claude', model: 'haiku', effort: 'low', remember: 'yes' })).body.error).toBe('invalid_remember')
+    expect(resolveLimitPause).not.toHaveBeenCalled()
+    const switched = await post(app, { provider: 'claude', model: 'haiku', effort: 'low', remember: true })
+    expect(switched.status).toBe(202)
+    expect(switched.body).toMatchObject({ provider: 'claude', model: 'haiku', effort: 'low' })
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'switch', provider: 'claude', model: 'haiku', effort: 'low', remember: true })
+    // The model defaults to the offered one.
+    await post(app, { provider: 'claude' })
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'switch', provider: 'claude', model: 'sonnet' })
+  })
+
+  it('refuses a switch when the run offered none (an older Core)', async () => {
+    const { app, resolveLimitPause } = coreApp({ ...core, switchable: false })
+    expect((await post(app, { provider: 'claude', model: 'haiku' })).body.error).toBe('switch_unavailable')
+    expect(resolveLimitPause).not.toHaveBeenCalled()
+  })
+})
+
 describe('resuming a run a Desktop restart interrupted', () => {
   it('authorizes recovery of the cut-off step when a limit pause retained over a restart resumes', async () => {
     const { limitResumeOptions } = await import('./project-router-loop-runs')

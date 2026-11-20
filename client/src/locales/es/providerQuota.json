@@ -62,7 +62,18 @@
     "autoOn": "Reanudar a las {{time}}",
     "autoOff": "No reanudar sola",
     "continueWith": "Continuar ahora con {{provider}}",
-    "failed": "No se pudo actualizar la ejecución pausada: {{detail}}"
+    "failed": "No se pudo actualizar la ejecución pausada: {{detail}}",
+    "switch": {
+      "title": "Continuar ahora con otro proveedor",
+      "provider": "Proveedor",
+      "model": "Modelo",
+      "effort": "Esfuerzo de razonamiento",
+      "consequence": "Se aplica al resto de esta ejecución: el paso interrumpido y todos los pasos posteriores que usaban {{from}} pasan a {{provider}}. El trabajo que ya está en el worktree se conserva. La conversación del paso no pasa de un proveedor a otro, así que el paso vuelve a empezar con una sesión nueva.",
+      "settingsKept": "Los ajustes del proyecto no cambian.",
+      "settingsUpdated": "Los ajustes de agentes del proyecto también enviarán estos roles a {{provider}} a partir de ahora.",
+      "remember": "Recordar para este proyecto",
+      "resume": "Reanudar con {{provider}}"
+    }
   },
   "mission": {
     "title": "Límite de uso de {{provider}} alcanzado",

@@ -26,6 +26,8 @@ import { appendEvent, updateProjectSettings } from './db'
 import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
+import { createLoopProviderSwitch, routeOverrideRequest, validateSwitchChoice } from './modules/loops/runtime/loop-provider-switch'
+import { acceptedRouteOverrides } from './modules/agent-runtime/runtime/agent-runtime-route-overrides'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { getLaunchForecast } from './modules/execution/runtime/launch-forecast'
@@ -99,7 +101,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
-    const body = (req.body ?? {}) as { action?: unknown; provider?: unknown; enabled?: unknown }
+    const body = (req.body ?? {}) as { action?: unknown; provider?: unknown; enabled?: unknown; model?: unknown; effort?: unknown; remember?: unknown }
     const live = c.loopRunManager.limitPause?.(runId) ?? null
     const retained = live ? null : run.status === 'paused' ? readLimitPause(c.db, runId) : null
     if (!live && !retained) { res.status(409).json({ error: 'not_limit_paused' }); return }
@@ -112,6 +114,31 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       if (live) { c.loopRunManager.resolveLimitPause(runId, { action: 'resume' }); res.status(202).json({ loopRunId: runId, resumed: true }); return }
       const outcome = await resumeRetainedDefinitionRun(c, runId, {}, limitResumeOptions(run))
       res.status(outcome.status).json(outcome.body); return
+    }
+    // A Core definition run (Core routeOverrides): the roles on the limited provider continue on the
+    // chosen provider/model/effort for the rest of the run. Validated here against the offer and the
+    // provider catalogs; Core validates the effective configuration again before it runs a step.
+    if (body.action === 'switch' && (live ?? retained!).switchTargets) {
+      const limit = live ?? retained!
+      const checked = validateSwitchChoice(limit, body)
+      if (!checked.ok) { res.status(checked.status).json({ error: checked.error, detail: checked.detail }); return }
+      const installed = validateRequestedProvider(c.project, checked.choice.provider)
+      if (!installed.ok) { res.status(400).json({ error: 'invalid_provider', detail: installed.error }); return }
+      const { choice } = checked
+      if (live) {
+        if (!c.loopRunManager.resolveLimitPause(runId, { action: 'switch', ...choice })) { res.status(409).json({ error: 'switch_unavailable' }); return }
+        res.status(202).json({ loopRunId: runId, provider: choice.provider, model: choice.model, effort: choice.effort ?? null }); return
+      }
+      // Retained over a restart: resume it through the regular retained-run path with the override.
+      const contextPath = readDefinitionRun(c.db, runId)?.metadata.contextPath
+      if (!contextPath || !limit.switchRoles?.length) { res.status(409).json({ error: 'switch_unavailable', detail: 'This run cannot change provider mid-run' }); return }
+      const routeOverrides = routeOverrideRequest({ runId, sequence: acceptedRouteOverrides(contextPath).length + 1, fromProvider: limit.providerId, roles: limit.switchRoles, choice })
+      if (choice.remember) {
+        try { createLoopProviderSwitch(c.project).remember(Object.fromEntries(limit.switchRoles.map(role => [role, choice]))) }
+        catch (error) { res.status(409).json({ error: 'remember_failed', detail: error instanceof Error ? error.message : String(error) }); return }
+      }
+      const outcome = await resumeRetainedDefinitionRun(c, runId, { routeOverrides }, limitResumeOptions(run))
+      res.status(outcome.status).json(outcome.status < 300 ? { ...outcome.body, provider: choice.provider, model: choice.model, effort: choice.effort ?? null } : outcome.body); return
     }
     if (body.action === 'switch' && typeof body.provider === 'string') {
       const limit = live ?? retained!

@@ -157,7 +157,7 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
 /** At most this many limit pauses per run: a provider that keeps refusing after its reset is a failure, not a wait. */
 export const MAX_LIMIT_PAUSES = 3
 
-export type LimitPauseOutcome = { action: 'resume' } | { action: 'switch'; provider: string; model: string } | { action: 'stop' }
+export type LimitPauseOutcome = { action: 'resume' } | { action: 'switch'; provider: string; model: string; effort?: string; remember?: boolean } | { action: 'stop' }
 
 /**
  * provider-quota: the provider refused the step on its usage limit. The run
@@ -223,10 +223,10 @@ export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<Lo
   }
   if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
   resumeLoopRun(host.db, runId, new Date(host.now()))
-  logLine(decision.action === 'switch'
-    ? `\n▶ Loop continues on ${decision.provider} — the earlier steps go along as context.`
-    : `\n▶ Loop resumed after the ${limit.providerId} usage limit — retrying the step.`)
+  // A Core run's switch is logged by its engine, which names the moved roles.
+  if (decision.action !== 'switch') logLine(`\n▶ Loop resumed after the ${limit.providerId} usage limit — retrying the step.`)
+  else if (!limit.switchTargets) logLine(`\n▶ Loop continues on ${decision.provider} — the earlier steps go along as context.`)
   host.emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: exactTicketIds })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: new Date(host.now()).toISOString() })
-  return decision.action === 'switch' ? { action: 'switch', provider: decision.provider, model: decision.model } : { action: 'resume' }
+  return decision.action === 'switch' ? { action: 'switch', provider: decision.provider, model: decision.model, ...(decision.effort ? { effort: decision.effort } : {}), ...(decision.remember ? { remember: true } : {}) } : { action: 'resume' }
 }

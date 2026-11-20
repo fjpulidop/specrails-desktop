@@ -62,7 +62,18 @@
     "autoOn": "Um {{time}} fortsetzen",
     "autoOff": "Nicht von selbst fortsetzen",
     "continueWith": "Jetzt mit {{provider}} fortsetzen",
-    "failed": "Der pausierte Lauf konnte nicht aktualisiert werden: {{detail}}"
+    "failed": "Der pausierte Lauf konnte nicht aktualisiert werden: {{detail}}",
+    "switch": {
+      "title": "Jetzt mit einem anderen Anbieter fortfahren",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "effort": "Denkaufwand",
+      "consequence": "Das gilt für den Rest dieses Laufs: Der unterbrochene Schritt und alle späteren Schritte, die {{from}} genutzt haben, wechseln zu {{provider}}. Die Arbeit im Worktree bleibt erhalten. Das Gespräch des Schritts wird nicht zwischen Anbietern übernommen, daher startet der Schritt mit einer neuen Sitzung.",
+      "settingsKept": "Die Projekteinstellungen ändern sich nicht.",
+      "settingsUpdated": "Die Agent-Einstellungen des Projekts leiten diese Rollen ab jetzt ebenfalls an {{provider}}.",
+      "remember": "Für dieses Projekt merken",
+      "resume": "Mit {{provider}} fortsetzen"
+    }
   },
   "mission": {
     "title": "Nutzungslimit von {{provider}} erreicht",

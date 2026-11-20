@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1832 source/build files. Nearby tests are linked where names
+Includes 1834 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1751,6 +1751,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-retention-quarantine.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-quarantine.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention-quarantine.test.ts)
 - [agent-runtime-retention-records.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-records.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention-records.test.ts)
 - [agent-runtime-retention.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention.test.ts)
+- [agent-runtime-route-overrides.ts](../../server/modules/agent-runtime/runtime/agent-runtime-route-overrides.ts)
 - [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
 - [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
@@ -2202,6 +2203,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-phase-recovery.ts](../../server/modules/loops/runtime/loop-phase-recovery.ts)
 - [loop-pr-ci-recipe.ts](../../server/modules/loops/runtime/loop-pr-ci-recipe.ts) · [test](../../server/modules/loops/runtime/loop-pr-ci-recipe.test.ts)
 - [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
+- [loop-provider-switch.ts](../../server/modules/loops/runtime/loop-provider-switch.ts) · [test](../../server/modules/loops/runtime/loop-provider-switch.test.ts)
 - [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
 - [loop-run-context.ts](../../server/modules/loops/runtime/loop-run-context.ts)
 - [loop-run-contract.ts](../../server/modules/loops/runtime/loop-run-contract.ts)

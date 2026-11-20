@@ -157,6 +157,22 @@ export function createRunAdmission(deps: RunAdmissionDeps) {
         pump()
       })
     },
+    /**
+     * The run continues on another provider (a switch at a usage limit): from now on its slot
+     * counts against that provider's slots and quota. The old provider's burn sample closes
+     * here; the new provider's starts from its current usage.
+     */
+    reassign(runId: string, provider: string): void {
+      const entry = active.get(runId)
+      if (!entry || entry.run.provider === provider) return
+      markConcurrency()
+      const at = now(), used = safeQuota(entry.run.provider).usedPercent, worked = at - entry.since
+      if (entry.quotaAtStart !== null && used !== null && worked > 0) {
+        burn.set(entry.run.provider, nextBurnEstimate(burn.get(entry.run.provider) ?? null, runBurnSample(used - entry.quotaAtStart, entry.concurrencyMs / worked)))
+      }
+      active.set(runId, { run: { ...entry.run, provider }, since: at, quotaAtStart: safeQuota(provider).usedPercent, concurrencyMs: 0, lastMark: at })
+      pump()
+    },
     /** Why a run waits, or null when it is not queued. */
     waiting(runId: string): QueuedRun | null {
       const index = queue.findIndex(waiter => waiter.run.runId === runId)

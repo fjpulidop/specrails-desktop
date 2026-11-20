@@ -19,6 +19,7 @@
  *
  * Spec: openspec/changes/loop-builder/specs/loop-execution/spec.md
  */
+import { acceptedRouteOverrides, currentRoleRoutes } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 import type { ChildProcess } from 'node:child_process'
 import { treeKillSafe as treeKill } from '../../../util/win-spawn'
 import type { DbInstance } from '../../../db'
@@ -184,7 +185,7 @@ export class LoopRunManager {
    * its automatic resume on/off. Returns false when the run is not limit-paused
    * or the choice does not apply to it.
    */
-  resolveLimitPause(runId: string, choice: { action: 'resume' } | { action: 'switch'; provider: string; model: string } | { action: 'auto'; enabled: boolean }): boolean {
+  resolveLimitPause(runId: string, choice: { action: 'resume' } | { action: 'switch'; provider: string; model: string; effort?: string; remember?: boolean } | { action: 'auto'; enabled: boolean }): boolean {
     const paused = this._pausedHumanDecisions.get(runId)
     const limit = paused?.limit
     if (!paused || !limit) return false
@@ -195,8 +196,10 @@ export class LoopRunManager {
       return true
     }
     if (choice.action === 'switch' && (!limit.switchable || sharesQuota(limit.providerId, choice.provider))) return false
+    // A Core run continues only on a provider its card offered (installed, not sharing the quota).
+    if (choice.action === 'switch' && limit.switchTargets && !limit.switchTargets.some(target => target.provider === choice.provider)) return false
     this._pausedHumanDecisions.delete(runId)
-    paused.resolve(choice.action === 'switch' ? { action: 'switch', provider: choice.provider, model: choice.model } : { action: 'resume', text: '' })
+    paused.resolve(choice.action === 'switch' ? { action: 'switch', provider: choice.provider, model: choice.model, ...(choice.effort ? { effort: choice.effort } : {}), ...(choice.remember ? { remember: true } : {}) } : { action: 'resume', text: '' })
     return true
   }
 
@@ -708,7 +711,7 @@ export class LoopRunManager {
     this._admissionWaits.set(runId, aborter)
     let waitedSince: number | null = null
     try {
-      const release = await admission.acquire({ runId, projectId: req.projectId, provider: req.provider }, {
+      const release = await admission.acquire({ runId, projectId: req.projectId, provider: admittedProvider(ctx, this.db) }, {
         signal: aborter.signal,
         onWait: (waitingFor, position) => {
           waitedSince ??= this.now()
@@ -741,4 +744,19 @@ export function queueReasonLine(waitingFor: string): string {
     case 'provider_quota': return 'the provider\'s usage window could not finish another run now.'
     default: return 'the machine is at capacity.'
   }
+}
+
+/**
+ * The provider a run's capacity slot counts against: the one its roles were moved to
+ * (a switch at a usage limit, Core routeOverrides), else the run's own.
+ */
+function admittedProvider(ctx: LoopRunContext, db: DbInstance): string {
+  const moved = ctx.continuation?.routeOverrides
+  if (moved) return Object.values(moved.routes)[0]?.provider ?? ctx.req.provider
+  try {
+    const contextPath = readDefinitionRun(db, ctx.runId)?.metadata.contextPath
+    if (!contextPath || !acceptedRouteOverrides(contextPath).length) return ctx.req.provider
+    const routes = currentRoleRoutes(contextPath)
+    return (routes.developer ?? Object.values(routes)[0])?.provider ?? ctx.req.provider
+  } catch { return ctx.req.provider }
 }

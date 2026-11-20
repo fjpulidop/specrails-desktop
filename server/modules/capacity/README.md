@@ -38,6 +38,13 @@ Overrides: `SPECRAILS_MAX_ACTIVE_RUNS`, `SPECRAILS_MAX_RUNS_PER_PROJECT`,
 starts every run at once. Verification turns inside runs are Core's
 (`SPECRAILS_VERIFY_SLOTS`, one per four cores).
 
+A run that continues on another provider after a usage limit (Core
+`routeOverrides`) keeps its slot, which from then on counts against the new
+provider (`reassign`): the old provider's burn sample closes and the new
+provider's starts. The switch never offers a provider the quota store knows is
+refusing, and a later admission of that run (a restart resume) counts it
+against the provider its roles were moved to.
+
 ## Restarts and cancellation
 
 A run cancelled while queued settles `stopped` having run nothing. A shutdown

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { act, render, screen, waitFor, within } from '../../../test-utils'
+import { act, fireEvent, render, screen, waitFor, within } from '../../../test-utils'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
 import { LimitPauseCard } from '../components/LimitPauseCard'
@@ -80,6 +80,52 @@ describe('LimitPauseCard', () => {
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)![1]!.body))).toEqual({ action: 'switch', provider: 'codex' })
     await userEvent.click(screen.getByRole('button', { name: 'Resume now' }))
     expect(String(fetchMock.mock.calls.at(-1)![0])).toContain('/loop-runs/run-1/limit')
+  })
+
+  it('a Core run continues on another provider with its model and effort, never on the limited one', async () => {
+    const onChanged = vi.fn()
+    // The server offers only providers that do not share the limited one's quota (and drops it defensively here too).
+    const limit = { providerId: 'codex', resumeAt: new Date(Date.now() + 3_600_000).toISOString(), autoResume: true, message: '', pausedAt: 't', switchable: true,
+      switchRoles: ['developer', 'fixer'], switchTargets: [{ provider: 'claude', model: 'sonnet', effort: 'medium' }, { provider: 'codex', model: 'gpt-6-sol', effort: 'low' }, { provider: 'gemini', model: 'gemini-3.5-flash', effort: null }] }
+    render(withWs(<LimitPauseCard projectId="p1" runId="run-1" limit={limit} providers={['claude', 'codex', 'gemini']} onChanged={onChanged} />))
+    const section = screen.getByTestId('limit-pause-switch')
+    expect(section).toHaveTextContent('Continue now with another provider')
+    // Legacy one-click buttons are not shown for a Core run.
+    expect(screen.queryByTestId('limit-pause-switch-claude')).toBeNull()
+    expect(screen.getByTestId('limit-pause-switch-provider')).toHaveTextContent('Claude')
+    expect(screen.getByTestId('limit-pause-switch-model')).toHaveTextContent('Claude Sonnet 5.5')
+    expect(screen.getByTestId('limit-pause-switch-effort')).toHaveTextContent('Medium')
+    expect(screen.getByTestId('limit-pause-switch-consequence')).toHaveTextContent("every later step that used Codex switch to Claude. Work already in the worktree is kept.")
+    expect(screen.getByTestId('limit-pause-switch-consequence')).toHaveTextContent("The project's settings don't change.")
+    fireEvent.pointerDown(screen.getByTestId('limit-pause-switch-provider'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(screen.queryByRole('option', { name: 'Codex' })).toBeNull()
+    expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Claude', 'Gemini'])
+    fireEvent.click(screen.getByRole('option', { name: 'Claude' }))
+    fireEvent.pointerDown(screen.getByTestId('limit-pause-switch-model'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Claude Sonnet 5.5', 'Claude Fable 5.2', 'Claude Opus 5.5', 'Claude Haiku 5.5'])
+    fireEvent.click(screen.getByRole('option', { name: 'Claude Haiku 5.5' }))
+    fireEvent.pointerDown(screen.getByTestId('limit-pause-switch-effort'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Low', 'Medium', 'High', 'Extra high'])
+    fireEvent.click(screen.getByRole('option', { name: 'Low' }))
+    await userEvent.click(screen.getByTestId('limit-pause-switch-remember'))
+    expect(screen.getByTestId('limit-pause-switch-consequence')).toHaveTextContent('will also route these roles to Claude')
+    await userEvent.click(screen.getByRole('button', { name: 'Resume with Claude' }))
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)![1]!.body))).toEqual({ action: 'switch', provider: 'claude', model: 'haiku', effort: 'low', remember: true })
+    expect(onChanged).toHaveBeenLastCalledWith(null)
+  })
+
+  it('a provider without reasoning efforts sends no effort; a run with no other provider keeps today\'s card', async () => {
+    const limit = { providerId: 'codex', resumeAt: null, autoResume: false, message: '', pausedAt: 't', switchable: true, switchRoles: ['developer'], switchTargets: [{ provider: 'gemini', model: 'gemini-3.5-flash', effort: null }] }
+    const { unmount } = render(withWs(<LimitPauseCard projectId="p1" runId="run-1" limit={limit} />))
+    expect(screen.queryByTestId('limit-pause-switch-effort')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Resume with Gemini' }))
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)![1]!.body))).toEqual({ action: 'switch', provider: 'gemini', model: 'gemini-3.5-flash' })
+    unmount()
+    // An older Core (no routeOverrides) or nothing else installed: the server offers no switch.
+    render(withWs(<LimitPauseCard projectId="p1" runId="run-2" limit={{ ...limit, switchable: false, switchTargets: undefined }} providers={['claude', 'codex']} />))
+    expect(screen.queryByTestId('limit-pause-switch')).toBeNull()
+    expect(screen.queryByTestId('limit-pause-switch-claude')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Resume now' })).toBeInTheDocument()
   })
 
   it('offers no switch on a Core run and says when the reset is unknown', () => {

@@ -62,7 +62,18 @@
     "autoOn": "Retomar às {{time}}",
     "autoOff": "Não retomar sozinha",
     "continueWith": "Continuar agora com {{provider}}",
-    "failed": "Não foi possível atualizar a execução em pausa: {{detail}}"
+    "failed": "Não foi possível atualizar a execução em pausa: {{detail}}",
+    "switch": {
+      "title": "Continuar agora com outro provedor",
+      "provider": "Provedor",
+      "model": "Modelo",
+      "effort": "Esforço de raciocínio",
+      "consequence": "Vale para o resto desta execução: a etapa interrompida e todas as etapas seguintes que usavam {{from}} passam para {{provider}}. O trabalho que já está no worktree é mantido. A conversa da etapa não passa de um provedor para outro, então a etapa recomeça com uma sessão nova.",
+      "settingsKept": "As configurações do projeto não mudam.",
+      "settingsUpdated": "As configurações de agentes do projeto também passarão a enviar estas funções para {{provider}}.",
+      "remember": "Lembrar para este projeto",
+      "resume": "Retomar com {{provider}}"
+    }
   },
   "mission": {
     "title": "Limite de utilização de {{provider}} atingido",

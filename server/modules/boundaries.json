@@ -174,6 +174,7 @@
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
       "runtime/agent-runtime-retention-records.ts",
+      "runtime/agent-runtime-route-overrides.ts",
       "runtime/agent-runtime-settings-router.ts",
       "runtime/agent-runtime-settings.ts",
       "runtime/core-capabilities.ts",
@@ -195,6 +196,7 @@
         "./agent-runtime-loader",
         "./agent-runtime-package",
         "./agent-runtime-repositories",
+        "./agent-runtime-route-overrides",
         "./agent-runtime-settings",
         "./agent-runtime-verification-log",
         "./agent-runtime-verification-suggestions",
@@ -341,6 +343,10 @@
         "./agent-runtime-retention"
       ],
       "runtime/agent-runtime-retention.ts": [],
+      "runtime/agent-runtime-route-overrides.ts": [
+        "node:fs",
+        "node:path"
+      ],
       "runtime/agent-runtime-settings-router.ts": [
         "../../../project-repositories",
         "../../../project-router-helpers",
@@ -2834,6 +2840,7 @@
       "runtime/loop-graph.ts",
       "runtime/loop-limit-pauses.ts",
       "runtime/loop-pr-ci-recipe.ts",
+      "runtime/loop-provider-switch.ts",
       "runtime/loop-role-engines.ts",
       "runtime/loop-run-hold.ts",
       "runtime/loop-run-manager.ts",
@@ -2897,12 +2904,14 @@
       ],
       "runtime/loop-definition-execution.ts": [
         "../../../provider-limit",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../provider-quota/domain",
         "../../provider-quota/runtime/quota-reports",
         "../../recovery/domain",
         "./loop-definition-events",
         "./loop-definition-recovery",
         "./loop-definition-run",
+        "./loop-provider-switch",
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-pauses",
@@ -2923,6 +2932,7 @@
       ],
       "runtime/loop-definition-run.ts": [
         "../../../shared/run-question",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../machine-installs",
         "./loop-run-manager",
         "node:child_process"
@@ -3072,6 +3082,17 @@
         "./loop-definition",
         "./loop-graph"
       ],
+      "runtime/loop-provider-switch.ts": [
+        "../../../provider-selection",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../provider-quota/domain",
+        "../../provider-quota/runtime/quota-reports",
+        "../../specs/runtime/spec-models",
+        "./loop-run-contract"
+      ],
       "runtime/loop-role-engines.ts": [
         "../../../provider-selection",
         "../../../providers",
@@ -3154,6 +3175,7 @@
         "../../../shared/run-question",
         "../../../types",
         "../../../util/win-spawn",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../execution",
         "../../execution/runtime/interactive-job-session",
         "../../provider-quota/domain",

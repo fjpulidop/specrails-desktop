@@ -62,7 +62,18 @@
     "autoOn": "在 {{time}} 恢复",
     "autoOff": "不要自动恢复",
     "continueWith": "立即改用 {{provider}} 继续",
-    "failed": "无法更新已暂停的运行：{{detail}}"
+    "failed": "无法更新已暂停的运行：{{detail}}",
+    "switch": {
+      "title": "立即改用其他提供方继续",
+      "provider": "提供方",
+      "model": "模型",
+      "effort": "推理强度",
+      "consequence": "仅对本次运行的剩余部分生效：被中断的步骤以及之后所有使用 {{from}} 的步骤都会改用 {{provider}}。worktree 中已有的工作会保留。步骤的对话不会在提供方之间延续，因此该步骤会以新会话重新开始。",
+      "settingsKept": "项目设置不会改变。",
+      "settingsUpdated": "今后项目的智能体设置也会将这些角色分配给 {{provider}}。",
+      "remember": "为此项目记住",
+      "resume": "使用 {{provider}} 继续"
+    }
   },
   "mission": {
     "title": "{{provider}} 已达用量限额",

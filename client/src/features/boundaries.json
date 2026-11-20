@@ -404,6 +404,8 @@
       "lib/useProviderQuota.ts"
     ],
     "dependencies": [
+      "loops",
+      "providers",
       "subscription-usage"
     ]
   },

@@ -62,7 +62,18 @@
     "autoOn": "Riprendi alle {{time}}",
     "autoOff": "Non riprendere da sola",
     "continueWith": "Continua ora con {{provider}}",
-    "failed": "Impossibile aggiornare la run in pausa: {{detail}}"
+    "failed": "Impossibile aggiornare la run in pausa: {{detail}}",
+    "switch": {
+      "title": "Continua ora con un altro provider",
+      "provider": "Provider",
+      "model": "Modello",
+      "effort": "Sforzo di ragionamento",
+      "consequence": "Vale per il resto di questa esecuzione: il passaggio interrotto e tutti i passaggi successivi che usavano {{from}} passano a {{provider}}. Il lavoro già presente nel worktree viene mantenuto. La conversazione del passaggio non passa da un provider all'altro, quindi il passaggio riparte con una nuova sessione.",
+      "settingsKept": "Le impostazioni del progetto non cambiano.",
+      "settingsUpdated": "Anche le impostazioni degli agenti del progetto assegneranno d'ora in poi questi ruoli a {{provider}}.",
+      "remember": "Ricorda per questo progetto",
+      "resume": "Riprendi con {{provider}}"
+    }
   },
   "mission": {
     "title": "Limite d'uso di {{provider}} raggiunto",

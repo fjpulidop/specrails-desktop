@@ -12,7 +12,7 @@ import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-
 import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
-import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost, retainedRuntimeSupportsRouteOverrides } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { lstat, readFile, readlink } from 'node:fs/promises'
@@ -291,6 +291,9 @@ export function createLoopExecutors(
       const host = frozenHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
+    async supportsRouteOverrides({ runId, contextPath }) {
+      try { return await retainedRuntimeSupportsRouteOverrides({ runId, contextPath, ...frozenHost(contextPath, resolveEnv(), runId) }) } catch { return false }
+    },
     async pauseDefinition({ runId, contextPath, requestId, reason }) {
       const host = frozenHost(contextPath, resolveEnv(), runId)
       const paused = await runAgentRuntimeControl({ kind: 'pause', runId, contextPath, requestId, reason, ...host })
@@ -323,7 +326,7 @@ export function createLoopExecutors(
       if (input.resume) {
         const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
         const host = frozenHost(contextPath,resolveEnv(),runId)
-        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,optionId:input.optionId,approve:input.approve,reject:input.reject,reason:input.reason,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
+        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,optionId:input.optionId,approve:input.approve,reject:input.reject,reason:input.reason,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,routeOverrides:input.routeOverrides,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       // Intent -> Spec derives ONE change for code that already exists: it is named

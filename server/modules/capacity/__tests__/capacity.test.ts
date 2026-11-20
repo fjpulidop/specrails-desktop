@@ -120,6 +120,22 @@ describe('admission queue', () => {
     expect(h.ticking()).toBe(0)
   })
 
+  it('counts a run that switched provider against the new provider, freeing the old provider slot', async () => {
+    const h = harness({ maxRuns: 4, perProvider: { codex: 1, claude: 1 } })
+    await h.admission.acquire(run('a', 'p1', 'codex'))
+    // A second codex run waits for the codex slot; a claude run would start.
+    const b = h.admission.acquire(run('b', 'p2', 'codex'))
+    expect(h.admission.waiting('b')).toMatchObject({ waitingFor: 'provider_slots' })
+    // Run a hit codex's limit and continues on claude: b gets the codex slot, and claude is now taken.
+    h.admission.reassign('a', 'claude')
+    await b
+    expect(h.admission.snapshot().active.map(entry => `${entry.runId}:${entry.provider}`)).toEqual(['a:claude', 'b:codex'])
+    const c = h.admission.acquire(run('c', 'p3', 'claude'))
+    expect(h.admission.waiting('c')).toMatchObject({ waitingFor: 'provider_slots' })
+    h.admission.reassign('missing', 'claude')
+    void c
+  })
+
   it('stops waiting when the run is cancelled, and lets the next one through', async () => {
     const h = harness({ maxRuns: 1 })
     const a = await h.admission.acquire(run('a'))

@@ -8,7 +8,14 @@ export interface LimitPause {
   message: string
   pausedAt: string
   switchable: boolean
+  /** Core definition runs: the roles that move together when the run continues on another provider. */
+  switchRoles?: string[]
+  /** Core definition runs: where the run may continue (never the limited provider or one sharing its quota), with the starting model/effort. */
+  switchTargets?: SwitchTarget[]
 }
+
+/** A provider a limit-paused Core run may continue on (server `ProviderSwitchTarget`). */
+export interface SwitchTarget { provider: string; model: string; effort: string | null }
 
 export function readLimitPause(raw: unknown): LimitPause | null {
   const value = raw as Partial<LimitPause> | null
@@ -20,10 +27,15 @@ export function readLimitPause(raw: unknown): LimitPause | null {
     message: typeof value.message === 'string' ? value.message : '',
     pausedAt: value.pausedAt,
     switchable: value.switchable === true,
+    ...(Array.isArray(value.switchRoles) ? { switchRoles: value.switchRoles.filter((role): role is string => typeof role === 'string') } : {}),
+    ...(Array.isArray(value.switchTargets) ? { switchTargets: value.switchTargets
+      .filter((target): target is SwitchTarget => !!target && typeof target.provider === 'string' && typeof target.model === 'string')
+      .map((target) => ({ provider: target.provider, model: target.model, effort: typeof target.effort === 'string' ? target.effort : null })) } : {}),
   }
 }
 
-export type LimitAction = { action: 'resume' } | { action: 'auto'; enabled: boolean } | { action: 'switch'; provider: string }
+export type LimitAction = { action: 'resume' } | { action: 'auto'; enabled: boolean }
+  | { action: 'switch'; provider: string; model?: string; effort?: string; remember?: boolean }
 
 export async function answerLimitPause(projectId: string, runId: string, choice: LimitAction): Promise<{ ok: true; limit?: LimitPause | null } | { ok: false; detail: string }> {
   try {

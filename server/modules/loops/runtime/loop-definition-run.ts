@@ -1,5 +1,6 @@
 import type { ChildProcess } from 'node:child_process'
 import type { AiStepResult, LoopRunRequest } from './loop-run-manager'
+import type { DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 
 /** Core `HostBlocker`: structured precondition the host must act on (environment repair refused, setup failed, fixer-declared). */
 export interface DefinitionHostBlocker {
@@ -68,7 +69,8 @@ export interface DefinitionPrepared {
   runtimeIdentity?: Record<string, unknown>
 }
 /** `optionId` answers a structured question by choice; `reject` + `reason` rejects one approval (both need Core `questionOptions`). */
-export interface DefinitionResumeControls { answer?: string; optionId?: string; approve?: string[]; reject?: string; reason?: string; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult }
+/** `routeOverrides` (Core `routeOverrides`) moves roles to another provider for the rest of the run, on a plain resume. */
+export interface DefinitionResumeControls { answer?: string; optionId?: string; approve?: string[]; reject?: string; reason?: string; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult; routeOverrides?: DefinitionRouteOverride }
 export interface DefinitionLoopInvocation {
   contextPath?: string
   recover?: string[]
@@ -84,6 +86,8 @@ export interface DefinitionLoopInvocation {
   interruptId?: string
   /** Resolution of one pending `host-task` interrupt (`--host-result`, with `interruptId`). */
   hostResult?: DefinitionHostTaskResult
+  /** Core `routeOverrides`: roles continue on another provider (`--route-overrides`). */
+  routeOverrides?: DefinitionRouteOverride
   onLine(line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }): void
   onRuntimeEvent(event: Record<string, unknown>): void
   onSpawn(child: ChildProcess): void
@@ -126,14 +130,15 @@ export interface DefinitionLoopExecutionPorts {
    *  'continue' resumes the retained run as is; 'stop' settles it cancelled. */
   awaitHostPause?(pause: DefinitionHostPause): Promise<'continue' | 'stop'>
   /** provider-quota: Core failed on a provider usage limit. 'continue' resumes the
-   *  retained run (Core re-runs the refused step), 'stop' settles it cancelled,
-   *  'settle' keeps the failure. */
-  awaitProviderLimit?(result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle'>
+   *  retained run (Core re-runs the refused step), `{ routeOverrides }` resumes it
+   *  with roles moved to another provider, 'stop' settles it cancelled, 'settle'
+   *  keeps the failure. */
+  awaitProviderLimit?(result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle' | { routeOverrides: DefinitionRouteOverride }>
 }
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
 export async function runDefinitionLoop(request: LoopRunRequest, runId: string, ports: DefinitionLoopExecutionPorts): Promise<DefinitionRuntimeResult> {
-  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'optionId' | 'approve' | 'reject' | 'reason' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
+  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'optionId' | 'approve' | 'reject' | 'reason' | 'interruptId' | 'recover' | 'hostResult' | 'routeOverrides'> = ports.continuation ?? {}
   // An answer that arrived while no process held the pause (after a restart): an Install choice still runs first.
   if (ports.machineInstalls && continuation.answer !== undefined && continuation.interruptId) {
     const interrupt = await ports.machineInstalls.lookup(continuation.interruptId).catch(() => null)
@@ -149,6 +154,7 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       const limit = await ports.awaitProviderLimit(result)
       if (limit === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
       if (limit === 'continue') { continuation = { resume: true }; continue }
+      if (typeof limit === 'object') { continuation = { resume: true, routeOverrides: limit.routeOverrides }; continue }
     }
     if (result.runtimeStatus !== 'paused') return result
     const pending = result.pendingInterrupts ?? []

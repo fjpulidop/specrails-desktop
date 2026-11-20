@@ -62,7 +62,18 @@
     "autoOn": "Resume at {{time}}",
     "autoOff": "Don't resume on its own",
     "continueWith": "Continue now with {{provider}}",
-    "failed": "Could not update the paused run: {{detail}}"
+    "failed": "Could not update the paused run: {{detail}}",
+    "switch": {
+      "title": "Continue now with another provider",
+      "provider": "Provider",
+      "model": "Model",
+      "effort": "Reasoning effort",
+      "consequence": "This applies to the rest of this run: the interrupted step and every later step that used {{from}} switch to {{provider}}. Work already in the worktree is kept. The step's conversation does not carry across providers, so the step restarts with a fresh session.",
+      "settingsKept": "The project's settings don't change.",
+      "settingsUpdated": "The project's agent settings will also route these roles to {{provider}} from now on.",
+      "remember": "Remember for this project",
+      "resume": "Resume with {{provider}}"
+    }
   },
   "mission": {
     "title": "{{provider}} usage limit reached",

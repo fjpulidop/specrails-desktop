@@ -21,6 +21,7 @@ import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { coreDefaultMaxTurns, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
 import { observeQuotaFrame } from '../../provider-quota/runtime/stream-observer'
+import { acceptedRouteOverrides, applyRouteOverrides, recordAcceptedRouteOverride, type DefinitionRouteOverride } from './agent-runtime-route-overrides'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -160,6 +161,8 @@ export interface AgentRuntimeInvocationOptions {
   interruptId?: string
   /** Host resolution of one pending `host-task` interrupt (Core `hostTasks`); requires `interruptId`. */
   hostResult?: { outcome: string; output?: unknown }
+  /** Core `routeOverrides`: move roles to another provider/model/effort for the rest of the run (`--route-overrides`). */
+  routeOverrides?: DefinitionRouteOverride
   /** Durable projection errors abort observation; ordinary log callbacks remain advisory. */
   onRuntimeEvent?(event: Record<string, unknown>): void
   timeoutMs?: number
@@ -343,8 +346,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const definitionRoles = definitionEngine ? (JSON.parse(readFileSync(definitionFile, 'utf8')) as { roles?: unknown }).roles : undefined
     const used = Array.isArray(definitionRoles) ? new Set(definitionRoles.filter((role): role is string => typeof role === 'string')) : undefined
     if (used?.has('developer')) used.add('fixer')
+    // Moved roles (Core routeOverrides) show the route they run on now: accepted overrides and the one this resume sends.
+    const moved = applyRouteOverrides({}, [...acceptedRouteOverrides(options.contextPath), ...(options.routeOverrides ? [options.routeOverrides] : [])])
     const assignments = [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : []), ...Object.entries(frozen.roles ?? {})]
       .filter(([role]) => used ? used.has(role) : role in frozen.agents || role === 'fixer')
+      .map(([role, assignment]) => [role, moved[role] ? { ...moved[role], ...(assignment.maxTurns !== undefined ? { maxTurns: assignment.maxTurns } : {}) } : assignment] as const)
     const coreDefault = coreDefaultMaxTurns(assignments.some(([, assignment]) => assignment.maxTurns === undefined) ? (await loadCoreAgentRuntime().catch(() => null))?.api?.capabilities : undefined)
     for (const [role, assignment] of assignments) {
       const turns = assignment.maxTurns !== undefined ? `max ${assignment.maxTurns} turns` : coreDefault === null ? 'no turn limit (Core default)' : `max ${coreDefault} turns (Core default)`
@@ -373,6 +379,16 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const file = join(directory, createHash('sha256').update(options.interruptId).digest('hex').slice(0, 32) + '.json')
     writeFileSync(file, JSON.stringify(options.hostResult), { mode: 0o600 })
     args.push('--host-result', file)
+  }
+  if (options.routeOverrides) {
+    if (!options.resume || !definitionEngine) throw new Error('Route overrides apply to resuming a workflow definition run')
+    if (options.answer !== undefined || options.approve?.length || options.reject || options.hostResult || options.interruptId || options.invalidate?.length) throw new Error('Route overrides resume a stopped run as is; they cannot carry an answer, approval or host result')
+    // Private, per-request file beside the frozen context; Core validates and records it. The frozen files stay untouched.
+    const directory = join(dirname(options.contextPath), 'route-overrides')
+    mkdirSync(directory, { recursive: true, mode: 0o700 })
+    const file = join(directory, createHash('sha256').update(options.routeOverrides.requestId).digest('hex').slice(0, 32) + '.json')
+    writeFileSync(file, JSON.stringify(options.routeOverrides), { mode: 0o600 })
+    args.push('--route-overrides', file)
   }
   const started = Date.now()
   writeRuntimeHistory(options.contextPath, { status: 'running' })
@@ -413,6 +429,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (repositories.length) event.repositories = repositories.map(repo => ({ id: repo.id, name: repo.name || repo.id }))
       }
       if (definitionEngine && ((typeof event.runId === 'string' && event.runId !== admittedContext.runId) || (event.type === 'workflow-event' && (event.event as { runId?: unknown })?.runId !== admittedContext.runId))) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
+      // Core accepted a route override (routeOverrides): remember it beside the frozen context.
+      if (definitionEngine && event.type === 'workflow-event' && (event.event as { type?: unknown })?.type === 'routes_overridden') { try { recordAcceptedRouteOverride(options.contextPath, event.event) } catch { /* advisory record; Core's ledger is authoritative */ } }
       const boundary = event.type === 'workflow-event' || event.type === 'runtime-result'
       // Flush buffered output before the projection advances the current step.
       if (boundary) readableLines(readableVerification.project(event))
@@ -562,6 +580,16 @@ function readHostPause(value: unknown): DefinitionHostPause | undefined {
   const pause = value as Record<string, unknown>
   return typeof pause.requestId === 'string' && typeof pause.reason === 'string' && typeof pause.at === 'string'
     ? { requestId: pause.requestId, reason: pause.reason, at: pause.at } : undefined
+}
+
+/** True when the run's retained Core moves roles to another provider on resume (`routeOverrides`). */
+export async function retainedRuntimeSupportsRouteOverrides(options: AgentRuntimeControlBase): Promise<boolean> {
+  try {
+    const cli = await resolveRetainedAgentRuntime(options.contextPath)
+    const events = await runControlProcess([cli, 'api'], options)
+    const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
+    return capabilities?.routeOverrides === 1
+  } catch { return false }
 }
 
 /** True when the run's retained Core announces cooperative pause (`pauseRuns`). */

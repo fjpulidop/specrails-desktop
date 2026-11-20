@@ -168,6 +168,8 @@ export interface LoopExecutors {
    *  current step finishes, then Core exits 2 with `state.pause`. Rejects with
    *  `engine_unsupported` when the retained Core lacks `pauseRuns`. */
   pauseDefinition?(input: { runId: string; contextPath: string; requestId: string; reason: string }): Promise<{ outcome: string }>
+  /** True when the run's retained Core can move roles to another provider on resume (`routeOverrides`). */
+  supportsRouteOverrides?(input: { runId: string; contextPath: string }): Promise<boolean>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     runtimeProviderOverride?: RuntimeProviderOverride
@@ -383,7 +385,7 @@ export type PausedHumanDecision =
   | { action: 'resume'; text: string; interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }
   | { action: 'stop' }
   /** `limit_paused` only: continue now on another provider (prior context goes along as historical data). */
-  | { action: 'switch'; provider: string; model: string }
+  | { action: 'switch'; provider: string; model: string; effort?: string; remember?: boolean }
 
 /** The daily budget a run is paused on — structurally the admission gate's
  *  409 body (`daily_budget_exceeded`), bound by the composition root. */
@@ -418,8 +420,26 @@ export interface LoopLimitPause {
   /** The provider's own notice. */
   message: string
   pausedAt: string
-  /** Legacy engine only: the step can continue on another provider. */
+  /** The run can continue now on another provider (legacy engine; Core definition runs with Core `routeOverrides`). */
   switchable: boolean
+  /** Core definition runs: the roles that used the limited provider and move together. */
+  switchRoles?: string[]
+  /** Core definition runs: the providers it may continue on (never the limited one or one sharing its quota), each with its default model/effort for those roles. */
+  switchTargets?: ProviderSwitchTarget[]
+}
+
+/** A provider a limit-paused run may continue on, with the model/effort it starts with. */
+export interface ProviderSwitchTarget { provider: string; model: string; effort: string | null }
+
+/** What the person chose: the provider, model and effort, and whether the project keeps it. */
+export interface ProviderSwitchChoice { provider: string; model: string; effort?: string; remember?: boolean }
+
+/** Project bindings for continuing a limit-paused Core run on another provider (bound at composition). */
+export interface LoopProviderSwitch {
+  /** The project's usable providers other than `fromProvider` and those sharing its quota, with their default model/effort for `roles`. */
+  targets(input: { fromProvider: string; roles: readonly string[] }): ProviderSwitchTarget[]
+  /** Store the moved routes as the project's agent runtime role routes ("Remember for this project"). */
+  remember(routes: Record<string, { provider: string; model: string; effort?: string }>): void
 }
 
 /** How a resume answers a per-run soft cap: continue without it, or with a higher one. */
@@ -487,10 +507,14 @@ export interface LoopRunManagerOptions {
    *  A Core run takes a slot before Core starts working and waits, queued, while
    *  the machine is at capacity. Absent or null ⇒ every run starts at once. */
   admission?: () => LoopRunAdmission | null
+  /** Continuing a limit-paused Core run on another provider (bound at composition). Absent ⇒ the card offers no switch. */
+  providerSwitch?: () => LoopProviderSwitch | undefined
 }
 
 /** The part of the capacity module's admission queue the loop engine uses. */
 export interface LoopRunAdmission {
   acquire(run: { runId: string; projectId: string; provider: string }, options?: { signal?: AbortSignal; onWait?: (waitingFor: string, position: number) => void }): Promise<() => void>
   waiting(runId: string): { waitingFor: string; since: number; position: number } | null
+  /** The run continues on another provider: its slot now counts against that provider's slots and quota. */
+  reassign?(runId: string, provider: string): void
 }
