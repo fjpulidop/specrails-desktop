@@ -87,10 +87,21 @@ export async function prepareScenario(scenario, ctx) {
     const repoPaths = scenario.repos.map(spec => createRepo(spec, workDir))
     const id = await registerProject(api, repoPaths[0], [scenario.provider])
     await waitProjectReady(api, id)
-    for (const extra of repoPaths.slice(1)) await api.post(`/projects/${id}/repositories`, { path: extra })
+    for (const extra of repoPaths.slice(1)) {
+      const added = await api.post(`/projects/${id}/repositories`, { path: extra })
+      if (added.status >= 300 && added.status !== 409) throw new Error(`add repository ${extra}: ${added.status} ${JSON.stringify(added.data).slice(0, 200)}`)
+    }
     return id
   })())
   const projectId = await shared.get(key)
+  // A multi-repository scenario launches on every repository of its project: a spec's scope
+  // defaults to the primary repository, so without repositoryIds the run sees only that one.
+  let repositoryIds
+  if (scenario.repos.length > 1) {
+    const listed = await api.get(`/projects/${projectId}/repositories`)
+    repositoryIds = (listed.data?.repositories ?? []).map(r => r.id)
+    if (repositoryIds.length < scenario.repos.length) throw new Error(`multi-repo scenario: project has ${repositoryIds.length} repositories, expected ${scenario.repos.length}`)
+  }
   const t = await api.post(`/projects/${projectId}/tickets`, { title: scenario.ticket.title, description: scenario.ticket.description })
   if (t.status >= 300) throw new Error(`ticket: ${t.status} ${JSON.stringify(t.data).slice(0, 300)}`)
   const ticketId = (t.data.ticket ?? t.data).id
@@ -98,7 +109,7 @@ export async function prepareScenario(scenario, ctx) {
   const slot = await api.put(`/projects/${projectId}/rails/${rail}/tickets`, { ticketIds: [ticketId], mode: 'implement', aiEngine: scenario.provider })
   if (slot.status >= 300) throw new Error(`rail slot: ${slot.status} ${JSON.stringify(slot.data).slice(0, 300)}`)
   const loopId = scenario.approvalBeforeArchive ? await approvalLoop(api, ctx.cache ?? (ctx.cache = {})) : 'factory:implement'
-  const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}) }
+  const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}), ...(repositoryIds ? { repositoryIds } : {}) }
   return { projectId, ticketId, rail, body, prepareMs: Date.now() - t0 }
 }
 

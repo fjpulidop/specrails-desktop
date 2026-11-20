@@ -115,3 +115,23 @@ test('big libraries pass their own lint and the long spec numbers every module',
   assert.match(spec, /^4\. Extra\./m)
   assert.equal(new Set(MODULES.map(m => m[0])).size, MODULES.length)
 })
+
+test('a multi-repository scenario launches on every repository of its project', async () => {
+  const { prepareScenario } = await import('./lib/driver.mjs')
+  const os = await import('node:os'); const fs = await import('node:fs'); const path = await import('node:path')
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-multi-'))
+  const calls = []
+  const api = {
+    post: async (route, body) => { calls.push(['POST', route, body]); return route === '/projects' ? { status: 201, data: { project: { id: 'p1' } } } : route.endsWith('/tickets') ? { status: 201, data: { ticket: { id: 't1' } } } : { status: 201, data: {} } },
+    get: async route => route.endsWith('/repositories') ? { status: 200, data: { repositories: [{ id: 'primary-p1' }, { id: 'r2' }] } } : { status: 200, data: {} },
+    put: async () => ({ status: 200, data: {} }),
+  }
+  try {
+    const { scenarios } = normalizeScenarios({ scenarios: [{ name: 'mr', repos: ['mr-api', 'mr-web'], ticket: { title: 't' } }] })
+    const prepared = await prepareScenario(scenarios[0], { api, workDir, cache: {} })
+    assert.deepEqual(prepared.body.repositoryIds, ['primary-p1', 'r2'])
+    assert.ok(calls.some(([, route]) => route === '/projects/p1/repositories'))
+    const single = await prepareScenario(normalizeScenarios({ scenarios: [{ name: 'one', repo: 'node-lib', ticket: { title: 't' } }] }).scenarios[0], { api, workDir, cache: {} })
+    assert.equal(single.body.repositoryIds, undefined)
+  } finally { fs.rmSync(workDir, { recursive: true, force: true }) }
+})

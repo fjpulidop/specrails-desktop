@@ -53,5 +53,10 @@ const chaos = [
   { atMin: 480, do: 'sigstop', seconds: 300 },
 ]
 
+// A follow-up multi-repository soak (no chaos): launched beside soak-night by a second harness.
+const multi = scenarios.find(s => s.name === 'long-multi')
+fs.writeFileSync(path.join(here, 'soak-multi.json'), JSON.stringify({ defaults: { provider: 'claude', model: 'haiku', timeoutMinutes: 660 }, scenarios: [{ ...multi, name: 'long-multi2',
+  repos: [{ template: 'big-lib-a', name: 'long-multi2-core' }, { template: 'big-lib-b', name: 'long-multi2-ext' }],
+  ticket: { ...multi.ticket, description: multi.ticket.description.replaceAll('long-multi-', 'long-multi2-') } }] }, null, 2) + '\n')
 fs.writeFileSync(path.join(here, 'soak-night.json'), JSON.stringify({ defaults: { provider: 'claude', model: 'haiku', timeoutMinutes: 660 }, scenarios, chaos }, null, 2) + '\n')
 console.log(`soak-night.json: ${scenarios.length} scenario entries, ${chaos.length} chaos events`)
