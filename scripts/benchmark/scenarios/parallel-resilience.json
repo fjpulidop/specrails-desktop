@@ -1,0 +1,411 @@
+{
+ "defaults": {
+  "provider": "claude",
+  "model": "haiku",
+  "timeoutMinutes": 45
+ },
+ "scenarios": [
+  {
+   "name": "r01",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r01",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "any"
+   },
+   "actions": [
+    {
+     "when": "seconds:100",
+     "do": "restart"
+    }
+   ]
+  },
+  {
+   "name": "r02",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r02",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "stopped"
+   },
+   "actions": [
+    {
+     "when": "seconds:50",
+     "do": "cancel"
+    }
+   ]
+  },
+  {
+   "name": "r03",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r03",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "stopped"
+   },
+   "actions": [
+    {
+     "when": "seconds:50",
+     "do": "cancel"
+    }
+   ]
+  },
+  {
+   "name": "r04",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r04",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r05",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r05",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r06",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r06",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r07",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r07",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r08",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r08",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r09",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r09",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r10",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r10",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r11",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r11",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r12",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r12",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r13",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r13",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "r14",
+   "group": "resilience",
+   "repo": {
+    "template": "node-lib",
+    "name": "res-r14",
+    "files": {
+     "test/catalogue-1.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 1', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-2.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 2', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-3.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 3', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n",
+     "test/catalogue-4.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\n// Catalogue integrity check: CPU-bound like a real project's slower suites.\nfunction sieve(n, rounds) { let c = 0; for (let r = 0; r < rounds; r++) { const s = new Uint8Array(n); for (let i = 2; i * i < n; i++) if (!s[i]) for (let j = i * i; j < n; j += i) s[j] = 1; for (let i = 2; i < n; i++) if (!s[i]) c++ } return c }\ntest('catalogue integrity 4', () => assert.equal(sieve(2e7, 40) % 1270607, 0))\n"
+    }
+   },
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js. It returns `total` reduced by `percent` (0-100), rounded to 2 decimals, and throws a RangeError when percent is outside 0-100. Add unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "stopped"
+   },
+   "actions": [
+    {
+     "when": "seconds:20",
+     "do": "cancel"
+    }
+   ]
+  }
+ ]
+}

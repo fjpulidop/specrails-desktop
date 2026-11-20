@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1816 source/build files. Nearby tests are linked where names
+Includes 1828 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1418,11 +1418,15 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [args.mjs](../../scripts/benchmark/lib/args.mjs)
 - [driver.mjs](../../scripts/benchmark/lib/driver.mjs)
 - [isolation.mjs](../../scripts/benchmark/lib/isolation.mjs)
+- [merge.mjs](../../scripts/benchmark/lib/merge.mjs)
+- [metrics.mjs](../../scripts/benchmark/lib/metrics.mjs)
+- [parallel-report.mjs](../../scripts/benchmark/lib/parallel-report.mjs)
 - [quota.mjs](../../scripts/benchmark/lib/quota.mjs)
 - [report.mjs](../../scripts/benchmark/lib/report.mjs)
 - [repos.mjs](../../scripts/benchmark/lib/repos.mjs)
 - [scenarios.mjs](../../scripts/benchmark/lib/scenarios.mjs)
 - [server.mjs](../../scripts/benchmark/lib/server.mjs)
+- [timings.mjs](../../scripts/benchmark/lib/timings.mjs)
 
 ## server / agent
 
@@ -1843,6 +1847,21 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [milestone-progress.ts](../../server/modules/builder/runtime/milestone-progress.ts) · [test](../../server/modules/builder/runtime/milestone-progress.test.ts)
 - [mission-placeholder.ts](../../server/modules/builder/runtime/mission-placeholder.ts) · [test](../../server/modules/builder/runtime/mission-placeholder.test.ts)
 
+## server/modules/capacity
+
+- [admission.ts](../../server/modules/capacity/admission.ts)
+- [domain.ts](../../server/modules/capacity/domain.ts)
+- [index.ts](../../server/modules/capacity/index.ts)
+
+## server/modules/capacity/adapters
+
+- [http.ts](../../server/modules/capacity/adapters/http.ts)
+
+## server/modules/capacity/runtime
+
+- [composition.ts](../../server/modules/capacity/runtime/composition.ts)
+- [machine.ts](../../server/modules/capacity/runtime/machine.ts)
+
 ## server/modules/code/runtime
 
 - [changes-reader.ts](../../server/modules/code/runtime/changes-reader.ts) · [test](../../server/modules/code/runtime/changes-reader.test.ts)
@@ -1917,6 +1936,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/delivery/domain
 
 - [decision-policy.ts](../../server/modules/delivery/domain/decision-policy.ts)
+- [launch-overlap.ts](../../server/modules/delivery/domain/launch-overlap.ts) · [test](../../server/modules/delivery/domain/launch-overlap.test.ts)
 - [merge-preview.ts](../../server/modules/delivery/domain/merge-preview.ts)
 - [retained-worktrees.ts](../../server/modules/delivery/domain/retained-worktrees.ts)
 - [review-wip.ts](../../server/modules/delivery/domain/review-wip.ts)
@@ -1940,6 +1960,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [isolated-worktree.ts](../../server/modules/delivery/runtime/isolated-worktree.ts) · [test](../../server/modules/delivery/runtime/isolated-worktree.test.ts)
+- [launch-overlap.ts](../../server/modules/delivery/runtime/launch-overlap.ts) · [test](../../server/modules/delivery/runtime/launch-overlap.test.ts)
 - [local-restore-branch.ts](../../server/modules/delivery/runtime/local-restore-branch.ts)
 - [local-restore-resolver.ts](../../server/modules/delivery/runtime/local-restore-resolver.ts)
 - [local-stash.ts](../../server/modules/delivery/runtime/local-stash.ts) · [test](../../server/modules/delivery/runtime/local-stash.test.ts)
