@@ -5,7 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { bigSpec } from '../lib/big-repos.mjs'
+import { bigSpec, slowSuite } from '../lib/big-repos.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const long = { timeoutMinutes: 660, answers: [{ recommended: true, once: false }], expect: { status: 'delivered' }, group: 'long' }
@@ -58,5 +58,18 @@ const multi = scenarios.find(s => s.name === 'long-multi')
 fs.writeFileSync(path.join(here, 'soak-multi.json'), JSON.stringify({ defaults: { provider: 'claude', model: 'haiku', timeoutMinutes: 660 }, scenarios: [{ ...multi, name: 'long-multi2',
   repos: [{ template: 'big-lib-a', name: 'long-multi2-core' }, { template: 'big-lib-b', name: 'long-multi2-ext' }],
   ticket: { ...multi.ticket, description: multi.ticket.description.replaceAll('long-multi-', 'long-multi2-') } }] }, null, 2) + '\n')
+// Second wave (a third harness, no chaos): a marathon (40 tasks, cross-cutting work, a
+// 10-minute suite) and a suite slower than Core's 15-minute verification timeout.
+fs.writeFileSync(path.join(here, 'soak-wave2.json'), JSON.stringify({ defaults: { provider: 'claude', model: 'haiku', timeoutMinutes: 660 }, scenarios: [
+  { ...long, name: 'marathon', notes: '40 tasks + cross-cutting changes in every file, 10-minute suite',
+    repo: { template: 'big-lib-xl', name: 'marathon', files: { 'test/integration/integration.test.js': slowSuite(40, 15) } },
+    ticket: { title: 'Forty features plus a library-wide input contract', description: bigSpec({ count: 40, extra: [
+      'Library-wide: every EXISTING exported function in `src/` validates its arguments and throws `TypeError` with the message `<module>.<function>: invalid <param>` for a wrong type; add one test per function in its unit test file.',
+      'Add `src/index.js` re-exporting every module as a namespace (`export * as money from \'./money.js\'` …) and a test that imports each namespace.',
+      'README.md: one `## <module>` section per module with a usage example of each new function.'] }) } },
+  { ...long, name: 'verify-timeout', notes: 'integration suite of ~16 minutes, beyond the 15-minute verification timeout', expect: { status: 'any' },
+    repo: { template: 'big-lib-a', name: 'verify-timeout', files: { 'test/integration/integration.test.js': slowSuite(32, 30) } },
+    ticket: { title: 'Three features on a very slow suite', description: bigSpec({ count: 3 }) } },
+] }, null, 2) + '\n')
 fs.writeFileSync(path.join(here, 'soak-night.json'), JSON.stringify({ defaults: { provider: 'claude', model: 'haiku', timeoutMinutes: 660 }, scenarios, chaos }, null, 2) + '\n')
 console.log(`soak-night.json: ${scenarios.length} scenario entries, ${chaos.length} chaos events`)
