@@ -6,6 +6,7 @@ import { Button } from '../ui/button'
 import { RunStateGlyph } from '../ui/run-state/run-state-glyph'
 import { cn } from '../../lib/utils'
 import { notifyError } from '../../lib/notify-error'
+import { RunQuestionOption } from './RunQuestionOption'
 import { announceRunQuestionAnswered, submitRunAnswer, type RunAnswer, type RunQuestion } from './run-question'
 
 export interface RunQuestionCardProps {
@@ -156,26 +157,17 @@ export function RunQuestionCard({ question, projectId, runId, runLabel, projectN
             const recommended = option.id === question.recommended
             return (
               <li key={option.id}>
-                <button
-                  type="button"
-                  ref={index === 0 ? (node) => { firstControl.current = node } : undefined}
-                  data-testid="run-question-option"
-                  data-option-id={option.id}
-                  data-recommended={recommended || undefined}
+                <RunQuestionOption
+                  buttonRef={index === 0 ? (node) => { firstControl.current = node } : undefined}
+                  optionId={option.id}
+                  recommended={recommended}
+                  recommendedLabel={t('runQuestion.recommended')}
                   disabled={!!sending}
                   onClick={() => void send({ type: 'option', optionId: option.id, label: labelOf(option) }, option.id)}
-                  className={cn(
-                    'flex w-full flex-col items-start gap-0.5 rounded-control border px-3 py-2 text-left transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
-                    recommended ? 'border-accent-primary/50 bg-accent-primary/5 hover:bg-accent-primary/10' : 'border-border/60 bg-background hover:bg-accent',
-                  )}
-                >
-                  <span className="flex w-full items-center gap-2">
-                    <span className="text-body font-medium text-foreground">{sending === option.id ? t('runQuestion.sending') : labelOf(option)}</span>
-                    {recommended && <span className="rounded-pill border border-accent-primary/40 px-1.5 text-caption text-accent-primary">{t('runQuestion.recommended')}</span>}
-                  </span>
-                  {meaningOf(option) && <span className="text-caption text-muted-foreground">{meaningOf(option)}</span>}
-                  {option.detail && <code className="mt-1 block w-full whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground">{option.detail}</code>}
-                </button>
+                  label={sending === option.id ? t('runQuestion.sending') : labelOf(option)}
+                  meaning={meaningOf(option)}
+                  detail={option.detail}
+                />
               </li>
             )
           })}

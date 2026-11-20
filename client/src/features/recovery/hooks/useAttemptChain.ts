@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { API_ORIGIN } from '../../../lib/origin'
 import { readAttemptChain, type AttemptChain } from '../lib/attempt-chain'
+import { readChainResolution, type ChainResolution } from '../lib/resolution'
 
 export interface RunContinuity {
   /** The chain the run belongs to; null for a run that nothing continued and that continued nothing. */
   chain: AttemptChain | null
   /** Continue applies: a settled or paused definition run that no later attempt took over. */
   continuable: boolean
+  /** The chain's spend up to this run and whether it keeps stopping for the same cause. */
+  resolution: ChainResolution | null
 }
 
-const NONE: RunContinuity = { chain: null, continuable: false }
+const NONE: RunContinuity = { chain: null, continuable: false, resolution: null }
 
 /**
  * A run's place in its attempt chain and whether it can be continued
@@ -23,8 +26,8 @@ export function useAttemptChain(projectId: string | null | undefined, runId: str
     if (!projectId || !runId) return
     let live = true
     void fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/loop-runs/${encodeURIComponent(runId)}/attempts`, { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() as Promise<{ chain?: unknown; continuable?: unknown }> : null))
-      .then((body) => { if (live) setState({ chain: readAttemptChain(body?.chain ?? null), continuable: body?.continuable === true }) })
+      .then((response) => (response.ok ? response.json() as Promise<{ chain?: unknown; continuable?: unknown; resolution?: unknown }> : null))
+      .then((body) => { if (live) setState({ chain: readAttemptChain(body?.chain ?? null), continuable: body?.continuable === true, resolution: readChainResolution(body?.resolution ?? null) }) })
       .catch(() => { /* no lineage line; the run still shows */ })
     return () => { live = false }
   }, [projectId, runId, refreshKey])

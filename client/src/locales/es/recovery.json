@@ -156,7 +156,9 @@
     "continuing": "Continuando la ejecución.",
     "continuingFrom": "Continuando desde el paso {{step}}.",
     "envFilesCopied": "Se copió {{files}} en la ejecución. Continuando.",
-    "envFilesUnavailable": "Este proyecto no tiene ningún archivo .env que copiar. Créalo en tu copia de trabajo y vuelve a intentarlo."
+    "envFilesUnavailable": "Este proyecto no tiene ningún archivo .env que copiar. Créalo en tu copia de trabajo y vuelve a intentarlo.",
+    "continuingWith": "Continuando con: {{label}}",
+    "continuingWithInstruction": "Continuando con tu instrucción."
   },
   "consequence": {
     "continue": "Conserva todo y sigue desde el paso que falló.",
@@ -197,5 +199,42 @@
     "guidance": "Guía enviada al agente",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimación según tarifa, no coste facturado"
+  },
+  "resolution": {
+    "title": "Elige cómo seguir",
+    "intro": "Cada opción dice qué hace y qué puede pasar. Con un clic la ejecución continúa.",
+    "recommended": "Recomendada",
+    "whatMayHappen": "Qué puede pasar:",
+    "risk": {
+      "low": "Riesgo bajo",
+      "medium": "Algo de riesgo",
+      "high": "Riesgo alto"
+    },
+    "other": "Otra instrucción…",
+    "otherLabel": "¿Qué debe hacer el agente?",
+    "otherPlaceholder": "Por ejemplo: lanza Electron sin el depurador en las pruebas de cierre y comprueba solo el código de salida",
+    "send": "Continuar con esta instrucción",
+    "sending": "Continuando…",
+    "keepTrying": {
+      "label": "Seguir intentándolo igual",
+      "does": "Sigue con el mismo enfoque y una nueva tanda de correcciones.",
+      "consequence": "Lo más probable es que vuelva a pararse igual; cada intento ha costado unos {{cost}} hasta ahora.",
+      "consequenceNoCost": "Lo más probable es que vuelva a pararse igual."
+    }
+  },
+  "repeat": {
+    "title_one": "Se ha parado igual {{count}} vez",
+    "title_other": "Se ha parado igual {{count}} veces seguidas",
+    "spend_one": "{{count}} intento, {{cost}} hasta ahora",
+    "spend_other": "{{count}} intentos, {{cost}} hasta ahora",
+    "attempts_one": "{{count}} intento hasta ahora",
+    "attempts_other": "{{count}} intentos hasta ahora",
+    "advice": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí. Elige una de las opciones de abajo.",
+    "adviceNoOptions": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí. El análisis con IA de abajo propone cómo seguir."
+  },
+  "flaky": {
+    "title_one": "Esta prueba parece inestable",
+    "title_other": "Estas pruebas parecen inestables",
+    "explain": "Pasaron en rondas anteriores o con el mismo código y ahora fallan por tiempos. Al continuar, se pide al agente que las haga deterministas, no que alargue los tiempos de espera."
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { act, renderHook, waitFor } from '../../../test-utils'
 import { toast } from 'sonner'
-import { useContinueRemedies } from '../hooks/useContinueRemedies'
+import { useContinueRemedies, useResolutionActions } from '../hooks/useContinueRemedies'
 import type { FailureDiagnosis } from '../lib/failure-diagnosis'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -40,5 +40,23 @@ describe('useContinueRemedies: copy-env-files', () => {
     const { result } = renderHook(() => useContinueRemedies('p', 'run', envBlocker, { enabled: true }))
     act(() => result.current['copy-env-files']!.run())
     await waitFor(() => expect(notify).toHaveBeenCalledWith('This project has no .env file to copy. Create it in your checkout, then try again.'))
+  })
+
+  it('picking a resolution posts its id (or the instruction) and says which choice the run continues with', async () => {
+    const onContinued = vi.fn()
+    const { result } = renderHook(() => useResolutionActions('p', 'run', { enabled: true, onContinued }))
+    act(() => result.current!.choose('deterministic-close', 'Make the close tests deterministic'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Continuing with: Make the close tests deterministic'))
+    expect(bodies).toEqual([{ remedy: 'continue', optionId: 'deterministic-close' }])
+    expect(onContinued).toHaveBeenCalledWith('child')
+    await waitFor(() => expect(result.current!.done).toBe(true))
+    // Spent: a second click sends nothing.
+    act(() => result.current!.instruct('again'))
+    expect(bodies).toHaveLength(1)
+    const own = renderHook(() => useResolutionActions('p', 'run-2', { enabled: true }))
+    act(() => own.result.current!.instruct('  Use a fake clock  '))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Continuing with your instruction.'))
+    expect(bodies[1]).toEqual({ remedy: 'continue', instruction: 'Use a fake clock' })
+    expect(renderHook(() => useResolutionActions('p', 'run', { enabled: false })).result.current).toBeNull()
   })
 })

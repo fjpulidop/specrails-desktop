@@ -156,7 +156,9 @@
     "continuing": "L'exécution continue.",
     "continuingFrom": "Reprise depuis l'étape {{step}}.",
     "envFilesCopied": "{{files}} copié dans l'exécution. On continue.",
-    "envFilesUnavailable": "Ce projet n'a aucun fichier .env à copier. Créez-le dans votre copie de travail, puis réessayez."
+    "envFilesUnavailable": "Ce projet n'a aucun fichier .env à copier. Créez-le dans votre copie de travail, puis réessayez.",
+    "continuingWith": "Reprise avec : {{label}}",
+    "continuingWithInstruction": "Reprise avec ton instruction."
   },
   "consequence": {
     "continue": "Garde tout et reprend à l'étape qui a échoué.",
@@ -197,5 +199,42 @@
     "guidance": "Consignes envoyées à l'agent",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimation selon le barème, pas un coût facturé"
+  },
+  "resolution": {
+    "title": "Choisis comment continuer",
+    "intro": "Chaque option dit ce qu'elle fait et ce qui peut arriver. Un clic relance l'exécution.",
+    "recommended": "Recommandée",
+    "whatMayHappen": "Ce qui peut arriver :",
+    "risk": {
+      "low": "Risque faible",
+      "medium": "Un peu de risque",
+      "high": "Risque élevé"
+    },
+    "other": "Autre instruction…",
+    "otherLabel": "Que doit faire l'agent ?",
+    "otherPlaceholder": "Par exemple : lancer Electron sans le débogueur dans les tests de fermeture et vérifier seulement le code de sortie",
+    "send": "Continuer avec cette instruction",
+    "sending": "Reprise…",
+    "keepTrying": {
+      "label": "Réessayer tel quel",
+      "does": "Continue avec la même approche et une nouvelle série de corrections.",
+      "consequence": "Elle s'arrêtera probablement de la même façon ; chaque tentative a coûté environ {{cost}} jusqu'ici.",
+      "consequenceNoCost": "Elle s'arrêtera probablement de la même façon."
+    }
+  },
+  "repeat": {
+    "title_one": "Arrêtée de la même façon {{count}} fois",
+    "title_other": "Arrêtée de la même façon {{count}} fois d'affilée",
+    "spend_one": "{{count}} tentative, {{cost}} jusqu'ici",
+    "spend_other": "{{count}} tentatives, {{cost}} jusqu'ici",
+    "attempts_one": "{{count}} tentative jusqu'ici",
+    "attempts_other": "{{count}} tentatives jusqu'ici",
+    "advice": "Continuer sans rien changer l'arrêtera probablement encore ici. Choisis une des pistes ci-dessous.",
+    "adviceNoOptions": "Continuer sans rien changer l'arrêtera probablement encore ici. L'analyse IA ci-dessous propose des pistes."
+  },
+  "flaky": {
+    "title_one": "Ce test semble instable",
+    "title_other": "Ces tests semblent instables",
+    "explain": "Ils passaient lors des tours précédents ou sur le même code et échouent maintenant sur des délais. En continuant, l'agent doit les rendre déterministes, pas allonger les délais."
   }
 }

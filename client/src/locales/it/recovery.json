@@ -156,7 +156,9 @@
     "continuing": "L'esecuzione prosegue.",
     "continuingFrom": "Si riprende dal passaggio {{step}}.",
     "envFilesCopied": "{{files}} copiato nell'esecuzione. Si continua.",
-    "envFilesUnavailable": "Questo progetto non ha un file .env da copiare. Crealo nella tua copia di lavoro e riprova."
+    "envFilesUnavailable": "Questo progetto non ha un file .env da copiare. Crealo nella tua copia di lavoro e riprova.",
+    "continuingWith": "Ripresa con: {{label}}",
+    "continuingWithInstruction": "Ripresa con la tua istruzione."
   },
   "consequence": {
     "continue": "Mantiene tutto e riparte dal passaggio fallito.",
@@ -197,5 +199,42 @@
     "guidance": "Istruzioni inviate all'agente",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Stima dal listino, non costo fatturato"
+  },
+  "resolution": {
+    "title": "Scegli come proseguire",
+    "intro": "Ogni opzione dice cosa fa e cosa può succedere. Un clic fa proseguire l'esecuzione.",
+    "recommended": "Consigliata",
+    "whatMayHappen": "Cosa può succedere:",
+    "risk": {
+      "low": "Rischio basso",
+      "medium": "Qualche rischio",
+      "high": "Rischio alto"
+    },
+    "other": "Altra istruzione…",
+    "otherLabel": "Cosa deve fare l'agente?",
+    "otherPlaceholder": "Per esempio: avvia Electron senza il debugger nei test di chiusura e verifica solo il codice di uscita",
+    "send": "Prosegui con questa istruzione",
+    "sending": "Ripresa…",
+    "keepTrying": {
+      "label": "Riprova così com’è",
+      "does": "Prosegue con lo stesso approccio e un nuovo giro di correzioni.",
+      "consequence": "Probabilmente si fermerà di nuovo allo stesso modo; finora ogni tentativo è costato circa {{cost}}.",
+      "consequenceNoCost": "Probabilmente si fermerà di nuovo allo stesso modo."
+    }
+  },
+  "repeat": {
+    "title_one": "Fermata allo stesso modo {{count}} volta",
+    "title_other": "Fermata allo stesso modo {{count}} volte di fila",
+    "spend_one": "{{count}} tentativo, finora {{cost}}",
+    "spend_other": "{{count}} tentativi, finora {{cost}}",
+    "attempts_one": "{{count}} tentativo finora",
+    "attempts_other": "{{count}} tentativi finora",
+    "advice": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui. Scegli una delle strade qui sotto.",
+    "adviceNoOptions": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui. L'analisi IA qui sotto propone come proseguire."
+  },
+  "flaky": {
+    "title_one": "Questo test sembra instabile",
+    "title_other": "Questi test sembrano instabili",
+    "explain": "Passavano nei giri precedenti o con lo stesso codice e ora falliscono per i tempi. Proseguendo si chiede all'agente di renderli deterministici, non di allungare i timeout."
   }
 }

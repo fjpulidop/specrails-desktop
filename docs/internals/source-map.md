@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1816 source/build files. Nearby tests are linked where names
+Includes 1820 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -78,6 +78,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/components/run-question
 
 - [RunQuestionCard.tsx](../../client/src/components/run-question/RunQuestionCard.tsx) · [test](../../client/src/components/run-question/__tests__/RunQuestionCard.test.tsx)
+- [RunQuestionOption.tsx](../../client/src/components/run-question/RunQuestionOption.tsx)
 - [run-question.ts](../../client/src/components/run-question/run-question.ts)
 
 ## client/src/components/ui
@@ -986,6 +987,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [EnvironmentPlanOffer.tsx](../../client/src/features/recovery/components/EnvironmentPlanOffer.tsx)
 - [FailureAnalysisPanel.tsx](../../client/src/features/recovery/components/FailureAnalysisPanel.tsx)
 - [FailureDiagnosisCard.tsx](../../client/src/features/recovery/components/FailureDiagnosisCard.tsx)
+- [ResolutionOptions.tsx](../../client/src/features/recovery/components/ResolutionOptions.tsx)
 - [RunLineage.tsx](../../client/src/features/recovery/components/RunLineage.tsx)
 - [StoppedRunCard.tsx](../../client/src/features/recovery/components/StoppedRunCard.tsx)
 
@@ -1000,6 +1002,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [attempt-chain.ts](../../client/src/features/recovery/lib/attempt-chain.ts)
 - [failure-diagnosis.ts](../../client/src/features/recovery/lib/failure-diagnosis.ts)
+- [resolution.ts](../../client/src/features/recovery/lib/resolution.ts)
 
 ## client/src/features/settings/components
 
@@ -2303,6 +2306,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [continuation.ts](../../server/modules/recovery/continuation.ts) · [test](../../server/modules/recovery/__tests__/continuation.test.ts)
 - [domain.ts](../../server/modules/recovery/domain.ts)
 - [index.ts](../../server/modules/recovery/index.ts)
+- [verification-tests.ts](../../server/modules/recovery/verification-tests.ts) · [test](../../server/modules/recovery/__tests__/verification-tests.test.ts)
 
 ## server/modules/recovery/adapters
 

@@ -9,6 +9,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
+- [components/ResolutionOptions.tsx](components/ResolutionOptions.tsx)
 - [components/RunLineage.tsx](components/RunLineage.tsx)
 - [components/StoppedRunCard.tsx](components/StoppedRunCard.tsx)
 - [hooks/useAttemptChain.ts](hooks/useAttemptChain.ts)
@@ -16,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useFailureAnalysis.ts](hooks/useFailureAnalysis.ts)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
+- [lib/resolution.ts](lib/resolution.ts)
 
 ## Feature dependencies
 
@@ -70,6 +72,18 @@ and the server-ranked `remedies`.
   steps and the provider/model that wrote it. `useFailureAnalysis` reads the saved one and, when
   none exists, asks for it once; it is not automatic for `provider_limit`, whose call would hit
   the same limit. See the [API reference](../../../../docs/internals/api-reference.md#failure-analysis).
+- **Pick a resolution.** When the AI analysis has `options` (prompt v4), the panel replaces the
+  numbered plan with [ResolutionOptions](components/ResolutionOptions.tsx): each option as a run
+  question choice (`RunQuestionOption`, shared with `RunQuestionCard`): label, what it does, *What may
+  happen*, risk and the recommended badge, plus *Other instruction…*. One click continues the run
+  (`useResolutionActions`: `{ optionId }` or `{ instruction }` to `POST /loop-runs/:id/remedy`, toast
+  *Continuing with: <label>*); `edit-spec`, `change-model` and `start-over` run the surface's own
+  action. [lib/resolution.ts](lib/resolution.ts) keeps one button per action: without a repeat the
+  card's Continue is "keep going" and a plain-continue option is left out; when the chain keeps stopping
+  for the same cause (`useAttemptChain().resolution.repeated`) Continue never leads, steps aside once
+  options exist, *Keep trying as is* goes last (with the spend per attempt) and the card says how many
+  times and what the attempts cost. Older analyses keep their plan; one saved before options existed is
+  asked again once. Flaky tests (`diagnosis.flakyTests`) are listed on the card.
 - **Runs without a card.** Delivery cards read the diagnosis of their last run
   (`useRunDiagnosis` → `GET /loop-runs/:id`); the old failure block stays under *Technical details*.
 - **Accessibility and design.** The card is a labelled `region` whose headline is a `status`;

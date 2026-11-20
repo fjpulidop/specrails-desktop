@@ -6,6 +6,9 @@ import { RailTrack } from '../../../components/brand/RailTrack'
 import { cn } from '../../../lib/utils'
 import { stepAction, useFailureAnalysis, type AnalysisAction, type AnalysisActionKind, type AnalysisCategory, type FailureAnalysisController } from '../hooks/useFailureAnalysis'
 import type { RemedyHandler } from '../lib/failure-diagnosis'
+import type { ResolutionOption } from '../lib/resolution'
+import type { ResolutionActions } from '../hooks/useContinueRemedies'
+import { ResolutionOptions, type ClientResolutionHandlers } from './ResolutionOptions'
 
 export interface FailureAnalysisPanelProps {
   projectId?: string
@@ -22,6 +25,9 @@ export interface FailureAnalysisPanelProps {
   actions?: Partial<Record<AnalysisActionKind, RemedyHandler>>
   /** The card above offers Continue, which hands these steps to the agent: say so under the plan. */
   continueCarriesPlan?: boolean
+  /** The analysis' resolution options as this surface shows them (already filtered: see `visibleOptions`).
+   *  When there are any, they replace the numbered plan; older analyses keep their plan. */
+  resolution?: { options: readonly ResolutionOption[]; actions: ResolutionActions | null; handlers?: ClientResolutionHandlers }
 }
 
 const normalise = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -46,7 +52,7 @@ export function repeatsKnown(headline: string, known: ReadonlyArray<string | nul
  * the log lines it rests on (verbatim, checked by the server) stay one click
  * away. Shown beside the app's own diagnosis, labelled as an AI analysis.
  */
-export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller, actions = {}, continueCarriesPlan = false }: FailureAnalysisPanelProps) {
+export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller, actions = {}, continueCarriesPlan = false, resolution }: FailureAnalysisPanelProps) {
   const { t, i18n } = useTranslation('recovery')
   const own = useFailureAnalysis(projectId, jobId, i18n.language, { auto, enabled: !controller })
   const { state, run } = controller ?? own
@@ -105,7 +111,10 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
           <p className="text-body text-foreground" data-testid="failure-analysis-cause">{analysis.cause}</p>
         </div>
       </div>
-      {analysis.nextSteps.length > 0 && (
+      {resolution && (resolution.options.length > 0 || !!resolution.actions) && (
+        <ResolutionOptions className="pl-6.5" options={resolution.options} actions={resolution.actions} handlers={resolution.handlers} />
+      )}
+      {!resolution && analysis.nextSteps.length > 0 && (
         <div className="pl-6.5">
           <p className="mb-1 text-label text-foreground">{t('analysis.nextSteps')}</p>
           <ol className="list-decimal space-y-0.5 pl-5 text-body text-foreground">

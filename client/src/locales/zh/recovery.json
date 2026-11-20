@@ -156,7 +156,9 @@
     "continuing": "正在继续运行。",
     "continuingFrom": "正在从{{step}}步骤继续。",
     "envFilesCopied": "已将 {{files}} 复制到运行中。继续。",
-    "envFilesUnavailable": "此项目没有可复制的 .env 文件。请在你的工作副本中创建它，然后重试。"
+    "envFilesUnavailable": "此项目没有可复制的 .env 文件。请在你的工作副本中创建它，然后重试。",
+    "continuingWith": "正在按此继续：{{label}}",
+    "continuingWithInstruction": "正在按你的指令继续。"
   },
   "consequence": {
     "continue": "保留全部内容，从失败的步骤继续。",
@@ -197,5 +199,42 @@
     "guidance": "发送给代理的指引",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "按价目表估算，并非实际计费"
+  },
+  "resolution": {
+    "title": "选择如何继续",
+    "intro": "每个选项都说明它做什么以及可能发生什么。点一下，运行就会继续。",
+    "recommended": "推荐",
+    "whatMayHappen": "可能发生：",
+    "risk": {
+      "low": "低风险",
+      "medium": "有一定风险",
+      "high": "高风险"
+    },
+    "other": "其他指令…",
+    "otherLabel": "要让代理做什么？",
+    "otherPlaceholder": "例如：在关闭测试中不带调试器启动 Electron，只断言退出码",
+    "send": "按此指令继续",
+    "sending": "正在继续…",
+    "keepTrying": {
+      "label": "照原样继续尝试",
+      "does": "用同样的做法和新一轮修正继续。",
+      "consequence": "很可能会以同样的方式再次停下；到目前为止每次尝试约花费 {{cost}}。",
+      "consequenceNoCost": "很可能会以同样的方式再次停下。"
+    }
+  },
+  "repeat": {
+    "title_one": "以同样的方式停下 {{count}} 次",
+    "title_other": "连续 {{count}} 次以同样的方式停下",
+    "spend_one": "{{count}} 次尝试，目前花费 {{cost}}",
+    "spend_other": "{{count}} 次尝试，目前花费 {{cost}}",
+    "attempts_one": "目前 {{count}} 次尝试",
+    "attempts_other": "目前 {{count}} 次尝试",
+    "advice": "不做改变就继续，很可能还会停在这里。请从下面选择一种继续方式。",
+    "adviceNoOptions": "不做改变就继续，很可能还会停在这里。下面的 AI 分析会给出继续的方式。"
+  },
+  "flaky": {
+    "title_one": "这个测试似乎不稳定",
+    "title_other": "这些测试似乎不稳定",
+    "explain": "它们在之前的轮次或相同代码上通过过，现在因时序问题失败。继续时会要求代理让它们变得确定，而不是延长超时。"
   }
 }

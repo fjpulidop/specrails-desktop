@@ -6,7 +6,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useContinueRemedies } from '../../../recovery/hooks/useContinueRemedies'
+import { useContinueRemedies, useResolutionActions } from '../../../recovery/hooks/useContinueRemedies'
+import type { RunResolution } from './RunDetailTabs'
 import { useAttemptChain } from '../../../recovery/hooks/useAttemptChain'
 import { RunLineage } from '../../../recovery/components/RunLineage'
 import { StoppedRunCard } from '../../../recovery/components/StoppedRunCard'
@@ -49,6 +50,8 @@ export interface JobRunDetailsContext {
   diagnosisTail: readonly string[]
   /** A run the person stopped: how to continue it (Continue / Start over). Null otherwise. */
   continuityContent: ReactNode
+  /** The chain behind a failed run and how a picked resolution continues it. */
+  resolution: RunResolution
   hasDetails: boolean
   /** Recorded figures and runtime notes, opened from the Details button. */
   detailsContent: ReactNode
@@ -211,7 +214,12 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const definitionRunId = run?.engineVersion === 2 && !run.forkSuccessor ? run.runId : continuity.continuable ? job.id : null
   const stopped = isTerminal && job.status === 'canceled' && !diagnosis
   const continueRemedies = useContinueRemedies(projectId, definitionRunId, diagnosis, { enabled: isTerminal && (stopped || showDiagnosis), onContinued: onOpenRun })
+  // One click on a resolution option (or the person's own instruction) continues a settled definition run.
+  const resolutionActions = useResolutionActions(projectId, definitionRunId, { enabled: isTerminal && showDiagnosis, onContinued: onOpenRun })
+  const resolution: RunResolution = { chain: continuity.resolution, actions: resolutionActions }
   const diagnosisHandlers: RemedyHandlers = { ...continueRemedies }
+  // A picked resolution continues the run too: Continue waits for it, never a second continuation.
+  if (diagnosisHandlers.continue && (resolutionActions?.busy || resolutionActions?.done)) diagnosisHandlers.continue = { ...diagnosisHandlers.continue, disabled: true }
   // A run this surface can only resume in place (no definition run) still continues that way.
   if (!diagnosisHandlers.continue && run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
     diagnosisHandlers.continue = { run: () => void runtime.act(run, run.pendingApproval ? 'approve' : 'resume'), busy }
@@ -390,7 +398,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
     </div>}
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: false, diagnosisHandlers, diagnosisTail, continuityContent, hasDetails, detailsContent, questionContent: null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: false, diagnosisHandlers, diagnosisTail, continuityContent, resolution, hasDetails, detailsContent, questionContent: null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }
