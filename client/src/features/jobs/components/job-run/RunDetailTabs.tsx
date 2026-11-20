@@ -72,7 +72,9 @@ function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller, hand
       auto={diagnosis.kind !== 'provider_limit'}
       known={[shown, recorded?.reason, diagnosis.detail, diagnosis.blocker?.reason]}
       controller={controller}
-      actions={{ continue: handlers.continue, 'continue-to-review': handlers['continue-to-review'], 'edit-spec': handlers['edit-spec'],
+      // Continue lives once, as the card's primary button above; the analysis never repeats it.
+      continueCarriesPlan={!!handlers.continue}
+      actions={{ 'edit-spec': handlers['edit-spec'],
         // A role's model is chosen in the project's agent settings.
         'change-model': { run: () => openProjectSettings('agentRuntime') } }}
     />

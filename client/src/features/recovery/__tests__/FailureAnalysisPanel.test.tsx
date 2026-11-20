@@ -25,6 +25,14 @@ describe('FailureAnalysisPanel', () => {
     expect(screen.getByText('Read the README')).toBeInTheDocument()
   })
 
+  it('reads the steps as one plan that Continue carries out, never as options to pick', () => {
+    const state = { ...ready, analysis: { ...ready.analysis, category: 'blocked', nextSteps: ['Keep the draft on a failed save', 'Extend the test', 'Resume from verification'] } }
+    render(<FailureAnalysisPanel jobId="j1" auto={false} controller={{ state, run: vi.fn() } as never} continueCarriesPlan />)
+    expect(screen.getByText('The plan to fix it')).toBeInTheDocument()
+    expect(screen.getByTestId('failure-analysis-continue-plan')).toHaveTextContent("You don't need to pick one: Continue (above)")
+    // No second Continue inside the analysis: the card's primary button is the only one.
+    expect(screen.queryByTestId('failure-analysis-action-continue')).not.toBeInTheDocument()
+  })
   it('asks for an analysis when none is saved and shows it as an AI reading', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => init?.method === 'POST' ? reply(ready) : reply({ status: 'none' }))
     render(<FailureAnalysisPanel projectId="p1" jobId="j1" auto />)
@@ -93,6 +101,6 @@ describe('FailureAnalysisPanel leads with the cause', () => {
     resolve(new Response(JSON.stringify(same)))
     expect(await screen.findByTestId('failure-analysis-cause')).toHaveTextContent('The architect never created the change.')
     expect(screen.queryByTestId('failure-analysis-headline')).not.toBeInTheDocument()
-    expect(screen.getByText('What to do')).toBeInTheDocument()
+    expect(screen.getByText('The plan to fix it')).toBeInTheDocument()
   })
 })

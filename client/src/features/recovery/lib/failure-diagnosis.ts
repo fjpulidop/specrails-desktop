@@ -151,9 +151,15 @@ export function offersStartOver(diagnosis: FailureDiagnosis, handlers: RemedyHan
   return diagnosis.remedies.includes('retry') && !!handlers.retry
 }
 
+/** The automatic correction budget ran out while the reviewer still asked for a change. */
+export function correctionsExhausted(diagnosis: Pick<FailureDiagnosis, 'kind' | 'phase'> | null | undefined): boolean {
+  return diagnosis?.kind === 'blocked' && diagnosis.phase === 'correction-exhausted'
+}
+
 /** The one-line consequence key under each remedy (recovery namespace). */
-export function consequenceKey(id: RemedyId, diagnosis: Pick<FailureDiagnosis, 'kind'> | null): string {
+export function consequenceKey(id: RemedyId, diagnosis: Pick<FailureDiagnosis, 'kind'> & Partial<Pick<FailureDiagnosis, 'phase'>> | null): string {
   if (id === 'continue') {
+    if (correctionsExhausted(diagnosis as Pick<FailureDiagnosis, 'kind' | 'phase'> | null)) return 'consequence.continueCorrections'
     switch (diagnosis?.kind) {
       case 'incomplete_tasks': return 'consequence.continueTasks'
       case 'environment': return 'consequence.continueEnvironment'
@@ -179,7 +185,7 @@ export function headlineKey(diagnosis: FailureDiagnosis, phaseLabel: string | nu
     case 'tool_inactivity':
     case 'crash':
     case 'provider_unavailable':
-    case 'blocked': return { key: `headline.${diagnosis.kind}.${phaseLabel ? 'phase' : 'plain'}`, params }
+    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'headline.blocked.corrections', params } : { key: `headline.${diagnosis.kind}.${phaseLabel ? 'phase' : 'plain'}`, params }
     // The role names who skipped the steps (`plan`); the phase id is only the node it ran in.
     case 'workflow_protocol': return diagnosis.role ? { key: 'headline.workflow_protocol.role', params: { ...params, role: diagnosis.role } } : { key: 'headline.workflow_protocol.plain', params }
     case 'port_in_use': return diagnosis.port ? { key: 'headline.port_in_use.port', params: { ...params, port: diagnosis.port } } : { key: 'headline.port_in_use.plain', params }
@@ -196,7 +202,7 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'environment': return { key: 'why.environment', params: {} }
     case 'port_in_use': return { key: 'why.port_in_use', params: {} }
     case 'tests_failed': return { key: 'why.tests_failed', params: {} }
-    case 'blocked': return { key: 'why.blocked', params: {} }
+    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'why.correctionsExhausted', params: {} } : { key: 'why.blocked', params: {} }
     case 'timeout': return { key: 'why.timeout', params: {} }
     case 'tool_inactivity': return { key: 'why.tool_inactivity', params: {} }
     case 'crash': return { key: 'why.crash', params: {} }

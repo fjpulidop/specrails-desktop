@@ -35,6 +35,11 @@ describe('availableRemedies', () => {
     expect(offersStartOver(base, { continue: handler() })).toBe(false)
     expect(consequenceKey('continue', { kind: 'incomplete_tasks' })).toBe('consequence.continueTasks')
     expect(consequenceKey('continue', null)).toBe('consequence.continueStopped')
+    // Corrections ran out: Continue gives the fixer a fresh budget, and the card says so in plain words.
+    const spent = { kind: 'blocked', confidence: 'high', phase: 'correction-exhausted', rounds: 3, resetAt: null, detail: 'Automatic corrections ran out.', resumablePhase: null, blocker: null, source: 'core' } as Parameters<typeof headlineKey>[0]
+    expect(consequenceKey('continue', spent)).toBe('consequence.continueCorrections')
+    expect(headlineKey(spent, 'Correction exhausted').key).toBe('headline.blocked.corrections')
+    expect(whyKey(spent)?.key).toBe('why.correctionsExhausted')
     expect(consequenceKey('edit-spec', base)).toBe('consequence.editSpec')
   })
   it('skips remedies the surface has no action for', () => {

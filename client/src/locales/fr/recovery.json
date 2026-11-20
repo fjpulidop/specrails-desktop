@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "L'exécution est bloquée en phase {{phase}}",
-      "plain": "L'exécution est bloquée"
+      "plain": "L'exécution est bloquée",
+      "corrections": "Les corrections automatiques sont épuisées"
     },
     "timeout": {
       "phase": "La phase {{phase}} a manqué de temps",
@@ -63,7 +64,8 @@
       "plain": "Il a terminé son tour sans les étapes que Specrails exige, même après un rappel. Le travail avant cette étape est conservé : continuez à partir d'elle.",
       "stronger": "{{model}} est un petit modèle et a terminé son tour sans les étapes que Specrails exige, même après un rappel. Continuez depuis cette étape ; si cela se reproduit, choisissez {{stronger}} pour ce rôle."
     },
-    "unknown": "Les enregistrements de l'exécution ne donnent pas la cause. Une lecture du journal par l'IA la trouve généralement."
+    "unknown": "Les enregistrements de l'exécution ne donnent pas la cause. Une lecture du journal par l'IA la trouve généralement.",
+    "correctionsExhausted": "Le relecteur demande encore un changement après {{count}} corrections automatiques. Rien n'a planté : l'exécution s'est arrêtée avant de dépenser davantage."
   },
   "remedies": {
     "label": "Pour reprendre",
@@ -110,7 +112,7 @@
     "failed": "L’analyse n’a pas pu s’exécuter : {{detail}}",
     "noDetail": "aucun détail",
     "evidence": "Extrait du journal",
-    "nextSteps": "Que faire",
+    "nextSteps": "Le plan pour le résoudre",
     "failedStep": "étape : {{step}}",
     "by": "Analyse IA par {{model}}. Elle lit le journal ; vérifie les lignes citées.",
     "stale": "Le journal a changé depuis cette analyse.",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "Changer de modèle",
       "changeModelFor": "Changer le modèle de {{role}}"
-    }
+    },
+    "continueCarriesPlan": "Inutile d'en choisir un : Continuer (ci-dessus) transmet ces étapes à l'agent et les exécute."
   },
   "facts": {
     "label": "Où l'échec s'est produit",
@@ -168,7 +171,8 @@
     "openLogs": "Fait défiler le journal jusqu'à l'étape en échec.",
     "retry": "Une nouvelle exécution depuis la base. Le travail de cette tentative n'est pas repris ; il reste dans l'ancien worktree.",
     "analyze": "L'IA lit le journal et explique pourquoi elle s'est arrêtée.",
-    "copyEnvFiles": "Active le réglage pour ce projet et continue. Les agents de ses exécutions peuvent lire ces fichiers ; ils ne sont jamais commités ni affichés dans les revues."
+    "copyEnvFiles": "Active le réglage pour ce projet et continue. Les agents de ses exécutions peuvent lire ces fichiers ; ils ne sont jamais commités ni affichés dans les revues.",
+    "continueCorrections": "Donne au correcteur 3 nouvelles corrections avec ce que demande le relecteur, puis relit."
   },
   "stopped": {
     "headline": "Vous avez arrêté cette exécution",

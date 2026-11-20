@@ -20,6 +20,8 @@ export interface FailureAnalysisPanelProps {
   controller?: FailureAnalysisController
   /** What this surface can really run; a next step that names one becomes its button, anything else stays advice. */
   actions?: Partial<Record<AnalysisActionKind, RemedyHandler>>
+  /** The card above offers Continue, which hands these steps to the agent: say so under the plan. */
+  continueCarriesPlan?: boolean
 }
 
 const normalise = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -44,7 +46,7 @@ export function repeatsKnown(headline: string, known: ReadonlyArray<string | nul
  * the log lines it rests on (verbatim, checked by the server) stay one click
  * away. Shown beside the app's own diagnosis, labelled as an AI analysis.
  */
-export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller, actions = {} }: FailureAnalysisPanelProps) {
+export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], controller, actions = {}, continueCarriesPlan = false }: FailureAnalysisPanelProps) {
   const { t, i18n } = useTranslation('recovery')
   const own = useFailureAnalysis(projectId, jobId, i18n.language, { auto, enabled: !controller })
   const { state, run } = controller ?? own
@@ -123,6 +125,7 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
               )
             })}
           </ol>
+          {continueCarriesPlan && <p className="mt-1.5 text-caption text-muted-foreground" data-testid="failure-analysis-continue-plan">{t('analysis.continueCarriesPlan')}</p>}
         </div>
       )}
       {analysis.evidence.length > 0 && (

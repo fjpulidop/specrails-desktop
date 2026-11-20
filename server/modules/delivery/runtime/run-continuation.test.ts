@@ -57,6 +57,15 @@ describe('Continue: how a run goes on', () => {
     expect(planContinuation(db, 'run', 'continue', probe([], { status: 'paused', resumable: true }), diagnosis({ kind: 'provider_limit', resumablePhase: 'reviewer' }))).toEqual({ mode: 'resume', fromStep: 'reviewer' })
   })
 
+  it('gives the fixer a fresh correction budget when the corrections ran out (never restarts the developer with a spent budget)', () => {
+    frozen.value = { row: { status: 'completed' }, metadata: { definition: { nodes: { developer: {}, reviewer: {}, fixer: {}, 'correction-budget': {}, 'correction-exhausted': { kind: 'end' } } } } }
+    const scopes = [scope('developer', 'succeeded', 1), scope('reviewer', 'succeeded', 4), scope('correction-budget', 'succeeded', 4), scope('correction-exhausted', 'succeeded', 1)]
+    for (const d of [diagnosis({ kind: 'blocked', phase: 'correction-exhausted', detail: 'Automatic corrections ran out. The reviewer still asks for: …' }), diagnosis({ kind: 'blocked', detail: 'Automatic correction limit reached (3/3).' })]) {
+      const plan = planContinuation(db, 'run', 'continue', probe(scopes, { status: 'failed' }), d)
+      expect(plan).toMatchObject({ mode: 'fork', fromStep: 'correction-budget', request: { fromNodePath: 'correction-budget', visit: 4, state: { $vars: { correctionAttempts: 0 } } } })
+    }
+  })
+
   it('restarts the developer with fresh budgets after a stall', () => {
     const plan = planContinuation(db, 'run', 'continue', probe([scope('developer', 'succeeded', 3), scope('fixer', 'failed')], { status: 'failed' }), diagnosis({ kind: 'blocked', detail: 'Implementation attempt limit reached (3/3)' }))
     expect(plan).toMatchObject({ mode: 'fork', fromStep: 'developer', request: { fromNodePath: 'developer', visit: 3, state: { $vars: { implementationAttempts: 0, unblockAttempts: 0, lastImplementationHash: '' } } } })

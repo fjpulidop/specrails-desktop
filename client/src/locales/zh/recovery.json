@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "运行在{{phase}}阶段被阻塞",
-      "plain": "运行被阻塞"
+      "plain": "运行被阻塞",
+      "corrections": "自动修正次数已用完"
     },
     "timeout": {
       "phase": "{{phase}}阶段超时",
@@ -63,7 +64,8 @@
       "plain": "即使收到提醒，它仍在未执行 Specrails 要求的步骤时结束了回合。该步骤之前的工作已保留：从该步骤继续。",
       "stronger": "{{model}} 是小型模型，即使收到提醒，仍在未执行 Specrails 要求的步骤时结束了回合。从该步骤继续；如果再次发生，请为此角色选择 {{stronger}}。"
     },
-    "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。"
+    "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。",
+    "correctionsExhausted": "经过 {{count}} 次自动修正后，审阅者仍要求修改。没有崩溃：运行在继续消耗之前停了下来。"
   },
   "remedies": {
     "label": "恢复方式",
@@ -110,7 +112,7 @@
     "failed": "无法完成分析：{{detail}}",
     "noDetail": "无详细信息",
     "evidence": "日志摘录",
-    "nextSteps": "下一步",
+    "nextSteps": "解决计划",
     "failedStep": "步骤：{{step}}",
     "by": "由 {{model}} 完成的 AI 分析。它基于日志，请核对引用的行。",
     "stale": "此分析之后日志已变化。",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "更换模型",
       "changeModelFor": "更换{{role}}的模型"
-    }
+    },
+    "continueCarriesPlan": "无需选择其中一项：上方的“继续”会把这些步骤交给智能体并执行。"
   },
   "facts": {
     "label": "失败位置",
@@ -168,7 +171,8 @@
     "openLogs": "滚动到日志中失败的步骤。",
     "retry": "从基线重新运行。此次尝试的工作不会带过去，仍保留在旧的 worktree 中。",
     "analyze": "AI 阅读日志并说明停止原因。",
-    "copyEnvFiles": "为此项目打开该设置并继续。其运行中的智能体可以读取这些文件；它们绝不会被提交，也不会在评审中显示。"
+    "copyEnvFiles": "为此项目打开该设置并继续。其运行中的智能体可以读取这些文件；它们绝不会被提交，也不会在评审中显示。",
+    "continueCorrections": "为修正者再提供 3 次修正机会并附上审阅者的要求，然后重新审阅。"
   },
   "stopped": {
     "headline": "你停止了此次运行",

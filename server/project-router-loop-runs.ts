@@ -38,7 +38,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
-import { readRunDiagnosis } from './modules/recovery/adapters/sqlite'
+import { readFailureAnalysis, readRunDiagnosis } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
@@ -539,7 +539,9 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
     // Checks handed to a person need no guidance; Continue carries the cause's.
-    const guidance = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null }) : null
+    const cause = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null }) : null
+    // The person reads the AI analysis' steps as what Continue does: hand them to the agent too.
+    const guidance = remedy === 'continue' ? withAnalysisSteps(cause, analysisStepsOf(c.db, runId)) : cause
     let guided: boolean | undefined
     if (guidance) {
       try {
@@ -677,4 +679,19 @@ export function staleLeaseWaitMs(lease: { active: boolean; expiresAt?: number | 
   if (runningHere || !lease?.active || typeof lease.expiresAt !== 'number') return 0
   const remaining = lease.expiresAt - nowMs + 250
   return remaining > 0 && remaining <= STALE_LEASE_MAX_WAIT_MS ? remaining : 0
+}
+
+/** The stored AI analysis' next steps for this run, as plain lines (empty when there is none). */
+function analysisStepsOf(db: ProjectContext['db'], runId: string): string[] {
+  try {
+    const steps = readFailureAnalysis(db, runId)?.analysis.nextSteps
+    return Array.isArray(steps) ? steps.filter((step): step is string => typeof step === 'string' && !!step.trim()).slice(0, 8) : []
+  } catch { return [] }
+}
+
+/** Continue's guidance plus the analysis' steps, which the person sees as the plan Continue carries out. */
+export function withAnalysisSteps(guidance: string | null, steps: readonly string[]): string | null {
+  if (steps.length === 0) return guidance
+  const plan = ['The person continued this run after reading this analysis of the failure. Carry out these steps (verify each against the code; the reviewer\'s findings stay authoritative):', ...steps.map((step, index) => `${index + 1}. ${step.slice(0, 600)}`)].join('\n')
+  return guidance ? `${guidance}\n\n${plan}` : plan
 }

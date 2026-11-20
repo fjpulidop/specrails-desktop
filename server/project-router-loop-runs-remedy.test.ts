@@ -177,3 +177,17 @@ describe('"Copy this project\'s .env into runs" remedy', () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }) }
   })
 })
+
+describe('Continue carries the AI analysis plan', () => {
+  it('appends the analysis steps to the cause guidance, numbered and bounded', async () => {
+    const { withAnalysisSteps } = await import('./project-router-loop-runs')
+    expect(withAnalysisSteps('Cause line', [])).toBe('Cause line')
+    expect(withAnalysisSteps(null, [])).toBeNull()
+    const text = withAnalysisSteps('Cause line', ['Keep the draft on a failed save', 'Extend the test'])!
+    expect(text.startsWith('Cause line\n\n')).toBe(true)
+    expect(text).toContain('1. Keep the draft on a failed save')
+    expect(text).toContain('2. Extend the test')
+    expect(withAnalysisSteps(null, ['x'.repeat(2000)])!.length).toBeLessThan(900)
+  })
+})
+

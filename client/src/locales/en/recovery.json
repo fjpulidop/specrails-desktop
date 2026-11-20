@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "The run is blocked in the {{phase}} phase",
-      "plain": "The run is blocked"
+      "plain": "The run is blocked",
+      "corrections": "Automatic corrections ran out"
     },
     "timeout": {
       "phase": "The {{phase}} phase ran out of time",
@@ -63,7 +64,8 @@
       "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: continue from it.",
       "stronger": "{{model}} is a small model and ended its turn without the steps Specrails requires, even after a reminder. Continue from that step; if it happens again, choose {{stronger}} for this role."
     },
-    "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it."
+    "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it.",
+    "correctionsExhausted": "The reviewer still asks for a change after {{count}} automatic corrections. Nothing crashed: the run stopped to ask before spending more."
   },
   "remedies": {
     "label": "Ways to recover",
@@ -110,7 +112,7 @@
     "failed": "The analysis could not run: {{detail}}",
     "noDetail": "no detail",
     "evidence": "From the log",
-    "nextSteps": "What to do",
+    "nextSteps": "The plan to fix it",
     "failedStep": "step: {{step}}",
     "by": "AI analysis by {{model}}. It reads the log; check the lines it cites.",
     "stale": "The log changed since this analysis.",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "Change the model",
       "changeModelFor": "Change the {{role}} model"
-    }
+    },
+    "continueCarriesPlan": "You don't need to pick one: Continue (above) hands these steps to the agent and carries them out."
   },
   "facts": {
     "label": "Where it failed",
@@ -168,7 +171,8 @@
     "openLogs": "Scrolls to the failed step in the log.",
     "retry": "A fresh run from the base. This attempt's work is not carried over; it stays in the old worktree.",
     "analyze": "The AI reads the log and says why it stopped.",
-    "copyEnvFiles": "Turns on the setting for this project and continues. Agents in its runs can read these files; they are never committed or shown in reviews."
+    "copyEnvFiles": "Turns on the setting for this project and continues. Agents in its runs can read these files; they are never committed or shown in reviews.",
+    "continueCorrections": "Gives the fixer 3 new corrections with what the reviewer asks for, then reviews again."
   },
   "stopped": {
     "headline": "You stopped this run",

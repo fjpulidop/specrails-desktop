@@ -33,6 +33,7 @@ export type ContinuationPlan =
   | { mode: 'resume'; fromStep: string | null }
   | { mode: 'fork'; fromStep: string; request: DefinitionForkRequest }
 
+const CORRECTIONS_SPENT = /Automatic correction limit reached|Automatic corrections ran out/i
 const STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
 /** Scope statuses of the step a run was on when it failed or stopped. */
 const STOPPED_AT = ['failed', 'interrupted', 'cancelled', 'blocked', 'running']
@@ -99,6 +100,14 @@ export function planContinuation(db: DbInstance, runId: string, remedy: Continue
   // record stays as it ended, and the next attempt forks from its last checkpoint.
   if (frozen.row.status === 'paused') return { mode: 'resume', fromStep: diagnosis?.resumablePhase ?? null }
   const nodes = (frozen.metadata.definition as { nodes?: Record<string, unknown> } | undefined)?.nodes ?? {}
+  // The correction budget ran out while the reviewer still asked for something: go on from the budget
+  // check with a fresh budget, so the fixer gets three new rounds with the latest review findings
+  // ($vars.latestReview is kept). Restarting the developer instead kept the spent budget, and the
+  // next rejection ended the run again without a single correction.
+  if (diagnosis?.kind === 'blocked' && (diagnosis.phase === 'correction-exhausted' || (!!diagnosis.detail && CORRECTIONS_SPENT.test(diagnosis.detail))) && nodes['correction-budget']) {
+    const budget = rootScopes(probe).find((scope) => scope.nodePath === 'correction-budget')
+    if (budget) return { mode: 'fork', fromStep: 'correction-budget', request: { requestId: requestId(runId, 'continue'), fromNodePath: 'correction-budget', scopeId: 'root', visit: budget.visits!, state: { $vars: { correctionAttempts: 0 } } } }
+  }
   // An attempt that spent its own budget restarts the developer with fresh budgets, like unfinished tasks.
   if (diagnosis?.kind === 'blocked' && diagnosis.detail && STALLED.test(diagnosis.detail) && nodes.developer) {
     const developer = rootScopes(probe).find((scope) => scope.nodePath === 'developer')

@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "Der Lauf ist in der Phase {{phase}} blockiert",
-      "plain": "Der Lauf ist blockiert"
+      "plain": "Der Lauf ist blockiert",
+      "corrections": "Die automatischen Korrekturen sind aufgebraucht"
     },
     "timeout": {
       "phase": "Die Phase {{phase}} hat ihre Zeit überschritten",
@@ -63,7 +64,8 @@
       "plain": "Es hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Die Arbeit vor diesem Schritt bleibt erhalten: setze ab dort fort.",
       "stronger": "{{model}} ist ein kleines Modell und hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Setze ab diesem Schritt fort; passiert es wieder, wähle {{stronger}} für diese Rolle."
     },
-    "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist."
+    "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist.",
+    "correctionsExhausted": "Der Reviewer verlangt nach {{count}} automatischen Korrekturen weiterhin eine Änderung. Nichts ist abgestürzt: Die Ausführung hat angehalten, bevor sie mehr ausgibt."
   },
   "remedies": {
     "label": "Wege zur Wiederherstellung",
@@ -110,7 +112,7 @@
     "failed": "Die Analyse konnte nicht laufen: {{detail}}",
     "noDetail": "keine Details",
     "evidence": "Aus dem Protokoll",
-    "nextSteps": "Nächste Schritte",
+    "nextSteps": "Der Plan zur Behebung",
     "failedStep": "Schritt: {{step}}",
     "by": "KI-Analyse mit {{model}}. Sie liest das Protokoll; prüfe die zitierten Zeilen.",
     "stale": "Das Protokoll hat sich seit dieser Analyse geändert.",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "Modell ändern",
       "changeModelFor": "Modell für {{role}} ändern"
-    }
+    },
+    "continueCarriesPlan": "Sie müssen nichts auswählen: Fortsetzen (oben) gibt diese Schritte an den Agenten weiter und führt sie aus."
   },
   "facts": {
     "label": "Wo es fehlschlug",
@@ -168,7 +171,8 @@
     "openLogs": "Springt im Log zum fehlgeschlagenen Schritt.",
     "retry": "Ein neuer Lauf ab der Basis. Die Arbeit dieses Versuchs wird nicht übernommen; sie bleibt im alten Worktree.",
     "analyze": "Die KI liest das Log und erklärt, warum er stoppte.",
-    "copyEnvFiles": "Schaltet die Einstellung für dieses Projekt ein und macht weiter. Agenten in seinen Läufen können diese Dateien lesen; sie werden nie committet oder in Reviews angezeigt."
+    "copyEnvFiles": "Schaltet die Einstellung für dieses Projekt ein und macht weiter. Agenten in seinen Läufen können diese Dateien lesen; sie werden nie committet oder in Reviews angezeigt.",
+    "continueCorrections": "Gibt dem Korrektor 3 neue Korrekturen mit der Forderung des Reviewers und prüft dann erneut."
   },
   "stopped": {
     "headline": "Du hast diesen Lauf angehalten",

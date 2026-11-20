@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "A execução está bloqueada na fase {{phase}}",
-      "plain": "A execução está bloqueada"
+      "plain": "A execução está bloqueada",
+      "corrections": "As correções automáticas esgotaram-se"
     },
     "timeout": {
       "phase": "A fase {{phase}} ficou sem tempo",
@@ -63,7 +64,8 @@
       "plain": "Ele encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. O trabalho anterior a essa etapa é mantido: continue a partir dela.",
       "stronger": "{{model}} é um modelo pequeno e encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. Continue a partir dessa etapa; se acontecer de novo, escolha {{stronger}} para esta função."
     },
-    "unknown": "Os registos da execução não indicam a causa. Uma leitura do log com IA costuma encontrá-la."
+    "unknown": "Os registos da execução não indicam a causa. Uma leitura do log com IA costuma encontrá-la.",
+    "correctionsExhausted": "O revisor ainda pede uma alteração após {{count}} correções automáticas. Nada falhou: a execução parou antes de gastar mais."
   },
   "remedies": {
     "label": "Formas de recuperar",
@@ -110,7 +112,7 @@
     "failed": "Não foi possível fazer a análise: {{detail}}",
     "noDetail": "sem detalhes",
     "evidence": "Do log",
-    "nextSteps": "O que fazer",
+    "nextSteps": "O plano para o resolver",
     "failedStep": "etapa: {{step}}",
     "by": "Análise de IA feita com {{model}}. Baseia-se no log; confira as linhas citadas.",
     "stale": "O log mudou desde esta análise.",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "Mudar o modelo",
       "changeModelFor": "Mudar o modelo de {{role}}"
-    }
+    },
+    "continueCarriesPlan": "Não precisa de escolher nenhum: Continuar (acima) passa estes passos ao agente e executa-os."
   },
   "facts": {
     "label": "Onde falhou",
@@ -168,7 +171,8 @@
     "openLogs": "Leva ao passo que falhou no registo.",
     "retry": "Uma execução nova a partir da base. O trabalho desta tentativa não é aproveitado; fica no worktree antigo.",
     "analyze": "A IA lê o registo e explica porque parou.",
-    "copyEnvFiles": "Ativa a configuração neste projeto e continua. Os agentes nas suas execuções podem ler esses arquivos; eles nunca são incluídos em commits nem mostrados nas revisões."
+    "copyEnvFiles": "Ativa a configuração neste projeto e continua. Os agentes nas suas execuções podem ler esses arquivos; eles nunca são incluídos em commits nem mostrados nas revisões.",
+    "continueCorrections": "Dá ao corretor 3 novas correções com o que o revisor pede e volta a rever."
   },
   "stopped": {
     "headline": "Parou esta execução",

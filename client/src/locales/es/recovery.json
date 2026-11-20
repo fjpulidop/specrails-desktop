@@ -16,7 +16,8 @@
     },
     "blocked": {
       "phase": "La ejecución está bloqueada en la fase {{phase}}",
-      "plain": "La ejecución está bloqueada"
+      "plain": "La ejecución está bloqueada",
+      "corrections": "Se agotaron las correcciones automáticas"
     },
     "timeout": {
       "phase": "La fase {{phase}} se quedó sin tiempo",
@@ -63,7 +64,8 @@
       "plain": "Terminó su turno sin los pasos que Specrails exige, incluso tras un recordatorio. El trabajo anterior a ese paso se conserva: continúa desde él.",
       "stronger": "{{model}} es un modelo pequeño y terminó su turno sin los pasos que Specrails exige, incluso tras un recordatorio. Continúa desde ese paso; si vuelve a pasar, elige {{stronger}} para este rol."
     },
-    "unknown": "Los registros de la ejecución no indican la causa. Una lectura del log con IA suele encontrarla."
+    "unknown": "Los registros de la ejecución no indican la causa. Una lectura del log con IA suele encontrarla.",
+    "correctionsExhausted": "El revisor sigue pidiendo un cambio tras {{count}} correcciones automáticas. No se cayó: la ejecución se paró antes de gastar más."
   },
   "remedies": {
     "label": "Formas de recuperarse",
@@ -110,7 +112,7 @@
     "failed": "No se pudo hacer el análisis: {{detail}}",
     "noDetail": "sin detalle",
     "evidence": "Del registro",
-    "nextSteps": "Qué hacer",
+    "nextSteps": "El plan para resolverlo",
     "failedStep": "paso: {{step}}",
     "by": "Análisis de IA hecho con {{model}}. Se basa en el registro; revisa las líneas que cita.",
     "stale": "El registro ha cambiado desde este análisis.",
@@ -130,7 +132,8 @@
     "action": {
       "changeModel": "Cambiar el modelo",
       "changeModelFor": "Cambiar el modelo de {{role}}"
-    }
+    },
+    "continueCarriesPlan": "No hay que elegir ninguno: Continuar (arriba) le pasa estos pasos al agente y los lleva a cabo."
   },
   "facts": {
     "label": "Dónde falló",
@@ -168,7 +171,8 @@
     "openLogs": "Lleva al paso fallido en el registro.",
     "retry": "Una ejecución nueva desde la base. El trabajo de este intento no se arrastra; se queda en el worktree anterior.",
     "analyze": "La IA lee el registro y explica por qué se detuvo.",
-    "copyEnvFiles": "Activa el ajuste en este proyecto y continúa. Los agentes de sus ejecuciones pueden leer estos archivos; nunca se incluyen en commits ni se muestran en las revisiones."
+    "copyEnvFiles": "Activa el ajuste en este proyecto y continúa. Los agentes de sus ejecuciones pueden leer estos archivos; nunca se incluyen en commits ni se muestran en las revisiones.",
+    "continueCorrections": "Da al corrector 3 correcciones nuevas con lo que pide el revisor y vuelve a revisar."
   },
   "stopped": {
     "headline": "Detuviste esta ejecución",
