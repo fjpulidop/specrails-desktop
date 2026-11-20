@@ -9,7 +9,8 @@ import { createInboxSources } from '../../inbox/adapters/http'
 import { collectLiveBoard } from '../application'
 import type { DayWindow, LiveBoardSnapshot } from '../domain'
 import { createMissionDirectory } from '../adapters/missions'
-import { createProjectLiveBoardSource } from '../adapters/project-source'
+import { createProjectLiveBoardSource, effectiveRunEngine } from '../adapters/project-source'
+import { appendEvent } from '../../../db/jobs'
 import { registerLiveBoardRoutes } from '../adapters/http'
 import { listenOnLoopback } from '../../../__fixtures__/loopback-test-server'
 
@@ -103,6 +104,21 @@ describe('live board projection', () => {
     // Lanes: the mission with something that needs a decision first, the free runs last.
     expect(board.lanes.map((lane) => lane.conversationId)).toEqual(['m1', 'm2', null])
     expect(board.lanes[0]).toMatchObject({ title: 'Records and screens', provider: 'claude', cardIds: ['p1:delivery:d1', 'p1:loop-run:r-live'] })
+  })
+
+  it('a run moved to another provider at a usage limit shows the provider and model it works on now', () => {
+    // Soak 2: a run launched on Codex and switched to Claude haiku still showed Codex on its card.
+    loopRun(alpha, 'p1', 'r-moved', { provider: 'codex' })
+    loopRun(alpha, 'p1', 'r-stays', { provider: 'codex' })
+    alpha.prepare(`INSERT INTO jobs (id, command, started_at, status, owner) VALUES ('r-moved', 'loop', ?, 'running', 'loop')`).run(at(-HOUR))
+    const switched = (seq: number, payload: object) => appendEvent(alpha, 'r-moved', seq, { event_type: 'provider_switched', source: 'stdout', payload: JSON.stringify(payload) } as never)
+    switched(1, { fromProvider: 'codex', provider: 'claude', model: 'haiku', roles: ['plan', 'build'], text: 'Switched' })
+    switched(2, { fromProvider: 'claude', provider: 'gemini', model: 'gemini-pro', roles: ['plan', 'build'], text: 'Switched again' })
+    const byId = Object.fromEntries(snapshot().cards.map((c) => [c.id, c]))
+    expect(byId['p1:loop-run:r-moved']).toMatchObject({ provider: 'gemini', model: 'gemini-pro' })
+    expect(byId['p1:loop-run:r-stays']).toMatchObject({ provider: 'codex' })
+    expect(effectiveRunEngine({ provider: 'codex', model: 'm', switched_json: '{"provider":"claude","roles":[]}' })).toEqual({ provider: 'codex', model: 'm' })
+    expect(effectiveRunEngine({ provider: 'codex', model: 'm', switched_json: 'not json' })).toEqual({ provider: 'codex', model: 'm' })
   })
 
   it('on boot, a run the restart cut off reads as paused by the restart before recovery reconciles its row', () => {
