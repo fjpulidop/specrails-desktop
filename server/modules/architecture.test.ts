@@ -60,7 +60,7 @@ const coreDependencies: Record<string, string[]> = {
   'terminals/domain/worktree-leftovers.ts': ['./mission-resources'],
   // Failure recovery: pure diagnosis vocabulary and rules (the provider-limit classifier is itself pure).
   'recovery/domain.ts': ['../../provider-limit', './continuation'],
-  'recovery/index.ts': ['./domain', './continuation', './analysis'],
+  'recovery/index.ts': ['./domain', './continuation', './analysis', './verification-tests'],
   'audit/domain.ts': [],
   'audit/ports.ts': ['./domain'],
   // The stream tap recognises in-turn policy denials with the policy's own (pure) marker parser.

@@ -156,7 +156,9 @@
     "continuing": "実行を続行しています。",
     "continuingFrom": "{{step}} ステップから続行しています。",
     "envFilesCopied": "{{files}} を実行にコピーしました。続行します。",
-    "envFilesUnavailable": "このプロジェクトにはコピーする .env ファイルがありません。作業コピーに作成してから、もう一度お試しください。"
+    "envFilesUnavailable": "このプロジェクトにはコピーする .env ファイルがありません。作業コピーに作成してから、もう一度お試しください。",
+    "continuingWith": "続行します: {{label}}",
+    "continuingWithInstruction": "あなたの指示で続行します。"
   },
   "consequence": {
     "continue": "すべてを残したまま、失敗したステップから再開します。",
@@ -197,5 +199,42 @@
     "guidance": "エージェントに送った指示",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "料金表による見積もりで、請求額ではありません"
+  },
+  "resolution": {
+    "title": "続け方を選ぶ",
+    "intro": "各選択肢には、何をするかと起こりうることが書かれています。クリックひとつで実行が続きます。",
+    "recommended": "おすすめ",
+    "whatMayHappen": "起こりうること:",
+    "risk": {
+      "low": "リスク低",
+      "medium": "リスク中",
+      "high": "リスク高"
+    },
+    "other": "別の指示…",
+    "otherLabel": "エージェントに何をさせますか?",
+    "otherPlaceholder": "例: 終了テストではデバッガーなしで Electron を起動し、終了コードだけを確認する",
+    "send": "この指示で続行",
+    "sending": "続行しています…",
+    "keepTrying": {
+      "label": "このまま再試行",
+      "does": "同じやり方で、修正をもう一巡して続けます。",
+      "consequence": "また同じ形で止まる可能性が高いです。これまで 1 回あたり約 {{cost}} かかっています。",
+      "consequenceNoCost": "また同じ形で止まる可能性が高いです。"
+    }
+  },
+  "repeat": {
+    "title_one": "同じ形で {{count}} 回止まりました",
+    "title_other": "同じ形で {{count}} 回続けて止まりました",
+    "spend_one": "{{count}} 回の試行、これまで {{cost}}",
+    "spend_other": "{{count}} 回の試行、これまで {{cost}}",
+    "attempts_one": "これまで {{count}} 回の試行",
+    "attempts_other": "これまで {{count}} 回の試行",
+    "advice": "何も変えずに続けると、またここで止まる可能性が高いです。下の選択肢から進め方を選んでください。",
+    "adviceNoOptions": "何も変えずに続けると、またここで止まる可能性が高いです。下の AI 分析が進め方を提案します。"
+  },
+  "flaky": {
+    "title_one": "このテストは不安定なようです",
+    "title_other": "これらのテストは不安定なようです",
+    "explain": "以前のラウンドや同じコードでは成功し、今はタイミングで失敗しています。続行すると、タイムアウトを延ばすのではなく決定的にするようエージェントに依頼します。"
   }
 }

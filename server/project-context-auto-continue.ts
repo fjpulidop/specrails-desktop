@@ -7,6 +7,7 @@
  * Bounded: one automatic continuation per run chain, never for a cause a person
  * must resolve (credentials, policy, spend caps, usage limits), never for a stop
  * the person chose, never when the attempt failed exactly like the one before,
+ * and never when the chain keeps stopping for the same cause (`repeatedStop`),
  * and never with the setting off. The rules are `autoContinueVerdict` (recovery).
  */
 import type { DbInstance } from './db'
@@ -15,6 +16,7 @@ import { getAutoContinueRuns } from './desktop-db'
 import { getLoopRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { chainHasAutomaticContinuation, readRunAttempts } from './modules/loops/runtime/run-attempts'
 import { autoContinueVerdict, parseStoredDiagnosis, type AutoContinueReason } from './modules/recovery'
+import { readChainResolution } from './modules/recovery/adapters/sqlite'
 import type { ProjectContext } from './project-registry'
 import type { WsMessage } from './types'
 
@@ -63,9 +65,12 @@ export function createAutoContinuation(deps: AutoContinueDeps): { observe(msg: W
       if (!run || run.engine_version !== 2 || run.status !== 'completed' || readDefinitionSuccessor(c.db, runId)) return 'declined'
       const diagnosis = parseStoredDiagnosis(run.failure_diagnosis ?? null)
       const previous = run.fork_of ? parseStoredDiagnosis(getLoopRun(c.db, run.fork_of)?.failure_diagnosis ?? null) : null
+      // The same cause twice in a row (same kind and failing checks) is never continued by itself.
+      let repeated = false
+      try { repeated = readChainResolution(c.db, runId)?.repeated ?? false } catch { repeated = false }
       const verdict = autoContinueVerdict({
         enabled: getAutoContinueRuns(deps.desktopDb), outcome: run.final_outcome, diagnosis, previous,
-        chainAlreadyContinued: chainHasAutomaticContinuation(c.db, runId),
+        chainAlreadyContinued: chainHasAutomaticContinuation(c.db, runId), repeated,
       })
       if (!verdict.continue) {
         if (verdict.reason !== 'disabled' && verdict.reason !== 'not_failed') console.log(`[auto-continue] ${runId}: not continued (${verdict.reason})`)

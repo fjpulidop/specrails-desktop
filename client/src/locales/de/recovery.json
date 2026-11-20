@@ -156,7 +156,9 @@
     "continuing": "Der Lauf wird fortgesetzt.",
     "continuingFrom": "Fortsetzung ab dem Schritt {{step}}.",
     "envFilesCopied": "{{files}} in den Lauf kopiert. Es geht weiter.",
-    "envFilesUnavailable": "Dieses Projekt hat keine .env-Datei zum Kopieren. Lege sie in deinem Checkout an und versuche es erneut."
+    "envFilesUnavailable": "Dieses Projekt hat keine .env-Datei zum Kopieren. Lege sie in deinem Checkout an und versuche es erneut.",
+    "continuingWith": "Wird fortgesetzt mit: {{label}}",
+    "continuingWithInstruction": "Wird mit deiner Anweisung fortgesetzt."
   },
   "consequence": {
     "continue": "Behält alles und macht beim fehlgeschlagenen Schritt weiter.",
@@ -197,5 +199,42 @@
     "guidance": "An den Agenten gesendete Hinweise",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten"
+  },
+  "resolution": {
+    "title": "Wähle, wie es weitergeht",
+    "intro": "Jede Option sagt, was sie tut und was passieren kann. Ein Klick setzt den Lauf fort.",
+    "recommended": "Empfohlen",
+    "whatMayHappen": "Was passieren kann:",
+    "risk": {
+      "low": "Geringes Risiko",
+      "medium": "Etwas Risiko",
+      "high": "Hohes Risiko"
+    },
+    "other": "Andere Anweisung…",
+    "otherLabel": "Was soll der Agent tun?",
+    "otherPlaceholder": "Zum Beispiel: Electron in den Schließ-Tests ohne Debugger starten und nur den Exit-Code prüfen",
+    "send": "Mit dieser Anweisung fortsetzen",
+    "sending": "Wird fortgesetzt…",
+    "keepTrying": {
+      "label": "Unverändert weiter versuchen",
+      "does": "Setzt mit demselben Ansatz und einer neuen Korrekturrunde fort.",
+      "consequence": "Er bleibt wahrscheinlich wieder genauso stehen; jeder Versuch hat bisher etwa {{cost}} gekostet.",
+      "consequenceNoCost": "Er bleibt wahrscheinlich wieder genauso stehen."
+    }
+  },
+  "repeat": {
+    "title_one": "{{count}}-mal auf dieselbe Weise gestoppt",
+    "title_other": "{{count}}-mal hintereinander auf dieselbe Weise gestoppt",
+    "spend_one": "{{count}} Versuch, bisher {{cost}}",
+    "spend_other": "{{count}} Versuche, bisher {{cost}}",
+    "attempts_one": "Bisher {{count}} Versuch",
+    "attempts_other": "Bisher {{count}} Versuche",
+    "advice": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Wähle unten einen Weg nach vorn.",
+    "adviceNoOptions": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Die KI-Analyse unten schlägt Wege nach vorn vor."
+  },
+  "flaky": {
+    "title_one": "Dieser Test wirkt instabil",
+    "title_other": "Diese Tests wirken instabil",
+    "explain": "Sie liefen in früheren Runden oder mit demselben Code durch und scheitern jetzt am Timing. Beim Fortsetzen wird der Agent gebeten, sie deterministisch zu machen, nicht die Timeouts zu verlängern."
   }
 }

@@ -76,6 +76,10 @@ export interface PresentedFailureDiagnosis extends FailureDiagnosis {
   remedies: RemedyId[]
   /** `workflow_protocol` on a small model: the provider's default model to suggest for that role. */
   strongerModel?: StrongerModel | null
+  /** Tests the latest host verification failed, read from the recorded output (`file › title`). */
+  failingTests?: string[]
+  /** Those of them the recorded rounds of the attempt chain show to be flaky (verification-tests.ts). */
+  flakyTests?: string[]
 }
 
 /** A provider's model catalog as its adapter lists it (`small` marks a smaller size class). */

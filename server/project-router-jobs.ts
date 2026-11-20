@@ -51,8 +51,8 @@ import {
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import { registerMissionResourceRoutes } from './project-router-mission-resources'
 import { createAgentAuditService } from './modules/audit'
-import { readJobDiagnosis, readFailureAnalysis, writeFailureAnalysis, type StoredFailureAnalysis } from './modules/recovery/adapters/sqlite'
-import { analysisLanguage, evidenceHash, failureAnalysisPrompt, failureEvidence, parseFailureAnalysis, type FailureEvidence } from './modules/recovery'
+import { readChainResolution, readJobDiagnosis, readFailureAnalysis, writeFailureAnalysis, type StoredFailureAnalysis } from './modules/recovery/adapters/sqlite'
+import { analysisLanguage, evidenceHash, failureAnalysisPrompt, failureEvidence, parseFailureAnalysis, resolutionKindsFor, type FailureEvidence } from './modules/recovery'
 import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
 import type { GenerateOutput } from './modules/code/runtime/file-summary-manager'
 import { recordInvocation } from './modules/accounting/runtime/ai-invocations'
@@ -741,10 +741,20 @@ const annotated = { ...job, ...(continuationActive ? { status: 'running', finish
     if (!job || (job.status !== 'failed' && job.status !== 'canceled')) return null
     const language = analysisLanguage(req.query.language ?? req.body?.language)
     let diagnosis: { kind: string; detail: string | null } | null = null
-    try { const record = readJobDiagnosis(c.db, job.id, job.status); diagnosis = record ? { kind: record.kind, detail: record.detail } : null } catch { /* none */ }
+    let record: ReturnType<typeof readJobDiagnosis> = null
+    try { record = readJobDiagnosis(c.db, job.id, job.status); diagnosis = record ? { kind: record.kind, detail: record.detail } : null } catch { /* none */ }
+    // What the app knows beyond the log: the tests behind the stop, the attempts so far, and the
+    // resolution kinds this run can execute (the options the model may offer).
+    let attempts: ReturnType<typeof readChainResolution> = null
+    try { attempts = readChainResolution(c.db, job.id) } catch { attempts = null }
     const evidence = failureEvidence({
       job: { command: job.command, status: job.status, provider: job.provider ?? null, model: job.model ?? null },
       diagnosis,
+      context: {
+        failingTests: record?.failingTests ?? [], flakyTests: record?.flakyTests ?? [],
+        attempts: attempts ? { count: attempts.attempts, costUsd: attempts.costUsd, repeated: attempts.repeated, times: attempts.times } : null,
+        optionKinds: resolutionKindsFor(record),
+      },
       events: getJobEvents(c.db, job.id),
       ...envValueRedactor(c),
     })

@@ -56,6 +56,10 @@ export interface FailureDiagnosis {
   source: 'core' | 'desktop'
   /** Ranked by the server; a surface shows the first ones it can run. */
   remedies: RemedyId[]
+  /** Tests the latest host verification failed (`file › title`), from the recorded output. */
+  failingTests?: string[]
+  /** Those of them the recorded rounds show to be flaky. */
+  flakyTests?: string[]
 }
 
 /** Remedies a card shows at once: a ranked short list, never a menu. */
@@ -115,7 +119,14 @@ export function readFailureDiagnosis(raw: unknown): FailureDiagnosis | null {
     source: v.source === 'core' ? 'core' : 'desktop',
     // An uncertain record is offered the same two safe remedies whatever the wire said.
     remedies: confident ? remedies : ['open-logs', 'retry'],
+    ...testList('failingTests', v.failingTests, 20),
+    ...testList('flakyTests', v.flakyTests, 12),
   }
+}
+
+function testList<K extends 'failingTests' | 'flakyTests'>(key: K, raw: unknown, max: number): Partial<Record<K, string[]>> {
+  const tests = Array.isArray(raw) ? raw.filter((test): test is string => typeof test === 'string' && !!test.trim()).slice(0, max).map((test) => test.slice(0, 240)) : []
+  return tests.length ? { [key]: tests } as Partial<Record<K, string[]>> : {}
 }
 
 /** A surface's way to run one remedy. Only remedies a surface can truly run are offered. */
@@ -202,7 +213,7 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'environment': return { key: 'why.environment', params: {} }
     case 'port_in_use': return { key: 'why.port_in_use', params: {} }
     case 'tests_failed': return { key: 'why.tests_failed', params: {} }
-    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'why.correctionsExhausted', params: {} } : { key: 'why.blocked', params: {} }
+    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'why.correctionsExhausted', params: { count: diagnosis.rounds ?? 3 } } : { key: 'why.blocked', params: {} }
     case 'timeout': return { key: 'why.timeout', params: {} }
     case 'tool_inactivity': return { key: 'why.tool_inactivity', params: {} }
     case 'crash': return { key: 'why.crash', params: {} }

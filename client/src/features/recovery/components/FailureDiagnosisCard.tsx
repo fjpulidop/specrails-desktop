@@ -9,6 +9,8 @@ import { cn } from '../../../lib/utils'
 import { formatResetTime } from '../../provider-quota/lib/format-reset'
 import { modelLabel } from '../../../lib/model-label'
 import type { FailureAnalysisState } from '../hooks/useFailureAnalysis'
+import { formatUsd } from '../../../lib/format-usd'
+import type { ChainResolution, ContinueMode } from '../lib/resolution'
 import {
   availableRemedies, consequenceKey, headlineKey, humanizePhase, offersStartOver, recordedStepError, whyKey,
   type FailureDiagnosis, type RemedyHandler, type RemedyHandlers, type RemedyId,
@@ -218,7 +220,39 @@ export interface FailureDiagnosisCardProps {
   /** The AI reading of the same run. When the app's own records name no cause, the card leads
    *  with the AI's (labelled as such) or offers to ask for one, instead of an unexplained unknown. */
   ai?: { state: FailureAnalysisState; run(): void }
+  /** How Continue shows (`continueMode`): after a repeated stop it never leads, and steps aside for the options. */
+  continueMode?: ContinueMode
+  /** The chain's spend and whether it keeps stopping the same way (says so above the remedies). */
+  chain?: ChainResolution | null
   className?: string
+}
+
+/** The chain stopped the same way again: how many times, what it cost, and that the options below lead. */
+function RepeatNotice({ chain, optionsBelow }: { chain: ChainResolution; optionsBelow: boolean }) {
+  const { t, i18n } = useTranslation('recovery')
+  const cost = chain.costUsd !== null && chain.costUsd > 0 ? formatUsd(chain.costUsd, i18n.language) : null
+  return (
+    <div data-testid="failure-repeat" role="note" className="space-y-0.5 rounded-control border border-accent-warning/40 bg-background/40 px-3 py-2">
+      <p className="text-label text-foreground">{t('repeat.title', { count: chain.times })}</p>
+      <p className="text-caption text-muted-foreground" data-testid="failure-repeat-spend">
+        {cost ? t('repeat.spend', { count: chain.attempts, cost: chain.costEstimated ? `~${cost}` : cost }) : t('repeat.attempts', { count: chain.attempts })}
+      </p>
+      <p className="text-caption text-muted-foreground">{optionsBelow ? t('repeat.advice') : t('repeat.adviceNoOptions')}</p>
+    </div>
+  )
+}
+
+function FlakyTests({ tests }: { tests: readonly string[] }) {
+  const { t } = useTranslation('recovery')
+  return (
+    <div data-testid="failure-flaky-tests" className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+      <p className="text-caption font-semibold text-muted-foreground">{t('flaky.title', { count: tests.length })}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-body text-foreground">
+        {tests.map((test) => <li key={test} className="break-words font-mono text-caption">{test}</li>)}
+      </ul>
+      <p className="mt-1 text-caption text-muted-foreground">{t('flaky.explain')}</p>
+    </div>
+  )
 }
 
 /**
@@ -227,12 +261,13 @@ export interface FailureDiagnosisCardProps {
  * to actions the app already has. An unknown cause says so and shows the raw
  * log tail instead of guessing.
  */
-export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, className }: FailureDiagnosisCardProps) {
+export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, continueMode = 'primary', chain, className }: FailureDiagnosisCardProps) {
   const { t } = useTranslation('recovery')
   const headingId = useId()
   const [envOpen, setEnvOpen] = useState(false)
   const { headline, why, phaseName } = useDiagnosisText(diagnosis)
-  const remedies = availableRemedies(diagnosis, handlers)
+  // After a repeated stop with options to pick, "keep trying" is one of them: Continue is not offered twice.
+  const remedies = availableRemedies(diagnosis, handlers).filter((id) => id !== 'continue' || continueMode !== 'hidden')
   // An unknown cause with the runtime's own record of the failed step is not
   // a mystery: say which step failed and the runtime's words for why.
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(logTail) : null
@@ -253,7 +288,8 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
     const handler = handlers[id] ?? { run: () => {} }
     return {
       id, label: label(id), icon: REMEDY_ICON[id], consequence: t(consequenceKey(id, diagnosis)), handler,
-      primary: index === 0 && !analyzeLeads,
+      // A repeated stop never leads with more of the same: the options below lead instead.
+      primary: index === 0 && !analyzeLeads && continueMode === 'primary',
       ...(id === 'fix-environment' ? { expanded: envOpen, onClick: () => setEnvOpen((open) => !open) } : {}),
     }
   })
@@ -302,6 +338,10 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
           </ul>
         </div>
       )}
+
+      {diagnosis.flakyTests && diagnosis.flakyTests.length > 0 && <FlakyTests tests={diagnosis.flakyTests} />}
+
+      {chain?.repeated && <RepeatNotice chain={chain} optionsBelow={continueMode === 'hidden'} />}
 
       {envOpen && diagnosis.kind === 'environment' && <EnvironmentPanel diagnosis={diagnosis} />}
 

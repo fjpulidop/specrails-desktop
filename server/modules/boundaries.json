@@ -1453,7 +1453,8 @@
         "../../../db",
         "../../loops/runtime/loop-graph",
         "../domain/launch-overlap",
-        "./rail-pr-store"
+        "./rail-pr-store",
+        "./rails-store"
       ],
       "runtime/local-restore-branch.ts": [
         "../../../worktree-manager",
@@ -3720,7 +3721,9 @@
         "../../../db",
         "../../../providers",
         "../analysis",
-        "../domain"
+        "../continuation",
+        "../domain",
+        "../verification-tests"
       ],
       "analysis.ts": [
         "crypto"
@@ -3735,8 +3738,10 @@
       "index.ts": [
         "./analysis",
         "./continuation",
-        "./domain"
-      ]
+        "./domain",
+        "./verification-tests"
+      ],
+      "verification-tests.ts": []
     }
   },
   "specs": {

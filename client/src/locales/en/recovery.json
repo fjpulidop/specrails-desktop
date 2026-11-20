@@ -156,7 +156,9 @@
     "continuing": "Continuing the run.",
     "continuingFrom": "Continuing from the {{step}} step.",
     "envFilesCopied": "Copied {{files}} into the run. Continuing.",
-    "envFilesUnavailable": "This project has no .env file to copy. Create it in your checkout, then try again."
+    "envFilesUnavailable": "This project has no .env file to copy. Create it in your checkout, then try again.",
+    "continuingWith": "Continuing with: {{label}}",
+    "continuingWithInstruction": "Continuing with your instruction."
   },
   "consequence": {
     "continue": "Keeps everything and goes on from the step that failed.",
@@ -197,5 +199,42 @@
     "guidance": "Guidance sent to the agent",
     "costEstimated": "~{{cost}}",
     "costEstimatedHint": "Estimate from the rate card, not billed cost"
+  },
+  "resolution": {
+    "title": "Pick how to go on",
+    "intro": "Each choice says what it does and what may happen. One click continues the run.",
+    "recommended": "Recommended",
+    "whatMayHappen": "What may happen:",
+    "risk": {
+      "low": "Low risk",
+      "medium": "Some risk",
+      "high": "High risk"
+    },
+    "other": "Other instruction…",
+    "otherLabel": "What should the agent do?",
+    "otherPlaceholder": "For example: launch Electron without the debugger in the close tests and assert only the exit code",
+    "send": "Continue with this instruction",
+    "sending": "Continuing…",
+    "keepTrying": {
+      "label": "Keep trying as is",
+      "does": "Continues with the same approach and a fresh round of corrections.",
+      "consequence": "It will likely stop the same way again; each attempt has cost about {{cost}} so far.",
+      "consequenceNoCost": "It will likely stop the same way again."
+    }
+  },
+  "repeat": {
+    "title_one": "Stopped the same way {{count}} time",
+    "title_other": "Stopped the same way {{count}} times in a row",
+    "spend_one": "{{count}} attempt, {{cost}} so far",
+    "spend_other": "{{count}} attempts, {{cost}} so far",
+    "attempts_one": "{{count}} attempt so far",
+    "attempts_other": "{{count}} attempts so far",
+    "advice": "Continuing unchanged will likely stop here again. Pick one of the ways forward below.",
+    "adviceNoOptions": "Continuing unchanged will likely stop here again. The AI analysis below suggests ways forward."
+  },
+  "flaky": {
+    "title_one": "This test looks flaky",
+    "title_other": "These tests look flaky",
+    "explain": "They passed on earlier rounds or on the same code and now fail on timing. Continuing asks the agent to make them deterministic, not to lengthen timeouts."
   }
 }

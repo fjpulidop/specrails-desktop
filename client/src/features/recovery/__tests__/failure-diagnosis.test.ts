@@ -39,7 +39,7 @@ describe('availableRemedies', () => {
     const spent = { kind: 'blocked', confidence: 'high', phase: 'correction-exhausted', rounds: 3, resetAt: null, detail: 'Automatic corrections ran out.', resumablePhase: null, blocker: null, source: 'core' } as Parameters<typeof headlineKey>[0]
     expect(consequenceKey('continue', spent)).toBe('consequence.continueCorrections')
     expect(headlineKey(spent, 'Correction exhausted').key).toBe('headline.blocked.corrections')
-    expect(whyKey(spent)?.key).toBe('why.correctionsExhausted')
+    expect(whyKey(spent)).toEqual({ key: 'why.correctionsExhausted', params: { count: 3 } })
     expect(consequenceKey('edit-spec', base)).toBe('consequence.editSpec')
   })
   it('skips remedies the surface has no action for', () => {

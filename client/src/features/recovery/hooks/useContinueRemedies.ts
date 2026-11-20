@@ -68,3 +68,64 @@ export function useContinueRemedies(
     ...(diagnosis?.remedies.includes('copy-env-files') ? { 'copy-env-files': handler('copy-env-files') } : {}),
   }
 }
+
+/** Picking a resolution: one of the AI analysis' options (by id) or the person's own instruction. */
+export interface ResolutionActions {
+  /** Continue with an option the server reads from the stored analysis; `label` is what the toast says. */
+  choose(optionId: string, label: string): void
+  /** Continue with the person's own words. */
+  instruct(text: string): void
+  /** Continue as is (the "keep trying" choice when the analysis gave none). */
+  keepGoing(label: string): void
+  /** The option id (or `instruction` / `keep-going`) being sent. */
+  busy: string | null
+  /** The run continued: every choice is spent. */
+  done: boolean
+}
+
+/**
+ * `POST /loop-runs/:id/remedy` with `{ optionId }` or `{ instruction }`: the run continues with that
+ * guidance, and the toast says which choice it took. Null when the surface cannot continue the run.
+ */
+export function useResolutionActions(
+  projectId: string | null | undefined,
+  runId: string | null | undefined,
+  options: { enabled: boolean; onContinued?: (loopRunId: string) => void },
+): ResolutionActions | null {
+  const { t } = useTranslation('recovery')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+  const scope = `${projectId ?? ''}:${runId ?? ''}`
+  const current = useRef(scope)
+  useEffect(() => { current.current = scope; setBusy(null); setDone(false) }, [scope])
+  if (!projectId || !runId || !options.enabled) return null
+  const send = async (key: string, body: Record<string, unknown>, success: string) => {
+    if (busy || done) return
+    const owner = scope
+    setBusy(key)
+    try {
+      const response = await requestJson<ContinueResponse | null>(
+        `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/loop-runs/${encodeURIComponent(runId)}/remedy`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      )
+      if (current.current !== owner) return
+      setDone(true)
+      toast.success(success)
+      if (response?.resumed === false) notifyError(t('remedyResult.notResumed'), { detail: response.resumeDetail ?? null })
+      if (response?.loopRunId && response.loopRunId !== runId) options.onContinued?.(response.loopRunId)
+    } catch (error) {
+      if (current.current !== owner) return
+      const payload = error instanceof ApiResponseError ? (error.body ?? {}) as { detail?: string; error?: string } : {}
+      const detail = error instanceof ApiResponseError ? payload.detail ?? payload.error : error instanceof Error ? error.message : null
+      notifyError(t('remedyResult.failed'), { detail: detail ?? null, retry: () => void send(key, body, success) })
+    } finally {
+      if (current.current === owner) setBusy(null)
+    }
+  }
+  return {
+    choose: (optionId, label) => void send(optionId, { remedy: 'continue', optionId }, t('remedyResult.continuingWith', { label })),
+    instruct: (text) => { const value = text.trim(); if (value) void send('instruction', { remedy: 'continue', instruction: value }, t('remedyResult.continuingWithInstruction')) },
+    keepGoing: (label) => void send('keep-going', { remedy: 'continue' }, t('remedyResult.continuingWith', { label })),
+    busy, done,
+  }
+}

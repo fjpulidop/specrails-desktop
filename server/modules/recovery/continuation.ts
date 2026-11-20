@@ -44,8 +44,51 @@ const STALLED = /Implementation attempt limit reached|Automatic correction made 
 /** How much of a stall's full end reason the next attempt reads (the diagnosis detail is a one-line summary). */
 const STALL_REASON_LIMIT = 2_000
 
-export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null, evidence: { completionReasons?: readonly unknown[] | null; envFilesCopied?: readonly string[] | null } = {}): string | null {
+export function continuationGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'> | null, evidence: { completionReasons?: readonly unknown[] | null; envFilesCopied?: readonly string[] | null; flakyTests?: readonly string[] | null } = {}): string | null {
   if (!diagnosis || diagnosis.confidence !== 'high') return null
+  const cause = causeGuidance(diagnosis, evidence)
+  // Tests the record shows to be flaky: the next agent turn (the fixer, after a correction budget) makes them deterministic.
+  const flaky = evidence.flakyTests?.length ? flakyTestsGuidance(evidence.flakyTests) : null
+  return cause && flaky ? `${cause}\n\n${flaky}` : cause ?? flaky
+}
+
+const FLAKY_LIMIT = 12
+
+/** The instruction for tests that pass and fail on the same code: make them deterministic, never tune the clock. */
+export function flakyTestsGuidance(tests: readonly string[]): string {
+  return [
+    'These tests look flaky in the recorded verification output (they passed on earlier rounds or on the same code and fail on timing, or the runner reported them flaky):',
+    ...tests.slice(0, FLAKY_LIMIT).map((test) => `- ${test.slice(0, 240)}`),
+    'Make them deterministic: find the race (a process, page or debugger still attached, an event awaited after it fired, shared state between tests) and wait for an explicit signal or isolate the process. Do not lengthen timeouts, add retries or sleeps, and do not skip or delete them.',
+  ].join('\n')
+}
+
+/** What the person chose when continuing: one of the AI analysis' options, or their own instruction. */
+export type ResolutionChoice =
+  | { kind: 'continue-with-guidance' | 'mark-human-check'; label: string; does?: string | null; guidance: string }
+  | { kind: 'instruction'; text: string }
+
+const CHOICE_TEXT = 4_000
+
+/** The operator instruction a person's chosen resolution adds to Continue (null when it adds nothing). */
+export function resolutionGuidance(choice: ResolutionChoice | null | undefined): string | null {
+  if (!choice) return null
+  const bounded = (value: string) => (value.length > CHOICE_TEXT ? `${value.slice(0, CHOICE_TEXT)}…` : value)
+  if (choice.kind === 'instruction') {
+    const text = choice.text.trim()
+    return text ? `The person continued this run with their own instruction. Follow it; where it conflicts with earlier guidance, it wins:\n${bounded(text)}` : null
+  }
+  const guidance = choice.guidance.trim()
+  const header = `The person chose how to resolve the failure: "${choice.label.slice(0, 200)}".${choice.does ? ` ${choice.does.slice(0, 400)}` : ''}`
+  if (choice.kind === 'mark-human-check') return [
+    header,
+    guidance ? `Which checks: ${bounded(guidance)}` : null,
+    'Move these checks from host verification to the person: for each one add a task `- [ ] N.M [human] <what the person checks by hand after delivery>` to tasks.md (a [human] task is the person\'s check, never required to be ticked), and keep the automated test out of the host verification command (skip it with a comment that names the [human] task, or exclude it in the test configuration). Do not delete the test and keep every other check as it is.',
+  ].filter((line): line is string => !!line).join('\n')
+  return guidance ? `${header}\nWhat to do: ${bounded(guidance)}\nVerify it against the code; the reviewer's findings stay authoritative.` : `${header}\nGo on with the same approach.`
+}
+
+function causeGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' | 'detail' | 'blocker' | 'port' | 'incompleteTasks'>, evidence: { completionReasons?: readonly unknown[] | null; envFilesCopied?: readonly string[] | null }): string | null {
   switch (diagnosis.kind) {
     case 'incomplete_tasks': return unfinishedTasksGuidance(diagnosis.incompleteTasks ?? [])
     case 'environment': {
@@ -111,6 +154,54 @@ export function failureFingerprint(diagnosis: Pick<FailureDiagnosis, 'kind' | 'p
   return JSON.stringify([diagnosis.kind, diagnosis.phase ?? '', (diagnosis.detail ?? '').replace(/\d+/g, '#'), diagnosis.blocker?.reason ?? ''])
 }
 
+/** Review finding ids (`[capability/requirement]`) a stop's detail names. */
+function findingIds(detail: string | null | undefined): string[] {
+  return [...(detail ?? '').matchAll(/\[([a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*)\]/g)].map((match) => match[1])
+}
+
+/** One attempt's stop as the repeat rules read it: its diagnosis and the tests its latest verification failed. */
+export interface AttemptStop {
+  diagnosis: Pick<FailureDiagnosis, 'kind' | 'phase' | 'detail' | 'blocker'> | null
+  failingTests?: readonly string[] | null
+}
+
+/** The checks a stop names: the failing tests of its latest verification and the review findings it cites. */
+export function stopChecks(stop: AttemptStop): string[] {
+  return [...new Set([...(stop.failingTests ?? []), ...findingIds(stop.diagnosis?.detail)])].sort()
+}
+
+/** Two stops have the same cause: the same kind at the same step, with the same words or the same failing checks. */
+export function sameCause(a: AttemptStop, b: AttemptStop): boolean {
+  if (!a.diagnosis || !b.diagnosis || a.diagnosis.kind === 'unknown' || a.diagnosis.kind !== b.diagnosis.kind || (a.diagnosis.phase ?? '') !== (b.diagnosis.phase ?? '')) return false
+  if (failureFingerprint(a.diagnosis) === failureFingerprint(b.diagnosis)) return true
+  const checksA = stopChecks(a), checksB = stopChecks(b)
+  return checksA.length > 0 && checksA.length === checksB.length && checksA.every((check, index) => check === checksB[index])
+}
+
+/** Kinds whose own budget ran out; three such stops in a row at one step are a loop even when the findings change. */
+const BUDGET_KINDS: ReadonlySet<FailureKind> = new Set(['blocked'])
+
+/**
+ * Whether the latest attempts of a chain keep stopping for the same cause (oldest first, ending with
+ * the attempt being read): two consecutive attempts with the same cause, or three in a row whose
+ * correction / attempt budget ran out at the same step. `times` is how many trailing attempts that is.
+ */
+export function repeatedStop(stops: readonly AttemptStop[]): { repeated: boolean; times: number } {
+  let same = 1
+  for (let index = stops.length - 1; index > 0 && sameCause(stops[index - 1], stops[index]); index--) same++
+  if (same >= 2) return { repeated: true, times: same }
+  const last = stops[stops.length - 1]?.diagnosis
+  let budget = 0
+  if (last && BUDGET_KINDS.has(last.kind)) {
+    for (let index = stops.length - 1; index >= 0; index--) {
+      const diagnosis = stops[index].diagnosis
+      if (!diagnosis || diagnosis.kind !== last.kind || (diagnosis.phase ?? '') !== (last.phase ?? '')) break
+      budget++
+    }
+  }
+  return budget >= 3 ? { repeated: true, times: budget } : { repeated: false, times: 1 }
+}
+
 /**
  * Whether Specrails continues a run on its own. Bounded to one automatic
  * continuation per run chain; the person's Continue is always available.
@@ -124,6 +215,8 @@ export function autoContinueVerdict(input: {
   previous?: FailureDiagnosis | null
   /** Specrails already continued an attempt of this chain by itself. */
   chainAlreadyContinued: boolean
+  /** The chain's latest attempts keep stopping for the same cause (`repeatedStop`). */
+  repeated?: boolean
 }): AutoContinueVerdict {
   const { diagnosis } = input
   if (!input.enabled) return { continue: false, reason: 'disabled' }
@@ -135,7 +228,7 @@ export function autoContinueVerdict(input: {
   if (input.chainAlreadyContinued) return { continue: false, reason: 'already_continued' }
   // Someone outside the app stopped the process on purpose: Continue is theirs to press.
   if (diagnosis.detail && EXTERNAL_STOP.test(diagnosis.detail)) return { continue: false, reason: 'not_auto_fixable' }
-  if (input.previous && failureFingerprint(input.previous) === failureFingerprint(diagnosis)) return { continue: false, reason: 'repeated_failure' }
+  if (input.repeated || (input.previous && failureFingerprint(input.previous) === failureFingerprint(diagnosis))) return { continue: false, reason: 'repeated_failure' }
   if (diagnosis.kind === 'incomplete_tasks') return { continue: true, reason: 'unfinished_tasks' }
   if (diagnosis.kind === 'environment') {
     // An unnamed or other kind of host blocker (network, scope, a variable) is the person's to resolve.

@@ -15,6 +15,8 @@ export interface FailureAnalysis {
   nextSteps: string[]
   /** Aligned with `nextSteps`: the remedy a step names (older readings have none). */
   nextStepActions?: Array<AnalysisAction | null>
+  /** Ways to resolve the failure (prompt v4+); read with `readResolutionOptions`, absent on older readings. */
+  options?: unknown
 }
 
 /** A next step the AI mapped to an existing remedy; the panel offers it as a button only where the surface can run it. */
@@ -75,7 +77,10 @@ export function useFailureAnalysis(projectId: string | undefined, jobId: string,
     setState({ status: 'loading' })
     void requestJson<Partial<ReadyBody> | null>(`${url}?language=${encodeURIComponent(language)}`).then(body => {
       if (request !== current.current) return
-      if (body?.status === 'ready' && body.analysis) setState(body as ReadyBody)
+      // A reading from before resolution options (stale: the prompt changed) is asked again once, so the
+      // person gets options to pick instead of an old plan; any other reading is shown as saved.
+      if (body?.status === 'ready' && body.analysis && auto && body.stale && body.analysis.options === undefined) void run(true)
+      else if (body?.status === 'ready' && body.analysis) setState(body as ReadyBody)
       else if (auto) void run()
       else setState({ status: 'idle' })
     }).catch(() => { if (request === current.current) setState({ status: 'idle' }) })

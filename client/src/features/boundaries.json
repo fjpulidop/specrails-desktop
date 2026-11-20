@@ -452,13 +452,15 @@
     "publicEntries": [
       "components/FailureAnalysisPanel.tsx",
       "components/FailureDiagnosisCard.tsx",
+      "components/ResolutionOptions.tsx",
       "components/RunLineage.tsx",
       "components/StoppedRunCard.tsx",
       "hooks/useAttemptChain.ts",
       "hooks/useContinueRemedies.ts",
       "hooks/useFailureAnalysis.ts",
       "hooks/useRunDiagnosis.ts",
-      "lib/failure-diagnosis.ts"
+      "lib/failure-diagnosis.ts",
+      "lib/resolution.ts"
     ],
     "dependencies": [
       "provider-quota"
