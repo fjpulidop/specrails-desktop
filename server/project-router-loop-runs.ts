@@ -15,7 +15,7 @@ import { getLoop } from './modules/loops/runtime/loops-store'
 import { definitionRunNeverReachedCore, getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
 import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
-import { normalizeContinueRemedy, planContinuation, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
+import { normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
 import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
 import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
 import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
@@ -29,7 +29,9 @@ import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-res
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { createLoopProviderSwitch, routeOverrideRequest, validateSwitchChoice } from './modules/loops/runtime/loop-provider-switch'
-import { acceptedRouteOverrides } from './modules/agent-runtime/runtime/agent-runtime-route-overrides'
+import { acceptedRouteOverrides, type DefinitionRouteOverride } from './modules/agent-runtime/runtime/agent-runtime-route-overrides'
+import { readFrozenRuntimeHost, retainedRuntimeRouteOverrideSupport } from './modules/agent-runtime/runtime/agent-runtime-bridge'
+import { settledProviderSwitch, settledSwitchLimit, type ProviderSwitchChoice, type SettledProviderSwitch } from './modules/loops/runtime/loop-provider-switch-settled'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { getLaunchForecast } from './modules/execution/runtime/launch-forecast'
@@ -231,13 +233,22 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if ('error' in choice) { res.status(choice.status).json({ error: choice.error, ...(choice.detail ? { detail: choice.detail } : {}) }); return }
     const remedy = choice.remedy ?? normalizeContinueRemedy((req.body ?? {}).remedy)
     if (!remedy) { res.status(400).json({ error: 'invalid_remedy' }); return }
-    const outcome = await continueDefinitionRun(c, runId, remedy, choice.resolution ? { resolution: choice.resolution } : {})
-    res.status(outcome.status).json({ ...outcome.body, ...(choice.label ? { option: choice.label } : {}) })
+    // "Continue with <Provider>": the next attempt moves the roles on the limited provider (validated against this run's offer).
+    let providerSwitch: ContinueOptions['providerSwitch']
+    if ((req.body ?? {}).switch !== undefined) {
+      if (remedy !== 'continue') { res.status(400).json({ error: 'invalid_switch', detail: 'Switching provider continues the run' }); return }
+      const checked = await checkSettledSwitch(c, runId, (req.body as { switch?: unknown }).switch)
+      if (!checked.ok) { res.status(checked.status).json({ error: checked.error, detail: checked.detail }); return }
+      providerSwitch = { choice: checked.choice, offer: checked.offer }
+    }
+    const outcome = await continueDefinitionRun(c, runId, remedy, { ...(choice.resolution ? { resolution: choice.resolution } : {}), ...(providerSwitch ? { providerSwitch } : {}) })
+    res.status(outcome.status).json({ ...outcome.body, ...(choice.label ? { option: choice.label } : {}),
+      ...(providerSwitch && outcome.status < 300 ? { provider: providerSwitch.choice.provider, model: providerSwitch.choice.model, effort: providerSwitch.choice.effort ?? null } : {}) })
   })
 
   // The attempt chain a run belongs to (oldest first), for the run window's lineage (null without
   // lineage), and whether Continue applies: a settled or paused definition run no later attempt took over.
-  router.get('/:projectId/loop-runs/:id/attempts', (req: Request, res: Response) => {
+  router.get('/:projectId/loop-runs/:id/attempts', async (req: Request, res: Response) => {
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
     const continuable = run.engine_version === 2 && (run.status === 'completed' ? run.final_outcome !== 'success' : run.status === 'paused' && run.restart_reason !== 'fork')
@@ -247,7 +258,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // The chain's spend and whether it keeps stopping for the same cause (the card then leads with the options).
     let resolution: ReturnType<typeof readChainResolution> = null
     try { resolution = chain ? readChainResolution(c.db, runId) : null } catch { resolution = null }
-    res.json({ chain, continuable, resolution })
+    // A run that settled on a provider's usage limit may continue on another provider.
+    let providerSwitch: SettledProviderSwitch | null = null
+    if (continuable && run.status === 'completed') { try { providerSwitch = await settledSwitchOffer(c, runId) } catch { providerSwitch = null } }
+    res.json({ chain, continuable, resolution, providerSwitch })
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
@@ -573,6 +587,31 @@ export interface ContinueOptions {
   envFilesCopied?: string[]
   /** The resolution the person picked (an AI option or their own instruction): its guidance goes with Continue. */
   resolution?: ResolutionChoice
+  /** Continue on another provider (a run that settled on a usage limit): the checked choice and the offer it was checked against. */
+  providerSwitch?: { choice: ProviderSwitchChoice; offer: SettledProviderSwitch }
+}
+
+/** The provider switch a settled run offers (null when it offers none). */
+export async function settledSwitchOffer(c: ProjectContext, runId: string): Promise<SettledProviderSwitch | null> {
+  const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
+  return settledProviderSwitch(runId, {
+    db: c.db, providerSwitch: createLoopProviderSwitch(c.project), diagnosis: parseStoredDiagnosis(stored?.failure_diagnosis ?? null),
+    support: ({ runId: id, contextPath }) => retainedRuntimeRouteOverrideSupport({ runId: id, contextPath, ...readFrozenRuntimeHost(contextPath, process.env, id) }),
+  })
+}
+
+/** Check a person's "Continue with <Provider>" against the run's offer and the provider catalogs (the pause switch's rules). */
+export async function checkSettledSwitch(c: ProjectContext, runId: string, raw: unknown): Promise<{ ok: true; choice: ProviderSwitchChoice; offer: SettledProviderSwitch } | { ok: false; status: number; error: string; detail: string }> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, status: 400, error: 'invalid_switch', detail: 'switch must be { provider, model?, effort?, remember? }' }
+  const body = raw as Record<string, unknown>
+  if (Object.keys(body).some(key => !['provider', 'model', 'effort', 'remember'].includes(key))) return { ok: false, status: 400, error: 'invalid_switch', detail: 'Unknown switch field' }
+  const offer = await settledSwitchOffer(c, runId)
+  if (!offer) return { ok: false, status: 409, error: 'switch_unavailable', detail: 'This run cannot continue on another provider' }
+  const checked = validateSwitchChoice(settledSwitchLimit(offer), body)
+  if (!checked.ok) return checked
+  const installed = validateRequestedProvider(c.project, checked.choice.provider)
+  if (!installed.ok) return { ok: false, status: 400, error: 'invalid_provider', detail: installed.error }
+  return { ok: true, choice: checked.choice, offer }
 }
 
 /** Longest instruction a person can continue a run with. */
@@ -606,6 +645,10 @@ export function resolutionRequest(db: ProjectContext['db'], runId: string, body:
   if (option.kind === 'continue-with-guidance' || option.kind === 'mark-human-check') {
     return { remedy: 'continue', label: option.label, resolution: { kind: option.kind, label: option.label, does: option.does, guidance: option.guidance } }
   }
+  // "Change the model" on a run stopped by a usage limit is the provider switch: Continue with the chosen route.
+  if (option.kind === 'change-model' && body.switch !== undefined) {
+    return { remedy: 'continue', label: option.label, resolution: { kind: 'continue-with-guidance', label: option.label, does: option.does, guidance: option.guidance } }
+  }
   return { error: 'option_runs_on_client', status: 400, detail: `${option.kind} is not a continuation` }
 }
 
@@ -631,8 +674,20 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     if (probe.status === 'unavailable') return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } }
     const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
     const diagnosis = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)
-    const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
+    let plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
+    // Continue on another provider: the next attempt starts with the moved routes (withProviderSwitch).
+    let routeOverrides: DefinitionRouteOverride | undefined
+    if (options.providerSwitch) {
+      const contextPath = readDefinitionRun(c.db, runId)?.metadata.contextPath
+      if (!contextPath) return { status: 409, body: { error: 'switch_unavailable', detail: 'This run cannot continue on another provider' } }
+      ;({ plan, routeOverrides } = withProviderSwitch(plan, { runId, sequence: acceptedRouteOverrides(contextPath).length + 1, ...options.providerSwitch }))
+    }
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
+    if (options.providerSwitch?.choice.remember) {
+      const { choice, offer } = options.providerSwitch
+      try { createLoopProviderSwitch(c.project).remember(Object.fromEntries(offer.roles.map(role => [role, { provider: choice.provider, model: choice.model, ...(choice.effort ? { effort: choice.effort } : {}) }]))) }
+      catch (error) { console.warn(`[continue] could not remember the routes of ${runId}: ${error instanceof Error ? error.message : String(error)}`) }
+    }
     // Checks handed to a person need no guidance; Continue carries the cause's (and the flaky tests' rule).
     let flakyTests: string[] = []
     try { flakyTests = remedy === 'continue' ? readVerificationTests(c.db, runId).flakyTests : [] } catch { flakyTests = [] }
@@ -656,7 +711,7 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     try {
       recordRunContinuation(c.db, { runId: target, sourceRunId: runId, remedy, mode: plan.mode, fromStep: plan.fromStep, cause: diagnosis?.kind ?? null, guidance: guided ? guidance : null, automatic: !!options.automatic })
     } catch (error) { console.warn(`[continue] could not record the continuation of ${runId}:`, error instanceof Error ? error.message : error) }
-    const resumed = plan.mode === 'fork' ? await resumeDefinitionRunFromStop(c, target) : await resumeDefinitionRunFromStop(c, runId)
+    const resumed = await resumeDefinitionRunFromStop(c, plan.mode === 'fork' ? target : runId, routeOverrides ? { routeOverrides } : {})
     return { status: plan.mode === 'fork' ? 201 : 202, body: { loopRunId: target, remedy, mode: plan.mode, fromStep: plan.fromStep, resumed: resumed.ok, ...(guided === undefined ? {} : { guided }),
       ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) } }
   } catch (error) {
@@ -672,13 +727,13 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
  * of every interrupted step (what the job's Recover/Resume button does). An
  * already running run counts as resumed.
  */
-export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: string, extra: { routeOverrides?: DefinitionRouteOverride } = {}): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
   if (c.loopRunManager.isDefinitionRunActive(runId)) return { ok: true }
   const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
   if (probe.lease?.active) return { ok: true }
   if (!probe.resumable) return { ok: false, error: 'run_not_resumable', ...(probe.error?.message ? { detail: probe.error.message } : {}) }
   const recover = probe.recoverableSteps.map(step => step.attemptId)
-  const outcome = await resumeRetainedDefinitionRun(c, runId, recover.length ? { recover } : {})
+  const outcome = await resumeRetainedDefinitionRun(c, runId, { ...(recover.length ? { recover } : {}), ...(extra.routeOverrides ? { routeOverrides: extra.routeOverrides } : {}) })
   if (outcome.status < 300) return { ok: true }
   const body = outcome.body as { error?: unknown; detail?: unknown }
   return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${outcome.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }

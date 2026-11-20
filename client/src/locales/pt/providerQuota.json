@@ -85,5 +85,13 @@
     "continueWith": "Continuar agora com {{provider}}",
     "continuePrompt": "Continua onde o agente anterior parou no seu limite de utilização. Verifica o que já foi feito antes de repetir algum passo.",
     "failed": "Não foi possível agendar a missão: {{detail}}"
+  },
+  "settledSwitch": {
+    "title": "Continuar com outro provedor",
+    "consequence": "A próxima tentativa continua de onde esta parou, e cada etapa que usava {{from}} roda em {{provider}} pelo resto da execução. O trabalho já feito no worktree é mantido; a etapa começa com uma nova sessão porque a conversa não passa de um provedor para outro.",
+    "consequenceFrom": "A próxima tentativa continua a partir da etapa {{step}}, e cada etapa que usava {{from}} roda em {{provider}} pelo resto da execução. O trabalho já feito no worktree é mantido; a etapa começa com uma nova sessão porque a conversa não passa de um provedor para outro.",
+    "resume": "Continuar com {{provider}}",
+    "continuing": "Continuando com {{provider}}",
+    "failed": "Não foi possível continuar com {{provider}}"
   }
 }

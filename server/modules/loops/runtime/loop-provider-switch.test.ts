@@ -89,10 +89,10 @@ describe('a Core run paused at a usage limit continues on another provider', () 
     failure: { kind: 'provider_limit', confidence: 'high', resetsAt: '2099-01-01T00:00:00.000Z', provider: 'codex' } }
   const done: DefinitionRuntimeResult = { text: 'done', runtimeStatus: 'succeeded', completion: { ok: true, verified: true, reasons: [] } }
 
-  function harness(supports: boolean) {
+  function harness(supports: boolean, first: DefinitionRuntimeResult = limited) {
     const prepared = preparedRun()
     const run = vi.fn<(input: DefinitionLoopInvocation) => Promise<DefinitionRuntimeResult>>()
-      .mockImplementationOnce(async input => { input.onPrepared?.(prepared); return limited })
+      .mockImplementationOnce(async input => { input.onPrepared?.(prepared); return first })
       .mockResolvedValueOnce(done)
     const executors: LoopExecutors = { runDefinition: run, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn(), supportsRouteOverrides: vi.fn(async () => supports) }
     const remember = vi.fn()
@@ -140,5 +140,15 @@ describe('a Core run paused at a usage limit continues on another provider', () 
     expect(h.manager.resolveLimitPause('r1', { action: 'resume' })).toBe(true)
     expect((await running).outcome).toBe('success')
     expect(h.run.mock.calls[1]![0].routeOverrides).toBeUndefined()
+  })
+
+  it('names the refusing CLI from its execution failure, not the run\'s own provider', async () => {
+    // A run launched on claude whose codex roles refused: Core's untyped execution failure carries Codex's own sentence.
+    const h = harness(true, { text: '', runtimeStatus: 'failed', failed: true, errorText: "codex execution failed (exit 1). ERROR: You've hit your usage limit. Try again in 1 minute.", failure: { kind: 'provider_limit', confidence: 'high' } })
+    const running = h.manager.run({ ...request(), provider: 'claude', model: 'haiku' })
+    await paused(h.manager)
+    expect(h.manager.limitPause('r1')).toMatchObject({ providerId: 'codex', switchRoles: ['developer', 'fixer'] })
+    expect(h.manager.resolveLimitPause('r1', { action: 'resume' })).toBe(true)
+    expect((await running).outcome).toBe('success')
   })
 })

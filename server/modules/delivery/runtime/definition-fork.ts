@@ -10,6 +10,7 @@ import { probeDefinitionRun } from '../../loops/runtime/loop-definition-recovery
 import { claimPrDeliveryOperation, getPrDelivery, releasePrDeliveryOperation, transitionClaimedDecision, type DeliverBranchRecord } from './rail-pr-store'
 import { readIsolatedSettlementRecords, saveIsolatedSettlementSnapshot } from './isolated-settlement-store'
 import { getRailWorktree } from './rail-worktrees-store'
+import type { DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 
 export interface DefinitionForkRequest {
   requestId: string
@@ -17,17 +18,21 @@ export interface DefinitionForkRequest {
   scopeId?: string
   visit?: number
   state?: Record<string, unknown>
+  /** Core `forkRouteOverrides`: the next attempt starts with these roles on another provider (a continuation after a usage limit). */
+  routeOverrides?: DefinitionRouteOverride
 }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const canonical = (value: unknown): unknown => Array.isArray(value) ? value.map(canonical) : object(value)
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
 export function validateDefinitionForkRequest(value: unknown): DefinitionForkRequest {
-  if (!object(value) || Object.keys(value).some(key => !['requestId', 'fromNodePath', 'scopeId', 'visit', 'state'].includes(key)) ||
+  if (!object(value) || Object.keys(value).some(key => !['requestId', 'fromNodePath', 'scopeId', 'visit', 'state', 'routeOverrides'].includes(key)) ||
     typeof value.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.requestId) ||
     typeof value.fromNodePath !== 'string' || !value.fromNodePath.trim() || value.fromNodePath.length > 2048 ||
     value.scopeId !== undefined && (typeof value.scopeId !== 'string' || !value.scopeId || value.scopeId.length > 2048) ||
     value.visit !== undefined && (!Number.isSafeInteger(value.visit) || Number(value.visit) < 1) ||
-    value.state !== undefined && (!object(value.state) || Object.keys(value.state).some(key => !['$vars', '$outputs'].includes(key)) || Object.values(value.state).some(channel => !object(channel)))) throw new Error('invalid_fork_request')
+    value.state !== undefined && (!object(value.state) || Object.keys(value.state).some(key => !['$vars', '$outputs'].includes(key)) || Object.values(value.state).some(channel => !object(channel))) ||
+    // Shape only: Core validates the routes against the frozen configuration before it publishes the fork.
+    value.routeOverrides !== undefined && (!object(value.routeOverrides) || value.routeOverrides.schemaVersion !== 1 || typeof value.routeOverrides.requestId !== 'string' || !object(value.routeOverrides.routes))) throw new Error('invalid_fork_request')
   if (JSON.stringify(value).length > 2 * 1024 * 1024) throw new Error('invalid_fork_request: State exceeds 2 MiB')
   return value as unknown as DefinitionForkRequest
 }

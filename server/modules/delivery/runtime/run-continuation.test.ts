@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 import type { FailureDiagnosis } from '../../recovery'
-import { normalizeContinueRemedy, planContinuation, stoppedStep } from './run-continuation'
+import { normalizeContinueRemedy, planContinuation, stoppedStep, withProviderSwitch } from './run-continuation'
 
 const frozen = vi.hoisted(() => ({ value: undefined as unknown, prepare: vi.fn() }))
 vi.mock('../../loops/runtime/loop-runs-store', async () => ({ ...await vi.importActual<object>('../../loops/runtime/loop-runs-store'), readDefinitionRun: () => frozen.value }))
@@ -81,5 +81,35 @@ describe('Continue: how a run goes on', () => {
   it('refuses a running run and a ledger with no step to continue from', () => {
     expect(() => planContinuation(db, 'run', 'continue', probe([], { status: 'running' }), null)).toThrow(/still running/)
     expect(() => planContinuation(db, 'run', 'continue', probe([scope('planner', 'succeeded')]), null)).toThrow(/no step/)
+  })
+})
+
+describe('Continue with another provider (a run that settled on a usage limit)', () => {
+  const offer = { providerId: 'codex', roles: ['developer', 'fixer'], targets: [{ provider: 'claude', model: 'haiku', effort: 'low' }], via: 'fork' as const }
+  const choice = { provider: 'claude', model: 'haiku', effort: 'low' }
+  it('forks from the same step as Continue, with the roles on the limited provider moved on the fork itself', () => {
+    const plan = planContinuation(db, 'run', 'continue', probe([scope('developer', 'completed'), scope('fixer', 'failed', 2)]), diagnosis({ kind: 'provider_limit', phase: 'fixer' }))
+    const switched = withProviderSwitch(plan, { runId: 'run', sequence: 1, offer, choice })
+    expect(switched.plan).toMatchObject({ mode: 'fork', fromStep: 'fixer', request: { fromNodePath: 'fixer', scopeId: 'root', visit: 2 } })
+    if (switched.plan.mode !== 'fork' || plan.mode !== 'fork') throw new Error('fork expected')
+    // Its own fork request: a plain Continue's earlier request never conflicts with it.
+    expect(switched.plan.request.requestId).toMatch(/^remedy-switch-[0-9a-f]{16}$/)
+    expect(switched.plan.request.requestId).not.toBe(plan.request.requestId)
+    expect(switched.routeOverrides).toEqual({ schemaVersion: 1, requestId: 'desktop-switch:run:1', reason: 'provider-limit', fromProvider: 'codex',
+      routes: { developer: { provider: 'claude', model: 'haiku', effort: 'low' }, fixer: { provider: 'claude', model: 'haiku', effort: 'low' } },
+      providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }] })
+    expect(switched.plan.request.routeOverrides).toEqual(switched.routeOverrides)
+  })
+  it('an older retained Core (routeOverrides only) moves the routes on the fork\'s first resume instead', () => {
+    const plan = planContinuation(db, 'run', 'continue', probe([scope('fixer', 'failed')]), diagnosis({ kind: 'provider_limit', phase: 'fixer' }))
+    const switched = withProviderSwitch(plan, { runId: 'run', sequence: 2, offer: { ...offer, via: 'resume' }, choice })
+    if (switched.plan.mode !== 'fork') throw new Error('fork expected')
+    expect(switched.plan.request.routeOverrides).toBeUndefined()
+    expect(switched.routeOverrides.requestId).toBe('desktop-switch:run:2')
+  })
+  it('a paused run resumes in place with the override', () => {
+    frozen.value = { row: { status: 'paused' }, metadata: {} }
+    const plan = planContinuation(db, 'run', 'continue', probe([], { status: 'paused' }), diagnosis({ kind: 'provider_limit', resumablePhase: 'developer' }))
+    expect(withProviderSwitch(plan, { runId: 'run', sequence: 1, offer, choice })).toMatchObject({ plan: { mode: 'resume' }, routeOverrides: { routes: { developer: { provider: 'claude' } } } })
   })
 })

@@ -1344,6 +1344,7 @@
         "../../../db",
         "../../../project-registry",
         "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-runs-store",
         "../../terminals/runtime/run-port-leases",
@@ -2256,7 +2257,10 @@
       ],
       "runtime/run-continuation.ts": [
         "../../../db",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-provider-switch",
+        "../../loops/runtime/loop-provider-switch-settled",
         "../../loops/runtime/loop-runs-store",
         "../../recovery",
         "./definition-fork",
@@ -2842,6 +2846,7 @@
       "runtime/loop-graph.ts",
       "runtime/loop-limit-pauses.ts",
       "runtime/loop-pr-ci-recipe.ts",
+      "runtime/loop-provider-switch-settled.ts",
       "runtime/loop-provider-switch.ts",
       "runtime/loop-role-engines.ts",
       "runtime/loop-run-hold.ts",
@@ -3092,6 +3097,18 @@
         "./loop-constants",
         "./loop-definition",
         "./loop-graph"
+      ],
+      "runtime/loop-provider-switch-settled.ts": [
+        "../../../db",
+        "../../../provider-limit",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
+        "../../provider-quota/runtime/quota-reports",
+        "../../recovery",
+        "../../recovery/adapters/sqlite",
+        "./loop-provider-switch",
+        "./loop-run-contract",
+        "./loop-runs-store"
       ],
       "runtime/loop-provider-switch.ts": [
         "../../../provider-selection",

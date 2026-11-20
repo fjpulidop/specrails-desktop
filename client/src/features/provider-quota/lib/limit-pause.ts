@@ -34,6 +34,20 @@ export function readLimitPause(raw: unknown): LimitPause | null {
   }
 }
 
+/**
+ * A Core run that SETTLED on a provider's usage limit, and how its next attempt may continue on
+ * another provider (`GET /loop-runs/:id/attempts` → `providerSwitch`). `roles` move together.
+ */
+export interface SettledProviderSwitch { providerId: string; roles: string[]; targets: SwitchTarget[] }
+
+export function readSettledProviderSwitch(raw: unknown): SettledProviderSwitch | null {
+  const value = raw as Partial<SettledProviderSwitch> | null
+  if (!value || typeof value !== 'object' || typeof value.providerId !== 'string' || !Array.isArray(value.targets)) return null
+  const pause = readLimitPause({ providerId: value.providerId, pausedAt: '', switchTargets: value.targets, switchRoles: value.roles })
+  const targets = (pause?.switchTargets ?? []).filter((target) => target.provider !== value.providerId)
+  return targets.length ? { providerId: value.providerId, roles: pause?.switchRoles ?? [], targets } : null
+}
+
 export type LimitAction = { action: 'resume' } | { action: 'auto'; enabled: boolean }
   | { action: 'switch'; provider: string; model?: string; effort?: string; remember?: boolean }
 

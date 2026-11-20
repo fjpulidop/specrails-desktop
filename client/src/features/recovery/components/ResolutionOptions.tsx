@@ -9,7 +9,10 @@ import { continuesOnServer, KEEP_TRYING_ID, type ResolutionKind, type Resolution
 import type { ResolutionActions } from '../hooks/useContinueRemedies'
 
 /** The surface's own way to run the options that do not continue the run on the server. */
-export type ClientResolutionHandlers = Partial<Record<Extract<ResolutionKind, 'edit-spec' | 'change-model' | 'start-over'>, RemedyHandler>>
+export type ClientResolutionHandlers = Partial<Record<Extract<ResolutionKind, 'edit-spec' | 'change-model' | 'start-over'>, RemedyHandler & {
+  /** Run this very option (its id goes with it, so the server reads its guidance): a provider switch's "change the model". */
+  runOption?(option: ResolutionOption): void
+}>>
 
 export interface ResolutionOptionsProps {
   options: readonly ResolutionOption[]
@@ -62,7 +65,9 @@ export function ResolutionOptions({ options, actions, handlers = {}, className }
       else actions.choose(option.id, option.label)
       return
     }
-    handlers[option.kind as keyof ClientResolutionHandlers]?.run()
+    const handler = handlers[option.kind as keyof ClientResolutionHandlers]
+    if (handler?.runOption) handler.runOption(option)
+    else handler?.run()
   }
   const submit = () => {
     const value = draft.trim()

@@ -545,7 +545,9 @@ interface AgentRuntimeControlBase {
   onLine?: (line: string, source?: 'stdout' | 'stderr') => void
 }
 export type AgentRuntimeControlInvocation =
-  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string })
+  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string
+    /** Core `forkRouteOverrides`: the child starts with these roles moved to another provider (`--route-overrides`). */
+    routeOverrides?: DefinitionRouteOverride })
   | (AgentRuntimeControlBase & { kind: 'cancel'; requestId: string })
   | (AgentRuntimeControlBase & { kind: 'signal'; requestId: string; text: string })
   | (AgentRuntimeControlBase & { kind: 'pause'; requestId: string; reason: string })
@@ -564,6 +566,8 @@ export interface AgentRuntimeForkResult {
   definitionPath: string
   configPath: string
   context: Record<string, unknown>
+  /** The route override Core recorded on the child (`forkRouteOverrides`), when the fork moved roles. */
+  routesOverridden?: DefinitionRouteOverride
 }
 export interface AgentRuntimeCancelResult { kind: 'cancel'; requestId: string | null; accepted: Record<string, unknown> }
 export interface AgentRuntimeSignalResult { kind: 'signal'; id: string; acceptedAt: string }
@@ -582,14 +586,20 @@ function readHostPause(value: unknown): DefinitionHostPause | undefined {
     ? { requestId: pause.requestId, reason: pause.reason, at: pause.at } : undefined
 }
 
-/** True when the run's retained Core moves roles to another provider on resume (`routeOverrides`). */
-export async function retainedRuntimeSupportsRouteOverrides(options: AgentRuntimeControlBase): Promise<boolean> {
+/** How the run's retained Core moves roles to another provider: on resume (`routeOverrides`) and on fork (`forkRouteOverrides`). */
+export interface RouteOverrideSupport { resume: boolean; fork: boolean }
+export async function retainedRuntimeRouteOverrideSupport(options: AgentRuntimeControlBase): Promise<RouteOverrideSupport> {
   try {
     const cli = await resolveRetainedAgentRuntime(options.contextPath)
     const events = await runControlProcess([cli, 'api'], options)
     const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
-    return capabilities?.routeOverrides === 1
-  } catch { return false }
+    return { resume: capabilities?.routeOverrides === 1, fork: capabilities?.routeOverrides === 1 && capabilities?.forkRouteOverrides === 1 }
+  } catch { return { resume: false, fork: false } }
+}
+
+/** True when the run's retained Core moves roles to another provider on resume (`routeOverrides`). */
+export async function retainedRuntimeSupportsRouteOverrides(options: AgentRuntimeControlBase): Promise<boolean> {
+  return (await retainedRuntimeRouteOverrideSupport(options)).resume
 }
 
 /** True when the run's retained Core announces cooperative pause (`pauseRuns`). */
@@ -753,6 +763,8 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
   if (options.requestId) args.push('--request-id', options.requestId)
   if (options.scopeId !== undefined) args.push('--scope-id', options.scopeId)
   if (options.visit !== undefined) args.push('--visit', String(options.visit))
+  // forkRouteOverrides: an older retained Core would reject the flag; say so before spawning the fork.
+  if (options.routeOverrides && !(await retainedRuntimeRouteOverrideSupport(options)).fork) throw new Error('engine_unsupported: Retained Core cannot move routes on a fork')
   let staged: string | undefined
   if (options.state !== undefined) {
     if (!options.state || typeof options.state !== 'object' || Array.isArray(options.state)) throw new Error('invalid_arguments: Fork state must be an object')
@@ -761,15 +773,29 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     writeFileSync(stateFile, JSON.stringify(options.state), { mode: 0o600 })
     args.push('--state', stateFile)
   }
+  if (options.routeOverrides) {
+    staged ??= mkdtempSync(join(tmpdir(), 'specrails-fork-'))
+    const routesFile = join(staged, 'route-overrides.json')
+    writeFileSync(routesFile, JSON.stringify(options.routeOverrides), { mode: 0o600 })
+    args.push('--route-overrides', routesFile)
+  }
   try {
     const events = await runControlProcess(args, options)
     const forked = events.find(event => event.type === 'runtime-forked') as { runId?: unknown; forkOf?: unknown; fromNodePath?: unknown; scopeId?: unknown; visit?: unknown; revision?: unknown; directory?: unknown } | undefined
     if (!forked || forked.runId !== options.childRunId || forked.forkOf !== options.runId || typeof forked.directory !== 'string') throw new Error('Core returned an invalid fork result')
     if (!existsSync(join(forked.directory, 'run.sqlite')) || realpathSync(dirname(forked.directory)) !== realpathSync(childRuntimeDirectory)) throw new Error('Core placed the fork outside the expected run directory')
     const frozen = materializeForkedRun(options.contextPath, options.childRunId, childContextPath)
+    // The child replays the overrides its source accepted before the cut, then the one this fork carried:
+    // record both beside its frozen context (advisory; Core's ledger is authoritative).
+    const accepted = (forked as { routesOverridden?: unknown }).routesOverridden
+    try {
+      for (const inherited of acceptedRouteOverrides(options.contextPath)) recordAcceptedRouteOverride(childContextPath, inherited)
+      if (options.routeOverrides && accepted && typeof accepted === 'object') recordAcceptedRouteOverride(childContextPath, accepted)
+    } catch { /* advisory record */ }
     return { kind: 'fork', runId: options.childRunId, forkOf: options.runId, fromNodePath: options.fromNodePath,
       scopeId: typeof forked.scopeId === 'string' ? forked.scopeId : null, visit: typeof forked.visit === 'number' ? forked.visit : null,
-      revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen }
+      revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen,
+      ...(options.routeOverrides && accepted && typeof accepted === 'object' ? { routesOverridden: accepted as DefinitionRouteOverride } : {}) }
   } finally {
     // Core owns publication/cleanup. A lost acknowledgement or host-file error
     // must preserve a published child for the same idempotent request to retry.

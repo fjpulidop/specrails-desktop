@@ -18,6 +18,9 @@ import type { FailureDiagnosis } from '../../recovery'
 import type { DbInstance } from '../../../db'
 import type { DefinitionForkRequest } from './definition-fork'
 import { IncompleteTasksRemedyError, prepareIncompleteTasksFork } from './incomplete-tasks-remedy'
+import { routeOverrideRequest } from '../../loops/runtime/loop-provider-switch'
+import type { ProviderSwitchChoice, SettledProviderSwitch } from '../../loops/runtime/loop-provider-switch-settled'
+import type { DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 
 /** Remedy ids `POST /loop-runs/:id/remedy` accepts. `retry-with-browser` is the older id of `continue`. */
 export const CONTINUE_REMEDIES = ['continue', 'continue-to-review', 'retry-with-browser'] as const
@@ -116,4 +119,19 @@ export function planContinuation(db: DbInstance, runId: string, remedy: Continue
   const step = stoppedStep(probe, diagnosis, nodes)
   if (!step) throw new IncompleteTasksRemedyError('remedy_not_applicable', 'The run has no step to continue from')
   return { mode: 'fork', fromStep: step.nodePath, request: { requestId: requestId(runId, 'continue'), fromNodePath: step.nodePath, scopeId: 'root', visit: step.visit } }
+}
+
+/**
+ * Continue on another provider (a run that settled on a usage limit): the roles on the limited
+ * provider move for the rest of the run. With `forkRouteOverrides` (`via: 'fork'`) the fork itself
+ * carries the move, so every later resume of the next attempt replays it; its first resume carries
+ * the same request too (Core applies it once), which is how a retained Core with only
+ * `routeOverrides` (`via: 'resume'`) moves them. A switch is its own fork request (not the plain
+ * Continue's), so the two never conflict.
+ */
+export function withProviderSwitch(plan: ContinuationPlan, input: { runId: string; sequence: number; offer: SettledProviderSwitch; choice: ProviderSwitchChoice }): { plan: ContinuationPlan; routeOverrides: DefinitionRouteOverride } {
+  const routeOverrides = routeOverrideRequest({ runId: input.runId, sequence: input.sequence, fromProvider: input.offer.providerId, roles: input.offer.roles, choice: input.choice })
+  if (plan.mode !== 'fork') return { plan, routeOverrides }
+  return { routeOverrides, plan: { ...plan, request: { ...plan.request, requestId: `remedy-switch-${createHash('sha256').update(input.runId).digest('hex').slice(0, 16)}`,
+    ...(input.offer.via === 'fork' ? { routeOverrides } : {}) } } }
 }

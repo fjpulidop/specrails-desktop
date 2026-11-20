@@ -394,6 +394,7 @@
       "components/LaunchPreflightChips.tsx",
       "components/MissionUsageLimitCard.tsx",
       "components/ProviderQuotaBridge.tsx",
+      "components/ProviderSwitchSection.tsx",
       "components/RunLimitPause.tsx",
       "lib/format-reset.ts",
       "lib/labels.ts",

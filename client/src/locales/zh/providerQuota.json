@@ -85,5 +85,13 @@
     "continueWith": "立即改用 {{provider}} 继续",
     "continuePrompt": "从上一个代理因用量限额停下的地方继续。在重复任何步骤之前，先检查已经完成的内容。",
     "failed": "无法安排任务：{{detail}}"
+  },
+  "settledSwitch": {
+    "title": "使用其他提供方继续",
+    "consequence": "下一次尝试从本次停止的地方继续，之前使用 {{from}} 的每个步骤在本次运行的剩余部分都改用 {{provider}}。worktree 中已有的工作会保留；由于对话不会在提供方之间延续，该步骤会以新会话开始。",
+    "consequenceFrom": "下一次尝试从 {{step}} 步骤继续，之前使用 {{from}} 的每个步骤在本次运行的剩余部分都改用 {{provider}}。worktree 中已有的工作会保留；由于对话不会在提供方之间延续，该步骤会以新会话开始。",
+    "resume": "使用 {{provider}} 继续",
+    "continuing": "正在使用 {{provider}} 继续",
+    "failed": "无法使用 {{provider}} 继续"
   }
 }

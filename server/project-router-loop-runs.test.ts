@@ -11,6 +11,12 @@ import { readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-lim
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { LoopGraph } from './modules/loops/runtime/loop-graph'
 
+const settled = vi.hoisted(() => ({ offer: null as unknown }))
+vi.mock('./modules/loops/runtime/loop-provider-switch-settled', async () => ({
+  ...await vi.importActual<object>('./modules/loops/runtime/loop-provider-switch-settled'),
+  settledProviderSwitch: vi.fn(async () => settled.offer),
+}))
+
 function graphWith(prompt: string): LoopGraph {
   return {
     nodes: [
@@ -555,5 +561,40 @@ describe('resuming right after a restart', () => {
     expect(staleLeaseWaitMs({ active: false, expiresAt: 10_000 }, 4_000, false)).toBe(0)
     expect(staleLeaseWaitMs(null, 4_000, false)).toBe(0)
     expect(staleLeaseWaitMs({ active: true, expiresAt: 4_000 + STALE_LEASE_MAX_WAIT_MS + 10_000 }, 4_000, false)).toBe(0)
+  })
+})
+
+describe('continuing a run that settled on a usage limit on another provider', () => {
+  const offer = { providerId: 'codex', roles: ['developer', 'fixer'], targets: [{ provider: 'claude', model: 'sonnet', effort: 'medium' }], via: 'fork' }
+  function settledApp() {
+    process.env.SPECRAILS_LOOPS_SECTION = '1'
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed', final_outcome='failure', engine_version=2 WHERE id='run-1'").run()
+    return buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, { db })
+  }
+  const post = (app: Express, body: object) => request(app).post('/api/projects/p1/loop-runs/run-1/remedy').send(body)
+
+  it('offers the switch with the run\'s attempts and checks the choice against that offer', async () => {
+    settled.offer = offer
+    const app = settledApp()
+    expect((await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body).toMatchObject({ continuable: true, providerSwitch: offer })
+    // Never the exhausted provider, nor one the run did not offer, nor a model or effort outside the catalog.
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'codex', model: 'gpt-6-sol' } })).body.error).toBe('shares_quota')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'gemini', model: 'gemini-3.5-flash' } })).body.error).toBe('invalid_provider')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'gpt-6-sol' } })).body.error).toBe('invalid_model')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku', effort: 'ultra' } })).body.error).toBe('invalid_effort')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', temperature: 1 } })).body.error).toBe('invalid_switch')
+    expect((await post(app, { remedy: 'continue-to-review', switch: { provider: 'claude' } })).body.error).toBe('invalid_switch')
+    // A valid choice goes on to Continue (here the run has no Core state to fork from).
+    const valid = await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku', effort: 'low' } })
+    expect(valid.body.error).not.toMatch(/switch|provider|model|effort/)
+  })
+
+  it('refuses a switch the run does not offer (no limit, an older Core, nothing else installed)', async () => {
+    settled.offer = null
+    const app = settledApp()
+    expect((await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body.providerSwitch).toBeNull()
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku' } })).body).toMatchObject({ error: 'switch_unavailable' })
   })
 })

@@ -78,7 +78,11 @@ and the server-ranked `remedies`.
   happen*, risk and the recommended badge, plus *Other instruction…*. One click continues the run
   (`useResolutionActions`: `{ optionId }` or `{ instruction }` to `POST /loop-runs/:id/remedy`, toast
   *Continuing with: <label>*); `edit-spec`, `change-model` and `start-over` run the surface's own
-  action. [lib/resolution.ts](lib/resolution.ts) keeps one button per action: without a repeat the
+  action. A run that settled on a provider's usage limit (`useAttemptChain().providerSwitch`) also
+  shows *Continue with another provider* on its card, beside Continue (provider-quota's
+  `ProviderSwitchSection`, `useProviderSwitchContinue`: `{ remedy: 'continue', switch }`); there
+  `change-model` continues with the card's choice and the option's guidance instead of opening the
+  agent settings. [lib/resolution.ts](lib/resolution.ts) keeps one button per action: without a repeat the
   card's Continue is "keep going" and a plain-continue option is left out; when the chain keeps stopping
   for the same cause (`useAttemptChain().resolution.repeated`) Continue never leads, steps aside once
   options exist, *Keep trying as is* goes last (with the spend per attempt) and the card says how many

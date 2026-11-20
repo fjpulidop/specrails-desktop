@@ -6,7 +6,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useContinueRemedies, useResolutionActions } from '../../../recovery/hooks/useContinueRemedies'
+import { useContinueRemedies, useProviderSwitchContinue, useResolutionActions, type ProviderSwitchContinue } from '../../../recovery/hooks/useContinueRemedies'
 import type { RunResolution } from './RunDetailTabs'
 import { useAttemptChain } from '../../../recovery/hooks/useAttemptChain'
 import { RunLineage } from '../../../recovery/components/RunLineage'
@@ -52,6 +52,8 @@ export interface JobRunDetailsContext {
   continuityContent: ReactNode
   /** The chain behind a failed run and how a picked resolution continues it. */
   resolution: RunResolution
+  /** A run that settled on a provider's usage limit: "Continue with <Provider>". Null otherwise. */
+  providerSwitch: ProviderSwitchContinue | null
   hasDetails: boolean
   /** Recorded figures and runtime notes, opened from the Details button. */
   detailsContent: ReactNode
@@ -218,7 +220,11 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   // One click on a resolution option (or the person's own instruction) continues a settled definition run.
   const resolutionActions = useResolutionActions(projectId, definitionRunId, { enabled: isTerminal && showDiagnosis, onContinued: onOpenRun })
   const resolution: RunResolution = { chain: continuity.resolution, actions: resolutionActions }
+  // A run that settled on a provider's usage limit can continue on another provider instead.
+  const providerSwitch = useProviderSwitchContinue(projectId, definitionRunId, continuity.providerSwitch, { enabled: isTerminal && showDiagnosis, onContinued: onOpenRun })
   const diagnosisHandlers: RemedyHandlers = { ...continueRemedies }
+  // One continuation at a time: Continue waits while the run continues on another provider.
+  if (diagnosisHandlers.continue && (providerSwitch?.busy || providerSwitch?.done)) diagnosisHandlers.continue = { ...diagnosisHandlers.continue, disabled: true }
   // A picked resolution continues the run too: Continue waits for it, never a second continuation.
   if (diagnosisHandlers.continue && (resolutionActions?.busy || resolutionActions?.done)) diagnosisHandlers.continue = { ...diagnosisHandlers.continue, disabled: true }
   // A run this surface can only resume in place (no definition run) still continues that way.
@@ -399,7 +405,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
     </div>}
-    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: false, diagnosisHandlers, diagnosisTail, continuityContent, resolution, hasDetails, detailsContent, questionContent: null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: false, diagnosisHandlers, diagnosisTail, continuityContent, resolution, providerSwitch, hasDetails, detailsContent, questionContent: null, metaContent, composer, detailsRequest, statusLead, statusTrail })}
     </>
   )
 }

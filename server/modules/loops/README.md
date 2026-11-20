@@ -445,7 +445,16 @@ never edited. `Remember for this project` also saves the routes as the
 project's agent runtime role routes. The run log and the `provider_switched`
 run event say `Switched to <Provider>/<model> (<effort>) after <Old>'s usage
 limit`. A run retained over a restart switches through the retained-run resume
-(`routeOverrides` resume control). An older Core offers no switch. The pause resumes by itself at
+(`routeOverrides` resume control). An older Core offers no switch. A run that
+already SETTLED on the limit (an older Core failed it, or the pauses ran out)
+offers the same choice on its failure card (`loop-provider-switch-settled.ts`):
+the refusing provider comes from the diagnosis, the run's own refusal lines or
+the AI analysis, and `POST …/remedy {remedy:'continue', switch}` forks the next
+attempt from the same step as Continue with the moved routes on the fork itself
+(Core `forkRouteOverrides`), then resumes it with the same request (Core applies
+it once; an older Core with only `routeOverrides` moves them there). The
+fork's first resume logs the switch, emits `provider_switched` and admits the
+run on the new provider. The pause resumes by itself at
 `resumeAt` (default on, per-run off switch) on the wake-aware clock, never
 during sleep or a dark wake. After a restart a Core run is retained paused and
 resumed at `resumeAt` (`project-context-recovery.ts`); a legacy run cannot
@@ -453,4 +462,5 @@ survive a restart and its record is dropped. At most `MAX_LIMIT_PAUSES` (3)
 pauses per run; then it settles `stalled` / `provider_limit` as before. Tests:
 `loop-run-manager.test.ts` (usage limit), `loop-definition-run.test.ts`,
 `loop-definition-store.test.ts`, `project-router-loop-runs.test.ts`,
-`loop-provider-switch.test.ts`, `loop-provider-switch-paired.test.ts` (real Core).
+`loop-provider-switch.test.ts`, `loop-provider-switch-paired.test.ts` (real Core),
+`loop-provider-switch-settled.test.ts`, `loop-provider-switch-settled-paired.test.ts` (real Core).

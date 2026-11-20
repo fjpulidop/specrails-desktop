@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1841 source/build files. Nearby tests are linked where names
+Includes 1843 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -924,6 +924,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LimitPauseCard.tsx](../../client/src/features/provider-quota/components/LimitPauseCard.tsx)
 - [MissionUsageLimitCard.tsx](../../client/src/features/provider-quota/components/MissionUsageLimitCard.tsx)
 - [ProviderQuotaBridge.tsx](../../client/src/features/provider-quota/components/ProviderQuotaBridge.tsx)
+- [ProviderSwitchSection.tsx](../../client/src/features/provider-quota/components/ProviderSwitchSection.tsx)
 - [RunLimitPause.tsx](../../client/src/features/provider-quota/components/RunLimitPause.tsx)
 
 ## client/src/features/provider-quota/lib
@@ -2213,6 +2214,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-phase-recovery.ts](../../server/modules/loops/runtime/loop-phase-recovery.ts)
 - [loop-pr-ci-recipe.ts](../../server/modules/loops/runtime/loop-pr-ci-recipe.ts) · [test](../../server/modules/loops/runtime/loop-pr-ci-recipe.test.ts)
 - [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
+- [loop-provider-switch-settled.ts](../../server/modules/loops/runtime/loop-provider-switch-settled.ts) · [test](../../server/modules/loops/runtime/loop-provider-switch-settled.test.ts)
 - [loop-provider-switch.ts](../../server/modules/loops/runtime/loop-provider-switch.ts) · [test](../../server/modules/loops/runtime/loop-provider-switch.test.ts)
 - [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
 - [loop-run-context.ts](../../server/modules/loops/runtime/loop-run-context.ts)

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { act, fireEvent, render, screen, waitFor, within } from '../../../test-utils'
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '../../../test-utils'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
 import { LimitPauseCard } from '../components/LimitPauseCard'
+import { useProviderSwitchChoice } from '../components/ProviderSwitchSection'
 import { MissionUsageLimitCard } from '../components/MissionUsageLimitCard'
 import { ProviderQuotaBridge } from '../components/ProviderQuotaBridge'
 import { quotaStore } from '../lib/quota-store'
@@ -165,5 +166,21 @@ describe('ProviderQuotaBridge', () => {
     expect(dispatch).toHaveBeenCalledTimes(2)
     expect(dispatch.mock.calls[0]![0]).toMatchObject({ category: 'budget', title: 'Claude usage at 82%' })
     expect(dispatch.mock.calls[1]![0]).toMatchObject({ category: 'budget', title: 'Claude usage limit reached' })
+  })
+})
+
+describe('useProviderSwitchChoice', () => {
+  it('starts on the first target when the targets arrive after the first render, and keeps the person\'s pick', () => {
+    const targets = [{ provider: 'claude', model: 'sonnet', effort: 'medium' }, { provider: 'gemini', model: 'gemini-3.5-flash', effort: null }]
+    const { result, rerender } = renderHook(({ list }) => useProviderSwitchChoice(list), { initialProps: { list: [] as typeof targets } })
+    expect(result.current).toBeNull()
+    rerender({ list: targets })
+    expect(result.current!.choice).toEqual({ provider: 'claude', model: 'sonnet', effort: 'medium' })
+    act(() => result.current!.chooseModel('haiku'))
+    expect(result.current!.choice).toMatchObject({ provider: 'claude', model: 'haiku' })
+    act(() => result.current!.setEffort('low'))
+    expect(result.current!.choice).toEqual({ provider: 'claude', model: 'haiku', effort: 'low' })
+    act(() => result.current!.chooseProvider('gemini'))
+    expect(result.current!.choice).toMatchObject({ provider: 'gemini', model: 'gemini-3.5-flash' })
   })
 })

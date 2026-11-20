@@ -5,6 +5,9 @@ import { notifyError } from '../../../lib/notify-error'
 import { API_ORIGIN } from '../../../lib/origin'
 import { ApiResponseError, requestJson } from '../../../lib/api-response'
 import type { FailureDiagnosis, RemedyHandlers } from '../lib/failure-diagnosis'
+import type { SettledProviderSwitch } from '../../provider-quota/lib/limit-pause'
+import { providerLabel } from '../../provider-quota/lib/labels'
+import type { ProviderSwitchChoice } from '../../provider-quota/components/ProviderSwitchSection'
 
 type Remedy = 'continue' | 'continue-to-review' | 'copy-env-files'
 
@@ -128,4 +131,57 @@ export function useResolutionActions(
     keepGoing: (label) => void send('keep-going', { remedy: 'continue' }, t('remedyResult.continuingWith', { label })),
     busy, done,
   }
+}
+
+/** "Continue with <Provider>" on a run that settled on a usage limit (the offer comes from `useAttemptChain`). */
+export interface ProviderSwitchContinue {
+  offer: SettledProviderSwitch
+  /** Continue as the next attempt with the roles moved; `optionId` also carries that AI option's guidance. */
+  continueWith(choice: ProviderSwitchChoice, optionId?: string): void
+  busy: boolean
+  done: boolean
+}
+
+/**
+ * `POST /loop-runs/:id/remedy` with `{ remedy: 'continue', switch }`: the server checks the choice
+ * against this run's offer, forks the next attempt with the moved routes and resumes it. Null when
+ * the run offers no switch or this surface cannot continue it.
+ */
+export function useProviderSwitchContinue(
+  projectId: string | null | undefined,
+  runId: string | null | undefined,
+  offer: SettledProviderSwitch | null,
+  options: { enabled: boolean; onContinued?: (loopRunId: string) => void },
+): ProviderSwitchContinue | null {
+  const { t } = useTranslation(['providerQuota', 'recovery'])
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const scope = `${projectId ?? ''}:${runId ?? ''}`
+  const current = useRef(scope)
+  useEffect(() => { current.current = scope; setBusy(false); setDone(false) }, [scope])
+  if (!projectId || !runId || !offer || !options.enabled) return null
+  const continueWith = async (choice: ProviderSwitchChoice, optionId?: string) => {
+    if (busy || done) return
+    const owner = scope, provider = providerLabel(choice.provider)
+    setBusy(true)
+    try {
+      const body = await requestJson<ContinueResponse | null>(
+        `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/loop-runs/${encodeURIComponent(runId)}/remedy`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remedy: 'continue', switch: choice, ...(optionId ? { optionId } : {}) }) },
+      )
+      if (current.current !== owner) return
+      setDone(true)
+      toast.success(t('settledSwitch.continuing', { provider }))
+      if (body?.resumed === false) notifyError(t('recovery:remedyResult.notResumed'), { detail: body.resumeDetail ?? null })
+      if (body?.loopRunId && body.loopRunId !== runId) options.onContinued?.(body.loopRunId)
+    } catch (error) {
+      if (current.current !== owner) return
+      const payload = error instanceof ApiResponseError ? (error.body ?? {}) as { detail?: string; error?: string } : {}
+      const detail = error instanceof ApiResponseError ? payload.detail ?? payload.error : error instanceof Error ? error.message : null
+      notifyError(t('settledSwitch.failed', { provider }), { detail: detail ?? null, retry: () => void continueWith(choice, optionId) })
+    } finally {
+      if (current.current === owner) setBusy(false)
+    }
+  }
+  return { offer, continueWith: (choice, optionId) => void continueWith(choice, optionId), busy, done }
 }

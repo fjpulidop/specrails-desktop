@@ -85,5 +85,13 @@
     "continueWith": "Jetzt mit {{provider}} fortsetzen",
     "continuePrompt": "Mach dort weiter, wo der vorherige Agent an seinem Nutzungslimit aufgehört hat. Prüfe, was schon erledigt ist, bevor du einen Schritt wiederholst.",
     "failed": "Die Mission konnte nicht geplant werden: {{detail}}"
+  },
+  "settledSwitch": {
+    "title": "Mit einem anderen Anbieter fortsetzen",
+    "consequence": "Der nächste Versuch setzt dort fort, wo dieser angehalten hat, und jeder Schritt, der {{from}} verwendet hat, läuft für den Rest des Laufs auf {{provider}}. Die Arbeit im Worktree bleibt erhalten; der Schritt beginnt mit einer neuen Sitzung, weil seine Unterhaltung nicht zwischen Anbietern übertragen wird.",
+    "consequenceFrom": "Der nächste Versuch setzt beim Schritt {{step}} fort, und jeder Schritt, der {{from}} verwendet hat, läuft für den Rest des Laufs auf {{provider}}. Die Arbeit im Worktree bleibt erhalten; der Schritt beginnt mit einer neuen Sitzung, weil seine Unterhaltung nicht zwischen Anbietern übertragen wird.",
+    "resume": "Mit {{provider}} fortsetzen",
+    "continuing": "Wird mit {{provider}} fortgesetzt",
+    "failed": "Fortsetzen mit {{provider}} nicht möglich"
   }
 }

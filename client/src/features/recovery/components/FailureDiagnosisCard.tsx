@@ -224,6 +224,8 @@ export interface FailureDiagnosisCardProps {
   continueMode?: ContinueMode
   /** The chain's spend and whether it keeps stopping the same way (says so above the remedies). */
   chain?: ChainResolution | null
+  /** "Continue with another provider" (a run that settled on a usage limit), drawn beside the remedies; gets the step it goes on from. */
+  renderSwitch?: (step: string | null) => ReactNode
   className?: string
 }
 
@@ -261,7 +263,7 @@ function FlakyTests({ tests }: { tests: readonly string[] }) {
  * to actions the app already has. An unknown cause says so and shows the raw
  * log tail instead of guessing.
  */
-export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, continueMode = 'primary', chain, className }: FailureDiagnosisCardProps) {
+export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, continueMode = 'primary', chain, renderSwitch, className }: FailureDiagnosisCardProps) {
   const { t } = useTranslation('recovery')
   const headingId = useId()
   const [envOpen, setEnvOpen] = useState(false)
@@ -361,6 +363,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
           </div>
         ) : null}
       />
+      {renderSwitch?.(diagnosis.resumablePhase ? phaseName(diagnosis.resumablePhase) : factStep)}
     </section>
   )
 }

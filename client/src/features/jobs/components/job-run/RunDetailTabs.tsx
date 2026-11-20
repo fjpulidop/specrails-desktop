@@ -14,8 +14,11 @@ import { runnableOptions, type ClientResolutionHandlers } from '../../../recover
 import type { ResolutionActions } from '../../../recovery/hooks/useContinueRemedies'
 import { continueMode, costPerAttempt, isPlainContinue, KEEP_TRYING_ID, readResolutionOptions, visibleOptions, type ChainResolution, type ResolutionOption } from '../../../recovery/lib/resolution'
 import { formatUsd } from '../../../../lib/format-usd'
+import type { ProviderSwitchContinue } from '../../../recovery/hooks/useContinueRemedies'
+import { ProviderSwitchSection, useProviderSwitchChoice, type ProviderSwitchState } from '../../../provider-quota/components/ProviderSwitchSection'
 
 export type RunDetailTab = 'failure' | 'log'
+const NO_TARGETS: never[] = []
 /** The tabs shown: loops expose their two evidence sections directly. */
 type RunDetailView = RunDetailTab | RunLogSection
 export type { RunLogSection } from './job-run-model'
@@ -71,12 +74,22 @@ export interface RunResolution {
   actions: ResolutionActions | null
 }
 
+/** A run that settled on a usage limit: "Continue with <Provider>" and the selection the card shows. */
+interface RunSwitch { action: ProviderSwitchContinue; state: ProviderSwitchState }
+
+/** "Change the model": on a run that settled on a usage limit it continues on the chosen provider; else the agent settings. */
+function changeModelHandler(runSwitch: RunSwitch | null): NonNullable<ClientResolutionHandlers['change-model']> {
+  if (!runSwitch) return { run: () => openProjectSettings('agentRuntime') }
+  return { run: () => runSwitch.action.continueWith(runSwitch.state.choice), runOption: (option) => runSwitch.action.continueWith(runSwitch.state.choice, option.id),
+    busy: runSwitch.action.busy, disabled: runSwitch.action.done }
+}
+
 /** The client-side kinds of option, run with what this surface already has. */
-function clientResolutionHandlers(handlers: RemedyHandlers): ClientResolutionHandlers {
+function clientResolutionHandlers(handlers: RemedyHandlers, runSwitch: RunSwitch | null): ClientResolutionHandlers {
   return {
     ...(handlers['edit-spec'] ? { 'edit-spec': handlers['edit-spec'] } : {}),
-    // A role's model is chosen in the project's agent settings.
-    'change-model': { run: () => openProjectSettings('agentRuntime') },
+    // A role's model is chosen in the project's agent settings (or, after a usage limit, on the card).
+    'change-model': changeModelHandler(runSwitch),
     ...(handlers.retry ? { 'start-over': handlers.retry } : {}),
   }
 }
@@ -86,7 +99,7 @@ function clientResolutionHandlers(handlers: RemedyHandlers): ClientResolutionHan
  * without a repeat Continue is "keep going"; after one, Continue steps aside once real options exist
  * and "keep trying as is" (the analysis' own, or one stated here with the spend per attempt) goes last.
  */
-function useResolutionView(analysis: FailureAnalysisController, resolution: RunResolution | undefined, handlers: RemedyHandlers) {
+function useResolutionView(analysis: FailureAnalysisController, resolution: RunResolution | undefined, handlers: RemedyHandlers, runSwitch: RunSwitch | null) {
   const { t, i18n } = useTranslation('recovery')
   const options = analysis.state.status === 'ready' ? readResolutionOptions(analysis.state.analysis.options) : []
   const repeated = !!resolution?.chain?.repeated
@@ -96,14 +109,14 @@ function useResolutionView(analysis: FailureAnalysisController, resolution: RunR
     label: t('resolution.keepTrying.label'), does: t('resolution.keepTrying.does'),
     consequence: perAttempt ? t('resolution.keepTrying.consequence', { cost: formatUsd(perAttempt, i18n.language) }) : t('resolution.keepTrying.consequenceNoCost'),
   } : null
-  const clientHandlers = clientResolutionHandlers(handlers)
+  const clientHandlers = clientResolutionHandlers(handlers, runSwitch)
   const shown = options.length ? runnableOptions(visibleOptions(options, repeated, keepTrying), resolution?.actions ?? null, clientHandlers) : []
   const optionsReady = shown.some((option) => !isPlainContinue(option))
   return { hasOptions: options.length > 0, shown, clientHandlers, mode: continueMode(repeated, optionsReady) }
 }
 
 /** The AI analysis, told what the deterministic card already says so it does not repeat it. */
-function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller, handlers, resolution, view }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[]; controller?: FailureAnalysisController; handlers: RemedyHandlers; resolution?: RunResolution; view: ReturnType<typeof useResolutionView> }) {
+function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller, handlers, resolution, view, runSwitch }: { projectId?: string; jobId: string; diagnosis: FailureDiagnosis; tail: readonly string[]; controller?: FailureAnalysisController; handlers: RemedyHandlers; resolution?: RunResolution; view: ReturnType<typeof useResolutionView>; runSwitch: RunSwitch | null }) {
   const { t } = useTranslation('recovery')
   const { headline, phaseName } = useDiagnosisText(diagnosis)
   const recorded = diagnosis.kind === 'unknown' ? recordedStepError(tail) : null
@@ -118,8 +131,8 @@ function DiagnosisAnalysis({ projectId, jobId, diagnosis, tail, controller, hand
       // Continue lives once, as the card's primary button above; the analysis never repeats it.
       continueCarriesPlan={!!handlers.continue}
       actions={{ 'edit-spec': handlers['edit-spec'],
-        // A role's model is chosen in the project's agent settings.
-        'change-model': { run: () => openProjectSettings('agentRuntime') } }}
+        // A role's model is chosen in the project's agent settings (or, after a usage limit, on the card).
+        'change-model': changeModelHandler(runSwitch) }}
       // Options replace the numbered plan; an older analysis (no options) keeps it.
       resolution={view.hasOptions ? { options: view.shown, actions: resolution?.actions ?? null, handlers: view.clientHandlers } : undefined}
     />
@@ -157,6 +170,8 @@ export interface RunDetailTabsProps {
   projectId?: string
   /** The chain behind a failed run and how this window continues it with a picked resolution. */
   resolution?: RunResolution
+  /** A run that settled on a provider's usage limit: "Continue with <Provider>" on the card. */
+  providerSwitch?: ProviderSwitchContinue | null
 }
 
 export function RunDetailTabs(props: RunDetailTabsProps) {
@@ -166,7 +181,7 @@ export function RunDetailTabs(props: RunDetailTabsProps) {
 function RunDetailTabsView({
   surface, showDiagnosis, diagnosis, pendingQuestion = false,
   diagnosisHandlers = {}, diagnosisTail, continuityContent, detailsContent, questionContent, metaContent, composer, events, hasDetails = true,
-  isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job, resolution,
+  isLoop, graphContent, logContent, detailsRequest = 0, onOpenLogs, statusLead, statusTrail, projectId, job, resolution, providerSwitch = null,
 }: RunDetailTabsProps) {
   const { t, i18n } = useTranslation('jobs')
   const id = useId()
@@ -174,7 +189,9 @@ function RunDetailTabsView({
   // One AI reading for the card (which leads with it when the app names no cause) and the panel below it.
   const analysisShown = !!(showDiagnosis && diagnosis && job.status === 'failed')
   const analysis = useFailureAnalysis(projectId, job.id, i18n.language, { auto: diagnosis?.kind !== 'provider_limit', enabled: analysisShown })
-  const resolutionView = useResolutionView(analysis, analysisShown ? resolution : undefined, diagnosisHandlers)
+  const switchState = useProviderSwitchChoice(providerSwitch?.offer.targets ?? NO_TARGETS)
+  const runSwitch: RunSwitch | null = showDiagnosis && diagnosis && providerSwitch && switchState ? { action: providerSwitch, state: switchState } : null
+  const resolutionView = useResolutionView(analysis, analysisShown ? resolution : undefined, diagnosisHandlers, runSwitch)
   const [activeTab, setActiveTab] = useState<RunDetailTab>(showDiagnosis || continuityContent ? 'failure' : 'log')
   const [logSection, setLogSection] = useState<RunLogSection>(() => loadJobRunLogSection(surface))
   const [visited, setVisited] = useState({
@@ -352,10 +369,16 @@ function RunDetailTabsView({
                 ai={analysisShown ? analysis : undefined}
                 continueMode={analysisShown ? resolutionView.mode : 'primary'}
                 chain={analysisShown ? resolution?.chain ?? null : null}
+                renderSwitch={runSwitch ? (step) => (
+                  <ProviderSwitchSection variant="settled" testId="failure-switch" step={step} fromProvider={runSwitch.action.offer.providerId}
+                    targets={runSwitch.action.offer.targets} state={runSwitch.state}
+                    busy={runSwitch.action.busy || runSwitch.action.done || !!diagnosisHandlers.continue?.busy || !!resolution?.actions?.busy}
+                    onSwitch={(choice) => runSwitch.action.continueWith(choice)} />
+                ) : undefined}
               />
             )}
             {showDiagnosis && diagnosis && job.status === 'failed' && (
-              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} controller={analysis} handlers={diagnosisHandlers} resolution={resolution} view={resolutionView} />
+              <DiagnosisAnalysis projectId={projectId} jobId={job.id} diagnosis={diagnosis} tail={diagnosisTail ?? []} controller={analysis} handlers={diagnosisHandlers} resolution={resolution} view={resolutionView} runSwitch={runSwitch} />
             )}
             {continuityContent}
             {pendingQuestion && questionContent}

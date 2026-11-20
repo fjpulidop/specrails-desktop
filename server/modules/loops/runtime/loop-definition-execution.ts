@@ -105,9 +105,10 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     const limited = failure?.kind === 'provider_limit' || (!failure && classifyProviderLimit(result.errorText) !== null)
     if (!limited || result.completion || host.isCancelled(runId) || host.isDisposed() || limitPauses >= MAX_LIMIT_PAUSES) return 'settle'
     limitPauses += 1
-    // Core names the refusing CLI on its failure record (routeOverrides Cores) and in its typed message.
+    // Core names the refusing CLI on its failure record (routeOverrides Cores) and in its typed message, or
+    // its execution failure carries the CLI's own limit sentence ("codex execution failed (exit 1). … usage limit").
     const rawProvider = (result.failure as { provider?: unknown } | undefined)?.provider
-    const named = typeof rawProvider === 'string' ? rawProvider : /\b(claude|codex|gemini|kimi) usage limit reached/i.exec(result.errorText ?? '')?.[1]?.toLowerCase()
+    const named = typeof rawProvider === 'string' ? rawProvider : /\b(claude|codex|gemini|kimi) (?:usage limit reached|execution failed)\b/i.exec(result.errorText ?? '')?.[1]?.toLowerCase()
     const provider = limitedProvider(req, named)
     const words = failure?.resetAt ?? classifyProviderLimit(result.errorText)?.resetsAt ?? null
     reportProviderRefusal(provider, failure?.resetsAt ?? words)
