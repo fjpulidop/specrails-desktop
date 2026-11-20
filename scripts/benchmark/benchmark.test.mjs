@@ -150,3 +150,18 @@ test('every shipped scenario file parses', () => {
     assert.ok(scenarios.length > 10, file)
   }
 })
+
+test('a restart carries the server env; install scenarios need a fake brew', async () => {
+  const { parsePsEnv, whichOnPath } = await import('./lib/server.mjs')
+  const { needsFakeInstaller, installerIsFake } = await import('./lib/isolation.mjs')
+  assert.deepEqual(parsePsEnv('node server/index.ts PATH=/f/fake-installers:/opt/homebrew/bin SPECRAILS_CORE_BIN=/c/bin/specrails-core.mjs HOME=/h'),
+    { PATH: '/f/fake-installers:/opt/homebrew/bin', SPECRAILS_CORE_BIN: '/c/bin/specrails-core.mjs' })
+  const fake = new URL('./fake-installers', import.meta.url).pathname
+  assert.ok(installerIsFake(whichOnPath('brew', `${fake}:/opt/homebrew/bin`)))
+  assert.equal(installerIsFake('/opt/homebrew/bin/brew'), false)
+  assert.equal(installerIsFake(null), false)
+  const { scenarios } = parseScenarioText(fs.readFileSync(new URL('./scenarios/bench5.json', import.meta.url), 'utf8'))
+  const byName = Object.fromEntries(scenarios.map(s => [s.name, s]))
+  assert.ok(needsFakeInstaller(byName['install-ask']) && needsFakeInstaller(byName['install-self']) && needsFakeInstaller(byName['install-remembered']))
+  assert.equal(needsFakeInstaller(byName['reg-go']), false)
+})

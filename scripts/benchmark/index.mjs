@@ -16,7 +16,8 @@ import { assertIsolatedTarget } from './lib/isolation.mjs'
 import { parseScenarioText } from './lib/scenarios.mjs'
 import { quotaDecision, quotaSample } from './lib/quota.mjs'
 import { createApi } from './lib/api.mjs'
-import { startServer, restartServer, stopServer, listenerPid } from './lib/server.mjs'
+import { startServer, restartServer, stopServer, listenerPid, listenerPath, whichOnPath } from './lib/server.mjs'
+import { needsFakeInstaller, installerIsFake } from './lib/isolation.mjs'
 import { runScenario } from './lib/driver.mjs'
 import { renderReport } from './lib/report.mjs'
 import { parseArgs } from './lib/args.mjs'
@@ -47,6 +48,11 @@ async function main() {
   const serverOpts = { desktopDir, home: target.home, port: target.port, clientPort: target.clientPort, coreBin: opts.coreBin, pathPrepend: opts.pathPrepend, logFile: path.join(workDir, 'logs', 'server.log') }
   if (opts.startServer && !listenerPid(target.port)) { const s = await startServer(serverOpts); log(`server started pid ${s.pid} in ${s.readyMs} ms`) }
   if (!listenerPid(target.port)) throw new Error(`Nothing listens on port ${target.port}; pass --start-server`)
+  // Install questions run the installer on the SERVER's PATH: refuse unless its brew is a fake one.
+  if (chosen.some(needsFakeInstaller)) {
+    const brew = whichOnPath('brew', listenerPath(target.port, target.home))
+    if (!installerIsFake(brew)) throw new Error(`Refusing install scenarios: the isolated server's brew is ${brew ?? 'missing'}, not a fake installer (pass --path-prepend scripts/benchmark/fake-installers:$BENCH_INSTALLED_DIR and restart it)`)
+  }
   const api = createApi(target.port)
   const session = { startedAt: new Date().toISOString(), target, options: opts, results: [], quota: [], latency: [], skipped: [], stopReason: null }
   const reportFile = path.resolve(opts.report ?? path.join(workDir, 'report.md'))

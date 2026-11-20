@@ -91,7 +91,48 @@ export async function stopServer({ port, home, graceful = true }) {
   return true
 }
 
+/** Variables a restart must carry over from the running server (its initial environment). */
+export const CARRIED_ENV = ['PATH', 'SPECRAILS_CORE_BIN', 'BENCH_INSTALLED_DIR']
+
+/** `NAME=value` pairs of a `ps eww` command line (values without spaces only). Pure. */
+export function parsePsEnv(text, names = CARRIED_ENV) {
+  const out = {}
+  for (const name of names) {
+    const match = new RegExp(`(?:^|\\s)${name}=(\\S*)`).exec(text)
+    if (match) out[name] = match[1]
+  }
+  return out
+}
+
+/**
+ * Restart the isolated server with the environment it ran with. A scenario's restart
+ * must not drop the Core under test or the fake installers on PATH: bench5 restarted
+ * with the harness's own arguments, lost both, and a remembered install ran the REAL
+ * Homebrew. Explicit options still win.
+ */
 export async function restartServer(opts, { graceful = true } = {}) {
+  const pid = ownedListener(opts.port, opts.home)
+  const carried = pid ? parsePsEnv(envOf(pid)) : {}
   await stopServer({ port: opts.port, home: opts.home, graceful })
-  return startServer(opts)
+  const keepPath = !opts.pathPrepend && carried.PATH
+  return startServer({ ...opts, ...(keepPath ? { pathPrepend: undefined } : {}),
+    extraEnv: { ...(opts.extraEnv ?? {}), ...(keepPath ? { PATH: carried.PATH } : {}),
+      ...(!opts.coreBin && carried.SPECRAILS_CORE_BIN ? { SPECRAILS_CORE_BIN: carried.SPECRAILS_CORE_BIN } : {}),
+      ...(carried.BENCH_INSTALLED_DIR && !process.env.BENCH_INSTALLED_DIR ? { BENCH_INSTALLED_DIR: carried.BENCH_INSTALLED_DIR } : {}) } })
+}
+
+/** First executable `name` on a PATH string, or null. */
+export function whichOnPath(name, pathValue) {
+  for (const dir of String(pathValue ?? '').split(path.delimiter)) {
+    if (!dir) continue
+    const file = path.join(dir, name)
+    try { fs.accessSync(file, fs.constants.X_OK); return file } catch { /* next */ }
+  }
+  return null
+}
+
+/** The PATH the running isolated server started with, or null when it cannot be read. */
+export function listenerPath(port, home) {
+  const pid = ownedListener(port, home)
+  return pid ? parsePsEnv(envOf(pid), ['PATH']).PATH ?? null : null
 }

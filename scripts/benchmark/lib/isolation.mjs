@@ -61,3 +61,17 @@ export function assertLocalRemote(remote, workDir) {
   if (!resolved.startsWith(normalize(workDir) + path.sep)) throw new IsolationError(`Refusing remote ${remote}: it is outside the work directory`)
   return resolved
 }
+
+/** Templates whose tests need a machine-wide tool only an installer provides. */
+export const INSTALL_TEMPLATES = new Set(['gha-lint', 'toml-lint'])
+
+/** Does a normalized scenario reach an install question (its repo needs one, or it answers one)? */
+export function needsFakeInstaller(scenario) {
+  return (scenario.repos ?? []).some(repo => INSTALL_TEMPLATES.has(repo.template))
+    || (scenario.answers ?? []).some(answer => answer.optionId === 'install' || answer.optionId === 'self')
+}
+
+/** A resolved installer path is acceptable only inside a fake-installers directory. */
+export function installerIsFake(file) {
+  return typeof file === 'string' && /[\\/]fake-installers[\\/][^\\/]+$/.test(file)
+}

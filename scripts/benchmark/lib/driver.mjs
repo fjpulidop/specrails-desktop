@@ -2,6 +2,7 @@
 // registration, ticket, launch, question answers (by option id), restart/kill
 // actions, and the final outcome. Every call goes through the HTTP API.
 
+import fs from 'node:fs'
 import { createRepo } from './repos.mjs'
 import { chooseAnswer } from './scenarios.mjs'
 
@@ -13,7 +14,9 @@ export async function registerProject(api, repoPath, providers) {
   if (res.status === 409) {
     const list = await api.get('/projects')
     const rows = Array.isArray(list.data) ? list.data : list.data?.projects ?? []
-    const hit = rows.find(p => p.path === repoPath)
+    // The server stores the real path (/private/tmp/… on macOS for /tmp/…).
+    const real = p => { try { return fs.realpathSync(p) } catch { return p } }
+    const hit = rows.find(p => p.path === repoPath || real(p.path) === real(repoPath))
     if (hit) return hit.id
   }
   throw new Error(`register ${repoPath}: ${res.status} ${JSON.stringify(res.data).slice(0, 300)}`)

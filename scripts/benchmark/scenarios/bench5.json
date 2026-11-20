@@ -228,16 +228,16 @@
    "name": "install-self",
    "group": "features",
    "repo": {
-    "template": "gha-lint",
+    "template": "toml-lint",
     "name": "install-self"
    },
    "ticket": {
-    "title": "Add a docs workflow",
-    "description": "Add .github/workflows/docs.yml that runs `npm test` on pull requests. `npm test` must pass (it runs actionlint)."
+    "title": "Add a logging config",
+    "description": "Add config/logging.toml with `level = \"info\"` and read the default level in src/config.js as DEFAULT_LOG_LEVEL, with a test. `npm test` must pass (it runs taplo)."
    },
    "answers": [
     {
-     "match": "actionlint|install",
+     "match": "taplo|install",
      "optionId": "self"
     }
    ],
