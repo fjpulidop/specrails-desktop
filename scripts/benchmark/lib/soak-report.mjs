@@ -32,6 +32,8 @@ export const SOAK_METRICS = {
   zombies: { label: 'Zombie processes (tree)', unit: '', leakPerHour: 1 },
   orphans: { label: 'Orphaned benchmark processes', unit: '', leakPerHour: 1 },
   dbMb: { label: 'SQLite DBs', unit: 'MB', leakPerHour: null },
+  coreRunDbMb: { label: 'Core run.sqlite (all runs)', unit: 'MB', leakPerHour: null },
+  coreRunDbMaxMb: { label: 'Largest Core run.sqlite', unit: 'MB', leakPerHour: 5 },
   walMb: { label: 'SQLite WAL files', unit: 'MB', leakPerHour: 50 },
   eventRows: { label: 'Event rows (all projects)', unit: '', leakPerHour: null },
   logsMb: { label: 'Run logs', unit: 'MB', leakPerHour: null },

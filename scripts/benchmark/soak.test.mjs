@@ -135,3 +135,44 @@ test('a multi-repository scenario launches on every repository of its project', 
     assert.equal(single.body.repositoryIds, undefined)
   } finally { fs.rmSync(workDir, { recursive: true, force: true }) }
 })
+
+test('soak2: chaos accepts atClock, sigstop-core and api entries', async () => {
+  const { normalizeChaos, minutesUntilClock, resolveIds } = await import('./lib/soak-main.mjs')
+  const t0 = new Date(2026, 10, 20, 21, 30).getTime()
+  assert.equal(minutesUntilClock('23:40', t0), 130)
+  assert.equal(minutesUntilClock('00:04', t0), 154)
+  assert.ok(Number.isNaN(minutesUntilClock('25:00', t0)))
+  const list = normalizeChaos([
+    { atClock: '00:04', do: 'api', method: 'POST', path: '/projects/{project:a}/loop-runs/{run:a}/resume' },
+    { atMin: 5, do: 'sigstop-core', seconds: 60, match: 'epic' },
+  ], t0)
+  assert.deepEqual(list.map(c => [c.do, c.atMin]), [['sigstop-core', 5], ['api', 154]])
+  assert.throws(() => normalizeChaos([{ atMin: 1, do: 'api', method: 'BREW', path: '/x' }], t0))
+  assert.throws(() => normalizeChaos([{ atMin: 1, do: 'sigstop-core' }], t0))
+  assert.equal(resolveIds('/projects/{project:a}/loop-runs/{run:a}/resume', { a: { projectId: 'P', runId: 'R' } }), '/projects/P/loop-runs/R/resume')
+  assert.throws(() => resolveIds('/projects/{project:b}', {}), /no project id for scenario b/)
+})
+
+test('soak2: onLimit switch and providers normalize; switchDue waits afterSeconds', async () => {
+  const { normalizeScenarios } = await import('./lib/scenarios.mjs')
+  const { switchDue } = await import('./lib/driver.mjs')
+  const { scenarios: [s] } = normalizeScenarios({ scenarios: [{ name: 'sw', repo: 'node-lib', ticket: { title: 't' }, provider: 'codex', providers: ['claude'],
+    onLimit: { switchTo: { provider: 'claude', model: 'haiku' }, afterSeconds: 60 } }] })
+  assert.deepEqual(s.providers, ['codex', 'claude'])
+  assert.deepEqual(s.onLimit, { switchTo: { provider: 'claude', model: 'haiku' }, afterSeconds: 60 })
+  assert.throws(() => normalizeScenarios({ scenarios: [{ name: 'x', repo: 'node-lib', ticket: { title: 't' }, onLimit: { switchTo: { provider: 'nope' } } }] }))
+  assert.equal(switchDue(s.onLimit, 1000, false, 30_000), false)
+  assert.equal(switchDue(s.onLimit, 1000, false, 61_000), true)
+  assert.equal(switchDue(s.onLimit, 1000, true, 61_000), false)
+  assert.equal(switchDue(s.onLimit, null, false, 61_000), false)
+  assert.equal(switchDue(null, 1000, false, 61_000), false)
+})
+
+test('soak2: epicSpec numbers perModule requirements per module', async () => {
+  const { epicSpec, slowUnit } = await import('./lib/big-repos.mjs')
+  const spec = epicSpec({ count: 3, perModule: 4, extra: ['Ask first.'] })
+  assert.match(spec, /12 small, independent requirements \(3 modules\)/)
+  assert.match(spec, /\n13\. Ask first\./)
+  assert.match(spec, /docs\/dates\.md/)
+  assert.match(slowUnit(40), /setTimeout\(r, 40000\)/)
+})

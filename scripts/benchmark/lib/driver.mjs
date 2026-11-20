@@ -85,7 +85,7 @@ export async function prepareScenario(scenario, ctx) {
   const key = scenario.repos.map(spec => spec.name).join('+')
   if (!shared.has(key)) shared.set(key, (async () => {
     const repoPaths = scenario.repos.map(spec => createRepo(spec, workDir))
-    const id = await registerProject(api, repoPaths[0], [scenario.provider])
+    const id = await registerProject(api, repoPaths[0], scenario.providers ?? [scenario.provider])
     await waitProjectReady(api, id)
     for (const extra of repoPaths.slice(1)) {
       const added = await api.post(`/projects/${id}/repositories`, { path: extra })
@@ -122,7 +122,7 @@ export async function prepareScenario(scenario, ctx) {
 export async function runScenario(scenario, ctx, prepared = null) {
   const { api, log } = ctx
   const result = { name: scenario.name, group: scenario.group, provider: scenario.provider, model: scenario.model ?? null, expected: scenario.expect.status,
-    status: 'error', costUsd: null, durationS: null, questions: [], actions: [], phases: [], runIds: [], notes: [] }
+    status: 'error', costUsd: null, durationS: null, questions: [], actions: [], phases: [], holds: [], runIds: [], notes: [] }
   let started = Date.now()
   try {
     const ready = prepared ?? await prepareScenario(scenario, ctx)
@@ -137,11 +137,14 @@ export async function runScenario(scenario, ctx, prepared = null) {
     let runId = launched.data.loopRunIds?.[0] ?? launched.data.jobId
     result.runIds.push(runId)
     log(`${scenario.name}: launched ${runId}`)
+    // Soak chaos/API actions address a scenario's project and run by name.
+    ;((ctx.cache ??= {}).ids ??= {})[scenario.name] = { projectId, runId }
 
     const used = new Set(); const fired = new Set()
     const deadline = started + scenario.timeoutMinutes * 60_000
     let lastPhase = null; let answeredInterrupts = new Set(); let autoResumes = 0
     const questionSeenAt = new Map()
+    let lastHold = null, limitSince = null, switched = false
     const maxAutoResumes = ctx.maxAutoResumes ?? MAX_AUTO_RESUMES
     while (Date.now() < deadline) {
       await sleep(5000)
@@ -155,6 +158,19 @@ export async function runScenario(scenario, ctx, prepared = null) {
       const card = boardRes ? cardFor(boardRes.data, runId) : null
       const phase = card?.phase ?? null
       if (phase && phase !== lastPhase) { result.phases.push({ t: Math.round((Date.now() - started) / 1000), phase, column: card?.column ?? null }); lastPhase = phase }
+      // Hold label transitions (restart, provider_limit, budget, queued, question, …) for the report.
+      const holdKind = job?.hold?.kind ?? null
+      if (holdKind !== lastHold) { result.holds.push({ t: Math.round((Date.now() - started) / 1000), kind: holdKind, ...(job?.hold?.resumeAt ? { resumeAt: job.hold.resumeAt } : {}) }); lastHold = holdKind; log(`${scenario.name}: hold ${holdKind ?? 'none'}`) }
+      // A provider usage limit: continue on another provider through the limit card's POST, when asked to.
+      limitSince = holdKind === 'provider_limit' ? limitSince ?? Date.now() : null
+      if (switchDue(scenario.onLimit, limitSince, switched)) {
+        switched = true
+        const res = await api.post(`/projects/${projectId}/loop-runs/${runId}/limit`, { action: 'switch', ...scenario.onLimit.switchTo })
+        result.notes.push(`limit switch → ${scenario.onLimit.switchTo.provider}/${scenario.onLimit.switchTo.model ?? 'default'}: ${res.status} ${JSON.stringify(res.data).slice(0, 200)}`)
+        log(`${scenario.name}: limit switch → ${res.status} ${JSON.stringify(res.data).slice(0, 200)}`)
+        if (res.status >= 300) switched = false
+        continue
+      }
       // Actions (restart / kill / cancel) at a phase, at a question, or after N seconds.
       for (const [i, action] of scenario.actions.entries()) {
         if (action.once && fired.has(i)) continue
@@ -206,7 +222,7 @@ export async function runScenario(scenario, ctx, prepared = null) {
           await sleep(20_000)
           const att = await api.get(`/projects/${projectId}/loop-runs/${runId}/attempts`)
           const next = continuationOf(att.data, result.runIds)
-          if (next) { result.followed = true; result.runIds.push(next); runId = next; log(`${scenario.name}: following continuation ${next}`); continue }
+          if (next) { result.followed = true; result.runIds.push(next); runId = next; ctx.cache.ids[scenario.name] = { projectId, runId }; log(`${scenario.name}: following continuation ${next}`); continue }
         }
         result.status = outcomeOf(run)
         result.endReason = endReason(run)
@@ -245,6 +261,11 @@ async function afterRestart(api, projectId, runId, result, log) {
 export function continuationOf(payload, seen = []) {
   const attempts = payload?.chain?.attempts ?? payload?.attempts ?? []
   return attempts.map(a => a.runId ?? a.id).filter(id => id && !seen.includes(id)).pop() ?? null
+}
+
+/** Is it time to answer a provider-limit hold with a switch (`onLimit.switchTo`, after `afterSeconds`)? Pure. */
+export function switchDue(onLimit, limitSince, switched, now = Date.now()) {
+  return Boolean(onLimit?.switchTo && limitSince !== null && limitSince !== undefined && !switched && now - limitSince >= (onLimit.afterSeconds ?? 0) * 1000)
 }
 
 /** Max automatic resumes of one run held by a restart the scenario did not cause. */
