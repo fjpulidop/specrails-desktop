@@ -84,14 +84,16 @@ describe('subscription usage surfaces', () => {
     fireEvent.click(header)
     expect(fixture.refresh).toHaveBeenCalledTimes(2)
   })
-  it('shows ONE quiet meter for the most-loaded provider and all windows on opening', () => {
+  it('shows one quiet meter per provider with a reading, and all windows on opening', () => {
     fixture.snapshot!.providers[0].windows.push({ ...fixture.snapshot!.providers[0].windows[0], id: 'weekly', label: 'weekly', usedPercent: 58 })
+    fixture.snapshot!.providers[1].windows[0].usedPercent = 29
     render(<SubscriptionUsageFooter />)
-    const trigger = screen.getByRole('button', { name: 'Plan usage: Claude at 58%. Show details' })
-    // Healthy: no name, no colour, a single figure.
-    expect(trigger).toHaveTextContent(/^58%$/)
-    expect(screen.getAllByTestId('usage-meter')).toHaveLength(1)
-    expect(screen.getByTestId('usage-meter-reading')).toHaveAttribute('data-level', 'ok')
+    const trigger = screen.getByRole('button', { name: 'Plan usage: Claude at 58%. Show details Plan usage: Codex at 29%. Show details' })
+    // Healthy: no names, no colour, one figure per provider in provider order.
+    expect(trigger).toHaveTextContent(/^58%29%$/)
+    expect(screen.getAllByTestId('usage-meter')).toHaveLength(2)
+    expect(screen.getAllByTestId('usage-meter-reading').map((el) => el.getAttribute('data-provider'))).toEqual(['claude', 'codex'])
+    for (const reading of screen.getAllByTestId('usage-meter-reading')) expect(reading).toHaveAttribute('data-level', 'ok')
     fireEvent.focus(trigger)
     expect(screen.getAllByRole('progressbar')).toHaveLength(3)
     expect(screen.queryByRole('button', { name: 'Compact' })).not.toBeInTheDocument()
@@ -129,13 +131,16 @@ describe('subscription usage surfaces', () => {
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
-  it('names and colours the meter only at amber or red, picking the busiest provider', () => {
+  it('names and colours only the provider at amber or red, and never hides the quieter one', () => {
     fixture.snapshot!.providers[0].windows[0].usedPercent = 40
     fixture.snapshot!.providers[1].windows[0].usedPercent = 85
     render(<SubscriptionUsageFooter details={<p>Spent today</p>} />)
-    const trigger = screen.getByRole('button', { name: 'Plan usage: Codex at 85%. Show details' })
-    expect(trigger).toHaveTextContent('Codex85%')
-    expect(screen.getByTestId('usage-meter-reading')).toHaveClass('text-accent-warning')
+    const trigger = screen.getByRole('button', { name: 'Plan usage: Claude at 40%. Show details Plan usage: Codex at 85%. Show details' })
+    expect(trigger).toHaveTextContent('40%Codex85%')
+    const [claude, codex] = screen.getAllByTestId('usage-meter-reading')
+    expect(claude).toHaveAttribute('data-level', 'ok')
+    expect(claude).not.toHaveClass('text-accent-warning')
+    expect(codex).toHaveClass('text-accent-warning')
     fireEvent.focus(trigger)
     expect(screen.getByText('Spent today')).toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'Claude' })).toBeInTheDocument()

@@ -8,9 +8,9 @@ import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
 import { formatSpendPercent } from './EnterpriseSpendMeter'
 import { useProviderQuotas } from '../../provider-quota/lib/useProviderQuota'
 import { formatResetTime } from '../../provider-quota/lib/format-reset'
-import { busiestMeter, providerName, usageMeters, type UsageMeter } from '../lib/usage-meter'
+import { providerName, usageMeters, type UsageMeter } from '../lib/usage-meter'
 
-/** The one meter the status bar shows: the most-loaded provider; named and coloured only at amber, red or a refusal. */
+/** One provider's meter in the status bar; named and coloured only at amber, red or a refusal. */
 function UsageMeterReading({ meter }: { meter: UsageMeter }) {
   const { i18n } = useTranslation('subscriptionUsage')
   const { t: tQuota } = useTranslation('providerQuota')
@@ -32,15 +32,17 @@ function UsageMeterReading({ meter }: { meter: UsageMeter }) {
 }
 
 /**
- * Status-bar usage: ONE meter for the most-loaded provider (nothing at all
- * without a reading). Hover, focus or click opens every provider's windows;
+ * Status-bar usage: one meter per provider with a reading, in the snapshot's
+ * provider order (nothing at all without a reading), so a provider never
+ * disappears because another is busier. Hover, focus or click opens every
+ * provider's windows;
  * `details` (today's spend) renders at the end of that popover.
  */
 export function SubscriptionUsageFooter({ details }: { details?: ReactNode } = {}) {
   const { t } = useTranslation('subscriptionUsage')
   const { snapshot, busy, refresh } = useSubscriptionUsage()
   const quotas = useProviderQuotas()
-  const meter = busiestMeter(usageMeters(snapshot, quotas))
+  const meters = usageMeters(snapshot, quotas)
   const refreshing = busy || !!snapshot?.providers.some(provider => provider.refreshState === 'refreshing')
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ right: 16, bottom: 32 })
@@ -66,14 +68,14 @@ export function SubscriptionUsageFooter({ details }: { details?: ReactNode } = {
       changeOpen(false)
     }, 180)
   }
-  if (!meter) return null
-  const label = meter.level === 'rejected'
+  if (meters.length === 0) return null
+  const label = meters.map((meter) => meter.level === 'rejected'
     ? t('statusBar.rejectedLabel', { provider: providerName(meter.providerId) })
-    : t('statusBar.label', { provider: providerName(meter.providerId), percent: Math.round(meter.percent ?? 0) })
+    : t('statusBar.label', { provider: providerName(meter.providerId), percent: Math.round(meter.percent ?? 0) })).join(' ')
   return <Dialog.Root open={open} onOpenChange={changeOpen} modal={false}>
     <Dialog.Trigger asChild>
-      <button ref={trigger} type="button" aria-label={label} className="flex h-6 items-center gap-1.5 rounded px-2 text-xs hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-ring" onPointerEnter={event => { if (event.pointerType === 'mouse') changeOpen(true) }} onPointerLeave={scheduleClose} onFocus={() => changeOpen(true)} onBlur={scheduleClose} onClick={event => { event.preventDefault(); changeOpen(true) }}>
-        <UsageMeterReading meter={meter} />
+      <button ref={trigger} type="button" aria-label={label} className="flex h-6 items-center gap-3 rounded px-2 text-xs hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-ring" onPointerEnter={event => { if (event.pointerType === 'mouse') changeOpen(true) }} onPointerLeave={scheduleClose} onFocus={() => changeOpen(true)} onBlur={scheduleClose} onClick={event => { event.preventDefault(); changeOpen(true) }}>
+        {meters.map((meter) => <UsageMeterReading key={meter.providerId} meter={meter} />)}
       </button>
     </Dialog.Trigger>
     <Dialog.Portal>
