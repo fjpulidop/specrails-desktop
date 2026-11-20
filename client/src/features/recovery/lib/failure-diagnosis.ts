@@ -202,7 +202,7 @@ export function whyKey(diagnosis: FailureDiagnosis): { key: string; params: Reco
     case 'environment': return { key: 'why.environment', params: {} }
     case 'port_in_use': return { key: 'why.port_in_use', params: {} }
     case 'tests_failed': return { key: 'why.tests_failed', params: {} }
-    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'why.correctionsExhausted', params: {} } : { key: 'why.blocked', params: {} }
+    case 'blocked': return correctionsExhausted(diagnosis) ? { key: 'why.correctionsExhausted', params: { count: diagnosis.rounds ?? 3 } } : { key: 'why.blocked', params: {} }
     case 'timeout': return { key: 'why.timeout', params: {} }
     case 'tool_inactivity': return { key: 'why.tool_inactivity', params: {} }
     case 'crash': return { key: 'why.crash', params: {} }
