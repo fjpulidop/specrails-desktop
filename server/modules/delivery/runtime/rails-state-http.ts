@@ -10,6 +10,7 @@ import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from '../../loops/r
 import { readRunHolds, runHoldSources, type RunHold } from '../../loops/runtime/loop-run-hold'
 import { getActivePrDeliveryByRail, listActivePrDeliveries, toPrDeliverySnapshot, type PrDeliverySnapshot } from './rail-pr-store'
 import { listPrCandidatesForTickets } from './active-pr-continuation'
+import { findLaunchOverlaps } from './launch-overlap'
 import { defaultExec } from './pr-publisher'
 import type { RailRemovedMessage } from '../../../types'
 import { projectContextOf, broadcastRailUpdated, requireRailIndexParam, onReviewTicketIds } from './rails-http-shared'
@@ -170,6 +171,17 @@ export function registerRailStateRoutes(router: Router): void {
       console.error('[rails-router] delete rail error:', err)
       res.status(500).json({ error: 'Failed to delete rail' })
     }
+  })
+
+  // GET /rails/:railIndex/launch-overlaps — before a launch: the other rails of
+  // this repository (running, or waiting for their merge) that this rail's specs
+  // will likely collide with, by shared files. Read-only, advisory.
+  router.get('/:railIndex/launch-overlaps', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const railIndex = requireRailIndexParam(req, res)
+    if (railIndex === null) return
+    const rail: RailState = getRail(c.db, railIndex)
+    res.json({ overlaps: findLaunchOverlaps({ db: c.db, railIndex, ticketIds: rail?.ticketIds ?? [], getTicketSpec: (id) => { try { return c.getTicketSpec(id) ?? undefined } catch { return undefined } } }) })
   })
 
   // GET /rails/:railIndex/pr-candidates — display-only open-PR suggestions for

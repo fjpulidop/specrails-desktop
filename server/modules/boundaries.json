@@ -842,6 +842,38 @@
       ]
     }
   },
+  "capacity": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "runtime/composition.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../runtime/composition",
+        "express"
+      ],
+      "admission.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./admission",
+        "./domain"
+      ],
+      "runtime/composition.ts": [
+        "../../provider-quota/runtime/quota-reports",
+        "../admission",
+        "../domain",
+        "./machine",
+        "node:os"
+      ],
+      "runtime/machine.ts": [
+        "../domain",
+        "node:fs",
+        "node:os"
+      ]
+    }
+  },
   "code": {
     "publicEntries": [
       "runtime/changes-reader.ts",
@@ -1278,6 +1310,7 @@
       "domain/decision-policy.ts": [
         "./state"
       ],
+      "domain/launch-overlap.ts": [],
       "domain/merge-preview.ts": [],
       "domain/retained-worktrees.ts": [],
       "domain/review-wip.ts": [
@@ -1415,6 +1448,12 @@
         "./pr-naming",
         "./worktree-preparation-pool",
         "path"
+      ],
+      "runtime/launch-overlap.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-graph",
+        "../domain/launch-overlap",
+        "./rail-pr-store"
       ],
       "runtime/local-restore-branch.ts": [
         "../../../worktree-manager",
@@ -1943,9 +1982,11 @@
         "../../loops/runtime/loop-graph",
         "../../missions/runtime/mission-run-notify",
         "../../specs/runtime/spec-addenda",
+        "../domain/launch-overlap",
         "./active-pr-continuation",
         "./flow-worktree-handoff",
         "./isolated-worktree",
+        "./launch-overlap",
         "./rail-delivery-revision",
         "./rail-isolated-launch",
         "./rail-isolation",
@@ -2157,6 +2198,7 @@
         "../../loops/runtime/loop-run-hold",
         "../../loops/runtime/loop-runs-store",
         "./active-pr-continuation",
+        "./launch-overlap",
         "./pr-publisher",
         "./rail-pr-store",
         "./rails-http-shared",

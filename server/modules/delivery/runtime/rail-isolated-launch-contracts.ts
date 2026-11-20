@@ -24,6 +24,8 @@ import type { ReasoningEffort } from '../../../providers/types'
 
 export interface IsolatedLaunchInput {
   launchConfig?: Record<string, unknown>
+  /** Lines every run of this launch logs first (e.g. a likely overlap with another rail). */
+  launchNotices?: string[]
   /** Spec triage (launch-triage): recorded on the delivery row for triage accuracy. */
   loopChoice?: { recommendedLoop: string | null; chosenLoop: string | null } | null
   runtimeProviderOverride?: RuntimeProviderOverride

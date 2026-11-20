@@ -141,6 +141,7 @@ export function writeRunHeader(ctx: LoopRunContext, adapter: ProviderAdapter): v
   const { logLine, emitRunEvent } = ctx.events
   logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
   if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
+  if (!ctx.continuation) for (const notice of req.launchNotices ?? []) logLine(notice)
   let environmentNotice: string | null = null
   try { environmentNotice = host.executors.environmentNotice?.() ?? null } catch { /* diagnostic only */ }
   if (environmentNotice) logLine(environmentNotice, 'stderr')

@@ -87,7 +87,7 @@ export function startIsolatedRuns(stage: RunLaunchStageInput): RunLaunchStageRes
     const claimedAddenda = claimedAddendaByRun.get(a.runId)!
     const enginePromise = ctx.loopRunManager.run({
         runtimeProviderOverride: input.runtimeProviderOverride,
-        runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id, launchConfig: input.launchConfig,
+        runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id, launchConfig: input.launchConfig, ...(input.launchNotices?.length ? { launchNotices: input.launchNotices } : {}),
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         repositoryId: singleRepositoryId,
         workspacePaths: singleRepositoryId ? input.workspaceSelection?.[singleRepositoryId] : undefined,

@@ -4,6 +4,8 @@
 // stage answers the request; the isolated stage alone may instead return
 // the reason isolation is unavailable so the caller falls back to shared cwd.
 
+import { findLaunchOverlaps } from './launch-overlap'
+import { overlapLogLine } from '../domain/launch-overlap'
 import type { Response } from 'express'
 import { setRailTickets, getRail } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from '../../execution/runtime/queue-manager'
@@ -156,8 +158,12 @@ export async function launchIsolatedLoopRuns(
       setRailTickets(c.db, railIndex, [...prCiTickets], storedRail.mode ?? 'implement', storedRail.profileName ?? null, storedRail.aiEngine ?? null)
       broadcastRailUpdated(c, railIndex, 'tickets')
     }
+    // Conflict-aware launch: name the other rails of this repository it will likely collide with.
+    const overlaps = findLaunchOverlaps({ db: c.db, railIndex, ticketIds: rail.ticketIds, getTicketSpec: c.getTicketSpec })
+    const overlapLine = overlapLogLine(overlaps)
     const ids = await launchIsolatedRail({
       launchConfig,
+      ...(overlapLine ? { launchNotices: [overlapLine] } : {}),
       loopChoice: { recommendedLoop: recommendedLoopForRail(c, rail.ticketIds), chosenLoop: loopId },
       runtimeProviderOverride,
       ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
@@ -193,7 +199,7 @@ export async function launchIsolatedLoopRuns(
       ...(followUp ? { followUp } : {}),
       ...(flowWorktree ? { requiredFlowWorktree: flowWorktree } : {}),
     })
-    res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
+    res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(overlaps.length ? { overlaps } : {}), ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
     return null
   } catch (err) {
     if (err instanceof RailRelaunchError) {

@@ -549,3 +549,17 @@ own merge wrapper are outside Desktop's naming seam.
 Recovery discovery reads full messages, accepts exact `Run:` body lines and still
 recognizes legacy `(run …)` subjects. Ref/reflog and unreachable-object candidates
 share the existing bounded uniqueness proof; a prefix-matching run id is rejected.
+
+## Conflict-aware launches
+
+Rails launched in parallel on one repository merge back one after the other.
+Before a launch, [launch-overlap](runtime/launch-overlap.ts) (pure rules in
+[domain/launch-overlap.ts](domain/launch-overlap.ts)) finds the other rails of
+the project, running or waiting for their merge, that will likely touch the
+same files: the files their specs name plus the files their agents actually
+wrote (`agent-event` write tools inside their own worktrees). Lockfiles and
+OpenSpec artifacts never count. The launch still starts; each run logs one
+`⚠ Likely overlap with rail N …` line, the 202 response carries `overlaps`, and
+`GET /rails/:railIndex/launch-overlaps` answers before a launch. Merge such
+deliveries one after the other; the merge preview shows the sibling collision.
+
