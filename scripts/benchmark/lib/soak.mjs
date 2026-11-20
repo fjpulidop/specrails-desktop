@@ -46,8 +46,10 @@ export function descendants(rows, rootPid) {
  */
 export function processCounters(rows, rootPid, markers = []) {
   const tree = descendants(rows, rootPid)
-  const core = tree.filter(r => /specrails-core/.test(r.command))
-  const orphans = rows.filter(r => r.ppid === 1 && markers.some(m => m && r.command.includes(m)))
+  // Core runs from the shared runtime-package cache (…/runtime-packages/<digest>/dist/agent-runtime/cli.js).
+  const core = tree.filter(r => /specrails-core|runtime-packages\/[^/]+\/dist\/agent-runtime\/cli\.js/.test(r.command))
+  // The harness itself (detached, so re-parented to launchd) names the home too: never an orphan.
+  const orphans = rows.filter(r => r.ppid === 1 && r.pid !== process.pid && !/scripts\/benchmark\/index\.mjs/.test(r.command) && markers.some(m => m && r.command.includes(m)))
   return {
     treeProcesses: tree.length,
     coreProcesses: core.length,

@@ -47,11 +47,12 @@ test('renderSoak and downsample keep the last sample', () => {
 test('processCounters counts Core children, zombies and marked orphans', () => {
   const rows = parsePsStat([
     '  10     1 Ss   1000 node server/index.ts',
-    '  11    10 S    2048 node /h/.dev/runtime/bin/specrails-core.mjs run',
+    '  11    10 S    2048 node /h/.dev/.specrails/runtime-packages/ab12/dist/agent-runtime/cli.js run',
     '  12    11 S     512 claude -p',
     '  13    11 Z       0 (node)',
     '  14     1 S     100 node /h/.dev/runtime/bin/specrails-core.mjs stale',
     '  15     1 S     100 claude --other-user-session',
+    '  16     1 S     100 node scripts/benchmark/index.mjs --soak --home /h/.dev',
   ].join('\n'))
   assert.equal(descendants(rows, 10).length, 3)
   const c = processCounters(rows, 10, ['/h/.dev'])
