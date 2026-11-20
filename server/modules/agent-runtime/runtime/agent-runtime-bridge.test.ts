@@ -1,4 +1,5 @@
 import { defaultLoopAgents } from '../../loops/runtime/loop-agents'
+import nodePath from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readRuntimeHistory } from './agent-runtime-history'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -465,14 +466,15 @@ console.log(JSON.stringify(${JSON.stringify(final())}))`)
     expect((await runAgentRuntimeInvocation({ ...options(), resume: true })).failed).toBe(false)
     expect(readFileSync(scopedPath, 'utf8')).toBe(scoped)
   })
-  it('launches PATH Node when a packaged sidecar has no bundled Node', async () => {
+  it('launches the absolute PATH Node when a packaged sidecar has no bundled Node (pkg rewrites a bare `node` to itself)', async () => {
     const previous = Object.getOwnPropertyDescriptor(process, 'pkg')
     Object.defineProperty(process, 'pkg', { configurable: true, value: { entrypoint: '/snapshot/server/index.js' } })
     try {
       script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
       let executable: string | undefined
       const result = await runAgentRuntimeInvocation({ ...options(), onSpawn: (child) => { executable = child.spawnfile } })
-      expect(executable).toBe('node')
+      expect(executable && nodePath.isAbsolute(executable)).toBe(true)
+      expect(nodePath.basename(executable!)).toMatch(/^node(\.exe)?$/)
       expect(result.failed).toBe(false)
     } finally {
       if (previous) Object.defineProperty(process, 'pkg', previous)
