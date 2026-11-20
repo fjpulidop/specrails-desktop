@@ -288,8 +288,8 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
     const handler = handlers[id] ?? { run: () => {} }
     return {
       id, label: label(id), icon: REMEDY_ICON[id], consequence: t(consequenceKey(id, diagnosis)), handler,
-      // A repeated stop never leads with more of the same.
-      primary: index === 0 && !analyzeLeads && (continueMode === 'primary' || id !== 'continue'),
+      // A repeated stop never leads with more of the same: the options below lead instead.
+      primary: index === 0 && !analyzeLeads && continueMode === 'primary',
       ...(id === 'fix-environment' ? { expanded: envOpen, onClick: () => setEnvOpen((open) => !open) } : {}),
     }
   })
