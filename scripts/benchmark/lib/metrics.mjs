@@ -80,7 +80,8 @@ export function summarizeMetrics(samples) {
     samples: samples.length,
     cpuPeak: max('treeCpu'), cpuP50: percentile(pick('treeCpu'), 50), rssPeakMb: max('treeRssMb'),
     loadPeak: max('load1'), availableMinMb: (() => { const xs = pick('availableMb'); return xs.length ? Math.min(...xs) : null })(),
-    providersPeak: max('providerProcesses'),
+    providersPeak: max('providerProcesses'), queuedPeak: max('queuedRuns'), activePeak: max('activeRuns'),
+    queuedFor: [...new Set(samples.flatMap(sample => sample.queuedFor ?? []))],
     health: { p50: percentile(pick('healthMs'), 50), p95: percentile(pick('healthMs'), 95), max: max('healthMs') },
     board: { p50: percentile(pick('boardMs'), 50), p95: percentile(pick('boardMs'), 95), max: max('boardMs') },
     stallLongestMs: max('stallLongestMs'), stallCount: (() => { const xs = pick('stallTotal'); return xs.length ? Math.max(...xs) - Math.min(...xs) : null })(),
@@ -117,6 +118,8 @@ export function createMetricsSampler({ api, rootPid, intervalMs = 5000 }) {
         sample.boardMs = Math.round(board.ms)
         sample.cards = board.data?.cards?.length ?? null
         const stalls = await api.get('/diagnostics/stalls', { timeoutMs: 30_000 })
+        const capacity = await api.get('/capacity', { timeoutMs: 30_000 })
+        if (capacity.status === 200 && capacity.data?.enabled) { sample.activeRuns = capacity.data.active?.length ?? null; sample.queuedRuns = capacity.data.queued?.length ?? null; sample.queuedFor = [...new Set((capacity.data.queued ?? []).map(q => q.waitingFor))] }
         if (stalls.status === 200) { sample.stallTotal = stalls.data?.total ?? null; sample.stallLongestMs = stalls.data?.recent?.[0]?.durationMs ?? null; sample.stallLongestEverMs = stalls.data?.longestMs ?? null }
       } catch { /* restarting */ }
       samples.push(sample)

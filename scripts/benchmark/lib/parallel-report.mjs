@@ -43,6 +43,6 @@ export function renderBurst(label, s) {
     `| N | Delivered | First attempt | Wall | Throughput | Run avg/max | Launch HTTP avg/max | Launch→first step | Core prep | Verify wait avg/max (waits) | Corrections | Cost/run | Health p50/p95/max | Board p95 | Stall max | CPU peak | RSS peak | Load peak | Free mem min |`,
     `|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|`,
     `| ${s.n} | ${s.delivered} | ${s.firstAttempt} | ${s.wallS} s | ${s.throughputPerHour}/h | ${s.runS.avg}/${s.runS.max} s | ${s.launchMs.avg}/${s.launchMs.max} ms | ${s.launchToFirstStepS.avg}/${s.launchToFirstStepS.max} s | ${s.corePrepS.avg ?? '—'} s | ${s.verifyWaitS.avg}/${s.verifyWaitS.max} s (${s.verifyWaitS.waits}) | ${s.corrections} | $${s.costPerRun} | ${m.health.p50}/${m.health.p95}/${m.health.max} ms | ${m.board.p95} ms | ${m.stallLongestMs ?? '—'} ms | ${m.cpuPeak}% | ${m.rssPeakMb} MB | ${m.loadPeak} | ${m.availableMinMb} MB |`,
-    '', `Plan repairs/run ${s.planRepairs}, review rejections/run ${s.reviewRejections}. Average seconds per phase: ${Object.entries(s.phaseAvgS).map(([k, v]) => `${k} ${v}`).join(', ')}.`, '',
+    '', `Plan repairs/run ${s.planRepairs}, review rejections/run ${s.reviewRejections}. Admission: active peak ${m.activePeak ?? '—'}, queued peak ${m.queuedPeak ?? '—'}${m.queuedFor?.length ? ` (${m.queuedFor.join(', ')})` : ''}. Average seconds per phase: ${Object.entries(s.phaseAvgS).map(([k, v]) => `${k} ${v}`).join(', ')}.`, '',
   ]
 }
