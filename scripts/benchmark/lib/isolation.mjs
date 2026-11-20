@@ -63,7 +63,7 @@ export function assertLocalRemote(remote, workDir) {
 }
 
 /** Templates whose tests need a machine-wide tool only an installer provides. */
-export const INSTALL_TEMPLATES = new Set(['gha-lint', 'toml-lint'])
+export const INSTALL_TEMPLATES = new Set(['gha-lint', 'cfg-lint'])
 
 /** Does a normalized scenario reach an install question (its repo needs one, or it answers one)? */
 export function needsFakeInstaller(scenario) {

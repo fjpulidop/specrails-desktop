@@ -36,7 +36,7 @@ npm run benchmark -- \
   template) and writes the stub into `$BENCH_INSTALLED_DIR`. Pass
   `--path-prepend scripts/benchmark/fake-installers:$BENCH_INSTALLED_DIR` and export
   `BENCH_INSTALLED_DIR` for the server.
-  `fake-installers/brew` also emulates `brew install taplo` (the `toml-lint` template). Scenarios
+  `fake-installers/brew` also emulates `brew install cfgvet` (the `cfg-lint` template). Scenarios
   that reach an install question (an install template, or an `install`/`self` answer) are refused
   unless the running server's first `brew` is in a `fake-installers` directory.
 - **Restarts keep the environment.** A `restart`/`kill` action restarts the server with the `PATH`,
@@ -84,7 +84,7 @@ npm run benchmark -- \
 ```
 
 - **`repo` / `repos`.** A template name from `lib/repos.mjs` (`node-lib`, `react-vite`, `fastapi`,
-  `rust-cli`, `go-api`, `canvas-game`, `godot-game`, `mr-api`, `mr-web`, `docs-site`, `gha-lint`, `toml-lint`)
+  `rust-cli`, `go-api`, `canvas-game`, `godot-game`, `mr-api`, `mr-web`, `docs-site`, `gha-lint`, `cfg-lint`)
   or `{ template, name, files }` to add or override files. Two or more repos make a multi-repo run.
 - **`answers`.** The first matching rule answers a pending question card (`job.question`). Rules
   filter by `kind`, `asker` and a `match` regex over the text. They answer with an `optionId`, the

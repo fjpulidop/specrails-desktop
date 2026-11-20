@@ -94,12 +94,12 @@ export const TEMPLATES = {
     'README.md': `# ${name}\n\`npm test\` runs the unit tests and lints the GitHub Actions workflows with \`actionlint\` (install it machine-wide, e.g. \`brew install actionlint\`).\n`,
     '.gitignore': 'node_modules\n',
   }),
-  'toml-lint': name => ({
-    'package.json': pkg(name, { test: 'node --test && taplo check' }),
+  'cfg-lint': name => ({
+    'package.json': pkg(name, { test: 'node --test && cfgvet check' }),
     'config/app.toml': 'name = "app"\nport = 8080\n',
     'src/config.js': "export const DEFAULT_PORT = 8080\n",
     'test/config.test.js': NT + "import { DEFAULT_PORT } from '../src/config.js'\ntest('port', () => assert.equal(DEFAULT_PORT, 8080))\n",
-    'README.md': `# ${name}\n\`npm test\` runs the unit tests and checks the TOML files with \`taplo\` (install it machine-wide, e.g. \`brew install taplo\`).\n`,
+    'README.md': `# ${name}\n\`npm test\` runs the unit tests and checks the config files with \`cfgvet\`, a Homebrew-only tool (no npm or pip package): install it machine-wide with \`brew install cfgvet\`.\n`,
     '.gitignore': 'node_modules\n',
   }),
 }
