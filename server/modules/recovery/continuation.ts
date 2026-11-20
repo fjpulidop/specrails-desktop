@@ -145,6 +145,8 @@ export type AutoContinueReason = 'unfinished_tasks' | 'missing_tool' | 'transien
 export type AutoContinueRefusal = 'disabled' | 'not_failed' | 'unknown_cause' | 'person_must_resolve' | 'already_continued' | 'repeated_failure' | 'not_auto_fixable'
 
 const TRANSIENT: ReadonlySet<FailureKind> = new Set(['crash', 'timeout', 'tool_inactivity'])
+/** A verification command stopped at its wall-clock limit: the same suite is as slow on the next attempt. */
+const VERIFICATION_TIME_LIMIT = /\bVerification command timed out\b/i
 /** How long an automatic continuation waits after a provider outage before it runs the step again. */
 export const PROVIDER_OUTAGE_WAIT_MS = 2 * 60_000
 
@@ -238,6 +240,9 @@ export function autoContinueVerdict(input: {
   // The provider's service was down for a moment and Core already retried for about a minute:
   // continuing at once would meet the same outage (the night of 2026-11-19 it did, 15 s later).
   if (diagnosis.kind === 'provider_unavailable') return { continue: true, reason: 'provider_unavailable', delayMs: PROVIDER_OUTAGE_WAIT_MS }
+  // A suite slower than its verification limit (an overnight run spent 15 minutes re-running one) is
+  // the person's to raise or speed up; a hanging test ("produced no output") stays transient.
+  if (diagnosis.kind === 'timeout' && diagnosis.detail && VERIFICATION_TIME_LIMIT.test(diagnosis.detail)) return { continue: false, reason: 'person_must_resolve' }
   if (TRANSIENT.has(diagnosis.kind)) return { continue: true, reason: 'transient_error' }
   if (diagnosis.kind === 'blocked' && diagnosis.detail && STALLED.test(diagnosis.detail)) return { continue: true, reason: 'stalled' }
   return { continue: false, reason: 'not_auto_fixable' }

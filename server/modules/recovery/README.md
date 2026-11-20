@@ -54,7 +54,9 @@ and [programmatic runtime](../../../docs/internals/programmatic-agent-runtime.md
 - Automatic continuation (`autoContinueVerdict`): once per attempt chain, only for a high-confidence
   cause more work can fix (unfinished tasks, a `toolchain`/`setup` host blocker, a crash, timeout or
   silence, a stall), never for a usage limit, `spec_invalid`, credential / secret / policy / budget
-  wording, a person's stop, the loop's own caps, an unknown cause or a repeat of the attempt before.
+  wording, a person's stop, the loop's own caps, an unknown cause, a repeat of the attempt before, or a
+  verification command stopped at its wall-clock limit (the same suite is as slow on the next attempt;
+  a silent, hanging test stays transient).
   The coordinator is `server/project-context-auto-continue.ts`; the app setting is `autoContinueRuns`.
 - A low-confidence record is always `unknown`, whatever kind it claimed, and its remedies are only
   `open-logs` and `retry`.
