@@ -5,7 +5,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { initDb, type DbInstance } from '../../../db'
 import { createPrDelivery } from './rail-pr-store'
-import { __resetMergePreviewCache, mergeTreeSupported, previewPairMerge, type MergePreviewExec } from './merge-preview-git'
+import { __mergePreviewGitCalls, __resetMergePreviewCache, mergeTreeSupported, previewPairMerge, type MergePreviewExec } from './merge-preview-git'
 import { __resetMergePreviewSummaries, computeMergePreviews, peekMergePreview } from './merge-preview'
 import { compareForMergeBack, mergePreviewNeedsAttention, worstStatus } from '../domain/merge-preview'
 
@@ -133,6 +133,23 @@ describe('delivery merge previews', () => {
     expect(byId.get(d3)).toMatchObject({ status: 'clean', siblings: [] })
     expect(peekMergePreview('p1', d1)).toEqual({ status: 'clean', conflictFileCount: 0, siblingConflictCount: 1, baseAdvancedBy: 2 })
     expect(git(repo, 'status', '--porcelain')).toBe('')
+  })
+
+  it('costs one Git call to refresh an unchanged project, however many deliveries wait', async () => {
+    // Parallel rails leave many pending deliveries per project, and the live board refreshes
+    // every project's previews every few seconds: one rev-parse per ref and an uncached
+    // rev-list per branch made these refreshes most of the server's synchronous spawns.
+    const ids = ['a', 'b', 'c', 'd'].map((name, index) => delivery(index, `feat/${name}`, commitOn(`feat/${name}`, 'main', `${name}.ts`, `${name}\n`)))
+    const first = await computeMergePreviews({ project: project(), db })
+    expect(first.map((p) => p.status)).toEqual(['clean', 'clean', 'clean', 'clean'])
+    const before = __mergePreviewGitCalls()
+    const again = await computeMergePreviews({ project: project(), db })
+    expect(__mergePreviewGitCalls() - before).toBe(1)
+    expect(again.map((p) => [p.deliveryId, p.status, p.baseAdvancedBy])).toEqual(ids.map((id) => [id, 'clean', 0]))
+    // The base moves: the listing sees it and only the new pairs and leads are computed.
+    commitOn('main', 'main', 'other.ts', 'y\n')
+    const moved = await computeMergePreviews({ project: project(), db })
+    expect(moved.map((p) => p.baseAdvancedBy)).toEqual([1, 1, 1, 1])
   })
 
   it('prefers the fetched origin/<base> over the local branch', async () => {

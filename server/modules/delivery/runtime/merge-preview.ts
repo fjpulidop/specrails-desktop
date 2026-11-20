@@ -15,7 +15,7 @@
 import { listActivePrDeliveries, toPrDeliverySnapshot, type PrDeliverySnapshot } from './rail-pr-store'
 import { getProjectRepositories } from '../../../project-repositories'
 import {
-  commitsAhead, previewPairMerge, resolveCommit, MAX_CONFLICT_FILES,
+  commitsAhead, previewPairMerge, readBranchRefs, resolveCommit, MAX_CONFLICT_FILES,
   defaultMergePreviewExec, type MergePreviewExec, type PairMerge,
 } from './merge-preview-git'
 import {
@@ -56,18 +56,24 @@ export function __resetMergePreviewSummaries(): void {
   lastByDelivery.clear()
 }
 
-async function candidateOf(snap: PrDeliverySnapshot, primaryPath: string, exec: MergePreviewExec): Promise<Candidate> {
+/** A ref's commit: from the refresh's one `for-each-ref` listing when it has one, else `rev-parse`. */
+async function refCommit(repoDir: string, ref: string, refs: ReadonlyMap<string, string> | null, exec: MergePreviewExec): Promise<string | null> {
+  if (refs && ref.startsWith('refs/')) return refs.get(ref) ?? null
+  return resolveCommit(repoDir, ref, exec)
+}
+
+async function candidateOf(snap: PrDeliverySnapshot, primaryPath: string, exec: MergePreviewExec, refs: ReadonlyMap<string, string> | null = null): Promise<Candidate> {
   const repoDir = primaryPath
-  const remote = await resolveCommit(repoDir, `refs/remotes/origin/${snap.baseBranch}`, exec)
+  const remote = await refCommit(repoDir, `refs/remotes/origin/${snap.baseBranch}`, refs, exec)
   const baseRef = remote ? `origin/${snap.baseBranch}` : snap.baseBranch
-  const baseSha = remote ?? await resolveCommit(repoDir, `refs/heads/${snap.baseBranch}`, exec) ?? await resolveCommit(repoDir, snap.baseBranch, exec)
+  const baseSha = remote ?? await refCommit(repoDir, `refs/heads/${snap.baseBranch}`, refs, exec) ?? await resolveCommit(repoDir, snap.baseBranch, exec)
   const heads: string[] = []
   // Primary-repository branches only: a multi-repository group's members are
   // separate deliveries with their own repositories (not previewed here).
   for (const unit of snap.units.filter((u) => !u.repositoryId)) {
     const head = unit.finalSha && /^[0-9a-f]{40,64}$/i.test(unit.finalSha)
       ? unit.finalSha
-      : await resolveCommit(repoDir, `refs/heads/${unit.branch}`, exec)
+      : await refCommit(repoDir, `refs/heads/${unit.branch}`, refs, exec)
     if (head) heads.push(head)
   }
   if (heads.length === 0 && snap.deliverySha) heads.push(snap.deliverySha)
@@ -94,7 +100,10 @@ export async function computeMergePreviews(
   const snaps = listActivePrDeliveries(target.db).map(toPrDeliverySnapshot)
     .filter((snap) => PREVIEWED_DECISIONS.has(snap.decision) && !snap.executionManifest)
   const primary = getProjectRepositories(target.project).find((repo) => repo.isPrimary)?.path ?? target.project.path
-  const candidates = await Promise.all(snaps.map((snap) => candidateOf(snap, primary, exec)))
+  // One ref listing per refresh: an unchanged project then costs one Git call
+  // (pair merges and base leads are cached by commit sha).
+  const refs = snaps.length ? await readBranchRefs(primary, exec).catch(() => null) : null
+  const candidates = await Promise.all(snaps.map((snap) => candidateOf(snap, primary, exec, refs)))
 
   // Sibling pairs: pending deliveries on the same base, each pair merged once.
   const siblingsOf = new Map<string, SiblingConflict[]>()

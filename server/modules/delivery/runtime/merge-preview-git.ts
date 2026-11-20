@@ -32,7 +32,12 @@ const CACHE_LIMIT = 1000
 /** Conflicted paths kept per pair (the rest are counted). */
 export const MAX_CONFLICT_FILES = 50
 
+let gitCalls = 0
+/** Test-only: Git processes the default executor has started. */
+export function __mergePreviewGitCalls(): number { return gitCalls }
+
 export const defaultMergePreviewExec: MergePreviewExec = (args, cwd, extraEnv) => new Promise((resolve) => {
+  gitCalls++
   const env = { ...gitInvocationEnv(gitExecEnv(), args), ...extraEnv }
   execFile('git', args, { cwd, env, timeout: TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
     const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? -1 : 0
@@ -97,12 +102,23 @@ function remember(key: string, value: Promise<PairMerge>): Promise<PairMerge> {
 /** Test-only. */
 export function __resetMergePreviewCache(): void {
   pairCache.clear()
+  aheadCache.clear()
+  commonDirs.clear()
   writeTreeSupport = null
 }
 
+/** A repository's common Git directory never changes while it exists: resolved once per path. */
+const commonDirs = new Map<string, string>()
+
 async function scratchObjectStore(repoDir: string, exec: MergePreviewExec): Promise<{ env: NodeJS.ProcessEnv; dispose(): Promise<void> } | null> {
-  const common = await exec(['rev-parse', '--path-format=absolute', '--git-common-dir'], repoDir)
-  const commonDir = common.code === 0 ? common.stdout.trim() : ''
+  let commonDir = exec === defaultMergePreviewExec ? commonDirs.get(repoDir) ?? '' : ''
+  // A repository removed and recreated elsewhere is resolved again.
+  if (commonDir && !fs.existsSync(commonDir)) { commonDirs.delete(repoDir); commonDir = '' }
+  if (!commonDir) {
+    const common = await exec(['rev-parse', '--path-format=absolute', '--git-common-dir'], repoDir)
+    commonDir = common.code === 0 ? common.stdout.trim() : ''
+    if (commonDir && exec === defaultMergePreviewExec) { commonDirs.set(repoDir, commonDir); if (commonDirs.size > CACHE_LIMIT) commonDirs.delete(commonDirs.keys().next().value as string) }
+  }
   if (!commonDir) return null
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'specrails-merge-preview-'))
   const objects = path.join(dir, 'objects')
@@ -151,11 +167,37 @@ export function previewPairMerge(repoDir: string, baseSha: string, headSha: stri
   return exec === defaultMergePreviewExec ? remember(key, work) : work
 }
 
-/** Commits on `base` that `head` does not have ("the base moved N commits"). */
+const aheadCache = new Map<string, number>()
+
+/** Commits on `base` that `head` does not have ("the base moved N commits").
+ *  Both are commit shas, so a known count never changes: it is cached exactly. */
 export async function commitsAhead(repoDir: string, headSha: string, baseSha: string, exec: MergePreviewExec = defaultMergePreviewExec): Promise<number | null> {
+  const key = `${repositoryLockKey(repoDir)}\0${headSha}\0${baseSha}`
+  const cached = exec === defaultMergePreviewExec ? aheadCache.get(key) : undefined
+  if (cached !== undefined) return cached
   const r = await bounded(() => exec(['rev-list', '--count', `${headSha}..${baseSha}`], repoDir))
   const n = r.code === 0 ? Number.parseInt(r.stdout.trim(), 10) : Number.NaN
-  return Number.isFinite(n) ? n : null
+  if (!Number.isFinite(n)) return null
+  if (exec === defaultMergePreviewExec) { aheadCache.set(key, n); if (aheadCache.size > CACHE_LIMIT) aheadCache.delete(aheadCache.keys().next().value as string) }
+  return n
+}
+
+/**
+ * Every branch and remote-tracking ref of a repository with its commit, in ONE
+ * Git call (`for-each-ref`). A refresh resolves its bases and branch heads from
+ * this map instead of one `rev-parse` per ref: with many projects and pending
+ * deliveries, the per-ref spawns were most of the server's synchronous work
+ * while rails ran. Null when Git cannot list them (callers fall back to rev-parse).
+ */
+export async function readBranchRefs(repoDir: string, exec: MergePreviewExec = defaultMergePreviewExec): Promise<Map<string, string> | null> {
+  const r = await bounded(() => exec(['for-each-ref', '--format=%(refname)%00%(objectname)%00%(objecttype)', 'refs/heads', 'refs/remotes'], repoDir))
+  if (r.code !== 0) return null
+  const refs = new Map<string, string>()
+  for (const line of r.stdout.split('\n')) {
+    const [name, sha, type] = line.split('\0')
+    if (name && type === 'commit' && /^[0-9a-f]{40,64}$/i.test(sha ?? '')) refs.set(name, sha!)
+  }
+  return refs
 }
 
 /** Resolve a ref to a commit sha (null when it does not resolve). */
