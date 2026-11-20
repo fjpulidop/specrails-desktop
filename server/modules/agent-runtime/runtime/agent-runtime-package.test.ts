@@ -276,6 +276,28 @@ it('a burst of execution gates never reuses a digest that started before the req
   } finally { configureSharedRuntimePackageCache(null) }
 })
 
+it('a launch stamps the Core source once: its retention reuses the stamp its preparation just took', async () => {
+  const { configureSharedRuntimePackageCache, prepareRetainedAgentRuntime } = await import('./agent-runtime-package')
+  const { cli } = fixture()
+  configureSharedRuntimePackageCache(path.join(root, 'cache'))
+  try {
+    await prepareRetainedAgentRuntime(cli)
+    retainAgentRuntime(cli, file('w1/.specrails/pipeline/r1/desktop-context.json', '{}'))
+    // Every later launch: one fast-path preparation (one source walk), then a retention that walks nothing.
+    const stats = vi.spyOn(fs, 'statSync')
+    expect(await prepareRetainedAgentRuntime(cli)).toBe(false)
+    const walk = stats.mock.calls.length
+    expect(walk).toBeGreaterThan(0)
+    retainAgentRuntime(cli, file('w2/.specrails/pipeline/r2/desktop-context.json', '{}'))
+    const pinOnly = stats.mock.calls.length - walk
+    expect(pinOnly).toBeLessThan(walk)
+    // The hand-off is single use: a retention without a fresh preparation stamps the source itself.
+    retainAgentRuntime(cli, file('w3/.specrails/pipeline/r3/desktop-context.json', '{}'))
+    expect(stats.mock.calls.length - walk - pinOnly).toBe(walk + pinOnly)
+    stats.mockRestore()
+  } finally { configureSharedRuntimePackageCache(null) }
+})
+
 it('announces a preparation to every launch that waits for it and stays quiet once the build is retained', async () => {
   const { configureSharedRuntimePackageCache, prepareRetainedAgentRuntime } = await import('./agent-runtime-package')
   const { cli } = fixture()

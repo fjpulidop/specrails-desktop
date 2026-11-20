@@ -286,6 +286,20 @@ async function copyInstalledPackageAsync(source: string, destination: string): P
 
 const preparing = new Map<string, Promise<void>>()
 
+/**
+ * The source stamp a launch's preparation just computed, handed to the same launch's
+ * synchronous retention right after it (one use, a few hundred milliseconds at most).
+ * Each stamp is ~16k synchronous stats; a burst of parallel launches computed it twice
+ * per launch on the event loop (2.6 s of an 8-launch burst's 11.6 s of busy time).
+ */
+const STAMP_HANDOFF_MS = 2_000
+let stampHandOff: { root: string; stamp: string; at: number } | null = null
+function takeStampHandOff(root: string): string | null {
+  const handOff = stampHandOff
+  stampHandOff = null
+  return handOff && handOff.root === root && Date.now() - handOff.at < STAMP_HANDOFF_MS ? handOff.stamp : null
+}
+
 /** Observes a launch's package preparation (the run log announces the wait). */
 export interface RuntimePreparationObserver {
   /** Called once when this launch waits for a copy of a Core build not retained yet
@@ -311,7 +325,7 @@ export async function prepareRetainedAgentRuntime(cli: string, observer: Runtime
   let stamp: string
   try { stamp = sourceStamp(root) } catch { return false }
   const known = retainedBySource.get(root)
-  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) return false
+  if (known && known.stamp === stamp && fs.existsSync(path.join(cache, known.integrity))) { stampHandOff = { root, stamp, at: Date.now() }; return false }
   const announce = () => { try { observer.onPreparing?.() } catch { /* An observer cannot stop the launch. */ } }
   const key = root + '\0' + stamp
   const running = preparing.get(key)
@@ -363,7 +377,7 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   // The same unchanged source was already retained into this shared cache by this
   // process: pin it again instead of copying and hashing ~16k files per launch.
   // Under the package lock, so a collection can never remove it between check and pin.
-  const stamp = sharedPackageCache ? sourceStamp(root) : null
+  const stamp = sharedPackageCache ? takeStampHandOff(root) ?? sourceStamp(root) : null
   const known = stamp ? retainedBySource.get(root) : undefined
   if (stamp && known && known.stamp === stamp) {
     const pinned = withRuntimePackageLock(cache, () => fs.existsSync(path.join(cache, known.integrity)) ? writePin(known.integrity, path.join(cache, known.integrity)) : null)
