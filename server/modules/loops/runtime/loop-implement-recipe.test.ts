@@ -81,7 +81,7 @@ describe('host blockers', () => {
       expect(definition.nodes.fixer.ends.next).toBe('correction-blocker')
       expect(definition.nodes['correction-blocker'].params.expr).toBe('exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null')
       expect(definition.nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocker-kind', false: 'correction-progress' })
-      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-reverify' })
+      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-stalled' })
       const schema = definition.nodes.fixer.params.structuredOutput as { required: string[]; properties: { blocker: { properties: { kind: { enum: string[] } }; required: string[] } } }
       expect(schema.required).toEqual(['summary', 'incomplete'])
       expect(schema.properties.blocker.properties.kind.enum).toEqual(['network', 'credential', 'environment-variable', 'toolchain', 'setup', 'environment', 'scope'])
@@ -152,17 +152,10 @@ describe('host blockers', () => {
     const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
     expect(asking.nodes['correction-progress'].ends).toMatchObject({ true: 'tasks', false: 'correction-decided' })
     expect(asking.nodes['correction-decided'].params).toEqual({ expr: 'exists($outputs.fixer.decisions) && $outputs.fixer.decisions.length > 0' })
-    expect(asking.nodes['correction-decided'].ends).toMatchObject({ true: 'reviewer', false: 'correction-reverify' })
+    expect(asking.nodes['correction-decided'].ends).toMatchObject({ true: 'reviewer', false: 'correction-stalled' })
     const older = compile(configurableImplementGraph(paired))
-    expect(older.nodes['correction-progress'].ends).toMatchObject({ false: 'correction-reverify' })
+    expect(older.nodes['correction-progress'].ends).toMatchObject({ false: 'correction-stalled' })
     expect(older.nodes).not.toHaveProperty('correction-decided')
-  })
-  it('verifies an unchanged candidate again after a failed host verification the fixer repaired by environment (bench5)', () => {
-    for (const graph of [configurableImplementGraph(paired), configurableImplementGraph({ ...paired, roleDecisions: 1 })]) {
-      const compiled = compile(graph)
-      expect(compiled.nodes['correction-reverify'].params).toEqual({ expr: 'exists($outputs.verify.valid) && $outputs.verify.valid == false' })
-      expect(compiled.nodes['correction-reverify'].ends).toMatchObject({ true: 'verify', false: 'correction-stalled' })
-    }
   })
   it('offers planner choices and approval rejection only on a Core that advertises questionOptions', () => {
     const structured = compile(configurableImplementGraph({ ...paired, questionOptions: 1 }))
