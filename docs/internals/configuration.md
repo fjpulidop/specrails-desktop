@@ -565,3 +565,16 @@ project scope is reported before the app-wide one. The per-run soft cap pauses a
 provider-reported cost reaches it (the tighter of the project and app-wide default, or the launch's `runCapUsd`);
 Continue waives it for that run and Raise moves it up (persisted in `loop_runs.run_cap_usd`, migration 85). A cap
 that is reached also appears in the inbox ("Raise cap").
+
+## Run capacity (parallel rails)
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `SPECRAILS_RUN_ADMISSION` | on | `off` starts every rail run at once (no queue). |
+| `SPECRAILS_MAX_ACTIVE_RUNS` | 1.2 × cores (2–24) | Runs working at once on this machine; more launches start **queued** and start by themselves. |
+| `SPECRAILS_MAX_RUNS_PER_PROJECT` | half of the above | Runs working at once in one project. |
+| `SPECRAILS_MAX_RUNS_PER_PROVIDER` | none | Per-provider caps, `claude=8,codex=2`. |
+| `SPECRAILS_VERIFY_SLOTS` (Core) | cores ÷ 4 (1–4) | Machine-wide verification turns inside runs. |
+
+See the [capacity module](../../server/modules/capacity/README.md) for the rules (CPU, memory and usage-window checks) and `GET /api/capacity`.
+
