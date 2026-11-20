@@ -14,7 +14,7 @@ import type { DbInstance } from '../../../db'
 import { readLimitPause } from './loop-limit-pauses'
 import type { LoopLimitPause } from './loop-run-contract'
 
-export const RUN_HOLD_KINDS = ['restart', 'interrupted', 'provider_limit', 'budget', 'question', 'approval', 'paused'] as const
+export const RUN_HOLD_KINDS = ['restart', 'interrupted', 'provider_limit', 'budget', 'question', 'approval', 'paused', 'queued'] as const
 export type RunHoldKind = typeof RUN_HOLD_KINDS[number]
 
 export interface RunHold {
@@ -25,6 +25,10 @@ export interface RunHold {
   since: string | null
   /** `provider_limit`: when the provider accepts requests again (ISO), if it said. */
   resumeAt?: string | null
+  /** `queued`: what the run waits for before it starts (capacity `WaitingFor`). */
+  waitingFor?: string
+  /** `queued`: 1 = next to start. */
+  position?: number
 }
 
 /** What the live manager knows about a run it holds parked in this process. */
@@ -48,6 +52,8 @@ export interface RunHoldFacts {
   restartPending: boolean
   /** The last event the job recorded (ISO). */
   lastActivityAt: string | null
+  /** The run waits for a machine run slot in this process (capacity admission). */
+  queued?: { waitingFor: string; since: string; position: number } | null
 }
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
@@ -82,6 +88,7 @@ function interruptHold(kinds: string[]): RunHoldKind | null {
 export function deriveRunHold(facts: RunHoldFacts): RunHold | null {
   const step = stoppedStep(facts.checkpoint)
   const at = (kind: RunHoldKind, since: string | null = facts.lastActivityAt, extra: Partial<RunHold> = {}): RunHold => ({ kind, step, since, ...extra })
+  if (facts.queued && facts.loopStatus === 'running') return at('queued', facts.queued.since, { waitingFor: facts.queued.waitingFor, position: facts.queued.position })
   if (facts.live) {
     if (facts.live.limit) return at('provider_limit', facts.live.limit.pausedAt, { resumeAt: facts.live.limit.resumeAt })
     if (facts.live.budget) return at('budget')
@@ -114,16 +121,19 @@ export interface RunHoldSources {
   livePause?: (runId: string) => LiveRunPause | null
   /** Runs active at startup that recovery has not reconciled yet. */
   restartPending?: ReadonlySet<string>
+  /** Why a launched run has not started yet (`LoopRunManager.queuedFor`). */
+  queued?: (runId: string) => RunHoldFacts['queued']
 }
 
 /** What the project's live loop engine and startup recovery know about held runs. */
-export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }> }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
+export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }>; queuedFor?(id: string): RunHoldFacts['queued'] }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
   const manager = c.loopRunManager
   return {
     livePause: (runId) => manager?.isPaused?.(runId)
       ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, pending: manager.pendingInterrupts?.(runId) ?? [] }
       : null,
     restartPending: c.restartPendingRunIds,
+    queued: (runId) => manager?.queuedFor?.(runId) ?? null,
   }
 }
 
@@ -153,6 +163,7 @@ export function readRunHolds(db: DbInstance, jobIds: readonly string[], sources:
         loopStatus: row.status, restartReason: row.restart_reason, checkpoint,
         retainedLimit: row.status === 'paused' && !live ? readLimitPause(db, row.id) : null,
         live, restartPending: sources.restartPending?.has(row.id) ?? false, lastActivityAt: isoTimestamp(row.last_event_at),
+        queued: (() => { try { return sources.queued?.(row.id) ?? null } catch { return null } })(),
       })
       if (hold) holds.set(row.id, hold)
     }

@@ -15,6 +15,9 @@ const coreDependencies: Record<string, string[]> = {
   'provider-quota/domain.ts': [],
   'provider-quota/ports.ts': ['./domain'],
   'launch-preflight/domain.ts': [],
+  // Run capacity: pure admission rules; the queue and its probes are injected.
+  'capacity/domain.ts': [],
+  'capacity/index.ts': ['./domain', './admission'],
   'project-settings/domain.ts': ['../../shared/git-branch-name'],
   'project-settings/ports.ts': ['./domain'],
   'project-settings/application.ts': ['./domain', './ports'],
@@ -33,6 +36,7 @@ const coreDependencies: Record<string, string[]> = {
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
   'delivery/domain/merge-preview.ts': [],
+  'delivery/domain/launch-overlap.ts': [],
   'delivery/domain/retained-worktrees.ts': [],
   'delivery/domain/static-check.ts': [],
   'delivery/domain/review-wip.ts': ['./state'],

@@ -34,6 +34,8 @@ export function liveStatusLook(status: LiveRunStatus, extensionRunState?: Extens
     case 'delivery': {
       // Still building, but its run is paused: nothing moves until it resumes.
       if (status.paused) return { state: 'paused', objectIcon: null }
+      // Launched but waiting for capacity: it has not started yet.
+      if (status.queued) return { state: 'queued', objectIcon: null }
       if (!isDecision(status.decision)) return { state: 'queued', objectIcon: null }
       const look = deliveryLook(status.decision, deliveryOverrideOf({ decision: status.decision, statusCode: status.statusCode }))
       return { state: look.state, objectIcon: look.objectIcon }

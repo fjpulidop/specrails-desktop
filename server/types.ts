@@ -1058,6 +1058,18 @@ export interface LoopRunResumedMessage {
   ticketIds: number[]
 }
 
+/** A launched run waits for capacity (machine run admission); `loop.run_resumed` follows when it starts. */
+export interface LoopRunQueuedMessage {
+  type: 'loop.run_queued'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+  /** The capacity module's `WaitingFor`: run_slots, project_slots, provider_slots, cpu, memory or provider_quota. */
+  waitingFor: string
+  /** 1 = next to start. */
+  position: number
+}
+
 export interface LoopRunStoppedMessage {
   type: 'loop.run_stopped'
   projectId: string
@@ -1411,7 +1423,7 @@ export type WsMessage =
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailMergePreviewMessage | RailPrStateMessage
   | IntentStateMessage
- | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
+ | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunQueuedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
   | AgentRefineAppliedMessage

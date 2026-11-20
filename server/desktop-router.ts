@@ -12,6 +12,7 @@
 import { Router } from 'express'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
 import { registerLiveBoardRoutes } from './modules/live-board/adapters/http'
+import { registerCapacityRoutes } from './modules/capacity/adapters/http'
 import { registerAppResourceRoutes } from './app-resources-router'
 import { registerRetainedWorktreeRoutes } from './modules/delivery/adapters/retained-worktrees-http'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
@@ -61,6 +62,7 @@ export function createDesktopRouter(
   registerInboxRoutes(router, registry)
   // Live board: every run across every project, read-only (modules/live-board).
   registerLiveBoardRoutes(router, registry)
+  registerCapacityRoutes(router)
   // App-wide Resources (status bar): CPU/memory of everything the server launched.
   registerAppResourceRoutes(router, registry)
   // Settings ▸ Storage: retained run worktrees across projects, removed through the release path.

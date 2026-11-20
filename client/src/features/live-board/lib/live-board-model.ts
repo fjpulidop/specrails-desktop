@@ -18,7 +18,7 @@ export const LIVE_KINDS: readonly LiveRunKind[] = ['rail', 'loop', 'intent', 'jo
 export type LiveRunStatus =
   | { source: 'job'; status: string }
   | { source: 'loop-run'; status: 'running' | 'paused' | 'completed'; outcome: string | null; restartReason: string | null }
-  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean }
+  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean; queued?: { waitingFor: string; position: number } }
   | { source: 'intent'; state: string }
   | { source: 'attention' }
 

@@ -2,6 +2,7 @@ import { installAppWorktreeProcessReaper, sweepSettledRunWorktrees } from './wor
 import { configureCoreChildRegistry, reapOrphanedCoreChildren } from './util/core-child-process'
 import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
 import { createDesktopQuotaStore } from './modules/provider-quota/runtime/composition'
+import { bindRunAdmission, createDesktopRunAdmission } from './modules/capacity/runtime/composition'
 import { reportRateLimit } from './modules/provider-quota/runtime/quota-reports'
 // Note: the pkg-binary native-addon hijacks (better_sqlite3.node, node-pty, pty.node)
 // used to live here but had to move to an esbuild `banner.js` in scripts/build-sidecar.mjs
@@ -841,6 +842,9 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
     announce: (message) => broadcast(message as unknown as WsMessage),
   })
   _quotaStore = quotaStore
+  // Run admission (machine-wide): a rail run over this machine's capacity starts
+  // queued and says what it waits for. SPECRAILS_RUN_ADMISSION=off starts every run at once.
+  bindRunAdmission(createDesktopRunAdmission({ announce: (message) => broadcast(message as unknown as WsMessage) }))
   const sessionHosts = new SessionHostRegistry({
     onRateLimit: ({ driver, rateLimit, at }) => { reportRateLimit(driver ?? 'claude', rateLimit, 'session', at) },
     launcher: new CoreHostLauncher({
@@ -1142,6 +1146,7 @@ async function shutdown(exitCode = 0): Promise<void> {
     Promise.resolve().then(() => _usageService?.dispose()),
     Promise.resolve().then(() => _policyDenialSpool?.stop()),
     Promise.resolve().then(() => _quotaStore?.dispose()),
+    Promise.resolve().then(() => bindRunAdmission(null)),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),

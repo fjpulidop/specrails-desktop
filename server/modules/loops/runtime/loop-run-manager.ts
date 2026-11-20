@@ -53,6 +53,7 @@ import { saveLimitPause } from './loop-limit-pauses'
 import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
 import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
+import type { LoopRunAdmission } from './loop-run-contract'
 import type {
   LoopBudgetBreach,
   LoopExecutors,
@@ -103,6 +104,8 @@ export class LoopRunManager {
   private readonly _interactiveSteps = new Map<string, InteractiveJobSession>()
   private readonly _activeStepRecovery = new Map<string, string>()
   private readonly _pausedHumanDecisions = new Map<string, PausedRun>()
+  /** Runs waiting for a machine run slot (capacity admission): aborting stops the wait. */
+  private readonly _admissionWaits = new Map<string, AbortController>()
 
   constructor(
     private readonly db: DbInstance,
@@ -280,6 +283,8 @@ export class LoopRunManager {
 
   private cancelResident(runId: string, graceful: boolean): void {
     this._cancelled.add(runId)
+    // Queued for capacity: nothing runs yet, so stopping it only ends the wait.
+    this._admissionWaits.get(runId)?.abort()
     try { this.options.hostTasks?.()?.cancel(runId) } catch { /* host work is advisory to cancellation */ }
     const paused = this._pausedHumanDecisions.get(runId)
     if (paused) {
@@ -310,6 +315,15 @@ export class LoopRunManager {
   /** True while an interactive step session is resident for this run/job id. */
   isInteractiveJob(jobId: string): boolean {
     return this._interactiveSteps.has(jobId)
+  }
+
+  /** Why a launched run has not started yet (waiting for capacity), or null. */
+  queuedFor(jobId: string): { waitingFor: string; since: string; position: number } | null {
+    if (!this._admissionWaits.has(jobId)) return null
+    try {
+      const waiting = this.options.admission?.()?.waiting(jobId)
+      return waiting ? { waitingFor: waiting.waitingFor, since: new Date(waiting.since).toISOString(), position: waiting.position } : null
+    } catch { return null }
   }
 
   /** True while the loop is paused between engine steps awaiting a human call. */
@@ -369,6 +383,8 @@ export class LoopRunManager {
     try { this.options.hostTasks?.()?.dispose() } catch { /* startup recovery re-dispatches */ }
     if (this._disposed) return
     this._disposed = true
+    // A queued run stays queued in its row; startup recovery offers it again.
+    for (const wait of this._admissionWaits.values()) wait.abort()
     for (const runId of this._activeChild.keys()) this._cancelled.add(runId)
     for (const runId of this._interactiveSteps.keys()) this._cancelled.add(runId)
     for (const [runId, session] of this._interactiveSteps) {
@@ -639,17 +655,71 @@ export class LoopRunManager {
       ctx.events.logLine(`↪ OpenSpec change id seeded from ${seededChangeId.source}: ${seededChangeId.id}`)
     }
 
+    const admitted = definitionEngine ? await this._admit(ctx) : { release: () => {} }
+    if (admitted === 'disposed') return neverAfterDispose()
+    if (admitted === 'stopped') return settleLoopRun(ctx)
     try {
-      if (definitionEngine) await runDefinitionEngine(ctx)
-      else if (await runLegacyTraversal(ctx) === 'disposed') return neverAfterDispose()
-    } catch (err) {
-      if (this._disposed) return neverAfterDispose()
-      state.outcome = 'failed'
-      console.error(`[loop] run=${runId} traversal threw:`, err)
-      ctx.events.logLine(`error: ${(err as Error)?.message ?? String(err)}`, 'stderr')
-    }
+      try {
+        if (definitionEngine) await runDefinitionEngine(ctx)
+        else if (await runLegacyTraversal(ctx) === 'disposed') return neverAfterDispose()
+      } catch (err) {
+        if (this._disposed) return neverAfterDispose()
+        state.outcome = 'failed'
+        console.error(`[loop] run=${runId} traversal threw:`, err)
+        ctx.events.logLine(`error: ${(err as Error)?.message ?? String(err)}`, 'stderr')
+      }
 
-    if (this._disposed) return neverAfterDispose()
-    return settleLoopRun(ctx)
+      if (this._disposed) return neverAfterDispose()
+      return await settleLoopRun(ctx)
+    } finally { admitted.release() }
+  }
+
+  /**
+   * Take a machine run slot before Core works on this run (capacity admission).
+   * Over capacity the run waits, queued: its log and card say what it waits for,
+   * and it starts by itself. Stopped while queued, it settles as stopped having
+   * run nothing. Without an admission queue it starts at once.
+   */
+  private async _admit(ctx: LoopRunContext): Promise<{ release: () => void } | 'stopped' | 'disposed'> {
+    const { req, runId, state } = ctx
+    let admission: LoopRunAdmission | null = null
+    try { admission = this.options.admission?.() ?? null } catch { admission = null }
+    if (!admission) return { release: () => {} }
+    const aborter = new AbortController()
+    this._admissionWaits.set(runId, aborter)
+    let waitedSince: number | null = null
+    try {
+      const release = await admission.acquire({ runId, projectId: req.projectId, provider: req.provider }, {
+        signal: aborter.signal,
+        onWait: (waitingFor, position) => {
+          waitedSince ??= this.now()
+          ctx.events.logLine(`⏳ Queued (${position} in line): ${queueReasonLine(waitingFor)} It starts by itself when there is room.`)
+          this._emit({ type: 'loop.run_queued', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, waitingFor, position })
+        },
+      })
+      if (waitedSince !== null) {
+        ctx.events.logLine(`▶ Started after waiting ${Math.round((this.now() - waitedSince) / 1000)} s for capacity.`)
+        this._emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: ctx.exactTicketIds })
+      }
+      return { release }
+    } catch {
+      if (this._disposed) return 'disposed'
+      state.outcome = 'stopped'
+      ctx.events.logLine('■ Stopped while it waited for capacity; nothing ran.')
+      return 'stopped'
+    } finally { this._admissionWaits.delete(runId) }
+  }
+}
+
+/** One plain sentence per admission wait reason (the run log; the UI has its own 8-locale text). */
+export function queueReasonLine(waitingFor: string): string {
+  switch (waitingFor) {
+    case 'run_slots': return 'every run slot of this machine is working.'
+    case 'project_slots': return 'this project already runs as many rails at once as it may.'
+    case 'provider_slots': return 'this AI provider already runs as many rails at once as it may.'
+    case 'cpu': return 'the machine\'s CPU is saturated.'
+    case 'memory': return 'the machine is low on free memory.'
+    case 'provider_quota': return 'the provider\'s usage window could not finish another run now.'
+    default: return 'the machine is at capacity.'
   }
 }

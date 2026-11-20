@@ -39,7 +39,7 @@ export interface PhaseDefinition {
   description: string
 }
 
-export type JobHoldKind = 'restart' | 'interrupted' | 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused'
+export type JobHoldKind = 'restart' | 'interrupted' | 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused' | 'queued'
 
 /** A stopped run that still owns its job row (server `loop-run-hold.ts`). */
 export interface JobHold {
@@ -49,6 +49,10 @@ export interface JobHold {
   /** When it stopped (its last recorded activity, ISO); null when unknown. */
   since: string | null
   resumeAt?: string | null
+  /** `queued`: what the launched run waits for before it starts (server capacity `WaitingFor`). */
+  waitingFor?: string
+  /** `queued`: 1 = next to start. */
+  position?: number
 }
 
 export interface JobSummary {

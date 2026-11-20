@@ -401,7 +401,8 @@
       "budget": "Spending limit",
       "question": "Needs you",
       "approval": "Needs you",
-      "paused": "Paused"
+      "paused": "Paused",
+      "queued": "Queued"
     },
     "tooltip": {
       "restart": "The app restarted while this run was working. Nothing runs until you continue it.",
@@ -410,7 +411,8 @@
       "budget": "The spending limit was reached. Nothing runs until you continue it.",
       "question": "The run asked you something and waits for your answer.",
       "approval": "The run waits for your approval to go on.",
-      "paused": "Nothing runs until you continue it."
+      "paused": "Nothing runs until you continue it.",
+      "queued": "Launched, waiting for capacity. It starts by itself when there is room."
     },
     "reason": {
       "restart": "The app restarted during the {{step}} step.",
@@ -421,12 +423,23 @@
       "budget": "The spending limit was reached.",
       "question": "Waiting for your answer.",
       "approval": "Waiting for your approval.",
-      "paused": "Nothing runs until you continue it."
+      "paused": "Nothing runs until you continue it.",
+      "queued": "Waiting for capacity before it starts."
     },
     "stoppedTime": "Time it worked until it stopped",
     "cancelRun": "Cancel run",
     "cancelRunConfirmTitle": "Cancel this paused run?",
     "cancelRunConfirmDescription": "It ends as stopped and nothing more runs. Its changes stay in its worktree, and you can still continue it later from the run window.",
-    "keepPaused": "Keep it paused"
+    "keepPaused": "Keep it paused",
+    "queue": {
+      "run_slots": "Waiting for a free run slot: this machine already works on as many runs as it can.",
+      "project_slots": "Waiting for this project's other runs: it already runs as many rails at once as it may.",
+      "provider_slots": "Waiting for this AI provider's other runs: it already runs as many rails at once as it may.",
+      "cpu": "Waiting for the CPU: the machine is saturated, so starting another run would slow every run down.",
+      "memory": "Waiting for free memory before it starts.",
+      "provider_quota": "Waiting for the provider's usage window: it could not finish another run right now.",
+      "other": "Waiting for capacity before it starts.",
+      "position": "Position {{position}} in line; it starts by itself."
+    }
   }
 }

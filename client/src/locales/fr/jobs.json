@@ -401,7 +401,8 @@
       "budget": "Limite de dépenses",
       "question": "Vous attend",
       "approval": "Vous attend",
-      "paused": "En pause"
+      "paused": "En pause",
+      "queued": "En file d'attente"
     },
     "tooltip": {
       "restart": "L’app a redémarré pendant que cette exécution travaillait. Rien ne s’exécute tant que vous ne la reprenez pas.",
@@ -410,7 +411,8 @@
       "budget": "La limite de dépenses est atteinte. Rien ne s’exécute tant que vous ne la reprenez pas.",
       "question": "L’exécution vous a posé une question et attend votre réponse.",
       "approval": "L’exécution attend votre approbation pour continuer.",
-      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas."
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "queued": "Lancé, en attente de capacité. Il démarre tout seul dès qu'il y a de la place."
     },
     "reason": {
       "restart": "L’app a redémarré pendant l’étape {{step}}.",
@@ -421,12 +423,23 @@
       "budget": "La limite de dépenses est atteinte.",
       "question": "En attente de votre réponse.",
       "approval": "En attente de votre approbation.",
-      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas."
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "queued": "En attente de capacité avant de démarrer."
     },
     "stoppedTime": "Temps de travail jusqu’à l’arrêt",
     "cancelRun": "Annuler l’exécution",
     "cancelRunConfirmTitle": "Annuler cette exécution en pause ?",
     "cancelRunConfirmDescription": "Elle se termine comme arrêtée et plus rien ne s’exécute. Ses modifications restent dans son worktree, et vous pourrez encore la reprendre plus tard depuis la fenêtre de l’exécution.",
-    "keepPaused": "La laisser en pause"
+    "keepPaused": "La laisser en pause",
+    "queue": {
+      "run_slots": "En attente d'une place libre : cette machine travaille déjà sur autant d'exécutions que possible.",
+      "project_slots": "En attente des autres exécutions de ce projet : il exécute déjà autant de rails à la fois que permis.",
+      "provider_slots": "En attente des autres exécutions de ce fournisseur d'IA : il exécute déjà autant de rails à la fois que permis.",
+      "cpu": "En attente du processeur : la machine est saturée, une exécution de plus ralentirait toutes les autres.",
+      "memory": "En attente de mémoire libre avant de démarrer.",
+      "provider_quota": "En attente de la fenêtre d'utilisation du fournisseur : elle ne pourrait pas terminer une exécution de plus maintenant.",
+      "other": "En attente de capacité avant de démarrer.",
+      "position": "Position {{position}} dans la file ; il démarre tout seul."
+    }
   }
 }

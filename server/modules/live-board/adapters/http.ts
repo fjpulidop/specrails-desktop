@@ -28,6 +28,7 @@ export function registerLiveBoardRoutes(router: Router, registry: ProjectRegistr
         db: ctx.db,
         liveRunMissions: () => ctx.railLoopRuns,
         restartPending: ctx.restartPendingRunIds,
+        queuedFor: (runId) => ctx.loopRunManager?.queuedFor?.(runId) ?? null,
       })),
       attention: inbox.items,
       missions: createMissionDirectory(registry.desktopDb),

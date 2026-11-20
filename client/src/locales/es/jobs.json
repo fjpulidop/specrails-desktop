@@ -401,7 +401,8 @@
       "budget": "Límite de gasto",
       "question": "Te necesita",
       "approval": "Te necesita",
-      "paused": "Pausado"
+      "paused": "Pausado",
+      "queued": "En cola"
     },
     "tooltip": {
       "restart": "La app se reinició mientras esta ejecución trabajaba. No se ejecuta nada hasta que la continúes.",
@@ -410,7 +411,8 @@
       "budget": "Se alcanzó el límite de gasto. No se ejecuta nada hasta que la continúes.",
       "question": "La ejecución te ha preguntado algo y espera tu respuesta.",
       "approval": "La ejecución espera tu aprobación para seguir.",
-      "paused": "No se ejecuta nada hasta que la continúes."
+      "paused": "No se ejecuta nada hasta que la continúes.",
+      "queued": "Lanzado, esperando capacidad. Empieza solo cuando haya hueco."
     },
     "reason": {
       "restart": "La app se reinició durante el paso {{step}}.",
@@ -421,12 +423,23 @@
       "budget": "Se alcanzó el límite de gasto.",
       "question": "Esperando tu respuesta.",
       "approval": "Esperando tu aprobación.",
-      "paused": "No se ejecuta nada hasta que la continúes."
+      "paused": "No se ejecuta nada hasta que la continúes.",
+      "queued": "Esperando capacidad antes de empezar."
     },
     "stoppedTime": "Tiempo que trabajó hasta detenerse",
     "cancelRun": "Cancelar ejecución",
     "cancelRunConfirmTitle": "¿Cancelar esta ejecución pausada?",
     "cancelRunConfirmDescription": "Termina como detenida y no se ejecuta nada más. Sus cambios se quedan en su worktree y aún podrás continuarla más tarde desde la ventana de la ejecución.",
-    "keepPaused": "Mantenerla pausada"
+    "keepPaused": "Mantenerla pausada",
+    "queue": {
+      "run_slots": "Esperando un hueco libre: este equipo ya trabaja en todas las ejecuciones que puede.",
+      "project_slots": "Esperando a las otras ejecuciones de este proyecto: ya ejecuta tantos rails a la vez como puede.",
+      "provider_slots": "Esperando a las otras ejecuciones de este proveedor de IA: ya ejecuta tantos rails a la vez como puede.",
+      "cpu": "Esperando a la CPU: el equipo está saturado y otra ejecución ralentizaría todas.",
+      "memory": "Esperando memoria libre antes de empezar.",
+      "provider_quota": "Esperando la ventana de uso del proveedor: ahora no podría terminar otra ejecución.",
+      "other": "Esperando capacidad antes de empezar.",
+      "position": "Posición {{position}} en la cola; empieza sola."
+    }
   }
 }

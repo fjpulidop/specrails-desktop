@@ -22,6 +22,7 @@ import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 import { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
+import { runAdmission } from './modules/capacity/runtime/composition'
 import { createMachineInstalls } from './modules/machine-installs'
 import { createProcessInstallRunner } from './modules/machine-installs/adapters/process'
 import { createSqliteApprovalStore } from './modules/machine-installs/adapters/sqlite'
@@ -113,6 +114,8 @@ export function createProjectLoopRuntime(deps: {
     hostTasks: () => hostTaskDispatcher,
     // Machine-wide installs a run asks for: approvals live in the app database (machine-wide, like the tool).
     machineInstalls: () => machineInstalls,
+    // Machine-wide run admission (capacity): runs over capacity start queued.
+    admission: () => runAdmission(),
     // Stop on a paused/recovered Core run: Core records it, Desktop settles it.
     cancelRetained: runId => {
       const projectContext = deps.getProjectContext()

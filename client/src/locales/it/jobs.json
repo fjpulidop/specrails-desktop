@@ -401,7 +401,8 @@
       "budget": "Limite di spesa",
       "question": "Ti aspetta",
       "approval": "Ti aspetta",
-      "paused": "In pausa"
+      "paused": "In pausa",
+      "queued": "In coda"
     },
     "tooltip": {
       "restart": "L’app si è riavviata mentre questa esecuzione lavorava. Non viene eseguito nulla finché non la continui.",
@@ -410,7 +411,8 @@
       "budget": "È stato raggiunto il limite di spesa. Non viene eseguito nulla finché non la continui.",
       "question": "L’esecuzione ti ha fatto una domanda e attende la tua risposta.",
       "approval": "L’esecuzione attende la tua approvazione per proseguire.",
-      "paused": "Non viene eseguito nulla finché non la continui."
+      "paused": "Non viene eseguito nulla finché non la continui.",
+      "queued": "Avviato, in attesa di capacità. Parte da solo quando c'è posto."
     },
     "reason": {
       "restart": "L’app si è riavviata durante il passo {{step}}.",
@@ -421,12 +423,23 @@
       "budget": "È stato raggiunto il limite di spesa.",
       "question": "In attesa della tua risposta.",
       "approval": "In attesa della tua approvazione.",
-      "paused": "Non viene eseguito nulla finché non la continui."
+      "paused": "Non viene eseguito nulla finché non la continui.",
+      "queued": "In attesa di capacità prima di partire."
     },
     "stoppedTime": "Tempo di lavoro fino all’arresto",
     "cancelRun": "Annulla esecuzione",
     "cancelRunConfirmTitle": "Annullare questa esecuzione in pausa?",
     "cancelRunConfirmDescription": "Termina come fermata e non viene eseguito altro. Le sue modifiche restano nel suo worktree e potrai ancora continuarla più tardi dalla finestra dell’esecuzione.",
-    "keepPaused": "Lasciala in pausa"
+    "keepPaused": "Lasciala in pausa",
+    "queue": {
+      "run_slots": "In attesa di un posto libero: questa macchina lavora già a tutte le esecuzioni che può.",
+      "project_slots": "In attesa delle altre esecuzioni di questo progetto: esegue già tutti i rail consentiti in contemporanea.",
+      "provider_slots": "In attesa delle altre esecuzioni di questo provider IA: esegue già tutti i rail consentiti in contemporanea.",
+      "cpu": "In attesa della CPU: la macchina è satura e un'altra esecuzione rallenterebbe tutte.",
+      "memory": "In attesa di memoria libera prima di partire.",
+      "provider_quota": "In attesa della finestra d'uso del provider: ora non potrebbe completare un'altra esecuzione.",
+      "other": "In attesa di capacità prima di partire.",
+      "position": "Posizione {{position}} in coda; parte da solo."
+    }
   }
 }

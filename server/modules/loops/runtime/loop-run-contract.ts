@@ -224,6 +224,8 @@ export interface LoopExecutors {
 export interface LoopRunRequest {
   /** Admitted rail options for a fresh retry; excludes execution paths/ids. */
   launchConfig?: Record<string, unknown>
+  /** Lines a fresh run logs right after its banner (a likely overlap with another rail). */
+  launchNotices?: string[]
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Loop Decider engine (roles launch, hybrid-role-engines); absent ⇒ the rail's provider/model/effort. */
   deciderEngine?: { provider: string; model: string; effort?: ReasoningEffort }
@@ -481,4 +483,14 @@ export interface LoopRunManagerOptions {
    *  a restart): records the cancellation in Core and settles the run here.
    *  Bound at composition; absent ⇒ only Core is told. */
   cancelRetained?: (runId: string) => void
+  /** The machine's run admission queue (capacity module), bound at composition.
+   *  A Core run takes a slot before Core starts working and waits, queued, while
+   *  the machine is at capacity. Absent or null ⇒ every run starts at once. */
+  admission?: () => LoopRunAdmission | null
+}
+
+/** The part of the capacity module's admission queue the loop engine uses. */
+export interface LoopRunAdmission {
+  acquire(run: { runId: string; projectId: string; provider: string }, options?: { signal?: AbortSignal; onWait?: (waitingFor: string, position: number) => void }): Promise<() => void>
+  waiting(runId: string): { waitingFor: string; since: number; position: number } | null
 }

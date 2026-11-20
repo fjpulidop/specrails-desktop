@@ -29,7 +29,9 @@ export type LiveRunStatus =
   | { source: 'job'; status: string }
   | { source: 'loop-run'; status: 'running' | 'paused' | 'completed'; outcome: string | null; restartReason: string | null }
   /** `paused`: still building, but its run is paused (a restart, a question, a limit): nothing moves. */
-  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean }
+  | { source: 'delivery'; decision: string; statusCode: string | null; paused?: boolean
+    /** Launched but waiting for a machine run slot (capacity admission): it has not started yet. */
+    queued?: { waitingFor: string; position: number } }
   | { source: 'intent'; state: string }
   /** An inbox item with no run on the board (a Jira update, a reached cap, an older failure). */
   | { source: 'attention' }
@@ -240,7 +242,7 @@ export function columnUrgency(column: LiveColumn): number {
 }
 
 function isQueued(card: Pick<LiveCard, 'status'>): boolean {
-  return card.status.source === 'job' && card.status.status === 'queued'
+  return (card.status.source === 'job' && card.status.status === 'queued') || (card.status.source === 'delivery' && !!card.status.queued)
 }
 
 /** A paused loop run or Intent session: open, but nothing moves until the person resumes it. */

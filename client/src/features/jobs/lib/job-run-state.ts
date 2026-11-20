@@ -40,6 +40,8 @@ export const HELD_RUN_STATE = {
   question: 'needs-input',
   approval: 'needs-input',
   paused: 'paused',
+  // Launched, waiting for capacity: it has not started yet and starts by itself.
+  queued: 'queued',
 } as const satisfies Record<JobHoldKind, RunState>
 
 const isHoldKind = (value: unknown): value is JobHoldKind =>
@@ -54,6 +56,8 @@ export function jobHoldOf(job: Pick<JobSummary, 'status' | 'hold'> | null | unde
     step: typeof hold.step === 'string' && hold.step ? hold.step : null,
     since: typeof hold.since === 'string' && Number.isFinite(Date.parse(hold.since)) ? hold.since : null,
     ...(typeof hold.resumeAt === 'string' ? { resumeAt: hold.resumeAt } : {}),
+    ...(typeof hold.waitingFor === 'string' ? { waitingFor: hold.waitingFor } : {}),
+    ...(typeof hold.position === 'number' ? { position: hold.position } : {}),
   }
 }
 
@@ -86,10 +90,20 @@ export function holdStepName(t: TFunction, step: string): string {
 
 /** One plain sentence: why the run is not working ("The app restarted during the Developer step."). */
 export function describeJobHold(t: TFunction, hold: JobHold): string {
+  if (hold.kind === 'queued') return queuedReason(t, hold.waitingFor, hold.position)
   const withStep = hold.step && (hold.kind === 'restart' || hold.kind === 'interrupted')
   return withStep
     ? t(`jobs:held.reason.${hold.kind}`, { step: holdStepName(t, hold.step!) })
     : t(`jobs:held.reason.${hold.kind}${hold.kind === 'restart' || hold.kind === 'interrupted' ? 'NoStep' : ''}`)
+}
+
+/** Capacity wait reasons the server sends (capacity `WAITING_FOR`); anything newer reads as generic. */
+const QUEUE_REASONS = new Set(['run_slots', 'project_slots', 'provider_slots', 'cpu', 'memory', 'provider_quota'])
+
+/** "Waiting for a free run slot (2nd in line). It starts by itself." */
+export function queuedReason(t: TFunction, waitingFor: string | undefined, position: number | undefined): string {
+  const reason = waitingFor && QUEUE_REASONS.has(waitingFor) ? waitingFor : 'other'
+  return t(`jobs:held.queue.${reason}`) + (position ? ` ${t('jobs:held.queue.position', { position })}` : '')
 }
 
 function isJobStatus(status: string): status is JobStatus {

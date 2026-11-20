@@ -21,6 +21,8 @@ export interface LiveBoardProjectHandle {
   liveRunMissions?: () => ReadonlyMap<string, { originConversationId?: string }>
   /** Runs active at startup that recovery has not reconciled yet: nothing drives them, so they read as paused by the restart. */
   restartPending?: ReadonlySet<string>
+  /** Why a launched run has not started yet (capacity admission), or null. */
+  queuedFor?: (runId: string) => { waitingFor: string; position: number } | null
 }
 
 interface LoopRunRow {
@@ -312,14 +314,16 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         // "Running" with a growing timer while nothing moves.
         const paused = !live && row.decision === 'building' ? own.find((r) => r.status === 'paused') ?? null : null
         const pausedQuestion = paused ? runQuestionFromStatus(paused.runtime_status_json) : null
+        const queuedRun = live ? guard(projectId, 'run queue', null, () => handle.queuedFor?.(live.id) ?? null) : null
+        const queued = queuedRun ? { waitingFor: queuedRun.waitingFor, position: queuedRun.position } : null
         const starts = own.map((r) => toIso(r.started_at)).filter((v): v is string => !!v).sort()
         const terminal = !['building', 'on_review', 'pr_draft', 'pr_ready'].includes(row.decision)
         const chain = chainCost(ids)
         runs.push({
           sourceId: row.id, kind: 'rail',
-          status: { source: 'delivery', decision: row.decision, statusCode: row.status_code, ...(paused ? { paused: true } : {}) },
+          status: { source: 'delivery', decision: row.decision, statusCode: row.status_code, ...(paused ? { paused: true } : {}), ...(queued ? { queued } : {}) },
           title: deliveryTitle(row),
-          phase: live ? steps.get(live.id) ?? null : null,
+          phase: live && !queued ? steps.get(live.id) ?? null : null,
           question: pausedQuestion, steps: null,
           provider: own.find((r) => r.provider)?.provider ?? null,
           model: own.find((r) => r.model)?.model ?? null,

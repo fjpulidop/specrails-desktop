@@ -108,7 +108,10 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     return outcome.action === 'stop' ? 'stop' : 'continue'
   }
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
-  const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
+  // A run that never reached Core (it waited, queued for capacity, when the app
+  // stopped) has no Core context to resume: its continuation starts it afresh.
+  const coreStarted = !!readDefinitionRun(db, runId)?.metadata.contextPath
+  const result = await runDefinitionLoop(req, runId, { continuation: continuation && coreStarted ? continuation : undefined, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
     onPrepared: metadata => { saveDefinitionRun(db, runId, metadata) },
     invoke: input => {
       host.claimDefinition({ ...req, runId })
