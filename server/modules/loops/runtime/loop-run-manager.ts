@@ -54,6 +54,7 @@ import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
 import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
 import type { LoopRunAdmission } from './loop-run-contract'
+import { QUEUED_LOG_PREFIX } from './loop-runs-store'
 import type {
   LoopBudgetBreach,
   LoopExecutors,
@@ -711,7 +712,7 @@ export class LoopRunManager {
         signal: aborter.signal,
         onWait: (waitingFor, position) => {
           waitedSince ??= this.now()
-          ctx.events.logLine(`⏳ Queued (${position} in line): ${queueReasonLine(waitingFor)} It starts by itself when there is room.`)
+          ctx.events.logLine(`${QUEUED_LOG_PREFIX}${position} in line): ${queueReasonLine(waitingFor)} It starts by itself when there is room.`)
           this._emit({ type: 'loop.run_queued', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, waitingFor, position })
         },
       })

@@ -19,7 +19,7 @@ import { phase3HarvestOptions } from './phase3-harvest'
 import {
   saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce,
 } from './isolated-settlement-store'
-import {
+import { definitionRunNeverReachedCore,
   getLoopRun, readDefinitionRun, claimDefinitionExecution, definitionRepositoryMounts,
 } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
@@ -151,7 +151,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
   // outputs. A failed full-status harvest stays visible in the review packet.
   // A run stopped before it ever reached Core (queued for capacity when the app
   // restarted) has no Core result to read: it settles as the stopped run it is.
-  const neverStarted = !frozen.metadata.contextPath && frozen.row.final_outcome === 'stopped'
+  const neverStarted = frozen.row.final_outcome === 'stopped' && definitionRunNeverReachedCore(ctx.db, runId)
   const probe: Pick<Awaited<ReturnType<typeof probeDefinitionRun>>, 'status' | 'resumable' | 'completion' | 'lease'> = neverStarted
     ? { status: 'cancelled', resumable: false, completion: null, lease: null }
     : await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId)

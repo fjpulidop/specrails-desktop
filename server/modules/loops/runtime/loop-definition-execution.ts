@@ -7,7 +7,7 @@
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { probeDefinitionRun } from './loop-definition-recovery'
 import { runDefinitionLoop } from './loop-definition-run'
-import { getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
+import { definitionRunNeverReachedCore, getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
 import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
 import { parseCoreFailure } from '../../recovery/domain'
 import { classifyProviderLimit } from '../../../provider-limit'
@@ -110,7 +110,7 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
   // A run that never reached Core (it waited, queued for capacity, when the app
   // stopped) has no Core context to resume: its continuation starts it afresh.
-  const coreStarted = !!readDefinitionRun(db, runId)?.metadata.contextPath
+  const coreStarted = !definitionRunNeverReachedCore(db, runId)
   const result = await runDefinitionLoop(req, runId, { continuation: continuation && coreStarted ? continuation : undefined, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
     onPrepared: metadata => { saveDefinitionRun(db, runId, metadata) },
     invoke: input => {

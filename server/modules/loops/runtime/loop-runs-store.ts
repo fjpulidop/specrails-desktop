@@ -940,3 +940,21 @@ export function reconcileOrphanLoopRuns(
   })
   return reconcile() as number
 }
+
+/** The run-log marker a run writes when it has to wait for capacity (LoopRunManager._admit). */
+export const QUEUED_LOG_PREFIX = '⏳ Queued ('
+
+/**
+ * A definition run that waited for capacity and never reached Core: it has no
+ * Core context and its log has the queued marker but no Core event. A restart
+ * that stopped it leaves nothing for Core to resume or report.
+ */
+export function definitionRunNeverReachedCore(db: DbInstance, runId: string): boolean {
+  if (readDefinitionRun(db, runId)?.metadata.contextPath) return false
+  const row = db.prepare(`SELECT
+      EXISTS (SELECT 1 FROM events WHERE job_id = ? AND event_type = 'log' AND json_extract(payload, '$.line') LIKE ?) AS queued,
+      EXISTS (SELECT 1 FROM events WHERE job_id = ? AND event_type IN ('runtime-graph', 'workflow-event')) AS core`)
+    .get(runId, `${QUEUED_LOG_PREFIX}%`, runId) as { queued: number; core: number }
+  return row.queued === 1 && row.core === 0
+}
+

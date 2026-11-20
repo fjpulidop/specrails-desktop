@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, getJobEvents, type DbInstance } from '../../../db'
 import { LoopRunManager, type LoopExecutors, type LoopRunRequest } from './loop-run-manager'
-import { getLoopRun } from './loop-runs-store'
+import { definitionRunNeverReachedCore, getLoopRun } from './loop-runs-store'
 import { readRunHold, runHoldSources } from './loop-run-hold'
 import { createRunAdmission } from '../../capacity'
 import type { DefinitionRuntimeResult } from './loop-definition-run'
@@ -107,6 +107,8 @@ describe('capacity admission of loop runs', () => {
     void manager.run(request('r3'))
     await until(() => manager.queuedFor('r3') !== null)
     manager.shutdown()
+    // Durable: queued in its log, no Core event, no Core context. The running one reached Core.
+    expect(definitionRunNeverReachedCore(db, 'r3')).toBe(true)
     // Startup recovery pauses every run the restart cut off.
     db.prepare("UPDATE loop_runs SET status = 'paused', restart_reason = 'restart' WHERE id IN ('r2', 'r3')").run()
     // The routes release the dead process's claim first (as for every restart pause).

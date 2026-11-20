@@ -12,7 +12,7 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { ProjectContext } from './project-registry'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
+import { definitionRunNeverReachedCore, getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
 import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
 import { normalizeContinueRemedy, planContinuation, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
@@ -465,7 +465,7 @@ export async function cancelDefinitionRun(c: ProjectContext, runId: string, requ
   const resident = c.loopRunManager.isDefinitionRunActive(runId)
   // A restart stopped it while it waited for capacity: Core never saw it, so it settles stopped here.
   const never = getLoopRun(c.db, runId)
-  if (!resident && never?.status === 'paused' && never.restart_reason === 'restart' && !readDefinitionRun(c.db, runId)?.metadata.contextPath) {
+  if (!resident && never?.status === 'paused' && never.restart_reason === 'restart' && definitionRunNeverReachedCore(c.db, runId)) {
     assertProcessAdmission(c.project.id)
     const claim = readDefinitionExecutionClaim(c.db, runId)
     if (claim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
@@ -659,7 +659,7 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
     const observedClaim = readDefinitionExecutionClaim(c.db, runId)
     // A run the app stopped before it reached Core (it waited, queued for
     // capacity) has no Core context to inspect or resume: it starts afresh.
-    if (run.status === 'paused' && run.restart_reason === 'restart' && !readDefinitionRun(c.db, runId)?.metadata.contextPath) {
+    if (run.status === 'paused' && run.restart_reason === 'restart' && definitionRunNeverReachedCore(c.db, runId)) {
       return startNeverStartedRun(c, runId, observedClaim)
     }
     let probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)

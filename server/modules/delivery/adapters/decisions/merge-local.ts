@@ -375,6 +375,6 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
 export function mergeFailureDetail(result: { code: number; stdout: string; stderr: string }): string {
   const lines = `${result.stdout}\n${result.stderr}`.split('\n').map((line) => line.trim()).filter(Boolean)
   const files = [...new Set(lines.flatMap((line) => /^CONFLICT \([^)]*\): (?:Merge conflict in )?(.+)$/.exec(line)?.[1] ?? []))]
-  if (files.length) return `conflicts with the base in ${files.slice(0, 10).join(', ')}${files.length > 10 ? ` +${files.length - 10}` : ''}: integrate the other delivery first, then launch this spec again on the updated base`
+  if (files.length) return `CONFLICT with the base in ${files.slice(0, 10).join(', ')}${files.length > 10 ? ` +${files.length - 10}` : ''}: integrate the other delivery first, then launch this spec again on the updated base`
   return lines.find((line) => !/^Auto-merging /.test(line)) ?? lines[0] ?? `exit ${result.code}`
 }
