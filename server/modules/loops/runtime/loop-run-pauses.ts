@@ -48,6 +48,7 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     timestamp: pausedAt,
   })
 
+  ctx.capacity?.yieldSlot()
   const decision = await decisionPromise
   if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
   if (decision.action !== 'resume' || host.isCancelled(runId)) {
@@ -83,7 +84,20 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     settleMode: 'auto',
     timestamp: resumedAt,
   })
-  return decision
+  const slot = await reclaimSlot(ctx)
+  if (slot === 'disposed') return new Promise(() => { /* startup recovery owns settlement */ })
+  return slot === 'stopped' ? { action: 'stop' } : decision
+}
+
+/**
+ * The hold ended: take a capacity slot again before Core continues (queued like a
+ * launch when the machine, project or provider is full). Stop while queued ends the run.
+ */
+async function reclaimSlot(ctx: LoopRunContext, provider?: string): Promise<'admitted' | 'stopped' | 'disposed'> {
+  if (!ctx.capacity) return 'admitted'
+  const slot = await ctx.capacity.reclaim(provider)
+  if (slot === 'stopped') ctx.events.logLine(`\n■ Loop stop requested while it waited for capacity.`, 'stderr')
+  return slot
 }
 
 // rail-loop-budget-guard: the daily budget ran out between AI steps. The run
@@ -122,6 +136,7 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
       settleMode: 'auto',
       timestamp: new Date(pausedAtMs).toISOString(),
     })
+    ctx.capacity?.yieldSlot()
     const decision = await decisionPromise
     if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
     if (decision.action === 'stop' || host.isCancelled(runId)) {
@@ -150,7 +165,9 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
       settleMode: 'auto',
       timestamp: resumedAt,
     })
-    return 'continue'
+    const slot = await reclaimSlot(ctx)
+    if (slot === 'disposed') return new Promise(() => { /* startup recovery owns settlement */ })
+    return slot === 'stopped' ? 'stop' : 'continue'
   }
 }
 
@@ -213,6 +230,7 @@ export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<Lo
     limit: { ...pause },
   })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: true, pendingInterrupts: [], settleMode: 'auto', timestamp: pause.pausedAt })
+  ctx.capacity?.yieldSlot()
   const decision = await decisionPromise
   timer?.cancel()
   if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
@@ -228,5 +246,9 @@ export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<Lo
   else if (!limit.switchTargets) logLine(`\n▶ Loop continues on ${decision.provider} — the earlier steps go along as context.`)
   host.emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: exactTicketIds })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: new Date(host.now()).toISOString() })
+  // A switch takes its slot on the provider it moves to (the refusing one would queue it on its quota).
+  const slot = await reclaimSlot(ctx, decision.action === 'switch' ? decision.provider : undefined)
+  if (slot === 'disposed') return new Promise(() => { /* startup recovery owns settlement */ })
+  if (slot === 'stopped') return { action: 'stop' }
   return decision.action === 'switch' ? { action: 'switch', provider: decision.provider, model: decision.model, ...(decision.effort ? { effort: decision.effort } : {}), ...(decision.remember ? { remember: true } : {}) } : { action: 'resume' }
 }

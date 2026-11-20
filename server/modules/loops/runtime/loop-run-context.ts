@@ -161,6 +161,12 @@ export interface LoopRunContext {
   /** Run-scoped captured variables ({{run.<name>}}). */
   readonly runVars: Record<string, string>
   readonly seededChangeId: ReturnType<typeof seedChangeId>
+  /** The run's capacity slot (definition runs with admission): a hold gives it back, its end takes one again. */
+  capacity?: {
+    yieldSlot(): void
+    /** Take a slot again (queued when the machine/project/provider is full), counted against `provider` when given. */
+    reclaim(provider?: string): Promise<'admitted' | 'stopped' | 'disposed'>
+  }
 }
 
 /** One graph node as the traversal hands it to its executor. */

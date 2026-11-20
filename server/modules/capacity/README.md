@@ -45,6 +45,17 @@ provider's starts. The switch never offers a provider the quota store knows is
 refusing, and a later admission of that run (a restart resume) counts it
 against the provider its roles were moved to.
 
+## Holds
+
+A run held on a person (question, approval), on its budget or on a provider
+usage limit does no work: Core has returned and nothing runs until the hold
+ends, which can take hours. It gives its slot back while held, so a project's
+other rails and the machine's queue never wait behind a run that waits for
+someone. When the hold ends it takes a slot again, queued like a launch (same
+log line, hold, card and Stop), before Core continues; a run moved to another
+provider at a usage limit queues on that provider. See `_capacitySlot` in
+[loop-run-manager](../loops/runtime/loop-run-manager.ts).
+
 ## Restarts and cancellation
 
 A run cancelled while queued settles `stopped` having run nothing. A shutdown
