@@ -6,7 +6,7 @@ import { parseScenarioText, chooseAnswer, ScenarioError } from './lib/scenarios.
 import { renderReport, latencySummary } from './lib/report.mjs'
 import { parseArgs, ArgsError } from './lib/args.mjs'
 import { repoFiles } from './lib/repos.mjs'
-import { withApproval, outcomeOf, shouldResumeHeld, MAX_AUTO_RESUMES } from './lib/driver.mjs'
+import { withApproval, outcomeOf, shouldResumeHeld, MAX_AUTO_RESUMES, continuationOf } from './lib/driver.mjs'
 import fs from 'node:fs'
 
 const env = { userHome: '/Users/me' }
@@ -164,4 +164,11 @@ test('a restart carries the server env; install scenarios need a fake brew', asy
   const byName = Object.fromEntries(scenarios.map(s => [s.name, s]))
   assert.ok(needsFakeInstaller(byName['install-ask']) && needsFakeInstaller(byName['install-self']) && needsFakeInstaller(byName['install-remembered']))
   assert.equal(needsFakeInstaller(byName['reg-go']), false)
+})
+
+test('the driver follows an automatic continuation from the attempts chain', () => {
+  const payload = { chain: { runId: 'a', attempts: [{ runId: 'a', attempt: 1 }, { runId: 'fork-b', attempt: 2 }] } }
+  assert.equal(continuationOf(payload, ['a']), 'fork-b')
+  assert.equal(continuationOf(payload, ['a', 'fork-b']), null)
+  assert.equal(continuationOf({}, ['a']), null)
 })

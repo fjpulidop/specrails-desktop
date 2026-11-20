@@ -158,7 +158,7 @@ export async function runScenario(scenario, ctx) {
         if (run.final_outcome !== 'success' && !result.followed) {
           await sleep(20_000)
           const att = await api.get(`/projects/${projectId}/loop-runs/${runId}/attempts`)
-          const next = (att.data?.attempts ?? []).map(a => a.id ?? a.runId).filter(id => id && !result.runIds.includes(id)).pop()
+          const next = continuationOf(att.data, result.runIds)
           if (next) { result.followed = true; result.runIds.push(next); runId = next; log(`${scenario.name}: following continuation ${next}`); continue }
         }
         result.status = outcomeOf(run)
@@ -192,6 +192,12 @@ async function afterRestart(api, projectId, runId, result, log) {
   const resumed = await api.post(`/projects/${projectId}/loop-runs/${runId}/resume`, {})
   log(`resume ${runId} → ${resumed.status} (${Math.round(resumed.ms)} ms)`)
   result.notes.push(`resume → ${resumed.status} in ${Math.round(resumed.ms)} ms`)
+}
+
+/** The newest automatic continuation in a `/loop-runs/:id/attempts` payload (`{ chain: { attempts } }`) not followed yet. */
+export function continuationOf(payload, seen = []) {
+  const attempts = payload?.chain?.attempts ?? payload?.attempts ?? []
+  return attempts.map(a => a.runId ?? a.id).filter(id => id && !seen.includes(id)).pop() ?? null
 }
 
 /** Max automatic resumes of one run held by a restart the scenario did not cause. */
