@@ -18,7 +18,11 @@ import { quotaDecision, quotaSample } from './lib/quota.mjs'
 import { createApi } from './lib/api.mjs'
 import { startServer, restartServer, stopServer, listenerPid, listenerPath, whichOnPath } from './lib/server.mjs'
 import { needsFakeInstaller, installerIsFake } from './lib/isolation.mjs'
-import { runScenario } from './lib/driver.mjs'
+import { runScenario, prepareScenario } from './lib/driver.mjs'
+import { createMetricsSampler } from './lib/metrics.mjs'
+import { readRunTimings } from './lib/timings.mjs'
+import { summarizeBurst, renderBurst } from './lib/parallel-report.mjs'
+import { mergeObjective, pendingDeliveries } from './lib/merge.mjs'
 import { renderReport } from './lib/report.mjs'
 import { parseArgs } from './lib/args.mjs'
 
@@ -56,7 +60,7 @@ async function main() {
   const api = createApi(target.port)
   const session = { startedAt: new Date().toISOString(), target, options: opts, results: [], quota: [], latency: [], skipped: [], stopReason: null }
   const reportFile = path.resolve(opts.report ?? path.join(workDir, 'report.md'))
-  const writeReport = () => { session.finishedAt = new Date().toISOString(); fs.writeFileSync(reportFile, renderReport(session)); fs.writeFileSync(reportFile.replace(/\.md$/, '.json'), JSON.stringify(session, null, 2)) }
+  const writeReport = () => { session.finishedAt = new Date().toISOString(); fs.writeFileSync(reportFile, renderReport(session) + (session.burst ? ['', '## Parallel burst', '', ...renderBurst(`Burst of ${session.burst.n}`, session.burst)].join('\n') + '\n' : '')); fs.writeFileSync(reportFile.replace(/\.md$/, '.json'), JSON.stringify(session, null, 2)) }
 
   async function readQuota() {
     await api.post('/subscription-usage/refresh', {}).catch(() => null)
@@ -64,6 +68,53 @@ async function main() {
     const usage = (await api.get('/subscription-usage')).data
     session.quota.push(quotaSample(usage))
     return usage
+  }
+  const cache = {}
+  const server = { restart: graceful => restartServer(serverOpts, { graceful }) }
+  if (opts.burst) {
+    // Burst: prepare every scenario, then launch them all in the same instant,
+    // so N rails really compete for the machine, the provider and the server.
+    const chosenNow = chosen.slice(0, opts.budgetRuns)
+    for (const s of chosen.slice(opts.budgetRuns)) session.skipped.push({ name: s.name, reason: `run budget (${opts.budgetRuns}) reached` })
+    for (const provider of new Set(chosenNow.map(s => s.provider))) {
+      const decision = quotaDecision(await readQuota(), { provider, stopAtWeekly: opts.stopAtWeekly })
+      log(`quota: ${decision.reason}`)
+      if (!decision.ok) { session.stopReason = decision.reason; for (const s of chosenNow) session.skipped.push({ name: s.name, reason: decision.reason }); writeReport(); return }
+    }
+    if (opts.dryRun) { writeReport(); return }
+    const ctx = { api, workDir, server, log, cache }
+    const prepared = new Map()
+    const pending = [...chosenNow]
+    await Promise.all(Array.from({ length: 4 }, async () => { for (let s = pending.shift(); s; s = pending.shift()) prepared.set(s.name, await prepareScenario(s, ctx)) }))
+    log(`prepared ${prepared.size} scenarios`)
+    const sampler = createMetricsSampler({ api, rootPid: () => listenerPid(target.port) })
+    let quotaTicking = true
+    const quotaTicker = (async () => { while (quotaTicking) { await sleep(opts.quotaEveryS * 1000); if (quotaTicking) await readQuota().catch(() => null) } })()
+    const burstStart = Date.now()
+    const results = await Promise.all(chosenNow.map(s => runScenario(s, ctx, prepared.get(s.name)).then(r => { log(`${s.name}: ${r.status} ${r.costUsd ?? '-'} USD ${r.durationS}s`); return r })))
+    const burstEnd = Date.now()
+    quotaTicking = false
+    const metrics = await sampler.stop()
+    await quotaTicker
+    for (const r of results) { try { r.timings = r.runIds?.[0] ? readRunTimings(target.home, r.runIds[0], r.launchedAt) : null } catch (error) { r.notes.push(`timings: ${error.message}`) } }
+    session.results.push(...results)
+    session.metrics = metrics
+    session.burst = summarizeBurst({ results, startedAt: burstStart, finishedAt: burstEnd, metrics })
+    if (opts.mergeAfter) {
+      // One objective, many rails: integrate every delivery of each shared project, in finishing order.
+      session.merges = []
+      for (const projectId of new Set(results.filter(r => r.projectId).map(r => r.projectId))) {
+        const rails = await api.get(`/projects/${projectId}/rails`)
+        const repoPath = path.join(workDir, 'repos', chosenNow.find(s => results.find(r => r.name === s.name)?.projectId === projectId).repos[0].name)
+        const merged = await mergeObjective(api, projectId, { repoPath, log, deliveries: pendingDeliveries(rails.data) })
+        session.merges.push({ projectId, ...merged })
+      }
+    }
+    await readQuota().catch(() => null)
+    writeReport()
+    log(`report: ${reportFile}`)
+    if (opts.stopServer) await stopServer({ port: target.port, home: target.home })
+    return
   }
   // Responsiveness sampler: /api/health and /api/live-board latency every 5 s.
   let sampling = true
@@ -78,8 +129,6 @@ async function main() {
     }
   })()
 
-  const cache = {}
-  const server = { restart: graceful => restartServer(serverOpts, { graceful }) }
   const queue = [...chosen]
   let launched = 0
   const running = new Set()

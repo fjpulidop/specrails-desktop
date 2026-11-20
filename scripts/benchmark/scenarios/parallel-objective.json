@@ -1,0 +1,171 @@
+{
+ "defaults": {
+  "provider": "claude",
+  "model": "haiku",
+  "timeoutMinutes": 40
+ },
+ "scenarios": [
+  {
+   "name": "o1-discount",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 0,
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js: returns `total` reduced by `percent` (0-100), rounded to 2 decimals; throws RangeError outside 0-100. Unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "o2-tax",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 1,
+   "ticket": {
+    "title": "Add a tax helper",
+    "description": "Add `applyTax(total, rate)` to src/cart.js: returns `total` increased by `rate` percent (0-50), rounded to 2 decimals; throws RangeError outside 0-50. Unit tests in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "o3-qty-default",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 2,
+   "ticket": {
+    "title": "Default item quantity to 1",
+    "description": "Change `total(items)` in src/cart.js so an item without `qty` counts once (qty defaults to 1). Add a unit test in test/cart.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "o4-money",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 3,
+   "ticket": {
+    "title": "Format money amounts",
+    "description": "Add `formatMoney(amount, currency = 'EUR')` to src/format.js returning e.g. '12.50 EUR' (always two decimals). Unit tests in test/format.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "o5-orders",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 4,
+   "ticket": {
+    "title": "Parse order lines",
+    "description": "Add `parseOrderLine(line)` to src/orders.js that parses 'sku,qty,price' into `{ sku, qty: Number, price: Number }` and throws on a malformed line. Unit tests in a new test/orders.test.js. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "o6-readme",
+   "group": "objective",
+   "repo": {
+    "template": "node-lib",
+    "name": "shop",
+    "files": {
+     "src/format.js": "export function pad(n) {\n  return String(n).padStart(2, '0')\n}\n",
+     "src/orders.js": "export const ORDER_FIELDS = ['sku', 'qty', 'price']\n",
+     "test/format.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { pad } from '../src/format.js'\ntest('pad', () => assert.equal(pad(3), '03'))\n"
+    }
+   },
+   "rail": 5,
+   "ticket": {
+    "title": "Document the cart API",
+    "description": "Add an 'API' section to README.md listing the exported functions of src/cart.js, src/format.js and src/orders.js with one-line descriptions and a usage example. Docs only; `npm test` must still pass."
+   },
+   "answers": [
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  }
+ ]
+}

@@ -56,39 +56,70 @@ async function approvalLoop(api, cache) {
   return loop.id
 }
 
+/**
+ * One live-board read shared by every scenario in flight (at most one per 4 s):
+ * N scenarios polling it each would load the server N times more than a person's
+ * open board does, and skew the parallel measurements.
+ */
+function sharedBoard(api, ctx) {
+  const cache = (ctx.cache ??= {})
+  if (!cache.board || Date.now() - cache.board.at > 4000) cache.board = { at: Date.now(), read: api.get('/live-board', { timeoutMs: 30_000 }).catch(() => null) }
+  return cache.board.read
+}
+
 /** Live board card for a run (matched by any id field). */
 function cardFor(board, runId) {
   return (board?.cards ?? []).find(c => [c.id, c.runId, c.loopRunId, c.jobId].includes(runId)) ?? null
 }
 
 /**
+ * Prepare a scenario up to its launch: repositories, project, ticket and rail
+ * slot. Scenarios naming the same repository share one project; each takes its
+ * own `rail`. Returns what `runScenario` needs to launch at once.
+ */
+export async function prepareScenario(scenario, ctx) {
+  const { api, workDir } = ctx
+  const t0 = Date.now()
+  // Scenarios sharing a repository (one objective, many rails) prepare it once.
+  const shared = (ctx.cache ??= {}).projects ??= new Map()
+  const key = scenario.repos.map(spec => spec.name).join('+')
+  if (!shared.has(key)) shared.set(key, (async () => {
+    const repoPaths = scenario.repos.map(spec => createRepo(spec, workDir))
+    const id = await registerProject(api, repoPaths[0], [scenario.provider])
+    await waitProjectReady(api, id)
+    for (const extra of repoPaths.slice(1)) await api.post(`/projects/${id}/repositories`, { path: extra })
+    return id
+  })())
+  const projectId = await shared.get(key)
+  const t = await api.post(`/projects/${projectId}/tickets`, { title: scenario.ticket.title, description: scenario.ticket.description })
+  if (t.status >= 300) throw new Error(`ticket: ${t.status} ${JSON.stringify(t.data).slice(0, 300)}`)
+  const ticketId = (t.data.ticket ?? t.data).id
+  const rail = scenario.rail ?? 0
+  const slot = await api.put(`/projects/${projectId}/rails/${rail}/tickets`, { ticketIds: [ticketId], mode: 'implement', aiEngine: scenario.provider })
+  if (slot.status >= 300) throw new Error(`rail slot: ${slot.status} ${JSON.stringify(slot.data).slice(0, 300)}`)
+  const loopId = scenario.approvalBeforeArchive ? await approvalLoop(api, ctx.cache ?? (ctx.cache = {})) : 'factory:implement'
+  const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}) }
+  return { projectId, ticketId, rail, body, prepareMs: Date.now() - t0 }
+}
+
+/**
  * Run a normalized scenario. `ctx` = { api, workDir, server: { restart(graceful) }, log(line), quota() }.
+ * `prepared` (from `prepareScenario`) skips the preparation, so a burst can
+ * prepare every scenario first and launch them in the same instant.
  * Returns a result row for the report.
  */
-export async function runScenario(scenario, ctx) {
-  const { api, workDir, log } = ctx
-  const started = Date.now()
+export async function runScenario(scenario, ctx, prepared = null) {
+  const { api, log } = ctx
   const result = { name: scenario.name, group: scenario.group, provider: scenario.provider, model: scenario.model ?? null, expected: scenario.expect.status,
     status: 'error', costUsd: null, durationS: null, questions: [], actions: [], phases: [], runIds: [], notes: [] }
+  let started = Date.now()
   try {
-    const repoPaths = scenario.repos.map(spec => createRepo(spec, workDir))
-    const projectId = await registerProject(api, repoPaths[0], [scenario.provider])
+    const ready = prepared ?? await prepareScenario(scenario, ctx)
+    const { projectId, rail, body } = ready
     result.projectId = projectId
-    await waitProjectReady(api, projectId)
-    if (repoPaths.length > 1) {
-      for (const extra of repoPaths.slice(1)) {
-        const r = await api.post(`/projects/${projectId}/repositories`, { path: extra })
-        if (r.status >= 300) result.notes.push(`add repository ${extra}: ${r.status}`)
-      }
-    }
-    const t = await api.post(`/projects/${projectId}/tickets`, { title: scenario.ticket.title, description: scenario.ticket.description })
-    if (t.status >= 300) throw new Error(`ticket: ${t.status} ${JSON.stringify(t.data).slice(0, 300)}`)
-    const ticketId = (t.data.ticket ?? t.data).id
-    const rail = 0
-    const slot = await api.put(`/projects/${projectId}/rails/${rail}/tickets`, { ticketIds: [ticketId], mode: 'implement', aiEngine: scenario.provider })
-    if (slot.status >= 300) throw new Error(`rail slot: ${slot.status} ${JSON.stringify(slot.data).slice(0, 300)}`)
-    const loopId = scenario.approvalBeforeArchive ? await approvalLoop(api, ctx.cache ?? (ctx.cache = {})) : 'factory:implement'
-    const body = { loopId, aiEngine: scenario.provider, ...(scenario.model ? { model: scenario.model } : {}), ...(scenario.runCapUsd ? { runCapUsd: scenario.runCapUsd } : {}) }
+    result.rail = rail
+    started = Date.now()
+    result.launchedAt = started
     const launched = await api.post(`/projects/${projectId}/rails/${rail}/launch`, body)
     result.launchMs = Math.round(launched.ms)
     if (launched.status !== 202) throw new Error(`launch: ${launched.status} ${JSON.stringify(launched.data).slice(0, 400)}`)
@@ -103,7 +134,7 @@ export async function runScenario(scenario, ctx) {
       await sleep(5000)
       // The server may be restarting (another scenario's action): skip this poll, never fail the scenario.
       const polled = await Promise.all([
-        api.get(`/projects/${projectId}/jobs/${runId}`), api.get(`/projects/${projectId}/loop-runs/${runId}`), api.get('/live-board', { timeoutMs: 30_000 }).catch(() => null)])
+        api.get(`/projects/${projectId}/jobs/${runId}`), api.get(`/projects/${projectId}/loop-runs/${runId}`), sharedBoard(api, ctx)])
         .catch(() => { api.resetToken(); return null })
       if (!polled) continue
       const [jobRes, runRes, boardRes] = polled

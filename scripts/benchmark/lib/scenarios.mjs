@@ -78,10 +78,17 @@ export function normalizeScenarios(raw) {
       ticket: { title: ticket.title.trim(), description: ticket.description ?? '' },
       provider, model: s.model ?? (provider === defaults.provider ? defaults.model : undefined),
       approvalBeforeArchive: s.approvalBeforeArchive === true, answers, actions, expect, timeoutMinutes,
-      runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '',
+      runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '', rail: railOf(s, at),
     }
   })
   return { defaults, scenarios }
+}
+
+/** Rail slot of a scenario (0..11); scenarios sharing a repository each take their own. */
+function railOf(s, at) {
+  if (s.rail === undefined) return 0
+  if (!Number.isInteger(s.rail) || s.rail < 0 || s.rail > 11) throw new ScenarioError(`${at}.rail must be an integer from 0 to 11`)
+  return s.rail
 }
 
 function normalizeRepo(r, at, scenarioName, index) {

@@ -8,12 +8,12 @@ const FLAGS = {
   '--scenarios': 'scenarios', '--home': 'home', '--port': 'port', '--client-port': 'clientPort',
   '--provider': 'provider', '--model': 'model', '--budget-runs': 'budgetRuns', '--stop-at-weekly': 'stopAtWeekly',
   '--work-dir': 'workDir', '--core-bin': 'coreBin', '--path-prepend': 'pathPrepend', '--report': 'report',
-  '--only': 'only', '--parallel': 'parallel', '--quota-settle-ms': 'quotaSettleMs',
+  '--only': 'only', '--parallel': 'parallel', '--quota-settle-ms': 'quotaSettleMs', '--quota-every-s': 'quotaEveryS',
 }
-const BOOLEANS = { '--start-server': 'startServer', '--stop-server': 'stopServer', '--dry-run': 'dryRun', '--quiet': 'quiet', '--help': 'help', '-h': 'help' }
+const BOOLEANS = { '--start-server': 'startServer', '--stop-server': 'stopServer', '--dry-run': 'dryRun', '--burst': 'burst', '--merge-after': 'mergeAfter', '--quiet': 'quiet', '--help': 'help', '-h': 'help' }
 
 export function parseArgs(argv) {
-  const o = { provider: 'claude', model: 'haiku', budgetRuns: 25, stopAtWeekly: 95, parallel: 3, workDir: null, only: [], quotaSettleMs: 8000,
+  const o = { provider: 'claude', model: 'haiku', budgetRuns: 25, stopAtWeekly: 95, parallel: 3, workDir: null, only: [], quotaSettleMs: 8000, quotaEveryS: 60, burst: false,
     startServer: false, stopServer: false, dryRun: false, quiet: false, help: false, providerForced: false, modelForced: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -29,7 +29,7 @@ export function parseArgs(argv) {
   }
   if (o.help) return o
   if (!o.scenarios) throw new ArgsError('--scenarios <file> is required')
-  for (const k of ['budgetRuns', 'stopAtWeekly', 'parallel', 'quotaSettleMs']) {
+  for (const k of ['budgetRuns', 'stopAtWeekly', 'parallel', 'quotaSettleMs', 'quotaEveryS']) {
     const n = Number(o[k])
     if (!Number.isFinite(n) || n < 0) throw new ArgsError(`--${k.replace(/[A-Z]/g, c => '-' + c.toLowerCase())} must be a non-negative number`)
     o[k] = n
