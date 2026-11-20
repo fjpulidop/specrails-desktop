@@ -95,11 +95,15 @@ export async function runScenario(scenario, ctx) {
 
     const used = new Set(); const fired = new Set()
     const deadline = started + scenario.timeoutMinutes * 60_000
-    let lastPhase = null; let answeredInterrupts = new Set()
+    let lastPhase = null; let answeredInterrupts = new Set(); let autoResumes = 0
     while (Date.now() < deadline) {
       await sleep(5000)
-      const [jobRes, runRes, boardRes] = await Promise.all([
+      // The server may be restarting (another scenario's action): skip this poll, never fail the scenario.
+      const polled = await Promise.all([
         api.get(`/projects/${projectId}/jobs/${runId}`), api.get(`/projects/${projectId}/loop-runs/${runId}`), api.get('/live-board', { timeoutMs: 30_000 }).catch(() => null)])
+        .catch(() => { api.resetToken(); return null })
+      if (!polled) continue
+      const [jobRes, runRes, boardRes] = polled
       const job = jobRes.data?.job; const run = runRes.data?.loopRun
       const card = boardRes ? cardFor(boardRes.data, runId) : null
       const phase = card?.phase ?? null
@@ -119,6 +123,14 @@ export async function runScenario(scenario, ctx) {
         result.actions.push({ t: at, do: action.do, when: action.when })
         log(`${scenario.name}: ${action.do} at ${at}s`)
         if (action.do !== 'cancel') await afterRestart(api, projectId, runId, result, log)
+      }
+      // A restart caused by ANOTHER scenario (or the person) pauses this run too: resume it once per pause.
+      if (shouldResumeHeld(job, autoResumes)) {
+        autoResumes++
+        const resumed = await api.post(`/projects/${projectId}/loop-runs/${runId}/resume`, {})
+        result.notes.push(`resumed a ${job.hold.kind} hold → ${resumed.status} in ${Math.round(resumed.ms)} ms`)
+        log(`${scenario.name}: resumed ${job.hold.kind} hold → ${resumed.status}`)
+        continue
       }
       if (job?.question && !answeredInterrupts.has(job.question.interruptId)) {
         const q = job.question
@@ -177,6 +189,18 @@ async function afterRestart(api, projectId, runId, result, log) {
   const resumed = await api.post(`/projects/${projectId}/loop-runs/${runId}/resume`, {})
   log(`resume ${runId} → ${resumed.status} (${Math.round(resumed.ms)} ms)`)
   result.notes.push(`resume → ${resumed.status} in ${Math.round(resumed.ms)} ms`)
+}
+
+/** Max automatic resumes of one run held by a restart the scenario did not cause. */
+export const MAX_AUTO_RESUMES = 3
+
+/**
+ * Should the driver resume this run? Only a restart/interruption hold with no pending
+ * question (a question is answered instead), at most MAX_AUTO_RESUMES times. A provider
+ * limit or budget hold is never resumed by the benchmark.
+ */
+export function shouldResumeHeld(job, autoResumes) {
+  return Boolean(job?.hold && ['restart', 'interrupted'].includes(job.hold.kind) && !job.question && autoResumes < MAX_AUTO_RESUMES)
 }
 
 /** Map a settled loop run to a benchmark status. */

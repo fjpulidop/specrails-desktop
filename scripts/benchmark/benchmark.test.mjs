@@ -6,7 +6,8 @@ import { parseScenarioText, chooseAnswer, ScenarioError } from './lib/scenarios.
 import { renderReport, latencySummary } from './lib/report.mjs'
 import { parseArgs, ArgsError } from './lib/args.mjs'
 import { repoFiles } from './lib/repos.mjs'
-import { withApproval, outcomeOf } from './lib/driver.mjs'
+import { withApproval, outcomeOf, shouldResumeHeld, MAX_AUTO_RESUMES } from './lib/driver.mjs'
+import fs from 'node:fs'
 
 const env = { userHome: '/Users/me' }
 
@@ -132,4 +133,20 @@ test('templates, approval graph edit and outcome mapping', () => {
   assert.equal(outcomeOf({ final_outcome: 'cancelled' }), 'stopped')
   assert.equal(outcomeOf({ final_outcome: 'failure', runtime_status_json: JSON.stringify({ endReason: 'Not implemented: the person declined this ticket' }) }), 'declined')
   assert.equal(outcomeOf({ final_outcome: 'failure' }), 'failed')
+})
+
+test('a run held by another scenario\'s restart is resumed, a question or a limit never', () => {
+  assert.equal(shouldResumeHeld({ hold: { kind: 'restart' } }, 0), true)
+  assert.equal(shouldResumeHeld({ hold: { kind: 'interrupted' } }, 0), true)
+  assert.equal(shouldResumeHeld({ hold: { kind: 'restart' }, question: { interruptId: 'q' } }, 0), false)
+  assert.equal(shouldResumeHeld({ hold: { kind: 'provider_limit' } }, 0), false)
+  assert.equal(shouldResumeHeld({ hold: { kind: 'restart' } }, MAX_AUTO_RESUMES), false)
+  assert.equal(shouldResumeHeld({}, 0), false)
+})
+
+test('every shipped scenario file parses', () => {
+  for (const file of ['bench4.json', 'bench5.json']) {
+    const { scenarios } = parseScenarioText(fs.readFileSync(new URL('./scenarios/' + file, import.meta.url), 'utf8'))
+    assert.ok(scenarios.length > 10, file)
+  }
 })

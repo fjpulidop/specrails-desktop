@@ -11,11 +11,14 @@ export function createApi(port, { timeoutMs = 90_000 } = {}) {
   }
   async function call(method, route, body, opts = {}) {
     const t0 = performance.now()
-    const r = await fetch(`${base}/api${route}`, {
+    const send = async () => fetch(`${base}/api${route}`, {
       method, signal: AbortSignal.timeout(opts.timeoutMs ?? timeoutMs),
       headers: { Authorization: `Bearer ${await auth()}`, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+    let r = await send()
+    // A restarted server issues a new token: fetch it once and retry.
+    if (r.status === 401) { token = null; r = await send() }
     const raw = await r.text()
     let data = raw
     try { data = raw ? JSON.parse(raw) : null } catch { /* text */ }
