@@ -338,8 +338,9 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
           conversationId: row.origin_conversation_id,
           jobId: ids.length > 0 ? ids[ids.length - 1] : null,
           deliveryId: row.id,
-          // A paused run's question is the inbox's item: it lands on this card, so the board says it once.
-          subjectIds: paused && pausedQuestion ? [row.id, paused.id] : [row.id],
+          // A paused run's inbox item (its question, or a budget / usage-limit pause) lands on this
+          // card, so the board says it once instead of a "Needs you" card beside a "Working" one.
+          subjectIds: paused ? [row.id, paused.id] : [row.id],
           attempt: attemptOf(ids[ids.length - 1]),
         })
       }
