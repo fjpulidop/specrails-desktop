@@ -62,7 +62,7 @@ import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
 import { readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
-import { readRunHolds, type LiveRunPause, type RunHoldSources } from './modules/loops/runtime/loop-run-hold'
+import { readRunHolds, runHoldSources } from './modules/loops/runtime/loop-run-hold'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
@@ -892,17 +892,6 @@ async function generateFailureAnalysis(
   }
   writeFailureAnalysis(db, job.id, stored)
   return stored
-}
-
-/** What the project's live loop engine and startup recovery know about held runs. */
-function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }> }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
-  const manager = c.loopRunManager
-  return {
-    livePause: (runId) => manager?.isPaused?.(runId)
-      ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, pending: manager.pendingInterrupts?.(runId) ?? [] }
-      : null,
-    restartPending: c.restartPendingRunIds,
-  }
 }
 
 /** Copied env values (setting `worktreeEnvFiles`) never reach the analysis provider. */

@@ -1369,6 +1369,29 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
     expect(res.body.activeLoopRuns['1']).toMatchObject({ loopRunId: 'run-db', loopId: 'loop-x', steps: 0, lines: 0 })
     expect(res.body.activeLoopRuns['1'].startedAt).toBeTruthy()
   })
+
+  it('says a run is held (a question) and how long it already was, so the rail card stops its clock (bench5)', async () => {
+    createLoopRun(db, {
+      id: 'run-q', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement',
+      railIndex: 0, ticketId: 1, provider: 'claude', model: 'haiku', iterationLimit: 12,
+      startedAt: new Date(3000).toISOString(),
+    })
+    db.prepare("UPDATE loop_runs SET status = 'paused', held_ms = 4547, runtime_status_json = ? WHERE id = 'run-q'")
+      .run(JSON.stringify({ pendingInterrupts: [{ kind: 'question', nodePath: 'fixer' }] }))
+    const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
+    expect(res.body.activeLoopRuns['0']).toMatchObject({ loopRunId: 'run-q', heldMs: 4547, hold: { kind: 'question' } })
+  })
+
+  it('leaves a working run without hold or held time', async () => {
+    createLoopRun(db, {
+      id: 'run-w', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement',
+      railIndex: 0, ticketId: 1, provider: 'claude', model: 'haiku', iterationLimit: 12,
+      startedAt: new Date(3000).toISOString(),
+    })
+    const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
+    expect(res.body.activeLoopRuns['0']).not.toHaveProperty('hold')
+    expect(res.body.activeLoopRuns['0']).not.toHaveProperty('heldMs')
+  })
 })
 
 describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-pr-review-flow)', () => {

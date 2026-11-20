@@ -266,6 +266,7 @@
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
     "execLines": "{{count}} 行",
+    "execHeld": "等待中",
     "recommended": "推荐",
     "recommendedOption": "{{label}} · 推荐",
     "loopDescriptions": {

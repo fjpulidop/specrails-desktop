@@ -266,6 +266,7 @@
     "worktreesNeedsReview": "{{count}} à vérifier",
     "execSteps": "{{count}} étapes",
     "execLines": "{{count}} lignes",
+    "execHeld": "en attente",
     "recommended": "Recommandé",
     "recommendedOption": "{{label}} · recommandé",
     "loopDescriptions": {

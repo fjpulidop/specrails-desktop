@@ -2154,6 +2154,7 @@
       "runtime/rails-state-http.ts": [
         "../../../types",
         "../../../util/page-cursor",
+        "../../loops/runtime/loop-run-hold",
         "../../loops/runtime/loop-runs-store",
         "./active-pr-continuation",
         "./pr-publisher",

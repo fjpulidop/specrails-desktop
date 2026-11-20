@@ -116,6 +116,17 @@ export interface RunHoldSources {
   restartPending?: ReadonlySet<string>
 }
 
+/** What the project's live loop engine and startup recovery know about held runs. */
+export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }> }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
+  const manager = c.loopRunManager
+  return {
+    livePause: (runId) => manager?.isPaused?.(runId)
+      ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, pending: manager.pendingInterrupts?.(runId) ?? [] }
+      : null,
+    restartPending: c.restartPendingRunIds,
+  }
+}
+
 interface HoldRow { id: string; status: string; restart_reason: string | null; runtime_status_json: string | null; last_event_at: string | null }
 
 /**

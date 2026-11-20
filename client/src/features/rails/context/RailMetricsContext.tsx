@@ -19,9 +19,13 @@ export interface RailExecMetric {
   startedAt: number
   steps: number
   lines: number
+  /** Time the run already spent held (a question, a restart, a limit): not work. */
+  heldMs: number
+  /** Since when the run is held now (epoch ms), null while it works: the clock stops there. */
+  heldSince: number | null
 }
 
-interface RunMetric { railIndex: number; startedAt: number; steps: number; lines: number }
+interface RunMetric { railIndex: number; startedAt: number; steps: number; lines: number; heldMs: number; heldSince: number | null }
 
 interface WsLike {
   type?: string
@@ -57,7 +61,7 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
     let cancelled = false
     fetch(`/api/projects/${activeProjectId}/rails`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { activeLoopRuns?: Record<string, { loopRunId?: string; startedAt?: string; steps?: number; lines?: number }> } | null) => {
+      .then((data: { activeLoopRuns?: Record<string, { loopRunId?: string; startedAt?: string; steps?: number; lines?: number; heldMs?: number; hold?: { since?: string | null } | null }> } | null) => {
         if (cancelled || !data?.activeLoopRuns) return
         const seeded = new Map<string, RunMetric>()
         for (const [idxStr, run] of Object.entries(data.activeLoopRuns)) {
@@ -67,6 +71,8 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
             startedAt: run.startedAt ? new Date(run.startedAt).getTime() : Date.now(),
             steps: run.steps ?? 0,
             lines: run.lines ?? 0,
+            heldMs: typeof run.heldMs === 'number' && run.heldMs > 0 ? run.heldMs : 0,
+            heldSince: run.hold ? (run.hold.since ? new Date(run.hold.since).getTime() : Date.now()) : null,
           })
         }
         if (seeded.size === 0) return
@@ -88,8 +94,24 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       if (m.projectId !== projRef.current || !m.loopRunId) return
       setRuns((prev) => {
         const next = new Map(prev)
-        next.set(m.loopRunId!, { railIndex: m.railIndex ?? 0, startedAt: Date.now(), steps: 0, lines: 0 })
+        next.set(m.loopRunId!, { railIndex: m.railIndex ?? 0, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null })
         return next
+      })
+      return
+    }
+    // A run waiting on the person (or a budget/limit) stops its clock until it resumes.
+    if (m.type === 'loop.run_paused' || m.type === 'loop.run_resumed') {
+      const runId = m.loopRunId
+      if (!runId) return
+      const now = Date.now()
+      setRuns((prev) => {
+        const cur = prev.get(runId)
+        if (!cur) return prev
+        const next = m.type === 'loop.run_paused'
+          ? (cur.heldSince !== null ? cur : { ...cur, heldSince: now })
+          : (cur.heldSince === null ? cur : { ...cur, heldMs: cur.heldMs + Math.max(0, now - cur.heldSince), heldSince: null })
+        if (next === cur) return prev
+        const n = new Map(prev); n.set(runId, next); return n
       })
       return
     }
@@ -106,7 +128,7 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       if (m.projectId !== projRef.current || !m.jobId || m.railIndex == null) return
       setRuns((prev) => {
         const next = new Map(prev)
-        next.set(m.jobId!, { railIndex: m.railIndex!, startedAt: Date.now(), steps: 0, lines: 0 })
+        next.set(m.jobId!, { railIndex: m.railIndex!, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null })
         return next
       })
       return
@@ -147,8 +169,13 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
     const out: Record<number, RailExecMetric> = {}
     for (const r of runs.values()) {
       const e = out[r.railIndex]
-      if (!e) out[r.railIndex] = { startedAt: r.startedAt, steps: r.steps, lines: r.lines }
-      else { e.startedAt = Math.min(e.startedAt, r.startedAt); e.steps += r.steps; e.lines += r.lines }
+      if (!e) out[r.railIndex] = { startedAt: r.startedAt, steps: r.steps, lines: r.lines, heldMs: r.heldMs, heldSince: r.heldSince }
+      else {
+        // Several runs on one rail: the rail works while any of them does.
+        e.startedAt = Math.min(e.startedAt, r.startedAt); e.steps += r.steps; e.lines += r.lines
+        e.heldMs = Math.min(e.heldMs, r.heldMs)
+        e.heldSince = e.heldSince !== null && r.heldSince !== null ? Math.max(e.heldSince, r.heldSince) : null
+      }
     }
     return out
   }, [runs])

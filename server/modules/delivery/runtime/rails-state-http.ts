@@ -7,6 +7,7 @@ import { PageCursorError, pageOf, parsePageQuery } from '../../../util/page-curs
 import type { Router, Request, Response } from 'express'
 import { getRails, getRail, createRail, deleteRail, railCount, railExists, MAX_RAILS, type RailState } from './rails-store'
 import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
+import { readRunHolds, runHoldSources, type RunHold } from '../../loops/runtime/loop-run-hold'
 import { getActivePrDeliveryByRail, listActivePrDeliveries, toPrDeliverySnapshot, type PrDeliverySnapshot } from './rail-pr-store'
 import { listPrCandidatesForTickets } from './active-pr-continuation'
 import { defaultExec } from './pr-publisher'
@@ -34,6 +35,8 @@ export function registerRailStateRoutes(router: Router): void {
       const activeLoopRuns: Record<number, {
         loopRunId: string; loopId?: string; loopName?: string | null; provider?: string | null; model?: string | null; iteration?: number
         startedAt?: string; steps?: number; lines?: number
+        /** Time the run already spent held, and why it is held now: the rail card's elapsed leaves both out. */
+        heldMs?: number; hold?: Pick<RunHold, 'kind' | 'since'>
       }> = {}
       for (const [runId, meta] of c.railLoopRuns.entries()) {
         const run = getLoopRun(c.db, runId)
@@ -50,6 +53,18 @@ export function registerRailStateRoutes(router: Router): void {
         if (run.rail_index == null || activeLoopRuns[run.rail_index]) continue
         const counts = getRunEventCounts(c.db, run.id)
         activeLoopRuns[run.rail_index] = { loopRunId: run.id, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
+      }
+      // A held run (a question, a restart, a limit) is not working: its card stops the clock.
+      const entries = Object.values(activeLoopRuns)
+      if (entries.length) {
+        let holds = new Map<string, RunHold>()
+        try { holds = readRunHolds(c.db, entries.map((entry) => entry.loopRunId), runHoldSources(c)) } catch { /* advisory */ }
+        for (const entry of entries) {
+          const heldMs = getLoopRun(c.db, entry.loopRunId)?.held_ms ?? 0
+          if (heldMs > 0) entry.heldMs = heldMs
+          const hold = holds.get(entry.loopRunId)
+          if (hold) entry.hold = { kind: hold.kind, since: hold.since }
+        }
       }
       // Pending ask-first PR decisions (safe-pr-review-flow): the newest ACTIVE
       // (non-terminal) delivery per rail slot, so a refreshed client re-renders
