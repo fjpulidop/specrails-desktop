@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: fjpulidop/specrails-core
-          ref: c6360a93e21b1a781a0c83bc2d400b4bb7aee447  # specrails-core #481 head (contract 5.17: roleDecisions, reviewTriage, machineInstalls, questionOptions); repin to the release that ships it
+          ref: 0ab7e79c3a38877440cb3c66b743697763e7e631  # specrails-core #481 head (contract 5.17: roleDecisions, reviewTriage, machineInstalls, questionOptions, routeOverrides); repin to the release that ships it
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
