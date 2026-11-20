@@ -19,7 +19,7 @@ import { normalizeContinueRemedy, planContinuation, type ContinueRemedy } from '
 import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
 import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
 import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
-import { continuationGuidance, parseStoredDiagnosis } from './modules/recovery'
+import { continuationGuidance, parseStoredDiagnosis, readStoredOptions, resolutionGuidance, type ResolutionChoice } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent, updateProjectSettings } from './db'
@@ -38,7 +38,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
-import { readFailureAnalysis, readRunDiagnosis } from './modules/recovery/adapters/sqlite'
+import { readChainResolution, readFailureAnalysis, readRunDiagnosis, readVerificationTests } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
@@ -187,10 +187,14 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(outcome.status).json({ ...outcome.body, envFilesEnabled: true, envFilesCopied })
       return
     }
-    const remedy = normalizeContinueRemedy((req.body ?? {}).remedy)
+    // A resolution the person picked from the AI analysis (by id: its guidance is read from the stored
+    // analysis, never from the request), or their own instruction.
+    const choice = resolutionRequest(c.db, runId, req.body ?? {})
+    if ('error' in choice) { res.status(choice.status).json({ error: choice.error, ...(choice.detail ? { detail: choice.detail } : {}) }); return }
+    const remedy = choice.remedy ?? normalizeContinueRemedy((req.body ?? {}).remedy)
     if (!remedy) { res.status(400).json({ error: 'invalid_remedy' }); return }
-    const outcome = await continueDefinitionRun(c, runId, remedy)
-    res.status(outcome.status).json(outcome.body)
+    const outcome = await continueDefinitionRun(c, runId, remedy, choice.resolution ? { resolution: choice.resolution } : {})
+    res.status(outcome.status).json({ ...outcome.body, ...(choice.label ? { option: choice.label } : {}) })
   })
 
   // The attempt chain a run belongs to (oldest first), for the run window's lineage (null without
@@ -202,7 +206,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       && !readDefinitionSuccessor(c.db, runId)
     let chain: ReturnType<typeof readAttemptChain> = null
     try { chain = readAttemptChain(c.db, runId) } catch { chain = null }
-    res.json({ chain, continuable })
+    // The chain's spend and whether it keeps stopping for the same cause (the card then leads with the options).
+    let resolution: ReturnType<typeof readChainResolution> = null
+    try { resolution = chain ? readChainResolution(c.db, runId) : null } catch { resolution = null }
+    res.json({ chain, continuable, resolution })
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
@@ -512,6 +519,42 @@ export interface ContinueOptions {
   automatic?: boolean
   /** Env files the person's remedy just copied into the run's worktree (named in the guidance). */
   envFilesCopied?: string[]
+  /** The resolution the person picked (an AI option or their own instruction): its guidance goes with Continue. */
+  resolution?: ResolutionChoice
+}
+
+/** Longest instruction a person can continue a run with. */
+export const MAX_INSTRUCTION_CHARS = 4_000
+
+type ResolutionRequest =
+  | { remedy?: ContinueRemedy; resolution?: ResolutionChoice; label?: string }
+  | { error: string; status: number; detail?: string }
+
+/**
+ * Validate a remedy request's resolution: `{ optionId }` picks an option of this run's stored AI
+ * analysis (the server reads its kind and guidance), `{ instruction }` continues with the person's
+ * own words. Options that are not a Continue (edit the spec, change a model, start over) run on the client.
+ */
+export function resolutionRequest(db: ProjectContext['db'], runId: string, body: Record<string, unknown>): ResolutionRequest {
+  const { optionId, instruction } = body
+  if (optionId === undefined && instruction === undefined) return {}
+  if (optionId !== undefined && instruction !== undefined) return { error: 'invalid_resolution', status: 400, detail: 'Send an option or an instruction, not both' }
+  if (body.remedy !== undefined && body.remedy !== 'continue') return { error: 'invalid_resolution', status: 400, detail: 'A resolution continues the run' }
+  if (instruction !== undefined) {
+    const text = typeof instruction === 'string' ? instruction.trim() : ''
+    if (!text || text.length > MAX_INSTRUCTION_CHARS) return { error: 'invalid_instruction', status: 400, detail: `An instruction is 1-${MAX_INSTRUCTION_CHARS} characters` }
+    return { remedy: 'continue', resolution: { kind: 'instruction', text } }
+  }
+  if (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId)) return { error: 'invalid_option', status: 400 }
+  let options: ReturnType<typeof readStoredOptions> = []
+  try { options = readStoredOptions(readFailureAnalysis(db, runId)?.analysis) } catch { options = [] }
+  const option = options.find((candidate) => candidate.id === optionId)
+  if (!option) return { error: 'option_not_found', status: 404, detail: 'The analysis has no such option (it may have been regenerated)' }
+  if (option.kind === 'continue-to-review') return { remedy: 'continue-to-review', label: option.label }
+  if (option.kind === 'continue-with-guidance' || option.kind === 'mark-human-check') {
+    return { remedy: 'continue', label: option.label, resolution: { kind: option.kind, label: option.label, does: option.does, guidance: option.guidance } }
+  }
+  return { error: 'option_runs_on_client', status: 400, detail: `${option.kind} is not a continuation` }
 }
 
 /**
@@ -538,10 +581,16 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     const diagnosis = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)
     const plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
     const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
-    // Checks handed to a person need no guidance; Continue carries the cause's.
-    const cause = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null }) : null
-    // The person reads the AI analysis' steps as what Continue does: hand them to the agent too.
-    const guidance = remedy === 'continue' ? withAnalysisSteps(cause, analysisStepsOf(c.db, runId)) : cause
+    // Checks handed to a person need no guidance; Continue carries the cause's (and the flaky tests' rule).
+    let flakyTests: string[] = []
+    try { flakyTests = remedy === 'continue' ? readVerificationTests(c.db, runId).flakyTests : [] } catch { flakyTests = [] }
+    const cause = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null, flakyTests }) : null
+    // A picked resolution is what the person chose Continue to do; otherwise the person read the AI
+    // analysis' steps as what Continue does (older analyses, with no options): hand them to the agent too.
+    const chosen = resolutionGuidance(options.resolution)
+    const guidance = remedy !== 'continue' ? cause
+      : chosen ? [cause, chosen].filter(Boolean).join('\n\n')
+        : withAnalysisSteps(cause, analysisStepsOf(c.db, runId))
     let guided: boolean | undefined
     if (guidance) {
       try {
@@ -681,10 +730,13 @@ export function staleLeaseWaitMs(lease: { active: boolean; expiresAt?: number | 
   return remaining > 0 && remaining <= STALE_LEASE_MAX_WAIT_MS ? remaining : 0
 }
 
-/** The stored AI analysis' next steps for this run, as plain lines (empty when there is none). */
+/** The stored AI analysis' next steps for this run, as plain lines (empty when there is none, or when
+ *  the analysis offers options: the person then picks one, and a plain Continue is "keep going"). */
 function analysisStepsOf(db: ProjectContext['db'], runId: string): string[] {
   try {
-    const steps = readFailureAnalysis(db, runId)?.analysis.nextSteps
+    const analysis = readFailureAnalysis(db, runId)?.analysis
+    if (readStoredOptions(analysis).length) return []
+    const steps = analysis?.nextSteps
     return Array.isArray(steps) ? steps.filter((step): step is string => typeof step === 'string' && !!step.trim()).slice(0, 8) : []
   } catch { return [] }
 }

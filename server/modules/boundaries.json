@@ -3678,7 +3678,9 @@
         "../../../db",
         "../../../providers",
         "../analysis",
-        "../domain"
+        "../continuation",
+        "../domain",
+        "../verification-tests"
       ],
       "analysis.ts": [
         "crypto"
@@ -3693,8 +3695,10 @@
       "index.ts": [
         "./analysis",
         "./continuation",
-        "./domain"
-      ]
+        "./domain",
+        "./verification-tests"
+      ],
+      "verification-tests.ts": []
     }
   },
   "specs": {

@@ -8,7 +8,8 @@ The client feature is [recovery](../../../client/src/features/recovery/README.md
 | Change | Owner |
 | --- | --- |
 | Diagnosis vocabulary, Core record validation, derivation from Desktop's own signals, remedy ranking | [domain.ts](domain.ts) (pure) |
-| Continuing a run: the cause's guidance, person-only checks, the automatic-continuation guards | [continuation.ts](continuation.ts) (pure) |
+| Continuing a run: the cause's guidance, person-only checks, a picked resolution's guidance, the same-cause-twice rule, the automatic-continuation guards | [continuation.ts](continuation.ts) (pure) |
+| Failing and flaky tests from the recorded verification output of an attempt chain | [verification-tests.ts](verification-tests.ts) (pure) |
 | Reading a run's / job's diagnosis from one project's database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | Public imports | [index.ts](index.ts) |
 
@@ -74,6 +75,33 @@ analysis per job (`job_failure_analyses`). The HTTP route and the provider call 
 - Quoted evidence survives only when it appears verbatim in the log.
 - A next step may name a remedy (`nextStepActions`: `continue`, `continue-to-review`, `edit-spec`,
   `change-model`); anything else, or an unknown kind, is plain advice.
+- Prompt v4 adds `options`: 2-4 ways to resolve the failure, each `{ id, kind, label, does, consequence,
+  risk?, recommended?, guidance }`. `kind` is an executable remedy (`RESOLUTION_KINDS`:
+  `continue-with-guidance`, `continue-to-review`, `mark-human-check`, `edit-spec`, `change-model`,
+  `start-over`), limited per run by `resolutionKindsFor(diagnosis)` (sent as `context.optionKinds`);
+  other kinds, a fifth option, a second recommendation and unreadable options are dropped
+  (`parseResolutionOptions`). Older cached analyses have no options and keep their plan.
+- The evidence carries `context`: the failing / flaky tests and the chain's attempts (count, spend,
+  `repeated`), so options cite the tests and do not recommend more of the same after a repeat.
+- `POST /loop-runs/:id/remedy` takes `{ optionId }` (the option's kind and guidance are read from the
+  stored analysis, never from the request) or `{ instruction }` (1-4000 chars). Continue kinds send
+  `resolutionGuidance` with the cause's guidance; `mark-human-check` tells the agent to add `[human]`
+  tasks (the human-check contract) and keep those tests out of host verification. `edit-spec`,
+  `change-model` and `start-over` run on the client. With options present a plain Continue no longer
+  carries the analysis' steps: it is "keep going".
+
+## Flaky tests and repeated stops
+
+- `readVerificationTests` (adapter) reads the `verification-output` events of the run and the attempts
+  it continued, one round per verification visit, and classifies the latest round's failing tests:
+  flaky when they passed and failed on the same candidate, the runner reported them flaky, their
+  outcome flipped twice, or they passed in two earlier rounds and now fail on a timeout / closed
+  process. Nothing is re-run. Presented diagnoses carry `failingTests` / `flakyTests`; Continue adds
+  `flakyTestsGuidance` (make them deterministic, never lengthen timeouts).
+- `repeatedStop`: two consecutive attempts with the same cause (same kind and step, and the same words
+  or the same failing tests / review finding ids), or three budget stops (`blocked`) in a row at one
+  step. `readChainResolution` serves it with the chain's spend on `GET /loop-runs/:id/attempts`
+  (`resolution`); the card then leads with the options, and automatic continuation refuses it.
 - It runs on the provider and model that ran the job, so the account can run it.
 
-Run `npx vitest run server/modules/recovery server/modules/inbox server/project-router-failure-analysis.test.ts`.
+Run `npx vitest run server/modules/recovery server/modules/inbox server/project-router-failure-analysis.test.ts server/project-router-loop-runs-resolution.test.ts`.
