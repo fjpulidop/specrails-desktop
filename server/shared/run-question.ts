@@ -81,7 +81,8 @@ export function runQuestionFrom(pending: readonly unknown[] | null | undefined):
     const value = object(item.value)
     const raw = typeof item.value === 'string' ? item.value : undefined
     const structured = options(value?.options)
-    const text = str(structured.length || value?.why ? value?.text ?? value?.prompt : value?.prompt ?? value?.text ?? value?.question ?? raw, 6000)
+    const blankless = (v: unknown): unknown => typeof v === 'string' && !v.trim() ? undefined : v
+    let text = str(structured.length || value?.why ? blankless(value?.text) ?? (value?.why ? undefined : blankless(value?.prompt)) : blankless(value?.prompt) ?? blankless(value?.text) ?? value?.question ?? raw, 6000)
     const data = object(value?.data)
     const install = item.kind === 'question' && data?.kind === 'machine-install' && typeof data.command === 'string' && data.command.trim()
       ? { command: data.command.trim().slice(0, 300), tool: str(data.tool, 120) ?? data.command.trim().split(/\s+/).pop()! } : undefined
@@ -92,7 +93,10 @@ export function runQuestionFrom(pending: readonly unknown[] | null | undefined):
     const endsRun = install && ids.has('self') ? ['self'] : Array.isArray(value?.endsRun) ? value.endsRun.filter((id): id is string => typeof id === 'string' && ids.has(id)) : []
     const recommended = typeof value?.recommended === 'string' && ids.has(value.recommended) ? value.recommended : undefined
     const canReject = kind === 'approval' && value?.rejectable === true
-    const why = str(value?.why, 600), detail = install?.command ?? str(value?.detail, 2000)
+    let why = str(value?.why, 600)
+    const detail = install?.command ?? str(value?.detail, 2000)
+    // A question asked with only its reason (an empty text, bench5 codex planner): the reason is the question.
+    if (!text?.trim() && why) { text = why; why = undefined }
     return {
       interruptId: item.id, kind, asker,
       text: withoutNodePrefix(text ?? '', item.nodePath),

@@ -50,4 +50,10 @@ describe('the run question card', () => {
     expect(shortQuestion({ text: 'a'.repeat(200) }, 20)).toHaveLength(20)
     expect(shortQuestion({ text: '  Which\n store? ' })).toBe('Which store?')
   })
+  it('asks the reason when the question text is empty (bench5 codex planner), never an empty card', () => {
+    const why = 'The export checkout is not in this run; include it or stop here?'
+    const q = runQuestionFrom([{ id: 'i1', kind: 'question', nodePath: 'clarify', value: { kind: 'question', asker: 'architect', text: '', prompt: '\n\n' + why, why, options: [] } }])
+    expect(q).toMatchObject({ text: why, asker: 'planner' })
+    expect(q).not.toHaveProperty('why')
+  })
 })
