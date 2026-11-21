@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1905 source/build files. Nearby tests are linked where names
+Includes 1906 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1601,6 +1601,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-router-tickets-ai-edit.ts](../../server/project-router-tickets-ai-edit.ts)
 - [project-router-tickets-attachments.ts](../../server/project-router-tickets-attachments.ts)
 - [project-router-tickets-authoring.ts](../../server/project-router-tickets-authoring.ts)
+- [project-router-tickets-bulk.ts](../../server/project-router-tickets-bulk.ts) · [test](../../server/project-router-tickets-bulk.test.ts)
 - [project-router-tickets-crud.ts](../../server/project-router-tickets-crud.ts)
 - [project-router-tickets-drafts.ts](../../server/project-router-tickets-drafts.ts)
 - [project-router-tickets-shared.ts](../../server/project-router-tickets-shared.ts)
@@ -1733,7 +1734,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rails.ts](../../server/mcp/v2/tools/rails.ts)
 - [runs.ts](../../server/mcp/v2/tools/runs.ts)
 - [settings.ts](../../server/mcp/v2/tools/settings.ts)
-- [specs.ts](../../server/mcp/v2/tools/specs.ts)
+- [specs.ts](../../server/mcp/v2/tools/specs.ts) · [test](../../server/mcp/v2/tools/specs.test.ts)
 - [system.ts](../../server/mcp/v2/tools/system.ts)
 - [wait.ts](../../server/mcp/v2/tools/wait.ts)
 
