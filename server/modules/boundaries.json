@@ -2391,6 +2391,7 @@
   "execution": {
     "publicEntries": [
       "adapters/budget-storage.ts",
+      "domain/spend-caps.ts",
       "index.ts",
       "runtime/accept-ladder.ts",
       "runtime/budget-overview.ts",

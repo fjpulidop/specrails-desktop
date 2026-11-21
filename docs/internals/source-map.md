@@ -1724,7 +1724,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [deliveries.ts](../../server/mcp/v2/tools/deliveries.ts)
 - [inbox.ts](../../server/mcp/v2/tools/inbox.ts)
 - [index.ts](../../server/mcp/v2/tools/index.ts)
-- [insights.ts](../../server/mcp/v2/tools/insights.ts)
+- [insights.ts](../../server/mcp/v2/tools/insights.ts) · [test](../../server/mcp/v2/tools/insights.test.ts)
 - [integrations.ts](../../server/mcp/v2/tools/integrations.ts)
 - [missions.ts](../../server/mcp/v2/tools/missions.ts)
 - [overview.ts](../../server/mcp/v2/tools/overview.ts)
