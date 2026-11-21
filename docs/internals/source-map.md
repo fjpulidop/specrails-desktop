@@ -1572,7 +1572,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-context-recovery.ts](../../server/project-context-recovery.ts)
 - [project-context-services.ts](../../server/project-context-services.ts)
 - [project-context-tickets.ts](../../server/project-context-tickets.ts)
-- [project-delivery-base-refresh.ts](../../server/project-delivery-base-refresh.ts)
+- [project-delivery-base-refresh.ts](../../server/project-delivery-base-refresh.ts) · [test](../../server/project-delivery-base-refresh.test.ts)
 - [project-env.ts](../../server/project-env.ts) · [test](../../server/project-env.test.ts)
 - [project-git.ts](../../server/project-git.ts) · [test](../../server/project-git.test.ts)
 - [project-profile-support.ts](../../server/project-profile-support.ts)
