@@ -50,6 +50,7 @@ export async function execute(mode: string, legacy = false, stall = false, block
     writeFileSync(path.join(repository, 'modal.txt'), "e.key === 'Escape' &&\n!confirmPending")
     writeFileSync(path.join(repository, 'guard.test.cjs'), `const { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst guard = /e\\.key === 'Escape' && !confirmPending/;\ntest('cancelling confirmation preserves the queue', () => { assert.match(fs.readFileSync('modal.txt', 'utf8'), guard); assert.doesNotMatch("e.key === 'Escape' &&\\ntrue", guard); });\ntest('required feature returns two', () => assert.equal(require('./code.cjs'), 2));\n`)
   }
+  if (process.env.SPECRAILS_FACTORY_ENV_REPAIR) writeFileSync(path.join(repository, '.gitignore'), 'node_modules/\n')
   if (process.env.SPECRAILS_FACTORY_TYPESCRIPT_FAILURE === '1') {
     // A real portable subprocess supplies evidence. Keep diagnostics out of its
     // argv, and beyond both output tails, so prompt assertions test the summary.
@@ -68,11 +69,13 @@ export async function execute(mode: string, legacy = false, stall = false, block
     verification: [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }],
   }
   if (process.env.SPECRAILS_FACTORY_REGEX === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['--test', '--test-reporter=spec', 'guard.test.cjs'] }]
+  // A dev tool no host install plan provides: only a correction role that installs it into the ignored node_modules can repair it.
+  if (process.env.SPECRAILS_FACTORY_ENV_REPAIR) config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(!require("fs").existsSync("node_modules/.bin/fmtcheck")){console.error("sh: fmtcheck: command not found");process.exit(127)}if(require("./code.cjs")!==2)process.exit(9);console.log("formatted and verified")'] }]
   if (process.env.SPECRAILS_FACTORY_TYPESCRIPT_FAILURE === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['compiler-check.cjs'] }]
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = [], lines: string[] = []
   const change = 'paired-change'
-  let factory = recipe(mode, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}) })
+  let factory = recipe(mode, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}), ...(reviewMode?.startsWith('advice') ? { reviewTriage: 2 } : {}) })
   if (reviewMode) factory.graph.config.maxTransitions = 80
   if (process.env.SPECRAILS_FACTORY_CORRECTION_QUESTION === '1') {
     factory.graph.edges.find(edge => edge.source === 'begin-correction')!.target = 'ask-first-correction'
@@ -127,9 +130,9 @@ export async function execute(mode: string, legacy = false, stall = false, block
       approve: [result.pendingInterrupts![0].id], onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
   }
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
-  const correctionStalled = process.env.SPECRAILS_FACTORY_NOOP === '1' || ['reject', 'score', 'churn'].includes(reviewMode ?? '')
+  const correctionStalled = process.env.SPECRAILS_FACTORY_NOOP === '1' || process.env.SPECRAILS_FACTORY_ENV_REPAIR === 'claim' || ['reject', 'score', 'churn'].includes(reviewMode ?? '')
   expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall || correctionStalled })
   if (!legacy && !stall && !correctionStalled) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
   expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(process.env.SPECRAILS_FACTORY_NOOP === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
-  return { result, calls, events, repository, lines }
+  return { result, calls, events, repository, lines, contextPath }
 }

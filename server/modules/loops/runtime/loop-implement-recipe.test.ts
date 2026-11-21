@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configurableImplementGraph, DEVELOPER_SELF_REVIEW, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
+import { configurableImplementGraph, DEVELOPER_SELF_REVIEW, ENVIRONMENT_REPAIR_EXPR, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
 import { factoryLoopsForCapabilities } from './loop-factory'
 import { compileLoopToDefinition } from './loop-definition'
 
@@ -81,7 +81,8 @@ describe('host blockers', () => {
       expect(definition.nodes.fixer.ends.next).toBe('correction-blocker')
       expect(definition.nodes['correction-blocker'].params.expr).toBe('exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null')
       expect(definition.nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocker-kind', false: 'correction-progress' })
-      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-stalled' })
+      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-environment' })
+      expect(definition.nodes['correction-environment'].ends).toEqual({ true: 'mark-environment-reverify', false: 'correction-stalled' })
       const schema = definition.nodes.fixer.params.structuredOutput as { required: string[]; properties: { blocker: { properties: { kind: { enum: string[] } }; required: string[] } } }
       expect(schema.required).toEqual(['summary', 'incomplete'])
       expect(schema.properties.blocker.properties.kind.enum).toEqual(['network', 'credential', 'environment-variable', 'toolchain', 'setup', 'environment', 'scope'])
@@ -150,12 +151,33 @@ describe('host blockers', () => {
   })
   it('sends an unchanged candidate back to review when the fixer settled a decision with the person (bench5)', () => {
     const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
-    expect(asking.nodes['correction-progress'].ends).toMatchObject({ true: 'tasks', false: 'correction-decided' })
+    expect(asking.nodes['correction-progress'].ends).toMatchObject({ true: 'tasks', false: 'correction-environment' })
+    expect(asking.nodes['correction-environment'].ends).toMatchObject({ true: 'mark-environment-reverify', false: 'correction-decided' })
     expect(asking.nodes['correction-decided'].params).toEqual({ expr: 'exists($outputs.fixer.decisions) && $outputs.fixer.decisions.length > 0' })
     expect(asking.nodes['correction-decided'].ends).toMatchObject({ true: 'reviewer', false: 'correction-stalled' })
     const older = compile(configurableImplementGraph(paired))
-    expect(older.nodes['correction-progress'].ends).toMatchObject({ false: 'correction-stalled' })
+    expect(older.nodes['correction-environment'].ends).toMatchObject({ false: 'correction-stalled' })
     expect(older.nodes).not.toHaveProperty('correction-decided')
+  })
+  it('verifies an unchanged candidate again once when the fixer repaired the environment (bench5 D7), within the correction budget', () => {
+    const definition = compile(configurableImplementGraph(paired))
+    expect(definition.nodes['correction-environment'].params).toEqual({ expr: ENVIRONMENT_REPAIR_EXPR })
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$outputs.verify.valid == false')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$outputs.verify.environmentFailure == true')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('matches($outputs.fixer.structured.environmentRepair, /\\S/)')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$vars.environmentReverified != $outputs.verify.candidateHash')
+    expect(definition.nodes['mark-environment-reverify']).toMatchObject({ kind: 'assign', params: { set: { environmentReverified: '{{outputs.verify.candidateHash}}' } }, ends: { next: 'verify' } })
+    // The re-verification goes through the ordinary failure path: its correction is counted again.
+    expect(definition.nodes.verify.ends).toMatchObject({ fail: 'correction-context' })
+    const fixer = definition.nodes.fixer.params as { prompt: string; structuredOutput: { properties: Record<string, unknown>; required: string[] } }
+    expect(fixer.structuredOutput.properties).toHaveProperty('environmentRepair')
+    expect(fixer.structuredOutput.required).not.toContain('environmentRepair')
+    expect(fixer.prompt).toContain('environmentRepair')
+    expect(definition.nodes.developer.params.structuredOutput).not.toMatchObject({ properties: { environmentRepair: expect.anything() } })
+  })
+  it('asks the reviewer to mark advice and out-of-scope findings only on a Core with reviewTriage 2', () => {
+    expect(String(compile(configurableImplementGraph({ ...paired, reviewTriage: 2 })).nodes.reviewer.params.prompt)).toContain('`[advice] `')
+    for (const reviewTriage of [undefined, 1]) expect(String(compile(configurableImplementGraph({ ...paired, ...(reviewTriage ? { reviewTriage } : {}) })).nodes.reviewer.params.prompt)).not.toContain('[advice]')
   })
   it('offers planner choices and approval rejection only on a Core that advertises questionOptions', () => {
     const structured = compile(configurableImplementGraph({ ...paired, questionOptions: 1 }))
