@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1858 source/build files. Nearby tests are linked where names
+Includes 1859 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1866,6 +1866,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [blueprint-store.ts](../../server/modules/builder/runtime/blueprint-store.ts) · [test](../../server/modules/builder/runtime/blueprint-store.test.ts)
 - [blueprint-types.ts](../../server/modules/builder/runtime/blueprint-types.ts)
 - [builder-cwd-manager.ts](../../server/modules/builder/runtime/builder-cwd-manager.ts)
+- [milestone-chain-reconcile.ts](../../server/modules/builder/runtime/milestone-chain-reconcile.ts) · [test](../../server/modules/builder/runtime/milestone-chain-reconcile.test.ts)
 - [milestone-chain-store.ts](../../server/modules/builder/runtime/milestone-chain-store.ts) · [test](../../server/modules/builder/runtime/milestone-chain-store.test.ts)
 - [milestone-chain.ts](../../server/modules/builder/runtime/milestone-chain.ts) · [test](../../server/modules/builder/runtime/milestone-chain.test.ts)
 - [milestone-generation-settings.ts](../../server/modules/builder/runtime/milestone-generation-settings.ts)

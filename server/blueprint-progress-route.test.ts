@@ -11,6 +11,8 @@ import { writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { mutateStore } from './modules/specs/runtime/ticket-store'
 import { workspacePathFor } from './workspace-manager'
 import { MilestoneProgressBroadcaster } from './modules/builder/runtime/milestone-progress'
+import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
+import { createChain, updateChain } from './modules/builder/runtime/milestone-chain-store'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { Blueprint } from './modules/builder/runtime/blueprint-types'
 
@@ -149,6 +151,49 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     res = await request(app).patch('/api/projects/proj-1/blueprint/chains/c1').send({ autoAdvance: true })
     expect(res.status).toBe(409)
     expect(res.body).toEqual({ error: 'chain_terminal', detail: 'chain is cancelled' })
+  })
+
+  it('a paused chain carries its reconciled plan; Resume takes the recommended step (the spec delivered by hand is skipped)', async () => {
+    const ws = workspacePathFor('recipely')
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    writeBlueprintPair(ws, blueprint())
+    const tickets = path.join(repo, '.specrails', 'local-tickets.json')
+    mutateStore(tickets, (s) => {
+      s.tickets['1'] = { id: 1, title: 'First', description: '', status: 'done', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+      s.tickets['2'] = { id: 2, title: 'Second', description: '', status: 'todo', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+    })
+    const launch = vi.fn(async () => ({ ok: true as const, loopRunIds: ['r2'] }))
+    const chains = new MilestoneChainManager(db, 'proj-1', {
+      createRail: async () => ({ ok: true, railIndex: 4 }),
+      assignTickets: async () => ({ ok: true }),
+      launch,
+      activeDeliveryForRail: () => null,
+      getDelivery: () => null,
+      branchExists: async () => true,
+      readTickets: () => [
+        { id: 1, status: 'done', labels: ['M1'], title: 'First' },
+        { id: 2, status: 'todo', labels: ['M1'], title: 'Second' },
+      ],
+      readBlueprint: () => blueprint(),
+      integrationBranch: async () => 'main',
+      integrateDelivery: async () => ({ ok: true }),
+      runState: () => null,
+      broadcast: () => {},
+    })
+    createChain(db, { id: 'c1', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: [[1], [2]], integrationBranch: 'main' })
+    updateChain(db, 'c1', 'running', { status: 'paused', pauseReason: 'head_discarded', retryChunk: 0, nextChunk: 1, launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r1'], deliveryId: 'd1' }] })
+    const app = createApp(makeContext(db, repo, { railJobs: new Map(), railLoopRuns: new Map(), milestoneChains: chains }))
+    let res = await request(app).get('/api/projects/proj-1/blueprint')
+    expect(res.status).toBe(200)
+    expect(res.body.progress[0].state).toBe('paused')
+    expect(res.body.progress[0].chain.plan.offers).toEqual([expect.objectContaining({ kind: 'next', ticketId: 2, title: 'Second', from: 'recommended' })])
+    res = await request(app).post('/api/projects/proj-1/blueprint/chains/c1/resume').send({ from: 'bogus' })
+    expect(res.status).toBe(400)
+    res = await request(app).post('/api/projects/proj-1/blueprint/chains/c1/resume').send({ from: 'recommended' })
+    expect(res.status).toBe(202)
+    expect(launch).toHaveBeenCalledTimes(1)
+    expect(res.body.chain).toMatchObject({ status: 'running', nextChunk: 2 })
+    expect(res.body.chain.launched.map((l: { ticketIds: number[] }) => l.ticketIds[0])).toEqual([1, 2])
   })
 
   it('commit-milestone invalidates the progress memo', async () => {

@@ -3,7 +3,8 @@
 // a durable row; the derived `state` is what surfaces render. Pure helpers only
 // — no fetching, no React.
 
-export type MilestoneState = 'planned' | 'committed' | 'running' | 'delivered' | 'done'
+/** `paused`: a chain owns the milestone but stopped (a pause or a checkpoint). */
+export type MilestoneState = 'planned' | 'committed' | 'running' | 'paused' | 'delivered' | 'done'
 
 export interface MilestoneCounts {
   total: number
@@ -71,6 +72,88 @@ export interface MilestoneChainSnapshot {
   launched: MilestoneChainLaunched[]
   createdAt: string | null
   updatedAt: string
+  /** The server's reconciliation (tickets, deliveries and runs, manual ones
+   *  included): the recommended next step first. Null when not provided. */
+  plan: ChainPlanView | null
+}
+
+/** One step the chain can take next (mirrors the server's ChainOffer). */
+export type ChainOfferKind =
+  | 'complete' | 'next' | 'launch' | 'retry' | 'resume_failed_step' | 'retry_from_start'
+  | 'resume_run' | 'follow_run' | 'answer_run' | 'integrate'
+
+export interface ChainOffer {
+  kind: ChainOfferKind
+  from: 'recommended' | 'failed_step' | 'start'
+  ticketId: number | null
+  title: string | null
+  runId: string | null
+  nextTicketId: number | null
+}
+
+export type ChainSpecState = 'done' | 'integrated' | 'delivered' | 'running' | 'paused' | 'failed' | 'pending'
+
+export interface ChainPlanView {
+  offers: ChainOffer[]
+  specs: Array<{ ticketId: number; title: string | null; state: ChainSpecState }>
+  settled: number
+  total: number
+  pausedTicketId: number | null
+  pausedSpecSettled: boolean
+}
+
+const OFFER_KINDS: ReadonlySet<string> = new Set(['complete', 'next', 'launch', 'retry', 'resume_failed_step', 'retry_from_start', 'resume_run', 'follow_run', 'answer_run', 'integrate'])
+const SPEC_STATES: ReadonlySet<string> = new Set(['done', 'integrated', 'delivered', 'running', 'paused', 'failed', 'pending'])
+
+export function coerceChainPlan(raw: unknown): ChainPlanView | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const offers = Array.isArray(o.offers) ? o.offers.flatMap((x): ChainOffer[] => {
+    if (!x || typeof x !== 'object') return []
+    const e = x as Record<string, unknown>
+    if (typeof e.kind !== 'string' || !OFFER_KINDS.has(e.kind)) return []
+    const from = e.from === 'failed_step' || e.from === 'start' ? e.from : 'recommended'
+    return [{
+      kind: e.kind as ChainOfferKind, from,
+      ticketId: typeof e.ticketId === 'number' ? e.ticketId : null,
+      title: str(e.title), runId: str(e.runId),
+      nextTicketId: typeof e.nextTicketId === 'number' ? e.nextTicketId : null,
+    }]
+  }) : []
+  const specs = Array.isArray(o.specs) ? o.specs.flatMap((x) => {
+    if (!x || typeof x !== 'object') return []
+    const e = x as Record<string, unknown>
+    if (typeof e.ticketId !== 'number' || typeof e.state !== 'string' || !SPEC_STATES.has(e.state)) return []
+    return [{ ticketId: e.ticketId, title: str(e.title), state: e.state as ChainSpecState }]
+  }) : []
+  return {
+    offers, specs, settled: num(o.settled), total: num(o.total),
+    pausedTicketId: typeof o.pausedTicketId === 'number' ? o.pausedTicketId : null,
+    pausedSpecSettled: o.pausedSpecSettled === true,
+  }
+}
+
+/** The recommended next step of a stopped chain (null: no plan / nothing to offer). */
+export function primaryChainOffer(chain: MilestoneChainSnapshot | null): ChainOffer | null {
+  return chain?.plan?.offers[0] ?? null
+}
+
+/** Stable identity of the recommended step (a toast updates in place when it moves). */
+export function chainOfferKey(offer: ChainOffer | null): string {
+  return offer ? `${offer.kind}:${offer.ticketId ?? ''}:${offer.runId ?? ''}` : ''
+}
+
+/** i18n params for an offer label: `#7 Animate the tabletop…`. */
+export function chainOfferParams(offer: ChainOffer, plan: ChainPlanView | null): Record<string, string | number> {
+  const spec = offer.ticketId !== null ? `#${offer.ticketId}` : ''
+  const title = offer.title ? truncateTitle(offer.title) : ''
+  const next = offer.nextTicketId !== null ? `#${offer.nextTicketId}` : ''
+  const paused = plan?.pausedTicketId != null ? `#${plan.pausedTicketId}` : ''
+  return { spec, title, next, paused, specTitle: title ? `${spec} ${title}` : spec }
+}
+
+function truncateTitle(title: string, max = 40): string {
+  return title.length > max ? `${title.slice(0, max - 1).trimEnd()}…` : title
 }
 
 export interface MilestoneProgress {
@@ -90,7 +173,7 @@ export function milestoneLabelFor(n: number): string {
 
 // ─── Defensive parsing (REST + WS payloads) ──────────────────────────────────
 
-const STATES: ReadonlySet<string> = new Set(['planned', 'committed', 'running', 'delivered', 'done'])
+const STATES: ReadonlySet<string> = new Set(['planned', 'committed', 'running', 'paused', 'delivered', 'done'])
 const CHAIN_STATUSES: ReadonlySet<string> = new Set(['running', 'waiting', 'paused', 'awaiting_approval', 'completed', 'cancelled'])
 
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
@@ -170,6 +253,7 @@ export function coerceChain(raw: unknown): MilestoneChainSnapshot | null {
     launched,
     createdAt: typeof o.createdAt === 'string' && Number.isFinite(Date.parse(o.createdAt)) ? o.createdAt : null,
     updatedAt: str(o.updatedAt) ?? '',
+    plan: coerceChainPlan(o.plan),
   }
 }
 

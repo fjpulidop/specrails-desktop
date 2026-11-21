@@ -134,6 +134,8 @@ export function listChainsTouchingDelivery(db: DbInstance, deliveryId: string): 
 }
 
 export interface ChainPatch {
+  /** Rewritten by reconciliation when the milestone's specs changed (one spec per chunk). */
+  chunks?: number[][]
   nextChunk?: number
   currentRailIndex?: number | null
   currentRunIds?: string[]
@@ -148,6 +150,7 @@ export interface ChainPatch {
 }
 
 const PATCH_COLUMNS: Record<keyof ChainPatch, string> = {
+  chunks: 'chunks',
   nextChunk: 'next_chunk',
   currentRailIndex: 'current_rail_index',
   currentRunIds: 'current_run_ids',
@@ -163,7 +166,7 @@ const PATCH_COLUMNS: Record<keyof ChainPatch, string> = {
 
 function patchValue(key: keyof ChainPatch, patch: ChainPatch): unknown {
   const raw = patch[key]
-  if (key === 'currentRunIds' || key === 'launched') return JSON.stringify(raw ?? [])
+  if (key === 'currentRunIds' || key === 'launched' || key === 'chunks') return JSON.stringify(raw ?? [])
   if (key === 'autoAdvance') return raw ? 1 : 0
   return raw ?? null
 }

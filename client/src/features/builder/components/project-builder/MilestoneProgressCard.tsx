@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw } from 'lucide-react'
+import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw, CheckCheck, GitMerge, Radio, SkipForward, type LucideIcon } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu'
 import type { ChainResumeFrom } from '../../lib/milestone-launch'
 import { cn } from '../../../../lib/utils'
@@ -14,11 +14,14 @@ import { useNow } from '../../../../hooks/useNow'
 import {
   chainAtCheckpoint,
   chainIsLive,
+  chainOfferParams,
   chainPauseReason,
   deliveredCount,
   milestoneLabelFor,
   progressSegments,
   REVIEWABLE_DECISIONS,
+  type ChainOffer,
+  type ChainOfferKind,
   type MilestoneChainSnapshot,
   type MilestoneCounts,
   type MilestoneProgress,
@@ -53,6 +56,7 @@ const MILESTONE_RUN_STATE = {
   planned: 'queued',
   committed: 'queued',
   running: 'working',
+  paused: 'paused',
   delivered: 'review',
   done: 'done',
 } as const satisfies Record<MilestoneState, RunState>
@@ -203,6 +207,76 @@ export function MilestoneAutoAdvanceToggle({
   )
 }
 
+const OFFER_ICON: Record<ChainOfferKind, LucideIcon> = {
+  complete: CheckCheck,
+  next: SkipForward,
+  launch: Play,
+  retry: RotateCcw,
+  resume_failed_step: StepForward,
+  retry_from_start: RotateCcw,
+  resume_run: Play,
+  follow_run: Radio,
+  answer_run: Radio,
+  integrate: GitMerge,
+}
+
+/** The chain's reconciled next step (primary) and its honest alternatives:
+ *  "Continue with the next spec (#7 …)" when the paused spec is already
+ *  delivered, "Resume #6 from the failed step" / "Retry #6 from the start"
+ *  only when #6 genuinely failed. */
+function ChainOfferControls({ chain, busy, testId, onResume }: { chain: MilestoneChainSnapshot; busy: boolean; testId: string; onResume: (chainId: string, from?: ChainResumeFrom) => void }) {
+  const { t } = useTranslation('builder')
+  const offers = chain.plan?.offers ?? []
+  const [primary, ...rest] = offers
+  if (!primary) return null
+  const label = (o: ChainOffer) => t(`milestoneProgress.chain.offer.${o.kind}`, chainOfferParams(o, chain.plan))
+  const hint = (o: ChainOffer) => t(`milestoneProgress.chain.offerHint.${o.kind}`, chainOfferParams(o, chain.plan))
+  const PrimaryIcon = OFFER_ICON[primary.kind]
+  const buttonClass = 'inline-flex min-w-0 items-center gap-1 border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50'
+  return (
+    <span className="inline-flex w-full min-w-0 items-stretch">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onResume(chain.id, primary.from)}
+        title={hint(primary)}
+        className={cn(buttonClass, 'min-w-0 flex-1 justify-start text-left', rest.length ? 'rounded-l-md' : 'rounded-md')}
+        data-testid={testId}
+        data-offer={primary.kind}
+      >
+        {busy ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden /> : <PrimaryIcon className="h-3 w-3 shrink-0" aria-hidden />}
+        <span className="truncate">{label(primary)}</span>
+      </button>
+      {rest.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={busy}
+            aria-label={t('milestoneProgress.chain.moreOptions')}
+            className={cn(buttonClass, 'rounded-r-md border-l-0 px-1')}
+            data-testid={`${testId}-more`}
+          >
+            <ChevronDown className="h-3 w-3" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64">
+            {offers.map((o) => {
+              const Icon = OFFER_ICON[o.kind]
+              return (
+                <DropdownMenuItem key={`${o.kind}:${o.from}`} onSelect={() => onResume(chain.id, o.from)} data-testid={`milestone-chain-offer-${o.kind}`}>
+                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="font-medium">{label(o)}</span>
+                    <span className="text-muted-foreground">{hint(o)}</span>
+                  </span>
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </span>
+  )
+}
+
 export interface MilestoneChainRowProps {
   chain: MilestoneChainSnapshot
   busy?: boolean
@@ -223,6 +297,10 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
     : null
   const showToggle = chain.mode === 'sequential' && (live || paused || checkpoint) && Boolean(onSetAutoAdvance)
   // Paused on a spec that FAILED and ran as one run: it can continue from the failed step.
+  // The server's reconciliation names the next step; older payloads fall back
+  // to the failed-chunk menu below.
+  const planned = (paused || checkpoint) && (chain.plan?.offers.length ?? 0) > 0
+  const pausedSpecDelivered = paused && chain.plan?.pausedSpecSettled === true && chain.plan.pausedTicketId !== null
   const failedSpec = paused && chain.retryChunk !== null
     && (chain.launched.find((entry) => entry.chunk === chain.retryChunk! + 1)?.runIds.length ?? 0) === 1
   return (
@@ -247,7 +325,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           {' · '}{t('milestoneProgress.chain.progress', { k: Math.min(chain.nextChunk, chain.totalChunks), n: chain.totalChunks })}
         </span>
         <span className="flex-1" />
-        {checkpoint && onResume && (
+        {!planned && checkpoint && onResume && (
           <button
             type="button"
             disabled={busy}
@@ -259,7 +337,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
             {t('milestoneProgress.chain.launchNext')}
           </button>
         )}
-        {paused && onResume && (failedSpec ? (
+        {!planned && paused && onResume && (failedSpec ? (
           // A failed spec resumes from the step that failed (its own run and
           // worktree) or runs again from the start.
           <DropdownMenu>
@@ -319,6 +397,9 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           <>
             <Pause className="h-3 w-3 shrink-0 text-accent-warning" aria-hidden />
             <span className="text-accent-warning">{t('milestoneProgress.chain.paused', { reason: reasonText })}</span>
+            {pausedSpecDelivered && (
+              <span className="truncate" data-testid="milestone-chain-paused-delivered"> · {t('milestoneProgress.chain.pausedSpecDelivered', { paused: `#${chain.plan!.pausedTicketId}` })}</span>
+            )}
           </>
         ) : checkpoint ? (
           <>
@@ -349,6 +430,11 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
+      {planned && onResume && (
+        <div className="mt-1.5 flex min-w-0" data-testid="milestone-chain-next-step">
+          <ChainOfferControls chain={chain} busy={busy} onResume={onResume} testId={checkpoint ? 'milestone-chain-launch-next' : 'milestone-chain-resume'} />
+        </div>
+      )}
       {showToggle && onSetAutoAdvance && (
         <div className="mt-1.5">
           <MilestoneAutoAdvanceToggle

@@ -267,6 +267,7 @@
       "planned": "Planeado",
       "committed": "Pronto a lançar",
       "running": "Em curso",
+      "paused": "Em pausa",
       "delivered": "Entregue — a aguardar revisão",
       "done": "Concluído"
     },
@@ -330,7 +331,46 @@
       "autoOff": "Continuação automática desligada — será perguntado antes de cada rail",
       "autoFailed": "Não foi possível atualizar a cadeia",
       "integrating": "a integrar esta spec antes de lançar a seguinte",
-      "cancelFailed": "Não foi possível cancelar a cadeia"
+      "cancelFailed": "Não foi possível cancelar a cadeia",
+      "offer": {
+        "complete": "Concluir a cadeia",
+        "next": "Continuar com a próxima spec ({{specTitle}})",
+        "launch": "Lançar {{specTitle}}",
+        "retry": "Tentar {{spec}} de novo",
+        "resume_failed_step": "Retomar {{spec}} a partir do passo que falhou",
+        "retry_from_start": "Tentar {{spec}} de novo desde o início",
+        "resume_run": "Retomar a execução de {{spec}}",
+        "follow_run": "Acompanhar a execução de {{spec}}",
+        "answer_run": "Acompanhar a execução de {{spec}} (aguarda a sua resposta)",
+        "integrate": "Integrar {{spec}} e continuar"
+      },
+      "offerHint": {
+        "complete": "Todas as specs estão entregues ou concluídas",
+        "next": "{{paused}} já foi entregue; nada é executado duas vezes",
+        "launch": "Inicia uma nova execução de {{spec}}",
+        "retry": "A última tentativa falhou; volta a executá-la numa nova execução",
+        "resume_failed_step": "Continua a mesma execução; só os passos interrompidos são repetidos",
+        "retry_from_start": "Volta a executar a spec inteira numa nova execução",
+        "resume_run": "A mesma tentativa continua a partir do próximo passo",
+        "follow_run": "Já há uma execução a trabalhar em {{spec}}; a cadeia espera por ela em vez de lançar outra",
+        "answer_run": "A execução aguarda uma resposta ou aprovação; responda a partir da execução",
+        "integrate": "Integra a entrega de {{spec}} no ramo de integração como os rails da cadeia e continua"
+      },
+      "offerShort": {
+        "complete": "Concluir",
+        "next": "Continuar com {{spec}}",
+        "launch": "Lançar {{spec}}",
+        "retry": "Tentar {{spec}} de novo",
+        "resume_failed_step": "Retomar {{spec}}",
+        "retry_from_start": "Tentar {{spec}} de novo",
+        "resume_run": "Retomar a execução de {{spec}}",
+        "follow_run": "Acompanhar {{spec}}",
+        "answer_run": "Acompanhar {{spec}}",
+        "integrate": "Integrar {{spec}}"
+      },
+      "moreOptions": "Mais opções",
+      "pausedSpecDelivered": "{{paused}} já foi entregue",
+      "nextStep": "Próximo passo: {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

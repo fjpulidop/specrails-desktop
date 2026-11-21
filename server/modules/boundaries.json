@@ -716,6 +716,7 @@
       "runtime/blueprint-router.ts",
       "runtime/blueprint-spec-quality.ts",
       "runtime/blueprint-types.ts",
+      "runtime/milestone-chain-reconcile.ts",
       "runtime/milestone-chain-store.ts",
       "runtime/milestone-chain.ts",
       "runtime/milestone-generation-settings.ts",
@@ -815,6 +816,7 @@
         "os",
         "path"
       ],
+      "runtime/milestone-chain-reconcile.ts": [],
       "runtime/milestone-chain-store.ts": [
         "../../../db",
         "./milestone-progress"
@@ -826,6 +828,7 @@
         "../../../util/log-rejection",
         "../../delivery/runtime/rail-pr-store",
         "./blueprint-types",
+        "./milestone-chain-reconcile",
         "./milestone-chain-store",
         "./milestone-progress"
       ],
@@ -846,7 +849,8 @@
         "../../loops/runtime/loop-runs-store",
         "../../specs/runtime/ticket-store",
         "./blueprint-render",
-        "./blueprint-types"
+        "./blueprint-types",
+        "./milestone-chain-reconcile"
       ],
       "runtime/mission-placeholder.ts": [
         "../../../db",

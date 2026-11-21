@@ -786,3 +786,79 @@ An existing remote PR still uses remote merge authority and blocks local merge.
 Legacy adapters without an integration port keep their old stacking behavior.
 Tests cover three real Git worktrees accumulating one project, duplicate events,
 failed integration/resume and a restart before integration settlement.
+
+## Chain reconciliation
+
+A chain no longer trusts its own bookkeeping (frozen chunks, `retry_chunk`, the
+recorded head) to decide what to do next. Before every launch, advance and
+Resume, the pure `reconcileMilestoneChain`
+([milestone-chain-reconcile.ts](../../server/modules/builder/runtime/milestone-chain-reconcile.ts))
+re-derives each spec's real state from the ticket store, every delivery
+(`rail_pr_deliveries`, active and terminal) and every run (`loop_runs` plus live
+rail jobs) that carries the spec. That includes runs and deliveries the person
+launched outside the chain, Continue forks and resumed failed steps. It returns
+the next action, the base for the next rail and the ordered offers. The chain
+manager executes the action, and the chain snapshot carries the result as
+`plan`. The chain row, the Resume menu, the paused toast and the milestone pill
+render that plan, so they always agree. Incident: in generala-dorada the person
+resumed and merged #6 by hand twice while the chain stayed paused on #6
+(`retry_chunk`), so the chain's Resume launched #6 a third time.
+
+**Spec state** (first match wins): `done` ticket → done. A running run
+(chain-owned or manual) → running. A run paused by the person, a restart, the
+budget or a provider limit → `paused` (resume in place). A run paused with no
+reason is waiting on a question or an approval → `paused/decision`. A succeeded
+active delivery (`on_review | no_changes | pr_draft | pr_ready`) → delivered. A
+`merged | completed` delivery → integrated (wins over a later failed duplicate
+attempt). A `building` delivery → running. A failed active delivery → failed,
+resumable when its newest run is engine v2 and has no fork yet. An `on_review`
+ticket without a delivery row → delivered. Anything else → pending; the
+pending spec is flagged `lastAttemptFailed` when its newest delivery or run
+failed. A spec whose only chain delivery was discarded but which has another
+valid delivery is therefore not a blocker. A manual delivery that is later
+discarded makes the spec pending again.
+
+**Scope and order**: the chain's chunks plus specs labelled `M<n>` that became
+`todo | in_progress` after launch. Specs that are cancelled, deleted or relabelled
+leave the plan. Order is `orderChainTickets` (prerequisites, then
+`execution_order`), recomputed every time. A launch rewrites `chunks` and
+renumbers `launched` (one entry per spec), so "rail k of n" stays truthful.
+
+**Next action** (the first spec not settled; integration mode counts a delivery
+under review as not yet settled):
+
+| First unsettled spec | Automatic (settle / auto-advance / restart) | Resume (primary offer) | Secondary |
+| --- | --- | --- | --- |
+| none | complete | Finish the chain | — |
+| pending | launch it | *Continue with the next spec (#k …)* when the spec the chain stopped on is already delivered, else *Launch #k* | — |
+| pending, last attempt failed | pause `chunk_failed` | Retry #k | — |
+| running (any origin) | adopt the run and its delivery, then wait | Follow the run of #k | — |
+| paused run (user / restart / budget / limit) | adopt, wait | Resume the run of #k (`POST /loop-runs/:id/resume`, same attempt) | — |
+| paused run (question / approval) | adopt, wait | Follow the run (it needs your answer) | — |
+| delivered (row) | adopt it as the chain's delivery and integrate through the guarded `merge-local` / acknowledge path, then continue (checkpoint after integration when auto-continue is off) | Integrate #k and continue | — |
+| failed, resumable | pause `chunk_failed` | Resume #k from the failed step (`from: failed_step`, newest run of the lineage, same delivery) | Retry #k from the start (`from: start`) |
+| failed, not resumable | pause `chunk_failed` | Retry #k | — |
+
+A failed spec is never retried silently, and a live or resumable run is never
+duplicated. Base: integration mode launches on the chain's integration branch.
+Legacy stacking launches on the newest delivered, unmerged branch before the
+action spec (multi-repository chains pass `baseDeliveryIds`). `head_missing`
+is raised only when that needed branch is gone. A merged and deleted previous
+branch no longer blocks Resume: the discard hook rewinds the head to `null`
+(the integration branch) when the previous spec is merged.
+
+Pause reasons stay as recorded. A paused chain never continues on its own (the
+pause is the person's), but its plan follows reality: on `rail.pr_state`,
+ticket and run messages the manager re-emits `milestone.chain_changed` when the
+plan changed. A projection emitted without a plan (the discard hook) is
+completed with a re-emit. The toast updates in place under the same id when
+the recommended step moves. `POST …/chains/:id/resume` takes `from:
+recommended` (default) | `failed_step` | `start`. A chain that is following a
+paused run accepts Resume while `running` to resume that run. The milestone
+state is `paused` while a chain owns the milestone but stopped (pause or
+checkpoint), instead of the misleading "Ready to launch". Restart safety:
+reconciliation is a pure read, adoption is a CAS on the chain row, and
+`recoverOnStartup` still replays settles exactly once. Tests:
+`milestone-chain-reconcile.test.ts` (one test per row, plus the exact generala
+shape), `milestone-chain.test.ts` ("reconciled chain"),
+`blueprint-progress-route.test.ts` and the client chain row and toast tests.

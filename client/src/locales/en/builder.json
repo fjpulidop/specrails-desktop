@@ -267,6 +267,7 @@
       "planned": "Planned",
       "committed": "Ready to launch",
       "running": "In progress",
+      "paused": "Paused",
       "delivered": "Delivered — awaiting review",
       "done": "Done"
     },
@@ -330,7 +331,46 @@
       "autoOff": "Auto-continue off — you'll be asked before each next rail",
       "autoFailed": "Could not update the chain",
       "integrating": "integrating this spec before launching the next",
-      "cancelFailed": "Couldn't cancel the chain"
+      "cancelFailed": "Couldn't cancel the chain",
+      "offer": {
+        "complete": "Finish the chain",
+        "next": "Continue with the next spec ({{specTitle}})",
+        "launch": "Launch {{specTitle}}",
+        "retry": "Retry {{spec}}",
+        "resume_failed_step": "Resume {{spec}} from the failed step",
+        "retry_from_start": "Retry {{spec}} from the start",
+        "resume_run": "Resume the run of {{spec}}",
+        "follow_run": "Follow the run of {{spec}}",
+        "answer_run": "Follow the run of {{spec}} (it needs your answer)",
+        "integrate": "Integrate {{spec}} and continue"
+      },
+      "offerHint": {
+        "complete": "Every spec is delivered or done",
+        "next": "{{paused}} is already delivered; nothing runs twice",
+        "launch": "Starts a new run of {{spec}}",
+        "retry": "Its last attempt failed; runs it again in a new run",
+        "resume_failed_step": "Continue the same run; only the interrupted steps run again",
+        "retry_from_start": "Run the whole spec again in a new run",
+        "resume_run": "The same attempt continues from its next step",
+        "follow_run": "A run is already working on {{spec}}; the chain waits for it instead of starting another",
+        "answer_run": "The run is waiting for an answer or an approval; reply from the run",
+        "integrate": "Merges the delivery of {{spec}} into the integration branch like the chain’s own rails, then continues"
+      },
+      "offerShort": {
+        "complete": "Finish",
+        "next": "Continue with {{spec}}",
+        "launch": "Launch {{spec}}",
+        "retry": "Retry {{spec}}",
+        "resume_failed_step": "Resume {{spec}}",
+        "retry_from_start": "Retry {{spec}}",
+        "resume_run": "Resume the run of {{spec}}",
+        "follow_run": "Follow {{spec}}",
+        "answer_run": "Follow {{spec}}",
+        "integrate": "Integrate {{spec}}"
+      },
+      "moreOptions": "More options",
+      "pausedSpecDelivered": "{{paused}} is already delivered",
+      "nextStep": "Next: {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

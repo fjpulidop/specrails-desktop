@@ -129,7 +129,12 @@ describe('deriveMilestoneProgress — counts and state', () => {
     expect(m1.state).toBe('running')
     expect(m1.chain).toEqual(chain)
     const paused = { ...chain, status: 'paused' as const }
-    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('committed')
+    // A chain that owns the milestone but stopped is `paused`, never "ready to launch".
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('paused')
+    const checkpoint = { ...chain, status: 'awaiting_approval' as const }
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [checkpoint] })[0].state).toBe('paused')
+    const cancelled = { ...chain, status: 'cancelled' as const }
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [cancelled] })[0].state).toBe('committed')
   })
 
   it('ignores tickets of other milestones and malformed labels', () => {

@@ -164,7 +164,9 @@ export type ChainControlResult =
 
 /** Where Resume restarts a FAILED spec: the step that failed (same run and
  *  worktree, only the interrupted steps run again) or the whole spec. */
-export type ChainResumeFrom = 'failed_step' | 'start'
+/** `recommended` (or omitted) takes the chain's reconciled next step;
+ *  `failed_step` / `start` choose between the two paths of a failed spec. */
+export type ChainResumeFrom = 'recommended' | 'failed_step' | 'start'
 
 async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch, payload?: object): Promise<ChainControlResult> {
   let res: Response

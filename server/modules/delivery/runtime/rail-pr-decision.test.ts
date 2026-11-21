@@ -4220,6 +4220,21 @@ describe('milestone chain: ancestor sweep + head discard', () => {
     expect(res.status).toBe(200)
   })
 
+  it('discarding a chain head rewinds to the integration branch when the previous spec is already merged', async () => {
+    const { deps } = mkDeps({ git: gitScript().git })
+    const first = mkRow({ decision: 'merged', ticketIds: [1], branch: 'feat/1-merged-and-deleted' })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 1 WHERE id = ?').run(first.id)
+    const second = mkRow({ decision: 'on_review', ticketIds: [2], branch: BATCH })
+    createChain(db, { id: 'chain-3', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: [[1], [2]], integrationBranch: 'main' })
+    updateChain(db, 'chain-3', 'running', { status: 'paused', pauseReason: 'chunk_failed', headBranch: BATCH, nextChunk: 2, launched: [
+      { chunk: 1, railIndex: 1, ticketIds: [1], runIds: [], deliveryId: first.id },
+      { chunk: 2, railIndex: 0, ticketIds: [2], runIds: [], deliveryId: second.id },
+    ] })
+    const res = await executePrDecision(deps, { prDeliveryId: second.id, action: 'discard', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    expect(getChain(db, 'chain-3')!).toMatchObject({ status: 'paused', pause_reason: 'head_discarded', head_branch: null })
+  })
+
   it('discarding a chain head pauses the chain head_discarded and broadcasts the chain', async () => {
     const { deps, broadcast } = mkDeps({ git: gitScript().git })
     const first = mkRow({ decision: 'on_review', ticketIds: [1], branch: 'feat/1-t1' })

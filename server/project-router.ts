@@ -354,7 +354,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
     try {
       const from = (req.body as { from?: unknown } | undefined)?.from
-      if (from !== undefined && from !== 'failed_step' && from !== 'start') { res.status(400).json({ error: 'invalid_resume_from' }); return }
+      if (from !== undefined && from !== 'failed_step' && from !== 'start' && from !== 'recommended') { res.status(400).json({ error: 'invalid_resume_from' }); return }
       const result = await chains.resume(String(req.params.id), from ? { from } : {})
       res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
     } catch (err) {

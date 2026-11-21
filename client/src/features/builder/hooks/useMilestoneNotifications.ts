@@ -7,8 +7,11 @@ import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { formatMilestoneToast, type MilestoneToastEvent, type FormatMilestoneToastInput } from '../lib/milestone-toast'
 import { resumeChain, setChainAutoAdvance } from '../lib/milestone-launch'
 import {
+  chainOfferKey,
+  chainOfferParams,
   chainPauseReason,
   coerceChain,
+  primaryChainOffer,
   coerceMilestoneProgress,
   milestoneLabelFor,
   reviewableDelivery,
@@ -118,18 +121,26 @@ export function useMilestoneNotifications({ setActiveProjectId, projectsById }: 
             },
           })
         }
-        if (chain.status === 'paused' && (!prev || prev.status !== 'paused' || prev.pauseReason !== chain.pauseReason)) {
+        // The paused toast offers the chain's reconciled next step ("Continue
+        // with #7", "Retry #6"…), and updates in place when that step moves
+        // (e.g. the plan arrives just after a pause emitted without it).
+        const offer = primaryChainOffer(chain)
+        const offerMoved = chainOfferKey(offer) !== chainOfferKey(primaryChainOffer(prev ?? null))
+        if (chain.status === 'paused' && (!prev || prev.status !== 'paused' || prev.pauseReason !== chain.pauseReason || offerMoved)) {
+          const toastId = `chain-paused:${chain.id}`
           const content = format('paused', chain.milestoneN, chain, { pauseReason: localizeChainPauseReason(chain.pauseReason) })
+          const params = offer ? chainOfferParams(offer, chain.plan) : {}
+          const nextStep = offer ? i18n.t('builder:milestoneProgress.chain.nextStep', { step: i18n.t(`builder:milestoneProgress.chain.offer.${offer.kind}`, params) }) : null
           toast.warning(content.title, {
-            description: content.description,
-            id: `chain-paused:${chain.id}`,
+            description: [content.description, nextStep].filter(Boolean).join(' · '),
+            id: toastId,
             duration: 30_000,
             action: {
-              label: i18n.t('builder:milestoneProgress.toast.resume'),
+              label: offer ? i18n.t(`builder:milestoneProgress.chain.offerShort.${offer.kind}`, params) : i18n.t('builder:milestoneProgress.toast.resume'),
               onClick: () => {
-                void resumeChain(projectId, chain.id).then((r) => {
-                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.resumed'), answered(`chain-paused:${chain.id}`))
-                  else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: `chain-paused:${chain.id}`, detail: r.detail ?? r.error })
+                void (offer ? resumeChain(projectId, chain.id, fetch, offer.from) : resumeChain(projectId, chain.id)).then((r) => {
+                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.resumed'), answered(toastId))
+                  else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: toastId, detail: r.detail ?? r.error })
                 })
               },
             },

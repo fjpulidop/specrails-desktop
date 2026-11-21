@@ -267,6 +267,7 @@
       "planned": "計画済み",
       "committed": "起動可能",
       "running": "進行中",
+      "paused": "一時停止",
       "delivered": "納品済み — レビュー待ち",
       "done": "完了"
     },
@@ -330,7 +331,46 @@
       "autoOff": "自動続行オフ — 各レールの前に確認します",
       "autoFailed": "チェーンを更新できませんでした",
       "integrating": "次を起動する前にこのスペックを統合中",
-      "cancelFailed": "チェーンをキャンセルできませんでした"
+      "cancelFailed": "チェーンをキャンセルできませんでした",
+      "offer": {
+        "complete": "チェーンを完了する",
+        "next": "次のスペックに進む（{{specTitle}}）",
+        "launch": "{{specTitle}} を開始",
+        "retry": "{{spec}} を再試行",
+        "resume_failed_step": "{{spec}} を失敗したステップから再開",
+        "retry_from_start": "{{spec}} を最初から再試行",
+        "resume_run": "{{spec}} の実行を再開",
+        "follow_run": "{{spec}} の実行を追う",
+        "answer_run": "{{spec}} の実行を追う（あなたの回答待ち）",
+        "integrate": "{{spec}} を統合して続行"
+      },
+      "offerHint": {
+        "complete": "すべてのスペックが納品済みまたは完了です",
+        "next": "{{paused}} はすでに納品済みです。二重に実行されることはありません",
+        "launch": "{{spec}} の新しい実行を開始します",
+        "retry": "前回の試行は失敗しました。新しい実行でもう一度実行します",
+        "resume_failed_step": "同じ実行を続行し、中断されたステップだけを再実行します",
+        "retry_from_start": "スペック全体を新しい実行で再実行します",
+        "resume_run": "同じ試行が次のステップから続行します",
+        "follow_run": "{{spec}} ではすでに実行が進行中です。チェーンは別の実行を始めずにそれを待ちます",
+        "answer_run": "実行が回答または承認を待っています。実行画面から応答してください",
+        "integrate": "{{spec}} の納品をチェーン自身のレールと同様に統合ブランチへマージしてから続行します"
+      },
+      "offerShort": {
+        "complete": "完了",
+        "next": "{{spec}} に進む",
+        "launch": "{{spec}} を開始",
+        "retry": "{{spec}} を再試行",
+        "resume_failed_step": "{{spec}} を再開",
+        "retry_from_start": "{{spec}} を再試行",
+        "resume_run": "{{spec}} の実行を再開",
+        "follow_run": "{{spec}} を追う",
+        "answer_run": "{{spec}} を追う",
+        "integrate": "{{spec}} を統合"
+      },
+      "moreOptions": "その他のオプション",
+      "pausedSpecDelivered": "{{paused}} はすでに納品済みです",
+      "nextStep": "次: {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

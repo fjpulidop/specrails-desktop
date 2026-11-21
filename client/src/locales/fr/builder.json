@@ -267,6 +267,7 @@
       "planned": "Planifié",
       "committed": "Prêt à lancer",
       "running": "En cours",
+      "paused": "En pause",
       "delivered": "Livré — en attente de revue",
       "done": "Terminé"
     },
@@ -330,7 +331,46 @@
       "autoOff": "Continuation automatique désactivée — on vous demandera avant chaque rail",
       "autoFailed": "Impossible de mettre à jour la chaîne",
       "integrating": "intégration de cette spec avant de lancer la suivante",
-      "cancelFailed": "Impossible d'annuler la chaîne"
+      "cancelFailed": "Impossible d'annuler la chaîne",
+      "offer": {
+        "complete": "Terminer la chaîne",
+        "next": "Continuer avec la spec suivante ({{specTitle}})",
+        "launch": "Lancer {{specTitle}}",
+        "retry": "Réessayer {{spec}}",
+        "resume_failed_step": "Reprendre {{spec}} à l’étape qui a échoué",
+        "retry_from_start": "Réessayer {{spec}} depuis le début",
+        "resume_run": "Reprendre l’exécution de {{spec}}",
+        "follow_run": "Suivre l’exécution de {{spec}}",
+        "answer_run": "Suivre l’exécution de {{spec}} (elle attend ta réponse)",
+        "integrate": "Intégrer {{spec}} et continuer"
+      },
+      "offerHint": {
+        "complete": "Chaque spec est livrée ou terminée",
+        "next": "{{paused}} est déjà livrée ; rien ne s’exécute deux fois",
+        "launch": "Démarre une nouvelle exécution de {{spec}}",
+        "retry": "Sa dernière tentative a échoué ; elle repart dans une nouvelle exécution",
+        "resume_failed_step": "Poursuit la même exécution ; seules les étapes interrompues sont rejouées",
+        "retry_from_start": "Réexécute toute la spec dans une nouvelle exécution",
+        "resume_run": "La même tentative continue à partir de son étape suivante",
+        "follow_run": "Une exécution travaille déjà sur {{spec}} ; la chaîne l’attend au lieu d’en lancer une autre",
+        "answer_run": "L’exécution attend une réponse ou une approbation ; réponds depuis l’exécution",
+        "integrate": "Fusionne la livraison de {{spec}} dans la branche d’intégration comme les rails de la chaîne, puis continue"
+      },
+      "offerShort": {
+        "complete": "Terminer",
+        "next": "Continuer avec {{spec}}",
+        "launch": "Lancer {{spec}}",
+        "retry": "Réessayer {{spec}}",
+        "resume_failed_step": "Reprendre {{spec}}",
+        "retry_from_start": "Réessayer {{spec}}",
+        "resume_run": "Reprendre l’exécution de {{spec}}",
+        "follow_run": "Suivre {{spec}}",
+        "answer_run": "Suivre {{spec}}",
+        "integrate": "Intégrer {{spec}}"
+      },
+      "moreOptions": "Plus d’options",
+      "pausedSpecDelivered": "{{paused}} est déjà livrée",
+      "nextStep": "Étape suivante : {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

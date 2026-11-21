@@ -14,9 +14,10 @@ import { internalApiError, type InternalApi } from './internal-api'
 import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
 import { MilestoneProgressBroadcaster, markMilestoneDone, readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
-import { getActivePrDeliveryByRail, getPrDelivery, toPrDeliverySnapshot } from './modules/delivery/runtime/rail-pr-store'
+import { getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, listTerminalPrDeliveries, toPrDeliverySnapshot } from './modules/delivery/runtime/rail-pr-store'
 import { getRails } from './modules/delivery/runtime/rails-store'
-import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { getLoopRun, type LoopRunRow } from './modules/loops/runtime/loop-runs-store'
+import type { ReconcileRun } from './modules/builder/runtime/milestone-chain-reconcile'
 import { readStore } from './modules/specs/runtime/ticket-store'
 import type { ProjectContext } from './project-registry'
 import type { WsMessage } from './types'
@@ -94,7 +95,7 @@ export function createProjectMilestoneChains(deps: {
     },
     readTickets: () => {
       try {
-        return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [], prerequisites: Array.isArray(t.prerequisites) ? t.prerequisites : [], executionOrder: t.execution_order ?? null }))
+        return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [], title: t.title ?? null, prerequisites: Array.isArray(t.prerequisites) ? t.prerequisites : [], executionOrder: t.execution_order ?? null }))
       } catch { return [] }
     },
     readBlueprint: () => { const ws = blueprintWorkspace(); return ws ? readBlueprint(ws) : null },
@@ -118,6 +119,19 @@ export function createProjectMilestoneChains(deps: {
       const r = await internalApi.call('POST', `${runPath}/resume`, recover.length ? { recover } : {})
       return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
     },
+    resumeRun: async (runId) => {
+      // The run's own resume route (user / restart / budget / limit pauses):
+      // the same attempt continues from its next step, every guard applies.
+      const r = await internalApi.call('POST', `/projects/${project.id}/loop-runs/${encodeURIComponent(runId)}/resume`, {})
+      return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
+    },
+    listDeliveriesForTickets: (ticketIds) => {
+      const wanted = new Set(ticketIds)
+      return [...listActivePrDeliveries(db), ...listTerminalPrDeliveries(db)]
+        .map(toPrDeliverySnapshot)
+        .filter((d) => d.ticketIds.some((id) => wanted.has(id)))
+    },
+    listRunsForTickets: (ticketIds) => listChainRuns(db, project.id, ticketIds, railJobs),
     runState: (runId) => {
       const run = getLoopRun(db, runId)
       if (!run) return null
@@ -153,4 +167,42 @@ export function createProjectMilestoneProgress(deps: {
     persistDone: (milestoneId) => markMilestoneDone(blueprintWorkspace(), milestoneId) !== null,
     broadcast: boundBroadcast,
   })
+}
+
+/** Recent runs carrying one of these specs (any origin: the chain's, the
+ *  person's, forks), plus live rail jobs without a loop-run row. */
+export function listChainRuns(
+  db: DbInstance,
+  projectId: string,
+  ticketIds: number[],
+  railJobs?: Map<string, { railIndex: number; ticketIds: number[] }>,
+): ReconcileRun[] {
+  if (ticketIds.length === 0) return []
+  const wanted = new Set(ticketIds)
+  const placeholders = ticketIds.map(() => '?').join(', ')
+  const rows = db.prepare(`
+    SELECT loop_runs.*,
+           EXISTS (SELECT 1 FROM definition_fork_operations AS fork WHERE fork.source_run_id = loop_runs.id AND fork.adopted = 1) AS fork_adopted
+      FROM loop_runs
+     WHERE project_id = ?
+       AND (ticket_id IN (${placeholders})
+            OR EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(ticket_ids_json) THEN ticket_ids_json ELSE '[]' END) WHERE json_each.value IN (${placeholders})))
+     ORDER BY started_at DESC
+     LIMIT 200`).all(projectId, ...ticketIds, ...ticketIds) as Array<LoopRunRow & { fork_adopted: number }>
+  const runs: ReconcileRun[] = rows.map((run) => {
+    let ids: number[] = []
+    try { const parsed = JSON.parse(run.ticket_ids_json ?? '[]'); if (Array.isArray(parsed)) ids = parsed.filter((v): v is number => typeof v === 'number') } catch { ids = [] }
+    if (ids.length === 0 && run.ticket_id != null) ids = [run.ticket_id]
+    return {
+      // A run whose Continue fork was adopted no longer owns the execution.
+      id: run.id, ticketIds: ids, railIndex: run.rail_index ?? null, status: run.fork_adopted ? 'superseded' : run.status, outcome: run.final_outcome ?? null,
+      pauseReason: run.restart_reason ?? null, forkOf: run.fork_of ?? null, engineVersion: run.engine_version ?? null, startedAt: run.started_at ?? null,
+    }
+  })
+  const seen = new Set(runs.map((r) => r.id))
+  for (const [jobId, meta] of railJobs?.entries() ?? []) {
+    if (seen.has(jobId) || !meta.ticketIds.some((id) => wanted.has(id))) continue
+    runs.push({ id: jobId, ticketIds: meta.ticketIds, railIndex: meta.railIndex, status: 'running', outcome: null, pauseReason: null, forkOf: null, engineVersion: null, startedAt: null })
+  }
+  return runs
 }

@@ -97,6 +97,29 @@ describe('useMilestoneNotifications', () => {
     expect(toastWarning).toHaveBeenCalledTimes(2)
   })
 
+  it('a paused chain offers its reconciled next step and updates in place when the plan arrives', async () => {
+    resumeChain.mockResolvedValue({ ok: true, chain: null })
+    renderHook(() => useMilestoneNotifications(), { wrapper })
+    // The discard hook pauses the chain without a plan: a plain Resume first…
+    send({ type: 'milestone.chain_changed', projectId: 'p1', chain: chain({ status: 'paused', pauseReason: 'head_discarded' }) })
+    expect(toastWarning).toHaveBeenCalledTimes(1)
+    expect((toastWarning.mock.calls[0][1] as { action: { label: string } }).action.label).toBe('Resume')
+    // …then the manager re-emits with the plan: the same toast now names the step.
+    const plan = { offers: [{ kind: 'next', from: 'recommended', ticketId: 7, title: 'Animate the tabletop', runId: null, nextTicketId: null }], specs: [], settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: true }
+    send({ type: 'milestone.chain_changed', projectId: 'p1', chain: chain({ status: 'paused', pauseReason: 'head_discarded', plan }) })
+    expect(toastWarning).toHaveBeenCalledTimes(2)
+    const [title, opts] = toastWarning.mock.calls[1] as [string, { id: string; description: string; action: { label: string; onClick: () => void } }]
+    expect(title).toBe('M1 — paused — the delivery the next rail builds on was discarded')
+    expect(opts.id).toBe('chain-paused:c1')
+    expect(opts.description).toBe('Paused · 38m total · Next: Continue with the next spec (#7 Animate the tabletop)')
+    expect(opts.action.label).toBe('Continue with #7')
+    await act(async () => { opts.action.onClick() })
+    expect(resumeChain).toHaveBeenCalledWith('p1', 'c1', expect.any(Function), 'recommended')
+    // The same plan again is inert.
+    send({ type: 'milestone.chain_changed', projectId: 'p1', chain: chain({ status: 'paused', pauseReason: 'head_discarded', plan }) })
+    expect(toastWarning).toHaveBeenCalledTimes(2)
+  })
+
   it('[spec:milestone-launch-chain/notification-lifecycle-and-actions-remain-stable] a wave checkpoint toasts once per rail with Launch next (resume) and Auto-continue (PATCH) actions', async () => {
     resumeChain.mockResolvedValue({ ok: true, chain: null })
     setChainAutoAdvance.mockResolvedValue({ ok: true, chain: null })

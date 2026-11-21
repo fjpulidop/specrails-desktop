@@ -267,6 +267,7 @@
       "planned": "Pianificato",
       "committed": "Pronto al lancio",
       "running": "In corso",
+      "paused": "In pausa",
       "delivered": "Consegnato — in attesa di revisione",
       "done": "Fatto"
     },
@@ -330,7 +331,46 @@
       "autoOff": "Continuazione automatica disattivata — ti verrà chiesto prima di ogni rail",
       "autoFailed": "Impossibile aggiornare la catena",
       "integrating": "integrazione di questa spec prima di avviare la successiva",
-      "cancelFailed": "Impossibile annullare la catena"
+      "cancelFailed": "Impossibile annullare la catena",
+      "offer": {
+        "complete": "Completa la catena",
+        "next": "Continua con la spec successiva ({{specTitle}})",
+        "launch": "Avvia {{specTitle}}",
+        "retry": "Riprova {{spec}}",
+        "resume_failed_step": "Riprendi {{spec}} dal passo fallito",
+        "retry_from_start": "Riprova {{spec}} dall’inizio",
+        "resume_run": "Riprendi l’esecuzione di {{spec}}",
+        "follow_run": "Segui l’esecuzione di {{spec}}",
+        "answer_run": "Segui l’esecuzione di {{spec}} (attende la tua risposta)",
+        "integrate": "Integra {{spec}} e continua"
+      },
+      "offerHint": {
+        "complete": "Ogni spec è consegnata o completata",
+        "next": "{{paused}} è già consegnata; nulla viene eseguito due volte",
+        "launch": "Avvia una nuova esecuzione di {{spec}}",
+        "retry": "L’ultimo tentativo è fallito; la riesegue in una nuova esecuzione",
+        "resume_failed_step": "Continua la stessa esecuzione; si ripetono solo i passi interrotti",
+        "retry_from_start": "Riesegue l’intera spec in una nuova esecuzione",
+        "resume_run": "Lo stesso tentativo prosegue dal passo successivo",
+        "follow_run": "Un’esecuzione sta già lavorando su {{spec}}; la catena la attende invece di avviarne un’altra",
+        "answer_run": "L’esecuzione attende una risposta o un’approvazione; rispondi dall’esecuzione",
+        "integrate": "Unisce la consegna di {{spec}} nel ramo di integrazione come i rail della catena, poi continua"
+      },
+      "offerShort": {
+        "complete": "Completa",
+        "next": "Continua con {{spec}}",
+        "launch": "Avvia {{spec}}",
+        "retry": "Riprova {{spec}}",
+        "resume_failed_step": "Riprendi {{spec}}",
+        "retry_from_start": "Riprova {{spec}}",
+        "resume_run": "Riprendi l’esecuzione di {{spec}}",
+        "follow_run": "Segui {{spec}}",
+        "answer_run": "Segui {{spec}}",
+        "integrate": "Integra {{spec}}"
+      },
+      "moreOptions": "Altre opzioni",
+      "pausedSpecDelivered": "{{paused}} è già consegnata",
+      "nextStep": "Prossimo passo: {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",
