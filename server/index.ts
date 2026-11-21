@@ -45,6 +45,7 @@ import { shouldDeliverToSubscriber, parseSubscribeFrame } from './ws-routing'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
 import { cleanupStaleShimDirs } from './terminal-shell-integration'
 import { isBrowserCaptureEnabled } from './feature-flags'
+import { startEventJournal } from './modules/events-journal'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
@@ -684,6 +685,9 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
     // offline. New background launches report the persistence error directly.
     console.error('[background-process] persistent history unavailable:', error)
   }
+  // MCP v2 event journal: records state transitions from the broadcast bus so
+  // `specrails_wait` can block instead of polling (server/modules/events-journal).
+  startEventJournal(registry.desktopDb, getMobileEventBus())
   // Projects load in the background (most recently used first) so the server
   // listens at once; a project that is asked for before its turn loads on demand.
   const warmupStarted = Date.now()

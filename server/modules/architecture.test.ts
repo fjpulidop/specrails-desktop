@@ -11,6 +11,11 @@ const coreDependencies: Record<string, string[]> = {
   'subscription-usage/domain.ts': [],
   'subscription-usage/ports.ts': ['./domain'],
   'subscription-usage/application.ts': ['./domain'],
+  // Event journal (MCP v2 wait): classification and waiters stay free of SQLite.
+  'events-journal/domain.ts': [],
+  'events-journal/ports.ts': ['./domain'],
+  'events-journal/application.ts': ['./domain', './ports'],
+  'events-journal/index.ts': ['./application', './domain', './ports', './runtime'],
   // Provider quota and launch preflight: pure rules, no infrastructure.
   'provider-quota/domain.ts': [],
   'provider-quota/ports.ts': ['./domain'],

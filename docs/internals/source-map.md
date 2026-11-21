@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1905 source/build files. Nearby tests are linked where names
+Includes 1911 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1735,7 +1735,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [settings.ts](../../server/mcp/v2/tools/settings.ts)
 - [specs.ts](../../server/mcp/v2/tools/specs.ts)
 - [system.ts](../../server/mcp/v2/tools/system.ts)
-- [wait.ts](../../server/mcp/v2/tools/wait.ts)
+- [wait.ts](../../server/mcp/v2/tools/wait.ts) · [test](../../server/mcp/v2/tools/wait.test.ts)
 
 ## server/mobile
 
@@ -2140,6 +2140,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [event-loop-probe.ts](../../server/modules/diagnostics/runtime/event-loop-probe.ts) · [test](../../server/modules/diagnostics/runtime/event-loop-probe.test.ts)
 - [log-ring.ts](../../server/modules/diagnostics/runtime/log-ring.ts) · [test](../../server/modules/diagnostics/runtime/log-ring.test.ts)
+
+## server/modules/events-journal
+
+- [application.ts](../../server/modules/events-journal/application.ts)
+- [domain.ts](../../server/modules/events-journal/domain.ts) · [test](../../server/modules/events-journal/__tests__/domain.test.ts)
+- [index.ts](../../server/modules/events-journal/index.ts)
+- [ports.ts](../../server/modules/events-journal/ports.ts)
+- [runtime.ts](../../server/modules/events-journal/runtime.ts)
+
+## server/modules/events-journal/adapters
+
+- [sqlite.ts](../../server/modules/events-journal/adapters/sqlite.ts)
 
 ## server/modules/execution
 

@@ -2388,6 +2388,38 @@
       "runtime/log-ring.ts": []
     }
   },
+  "events-journal": {
+    "publicEntries": [
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports",
+        "crypto"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports",
+        "./runtime"
+      ],
+      "ports.ts": [
+        "./domain"
+      ],
+      "runtime.ts": [
+        "../../db/types",
+        "./adapters/sqlite",
+        "./application"
+      ]
+    }
+  },
   "execution": {
     "publicEntries": [
       "adapters/budget-storage.ts",
