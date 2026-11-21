@@ -45,6 +45,10 @@
       "rejectedUntil": "{{provider}} limit reached — resets {{time}}",
       "unknown": "{{provider}} usage unknown"
     },
+    "headless": {
+      "ok": "{{framework}} windows stay hidden during runs",
+      "warn": "{{framework}} windows may appear during runs — make its launcher and tests honour SPECRAILS_HEADLESS"
+    },
     "blocking": "Fix the failed check before launching.",
     "quotaWarning_one": "{{provider}} has used {{percent}}% of its {{window}} limit. Launching {{count}} rail may pause it at the limit; it then resumes on its own after the reset.",
     "quotaWarning_other": "{{provider}} has used {{percent}}% of its {{window}} limit. Launching {{count}} rails may pause them at the limit; they then resume on their own after the reset.",

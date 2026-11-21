@@ -186,6 +186,7 @@
         "../../../core-node-runtime",
         "../../../util/core-child-process",
         "../../../util/desktop-core-env",
+        "../../../util/headless-env",
         "../../../util/win-spawn",
         "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
@@ -2509,6 +2510,7 @@
         "../../../providers/telemetry-env",
         "../../../repo-map",
         "../../../types",
+        "../../../util/headless-env",
         "../../../workspace-resolution"
       ],
       "runtime/job-spawn-idempotency.ts": [
@@ -2772,7 +2774,13 @@
         "../../../provider-detection",
         "../../../providers",
         "../../../util/bounded-exec",
+        "./desktop-gui-probe",
         "./preflight"
+      ],
+      "runtime/desktop-gui-probe.ts": [
+        "../domain",
+        "node:fs",
+        "node:path"
       ],
       "runtime/preflight.ts": [
         "../domain",

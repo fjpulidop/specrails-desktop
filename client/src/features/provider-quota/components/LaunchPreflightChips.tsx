@@ -10,6 +10,8 @@ import { formatResetTime } from '../lib/format-reset'
 import { providerLabel } from '../lib/labels'
 import type { PreflightChip, PreflightReport } from '../lib/launch-preflight'
 
+const GUI_LABELS: Record<string, string> = { electron: 'Electron', tauri: 'Tauri', nwjs: 'NW.js', neutralino: 'Neutralino', wails: 'Wails' }
+
 function formatBytes(bytes: number | null, language: string): string {
   if (bytes === null) return '—'
   const gib = bytes / 1024 ** 3
@@ -21,6 +23,7 @@ export function chipText(chip: PreflightChip, t: (key: string, options?: Record<
     case 'disk': return t(`preflight.disk.${chip.state}`, { free: formatBytes(chip.freeBytes, language) })
     case 'provider': return t(`preflight.provider.${chip.status}`, { provider: providerLabel(chip.providerId) })
     case 'github': return t(`preflight.github.${chip.status}`)
+    case 'headless': return t(`preflight.headless.${chip.state === 'warn' ? 'warn' : 'ok'}`, { framework: GUI_LABELS[chip.framework] ?? chip.framework })
     case 'quota': {
       const provider = providerLabel(chip.providerId)
       if (chip.level === 'rejected') return chip.rejectedUntil ? t('preflight.quota.rejectedUntil', { provider, time: formatResetTime(chip.rejectedUntil, language) }) : t('preflight.quota.rejected', { provider })

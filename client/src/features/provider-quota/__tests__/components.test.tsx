@@ -54,6 +54,18 @@ describe('LaunchAllDialog preflight', () => {
     expect(String(fetchMock.mock.calls.find(([url]) => String(url).includes('launch-preflight'))?.[0])).toContain('providers=%2Cclaude')
   })
 
+  it('tells whether a desktop app\'s windows stay hidden during runs, without blocking', async () => {
+    preflight = { blocking: false, checkedAt: 't', chips: [
+      { id: 'disk', kind: 'disk', state: 'ok', freeBytes: 50 * 1024 ** 3 },
+      { id: 'headless', kind: 'headless', state: 'warn', framework: 'tauri', honoured: false },
+    ] }
+    render(withWs(<LaunchAllDialog open railCount={1} specCount={1} onConfirm={() => {}} onCancel={() => {}} projectId="p1" providers={['']} />))
+    const chips = await screen.findByTestId('launch-preflight')
+    await waitFor(() => expect(within(chips).getByTestId('preflight-chip-headless')).toHaveAttribute('data-state', 'warn'))
+    expect(within(chips).getByTestId('preflight-chip-headless')).toHaveTextContent('Tauri windows may appear during runs — make its launcher and tests honour SPECRAILS_HEADLESS')
+    expect(screen.queryByTestId('launch-preflight-blocking')).not.toBeInTheDocument()
+  })
+
   it('warns about a refused provider with its reset and lets the launch go ahead', async () => {
     preflight = { blocking: false, checkedAt: 't', chips: [
       { id: 'disk', kind: 'disk', state: 'ok', freeBytes: 50 * 1024 ** 3 },

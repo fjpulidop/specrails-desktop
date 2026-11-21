@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { DISK_FAIL_BYTES, DISK_WARN_BYTES, diskChip, githubChip, providerChip, quotaChip, signInFromExit } from '../domain'
+import { DISK_FAIL_BYTES, DISK_WARN_BYTES, desktopGuiFramework, diskChip, githubChip, headlessChip, providerChip, quotaChip, signInFromExit } from '../domain'
+import { probeDesktopGui } from '../runtime/desktop-gui-probe'
 import { createLaunchPreflight, PROBE_TIMEOUT_MS, SIGN_IN_TTL_MS, statfsFreeBytes, type PreflightDeps } from '../runtime/preflight'
 
 describe('launch preflight chips', () => {
@@ -75,5 +76,46 @@ describe('launch preflight probes', () => {
     try {
       expect(await statfsFreeBytes(path.join(root, 'missing', 'worktrees'))).toBeGreaterThan(0)
     } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+})
+
+describe('headless desktop apps', () => {
+  it('detects the desktop GUI toolkit from dependencies and marker files', () => {
+    expect(desktopGuiFramework({ dependencies: ['react', 'electron'], files: [] })).toBe('electron')
+    expect(desktopGuiFramework({ dependencies: [], files: ['src-tauri/tauri.conf.json'] })).toBe('tauri')
+    expect(desktopGuiFramework({ dependencies: ['@tauri-apps/api'], files: [] })).toBe('tauri')
+    expect(desktopGuiFramework({ dependencies: [], files: ['wails.json'] })).toBe('wails')
+    expect(desktopGuiFramework({ dependencies: ['react', 'vite'], files: [] })).toBeNull()
+  })
+
+  it('is fine for Electron (Specrails hides it) and warns for other toolkits until they honour SPECRAILS_HEADLESS', () => {
+    expect(headlessChip('electron', false).state).toBe('ok')
+    expect(headlessChip('tauri', false).state).toBe('warn')
+    expect(headlessChip('tauri', true).state).toBe('ok')
+  })
+
+  it('adds the chip only for a desktop GUI project and never blocks on it', async () => {
+    const gui = createLaunchPreflight(deps({ desktopGui: async () => ({ framework: 'tauri', honoured: false }) }))
+    const report = await gui.run({ worktreesDir: '/x', providers: [], github: false, projectDir: '/repo' })
+    expect(report.chips.map((chip) => [chip.id, chip.state])).toEqual([['disk', 'ok'], ['headless', 'warn']])
+    expect(report.blocking).toBe(false)
+    const plain = createLaunchPreflight(deps({ desktopGui: async () => null }))
+    expect((await plain.run({ worktreesDir: '/x', providers: [], github: false, projectDir: '/repo' })).chips.map((chip) => chip.id)).toEqual(['disk'])
+  })
+
+  it('reads the repository without writing to it', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'gui-probe-'))
+    try {
+      writeFileSync(path.join(root, 'package.json'), JSON.stringify({ devDependencies: { electron: '^42.0.0' } }))
+      mkdirSync(path.join(root, 'node_modules', 'x'), { recursive: true })
+      writeFileSync(path.join(root, 'node_modules', 'x', 'index.js'), 'process.env.SPECRAILS_HEADLESS')
+      expect(await probeDesktopGui(root)).toEqual({ framework: 'electron', honoured: false })
+      mkdirSync(path.join(root, 'src', 'main'), { recursive: true })
+      writeFileSync(path.join(root, 'src', 'main', 'main.ts'), "const headless = process.env.SPECRAILS_HEADLESS === '1'")
+      expect(await probeDesktopGui(root)).toEqual({ framework: 'electron', honoured: true })
+      expect(await probeDesktopGui(path.join(root, 'src'))).toBeNull()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

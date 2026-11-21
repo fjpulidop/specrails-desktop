@@ -45,6 +45,10 @@
       "rejectedUntil": "{{provider}} am Limit – Reset {{time}}",
       "unknown": "{{provider}}-Nutzung unbekannt"
     },
+    "headless": {
+      "ok": "{{framework}}-Fenster bleiben während der Läufe verborgen",
+      "warn": "{{framework}}-Fenster können während der Läufe erscheinen — Starter und Tests sollten SPECRAILS_HEADLESS beachten"
+    },
     "blocking": "Behebe die fehlgeschlagene Prüfung vor dem Start.",
     "quotaWarning_one": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rail kann am Limit pausieren; er setzt nach dem Reset von selbst fort.",
     "quotaWarning_other": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rails können am Limit pausieren; sie setzen nach dem Reset von selbst fort.",

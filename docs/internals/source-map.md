@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1844 source/build files. Nearby tests are linked where names
+Includes 1846 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -2164,6 +2164,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/launch-preflight/runtime
 
 - [composition.ts](../../server/modules/launch-preflight/runtime/composition.ts)
+- [desktop-gui-probe.ts](../../server/modules/launch-preflight/runtime/desktop-gui-probe.ts)
 - [preflight.ts](../../server/modules/launch-preflight/runtime/preflight.ts)
 
 ## server/modules/live-board
@@ -2500,6 +2501,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [distribute-int.ts](../../server/util/distribute-int.ts)
 - [git-index-lock.ts](../../server/util/git-index-lock.ts) · [test](../../server/util/git-index-lock.test.ts)
 - [git-invocation.ts](../../server/util/git-invocation.ts) · [test](../../server/util/git-invocation.test.ts)
+- [headless-env.ts](../../server/util/headless-env.ts) · [test](../../server/util/headless-env.test.ts)
 - [local-day.ts](../../server/util/local-day.ts)
 - [log-rejection.ts](../../server/util/log-rejection.ts)
 - [page-cursor.ts](../../server/util/page-cursor.ts) · [test](../../server/util/page-cursor.test.ts)

@@ -18,6 +18,7 @@ export type PreflightChip =
   | { id: string; kind: 'provider'; state: ChipState; providerId: string; status: SignInStatus }
   | { id: 'github'; kind: 'github'; state: ChipState; status: SignInStatus }
   | { id: string; kind: 'quota'; state: ChipState; providerId: string; level: string; usedPercent: number | null; rejectedUntil: string | null }
+  | { id: 'headless'; kind: 'headless'; state: ChipState; framework: DesktopGuiFramework; honoured: boolean }
 
 export interface PreflightReport {
   chips: PreflightChip[]
@@ -46,6 +47,37 @@ export function githubChip(status: SignInStatus): PreflightChip {
 export function quotaChip(view: { providerId: string; level: string; usedPercent: number | null; rejectedUntil: string | null }): PreflightChip {
   const state: ChipState = view.level === 'rejected' || view.level === 'critical' || view.level === 'warning' ? 'warn' : view.level === 'ok' ? 'ok' : 'unknown'
   return { id: `quota:${view.providerId}`, kind: 'quota', state, providerId: view.providerId, level: view.level, usedPercent: view.usedPercent, rejectedUntil: view.rejectedUntil }
+}
+
+// ─── Headless desktop apps ───────────────────────────────────────────────────
+
+/** Desktop GUI toolkits whose windows a run's launches and UI tests can open. */
+export type DesktopGuiFramework = 'electron' | 'tauri' | 'nwjs' | 'neutralino' | 'wails'
+
+/** The project's desktop GUI toolkit from its root manifest dependencies and marker files, or null. */
+export function desktopGuiFramework(input: { dependencies: readonly string[]; files: readonly string[] }): DesktopGuiFramework | null {
+  const deps = new Set(input.dependencies)
+  const files = new Set(input.files)
+  if (deps.has('electron')) return 'electron'
+  if (deps.has('@tauri-apps/cli') || deps.has('@tauri-apps/api') || files.has('src-tauri/tauri.conf.json')) return 'tauri'
+  if (deps.has('nw')) return 'nwjs'
+  if (deps.has('@neutralinojs/neu') || files.has('neutralino.config.json')) return 'neutralino'
+  if (files.has('wails.json')) return 'wails'
+  return null
+}
+
+/** Marker files {@link desktopGuiFramework} reads (repository-relative). */
+export const DESKTOP_GUI_MARKER_FILES = ['src-tauri/tauri.conf.json', 'neutralino.config.json', 'wails.json'] as const
+
+/**
+ * Runs set `SPECRAILS_HEADLESS=1` and keep Electron windows hidden and
+ * unfocused themselves (Core's Electron guard): an Electron project is fine
+ * either way. Other toolkits stay hidden only when the project's launcher and
+ * tests honour the variable, so they warn until they do (never blocking).
+ */
+export function headlessChip(framework: DesktopGuiFramework, honoured: boolean): PreflightChip {
+  const state: ChipState = framework === 'electron' || honoured ? 'ok' : 'warn'
+  return { id: 'headless', kind: 'headless', state, framework, honoured }
 }
 
 export function summarize(chips: PreflightChip[], now: number): PreflightReport {

@@ -1,6 +1,7 @@
 import { getDetectionSnapshot } from '../../../provider-detection'
 import { runBounded } from '../../../util/bounded-exec'
 import { getAdapter, hasAdapter } from '../../../providers'
+import { probeDesktopGui } from './desktop-gui-probe'
 import { createLaunchPreflight, statfsFreeBytes } from './preflight'
 
 /** Production probes: provider detection for executables, bounded async exec, statfs. */
@@ -21,6 +22,7 @@ export function createDesktopLaunchPreflight(quota: (providerId: string) => { pr
       return provider && !provider.installed ? null : getAdapter(providerId).binary
     },
     quota,
+    desktopGui: probeDesktopGui,
     now: () => Date.now(),
   })
 }

@@ -9,6 +9,7 @@ export type PreflightChip =
   | { id: string; kind: 'provider'; state: ChipState; providerId: string; status: SignInStatus }
   | { id: 'github'; kind: 'github'; state: ChipState; status: SignInStatus }
   | { id: string; kind: 'quota'; state: ChipState; providerId: string; level: string; usedPercent: number | null; rejectedUntil: string | null }
+  | { id: 'headless'; kind: 'headless'; state: ChipState; framework: string; honoured: boolean }
 
 export interface PreflightReport { chips: PreflightChip[]; blocking: boolean; checkedAt: string }
 

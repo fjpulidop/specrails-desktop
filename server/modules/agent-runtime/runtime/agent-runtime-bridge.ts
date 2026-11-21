@@ -16,6 +16,7 @@ import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-process'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
+import { withHeadlessContract } from '../../../util/headless-env'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
@@ -192,9 +193,11 @@ interface RuntimeResult {
 /** Provider CLIs that Core spawns inherit this environment. Gemini CLI refuses
  * headless runs in a folder the user never trusted interactively (exit 55), and
  * rail worktrees and fresh projects never are. Every other Desktop Gemini spawn
- * already trusts its admitted workspace the same way; an explicit value wins. */
+ * already trusts its admitted workspace the same way; an explicit value wins.
+ * Runs are headless (`SPECRAILS_HEADLESS=1`): Core keeps every agent and
+ * verification window hidden and unfocused from it. */
 export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const scoped = withoutDesktopCoreSelection(env)
+  const scoped = withHeadlessContract(withoutDesktopCoreSelection(env))
   return scoped.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...scoped, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : scoped
 }
 
