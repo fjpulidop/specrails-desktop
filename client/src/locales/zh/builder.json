@@ -373,7 +373,13 @@
       },
       "moreOptions": "更多选项",
       "pausedSpecDelivered": "{{paused}} 已交付",
-      "nextStep": "下一步：{{step}}"
+      "nextStep": "下一步：{{step}}",
+      "integrationDetails": {
+        "conflict": "与更新后的基线冲突",
+        "conflict_unresolved": "与更新后的基线冲突，自动更新未能解决",
+        "conflict_refresh_limit": "两次自动更新后仍与基线冲突",
+        "merge_failed": "Git 无法合并"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

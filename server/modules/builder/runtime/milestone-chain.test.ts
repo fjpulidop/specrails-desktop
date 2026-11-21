@@ -808,6 +808,59 @@ describe('incremental integration before the next spec', () => {
     expect(integrate).toHaveBeenCalledTimes(2)
     expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
   })
+  it('refreshes a conflicted delivery on the updated base first, follows its re-verification and integrates it again', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: "merging 'abc': CONFLICT with the base in cart.js: integrate the other delivery first" }
+    const integrate = vi.fn<NonNullable<MilestoneChainIO['integrateDelivery']>>()
+      .mockResolvedValueOnce(conflict)
+      .mockImplementationOnce(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } })
+    const refresh = vi.fn<NonNullable<MilestoneChainIO['refreshDelivery']>>(async delivery => {
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'building' })
+      return { ok: true, runId: 'fork-1' }
+    })
+    f.io.integrateDelivery = integrate
+    f.io.refreshDelivery = refresh
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    const following = listActiveChains(db)[0]
+    expect(following).toMatchObject({ status: 'running', current_delivery_id: 'd-3', pause_reason: null })
+    expect(JSON.parse(following.current_run_ids)).toEqual(['fork-1'])
+    // The re-verified delivery is back on review: the chain integrates it and moves on.
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
+    expect(integrate).toHaveBeenCalledTimes(2)
+    expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
+  })
+  it('pauses with the conflict options when the automatic refresh cannot resolve it', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn(async () => conflict)
+    f.io.refreshDelivery = vi.fn(async () => ({ ok: false as const, status: 409, error: 'refresh_conflict_unresolved', detail: 'conflict markers remain in cart.js' }))
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    const row = listActiveChains(db)[0]
+    expect(row).toMatchObject({ status: 'paused', pause_reason: 'integration_failed:conflict_unresolved', current_delivery_id: 'd-3' })
+    expect(mgr.snapshot(row).plan?.offers.map(offer => offer.kind).slice(0, 2)).toEqual(['rebuild', 'integrate'])
+  })
+  it('pauses as a failed spec when the re-verification after the base refresh fails', async () => {
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    const g = fake(), other = new MilestoneChainManager(db, 'p', g.io)
+    g.io.integrateDelivery = vi.fn(async () => conflict)
+    g.io.refreshDelivery = vi.fn(async () => ({ ok: true as const, runId: 'fork-2' }))
+    await other.start(1)
+    settle(g, other, 3, 'on_review', 'spec-one'); await flush()
+    settle(g, other, 3, 'implementation_failed', null); await flush()
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'paused', pause_reason: 'chunk_failed' })
+  })
+  it('never refreshes for an integration refused for another reason', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    f.io.integrateDelivery = vi.fn(async () => ({ ok: false as const, status: 409, error: 'merge_local_blocked', detail: 'dirty' }))
+    f.io.refreshDelivery = vi.fn()
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(f.io.refreshDelivery).not.toHaveBeenCalled()
+    expect(listActiveChains(db)[0]).toMatchObject({ pause_reason: 'integration_failed:merge_local_blocked' })
+  })
   it('recovers an integration pending at restart and honors checkpoints after integration', async () => {
     const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
     f.io.integrateDelivery = async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } }

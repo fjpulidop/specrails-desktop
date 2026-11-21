@@ -43,7 +43,9 @@ export function localizeChainPauseReason(reason: string | null): string {
   const { key, detail } = chainPauseReason(reason)
   const known = ['chunk_failed', 'chunk_stalled', 'chunk_stopped', 'provider_limit', 'launch_rejected', 'head_missing', 'head_discarded', 'run_lost', 'rail_limit_reached', 'integration_failed']
   if (!known.includes(key)) return reason ?? ''
-  return i18n.t(`builder:milestoneProgress.chain.reasons.${key}`, { detail })
+  // A conflicted integration names why the automatic base refresh did not settle it.
+  const shown = key === 'integration_failed' && detail ? i18n.t(`builder:milestoneProgress.chain.integrationDetails.${detail}`, { defaultValue: detail }) : detail
+  return i18n.t(`builder:milestoneProgress.chain.reasons.${key}`, { detail: shown })
 }
 
 export function useMilestoneNotifications({ setActiveProjectId, projectsById }: UseMilestoneNotificationsOpts = {}): void {

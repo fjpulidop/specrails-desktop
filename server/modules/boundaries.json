@@ -1114,6 +1114,7 @@
       "adapters/decisions/metadata.ts",
       "adapters/retained-worktrees-http.ts",
       "runtime/definition-fork.ts",
+      "runtime/delivery-base-refresh.ts",
       "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
       "runtime/flow-review-legacy.ts",
@@ -1122,6 +1123,7 @@
       "runtime/flow-worktree-return.ts",
       "runtime/incomplete-tasks-remedy.ts",
       "runtime/isolated-settlement-reconstruction.ts",
+      "runtime/isolated-settlement-store.ts",
       "runtime/isolated-worktree.ts",
       "runtime/merge-preview.ts",
       "runtime/multi-repo-execution-store.ts",
@@ -1136,6 +1138,7 @@
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
       "runtime/rail-launch-preflight.ts",
+      "runtime/rail-merge-orchestrator.ts",
       "runtime/rail-pr-decision.ts",
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
@@ -1363,6 +1366,12 @@
         "./rail-pr-store",
         "./rail-worktrees-store",
         "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/delivery-base-refresh.ts": [
+        "../../../worktree-manager",
+        "./pr-naming",
         "node:fs",
         "node:path"
       ],
