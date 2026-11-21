@@ -69,6 +69,23 @@ export async function runProbeCommand(command: string, opts: ProbeCommandOptions
   return stdout.trim()
 }
 
+/** A `which` lookup killed by its timeout proves nothing (a heavily loaded machine): it is retried once with this budget. */
+export const WHICH_RETRY_TIMEOUT_MS = 15_000
+const timedOut = (error: unknown): boolean => Boolean(error && typeof error === 'object' && (error as { timedOut?: unknown }).timedOut === true)
+
+/** `which <binary>`: found, not found, or `unknown` when even the retry timed out. */
+async function lookUp(binary: string, env: NodeJS.ProcessEnv | undefined): Promise<boolean | 'unknown'> {
+  for (const timeout of [WHICH_TIMEOUT_MS, WHICH_RETRY_TIMEOUT_MS]) {
+    try {
+      await runProbeCommand(`${whichCmd()} ${binary}`, { timeout, env })
+      return true
+    } catch (error) {
+      if (!timedOut(error)) return false
+    }
+  }
+  return 'unknown'
+}
+
 export type CliProbeResult =
   | { installed: false; executable: false }
   | { installed: true; executable: false }
@@ -86,13 +103,13 @@ export interface CliProbeOptions {
  * `binaryOnPath` memo so spawn-time gates reuse the answer.
  */
 export async function probeCliBinary(binary: string, opts: CliProbeOptions): Promise<CliProbeResult> {
-  try {
-    await runProbeCommand(`${whichCmd()} ${binary}`, { timeout: WHICH_TIMEOUT_MS, env: opts.env })
-  } catch {
+  const found = await lookUp(binary, opts.env)
+  if (found === false) {
     _cache.set(binary, { at: Date.now(), onPath: false })
     return { installed: false, executable: false }
   }
-  _cache.set(binary, { at: Date.now(), onPath: true })
+  // An unanswered lookup is never cached: the `--version` probe below decides, as for a slow CLI.
+  if (found === true) _cache.set(binary, { at: Date.now(), onPath: true })
   try {
     const versionOutput = await runProbeCommand(`${binary} --version`, { timeout: opts.versionTimeoutMs, env: opts.env })
     return { installed: true, executable: true, versionOutput }
@@ -110,12 +127,10 @@ export async function binaryOnPathAsync(binary: string): Promise<boolean> {
   if (path.isAbsolute(binary)) {
     onPath = fs.existsSync(binary)
   } else {
-    try {
-      await runProbeCommand(`${whichCmd()} ${binary}`, { timeout: WHICH_TIMEOUT_MS, env: windowsSpawnEnv() })
-      onPath = true
-    } catch {
-      onPath = false
-    }
+    const found = await lookUp(binary, windowsSpawnEnv())
+    // Unanswered (the machine is too loaded to run `which`): not proof of absence, and not cached.
+    if (found === 'unknown') return true
+    onPath = found
   }
   _cache.set(binary, { at: Date.now(), onPath })
   return onPath

@@ -26,7 +26,7 @@ const CORE_READY = /Core runtime ready \(([\d.]+) s\)/
  * loop_step_end payloads in sequence order; `logs` are log lines; `limits`
  * are rate-limit events. `launchedAt` is when the harness sent the launch.
  */
-export function attributeRun({ run, steps, logs, limits = [], launchedAt = null }) {
+export function attributeRun({ run, steps, logs, limits = [], launchedAt = null, roles = [], checks = [] }) {
   const phases = {}
   const counts = {}
   let firstStepAt = null, lastEndAt = null
@@ -54,7 +54,41 @@ export function attributeRun({ run, steps, logs, limits = [], launchedAt = null 
   const started = Date.parse(`${run.started_at}${/Z$|[+-]\d\d:?\d\d$/.test(run.started_at) ? '' : 'Z'}`)
   const finished = run.finished_at ? Date.parse(`${run.finished_at}${/Z$|[+-]\d\d:?\d\d$/.test(run.finished_at) ? '' : 'Z'}`) : null
   const utilization = limits.map(limit => limit.utilization).filter(Number.isFinite)
+  // Role turns (Core's role-context efficiency events): time, tokens, cost and tool calls per phase.
+  const usage = {}
+  for (const role of roles) {
+    const phase = phaseOf(role.nodePath)
+    const u = (usage[phase] ??= { turns: 0, durationS: 0, costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, uncachedInputTokens: 0, toolCalls: 0, promptBytes: 0 })
+    u.turns++
+    u.durationS += (Number(role.durationMs) || 0) / 1000
+    u.costUsd += Number(role.usage?.costUsd) || 0
+    u.inputTokens += Number(role.usage?.inputTokens) || 0
+    u.outputTokens += Number(role.usage?.outputTokens) || 0
+    u.cacheReadTokens += Number(role.usage?.cacheReadInputTokens) || 0
+    u.uncachedInputTokens += Number(role.usage?.uncachedInputTokens) || 0
+    u.toolCalls += Number(role.toolCalls) || 0
+    u.promptBytes += Number(role.promptBytes) || 0
+  }
+  for (const u of Object.values(usage)) { u.durationS = Math.round(u.durationS * 10) / 10; u.costUsd = Math.round(u.costUsd * 10000) / 10000 }
+  // Verification commands (check-finished): how many ran and their own duration, per node.
+  const verification = { runs: checks.length, commandS: Math.round(checks.reduce((sum, c) => sum + (Number(c.durationMs) || 0), 0) / 100) / 10,
+    byNode: checks.reduce((acc, c) => { acc[c.nodePath] = (acc[c.nodePath] ?? 0) + 1; return acc }, {}) }
+  // Idle time between consecutive steps (Core/Desktop bookkeeping between nodes) and outside the steps.
+  const spans = []
+  for (const step of steps) if (step.type === 'start' && Number.isFinite(step.startedAtMs)) {
+    const end = steps.find(e => e.type === 'end' && (e.attemptId ?? `${e.nodeId}:${e.index}`) === (step.attemptId ?? `${step.nodeId}:${step.index}`))
+    spans.push([step.startedAtMs, step.startedAtMs + (Number(end?.durationMs) || 0)])
+  }
+  spans.sort((a, b) => a[0] - b[0])
+  let gapMs = 0
+  for (let i = 1; i < spans.length; i++) gapMs += Math.max(0, spans[i][0] - Math.max(...spans.slice(0, i).map(s => s[1])))
+  const startedMs = Date.parse(`${run.started_at}${/Z$|[+-]\d\d:?\d\d$/.test(run.started_at) ? '' : 'Z'}`)
+  const finishedMs = run.finished_at ? Date.parse(`${run.finished_at}${/Z$|[+-]\d\d:?\d\d$/.test(run.finished_at) ? '' : 'Z'}`) : null
+  const idle = { betweenStepsS: Math.round(gapMs / 100) / 10, steps: spans.length,
+    headS: spans.length && Number.isFinite(startedMs) ? Math.round((spans[0][0] - startedMs) / 100) / 10 : null,
+    tailS: spans.length && finishedMs ? Math.round((finishedMs - Math.max(...spans.map(s => s[1]))) / 100) / 10 : null }
   return {
+    usage, verification, idle,
     runId: run.id, outcome: run.final_outcome, status: run.status, costUsd: run.total_cost_usd,
     totalS: finished && Number.isFinite(started) ? Math.round((finished - started) / 1000) : null,
     launchToFirstStepS: Number.isFinite(launchedAt) && firstStepAt !== null ? Math.round((firstStepAt - launchedAt) / 100) / 10 : null,
@@ -94,7 +128,10 @@ export function readRunTimings(home, runId, launchedAt = null) {
     })
     const logs = query(db, `select json_extract(payload,'$.line') as line from events where job_id='${safe}' and event_type='log' and (payload like '%Verification turn acquired%' or payload like '%Core runtime ready%')`).map(row => row.line ?? '')
     const limits = query(db, `select json_extract(payload,'$.event.rateLimit.utilization') as utilization from events where job_id='${safe}' and event_type='agent-event' and payload like '%"kind":"rate-limit"%' order by seq`)
-    return attributeRun({ run, steps, logs, limits, launchedAt })
+    const efficiency = query(db, `select payload from events where job_id='${safe}' and event_type='runtime-efficiency-event' and (payload like '%"kind":"role-context"%' or payload like '%"kind":"check-finished"%') order by seq`).map(row => JSON.parse(row.payload))
+    const roles = efficiency.filter(e => e.kind === 'role-context').map(e => ({ nodePath: e.nodePath, ...e.payload }))
+    const checks = efficiency.filter(e => e.kind === 'check-finished').map(e => ({ nodePath: e.nodePath, durationMs: e.durationMs, exitCode: e.exitCode }))
+    return attributeRun({ run, steps, logs, limits, launchedAt, roles, checks })
   }
   return null
 }

@@ -146,3 +146,29 @@ node scripts/benchmark/index.mjs --soak --scenarios scripts/benchmark/scenarios/
 - **Report** (`lib/soak-report.mjs`, rewritten every 5 minutes): per-metric first/last/min/max/p95 and
   least-squares slope per hour with R²; memory slopes use the longest single server process (restarts
   reset memory). A slope above the metric's threshold with R² ≥ 0.6 is flagged as a leak.
+
+## Speed (A/B) mode
+
+Measures how fast and how well Implement delivers a fixed spec suite (`lib/speed-suite.mjs`): small, medium
+and large specs, single and multi-repository, a repository lint in `npm test`, and specs whose edge cases
+historically needed correction rounds. Each spec has **hidden acceptance tests** that never enter the
+repository the agent sees.
+
+```sh
+node scripts/benchmark/scenarios/make-speed.mjs --tag a1 --reps 3 > /tmp/speed-a1.json
+npm run benchmark -- --scenarios /tmp/speed-a1.json --parallel 4 --pause-at-window 75 … (as above)
+node scripts/benchmark/speed-compare.mjs --a base=/tmp/a1/report.json --b candidate=/tmp/b1/report.json --md /tmp/ab.md
+```
+
+- **After each delivered run** the driver waits for the rail delivery to settle (so wall time includes
+  delivery), exports the delivered branch with `git archive` into a scratch directory, adds the hidden tests
+  there and runs `npm test`, `npm run lint` and the hidden tests (`lib/acceptance.mjs`). It also lists changed
+  paths a spec never needs (lockfiles, stray files).
+- **Per-run attribution** (`lib/timings.mjs`, from the project databases): time, tokens, cost and tool calls per
+  phase from Core's role-context events, every verification command, idle time between steps, and the time
+  before the first and after the last step. Every run of an automatic continuation is attributed.
+- **Comparison** (`speed-compare.mjs`, pure statistics in `lib/speed-stats.mjs`): median and p90 per variant; each
+  run is divided by its spec's baseline median, so specs of different sizes pool into one geometric-mean ratio
+  with a spec-stratified bootstrap 95 % CI and a Mann-Whitney p-value. Quality is a floor: delivered, accepted
+  (hidden tests), full suite, lint, first-pass review and stray files are compared and any worse count is flagged.
+- In normal mode `--pause-at-window` also applies: launches wait while the 5-hour window is at or above it.

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1852 source/build files. Nearby tests are linked where names
+Includes 1857 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1420,9 +1420,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## scripts/benchmark
 
 - [index.mjs](../../scripts/benchmark/index.mjs)
+- [speed-compare.mjs](../../scripts/benchmark/speed-compare.mjs)
 
 ## scripts/benchmark/lib
 
+- [acceptance.mjs](../../scripts/benchmark/lib/acceptance.mjs)
 - [api.mjs](../../scripts/benchmark/lib/api.mjs)
 - [args.mjs](../../scripts/benchmark/lib/args.mjs)
 - [big-repos.mjs](../../scripts/benchmark/lib/big-repos.mjs)
@@ -1439,12 +1441,15 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [soak-main.mjs](../../scripts/benchmark/lib/soak-main.mjs)
 - [soak-report.mjs](../../scripts/benchmark/lib/soak-report.mjs)
 - [soak.mjs](../../scripts/benchmark/lib/soak.mjs)
+- [speed-stats.mjs](../../scripts/benchmark/lib/speed-stats.mjs)
+- [speed-suite.mjs](../../scripts/benchmark/lib/speed-suite.mjs)
 - [timings.mjs](../../scripts/benchmark/lib/timings.mjs)
 
 ## scripts/benchmark/scenarios
 
 - [make-soak.mjs](../../scripts/benchmark/scenarios/make-soak.mjs)
 - [make-soak2.mjs](../../scripts/benchmark/scenarios/make-soak2.mjs)
+- [make-speed.mjs](../../scripts/benchmark/scenarios/make-speed.mjs)
 
 ## server / agent
 

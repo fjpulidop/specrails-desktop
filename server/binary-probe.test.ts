@@ -8,7 +8,7 @@ vi.mock('./util/bounded-exec', () => ({ execBounded: vi.fn() }))
 
 import { execSync as mockExecSync } from 'child_process'
 import { execBounded } from './util/bounded-exec'
-import { binaryOnPath, binaryOnPathAsync, probeCliBinary, runProbeCommand, WHICH_TIMEOUT_MS, __resetBinaryProbeCacheForTest } from './binary-probe'
+import { binaryOnPath, binaryOnPathAsync, probeCliBinary, runProbeCommand, WHICH_RETRY_TIMEOUT_MS, WHICH_TIMEOUT_MS, __resetBinaryProbeCacheForTest } from './binary-probe'
 
 describe('binaryOnPath (H19)', () => {
   beforeEach(() => {
@@ -117,6 +117,29 @@ describe('async probes (event-loop safe)', () => {
     for (const call of mockBounded.mock.calls) expect(call[2]).toMatchObject({ env })
   })
 
+  // Seen in the speed benchmark: on a machine at load 70, `which claude` outlived its 3 s budget and every
+  // launch was refused with "The claude CLI is not installed on this machine".
+  const timeout = () => Object.assign(new Error('which claude timed out after 3000 ms'), { timedOut: true })
+  it('probeCliBinary: a timed-out lookup is retried with a longer budget, never reported as not installed', async () => {
+    mockBounded.mockRejectedValueOnce(timeout()).mockResolvedValueOnce('/usr/bin/claude').mockResolvedValueOnce('2.1.322 (Claude Code)')
+    await expect(probeCliBinary('claude', { versionTimeoutMs: 3000 })).resolves.toEqual({ installed: true, executable: true, versionOutput: '2.1.322 (Claude Code)' })
+    expect(mockBounded.mock.calls.map(call => call[2]?.timeoutMs)).toEqual([WHICH_TIMEOUT_MS, WHICH_RETRY_TIMEOUT_MS, 3000])
+  })
+  it('probeCliBinary: a lookup that times out twice leaves the decision to --version and caches nothing', async () => {
+    mockBounded.mockRejectedValueOnce(timeout()).mockRejectedValueOnce(timeout()).mockResolvedValueOnce('2.1.322 (Claude Code)')
+    await expect(probeCliBinary('claude', { versionTimeoutMs: 3000 })).resolves.toMatchObject({ installed: true, executable: true })
+    mockBounded.mockRejectedValueOnce(timeout()).mockRejectedValueOnce(timeout()).mockRejectedValueOnce(timeout())
+    await expect(probeCliBinary('claude', { versionTimeoutMs: 3000 })).resolves.toEqual({ installed: true, executable: false })
+    // A real "not found" still answers at once.
+    mockBounded.mockRejectedValueOnce(new Error('not found'))
+    await expect(probeCliBinary('claude', { versionTimeoutMs: 3000 })).resolves.toEqual({ installed: false, executable: false })
+  })
+  it('binaryOnPathAsync: an unanswered lookup is not proof of absence and is not cached', async () => {
+    mockBounded.mockRejectedValueOnce(timeout()).mockRejectedValueOnce(timeout())
+    expect(await binaryOnPathAsync('claude')).toBe(true)
+    mockBounded.mockRejectedValueOnce(new Error('not found'))
+    expect(await binaryOnPathAsync('claude')).toBe(false)
+  })
   it('binaryOnPathAsync shares the memo and caches negatives', async () => {
     mockBounded.mockRejectedValue(new Error('not found'))
     expect(await binaryOnPathAsync('claude')).toBe(false)

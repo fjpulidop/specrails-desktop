@@ -79,7 +79,7 @@ export function normalizeScenarios(raw) {
       provider, model: s.model ?? (provider === defaults.provider ? defaults.model : undefined),
       approvalBeforeArchive: s.approvalBeforeArchive === true, answers, actions, expect, timeoutMinutes,
       runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '', rail: railOf(s, at), startAtMin: startAtOf(s, at),
-      providers: providersOf(s, provider), onLimit: onLimitOf(s, at),
+      providers: providersOf(s, provider), onLimit: onLimitOf(s, at), spec: s.spec ?? null,
     }
   })
   return { defaults, scenarios }
@@ -154,7 +154,12 @@ function normalizeRepo(r, at, scenarioName, index) {
   for (const [p, c] of Object.entries(files)) {
     if (typeof c !== 'string' || p.startsWith('/') || p.split(/[\\/]/).includes('..')) throw new ScenarioError(`${at}.files["${p}"] must be a relative path with text content`)
   }
-  return { template: r.template, name, files, branch: r.branch ?? 'main' }
+  const hidden = r.hidden ?? {}
+  for (const [p, c] of Object.entries(hidden)) {
+    if (typeof c !== 'string' || p.startsWith('/') || p.split(/[\\/]/).includes('..')) throw new ScenarioError(`${at}.hidden["${p}"] must be a relative path with text content`)
+  }
+  // `hidden`: acceptance files never written into the repository; the harness runs them on the delivered branch.
+  return { template: r.template, name, files, hidden, branch: r.branch ?? 'main' }
 }
 
 function normalizeAnswer(a, at) {
