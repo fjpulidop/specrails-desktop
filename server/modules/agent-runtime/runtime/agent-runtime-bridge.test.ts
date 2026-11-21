@@ -5,9 +5,9 @@ import { readRuntimeHistory } from './agent-runtime-history'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const fixture = vi.hoisted(() => ({ preparing: false, cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
+const fixture = vi.hoisted(() => ({ preparing: false, cli: null as string | null, retained: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: { ...(fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {}), ...fixture.capabilities } }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
-vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async (_cli: string, observer?: { onPreparing?: () => void }) => { if (!fixture.preparing) return false; observer?.onPreparing?.(); return true }, resolveRetainedAgentRuntime: async () => fixture.cli }))
+vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async (_cli: string, observer?: { onPreparing?: () => void }) => { if (!fixture.preparing) return false; observer?.onPreparing?.(); return true }, resolveRetainedAgentRuntime: async () => fixture.retained ?? fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
 import { configureCoreChildRegistry } from '../../../util/core-child-process'
@@ -24,7 +24,7 @@ beforeEach(() => {
   fixture.preparing = false; fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
   fixture.cli = join(root, 'cli.mjs')
 })
-afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null })
+afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null; fixture.retained = null })
 const options = () => ({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', API_SECRET: 'never-store-this' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000 })
 function script(code: string) { writeFileSync(fixture.cli!, code) }
 function final(status = 'succeeded', overrides: object = {}) { return { type: 'runtime-result', runId: 'run-1', status, invocationUsage: { costUsd: null, inputTokens: 12, outputTokens: 4 }, ...overrides } }
@@ -62,6 +62,37 @@ describe('host checks of a package inside a larger checkout', () => {
 })
 
 describe('provider CLI environment', () => {
+  it('gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
+    const pkg = (name: string, guard: boolean) => {
+      const cli = join(root, name, 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
+      if (guard) { mkdirSync(join(root, name, 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, name, 'dist', 'pipeline', 'electron-headless-guard.cjs'), 'globalThis.__fixtureGuard = (globalThis.__fixtureGuard || 0) + 1') }
+      return cli
+    }
+    fixture.cli = pkg('current', true); fixture.retained = pkg('old', false)
+    const seen = join(root, 'seen.json'), copy = join(root, 'state', 'electron-headless-guard.cjs')
+    writeFileSync(fixture.retained, `require('fs').writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ options: process.env.NODE_OPTIONS ?? null, headless: process.env.SPECRAILS_HEADLESS, loaded: globalThis.__fixtureGuard ?? 0 })); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn()
+    const env = { ...options().env, NODE_OPTIONS: '--max-old-space-size=2048' }
+    expect((await runAgentRuntimeInvocation({ ...options(), env, resume: true, onLine })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--max-old-space-size=2048 --require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect(onLine).toHaveBeenCalledWith(expect.stringContaining('Desktop applies it'))
+    // The next resume reuses the run's copy: an already present guard is never added twice.
+    rmSync(join(root, 'current'), { recursive: true })
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...env, NODE_OPTIONS: `--require ${JSON.stringify(copy)}` }, resume: true })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined, SPECRAILS_HEADLESS: '0' }, resume: true })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: null, headless: '0', loaded: 0 })
+  })
+  it('leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
+    const cli = join(root, 'new', 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
+    mkdirSync(join(root, 'new', 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, 'new', 'dist', 'pipeline', 'electron-headless-guard.cjs'), '')
+    fixture.cli = cli
+    const seen = join(root, 'seen.txt')
+    writeFileSync(cli, `require('fs').writeFileSync(${JSON.stringify(seen)}, String(process.env.NODE_OPTIONS)); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined }, resume: true })).failed).toBe(false)
+    expect(readFileSync(seen, 'utf8')).toBe('undefined')
+    expect(existsSync(join(root, 'state', 'electron-headless-guard.cjs'))).toBe(false)
+  })
   it('trusts the admitted workspace for Gemini CLIs that Core spawns, unless the host set a value', async () => {
     const trust = join(root, 'trust.txt')
     script(`import { writeFileSync } from 'node:fs';writeFileSync(${JSON.stringify(trust)}, String(process.env.GEMINI_CLI_TRUST_WORKSPACE));console.log(JSON.stringify(${JSON.stringify(final())}));`)
@@ -527,7 +558,8 @@ console.log(JSON.stringify(${JSON.stringify(final())}))`)
     const result = await runAgentRuntimeInvocation({ ...options(), resume: true, answer: 'Use Redis, keep the schema', onLine, onRawLine })
     expect(result.failed).toBe(false)
     expect(onRawLine).toHaveBeenCalledTimes(2)
-    expect(onLine).not.toHaveBeenCalled()
+    // Trace spans never become log lines (the fixture Core has no headless guard: that advisory is the only line).
+    expect(onLine.mock.calls.filter(([line]) => !String(line).startsWith('[runtime] Windows an app opens'))).toEqual([])
     await expect(runAgentRuntimeInvocation({ ...options(), answer: 'no run yet' })).rejects.toThrow('Answers apply to runtime resume')
   })
   it.each([
