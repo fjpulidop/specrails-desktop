@@ -12,6 +12,10 @@ import {
   milestoneLabelFor,
   type MilestoneProgress,
   chainAtCheckpoint,
+  chainHeldRail,
+  railElapsedMs,
+  railHoldAction,
+  railHoldKey,
 } from '../milestone-progress'
 
 function m(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
@@ -139,5 +143,44 @@ describe('coerceChainPlan / primaryChainOffer', () => {
     expect(chainOfferParams(primary, chain.plan)).toMatchObject({ spec: '#6', specTitle: '#6 Add the offline computer opponent', paused: '#6' })
     expect(coerceChain({ id: 'c2', status: 'running' })!.plan).toBeNull()
     expect(primaryChainOffer(null)).toBeNull()
+  })
+})
+
+describe('held rails', () => {
+  const started = '2026-11-21T14:52:45.000Z'
+  it('coerces a rail hold (only on an active rail) and keeps byYou only for a pause', () => {
+    const [m] = coerceMilestoneProgress([{ id: 'm1', n: 1, rails: [
+      { railIndex: 3, active: true, runId: 'r', startedAt: started, hold: { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true, step: 'developer' } },
+      { railIndex: 4, active: true, runId: 'q', hold: { kind: 'question', since: 'nope', byYou: true } },
+      { railIndex: 5, active: true, runId: 'w', hold: { kind: 'bogus' } },
+      { railIndex: 6, active: false, hold: { kind: 'paused' } },
+    ] }])
+    expect(m.rails.map((r) => r.hold)).toEqual([
+      { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true },
+      { kind: 'question', since: null },
+      null,
+      null,
+    ])
+  })
+
+  it('keys, actions and the frozen elapsed', () => {
+    expect(railHoldKey({ kind: 'paused', since: null, byYou: true })).toBe('pausedByYou')
+    expect(railHoldKey({ kind: 'paused', since: null })).toBe('paused')
+    expect(railHoldAction({ kind: 'paused', since: null, byYou: true })).toBe('resume')
+    expect(railHoldAction({ kind: 'question', since: null })).toBe('answer')
+    expect(railHoldAction({ kind: 'provider_limit', since: null })).toBeNull()
+    const now = Date.parse(started) + 3_600_000
+    expect(railElapsedMs({ active: true, startedAt: started, hold: null }, now)).toBe(3_600_000)
+    expect(railElapsedMs({ active: true, startedAt: started, hold: { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true } }, now)).toBe(446_000)
+    expect(railElapsedMs({ active: true, startedAt: started, hold: { kind: 'paused', since: null } }, now)).toBeNull()
+  })
+
+  it('chainHeldRail finds the held rail a live chain waits on, falling back to the plan', () => {
+    const chain = coerceChain({ id: 'c', status: 'running', nextChunk: 3, totalChunks: 5, plan: { action: { kind: 'resume_run', ticketId: 7, runId: 'r', pauseKind: 'user' }, offers: [], specs: [] } })!
+    const rail = { railIndex: 3, name: null, ticketIds: [7], active: true, runId: 'r', startedAt: started, delivery: null, chunkIndex: 3, hold: { kind: 'question' as const, since: null } }
+    expect(chainHeldRail(chain, [rail])).toMatchObject({ key: 'question', runId: 'r', chunk: 3 })
+    expect(chainHeldRail(chain, [])).toMatchObject({ key: 'pausedByYou', rail: null, chunk: 3 })
+    expect(chainHeldRail({ ...chain, plan: { ...chain.plan!, action: { kind: 'adopt_run', ticketId: 7, runId: 'r', pauseKind: null } } }, [{ ...rail, hold: null }])).toBeNull()
+    expect(chainHeldRail({ ...chain, status: 'paused' }, [rail])).toBeNull()
   })
 })

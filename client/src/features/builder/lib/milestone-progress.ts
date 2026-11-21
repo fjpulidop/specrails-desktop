@@ -30,11 +30,31 @@ export interface MilestoneDelivery {
   createdAt: string | null
 }
 
+/** Why a live rail run is not working right now (mirrors the server's shared
+ *  run hold, `loop-run-hold.ts`). */
+export type RailHoldKind = 'restart' | 'interrupted' | 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused' | 'queued'
+
+export interface RailHold {
+  kind: RailHoldKind
+  /** When the run stopped doing anything (ISO), if known. */
+  since: string | null
+  /** `paused`: the person's own Pause (only their Resume continues it). */
+  byYou?: true
+  /** `provider_limit`: when the provider accepts requests again. */
+  resumeAt?: string
+  /** `queued`: the capacity it waits for, and its place in line. */
+  waitingFor?: string
+  position?: number
+}
+
 export interface MilestoneRail {
   railIndex: number
   name: string | null
   ticketIds: number[]
+  /** A run is live on the rail: working, or held (`hold`). */
   active: boolean
+  /** The live run's hold; null while it works (or no run is live). */
+  hold: RailHold | null
   runId: string | null
   startedAt: string | null
   delivery: MilestoneDelivery | null
@@ -93,13 +113,32 @@ export interface ChainOffer {
 
 export type ChainSpecState = 'done' | 'integrated' | 'delivered' | 'running' | 'paused' | 'failed' | 'pending'
 
+/** The reconciled next action's kind and the run it acts on (subset of the server's). */
+export interface ChainPlanAction {
+  kind: 'complete' | 'launch' | 'adopt_run' | 'resume_run' | 'answer_run' | 'integrate' | 'resume_failed'
+  ticketId: number | null
+  runId: string | null
+  /** `resume_run`: why the run is paused (user / budget / limit / restart). */
+  pauseKind: string | null
+}
+
 export interface ChainPlanView {
+  action: ChainPlanAction | null
   offers: ChainOffer[]
   specs: Array<{ ticketId: number; title: string | null; state: ChainSpecState }>
   settled: number
   total: number
   pausedTicketId: number | null
   pausedSpecSettled: boolean
+}
+
+const ACTION_KINDS: ReadonlySet<string> = new Set(['complete', 'launch', 'adopt_run', 'resume_run', 'answer_run', 'integrate', 'resume_failed'])
+
+function coerceAction(raw: unknown): ChainPlanAction | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.kind !== 'string' || !ACTION_KINDS.has(o.kind)) return null
+  return { kind: o.kind as ChainPlanAction['kind'], ticketId: typeof o.ticketId === 'number' ? o.ticketId : null, runId: typeof o.runId === 'string' ? o.runId : null, pauseKind: typeof o.pauseKind === 'string' ? o.pauseKind : null }
 }
 
 const OFFER_KINDS: ReadonlySet<string> = new Set(['complete', 'next', 'launch', 'retry', 'resume_failed_step', 'retry_from_start', 'resume_run', 'follow_run', 'answer_run', 'integrate', 'rebuild'])
@@ -127,6 +166,7 @@ export function coerceChainPlan(raw: unknown): ChainPlanView | null {
     return [{ ticketId: e.ticketId, title: str(e.title), state: e.state as ChainSpecState }]
   }) : []
   return {
+    action: coerceAction(o.action),
     offers, specs, settled: num(o.settled), total: num(o.total),
     pausedTicketId: typeof o.pausedTicketId === 'number' ? o.pausedTicketId : null,
     pausedSpecSettled: o.pausedSpecSettled === true,
@@ -208,6 +248,22 @@ function coerceDelivery(raw: unknown): MilestoneDelivery | null {
   }
 }
 
+const HOLD_KINDS: ReadonlySet<string> = new Set(['restart', 'interrupted', 'provider_limit', 'budget', 'question', 'approval', 'paused', 'queued'])
+
+export function coerceRailHold(raw: unknown): RailHold | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.kind !== 'string' || !HOLD_KINDS.has(o.kind)) return null
+  return {
+    kind: o.kind as RailHoldKind,
+    since: typeof o.since === 'string' && Number.isFinite(Date.parse(o.since)) ? o.since : null,
+    ...(o.kind === 'paused' && o.byYou === true ? { byYou: true as const } : {}),
+    ...(typeof o.resumeAt === 'string' ? { resumeAt: o.resumeAt } : {}),
+    ...(typeof o.waitingFor === 'string' ? { waitingFor: o.waitingFor } : {}),
+    ...(typeof o.position === 'number' ? { position: o.position } : {}),
+  }
+}
+
 function coerceRail(raw: unknown): MilestoneRail | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
@@ -217,6 +273,7 @@ function coerceRail(raw: unknown): MilestoneRail | null {
     name: str(o.name),
     ticketIds: nums(o.ticketIds),
     active: o.active === true,
+    hold: o.active === true ? coerceRailHold(o.hold) : null,
     runId: str(o.runId),
     startedAt: str(o.startedAt),
     delivery: coerceDelivery(o.delivery),
@@ -311,6 +368,69 @@ export function progressSegments(counts: MilestoneCounts): ProgressSegment[] {
 /** Specs that left the backlog through a run and are either merged or awaiting review. */
 export function deliveredCount(counts: MilestoneCounts): number {
   return counts.done + counts.onReview
+}
+
+// ─── Held rails (a live run that is not working right now) ───────────────────
+
+/** The label/sentence key of a hold: the person's Pause has its own words. */
+export type RailHoldKey = Exclude<RailHoldKind, 'paused'> | 'paused' | 'pausedByYou'
+
+export function railHoldKey(hold: RailHold): RailHoldKey {
+  return hold.kind === 'paused' && hold.byYou ? 'pausedByYou' : hold.kind
+}
+
+/** A hold in the status vocabulary (DESIGN.md › Status vocabulary; same table as jobs). */
+export const RAIL_HOLD_RUN_STATE = {
+  restart: 'paused',
+  interrupted: 'paused',
+  provider_limit: 'blocked',
+  budget: 'paused',
+  question: 'needs-input',
+  approval: 'needs-input',
+  paused: 'paused',
+  queued: 'queued',
+} as const satisfies Record<RailHoldKind, 'paused' | 'blocked' | 'needs-input' | 'queued'>
+
+/** What the person can do from the rail row: Resume their own Pause, or open
+ *  the run to answer it. Every other hold resumes by itself or from the run. */
+export function railHoldAction(hold: RailHold): 'resume' | 'answer' | null {
+  if (hold.kind === 'paused' && hold.byYou) return 'resume'
+  if (hold.kind === 'question' || hold.kind === 'approval') return 'answer'
+  return null
+}
+
+/** Run time of a live rail: ticking while it works, frozen at the moment it
+ *  stopped while held (null: unknown, e.g. a held run without a stop time). */
+export function railElapsedMs(rail: Pick<MilestoneRail, 'active' | 'hold' | 'startedAt'>, now: number): number | null {
+  if (!rail.active || !rail.startedAt) return null
+  const start = Date.parse(rail.startedAt)
+  if (!Number.isFinite(start)) return null
+  if (!rail.hold) return Math.max(0, now - start)
+  const stopped = rail.hold.since ? Date.parse(rail.hold.since) : Number.NaN
+  return Number.isFinite(stopped) ? Math.max(0, stopped - start) : null
+}
+
+const PAUSE_KIND_HOLD: Record<string, RailHoldKey> = { user: 'pausedByYou', budget: 'budget', limit: 'provider_limit', restart: 'restart', decision: 'question' }
+
+/**
+ * The held rail a live chain is waiting on (the run its reconciled action
+ * follows or resumes), with the hold's key; null while that rail works. A
+ * chain waits on a held run instead of launching (reconcile: "adopt and wait").
+ */
+export function chainHeldRail(chain: MilestoneChainSnapshot | null, rails: MilestoneRail[]): { rail: MilestoneRail | null; key: RailHoldKey; runId: string | null; chunk: number } | null {
+  if (!chain || !chainIsLive(chain)) return null
+  const action = chain.plan?.action ?? null
+  const runId = action && (action.kind === 'resume_run' || action.kind === 'answer_run' || action.kind === 'adopt_run') ? action.runId : null
+  const rail = (runId ? rails.find((r) => r.active && r.runId === runId) : undefined)
+    ?? rails.find((r) => r.active && r.chunkIndex === chain.nextChunk)
+    ?? null
+  const chunk = rail?.chunkIndex ?? chain.nextChunk
+  if (rail?.hold) return { rail, key: railHoldKey(rail.hold), runId: rail.runId, chunk }
+  // An older payload without holds: the plan still says the run is paused.
+  if (action?.kind === 'resume_run' || action?.kind === 'answer_run') {
+    return { rail, key: action.kind === 'answer_run' ? 'question' : PAUSE_KIND_HOLD[action.pauseKind ?? 'user'] ?? 'paused', runId, chunk }
+  }
+  return null
 }
 
 export function chainIsLive(chain: MilestoneChainSnapshot | null): boolean {

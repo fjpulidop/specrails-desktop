@@ -19,6 +19,7 @@ import { resolveProjectExecution, resolveProjectTicketsPath } from './workspace-
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint, writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
+import { runHoldSources } from './modules/loops/runtime/loop-run-hold'
 import { coerceBlueprint } from './modules/builder/runtime/blueprint-draft-parser'
 import { analyzeBuilderSpecBatch, firstBuilderSpecQualityDetail } from './modules/builder/runtime/blueprint-spec-quality'
 import { FileStoryManager, buildStorySystemPrompt } from './modules/code/runtime/file-story-manager'
@@ -301,6 +302,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
       railJobs: projectCtx.railJobs,
       railLoopRuns: projectCtx.railLoopRuns,
       chains: projectCtx.milestoneChains ? () => projectCtx.milestoneChains!.listActive() : undefined,
+      holdSources: () => runHoldSources(projectCtx),
     })
     if (!snapshot) {
       res.status(404).json({ error: 'no blueprint for this project' })

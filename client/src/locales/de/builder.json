@@ -287,7 +287,34 @@
       "running": "Läuft · {{elapsed}}",
       "review": "Prüfen",
       "open": "Rail öffnen",
-      "noDelivery": "Noch keine Lieferung"
+      "noDelivery": "Noch keine Lieferung",
+      "held": {
+        "pausedByYou": "Von dir pausiert",
+        "paused": "Pausiert",
+        "question": "Wartet auf deine Antwort",
+        "approval": "Wartet auf deine Freigabe",
+        "budget": "Pausiert am Ausgabelimit",
+        "provider_limit": "Pausiert am Nutzungslimit",
+        "restart": "Pausiert nach einem Neustart",
+        "interrupted": "Unterbrochen",
+        "queued": "Wartet auf Kapazität"
+      },
+      "heldHint": {
+        "pausedByYou": "Du hast diesen Lauf pausiert; nichts läuft, bis du ihn fortsetzt",
+        "paused": "Der Lauf ist pausiert; setze ihn in seinem Lauf fort",
+        "question": "Der Lauf stellt dir eine Frage; beantworte sie im Lauf",
+        "approval": "Der Lauf wartet auf deine Freigabe; entscheide im Lauf",
+        "budget": "Der Lauf hat sein Ausgabelimit erreicht; erhöhe es oder setze ihn im Lauf fort",
+        "provider_limit": "Der Anbieter hat am Nutzungslimit abgelehnt; der Lauf geht weiter, sobald das Limit zurückgesetzt ist",
+        "restart": "Die App wurde während des Laufs neu gestartet; er macht dort weiter, wo er stand",
+        "interrupted": "Ein Schritt wurde unterbrochen; setze ihn im Lauf fort",
+        "queued": "Gestartet; er beginnt von selbst, sobald ein Platz frei ist"
+      },
+      "ranFor": "Lief {{elapsed}}, bevor er anhielt",
+      "resume": "Fortsetzen",
+      "answer": "Antworten",
+      "resumed": "Lauf fortgesetzt",
+      "resumeFailed": "Der Lauf konnte nicht fortgesetzt werden"
     },
     "chain": {
       "title": "Sequenzielle Kette",
@@ -373,7 +400,19 @@
       },
       "moreOptions": "Weitere Optionen",
       "pausedSpecDelivered": "{{paused}} ist bereits geliefert",
-      "nextStep": "Nächster Schritt: {{step}}"
+      "nextStep": "Nächster Schritt: {{step}}",
+      "held": {
+        "pausedByYou": "Rail {{k}} pausiert — von dir pausiert",
+        "paused": "Rail {{k}} pausiert",
+        "question": "Rail {{k}} wartet auf deine Antwort",
+        "approval": "Rail {{k}} wartet auf deine Freigabe",
+        "budget": "Rail {{k}} pausiert am Ausgabelimit",
+        "provider_limit": "Rail {{k}} pausiert am Nutzungslimit",
+        "restart": "Rail {{k}} pausiert nach einem Neustart",
+        "interrupted": "Rail {{k}} unterbrochen",
+        "queued": "Rail {{k}} wartet auf Kapazität"
+      },
+      "answerRun": "Im Lauf von Rail {{k}} antworten"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

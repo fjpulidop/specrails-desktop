@@ -287,7 +287,34 @@
       "running": "En exécution · {{elapsed}}",
       "review": "Revoir",
       "open": "Ouvrir le rail",
-      "noDelivery": "Pas encore de livraison"
+      "noDelivery": "Pas encore de livraison",
+      "held": {
+        "pausedByYou": "Mise en pause par vous",
+        "paused": "En pause",
+        "question": "Attend votre réponse",
+        "approval": "Attend votre approbation",
+        "budget": "En pause : limite de dépense",
+        "provider_limit": "En pause : limite d’utilisation",
+        "restart": "En pause après un redémarrage",
+        "interrupted": "Interrompue",
+        "queued": "En attente de capacité"
+      },
+      "heldHint": {
+        "pausedByYou": "Vous avez mis cette exécution en pause ; rien ne tourne tant que vous ne la reprenez pas",
+        "paused": "L’exécution est en pause ; reprenez-la depuis son exécution",
+        "question": "L’exécution vous pose une question ; répondez depuis l’exécution",
+        "approval": "L’exécution attend votre approbation ; décidez depuis l’exécution",
+        "budget": "L’exécution a atteint sa limite de dépense ; augmentez-la ou reprenez-la depuis l’exécution",
+        "provider_limit": "Le fournisseur a refusé sur sa limite d’utilisation ; elle reprend quand la limite se réinitialise",
+        "restart": "L’app a redémarré pendant l’exécution ; elle reprend là où elle s’est arrêtée",
+        "interrupted": "Une étape a été interrompue ; reprenez-la depuis l’exécution",
+        "queued": "Lancée ; elle démarre seule dès qu’un créneau se libère"
+      },
+      "ranFor": "A tourné {{elapsed}} avant de s’arrêter",
+      "resume": "Reprendre",
+      "answer": "Répondre",
+      "resumed": "Exécution reprise",
+      "resumeFailed": "Impossible de reprendre l’exécution"
     },
     "chain": {
       "title": "Chaîne séquentielle",
@@ -373,7 +400,19 @@
       },
       "moreOptions": "Plus d’options",
       "pausedSpecDelivered": "{{paused}} est déjà livrée",
-      "nextStep": "Étape suivante : {{step}}"
+      "nextStep": "Étape suivante : {{step}}",
+      "held": {
+        "pausedByYou": "Rail {{k}} en pause — mise en pause par vous",
+        "paused": "Rail {{k}} en pause",
+        "question": "Le rail {{k}} attend votre réponse",
+        "approval": "Le rail {{k}} attend votre approbation",
+        "budget": "Rail {{k}} en pause : limite de dépense",
+        "provider_limit": "Rail {{k}} en pause : limite d’utilisation",
+        "restart": "Rail {{k}} en pause après un redémarrage",
+        "interrupted": "Rail {{k}} interrompu",
+        "queued": "Le rail {{k}} attend de la capacité"
+      },
+      "answerRun": "Répondre dans l’exécution du rail {{k}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

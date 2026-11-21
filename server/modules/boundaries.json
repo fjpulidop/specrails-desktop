@@ -846,6 +846,7 @@
         "../../../workspace-resolution",
         "../../delivery/runtime/rail-pr-store",
         "../../delivery/runtime/rails-store",
+        "../../loops/runtime/loop-run-hold",
         "../../loops/runtime/loop-runs-store",
         "../../specs/runtime/ticket-store",
         "./blueprint-render",

@@ -27,6 +27,7 @@ import {
 } from '../../delivery/runtime/rail-pr-store'
 import { getRails } from '../../delivery/runtime/rails-store'
 import { getLoopRun, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
+import { readRunHolds, type RunHold, type RunHoldSources } from '../../loops/runtime/loop-run-hold'
 import type { ChainPlan } from './milestone-chain-reconcile'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { workspacePathFor } from '../../../workspace-manager'
@@ -52,8 +53,12 @@ export interface MilestoneRail {
   name: string | null
   /** Milestone tickets this rail carries (run or delivery). */
   ticketIds: number[]
-  /** True while a run is live on the rail. */
+  /** True while a run is live on the rail (working OR held: see `hold`). */
   active: boolean
+  /** Why the live run is not working right now (the shared run hold: paused by
+   *  you, a question, the budget, a usage limit, a restart, waiting for
+   *  capacity…); null while it genuinely works or when the rail is not active. */
+  hold: RunHold | null
   /** The live run id (loop run or queue job) when `active`. */
   runId: string | null
   /** Run start (ISO) when active; the delivery's creation time otherwise. */
@@ -131,6 +136,14 @@ export interface ProgressActiveRun {
   railIndex: number
   ticketIds: number[]
   startedAt: string | null
+  /** The run's hold (loop-run-hold); null/absent while it works. */
+  hold?: RunHold | null
+}
+
+/** Every live rail of the milestone is held by the person's own Pause. */
+export function railsPausedByYou(rails: ReadonlyArray<Pick<MilestoneRail, 'active' | 'hold'>>): boolean {
+  const live = rails.filter((r) => r.active)
+  return live.length > 0 && live.every((r) => r.hold?.kind === 'paused' && r.hold.byYou === true)
 }
 
 export interface ProgressRailInfo {
@@ -201,6 +214,7 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         name: railNames.get(run.railIndex) ?? null,
         ticketIds: carried,
         active: true,
+        hold: run.hold ?? null,
         runId: run.runId,
         startedAt: run.startedAt,
         delivery: null,
@@ -221,6 +235,7 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         name: railNames.get(d.railIndex) ?? null,
         ticketIds: carried,
         active: false,
+        hold: null,
         runId: null,
         startedAt: d.createdAt,
         delivery: d,
@@ -238,8 +253,13 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
     // checkpoint) outranks "delivered": its last spec may be on review only
     // until the chain integrates or rebuilds it.
     const chainStopped = chain !== null && (chain.status === 'paused' || chain.status === 'awaiting_approval')
+    // Every live rail paused by the person (Pause): the milestone reads paused,
+    // the same "adopt and wait" the chain reconciliation does — it never
+    // resumes on its own, only the person's Resume continues it.
+    const pausedByYou = railsPausedByYou(railList)
     const state: MilestoneState =
       counts.total > 0 && counts.done === counts.total ? 'done'
+        : pausedByYou ? 'paused'
         : counts.inProgress > 0 || chainLive ? 'running'
           : chainStopped ? 'paused'
             : counts.total > 0 && counts.todo === 0 && counts.onReview > 0 ? 'delivered'
@@ -277,6 +297,9 @@ export interface MilestoneProgressSource {
   railLoopRuns?: Map<string, { railIndex: number; ticketIds: number[] }>
   /** Active launch chains (wired by the chain manager; absent ⇒ none). */
   chains?: () => MilestoneChainSnapshot[]
+  /** What the live loop engine knows about held runs (`runHoldSources`);
+   *  absent ⇒ only the durable rows (a paused row still reads paused). */
+  holdSources?: () => RunHoldSources
 }
 
 export interface MilestoneProgressSnapshot {
@@ -336,6 +359,10 @@ export function readMilestoneProgress(src: MilestoneProgressSource): MilestonePr
       })
     }
   } catch { /* DB unavailable ⇒ in-memory maps only */ }
+  try {
+    const holds = readRunHolds(src.db, activeRuns.map((r) => r.runId), src.holdSources?.() ?? {})
+    for (const run of activeRuns) run.hold = holds.get(run.runId) ?? null
+  } catch { /* advisory: a run without a readable hold reads as working */ }
   for (const [jobId, meta] of src.railJobs?.entries() ?? []) {
     if (seenRuns.has(jobId)) continue
     activeRuns.push({ runId: jobId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt: null })
@@ -383,6 +410,17 @@ export const MILESTONE_PROGRESS_TRIGGERS: ReadonlySet<string> = new Set([
   'rail.job_stopped',
   'loop.run_completed',
   'loop.run_stopped',
+  // A run's hold changes (paused by you / a question / the budget / a usage
+  // limit, resumed, queued for capacity, started): the rail row flips live.
+  'loop.run_started',
+  'loop.run_paused',
+  'loop.run_resumed',
+  'loop.run_queued',
+  'loop.run_queue',
+  'loop.pause_requested',
+  'loop.pause_request_ended',
+  'loop.limit_pause',
+  'loop.provider_limit',
   'milestone.chain_changed',
 ])
 

@@ -287,7 +287,34 @@
       "running": "A correr · {{elapsed}}",
       "review": "Rever",
       "open": "Abrir o rail",
-      "noDelivery": "Ainda sem entrega"
+      "noDelivery": "Ainda sem entrega",
+      "held": {
+        "pausedByYou": "Pausada por você",
+        "paused": "Em pausa",
+        "question": "Aguarda sua resposta",
+        "approval": "Aguarda sua aprovação",
+        "budget": "Em pausa pelo limite de gasto",
+        "provider_limit": "Em pausa pelo limite de uso",
+        "restart": "Em pausa por um reinício",
+        "interrupted": "Interrompida",
+        "queued": "Aguardando capacidade"
+      },
+      "heldHint": {
+        "pausedByYou": "Você pausou esta execução; nada roda até você retomá-la",
+        "paused": "A execução está em pausa; retome-a pela execução",
+        "question": "A execução faz uma pergunta; responda pela execução",
+        "approval": "A execução aguarda sua aprovação; decida pela execução",
+        "budget": "A execução atingiu o limite de gasto; aumente-o ou retome-a pela execução",
+        "provider_limit": "O provedor recusou pelo limite de uso; ela retoma quando o limite reiniciar",
+        "restart": "O app reiniciou durante a execução; ela continua de onde parou",
+        "interrupted": "Uma etapa foi interrompida; retome-a pela execução",
+        "queued": "Lançada; começa sozinha quando houver uma vaga livre"
+      },
+      "ranFor": "Rodou {{elapsed}} antes de parar",
+      "resume": "Retomar",
+      "answer": "Responder",
+      "resumed": "Execução retomada",
+      "resumeFailed": "Não foi possível retomar a execução"
     },
     "chain": {
       "title": "Cadeia sequencial",
@@ -373,7 +400,19 @@
       },
       "moreOptions": "Mais opções",
       "pausedSpecDelivered": "{{paused}} já foi entregue",
-      "nextStep": "Próximo passo: {{step}}"
+      "nextStep": "Próximo passo: {{step}}",
+      "held": {
+        "pausedByYou": "Rail {{k}} em pausa — pausada por você",
+        "paused": "Rail {{k}} em pausa",
+        "question": "O rail {{k}} aguarda sua resposta",
+        "approval": "O rail {{k}} aguarda sua aprovação",
+        "budget": "Rail {{k}} em pausa pelo limite de gasto",
+        "provider_limit": "Rail {{k}} em pausa pelo limite de uso",
+        "restart": "Rail {{k}} em pausa por um reinício",
+        "interrupted": "Rail {{k}} interrompido",
+        "queued": "O rail {{k}} aguarda capacidade"
+      },
+      "answerRun": "Responder na execução do rail {{k}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

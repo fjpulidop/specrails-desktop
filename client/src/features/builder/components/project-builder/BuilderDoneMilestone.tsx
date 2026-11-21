@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
 import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
+import { useResumeRailRun } from '../../hooks/useResumeRailRun'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import { cancelChain, resumeChain, type ChainResumeFrom, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
@@ -29,6 +30,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
     setTimeout(() => { if (state) navigate(path, { state }); else navigate(path) }, 50)
   }, [navigate, projectId, setActiveProjectId])
   const openReview = useCallback((deliveryId: string) => goTo(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/'), [goTo])
+  const resumeRun = useResumeRailRun(projectId)
   const openRail = useOpenMilestoneRail({ go: goTo, openReview })
 
   const onResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
@@ -80,6 +82,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
         onResume={onResume}
         onCancel={onCancel}
         onSetAutoAdvance={onSetAutoAdvance}
+        onResumeRun={resumeRun}
         className="bg-card/60"
       />
     </div>

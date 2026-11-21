@@ -287,7 +287,34 @@
       "running": "Running · {{elapsed}}",
       "review": "Review",
       "open": "Open the rail",
-      "noDelivery": "No delivery yet"
+      "noDelivery": "No delivery yet",
+      "held": {
+        "pausedByYou": "Paused by you",
+        "paused": "Paused",
+        "question": "Waiting for your answer",
+        "approval": "Waiting for your approval",
+        "budget": "Paused at the spending limit",
+        "provider_limit": "Paused by the usage limit",
+        "restart": "Paused by a restart",
+        "interrupted": "Interrupted",
+        "queued": "Waiting for capacity"
+      },
+      "heldHint": {
+        "pausedByYou": "You paused this run; nothing runs until you resume it",
+        "paused": "The run is paused; resume it from its run",
+        "question": "The run asks you a question; answer it from the run",
+        "approval": "The run waits for your approval; decide from the run",
+        "budget": "The run reached its spending limit; raise it or resume it from the run",
+        "provider_limit": "The provider refused on its usage limit; it resumes when the limit resets",
+        "restart": "The app restarted during the run; it continues from where it stopped",
+        "interrupted": "A step was interrupted; resume it from the run",
+        "queued": "Launched; it starts by itself when a run slot is free"
+      },
+      "ranFor": "Ran {{elapsed}} before it stopped",
+      "resume": "Resume",
+      "answer": "Answer",
+      "resumed": "Run resumed",
+      "resumeFailed": "Could not resume the run"
     },
     "chain": {
       "title": "Sequential chain",
@@ -373,7 +400,19 @@
       },
       "moreOptions": "More options",
       "pausedSpecDelivered": "{{paused}} is already delivered",
-      "nextStep": "Next: {{step}}"
+      "nextStep": "Next: {{step}}",
+      "held": {
+        "pausedByYou": "Rail {{k}} paused — paused by you",
+        "paused": "Rail {{k}} paused",
+        "question": "Rail {{k}} waits for your answer",
+        "approval": "Rail {{k}} waits for your approval",
+        "budget": "Rail {{k}} paused at the spending limit",
+        "provider_limit": "Rail {{k}} paused by the usage limit",
+        "restart": "Rail {{k}} paused by a restart",
+        "interrupted": "Rail {{k}} interrupted",
+        "queued": "Rail {{k}} waits for capacity"
+      },
+      "answerRun": "Answer in rail {{k}}’s run"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

@@ -648,6 +648,18 @@ execution (one spec per rail) and can use Kimi.
   ticket/rail/delivery/run/chain messages, 150 ms debounce, memoized "no
   blueprint") re-broadcasts `blueprint.milestone_progress` and persists
   `status:'done'` once via `markMilestoneDone` (+ `blueprint.milestone_completed`).
+  Each active rail carries `hold` — the shared run hold (`loop-run-hold.ts`,
+  `readRunHolds` with the live loop engine: paused by you, question, approval,
+  budget, provider limit, restart, interrupted, queued for capacity) or null
+  while it works. A held rail row speaks the status vocabulary ("Paused by
+  you", "Waiting for your answer"…) instead of "Running", its run time frozen
+  where it stopped, with Resume (the run's own resume route) for the person's
+  Pause and Answer (opens the run) for a question; a live chain waiting on a
+  held rail says so ("Rail 3 paused — paused by you") and offers the plan's
+  `resume_run` while the chain is still `running`. Every live rail paused by
+  the person derives `state: 'paused'`. Hold changes (`loop.run_paused`,
+  `loop.run_resumed`, `loop.pause_requested`, queue/limit messages) are
+  progress triggers, so the rows flip without a reload.
   Display ALWAYS uses the derived state — a delivered milestone reads
   "8 of 8 delivered · 0 done", never done/complete.
 - **Sidebar re-entry** (`BuilderSidebarEntry`, mounted in
