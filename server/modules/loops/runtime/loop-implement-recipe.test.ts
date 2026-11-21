@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configurableImplementGraph, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
+import { configurableImplementGraph, DEVELOPER_SELF_REVIEW, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
 import { factoryLoopsForCapabilities } from './loop-factory'
 import { compileLoopToDefinition } from './loop-definition'
 
@@ -293,4 +293,13 @@ it('ends the run when the person declines the ticket for this repository instead
   expect(graph.nodes.find(node => node.id === 'declined')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('Not implemented: the person declined this ticket') })
   const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
   expect(definition.nodes['declined']).toMatchObject({ kind: 'end' })
+})
+
+it('has the developer check its own tests against every planned scenario and error case before it reports', () => {
+  const graph = configurableImplementGraph()
+  const prompt = (id: string) => String(graph.nodes.find(node => node.id === id)!.data!.params!.prompt)
+  expect(prompt('developer')).toContain(DEVELOPER_SELF_REVIEW)
+  expect(prompt('developer').indexOf(DEVELOPER_SELF_REVIEW)).toBeLessThan(prompt('developer').indexOf('Report summary and incomplete task descriptions.'))
+  expect(DEVELOPER_SELF_REVIEW).toContain('every scenario in the delta specs')
+  expect(DEVELOPER_SELF_REVIEW).toContain('run the configured checks again')
 })
