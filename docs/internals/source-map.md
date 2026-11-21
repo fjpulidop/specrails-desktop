@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1841 source/build files. Nearby tests are linked where names
+Includes 1842 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1438,6 +1438,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## scripts/benchmark/scenarios
 
 - [make-soak.mjs](../../scripts/benchmark/scenarios/make-soak.mjs)
+- [make-soak2.mjs](../../scripts/benchmark/scenarios/make-soak2.mjs)
 
 ## server / agent
 
