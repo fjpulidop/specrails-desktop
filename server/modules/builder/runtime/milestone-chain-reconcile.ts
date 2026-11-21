@@ -73,6 +73,10 @@ export interface ReconcileChain {
   retryChunk: number | null
   headBranch: string | null
   integrationBranch: string | null
+  /** Why the chain paused, and the delivery it was integrating (a refused
+   *  integration — e.g. a merge conflict — changes what Resume should offer). */
+  pauseReason?: string | null
+  currentDeliveryId?: string | null
 }
 
 export interface ReconcileInput {
@@ -118,7 +122,7 @@ export type ChainResumeFrom = 'recommended' | 'failed_step' | 'start'
 
 export type ChainOfferKind =
   | 'complete' | 'next' | 'launch' | 'retry' | 'resume_failed_step' | 'retry_from_start'
-  | 'resume_run' | 'follow_run' | 'answer_run' | 'integrate'
+  | 'resume_run' | 'follow_run' | 'answer_run' | 'integrate' | 'rebuild'
 
 export interface ChainOffer {
   kind: ChainOfferKind
@@ -385,7 +389,15 @@ export function reconcileMilestoneChain(input: ReconcileInput): ChainPlan {
     case 'resume_run': offers.push(offer('resume_run', 'recommended', action.ticketId, action.runId)); break
     case 'answer_run': offers.push(offer('answer_run', 'recommended', action.ticketId, action.runId)); break
     case 'adopt_run': offers.push(offer('follow_run', 'recommended', action.ticketId, action.runId)); break
-    case 'integrate': offers.push(offer('integrate', 'recommended', action.ticketId, null, { nextTicketId: nextAfter(action.ticketId) })); break
+    case 'integrate':
+      // Its integration was refused (a conflict with what was integrated since):
+      // the useful step is a new run on the updated base; integrating again
+      // stays available once the person resolved it.
+      if (input.chain.status === 'paused' && input.chain.pauseReason?.startsWith('integration_failed') && input.chain.currentDeliveryId === action.deliveryId) {
+        offers.push(offer('rebuild', 'start', action.ticketId))
+      }
+      offers.push(offer('integrate', 'recommended', action.ticketId, null, { nextTicketId: nextAfter(action.ticketId) }))
+      break
   }
 
   return {

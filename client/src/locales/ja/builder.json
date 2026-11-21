@@ -318,7 +318,7 @@
         "unknown": "一時停止",
         "provider_limit": "プロバイダーの利用上限に達しました",
         "rail_limit_reached": "すべてのレールに判断待ちの PR があります — 保留中の PR をマージまたは破棄してレールを空けてから再開してください",
-        "integration_failed": "スペックの統合に失敗しました（{{detail}}）。再開すると統合を再試行します"
+        "integration_failed": "スペックの統合に失敗しました（{{detail}}）"
       },
       "checkpoint": "レール {{k}}/{{n}} を納品 — レール {{next}} を起動しますか？",
       "launchNext": "次のレールを起動",
@@ -342,7 +342,8 @@
         "resume_run": "{{spec}} の実行を再開",
         "follow_run": "{{spec}} の実行を追う",
         "answer_run": "{{spec}} の実行を追う（あなたの回答待ち）",
-        "integrate": "{{spec}} を統合して続行"
+        "integrate": "{{spec}} を統合して続行",
+        "rebuild": "更新されたベースで {{spec}} を再実行"
       },
       "offerHint": {
         "complete": "すべてのスペックが納品済みまたは完了です",
@@ -354,7 +355,8 @@
         "resume_run": "同じ試行が次のステップから続行します",
         "follow_run": "{{spec}} ではすでに実行が進行中です。チェーンは別の実行を始めずにそれを待ちます",
         "answer_run": "実行が回答または承認を待っています。実行画面から応答してください",
-        "integrate": "{{spec}} の納品をチェーン自身のレールと同様に統合ブランチへマージしてから続行します"
+        "integrate": "{{spec}} の納品をチェーン自身のレールと同様に統合ブランチへマージしてから続行します",
+        "rebuild": "納品がその後に統合された内容と競合しています。新しい実行は更新されたベースから始まります"
       },
       "offerShort": {
         "complete": "完了",
@@ -366,7 +368,8 @@
         "resume_run": "{{spec}} の実行を再開",
         "follow_run": "{{spec}} を追う",
         "answer_run": "{{spec}} を追う",
-        "integrate": "{{spec}} を統合"
+        "integrate": "{{spec}} を統合",
+        "rebuild": "{{spec}} を作り直す"
       },
       "moreOptions": "その他のオプション",
       "pausedSpecDelivered": "{{paused}} はすでに納品済みです",

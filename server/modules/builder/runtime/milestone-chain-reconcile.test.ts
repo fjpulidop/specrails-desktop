@@ -170,6 +170,13 @@ describe('§2 next action and offers', () => {
     expect(legacy.baseDeliveryIds).toEqual(['manual'])
   })
 
+  it('A7b a delivery whose integration was refused (conflict) offers a rebuild on the updated base first', () => {
+    const base = input({ tickets: [ticket(1, 'done'), ticket(2, 'done'), ticket(3, 'on_review')], deliveries: [delivery('manual-3', 3, 'on_review', { railIndex: 0 })] })
+    const plan = reconcileMilestoneChain({ ...base, chain: { ...base.chain, pauseReason: 'integration_failed:merge_failed', currentDeliveryId: 'manual-3' } })
+    expect(plan.action).toEqual({ kind: 'integrate', ticketId: 3, deliveryId: 'manual-3', railIndex: 0 })
+    expect(plan.offers.map((o) => [o.kind, o.from])).toEqual([['rebuild', 'start'], ['integrate', 'recommended']])
+  })
+
   it('A8 a genuinely failed spec with a resumable run offers the failed step first and a fresh retry second', () => {
     const plan = reconcileMilestoneChain(input({
       deliveries: [delivery('d', 1, 'implementation_failed', { implementationOutcome: 'failed', runIds: ['r1'] })],

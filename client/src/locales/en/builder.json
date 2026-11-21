@@ -318,7 +318,7 @@
         "unknown": "paused",
         "provider_limit": "the provider's usage limit was reached",
         "rail_limit_reached": "every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume",
-        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
+        "integration_failed": "spec integration failed ({{detail}})"
       },
       "checkpoint": "Rail {{k}} of {{n}} delivered — launch rail {{next}}?",
       "launchNext": "Launch next rail",
@@ -342,7 +342,8 @@
         "resume_run": "Resume the run of {{spec}}",
         "follow_run": "Follow the run of {{spec}}",
         "answer_run": "Follow the run of {{spec}} (it needs your answer)",
-        "integrate": "Integrate {{spec}} and continue"
+        "integrate": "Integrate {{spec}} and continue",
+        "rebuild": "Run {{spec}} again on the updated base"
       },
       "offerHint": {
         "complete": "Every spec is delivered or done",
@@ -354,7 +355,8 @@
         "resume_run": "The same attempt continues from its next step",
         "follow_run": "A run is already working on {{spec}}; the chain waits for it instead of starting another",
         "answer_run": "The run is waiting for an answer or an approval; reply from the run",
-        "integrate": "Merges the delivery of {{spec}} into the integration branch like the chain’s own rails, then continues"
+        "integrate": "Merges the delivery of {{spec}} into the integration branch like the chain’s own rails, then continues",
+        "rebuild": "Its delivery conflicts with what was integrated since; a new run starts from the updated base"
       },
       "offerShort": {
         "complete": "Finish",
@@ -366,7 +368,8 @@
         "resume_run": "Resume the run of {{spec}}",
         "follow_run": "Follow {{spec}}",
         "answer_run": "Follow {{spec}}",
-        "integrate": "Integrate {{spec}}"
+        "integrate": "Integrate {{spec}}",
+        "rebuild": "Rebuild {{spec}}"
       },
       "moreOptions": "More options",
       "pausedSpecDelivered": "{{paused}} is already delivered",

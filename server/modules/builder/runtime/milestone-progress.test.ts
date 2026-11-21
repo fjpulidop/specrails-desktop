@@ -133,6 +133,10 @@ describe('deriveMilestoneProgress — counts and state', () => {
     expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('paused')
     const checkpoint = { ...chain, status: 'awaiting_approval' as const }
     expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [checkpoint] })[0].state).toBe('paused')
+    // Every spec on review but the chain still integrating / rebuilding the last one: running, not delivered.
+    const reviewed = tickets.map((t) => ({ ...t, status: 'on_review' }))
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets: reviewed, chains: [chain] })[0].state).toBe('running')
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets: reviewed, chains: [] })[0].state).toBe('delivered')
     const cancelled = { ...chain, status: 'cancelled' as const }
     expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [cancelled] })[0].state).toBe('committed')
   })

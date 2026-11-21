@@ -318,7 +318,7 @@
         "unknown": "已暂停",
         "provider_limit": "已达到提供商用量限额",
         "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续",
-        "integration_failed": "规格集成失败（{{detail}}）；继续将重试集成"
+        "integration_failed": "规格集成失败（{{detail}}）"
       },
       "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
       "launchNext": "启动下一条轨道",
@@ -342,7 +342,8 @@
         "resume_run": "恢复 {{spec}} 的运行",
         "follow_run": "跟进 {{spec}} 的运行",
         "answer_run": "跟进 {{spec}} 的运行（等待你的回答）",
-        "integrate": "集成 {{spec}} 并继续"
+        "integrate": "集成 {{spec}} 并继续",
+        "rebuild": "在更新后的基线上重新运行 {{spec}}"
       },
       "offerHint": {
         "complete": "所有规格都已交付或完成",
@@ -354,7 +355,8 @@
         "resume_run": "同一次尝试从下一步继续",
         "follow_run": "已有运行在处理 {{spec}}；该链会等待它，而不是再启动一个",
         "answer_run": "该运行正在等待回答或批准；请在运行中回复",
-        "integrate": "像该链自己的轨道一样，将 {{spec}} 的交付合并到集成分支，然后继续"
+        "integrate": "像该链自己的轨道一样，将 {{spec}} 的交付合并到集成分支，然后继续",
+        "rebuild": "其交付与之后集成的内容冲突；新的运行将从更新后的基线开始"
       },
       "offerShort": {
         "complete": "完成",
@@ -366,7 +368,8 @@
         "resume_run": "恢复 {{spec}} 的运行",
         "follow_run": "跟进 {{spec}}",
         "answer_run": "跟进 {{spec}}",
-        "integrate": "集成 {{spec}}"
+        "integrate": "集成 {{spec}}",
+        "rebuild": "重做 {{spec}}"
       },
       "moreOptions": "更多选项",
       "pausedSpecDelivered": "{{paused}} 已交付",

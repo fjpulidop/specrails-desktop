@@ -318,7 +318,7 @@
         "unknown": "pausiert",
         "provider_limit": "das Nutzungslimit des Anbieters ist erreicht",
         "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort",
-        "integration_failed": "die Integration der Spec ist fehlgeschlagen ({{detail}}); Fortsetzen versucht die Integration erneut"
+        "integration_failed": "die Integration der Spec ist fehlgeschlagen ({{detail}})"
       },
       "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
       "launchNext": "Nächstes Rail starten",
@@ -342,7 +342,8 @@
         "resume_run": "Ausführung von {{spec}} fortsetzen",
         "follow_run": "Ausführung von {{spec}} folgen",
         "answer_run": "Ausführung von {{spec}} folgen (wartet auf deine Antwort)",
-        "integrate": "{{spec}} integrieren und fortfahren"
+        "integrate": "{{spec}} integrieren und fortfahren",
+        "rebuild": "{{spec}} auf der aktualisierten Basis erneut ausführen"
       },
       "offerHint": {
         "complete": "Jede Spec ist geliefert oder erledigt",
@@ -354,7 +355,8 @@
         "resume_run": "Derselbe Versuch läuft ab dem nächsten Schritt weiter",
         "follow_run": "An {{spec}} arbeitet bereits eine Ausführung; die Kette wartet darauf, statt eine weitere zu starten",
         "answer_run": "Die Ausführung wartet auf eine Antwort oder Freigabe; antworte in der Ausführung",
-        "integrate": "Führt die Lieferung von {{spec}} wie die eigenen Rails der Kette in den Integrationszweig zusammen und fährt fort"
+        "integrate": "Führt die Lieferung von {{spec}} wie die eigenen Rails der Kette in den Integrationszweig zusammen und fährt fort",
+        "rebuild": "Die Lieferung kollidiert mit dem seither Integrierten; eine neue Ausführung startet auf der aktualisierten Basis"
       },
       "offerShort": {
         "complete": "Abschließen",
@@ -366,7 +368,8 @@
         "resume_run": "Ausführung von {{spec}} fortsetzen",
         "follow_run": "{{spec}} folgen",
         "answer_run": "{{spec}} folgen",
-        "integrate": "{{spec}} integrieren"
+        "integrate": "{{spec}} integrieren",
+        "rebuild": "{{spec}} neu bauen"
       },
       "moreOptions": "Weitere Optionen",
       "pausedSpecDelivered": "{{paused}} ist bereits geliefert",

@@ -241,6 +241,7 @@ describe('MilestoneChainRow — the reconciled next step', () => {
   it('names every other step honestly: integrate, follow or resume a run, retry, finish', () => {
     const cases: Array<[ChainOffer, string]> = [
       [offer('integrate', { ticketId: 6, nextTicketId: 7 }), 'Integrate #6 and continue'],
+      [offer('rebuild', { ticketId: 3, from: 'start' }), 'Run #3 again on the updated base'],
       [offer('follow_run'), 'Follow the run of #7'],
       [offer('answer_run'), 'Follow the run of #7 (it needs your answer)'],
       [offer('resume_run'), 'Resume the run of #7'],

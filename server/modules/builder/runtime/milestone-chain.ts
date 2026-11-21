@@ -210,6 +210,7 @@ export class MilestoneChainManager {
       chain: {
         milestoneN: row.milestone_n, status: row.status, chunks: parseChunks(row), launched,
         retryChunk: row.retry_chunk, headBranch: row.head_branch, integrationBranch: row.integration_branch,
+        pauseReason: row.pause_reason, currentDeliveryId: row.current_delivery_id,
       },
       tickets: tickets.map((t) => ({ id: t.id, status: t.status, labels: t.labels, title: t.title ?? null, prerequisites: t.prerequisites, executionOrder: t.executionOrder })),
       deliveries,
@@ -570,7 +571,11 @@ export class MilestoneChainManager {
     let done = false
     try { done = this.plan(row).action.kind === 'complete' } catch { done = parseChunks(row).length - row.next_chunk <= 0 }
     if (row.auto_advance !== 0 || done) {
-      void this.advance(chainId).catch(logRejection('milestone chain advance'))
+      // Deferred: when this success comes from an integration, its re-entry
+      // guard is released only after this call returns — advancing inline
+      // would make the next integration (a delivery the person already
+      // produced) a silent no-op and strand the chain.
+      queueMicrotask(() => { void this.advance(chainId).catch(logRejection('milestone chain advance')) })
       return
     }
     if (updateChain(this.db, row.id, row.status, { status: 'awaiting_approval', headBranch: head, pauseReason: null }, this.now())) {
@@ -728,11 +733,13 @@ export class MilestoneChainManager {
       }
       return this.resumeFailedStep(row)
     }
-    if (this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
+    if (opts.from !== 'start' && this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
       await this.integrateChunk(id)
       return { ok: true, status: 202, chain: this.snapshot(getChain(this.db, id)!) }
     }
-    const action: ChainNextAction = opts.from === 'start' && plan.action.kind === 'resume_failed'
+    // `start`: run the spec again from the start — a failed spec, or a
+    // delivery whose integration was refused (rebuilt on the updated base).
+    const action: ChainNextAction = opts.from === 'start' && (plan.action.kind === 'resume_failed' || plan.action.kind === 'integrate')
       ? { kind: 'launch', ticketId: plan.action.ticketId, retry: true }
       : plan.action
     if (action.kind === 'launch') {

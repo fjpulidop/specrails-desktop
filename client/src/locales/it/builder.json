@@ -318,7 +318,7 @@
         "unknown": "in pausa",
         "provider_limit": "raggiunto il limite d'uso del provider",
         "rail_limit_reached": "ogni rail ha una PR in attesa della tua decisione — unisci o scarta le PR in sospeso per liberare un rail, poi riprendi",
-        "integration_failed": "l'integrazione della spec è fallita ({{detail}}); riprendendo si ritenta l'integrazione"
+        "integration_failed": "l'integrazione della spec è fallita ({{detail}})"
       },
       "checkpoint": "Rail {{k}} di {{n}} consegnato — avviare il rail {{next}}?",
       "launchNext": "Avvia il prossimo rail",
@@ -342,7 +342,8 @@
         "resume_run": "Riprendi l’esecuzione di {{spec}}",
         "follow_run": "Segui l’esecuzione di {{spec}}",
         "answer_run": "Segui l’esecuzione di {{spec}} (attende la tua risposta)",
-        "integrate": "Integra {{spec}} e continua"
+        "integrate": "Integra {{spec}} e continua",
+        "rebuild": "Riesegui {{spec}} sulla base aggiornata"
       },
       "offerHint": {
         "complete": "Ogni spec è consegnata o completata",
@@ -354,7 +355,8 @@
         "resume_run": "Lo stesso tentativo prosegue dal passo successivo",
         "follow_run": "Un’esecuzione sta già lavorando su {{spec}}; la catena la attende invece di avviarne un’altra",
         "answer_run": "L’esecuzione attende una risposta o un’approvazione; rispondi dall’esecuzione",
-        "integrate": "Unisce la consegna di {{spec}} nel ramo di integrazione come i rail della catena, poi continua"
+        "integrate": "Unisce la consegna di {{spec}} nel ramo di integrazione come i rail della catena, poi continua",
+        "rebuild": "La consegna è in conflitto con quanto integrato nel frattempo; una nuova esecuzione parte dalla base aggiornata"
       },
       "offerShort": {
         "complete": "Completa",
@@ -366,7 +368,8 @@
         "resume_run": "Riprendi l’esecuzione di {{spec}}",
         "follow_run": "Segui {{spec}}",
         "answer_run": "Segui {{spec}}",
-        "integrate": "Integra {{spec}}"
+        "integrate": "Integra {{spec}}",
+        "rebuild": "Rifai {{spec}}"
       },
       "moreOptions": "Altre opzioni",
       "pausedSpecDelivered": "{{paused}} è già consegnata",

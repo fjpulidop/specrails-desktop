@@ -80,7 +80,7 @@ export interface MilestoneChainSnapshot {
 /** One step the chain can take next (mirrors the server's ChainOffer). */
 export type ChainOfferKind =
   | 'complete' | 'next' | 'launch' | 'retry' | 'resume_failed_step' | 'retry_from_start'
-  | 'resume_run' | 'follow_run' | 'answer_run' | 'integrate'
+  | 'resume_run' | 'follow_run' | 'answer_run' | 'integrate' | 'rebuild'
 
 export interface ChainOffer {
   kind: ChainOfferKind
@@ -102,7 +102,7 @@ export interface ChainPlanView {
   pausedSpecSettled: boolean
 }
 
-const OFFER_KINDS: ReadonlySet<string> = new Set(['complete', 'next', 'launch', 'retry', 'resume_failed_step', 'retry_from_start', 'resume_run', 'follow_run', 'answer_run', 'integrate'])
+const OFFER_KINDS: ReadonlySet<string> = new Set(['complete', 'next', 'launch', 'retry', 'resume_failed_step', 'retry_from_start', 'resume_run', 'follow_run', 'answer_run', 'integrate', 'rebuild'])
 const SPEC_STATES: ReadonlySet<string> = new Set(['done', 'integrated', 'delivered', 'running', 'paused', 'failed', 'pending'])
 
 export function coerceChainPlan(raw: unknown): ChainPlanView | null {

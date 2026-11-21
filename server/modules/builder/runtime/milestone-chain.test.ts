@@ -949,6 +949,38 @@ describe('reconciled chain: the person\'s own runs and deliveries count', () => 
     expect(f.assignments.at(-1)!.ticketIds).toEqual([3])
   })
 
+  it('a later spec delivered by hand while the chain was busy is integrated right after the current one (live regression)', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    // #2 is already on review (run by hand) when #1 settles and integrates.
+    manual(f, 'manual-2', 2, 'on_review')
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush(); await flush()
+    expect(integrate.mock.calls.map(([d]) => d.id)).toEqual(['d-3', 'manual-2'])
+    expect(f.assignments.map((a) => a.ticketIds[0])).toEqual([1, 3])
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_rail_index: f.launches[1].railIndex })
+  })
+
+  it('a manual delivery that conflicts on integration pauses honestly; Resume from the start rebuilds it on the updated base', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    manual(f, 'manual-2', 2, 'on_review')
+    integrate.mockImplementation(async (delivery: PrDeliverySnapshot) => {
+      if (delivery.id === 'manual-2') return { ok: false as const, status: 409, error: 'merge_failed' }
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true as const }
+    })
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush(); await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'integration_failed:merge_failed', current_delivery_id: 'manual-2' })
+    expect(mgr.get(chainId)!.plan?.offers.map((o) => o.kind)).toEqual(['rebuild', 'integrate'])
+    await mgr.resume(chainId, { from: 'start' })
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([2])
+    expect(f.launches).toHaveLength(2)
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', pause_reason: null })
+  })
+
   it('a spec finished by hand out of order is skipped when reached; the chain completes', async () => {
     const { f } = integrated()
     const mgr = new MilestoneChainManager(db, 'p1', f.io)

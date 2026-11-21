@@ -836,6 +836,7 @@ under review as not yet settled):
 | paused run (user / restart / budget / limit) | adopt, wait | Resume the run of #k (`POST /loop-runs/:id/resume`, same attempt) | — |
 | paused run (question / approval) | adopt, wait | Follow the run (it needs your answer) | — |
 | delivered (row) | adopt it as the chain's delivery and integrate through the guarded `merge-local` / acknowledge path, then continue (checkpoint after integration when auto-continue is off) | Integrate #k and continue | — |
+| delivered, but its integration was refused (`integration_failed:*`, e.g. a conflict with a spec integrated since) | stays paused | *Run #k again on the updated base* (`from: start`, a fresh run) | Integrate #k and continue (after resolving) |
 | failed, resumable | pause `chunk_failed` | Resume #k from the failed step (`from: failed_step`, newest run of the lineage, same delivery) | Retry #k from the start (`from: start`) |
 | failed, not resumable | pause `chunk_failed` | Retry #k | — |
 

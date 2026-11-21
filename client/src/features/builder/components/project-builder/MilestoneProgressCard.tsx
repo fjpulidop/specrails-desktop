@@ -218,6 +218,7 @@ const OFFER_ICON: Record<ChainOfferKind, LucideIcon> = {
   follow_run: Radio,
   answer_run: Radio,
   integrate: GitMerge,
+  rebuild: RotateCcw,
 }
 
 /** The chain's reconciled next step (primary) and its honest alternatives:
@@ -245,7 +246,7 @@ function ChainOfferControls({ chain, busy, testId, onResume }: { chain: Mileston
         data-offer={primary.kind}
       >
         {busy ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden /> : <PrimaryIcon className="h-3 w-3 shrink-0" aria-hidden />}
-        <span className="truncate">{label(primary)}</span>
+        <span className="min-w-0 text-left leading-snug">{label(primary)}</span>
       </button>
       {rest.length > 0 && (
         <DropdownMenu>
@@ -397,9 +398,6 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           <>
             <Pause className="h-3 w-3 shrink-0 text-accent-warning" aria-hidden />
             <span className="text-accent-warning">{t('milestoneProgress.chain.paused', { reason: reasonText })}</span>
-            {pausedSpecDelivered && (
-              <span className="truncate" data-testid="milestone-chain-paused-delivered"> · {t('milestoneProgress.chain.pausedSpecDelivered', { paused: `#${chain.plan!.pausedTicketId}` })}</span>
-            )}
           </>
         ) : checkpoint ? (
           <>
@@ -430,6 +428,11 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
+      {pausedSpecDelivered && (
+        <p className="mt-0.5 text-muted-foreground" data-testid="milestone-chain-paused-delivered">
+          {t('milestoneProgress.chain.pausedSpecDelivered', { paused: `#${chain.plan!.pausedTicketId}` })}
+        </p>
+      )}
       {planned && onResume && (
         <div className="mt-1.5 flex min-w-0" data-testid="milestone-chain-next-step">
           <ChainOfferControls chain={chain} busy={busy} onResume={onResume} testId={checkpoint ? 'milestone-chain-launch-next' : 'milestone-chain-resume'} />

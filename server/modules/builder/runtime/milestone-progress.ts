@@ -234,13 +234,17 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
     })
 
     const chainLive = chain !== null && (chain.status === 'running' || chain.status === 'waiting')
+    // A chain still driving the milestone (running, or stopped on a pause /
+    // checkpoint) outranks "delivered": its last spec may be on review only
+    // until the chain integrates or rebuilds it.
+    const chainStopped = chain !== null && (chain.status === 'paused' || chain.status === 'awaiting_approval')
     const state: MilestoneState =
       counts.total > 0 && counts.done === counts.total ? 'done'
-        : counts.total > 0 && counts.todo + counts.inProgress === 0 && counts.onReview > 0 ? 'delivered'
-          : counts.inProgress > 0 || chainLive ? 'running'
-            : chain !== null && (chain.status === 'paused' || chain.status === 'awaiting_approval') ? 'paused'
+        : counts.inProgress > 0 || chainLive ? 'running'
+          : chainStopped ? 'paused'
+            : counts.total > 0 && counts.todo === 0 && counts.onReview > 0 ? 'delivered'
               : counts.total > 0 ? 'committed'
-              : m.status
+                : m.status
 
     return {
       id: m.id,

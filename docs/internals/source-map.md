@@ -1567,7 +1567,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-context-loop-outcome.ts](../../server/project-context-loop-outcome.ts)
 - [project-context-loops.ts](../../server/project-context-loops.ts)
 - [project-context-managers.ts](../../server/project-context-managers.ts)
-- [project-context-milestones.ts](../../server/project-context-milestones.ts)
+- [project-context-milestones.ts](../../server/project-context-milestones.ts) · [test](../../server/project-context-milestones.test.ts)
 - [project-context-queue.ts](../../server/project-context-queue.ts)
 - [project-context-recovery.ts](../../server/project-context-recovery.ts)
 - [project-context-services.ts](../../server/project-context-services.ts)
