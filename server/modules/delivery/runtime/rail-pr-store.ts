@@ -351,6 +351,11 @@ export function setPrDeliveryLocalStash(
 }
 
 /** Every delivery that still references a stash Specrails must restore or keep. */
+/** True when the project has any PR delivery at all (none ⇒ nothing to recover or adopt). */
+export function hasPrDeliveries(db: DbInstance): boolean {
+  return db.prepare('SELECT 1 FROM rail_pr_deliveries LIMIT 1').get() !== undefined
+}
+
 export function listPrDeliveriesWithLocalStash(db: DbInstance): RailPrDeliveryRow[] {
   return db.prepare(`SELECT * FROM rail_pr_deliveries WHERE local_stash IS NOT NULL ORDER BY created_at`).all() as RailPrDeliveryRow[]
 }

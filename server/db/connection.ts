@@ -3,6 +3,7 @@ import path from 'path'
 import Database from 'better-sqlite3'
 import { secureDir, secureDbFile } from '../util/secure-fs'
 import { applyMigrations } from './migrations'
+import { enableStatementCache } from './statement-cache'
 import type { DbInstance } from './types'
 
 export function initDb(dbPath: string): DbInstance {
@@ -38,5 +39,6 @@ export function initDb(dbPath: string): DbInstance {
     db.close()
     throw err
   }
-  return db
+  // After migrations: every later read/write of this connection reuses its statements.
+  return enableStatementCache(db)
 }

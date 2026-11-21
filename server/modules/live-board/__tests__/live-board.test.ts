@@ -234,6 +234,7 @@ describe('GET /api/live-board', () => {
     const registry = {
       listContexts: () => [{ project: { id: 'p1', name: 'Alpha' }, db: alpha, railLoopRuns: new Map() }],
       desktopDb: desktop,
+      withSpendSnapshot: <T>(fn: () => T): T => fn(),
     }
     registerLiveBoardRoutes(router, registry as never)
     const app = express(); app.use('/api', router)

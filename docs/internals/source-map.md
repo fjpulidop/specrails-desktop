@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1866 source/build files. Nearby tests are linked where names
+Includes 1869 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1617,6 +1617,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [migrations.ts](../../server/db/migrations.ts)
 - [proposals.ts](../../server/db/proposals.ts)
 - [settings.ts](../../server/db/settings.ts)
+- [statement-cache.ts](../../server/db/statement-cache.ts) · [test](../../server/db/statement-cache.test.ts)
 - [stats.ts](../../server/db/stats.ts)
 - [telemetry.ts](../../server/db/telemetry.ts)
 - [templates.ts](../../server/db/templates.ts)
@@ -2196,6 +2197,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [http.ts](../../server/modules/live-board/adapters/http.ts)
 - [missions.ts](../../server/modules/live-board/adapters/missions.ts)
 - [project-source.ts](../../server/modules/live-board/adapters/project-source.ts)
+- [settled-project-cache.ts](../../server/modules/live-board/adapters/settled-project-cache.ts)
 
 ## server/modules/loops/runtime
 
@@ -2519,6 +2521,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
 - [diff-prompt-budget.ts](../../server/util/diff-prompt-budget.ts) · [test](../../server/util/diff-prompt-budget.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
+- [event-loop-slices.ts](../../server/util/event-loop-slices.ts) · [test](../../server/util/event-loop-slices.test.ts)
 - [git-index-lock.ts](../../server/util/git-index-lock.ts) · [test](../../server/util/git-index-lock.test.ts)
 - [git-invocation.ts](../../server/util/git-invocation.ts) · [test](../../server/util/git-invocation.test.ts)
 - [headless-env.ts](../../server/util/headless-env.ts) · [test](../../server/util/headless-env.test.ts)

@@ -12,7 +12,7 @@
 import { withRepoLock } from '../../../../repo-lock'
 import { getAgentChatManager } from '../../../missions/runtime/agent-chat-registry'
 import {
-  getPrDelivery, listPrDeliveriesWithLocalStash, readLocalStash, setPrDeliveryLocalStash, toPrDeliverySnapshot,
+  getPrDelivery, hasPrDeliveries, listPrDeliveriesWithLocalStash, readLocalStash, setPrDeliveryLocalStash, toPrDeliverySnapshot,
   type LocalRestoreBranchRecord, type LocalStashRecord, type RailPrDeliveryRow,
 } from '../../runtime/rail-pr-store'
 import { dropBySha, findSpecrailsStashes, recordAfterRestore, restoreBranchName, restoreLocalChanges } from '../../runtime/local-stash'
@@ -333,6 +333,9 @@ export async function runRestoreLocalChanges(deps: PrDecisionDeps, prDeliveryId:
 export async function recoverLocalStashes(deps: PrDecisionDeps): Promise<string[]> {
   const touched: string[] = []
   try {
+    // A stash is only adopted or restored for an existing delivery row; a
+    // project that never delivered has nothing to recover (and no git to run).
+    if (!hasPrDeliveries(deps.db)) return touched
     const repos = new Set<string>([deps.project.path])
     for (const row of listPrDeliveriesWithLocalStash(deps.db)) {
       const record = readLocalStash(row.local_stash)

@@ -69,8 +69,9 @@ export function reprojectActivePrDeliveries(ctx: ProjectContext): number {
 }
 
 /**
- * Start the restart replay for a context that is already registered. Returns
- * immediately; admission stays closed when any step fails.
+ * Start the restart replay for a context that is already registered. The
+ * returned promise settles (never rejects) when the replay has finished or
+ * stopped; admission stays closed when any step fails.
  */
 export function startProjectRecovery(deps: {
   ctx: ProjectContext
@@ -84,10 +85,10 @@ export function startProjectRecovery(deps: {
   isCurrent: () => boolean
   /** Orphan loop reconciliation (registry-owned, so tests can drive it directly). */
   recoverOrphanLoopRuns: (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => boolean
-}): void {
+}): Promise<void> {
   const { ctx, project, db, broadcast: boundBroadcast, jiraSyncManager, orphanLoopRuns, isCurrent } = deps
-  const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => {
-    if (!isCurrent()) return
+  const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>): Promise<void> => {
+    if (!isCurrent()) return Promise.resolve()
     const loopRecoveryOk = deps.recoverOrphanLoopRuns(definitionStates)
     // Reconciled: the rows now say paused (restart) or settled; they speak for themselves.
     if (loopRecoveryOk) ctx.restartPendingRunIds?.clear()
@@ -102,7 +103,7 @@ export function startProjectRecovery(deps: {
       // Worktree/delivery recovery owns the same repo mutex as launch
       // allocation. Admission opens only after it settles, so a request cannot
       // reuse a ticket-keyed path while startup still inspects it.
-      void reconcileRailWorktrees(db, project.path)
+      return reconcileRailWorktrees(db, project.path)
         .then(async (n) => {
           if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
           // Mission-origin CI repairs interrupted by the restart settle (or return to their offer) here.
@@ -182,13 +183,20 @@ export function startProjectRecovery(deps: {
           console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
         })
     }
+    return Promise.resolve()
   }
   const definitionIds = orphanLoopRuns.filter(run => run.engine_version === 2).map(run => run.id)
   if (definitionIds.length) {
-    void probeDefinitionRuns({ db, cwd: project.path, env: process.env }, definitionIds)
+    return probeDefinitionRuns({ db, cwd: project.path, env: process.env }, definitionIds)
       .then(probes => recoverAfterProbe(toDefinitionStates(probes)))
       .catch(error => { console.error(`[loops] Core recovery inspection failed for ${project.slug}; admission remains closed:`, error) })
-  } else recoverAfterProbe()
+  }
+  try {
+    return recoverAfterProbe()
+  } catch (error) {
+    console.error(`[loops] startup recovery failed for ${project.slug}; admission remains closed:`, error)
+    return Promise.resolve()
+  }
 }
 
 /**

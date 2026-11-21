@@ -258,7 +258,7 @@ describe('GET /inbox', () => {
   it('projects every registered project context', async () => {
     delivery('d1', 0, 'on_review')
     const router = express.Router()
-    registerInboxRoutes(router, { listContexts: () => [{ project: { id: 'p1', name: 'Alpha' }, db }] } as never)
+    registerInboxRoutes(router, { listContexts: () => [{ project: { id: 'p1', name: 'Alpha' }, db }], withSpendSnapshot: <T>(fn: () => T): T => fn() } as never)
     const app = express(); app.use('/api', router)
     const fixture = await listenOnLoopback(app)
     try {

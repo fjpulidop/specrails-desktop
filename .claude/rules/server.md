@@ -43,7 +43,7 @@ paths:
 ## Super mode
 
 - Server runs in Super mode by default — one Express process, multiple projects
-- `ProjectRegistry` loads all `ProjectContext` instances at startup
+- `ProjectRegistry` loads every `ProjectContext` in a background warm-up after `listen` (most recently used first); `getContext(id)` loads a not-yet-warmed project on demand. Code that needs every project at startup waits for `registry.whenWarm()`
 - `~/.specrails/desktop.sqlite` — app-level SQLite (project registry)
 - `~/.specrails/projects/<slug>/jobs.sqlite` — per-project SQLite
 

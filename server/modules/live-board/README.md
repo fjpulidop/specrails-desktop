@@ -15,6 +15,7 @@ already persist, one project at a time, plus the [inbox](../inbox/README.md) ite
 | SQL reads for one project (deliveries, loop runs, Intent sessions, queue jobs, today's run costs) | [adapters/project-source.ts](adapters/project-source.ts) |
 | Mission titles, providers and their own turns today (`agent_conversations`, `agent_invocations`) | [adapters/missions.ts](adapters/missions.ts) |
 | `GET /api/live-board` | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
+| Reuse of a settled project's read | [adapters/settled-project-cache.ts](adapters/settled-project-cache.ts) |
 
 ## How a card is placed
 
@@ -53,7 +54,14 @@ today (its ledger) plus what its runs recorded today (`ai_invocations`).
 ## Invariants
 
 - Project isolation: a source is bound to ONE project's database, filters `loop_runs` by its project id,
-  and the collector drops any inbox item of another project. Nothing is cached between calls.
+  and the collector drops any inbox item of another project. The only reuse between calls is a project
+  with nothing live (no loop run running or paused, no rail or restart-pending state in memory): its
+  read is kept per connection and reused while `total_changes()`, `PRAGMA data_version` and the local
+  day are unchanged, so any write by this or another connection invalidates it
+  ([settled-project-cache.ts](adapters/settled-project-cache.ts)).
+- Responsiveness: the HTTP adapter reads projects (and their inbox sources) one at a time in short
+  event-loop slices, and computes the app-wide spend once per request, so a board of many projects never
+  blocks health checks or WebSocket traffic.
 - Merge preview: the HTTP adapter attaches each delivery card's last merge preview
   (`peekMergePreview`, owned by [delivery](../delivery/README.md#merge-preview)) and asks for a
   throttled background refresh per project; it never computes one on the request. A changed
