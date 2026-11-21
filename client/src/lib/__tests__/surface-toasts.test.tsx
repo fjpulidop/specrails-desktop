@@ -1,16 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createElement } from 'react'
-import { render, act, cleanup, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { toast, type ToastT } from 'sonner'
-import { serializeToast, showForwardedToast, toastText, useForwardSurfaceToasts } from '../surface-toasts'
+import { handOffSurfaceToasts, serializeToast, showForwardedToast, toastText, useTrackSurfaceToasts } from '../surface-toasts'
 
 const invoke = vi.fn(async () => {})
-let actionListener: ((event: { payload: { id: string | number } }) => void) | null = null
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => invoke(...(args as [])) }))
-vi.mock('@tauri-apps/api/event', () => ({
-  listen: vi.fn(async (_name: string, callback: typeof actionListener) => { actionListener = callback; return () => { actionListener = null } }),
-  emitTo: vi.fn(async () => {}),
-}))
 
 beforeEach(() => {
   invoke.mockClear()
@@ -51,27 +46,46 @@ describe('opener side', () => {
     showForwardedToast('surface-a', { id: 1, dismissed: true }, onAction)
     expect(dismiss).toHaveBeenCalledWith('surface:surface-a:1')
   })
+  it('shows a handed-off toast with no action button', () => {
+    const error = vi.spyOn(toast, 'error')
+    showForwardedToast('surface-b', { id: 2, type: 'error', title: 'Could not continue the run', action: 'Retry' })
+    expect(error).toHaveBeenCalledWith('Could not continue the run', { id: 'surface:surface-b:2' })
+  })
 })
 
-function Forwarder() {
-  useForwardSurfaceToasts()
+function Tracker() {
+  useTrackSurfaceToasts()
   return null
 }
 
 describe('surface window side', () => {
-  it('relays new toasts, updates and dismissals, and runs relayed action clicks', async () => {
-    const retry = vi.fn()
-    render(<Forwarder />)
-    let id: string | number = ''
-    act(() => { id = toast.loading('Saving…') })
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith('surface_window_toast', { toast: expect.objectContaining({ id, type: 'loading', title: 'Saving…' }) }))
-    act(() => { toast.error('Save failed', { id, action: { label: 'Retry', onClick: retry } }) })
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith('surface_window_toast', { toast: expect.objectContaining({ id, type: 'error', title: 'Save failed', action: 'Retry' }) }))
-    const calls = invoke.mock.calls.length
-    act(() => { actionListener?.({ payload: { id } }) })
-    expect(retry).toHaveBeenCalledTimes(1)
-    act(() => { toast.dismiss(id) })
-    await waitFor(() => expect(invoke.mock.calls.length).toBeGreaterThan(calls))
-    expect(invoke).toHaveBeenLastCalledWith('surface_window_toast', { toast: { id, dismissed: true } })
+  it('shows its own toasts (nothing is relayed while the window is open)', async () => {
+    render(<Tracker />)
+    act(() => { toast.error('Could not continue the run', { action: { label: 'Retry', onClick: () => {} } }) })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('hands the toasts still on screen to the opener as it closes: text only, no action, no spinner, nothing dismissed', async () => {
+    render(<Tracker />)
+    let failed: string | number = ''
+    let gone: string | number = ''
+    act(() => {
+      toast.loading('Saving…')
+      gone = toast.success('Saved')
+      failed = toast.error('Could not continue the run', { description: 'The run has no step to continue from', action: { label: 'Retry', onClick: () => {} } })
+    })
+    act(() => { toast.dismiss(gone) })
+    const handed = async () => { invoke.mockClear(); await handOffSurfaceToasts(); return invoke.mock.calls }
+    await waitFor(async () => expect(await handed()).toEqual([['surface_window_toast', { toast: { id: failed, type: 'error', title: 'Could not continue the run', description: 'The run has no step to continue from' } }]]))
+  })
+
+  it('hands off nothing outside the desktop app', async () => {
+    render(<Tracker />)
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+    act(() => { toast.success('Saved') })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await handOffSurfaceToasts()
+    expect(invoke).not.toHaveBeenCalled()
   })
 })

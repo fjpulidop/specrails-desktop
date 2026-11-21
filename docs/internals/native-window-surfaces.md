@@ -173,18 +173,22 @@ already reaches every window through the API and WebSocket.
 
 ## Toasts
 
-Toasts belong to the window that opened the surface, not to the surface
-window, which renders no toaster ([`lib/surface-toasts.ts`](../../client/src/lib/surface-toasts.ts)).
-`useForwardSurfaceToasts` watches the surface window's toasts (sonner's store,
-`useSonner`) and relays each new or changed toast, and each dismissal, as text
-through `surface_window_toast`. The host delivers it to the opener only
-(`surface-window:toast`). The opener (`useShowSurfaceToasts`, main and mission
-windows) shows it under a stable `surface:<window>:<id>` id, so loading →
-success updates replace in place. An action button (Retry, Undo) keeps
-working: its click is sent back to the surface window
-(`surface-window:toast-action`), which runs the original handler. If the
-surface window has already closed, the click does nothing. Toasts with no text
-(fully custom JSX) are not shown.
+A surface window renders its own toaster: a toast shows in the window where
+the person acted. (Relaying them to the opener hid them: a failed Continue
+in the Job detail window landed in the main window behind it, and nobody saw
+it.)
+
+When the surface window closes itself (its close button, Escape, "do X, then
+close"), it hands the toasts still on screen to its opener
+([`lib/surface-toasts.ts`](../../client/src/lib/surface-toasts.ts)):
+`useTrackSurfaceToasts` keeps the on-screen list (sonner's `useSonner`), and
+`handOffSurfaceToasts` relays each as text through `surface_window_toast`
+before the window closes. The host delivers it to the opener only
+(`surface-window:toast`); the opener (`useShowSurfaceToasts`, main and mission
+windows) shows it under a stable `surface:<window>:<id>` id. A handed-off
+toast has no action button (the window that would run it is gone), and a
+loading toast is not handed off (its update would never come). Toasts with no
+text (fully custom JSX) are not handed off.
 
 In every window, toasts stay bottom-right and stay clickable over an open
 modal ([modal standard](modal-standard.md), layers).

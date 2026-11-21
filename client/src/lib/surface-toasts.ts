@@ -1,22 +1,24 @@
 /**
- * Toasts from native surface windows show in the window that opened them
- * (docs/internals/native-window-surfaces.md#toasts).
+ * Toasts in native surface windows (docs/internals/native-window-surfaces.md#toasts).
  *
- * A surface window renders no toaster. `useForwardSurfaceToasts` watches its
- * toasts (sonner's store, `useSonner`) and relays each new or changed toast,
- * and each dismissal, through the host (`surface_window_toast`, delivered to
- * the opener only). The opener's `useShowSurfaceToasts` shows them in its own
- * toaster under a stable id, so loading → success updates replace in place. An
- * action button keeps working: its click is sent back to the surface window,
- * which runs the original handler. Only text crosses windows.
+ * A surface window renders its own toaster: a toast shows in the window where
+ * the person acted, never in another window that may sit behind it (a failed
+ * Continue in the job window used to land, unseen, in the main window).
+ *
+ * When the surface window closes itself (its close button, Escape, "do X,
+ * then close"), `handOffSurfaceToasts` relays the toasts still on screen
+ * (`useTrackSurfaceToasts`) as
+ * text through the host (`surface_window_toast`, delivered to the opener only),
+ * and the opener's `useShowSurfaceToasts` shows them under a stable id, so the
+ * outcome of the last action outlives the window. Their action buttons stay
+ * behind: the window that would run them is gone.
  */
-import { isValidElement, useEffect, useRef, type ReactNode } from 'react'
+import { isValidElement, useEffect, type ReactNode } from 'react'
 import { toast, useSonner, type ToastT } from 'sonner'
 import { isTauri } from './tauri-shell'
 import { isSurfaceWindowRoute } from './native-surfaces'
 
 export const SURFACE_TOAST_EVENT = 'surface-window:toast'
-export const SURFACE_TOAST_ACTION_EVENT = 'surface-window:toast-action'
 
 const TOAST_TYPES = ['success', 'info', 'warning', 'error', 'loading'] as const
 type ForwardedType = (typeof TOAST_TYPES)[number] | 'default'
@@ -27,7 +29,7 @@ export interface ForwardedToast {
   title?: string
   description?: string
   duration?: number
-  /** Action button label; a click is relayed back to the surface window. */
+  /** Action button label (a toast handed off by a closing window carries none). */
   action?: string
   dismissed?: true
 }
@@ -73,45 +75,25 @@ async function relay(forwarded: ForwardedToast): Promise<void> {
   await invoke('surface_window_toast', { toast: forwarded })
 }
 
-/** Surface window side: relay this window's toasts to its opener. */
-export function useForwardSurfaceToasts(): void {
+/** The toasts on screen in this surface window (`useTrackSurfaceToasts`); sonner's own store keeps dismissed-all ones. */
+let onScreen: readonly ToastT[] = []
+
+/** Surface window side: keep track of the toasts on screen, for the hand-off when the window closes. */
+export function useTrackSurfaceToasts(): void {
   const { toasts } = useSonner()
-  const sent = useRef(new Map<string | number, string>())
-  const actions = useRef(new Map<string | number, (event: never) => void>())
+  useEffect(() => { onScreen = toasts }, [toasts])
+  useEffect(() => () => { onScreen = [] }, [])
+}
 
-  useEffect(() => {
-    const live = new Set<string | number>()
-    for (const item of toasts) {
-      live.add(item.id)
-      const forwarded = serializeToast(item)
-      if (!forwarded) continue
-      const signature = JSON.stringify(forwarded)
-      if (sent.current.get(item.id) === signature) continue
-      sent.current.set(item.id, signature)
-      const action = actionOf(item)
-      if (action) actions.current.set(item.id, action.onClick)
-      else actions.current.delete(item.id)
-      void relay(forwarded).catch(() => {})
-    }
-    for (const id of [...sent.current.keys()]) {
-      if (live.has(id)) continue
-      sent.current.delete(id)
-      actions.current.delete(id)
-      void relay({ id, dismissed: true }).catch(() => {})
-    }
-  }, [toasts])
-
-  useEffect(() => {
-    if (!isTauri()) return
-    let stop: (() => void) | undefined
-    let disposed = false
-    void import('@tauri-apps/api/event').then(({ listen }) => listen<{ id: string | number }>(SURFACE_TOAST_ACTION_EVENT, ({ payload }) => {
-      const onClick = actions.current.get(payload?.id)
-      // Sonner passes the click event; relayed clicks have none to give.
-      onClick?.({ preventDefault() {}, stopPropagation() {} } as never)
-    })).then(unlisten => { if (disposed) unlisten(); else stop = unlisten })
-    return () => { disposed = true; stop?.() }
-  }, [])
+/**
+ * Surface window side, as the window closes itself: relay the toasts still on screen to the opener
+ * (text only, without their action buttons). Never throws; resolves once every relay settled.
+ */
+export async function handOffSurfaceToasts(): Promise<void> {
+  if (!isTauri()) return
+  // A loading toast would spin forever in the opener: its update would come from the closed window.
+  const forwarded = onScreen.map(item => serializeToast(item)).filter((item): item is ForwardedToast => !!item && item.type !== 'loading')
+  await Promise.all(forwarded.map(({ action: _action, ...item }) => relay(item).catch(() => {})))
 }
 
 function isForwardedToast(value: unknown): value is ForwardedToast {
@@ -121,7 +103,7 @@ function isForwardedToast(value: unknown): value is ForwardedToast {
 }
 
 /** Opener side: show a forwarded toast (or apply its update or dismissal). */
-export function showForwardedToast(windowLabel: string, forwarded: ForwardedToast, onAction: () => void): void {
+export function showForwardedToast(windowLabel: string, forwarded: ForwardedToast, onAction?: () => void): void {
   const id = `surface:${windowLabel}:${forwarded.id}`
   if (forwarded.dismissed) { toast.dismiss(id); return }
   // A description-only toast shows its description as the title.
@@ -130,23 +112,22 @@ export function showForwardedToast(windowLabel: string, forwarded: ForwardedToas
     id,
     ...(forwarded.title && forwarded.description ? { description: forwarded.description } : {}),
     ...(typeof forwarded.duration === 'number' ? { duration: forwarded.duration } : {}),
-    ...(forwarded.action ? { action: { label: forwarded.action, onClick: onAction } } : {}),
+    ...(forwarded.action && onAction ? { action: { label: forwarded.action, onClick: onAction } } : {}),
   }
   const show = forwarded.type && forwarded.type !== 'default' ? toast[forwarded.type] : toast
   show(title, options)
 }
 
-/** Opener side (main and mission windows): show toasts relayed from the surface windows this window opened. */
+/** Opener side (main and mission windows): show the toasts a surface window this window opened handed off as it closed. */
 export function useShowSurfaceToasts(): void {
   useEffect(() => {
     if (!isTauri() || isSurfaceWindowRoute()) return
     let stop: (() => void) | undefined
     let disposed = false
-    void import('@tauri-apps/api/event').then(({ listen, emitTo }) => listen<{ windowLabel?: unknown; toast?: unknown }>(SURFACE_TOAST_EVENT, ({ payload }) => {
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<{ windowLabel?: unknown; toast?: unknown }>(SURFACE_TOAST_EVENT, ({ payload }) => {
       const windowLabel = payload?.windowLabel
       if (typeof windowLabel !== 'string' || !isForwardedToast(payload.toast)) return
-      const forwarded = payload.toast
-      showForwardedToast(windowLabel, forwarded, () => { void emitTo(windowLabel, SURFACE_TOAST_ACTION_EVENT, { id: forwarded.id }).catch(() => {}) })
+      showForwardedToast(windowLabel, payload.toast)
     })).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
     return () => { disposed = true; stop?.() }
   }, [])
