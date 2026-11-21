@@ -45,6 +45,10 @@
       "rejectedUntil": "{{provider}} no limite: repõe {{time}}",
       "unknown": "Utilização de {{provider}} desconhecida"
     },
+    "headless": {
+      "ok": "As janelas de {{framework}} ficam ocultas durante as execuções",
+      "warn": "Janelas de {{framework}} podem aparecer durante as execuções — faça o inicializador e os testes respeitarem SPECRAILS_HEADLESS"
+    },
     "blocking": "Corrige a verificação falhada antes de lançar.",
     "quotaWarning_one": "{{provider}} usou {{percent}}% do seu limite {{window}}. Lançar {{count}} rail pode pô-lo em pausa no limite; depois retoma sozinho após a reposição.",
     "quotaWarning_other": "{{provider}} usou {{percent}}% do seu limite {{window}}. Lançar {{count}} rails pode pô-los em pausa no limite; depois retomam sozinhos após a reposição.",

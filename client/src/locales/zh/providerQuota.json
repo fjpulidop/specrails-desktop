@@ -45,6 +45,10 @@
       "rejectedUntil": "{{provider}} 已达限额 — {{time}} 重置",
       "unknown": "{{provider}} 用量未知"
     },
+    "headless": {
+      "ok": "运行期间 {{framework}} 窗口保持隐藏",
+      "warn": "运行期间可能出现 {{framework}} 窗口 — 请让其启动器和测试遵循 SPECRAILS_HEADLESS"
+    },
     "blocking": "请先解决失败的检查再启动。",
     "quotaWarning_one": "{{provider}} 已用掉其{{window}}限额的 {{percent}}%。启动 {{count}} 条轨道可能会在限额处暂停；重置后会自动恢复。",
     "quotaWarning_other": "{{provider}} 已用掉其{{window}}限额的 {{percent}}%。启动 {{count}} 条轨道可能会在限额处暂停；重置后会自动恢复。",

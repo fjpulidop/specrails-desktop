@@ -68,15 +68,19 @@ describe('provider CLI environment', () => {
     const base = options()
     expect((await runAgentRuntimeInvocation({ ...base, env: { ...base.env, GEMINI_CLI_TRUST_WORKSPACE: undefined } })).failed).toBe(false)
     expect(readFileSync(trust, 'utf8')).toBe('true')
-    expect(coreProviderEnv({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })
+    expect(coreProviderEnv({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: 'false', SPECRAILS_HEADLESS: '1' })
     const env = { PATH: '/bin' }
-    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_HEADLESS: '1', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
     expect(env).toEqual({ PATH: '/bin' })
+  })
+
+  it('runs Core headless unless Desktop\'s environment opts out', () => {
+    expect(coreProviderEnv({ PATH: '/bin', SPECRAILS_HEADLESS: '0' })).toEqual({ PATH: '/bin', SPECRAILS_HEADLESS: '0', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
   })
 
   it('never hands Desktop\'s own Core selection to Core, its agents or verification commands', () => {
     const env = { PATH: '/bin', SPECRAILS_CORE_BIN: '/core/bin/specrails-core.mjs', SPECRAILS_CORE_RUNTIME_PATH: '/core/dist/agent-runtime/index.js', SPECRAILS_FRAMEWORK_AUTOSWAP: 'false', SPECRAILS_GIT_AUTO: 'false' }
-    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_GIT_AUTO: 'false', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_GIT_AUTO: 'false', SPECRAILS_HEADLESS: '1', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
     expect(env.SPECRAILS_CORE_BIN).toBe('/core/bin/specrails-core.mjs')
   })
 })

@@ -6,6 +6,8 @@ This is the only implementation engine in the current source tree. It applies to
 
 The bridge passes Desktop's environment to Core, and Core's provider CLIs inherit it. `coreProviderEnv` adds `GEMINI_CLI_TRUST_WORKSPACE=true` (unless the host set a value) because Gemini CLI exits 55 in a folder that was never trusted interactively, which includes every rail worktree. Desktop already trusts the admitted workspace this way for its own Gemini spawns.
 
+Runs are headless: `coreProviderEnv` also sets `SPECRAILS_HEADLESS=1` (an explicit value, including the `0` opt-out, wins), and Core adds `BROWSER=none` and its Electron guard (`NODE_OPTIONS`) to every agent and verification process, so a project's launches and UI tests never cover the person's windows or take focus while UI tests still run (Core `docs/agent-runtime.md`, "Headless commands"). Queued jobs Desktop starts without Core get the marker and `BROWSER=none` (`server/util/headless-env.ts`). The person's terminals and in-app background processes are not made headless. The launch preflight shows a `headless` chip for desktop GUI projects ([launch-preflight](../../server/modules/launch-preflight/README.md)).
+
 ## Build the paired source
 
 Use Node **22.22.3+** for Core; Node **22.22.3** matches Desktop's native CI runtime. Provider requirements can be higher. Both repositories' dependencies must be installed.

@@ -20,7 +20,7 @@ export function registerLaunchPreflightRoutes(router: Router, registry: ProjectR
     const requested = (typeof req.query.providers === 'string' ? req.query.providers.split(',') : ['']).map((id) => id.trim()).slice(0, 8)
     const providers = requested.map((id) => { const checked = validateRequestedProvider(context.project, id); return checked.ok ? checked.provider : id }).filter((id) => PROVIDER_ID.test(id))
     try {
-      res.json(await preflight.run({ worktreesDir: batchWorktreeRoot(context.project.slug), providers, github: true, fresh: req.query.fresh === '1' }))
+      res.json(await preflight.run({ worktreesDir: batchWorktreeRoot(context.project.slug), providers, github: true, fresh: req.query.fresh === '1', projectDir: context.project.path }))
     } catch (error) {
       res.status(500).json({ error: 'preflight_failed', detail: error instanceof Error ? error.message : String(error) })
     }

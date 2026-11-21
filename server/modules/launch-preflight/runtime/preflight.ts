@@ -8,7 +8,7 @@
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { diskChip, githubChip, providerChip, quotaChip, signInFromExit, summarize, type PreflightReport, type SignInStatus } from '../domain'
+import { diskChip, githubChip, headlessChip, providerChip, quotaChip, signInFromExit, summarize, type DesktopGuiFramework, type PreflightReport, type SignInStatus } from '../domain'
 
 export const SIGN_IN_TTL_MS = 60_000
 export const PROBE_TIMEOUT_MS = 5_000
@@ -27,6 +27,8 @@ export interface PreflightDeps {
   /** The executable of a provider CLI (null when not installed). */
   executable(providerId: string): Promise<string | null>
   quota(providerId: string): { providerId: string; level: string; usedPercent: number | null; rejectedUntil: string | null } | null
+  /** The project's desktop GUI toolkit and whether it honours SPECRAILS_HEADLESS (null: not a desktop app). */
+  desktopGui?(projectDir: string): Promise<{ framework: DesktopGuiFramework; honoured: boolean } | null>
   now(): number
 }
 
@@ -57,19 +59,22 @@ export function createLaunchPreflight(deps: PreflightDeps) {
     return cached('github', async () => signInFromExit(await deps.exec('gh', ['auth', 'status'], PROBE_TIMEOUT_MS)))
   }
 
-  async function run(input: { worktreesDir: string; providers: readonly string[]; github: boolean; fresh?: boolean }): Promise<PreflightReport> {
+  async function run(input: { worktreesDir: string; providers: readonly string[]; github: boolean; fresh?: boolean; projectDir?: string }): Promise<PreflightReport> {
     if (input.fresh) cache.clear()
     const providers = [...new Set(input.providers)]
-    const [free, signIns, github] = await Promise.all([
+    const [free, signIns, github, gui] = await Promise.all([
       withTimeout(deps.freeBytes(input.worktreesDir), PROBE_TIMEOUT_MS, null),
       Promise.all(providers.map((id) => providerSignIn(id))),
       input.github ? githubSignIn() : Promise.resolve(null),
+      input.projectDir && deps.desktopGui ? withTimeout(deps.desktopGui(input.projectDir), PROBE_TIMEOUT_MS, null) : Promise.resolve(null),
     ])
     const chips = [
       diskChip(free),
       ...providers.map((id, index) => providerChip(id, signIns[index]!)),
       ...(github ? [githubChip(github)] : []),
       ...providers.flatMap((id) => { const view = deps.quota(id); return view ? [quotaChip(view)] : [] }),
+      // Only a desktop GUI project gets this chip: whether a run's windows stay hidden.
+      ...(gui ? [headlessChip(gui.framework, gui.honoured)] : []),
     ]
     return summarize(chips, deps.now())
   }

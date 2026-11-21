@@ -12,6 +12,7 @@ import { resolveProjectAgentEnv, worktreeEnvPassthroughWarning } from '../../../
 import { readCurrentFrameworkVersion } from '../../../framework-manager'
 import { injectRepoMapEnv } from '../../../repo-map'
 import { buildTelemetryEnv } from '../../../providers/telemetry-env'
+import { headlessJobEnv } from '../../../util/headless-env'
 
 export interface BaseJobSpawnEnv {
   spawnEnv: NodeJS.ProcessEnv
@@ -79,6 +80,8 @@ export function buildBaseJobSpawnEnv(input: BaseJobSpawnEnvInput): BaseJobSpawnE
   // Deterministic repo map (zero-AI, best-effort) — orients the pipeline's
   // exploration phase so it doesn't spend its first turns on `ls`/`find`.
   spawnEnv = injectRepoMapEnv(spawnEnv, execution.repoDir)
+  // Jobs never open windows or browser tabs over the person's (util/headless-env).
+  spawnEnv = headlessJobEnv(spawnEnv)
 
   return { spawnEnv, environmentNotice, telemetryEnabled, frameworkVersion }
 }
