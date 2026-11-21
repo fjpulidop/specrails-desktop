@@ -32,6 +32,11 @@ describe('withElectronHeadlessGuard', () => {
   it('is idempotent: the same guard is never required twice', () => {
     const once = withElectronHeadlessGuard(headless, '/g.cjs')
     expect(withElectronHeadlessGuard(once, '/g.cjs')).toBe(once)
+    // The quoted option doubles Windows backslashes; the guard is still recognised.
+    const windows = 'C:\\Users\\me\\runs\\a b\\electron-headless-guard.cjs'
+    const quoted = withElectronHeadlessGuard(headless, windows)
+    expect(quoted.NODE_OPTIONS).toBe(`--require ${JSON.stringify(windows)}`)
+    expect(withElectronHeadlessGuard(quoted, windows)).toBe(quoted)
   })
   it('respects the SPECRAILS_HEADLESS=0 opt-out and an unmarked environment', () => {
     const optOut = { PATH: '/bin', SPECRAILS_HEADLESS: '0', NODE_OPTIONS: '--no-warnings' }

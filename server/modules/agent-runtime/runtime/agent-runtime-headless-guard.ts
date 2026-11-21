@@ -75,8 +75,11 @@ export function resolveRunHeadlessGuard(input: { env: NodeJS.ProcessEnv; runCli:
 export function withElectronHeadlessGuard(env: NodeJS.ProcessEnv, guard: string): NodeJS.ProcessEnv {
   if (env[HEADLESS_ENV_KEY] !== '1') return env
   const current = env.NODE_OPTIONS ?? ''
-  if (current.includes(guard)) return env
-  return { ...env, NODE_OPTIONS: `${current} --require ${JSON.stringify(guard)}`.trim() }
+  // The option carries the path quoted (`JSON.stringify`), which doubles Windows backslashes:
+  // look for that spelling as well as the bare path.
+  const quoted = JSON.stringify(guard)
+  if (current.includes(quoted) || current.includes(guard)) return env
+  return { ...env, NODE_OPTIONS: `${current} --require ${quoted}`.trim() }
 }
 
 /** The run-log line for a guard decision Desktop made; null when Core owns it or the person opted out. */
