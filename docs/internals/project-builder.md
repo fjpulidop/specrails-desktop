@@ -52,18 +52,18 @@ route).
   the saved preference for generating M2+ specs. The launch body includes
   `engine: {provider, model, reasoningEffort}`; null effort uses provider defaults.
   The server validates before creating any chain, then stores the choice in
-  `milestone_launch_chains.engine_config` (migration 92). Each NEW rail
-  (advance, resume with the next spec, retry from the start) resolves its
-  engine at launch time (`milestone-engine-preference.ts`), the newest explicit
-  choice winning: the milestone's own configuration (recorded when its specs
-  are generated with "Use another configuration only for M<n>"), else the usual
-  configuration when it was saved after the chain started (the preference is
-  stamped `savedAt`; a value saved before stamps existed never overrides a
-  launch), else the Launch choice. Resuming a run in place keeps that run's
-  engine. Launched entries record `engine`, rails expose it, and the snapshot's
-  `nextEngine` drives "Next rail: Codex · GPT-6.2 Sol" / "The next rail uses
-  the new configuration" on the chain row. Legacy NULL chains keep their
-  existing behavior unless a milestone or newer usual configuration applies.
+  `milestone_launch_chains.engine_config` (migration 92) and launches the
+  first rail on it. Every later new rail (advance, resume with the next spec,
+  retry from the start) uses what the popover shows at launch time
+  (`milestone-engine-preference.ts`): the milestone's own configuration
+  (recorded when its specs are generated with "Use another configuration only
+  for M<n>"), else the current usual configuration whenever it was saved, else
+  the Launch choice when no usual configuration exists. Resuming a run in place
+  keeps that run's engine. Launched entries record `engine`, rails expose it,
+  and the snapshot's `nextEngine` drives "Next rail: Codex · GPT-6.2 Sol" /
+  "The next rail uses the new configuration" on the chain row. Legacy NULL
+  chains keep their existing behavior unless a milestone or usual configuration
+  applies.
   A conflicting recipe-owned engine rejects the launch instead of replacing the
   selection. No recipe, project primary or generation preference is modified.
   Worktree hydration also copies an untracked `openspec/config.yaml` (or `.yml`)

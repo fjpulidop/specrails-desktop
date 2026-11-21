@@ -418,7 +418,7 @@
       "nextEngineChanged": "Die nächste Rail nutzt die neue Konfiguration: {{engine}}",
       "engineSource": {
         "milestone": "Die eigene Konfiguration dieses Meilensteins",
-        "usual": "Deine übliche Konfiguration, geändert während die Kette läuft",
+        "usual": "Deine übliche Konfiguration",
         "launch": "Die beim Start gewählte Konfiguration"
       }
     },

@@ -52,11 +52,12 @@ M1 execution has a separate per-launch selection. `GET /blueprint/launch-setting
 returns the compatible catalog and project-primary default. The milestone launch
 body may include `engine: { provider, model, reasoningEffort }`, validated before
 creating a chain. Migration 92 adds nullable `engine_config` to the chain row.
-Each NEW rail resolves its engine at launch (`readNextRailEngine`): the
-milestone's own configuration, else the usual one saved after the chain started,
-else `engine_config`; resuming a run in place keeps that run's engine. Launched
-entries record `engine` and the snapshot exposes `nextEngine`. Legacy NULL rows
-keep their original behavior unless a milestone or newer usual configuration applies. Rails reject a recipe-owned conflicting
+The first rail runs on it; every later new rail resolves its engine at launch
+(`readNextRailEngine`): the milestone's own configuration, else the current usual
+configuration (whenever saved), else `engine_config`; resuming a run in place
+keeps that run's engine. Launched entries record `engine` and the snapshot exposes
+`nextEngine`. Legacy NULL rows keep their original behavior unless a milestone or
+usual configuration applies. Rails reject a recipe-owned conflicting
 engine when `requireEngineSelection` is set, preserving recipe ownership without
 silently changing the user's choice.
 

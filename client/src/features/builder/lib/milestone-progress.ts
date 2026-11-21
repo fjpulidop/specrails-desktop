@@ -75,7 +75,7 @@ export interface MilestoneEngine {
 }
 
 /** Where the next rail's engine comes from: the milestone's own configuration,
- *  the usual one saved since the chain started, or the Launch choice. */
+ *  the current usual one, or the Launch choice. */
 export type MilestoneEngineSource = 'milestone' | 'usual' | 'launch'
 
 export interface MilestoneChainLaunched {

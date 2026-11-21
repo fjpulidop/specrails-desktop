@@ -418,7 +418,7 @@
       "nextEngineChanged": "次の Rail は新しい設定を使います：{{engine}}",
       "engineSource": {
         "milestone": "このマイルストーン専用の設定",
-        "usual": "チェーン実行中に変更した通常の設定",
+        "usual": "通常の設定",
         "launch": "起動時に選んだ設定"
       }
     },

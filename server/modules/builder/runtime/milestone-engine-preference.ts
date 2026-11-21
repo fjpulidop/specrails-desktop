@@ -4,14 +4,15 @@
 // following iterations" (`blueprint.milestone_generation`) and, per milestone,
 // "use another configuration only for M<n>" (recorded when that milestone's
 // specs are generated with it). A launch chain lives for hours: freezing the
-// engine chosen at Launch made every later rail ignore a configuration the
-// person changed meanwhile. The chain therefore resolves the engine of each
-// NEW rail at launch time, the newest explicit choice winning:
+// engine chosen at Launch made every later rail ignore what the popover shows.
+// New rails use what the popover shows:
 //
 //   1. the milestone's own configuration ("only for M<n>"), if set;
-//   2. the usual configuration, when it was saved AFTER the chain started;
-//   3. the engine chosen at Launch (`milestone_launch_chains.engine_config`);
-//   4. none (legacy chains: the rails' own defaults).
+//   2. at Launch (no rail launched yet), the engine chosen in the launch controls;
+//   3. otherwise the CURRENT usual configuration, whenever it was saved
+//      (a value saved before stamps existed counts too);
+//   4. otherwise the Launch choice (`milestone_launch_chains.engine_config`);
+//   5. none (legacy chains: the rails' own defaults).
 //
 // Continuing an existing run in place never switches its engine (that is what
 // the provider-switch on a usage limit is for). Pure reads of `queue_state`.
@@ -99,24 +100,23 @@ export function recordMilestoneGenerationEngine(db: DbInstance, milestoneId: str
   saveMilestoneEngineOverride(db, milestoneId, usual && sameEngine(usual, engine) ? null : engine, nowMs)
 }
 
-/** Pure: the next rail's engine from the three choices (module header order). */
+/** Pure: the next rail's engine from the choices (module header order). */
 export function resolveMilestoneEngine(input: {
   override: StampedEngine | null
   usual: StampedEngine | null
   launch: MilestoneEngine | null
-  /** When the chain started (ISO): a usual configuration saved later wins over the launch choice. */
-  chainCreatedAt: string
+  /** No rail launched yet: the launch controls' choice runs the first rail. */
+  atLaunch: boolean
 }): ResolvedMilestoneEngine | null {
   if (input.override) return { ...input.override.engine, source: 'milestone' }
-  const created = Date.parse(input.chainCreatedAt)
-  const usualAt = input.usual?.savedAt ? Date.parse(input.usual.savedAt) : Number.NaN
-  if (input.usual && Number.isFinite(usualAt) && (!Number.isFinite(created) || usualAt > created)) return { ...input.usual.engine, source: 'usual' }
+  if (input.atLaunch && input.launch) return { ...pick(input.launch), source: 'launch' }
+  if (input.usual) return { ...input.usual.engine, source: 'usual' }
   if (input.launch) return { ...pick(input.launch), source: 'launch' }
   return null
 }
 
 /** Read and resolve for one chain row; `invalid` when it falls back to an unreadable launch choice. */
-export function readNextRailEngine(db: DbInstance, chain: { milestone_id: string; created_at: string; engine_config: string | null }): ResolvedMilestoneEngine | null | 'invalid' {
+export function readNextRailEngine(db: DbInstance, chain: { milestone_id: string; engine_config: string | null; launched: string }): ResolvedMilestoneEngine | null | 'invalid' {
   let launch: MilestoneEngine | null = null
   let invalid = false
   if (chain.engine_config != null) {
@@ -130,6 +130,8 @@ export function readNextRailEngine(db: DbInstance, chain: { milestone_id: string
   let usual: StampedEngine | null = null
   try { override = readMilestoneEngineOverride(db, chain.milestone_id) } catch { override = null }
   try { usual = readUsualMilestoneEngine(db) } catch { usual = null }
-  const resolved = resolveMilestoneEngine({ override, usual, launch, chainCreatedAt: chain.created_at })
+  let atLaunch = false
+  try { const parsed: unknown = JSON.parse(chain.launched || '[]'); atLaunch = Array.isArray(parsed) && parsed.length === 0 } catch { atLaunch = false }
+  const resolved = resolveMilestoneEngine({ override, usual, launch, atLaunch })
   return !resolved && invalid ? 'invalid' : resolved
 }

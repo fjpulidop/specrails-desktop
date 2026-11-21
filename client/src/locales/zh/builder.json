@@ -418,7 +418,7 @@
       "nextEngineChanged": "下一个 Rail 将使用新配置：{{engine}}",
       "engineSource": {
         "milestone": "此里程碑的专属配置",
-        "usual": "你的常用配置（在链运行期间更改）",
+        "usual": "你的常用配置",
         "launch": "启动时选择的配置"
       }
     },

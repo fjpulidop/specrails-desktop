@@ -112,8 +112,8 @@ export interface MilestoneChainSnapshot {
    *  the manager re-emits with it. */
   plan?: ChainPlan | null
   /** The engine the chain's NEXT rail launches on, resolved now (the
-   *  milestone's own configuration, the usual one saved since the chain
-   *  started, else the Launch choice); null = the rails' defaults. Absent on a
+   *  milestone's own configuration, else the current usual one, else the
+   *  Launch choice); null = the rails' defaults. Absent on a
    *  projection made without the chain manager. */
   nextEngine?: ResolvedMilestoneEngine | null
 }

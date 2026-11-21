@@ -260,8 +260,9 @@ export class MilestoneChainManager {
    *  rail), else a fresh one. At the rail limit it fails `rail_limit_reached`. */
   private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[], chain?: MilestoneChainRow): Promise<LaunchedChunk> {
     // Every NEW rail resolves its engine now (milestone-engine-preference.ts):
-    // the milestone's own configuration, the usual one saved since the chain
-    // started, else the Launch choice — never the snapshot frozen at Launch.
+    // what the popover shows — the milestone's own configuration, else the
+    // current usual one — the Launch choice only for the first rail or when no
+    // usual configuration exists. Never the snapshot frozen at Launch.
     let engine: MilestoneChainEngine | undefined
     if (chain) {
       const resolved = readNextRailEngine(this.db, chain)

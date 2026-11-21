@@ -12,22 +12,22 @@ import { readMilestoneGenerationSelection, saveMilestoneGenerationSelection } fr
 
 const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
 const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
-const created = '2026-11-21T07:18:00.000Z'
 
 let db: DbInstance
 beforeEach(() => { db = initDb(':memory:') })
 
 describe('resolveMilestoneEngine', () => {
-  it('milestone override > usual saved after the chain started > launch choice > none', () => {
-    const later = { engine: CODEX, savedAt: '2026-11-21T09:00:00.000Z' }
-    const earlier = { engine: CODEX, savedAt: '2026-11-21T07:00:00.000Z' }
+  it('milestone override > the launch choice at Launch > the current usual configuration > the launch choice > none', () => {
+    const stamped = { engine: CODEX, savedAt: '2026-11-21T09:00:00.000Z' }
+    const legacy = { engine: CODEX, savedAt: null }
     const own = { engine: { provider: 'claude', model: 'opus', reasoningEffort: null }, savedAt: '2026-11-21T08:00:00.000Z' }
-    expect(resolveMilestoneEngine({ override: own, usual: later, launch: CLAUDE, chainCreatedAt: created })).toEqual({ ...own.engine, source: 'milestone' })
-    expect(resolveMilestoneEngine({ override: null, usual: later, launch: CLAUDE, chainCreatedAt: created })).toEqual({ ...CODEX, source: 'usual' })
-    expect(resolveMilestoneEngine({ override: null, usual: earlier, launch: CLAUDE, chainCreatedAt: created })).toEqual({ ...CLAUDE, source: 'launch' })
-    // A value saved before stamps existed cannot be ordered against the launch: the launch choice stands.
-    expect(resolveMilestoneEngine({ override: null, usual: { engine: CODEX, savedAt: null }, launch: CLAUDE, chainCreatedAt: created })).toEqual({ ...CLAUDE, source: 'launch' })
-    expect(resolveMilestoneEngine({ override: null, usual: null, launch: null, chainCreatedAt: created })).toBeNull()
+    expect(resolveMilestoneEngine({ override: own, usual: stamped, launch: CLAUDE, atLaunch: true })).toEqual({ ...own.engine, source: 'milestone' })
+    expect(resolveMilestoneEngine({ override: null, usual: stamped, launch: CLAUDE, atLaunch: true })).toEqual({ ...CLAUDE, source: 'launch' })
+    expect(resolveMilestoneEngine({ override: null, usual: stamped, launch: CLAUDE, atLaunch: false })).toEqual({ ...CODEX, source: 'usual' })
+    // Whenever it was saved: a value saved before stamps existed counts too.
+    expect(resolveMilestoneEngine({ override: null, usual: legacy, launch: CLAUDE, atLaunch: false })).toEqual({ ...CODEX, source: 'usual' })
+    expect(resolveMilestoneEngine({ override: null, usual: null, launch: CLAUDE, atLaunch: false })).toEqual({ ...CLAUDE, source: 'launch' })
+    expect(resolveMilestoneEngine({ override: null, usual: null, launch: null, atLaunch: false })).toBeNull()
   })
 })
 
@@ -52,11 +52,11 @@ describe('stored preferences', () => {
     expect(readMilestoneEngineOverride(db, 'm2')).toBeNull()
   })
 
-  it('readNextRailEngine flags an unreadable launch choice only when nothing newer applies', () => {
-    const chain = { milestone_id: 'm1', created_at: created, engine_config: '{broken' }
+  it('readNextRailEngine flags an unreadable launch choice only when nothing else applies', () => {
+    const chain = { milestone_id: 'm1', engine_config: '{broken', launched: '[{"chunk":1}]' }
     expect(readNextRailEngine(db, chain)).toBe('invalid')
-    saveUsualMilestoneEngine(db, CODEX, Date.parse('2026-11-21T09:00:00.000Z'))
+    saveUsualMilestoneEngine(db, CODEX)
     expect(readNextRailEngine(db, chain)).toEqual({ ...CODEX, source: 'usual' })
-    expect(readNextRailEngine(db, { ...chain, engine_config: null, created_at: '2026-11-21T10:00:00.000Z' })).toBeNull()
+    expect(readNextRailEngine(db, { ...chain, engine_config: JSON.stringify(CLAUDE), launched: '[]' })).toEqual({ ...CLAUDE, source: 'launch' })
   })
 })

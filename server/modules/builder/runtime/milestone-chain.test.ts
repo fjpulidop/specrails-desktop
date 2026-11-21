@@ -215,15 +215,20 @@ describe('MilestoneChainManager — sequential', () => {
     expect(f.launches[2].body).toMatchObject(strict(CODEX))
   })
 
-  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a usual configuration saved BEFORE the launch never overrides the Launch choice', async () => {
-    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 - 60_000)
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the reported case: chain launched on claude/sonnet, legacy unstamped usual codex/gpt-6.2-sol → the next rail runs on Codex', async () => {
+    // Saved before stamps existed (no savedAt), before the chain started.
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('blueprint.milestone_generation', ?)").run(JSON.stringify(CODEX))
     const f = fake()
     const manager = new MilestoneChainManager(db, 'p1', f.io)
     const result = await manager.start(1, { engine: CLAUDE })
     if (!result.ok) throw new Error('start failed')
+    // The Launch itself runs on what the launch controls chose.
+    expect(f.launches[0].body).toMatchObject(strict(CLAUDE))
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
     settle(f, manager, 3, 'merged', 'feat/1')
     await flush()
-    expect(f.launches.map((l) => l.body)).toEqual([expect.objectContaining(strict(CLAUDE)), expect.objectContaining(strict(CLAUDE))])
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
+    expect(parseLaunched(getChain(db, result.chainId!)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
   })
 
   it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the milestone\'s own configuration wins over the usual one', async () => {
@@ -243,7 +248,7 @@ describe('MilestoneChainManager — sequential', () => {
     expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
   })
 
-  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a legacy chain without a Launch choice follows a newer usual configuration', async () => {
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a legacy chain without a Launch choice follows the usual configuration', async () => {
     const f = fake()
     const manager = new MilestoneChainManager(db, 'p1', f.io)
     const result = await manager.start(1)

@@ -418,7 +418,7 @@
       "nextEngineChanged": "Il rail successivo userà la nuova configurazione: {{engine}}",
       "engineSource": {
         "milestone": "La configurazione propria di questa milestone",
-        "usual": "La tua configurazione abituale, cambiata mentre la catena procede",
+        "usual": "La tua configurazione abituale",
         "launch": "La configurazione scelta al lancio"
       }
     },
