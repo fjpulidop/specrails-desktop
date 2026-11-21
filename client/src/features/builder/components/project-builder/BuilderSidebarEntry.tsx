@@ -8,6 +8,7 @@ import { cn } from '../../../../lib/utils'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
 import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
+import { useResumeRailRun } from '../../hooks/useResumeRailRun'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import {
   cancelChain,
@@ -207,6 +208,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     if (state) navigate(to, { state })
     else navigate(to)
   }, [navigate])
+  const resumeRun = useResumeRailRun(activeProjectId)
   const openRail = useOpenMilestoneRail({ go: goFromPanel, openReview })
 
   if (!activeProjectId || hasBlueprint === false || !blueprint) return null
@@ -286,6 +288,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
                 onResume={handleResume}
                 onCancel={handleCancel}
                 onSetAutoAdvance={handleSetAutoAdvance}
+                onResumeRun={resumeRun}
               />
             ))}
           </div>

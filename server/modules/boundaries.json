@@ -719,6 +719,7 @@
       "runtime/milestone-chain-reconcile.ts",
       "runtime/milestone-chain-store.ts",
       "runtime/milestone-chain.ts",
+      "runtime/milestone-engine-preference.ts",
       "runtime/milestone-generation-settings.ts",
       "runtime/milestone-progress.ts"
     ],
@@ -830,14 +831,19 @@
         "./blueprint-types",
         "./milestone-chain-reconcile",
         "./milestone-chain-store",
+        "./milestone-engine-preference",
         "./milestone-progress"
+      ],
+      "runtime/milestone-engine-preference.ts": [
+        "../../../db"
       ],
       "runtime/milestone-generation-settings.ts": [
         "../../../db",
         "../../../desktop-db",
         "../../../provider-selection",
         "../../../providers",
-        "../../../providers/runtime"
+        "../../../providers/runtime",
+        "./milestone-engine-preference"
       ],
       "runtime/milestone-progress.ts": [
         "../../../db",
@@ -846,11 +852,13 @@
         "../../../workspace-resolution",
         "../../delivery/runtime/rail-pr-store",
         "../../delivery/runtime/rails-store",
+        "../../loops/runtime/loop-run-hold",
         "../../loops/runtime/loop-runs-store",
         "../../specs/runtime/ticket-store",
         "./blueprint-render",
         "./blueprint-types",
-        "./milestone-chain-reconcile"
+        "./milestone-chain-reconcile",
+        "./milestone-engine-preference"
       ],
       "runtime/mission-placeholder.ts": [
         "../../../db",

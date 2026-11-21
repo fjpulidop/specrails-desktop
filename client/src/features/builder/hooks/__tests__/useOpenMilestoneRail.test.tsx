@@ -6,7 +6,7 @@ import { useOpenMilestoneRail } from '../useOpenMilestoneRail'
 import { milestoneRailOpen, type MilestoneRail } from '../../lib/milestone-progress'
 
 function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
-  return { railIndex: 0, name: 'M1 · #6', ticketIds: [6], active: false, runId: null, startedAt: null, delivery: null, chunkIndex: 1, ...over }
+  return { railIndex: 0, name: 'M1 · #6', ticketIds: [6], active: false, hold: null, engine: null, runId: null, startedAt: null, delivery: null, chunkIndex: 1, ...over }
 }
 const delivery = { id: 'd-1', railIndex: 0, ticketIds: [6], decision: 'on_review', branch: 'b', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null }
 

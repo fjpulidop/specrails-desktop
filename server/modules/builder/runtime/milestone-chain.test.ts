@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { MilestoneChainManager, chunkTickets, chainRailName, orderChainTickets, isBuilderRailName, MAX_TICKETS_PER_CHAIN_CHUNK, type MilestoneChainIO } from './milestone-chain'
 import { getChain, listActiveChains, listChains, updateChain, parseLaunched } from './milestone-chain-store'
+import { saveUsualMilestoneEngine, recordMilestoneGenerationEngine } from './milestone-engine-preference'
 import type { PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
 import type { Blueprint } from './blueprint-types'
 import type { WsMessage } from '../../../types'
@@ -149,7 +150,7 @@ describe('chunking + naming + ordering', () => {
 })
 
 describe('MilestoneChainManager — sequential', () => {
-  it.each(['high', null])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] freezes the selected engine (%s) across failure, a new manager, retry and the next rail', async (reasoningEffort) => {
+  it.each(['high', null])('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] keeps the selected engine (%s) across failure, a new manager, retry and the next rail', async (reasoningEffort) => {
     const f = fake()
     const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort }
     const manager = new MilestoneChainManager(db, 'p1', f.io)
@@ -170,7 +171,7 @@ describe('MilestoneChainManager — sequential', () => {
     expect(f.launches[2].body).toMatchObject(expected)
   })
 
-  it.each(['{broken', '{}', '{"provider":"codex","model":"gpt-6.1-sol","reasoningEffort":42}'])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] rejects malformed persisted engine %s without launching', async (engineConfig) => {
+  it.each(['{broken', '{}', '{"provider":"codex","model":"gpt-6.1-sol","reasoningEffort":42}'])('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] rejects malformed persisted engine %s without launching', async (engineConfig) => {
     const f = fake()
     const manager = new MilestoneChainManager(db, 'p1', f.io)
     const result = await manager.start(1)
@@ -185,6 +186,79 @@ describe('MilestoneChainManager — sequential', () => {
     expect(resumed).toMatchObject({ ok: true, chain: { status: 'paused', pauseReason: 'launch_rejected:milestone_engine_unavailable' } })
     expect(f.launches).toHaveLength(launches)
     expect(f.assignments).toHaveLength(assignments)
+  })
+
+  const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+  const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+  const strict = (e: { provider: string; model: string; reasoningEffort: string | null }) => ({ aiEngine: e.provider, model: e.model, reasoning_effort: e.reasoningEffort, requireEngineSelection: true })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a usual configuration saved while the chain is live runs the next rail (and survives a restart)', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    expect(f.launches[0].body).toMatchObject(strict(CLAUDE))
+    expect(parseLaunched(getChain(db, result.chainId!)!)[0].engine).toEqual(CLAUDE)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CLAUDE, source: 'launch' })
+    // The person switches the usual configuration to Codex after the chain started.
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
+    // A restart keeps it: the preference and the launched entries are durable.
+    const restarted = new MilestoneChainManager(db, 'p1', f.io)
+    const launched = parseLaunched(getChain(db, result.chainId!)!)
+    expect(launched.map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+    settle(f, restarted, f.launches[1].railIndex, 'merged', 'feat/2')
+    await flush()
+    expect(f.launches[2].body).toMatchObject(strict(CODEX))
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the reported case: chain launched on claude/sonnet, legacy unstamped usual codex/gpt-6.2-sol → the next rail runs on Codex', async () => {
+    // Saved before stamps existed (no savedAt), before the chain started.
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('blueprint.milestone_generation', ?)").run(JSON.stringify(CODEX))
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    // The Launch itself runs on what the launch controls chose.
+    expect(f.launches[0].body).toMatchObject(strict(CLAUDE))
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
+    expect(parseLaunched(getChain(db, result.chainId!)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the milestone\'s own configuration wins over the usual one', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    const own = { provider: 'claude', model: 'opus', reasoningEffort: 'high' }
+    recordMilestoneGenerationEngine(db, 'M1', own, 1_700_000_000_000 + 120_000)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...own, source: 'milestone' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(own))
+    // Generating with the usual configuration clears the milestone's own one.
+    recordMilestoneGenerationEngine(db, 'm1', CODEX)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a legacy chain without a Launch choice follows the usual configuration', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1)
+    if (!result.ok) throw new Error('start failed')
+    expect(f.launches[0].body).not.toHaveProperty('aiEngine')
+    expect(manager.get(result.chainId!)!.nextEngine).toBeNull()
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
   })
 
   it('stacks grouped chunks from durable delivery history after restart without guessing a primary branch', async () => {
@@ -1075,6 +1149,23 @@ describe('reconciled chain: the person\'s own runs and deliveries count', () => 
     expect(resumeRun).toHaveBeenCalledWith('mine')
     expect(f.launches).toHaveLength(1)
     expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_run_ids: '["mine"]' })
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] resuming a paused run in place keeps its engine: no new rail, whatever the usual configuration says', async () => {
+    const { f, runs } = integrated()
+    const resumeRun = vi.fn(async () => ({ ok: true as const }))
+    f.io.resumeRun = resumeRun
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1, { engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } })
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'discarded', null); await flush()
+    runs.push(run('mine', 1, 'paused', { pauseReason: 'user_paused' }))
+    saveUsualMilestoneEngine(db, { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }, 1_700_000_000_000 + 60_000)
+    expect((await mgr.resume(chainId)).ok).toBe(true)
+    expect(resumeRun).toHaveBeenCalledWith('mine')
+    expect(f.launches).toHaveLength(1)
+    expect(f.launches[0].body).toMatchObject({ aiEngine: 'claude' })
   })
 
   it('a genuinely failed spec: Resume from the failed step continues its newest run; from the start runs it fresh', async () => {

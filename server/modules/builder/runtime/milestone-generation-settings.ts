@@ -3,6 +3,7 @@ import type { ProjectRow } from '../../../desktop-db'
 import { derivePrimaryProvider, installedProviders } from '../../../provider-selection'
 import { getAdapter, isModelAvailableForAdapter, reasoningEffortsForModel } from '../../../providers'
 import { supportsToolPolicy } from '../../../providers/runtime'
+import { readUsualMilestoneEngine, saveUsualMilestoneEngine } from './milestone-engine-preference'
 
 export interface MilestoneGenerationSelection {
   provider: string
@@ -10,17 +11,12 @@ export interface MilestoneGenerationSelection {
   reasoningEffort: string | null
 }
 
-const KEY = 'blueprint.milestone_generation'
-
-/** Project-owned preference; never changes project/provider or day-0 defaults. */
+/** Project-owned preference ("usual configuration for the following
+ *  iterations"): generates M2+ specs and, once saved while a launch chain is
+ *  live, runs that chain's next rails (milestone-engine-preference.ts). Never
+ *  changes the project/provider or day-0 defaults. */
 export function readMilestoneGenerationSelection(db: DbInstance): MilestoneGenerationSelection | null {
-  const row = db.prepare('SELECT value FROM queue_state WHERE key = ?').get(KEY) as { value: string } | undefined
-  if (!row) return null
-  try {
-    const value = JSON.parse(row.value)
-    return typeof value?.provider === 'string' && typeof value?.model === 'string'
-      && (value.reasoningEffort === null || typeof value.reasoningEffort === 'string') ? value : null
-  } catch { return null }
+  return readUsualMilestoneEngine(db)?.engine ?? null
 }
 
 export function milestoneGenerationCatalog(project: ProjectRow) {
@@ -71,6 +67,6 @@ export function milestoneLaunchSettings(project: ProjectRow) {
   return { providers, selection: primary ? { provider: primary.provider, model: primary.defaultModel, reasoningEffort: null } : null }
 }
 
-export function saveMilestoneGenerationSelection(db: DbInstance, selection: MilestoneGenerationSelection): void {
-  db.prepare('INSERT OR REPLACE INTO queue_state (key, value) VALUES (?, ?)').run(KEY, JSON.stringify(selection))
+export function saveMilestoneGenerationSelection(db: DbInstance, selection: MilestoneGenerationSelection, nowMs: number = Date.now()): void {
+  saveUsualMilestoneEngine(db, selection, nowMs)
 }

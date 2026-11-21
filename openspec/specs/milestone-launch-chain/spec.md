@@ -231,15 +231,27 @@ All new milestone notification layout, event, status and elapsed text SHALL use 
 - **WHEN** builder translation key trees are compared across en, es, fr, de, pt, it, zh and ja
 - **THEN** every new notification key exists with matching interpolation parameters in all eight locales
 
-### Requirement: Frozen milestone execution choice
-A chain launched with an explicit provider/model/nullable effort SHALL persist that selection and use it for every rail, retry and resume after restart. Chains without a selection SHALL retain legacy behavior. An invalid persisted engine shape SHALL fail chunk launch with milestone_engine_unavailable.
+### Requirement: Milestone execution choice resolved per rail
+A chain launched with an explicit provider/model/nullable effort SHALL persist that selection (`engine_config`) and launch its first rail on it. Every LATER new rail the chain launches (an advance, a resume that continues with the next spec, a retry from the start) SHALL use what the Blueprint popover shows at launch time: the milestone's own configuration ("use another configuration only for M<n>", recorded when that milestone's specs are generated with an engine other than the usual one) if set, else the CURRENT usual configuration whenever it was saved (a value saved before save times were recorded counts), else the persisted Launch choice only when no usual configuration exists. Continuing an existing run in place (Resume of a paused run, Resume from the failed step) SHALL keep that run's own engine. Each launched entry SHALL record the engine it used, and the chain snapshot SHALL expose the engine its next rail will use (`nextEngine`) so the chain and rail rows show it before and after launch. Chains without a selection SHALL retain legacy behavior unless a milestone or usual configuration applies. An invalid persisted engine shape SHALL fail chunk launch with milestone_engine_unavailable when the resolution falls back to it.
 
 #### Scenario: Failure and restart
-- **WHEN** a selected-engine chain fails and a replacement manager resumes it
-- **THEN** the retry and next rail use the original stored engine even if the caller's original selection object changed
+- **WHEN** a selected-engine chain without a usual configuration fails and a replacement manager resumes it
+- **THEN** the retry and next rail use the stored engine even if the caller's original selection object changed
+
+#### Scenario: The popover's usual configuration runs the next rail
+- **WHEN** a chain launched on claude/sonnet is live and the usual configuration shows codex/gpt-6.2-sol (saved at any time, including a legacy value without a save time)
+- **THEN** the next rail launches on Codex, the launched entry records Codex, the snapshot's `nextEngine` reads Codex (`source: 'usual'`) and this survives a restart
+
+#### Scenario: Milestone configuration wins
+- **WHEN** the milestone's own configuration is set
+- **THEN** the next rail uses it over the usual and the Launch choice
+
+#### Scenario: Resume in place keeps the run's engine
+- **WHEN** the usual configuration changed and the chain resumes a paused run
+- **THEN** no new rail is launched and the run continues on its own engine
 
 #### Scenario: Legacy chain
-- **WHEN** a chain has no persisted execution choice
+- **WHEN** a chain has no persisted execution choice and no milestone or usual configuration applies
 - **THEN** it continues through the existing launch behavior without a strict engine override
 
 ### Requirement: Strict selection respects loop engine ownership

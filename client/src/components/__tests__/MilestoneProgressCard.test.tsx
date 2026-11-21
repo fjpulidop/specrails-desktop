@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { MilestoneAutoAdvanceToggle, MilestoneCard, MilestoneChainRow, MilestoneProgressBar, MilestoneRailRow } from '../../features/builder/components/project-builder/MilestoneProgressCard'
-import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot, ChainOffer, ChainPlanView } from '../../features/builder/lib/milestone-progress'
+import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot, ChainOffer, ChainPlanView, RailHold } from '../../features/builder/lib/milestone-progress'
 
 function progress(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
   return {
@@ -12,11 +12,11 @@ function progress(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
   }
 }
 function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
-  return { railIndex: 3, name: 'M1 · 1', ticketIds: [1, 2, 3], active: false, runId: null, startedAt: null, chunkIndex: 1, delivery: null, ...over }
+  return { railIndex: 3, name: 'M1 · 1', ticketIds: [1, 2, 3], active: false, hold: null, engine: null, runId: null, startedAt: null, chunkIndex: 1, delivery: null, ...over }
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', plan: null, ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', plan: null, nextEngine: null, ...over }
 }
 
 describe('MilestoneProgressBar', () => {
@@ -202,7 +202,7 @@ describe('MilestoneChainRow — the reconciled next step', () => {
   const offer = (kind: ChainOffer['kind'], over: Partial<ChainOffer> = {}): ChainOffer =>
     ({ kind, from: 'recommended', ticketId: 7, title: 'Animate the tabletop and screen transitions', runId: null, nextTicketId: null, ...over })
   const plan = (offers: ChainOffer[], over: Partial<ChainPlanView> = {}): ChainPlanView =>
-    ({ offers, specs: [], settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: true, ...over })
+    ({ action: null, offers, specs: [], settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: true, ...over })
 
   it('the paused rail\'s spec is already delivered: the only offer is to continue with the next spec', async () => {
     const onResume = vi.fn()
@@ -267,5 +267,126 @@ describe('MilestoneChainRow — the reconciled next step', () => {
     render(<MilestoneCard progress={progress({ state: 'paused' })} />)
     expect(screen.getByTestId('milestone-state-pill')).toHaveTextContent('Paused')
     expect(screen.getByTestId('milestone-state-pill')).toHaveAttribute('data-run-state', 'paused')
+  })
+})
+
+describe('held rails — a live run that is not working (the reported "Running · 7m 26s" while paused)', () => {
+  const started = '2026-11-21T14:52:45.000Z'
+  const pausedAt = '2026-11-21T15:00:11.000Z' // 7m 26s later
+  const held = (hold: RailHold, over: Partial<MilestoneRail> = {}) => rail({ railIndex: 3, name: 'M1 · #7', chunkIndex: 3, ticketIds: [7], active: true, runId: 'run-7', startedAt: started, hold, ...over })
+  const later = Date.parse(pausedAt) + 30 * 60_000
+
+  it('paused by you reads "Paused by you", never Running, with a frozen run time and an inline Resume', async () => {
+    const onResumeRun = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneRailRow rail={held({ kind: 'paused', since: pausedAt, byYou: true })} now={later} onResumeRun={onResumeRun} />)
+    expect(screen.queryByTestId('milestone-rail-running')).not.toBeInTheDocument()
+    const status = screen.getByTestId('milestone-rail-held')
+    expect(status).toHaveAttribute('data-hold', 'pausedByYou')
+    expect(status).toHaveTextContent('Paused by you')
+    expect(status.getAttribute('title')).toContain('Ran 7m 26s before it stopped')
+    expect(screen.getByTestId('milestone-rail-held').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'paused')
+    await user.click(screen.getByTestId('milestone-rail-resume'))
+    expect(onResumeRun).toHaveBeenCalledWith('run-7')
+  })
+
+  it('each hold kind speaks the status vocabulary; a question opens the run to answer it', async () => {
+    const cases: Array<[RailHold, string, string, 'resume' | 'answer' | null]> = [
+      [{ kind: 'question', since: pausedAt }, 'Waiting for your answer', 'needs-input', 'answer'],
+      [{ kind: 'approval', since: pausedAt }, 'Waiting for your approval', 'needs-input', 'answer'],
+      [{ kind: 'provider_limit', since: pausedAt, resumeAt: '2026-11-21T18:00:00.000Z' }, 'Paused by the usage limit', 'blocked', null],
+      [{ kind: 'budget', since: pausedAt }, 'Paused at the spending limit', 'paused', null],
+      [{ kind: 'queued', since: pausedAt, waitingFor: 'run_slots', position: 1 }, 'Waiting for capacity', 'queued', null],
+      [{ kind: 'restart', since: pausedAt }, 'Paused by a restart', 'paused', null],
+      [{ kind: 'interrupted', since: pausedAt }, 'Interrupted', 'paused', null],
+      [{ kind: 'paused', since: pausedAt }, 'Paused', 'paused', null],
+    ]
+    for (const [hold, label, state, action] of cases) {
+      const onOpenRail = vi.fn()
+      const { unmount } = render(<MilestoneRailRow rail={held(hold)} now={later} onOpenRail={onOpenRail} onResumeRun={vi.fn()} />)
+      expect(screen.getByTestId('milestone-rail-held')).toHaveTextContent(label)
+      expect(screen.getByTestId('milestone-rail-held').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', state)
+      expect(screen.queryByTestId('milestone-rail-running')).not.toBeInTheDocument()
+      expect(!!screen.queryByTestId('milestone-rail-resume')).toBe(action === 'resume')
+      expect(!!screen.queryByTestId('milestone-rail-answer')).toBe(action === 'answer')
+      if (action === 'answer') {
+        await userEvent.setup().click(screen.getByTestId('milestone-rail-answer'))
+        expect(onOpenRail).toHaveBeenCalledWith(expect.objectContaining({ runId: 'run-7' }))
+      }
+      unmount()
+    }
+  })
+
+  it('a working run keeps its live elapsed', () => {
+    render(<MilestoneRailRow rail={held(null as never)} now={Date.parse(started) + 65_000} />)
+    expect(screen.getByTestId('milestone-rail-running')).toHaveTextContent(/Running · 1m/)
+  })
+
+  it('the chain row says the rail it waits on is paused by you and offers Resume while the chain is still running', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    const c = chain({
+      status: 'running', nextChunk: 3, totalChunks: 5,
+      plan: {
+        action: { kind: 'resume_run', ticketId: 7, runId: 'run-7', pauseKind: 'user' },
+        offers: [{ kind: 'resume_run', from: 'recommended', ticketId: 7, title: 'M1 · #7', runId: 'run-7', nextTicketId: null }],
+        specs: [{ ticketId: 7, title: 'M1 · #7', state: 'paused' }], settled: 2, total: 5, pausedTicketId: 7, pausedSpecSettled: false,
+      },
+    })
+    render(<MilestoneCard progress={progress({ chain: c, rails: [held({ kind: 'paused', since: pausedAt, byYou: true })] })} onResume={onResume} />)
+    const row = screen.getByTestId('milestone-chain-row')
+    expect(row).toHaveAttribute('data-held', 'pausedByYou')
+    expect(screen.getByTestId('milestone-chain-held')).toHaveTextContent('Rail 3 paused — paused by you')
+    expect(row).not.toHaveTextContent('waiting for rail 3')
+    const resume = screen.getByTestId('milestone-chain-resume')
+    expect(resume).toHaveTextContent('Resume the run of #7')
+    await user.click(resume)
+    expect(onResume).toHaveBeenCalledWith('c1', 'recommended')
+  })
+
+  it('a chain waiting on a rail that asks a question says so and opens that run', async () => {
+    const onOpenRail = vi.fn()
+    const user = userEvent.setup()
+    const c = chain({
+      status: 'running', nextChunk: 3, totalChunks: 5,
+      plan: {
+        action: { kind: 'answer_run', ticketId: 7, runId: 'run-7', pauseKind: null },
+        offers: [{ kind: 'answer_run', from: 'recommended', ticketId: 7, title: null, runId: 'run-7', nextTicketId: null }],
+        specs: [], settled: 2, total: 5, pausedTicketId: 7, pausedSpecSettled: false,
+      },
+    })
+    render(<MilestoneCard progress={progress({ chain: c, rails: [held({ kind: 'question', since: pausedAt })] })} onOpenRail={onOpenRail} onResume={vi.fn()} />)
+    expect(screen.getByTestId('milestone-chain-held')).toHaveTextContent('Rail 3 waits for your answer')
+    await user.click(screen.getByTestId('milestone-chain-answer'))
+    expect(onOpenRail).toHaveBeenCalledWith(expect.objectContaining({ runId: 'run-7' }))
+  })
+
+  it('a chain whose rail works keeps the ordinary wait copy', () => {
+    render(<MilestoneCard progress={progress({ chain: chain({ nextChunk: 3 }), rails: [held(null as never, { chunkIndex: 3 })] })} />)
+    expect(screen.queryByTestId('milestone-chain-held')).not.toBeInTheDocument()
+    expect(screen.getByTestId('milestone-chain-row')).not.toHaveAttribute('data-held')
+  })
+})
+
+describe('engines on the chain and rail rows', () => {
+  const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+  const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+  const launched = (chunk: number, engine: typeof CLAUDE | null) => ({ chunk, railIndex: chunk + 2, ticketIds: [chunk + 4], runIds: [`r${chunk}`], deliveryId: null, engine })
+
+  it('a rail row names the engine its run uses', () => {
+    render(<MilestoneRailRow rail={rail({ engine: CODEX })} now={0} />)
+    expect(screen.getByTestId('milestone-rail-engine')).toHaveTextContent('Codex · GPT-6.2 Sol')
+  })
+
+  it('the chain row shows the next rail\'s engine before it launches, and says when the configuration changed', () => {
+    const { rerender } = render(<MilestoneChainRow chain={chain({ nextChunk: 3, totalChunks: 5, launched: [launched(1, CLAUDE), launched(2, CLAUDE)], nextEngine: { ...CLAUDE, source: 'launch' } })} />)
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveTextContent('Next rail: Claude · Claude Sonnet')
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveAttribute('data-changed', 'false')
+    rerender(<MilestoneChainRow chain={chain({ nextChunk: 3, totalChunks: 5, launched: [launched(1, CLAUDE), launched(2, CLAUDE)], nextEngine: { ...CODEX, source: 'usual' } })} />)
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveTextContent('The next rail uses the new configuration: Codex · GPT-6.2 Sol')
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveAttribute('data-source', 'usual')
+    // Every spec launched and nothing to relaunch: no next-rail line.
+    rerender(<MilestoneChainRow chain={chain({ nextChunk: 2, totalChunks: 2, launched: [launched(1, CLAUDE), launched(2, CODEX)], nextEngine: { ...CODEX, source: 'usual' } })} />)
+    expect(screen.queryByTestId('milestone-chain-next-engine')).not.toBeInTheDocument()
   })
 })

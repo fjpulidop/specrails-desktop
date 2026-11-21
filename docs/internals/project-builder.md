@@ -52,8 +52,18 @@ route).
   the saved preference for generating M2+ specs. The launch body includes
   `engine: {provider, model, reasoningEffort}`; null effort uses provider defaults.
   The server validates before creating any chain, then stores the choice in
-  `milestone_launch_chains.engine_config` (migration 92). Every rail, retry and
-  resumed chain uses it. Legacy NULL chains keep their existing behavior.
+  `milestone_launch_chains.engine_config` (migration 92) and launches the
+  first rail on it. Every later new rail (advance, resume with the next spec,
+  retry from the start) uses what the popover shows at launch time
+  (`milestone-engine-preference.ts`): the milestone's own configuration
+  (recorded when its specs are generated with "Use another configuration only
+  for M<n>"), else the current usual configuration whenever it was saved, else
+  the Launch choice when no usual configuration exists. Resuming a run in place
+  keeps that run's engine. Launched entries record `engine`, rails expose it,
+  and the snapshot's `nextEngine` drives "Next rail: Codex · GPT-6.2 Sol" /
+  "The next rail uses the new configuration" on the chain row. Legacy NULL
+  chains keep their existing behavior unless a milestone or usual configuration
+  applies.
   A conflicting recipe-owned engine rejects the launch instead of replacing the
   selection. No recipe, project primary or generation preference is modified.
   Worktree hydration also copies an untracked `openspec/config.yaml` (or `.yml`)
@@ -648,6 +658,18 @@ execution (one spec per rail) and can use Kimi.
   ticket/rail/delivery/run/chain messages, 150 ms debounce, memoized "no
   blueprint") re-broadcasts `blueprint.milestone_progress` and persists
   `status:'done'` once via `markMilestoneDone` (+ `blueprint.milestone_completed`).
+  Each active rail carries `hold` — the shared run hold (`loop-run-hold.ts`,
+  `readRunHolds` with the live loop engine: paused by you, question, approval,
+  budget, provider limit, restart, interrupted, queued for capacity) or null
+  while it works. A held rail row speaks the status vocabulary ("Paused by
+  you", "Waiting for your answer"…) instead of "Running", its run time frozen
+  where it stopped, with Resume (the run's own resume route) for the person's
+  Pause and Answer (opens the run) for a question; a live chain waiting on a
+  held rail says so ("Rail 3 paused — paused by you") and offers the plan's
+  `resume_run` while the chain is still `running`. Every live rail paused by
+  the person derives `state: 'paused'`. Hold changes (`loop.run_paused`,
+  `loop.run_resumed`, `loop.pause_requested`, queue/limit messages) are
+  progress triggers, so the rows flip without a reload.
   Display ALWAYS uses the derived state — a delivered milestone reads
   "8 of 8 delivered · 0 done", never done/complete.
 - **Sidebar re-entry** (`BuilderSidebarEntry`, mounted in

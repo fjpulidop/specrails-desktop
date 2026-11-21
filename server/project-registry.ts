@@ -49,6 +49,7 @@ import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit
 import type { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
 import { listActiveLoopRuns, type LoopRunRow, type DefinitionCheckpoint } from './modules/loops/runtime/loop-runs-store'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
+import { runHoldSources } from './modules/loops/runtime/loop-run-hold'
 import type { WsMessage } from './types'
 import {
   initDesktopDb,
@@ -903,7 +904,11 @@ export class ProjectRegistry {
     const milestoneDeps = { project, db, railJobs, railLoopRuns, ticketStorePath: tickets.ticketStorePath, blueprintWorkspace, broadcast: boundBroadcast }
     const milestoneChains = createProjectMilestoneChains({ ...milestoneDeps, internalApi })
     taps.milestoneChains = milestoneChains
-    const milestoneProgress = createProjectMilestoneProgress({ ...milestoneDeps, getChains: () => taps.milestoneChains })
+    const milestoneProgress = createProjectMilestoneProgress({
+      ...milestoneDeps,
+      getChains: () => taps.milestoneChains,
+      holdSources: () => runHoldSources({ loopRunManager, restartPendingRunIds: projectContext?.restartPendingRunIds }),
+    })
     taps.milestoneProgress = milestoneProgress
 
     // ── Assemble the context, then services that need it ─────────────────────

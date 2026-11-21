@@ -287,7 +287,35 @@
       "running": "运行中 · {{elapsed}}",
       "review": "审阅",
       "open": "打开轨道",
-      "noDelivery": "尚无交付"
+      "noDelivery": "尚无交付",
+      "held": {
+        "pausedByYou": "已由你暂停",
+        "paused": "已暂停",
+        "question": "等待你的回答",
+        "approval": "等待你的批准",
+        "budget": "因支出上限暂停",
+        "provider_limit": "因用量限制暂停",
+        "restart": "因重启暂停",
+        "interrupted": "已中断",
+        "queued": "等待资源"
+      },
+      "heldHint": {
+        "pausedByYou": "你暂停了此运行；在你恢复之前不会运行任何内容",
+        "paused": "运行已暂停；请在运行中恢复",
+        "question": "运行向你提出了问题；请在运行中回答",
+        "approval": "运行等待你的批准；请在运行中决定",
+        "budget": "运行已达到支出上限；请提高上限或在运行中恢复",
+        "provider_limit": "提供商因用量限制拒绝；限制重置后自动恢复",
+        "restart": "运行期间应用已重启；将从停止处继续",
+        "interrupted": "某个步骤被中断；请在运行中恢复",
+        "queued": "已启动；有空闲名额时会自动开始"
+      },
+      "ranFor": "停止前运行了 {{elapsed}}",
+      "resume": "恢复",
+      "answer": "回答",
+      "resumed": "运行已恢复",
+      "resumeFailed": "无法恢复运行",
+      "engine": "运行于 {{engine}}"
     },
     "chain": {
       "title": "顺序链",
@@ -379,6 +407,25 @@
         "conflict_unresolved": "与更新后的基线冲突，自动更新未能解决",
         "conflict_refresh_limit": "两次自动更新后仍与基线冲突",
         "merge_failed": "Git 无法合并"
+      },
+      "held": {
+        "pausedByYou": "Rail {{k}} 已暂停 — 由你暂停",
+        "paused": "Rail {{k}} 已暂停",
+        "question": "Rail {{k}} 等待你的回答",
+        "approval": "Rail {{k}} 等待你的批准",
+        "budget": "Rail {{k}} 因支出上限暂停",
+        "provider_limit": "Rail {{k}} 因用量限制暂停",
+        "restart": "Rail {{k}} 因重启暂停",
+        "interrupted": "Rail {{k}} 已中断",
+        "queued": "Rail {{k}} 等待资源"
+      },
+      "answerRun": "在 Rail {{k}} 的运行中回答",
+      "nextEngine": "下一个 Rail：{{engine}}",
+      "nextEngineChanged": "下一个 Rail 将使用新配置：{{engine}}",
+      "engineSource": {
+        "milestone": "此里程碑的专属配置",
+        "usual": "你的常用配置",
+        "launch": "启动时选择的配置"
       }
     },
     "toast": {

@@ -37,6 +37,7 @@ import {
   type MilestoneChainEngine,
 } from './milestone-chain-store'
 import { newId } from '../../../ids'
+import { readNextRailEngine } from './milestone-engine-preference'
 import {
   orderChainTickets,
   reconcileMilestoneChain,
@@ -194,7 +195,9 @@ export class MilestoneChainManager {
   private snapshot(row: MilestoneChainRow): MilestoneChainSnapshot {
     const snap = toChainSnapshot(row)
     if (!isActiveChainStatus(row.status)) return snap
-    try { return { ...snap, plan: this.plan(row) } } catch { return { ...snap, plan: null } }
+    let nextEngine: MilestoneChainSnapshot['nextEngine'] = null
+    try { const resolved = readNextRailEngine(this.db, row); nextEngine = resolved === 'invalid' ? null : resolved } catch { nextEngine = null }
+    try { return { ...snap, plan: this.plan(row), nextEngine } } catch { return { ...snap, plan: null, nextEngine } }
   }
 
   /**
@@ -270,13 +273,15 @@ export class MilestoneChainManager {
    *  else a free builder-owned rail (same name, this chain's, then any builder
    *  rail), else a fresh one. At the rail limit it fails `rail_limit_reached`. */
   private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[], chain?: MilestoneChainRow): Promise<LaunchedChunk> {
+    // Every NEW rail resolves its engine now (milestone-engine-preference.ts):
+    // what the popover shows — the milestone's own configuration, else the
+    // current usual one — the Launch choice only for the first rail or when no
+    // usual configuration exists. Never the snapshot frozen at Launch.
     let engine: MilestoneChainEngine | undefined
-    if (chain?.engine_config != null) {
-      try {
-        engine = JSON.parse(chain.engine_config)
-        if (!engine || typeof engine.provider !== 'string' || typeof engine.model !== 'string'
-          || (engine.reasoningEffort !== null && typeof engine.reasoningEffort !== 'string')) throw new Error('invalid engine')
-      } catch { return { ok: false, status: 409, error: 'milestone_engine_unavailable' } }
+    if (chain) {
+      const resolved = readNextRailEngine(this.db, chain)
+      if (resolved === 'invalid') return { ok: false, status: 409, error: 'milestone_engine_unavailable' }
+      if (resolved) engine = { provider: resolved.provider, model: resolved.model, reasoningEffort: resolved.reasoningEffort }
     }
     const ticketIds = chunks[chunkIndex]
     let railIndex: number
@@ -303,7 +308,7 @@ export class MilestoneChainManager {
     const delivery = this.io.activeDeliveryForRail(railIndex)
     return {
       ok: true,
-      entry: { chunk: chunkIndex + 1, railIndex, ticketIds, runIds: launched.loopRunIds, deliveryId: delivery?.id ?? null },
+      entry: { chunk: chunkIndex + 1, railIndex, ticketIds, runIds: launched.loopRunIds, deliveryId: delivery?.id ?? null, engine: engine ?? null },
     }
   }
 
@@ -416,8 +421,11 @@ export class MilestoneChainManager {
       return at >= 0 ? { ...l, chunk: at + 1 } : l
     }
     const key = entry.ticketIds.join(',')
+    const previous = parseLaunched(row).find((l) => l.ticketIds.join(',') === key)
     const launched = parseLaunched(row).filter((l) => l.ticketIds.join(',') !== key).map(renumber)
-    const next = renumber(entry)
+    // Adopting / integrating the same run keeps the engine it was launched on.
+    const sameRun = previous?.engine && entry.engine === undefined && previous.runIds.some((id) => entry.runIds.includes(id))
+    const next = renumber(sameRun ? { ...entry, engine: previous!.engine } : entry)
     updateChain(this.db, chainId, row.status, {
       ...(chunks ? { chunks } : {}),
       nextChunk: next.chunk,

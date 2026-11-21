@@ -211,3 +211,25 @@ export async function setChainAutoAdvance(projectId: string, chainId: string, au
   }
   return { ok: true, chain: coerceChain(body.chain) }
 }
+
+/**
+ * Resume a rail run the person paused (Pause): the run's own resume route
+ * (`POST /loop-runs/:id/resume`, the same one the run window's Resume uses) —
+ * the same attempt continues in place from its next step. A resume after a
+ * restart may wait out the old Core child's lease, hence the long timeout.
+ */
+export async function resumeRailRun(projectId: string, runId: string, fetchImpl: typeof fetch = fetch): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  let res: Response
+  try {
+    res = await fetchImpl(`${getApiBase(projectId)}/loop-runs/${encodeURIComponent(runId)}/resume`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(90_000) : undefined,
+    })
+  } catch (err) {
+    return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
+  }
+  if (res.ok) return { ok: true }
+  const body = await readBody(res)
+  const detail = typeof body.detail === 'string' ? body.detail : typeof body.message === 'string' ? body.message : undefined
+  return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${res.status}`, ...(detail ? { detail } : {}) }
+}

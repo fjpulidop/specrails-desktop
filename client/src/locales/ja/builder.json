@@ -287,7 +287,35 @@
       "running": "実行中 · {{elapsed}}",
       "review": "レビュー",
       "open": "レールを開く",
-      "noDelivery": "まだ納品なし"
+      "noDelivery": "まだ納品なし",
+      "held": {
+        "pausedByYou": "あなたが一時停止",
+        "paused": "一時停止中",
+        "question": "あなたの回答待ち",
+        "approval": "あなたの承認待ち",
+        "budget": "支出上限で一時停止",
+        "provider_limit": "利用上限で一時停止",
+        "restart": "再起動で一時停止",
+        "interrupted": "中断",
+        "queued": "空き待ち"
+      },
+      "heldHint": {
+        "pausedByYou": "この実行はあなたが一時停止しました。再開するまで何も実行されません",
+        "paused": "実行は一時停止中です。実行画面から再開してください",
+        "question": "実行が質問しています。実行画面から回答してください",
+        "approval": "実行があなたの承認を待っています。実行画面で判断してください",
+        "budget": "実行が支出上限に達しました。上限を上げるか実行画面から再開してください",
+        "provider_limit": "プロバイダーが利用上限で拒否しました。上限がリセットされると再開します",
+        "restart": "実行中にアプリが再起動しました。止まった所から続行します",
+        "interrupted": "ステップが中断されました。実行画面から再開してください",
+        "queued": "起動済み。空きが出ると自動で開始します"
+      },
+      "ranFor": "停止までに {{elapsed}} 実行",
+      "resume": "再開",
+      "answer": "回答",
+      "resumed": "実行を再開しました",
+      "resumeFailed": "実行を再開できませんでした",
+      "engine": "{{engine}} で実行"
     },
     "chain": {
       "title": "順次チェーン",
@@ -379,6 +407,25 @@
         "conflict_unresolved": "更新されたベースと競合し、自動更新では解決できませんでした",
         "conflict_refresh_limit": "2回の自動更新後もベースと競合しています",
         "merge_failed": "Git がマージできませんでした"
+      },
+      "held": {
+        "pausedByYou": "Rail {{k}} 一時停止 — あなたが一時停止",
+        "paused": "Rail {{k}} 一時停止中",
+        "question": "Rail {{k}} はあなたの回答待ち",
+        "approval": "Rail {{k}} はあなたの承認待ち",
+        "budget": "Rail {{k}} 支出上限で一時停止",
+        "provider_limit": "Rail {{k}} 利用上限で一時停止",
+        "restart": "Rail {{k}} 再起動で一時停止",
+        "interrupted": "Rail {{k}} 中断",
+        "queued": "Rail {{k}} は空き待ち"
+      },
+      "answerRun": "Rail {{k}} の実行で回答",
+      "nextEngine": "次の Rail：{{engine}}",
+      "nextEngineChanged": "次の Rail は新しい設定を使います：{{engine}}",
+      "engineSource": {
+        "milestone": "このマイルストーン専用の設定",
+        "usual": "通常の設定",
+        "launch": "起動時に選んだ設定"
       }
     },
     "toast": {

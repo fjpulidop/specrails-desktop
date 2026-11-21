@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw, CheckCheck, GitMerge, Radio, SkipForward, type LucideIcon } from 'lucide-react'
+import { Eye, Loader2, MessageCircleQuestion, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap, ChevronDown, StepForward, RotateCcw, CheckCheck, GitMerge, Radio, SkipForward, type LucideIcon } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu'
 import type { ChainResumeFrom } from '../../lib/milestone-launch'
 import { cn } from '../../../../lib/utils'
@@ -11,19 +11,28 @@ import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
 import { runStateLook, type RunState } from '../../../../components/ui/run-state/run-state'
 import { useNow } from '../../../../hooks/useNow'
+import { modelLabel } from '../../../../lib/model-label'
+import type { TFunction } from 'i18next'
 import {
   chainAtCheckpoint,
+  chainHeldRail,
   chainIsLive,
+  chainNextEngine,
   chainOfferParams,
   chainPauseReason,
   deliveredCount,
   milestoneLabelFor,
   progressSegments,
+  railElapsedMs,
+  railHoldAction,
+  railHoldKey,
+  RAIL_HOLD_RUN_STATE,
   REVIEWABLE_DECISIONS,
   type ChainOffer,
   type ChainOfferKind,
   type MilestoneChainSnapshot,
   type MilestoneCounts,
+  type MilestoneEngine,
   type MilestoneProgress,
   type MilestoneRail,
   type MilestoneState,
@@ -97,18 +106,81 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
   )
 }
 
+/** "Codex · GPT-6.2 Sol" (· effort when one is set). */
+export function engineLabel(t: TFunction, engine: MilestoneEngine): string {
+  const model = modelLabel(engine.model).text || engine.model
+  return [
+    t(`agent:provider.${engine.provider}`, { defaultValue: engine.provider }),
+    model,
+    engine.reasoningEffort ? t(`agent:effort.${engine.reasoningEffort}`, { defaultValue: engine.reasoningEffort }) : null,
+  ].filter(Boolean).join(' · ')
+}
+
 export interface MilestoneRailRowProps {
   rail: MilestoneRail
   now: number
   onReview?: (deliveryId: string) => void
   /** Opens the rail's place (its run, else its review): the whole rail is passed. */
   onOpenRail?: (rail: MilestoneRail) => void
+  /** Resume a run the person paused (the run's own resume route). */
+  onResumeRun?: (runId: string) => void | Promise<void>
 }
 
-export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneRailRowProps) {
+/** A live rail run that is not working: its state in the status vocabulary,
+ *  the run time frozen where it stopped, and the person's action inline. */
+function HeldRailStatus({ rail, now, onOpenRail, onResumeRun }: Pick<MilestoneRailRowProps, 'rail' | 'now' | 'onOpenRail' | 'onResumeRun'>) {
+  const { t } = useTranslation('builder')
+  const [busy, setBusy] = useState(false)
+  const hold = rail.hold!
+  const key = railHoldKey(hold)
+  const elapsed = railElapsedMs(rail, now)
+  const action = railHoldAction(hold)
+  const title = [
+    t(`milestoneProgress.rail.heldHint.${key}`),
+    elapsed != null ? t('milestoneProgress.rail.ranFor', { elapsed: formatElapsed(elapsed) }) : null,
+  ].filter(Boolean).join(' · ')
+  const buttonClass = 'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-medium disabled:opacity-50'
+  return (
+    <>
+      <span className="flex min-w-0 shrink items-center gap-1 text-caption" title={title} data-testid="milestone-rail-held" data-hold={key}>
+        <RunStateDot state={RAIL_HOLD_RUN_STATE[hold.kind]} />
+        <span className={cn('truncate', runStateLook(RAIL_HOLD_RUN_STATE[hold.kind]).text)}>{t(`milestoneProgress.rail.held.${key}`)}</span>
+        <span className="sr-only">{title}</span>
+      </span>
+      {action === 'resume' && rail.runId && onResumeRun && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try { await onResumeRun(rail.runId!) } finally { setBusy(false) }
+          }}
+          className={cn(buttonClass, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}
+          data-testid="milestone-rail-resume"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
+          {t('milestoneProgress.rail.resume')}
+        </button>
+      )}
+      {action === 'answer' && onOpenRail && (
+        <button
+          type="button"
+          onClick={() => onOpenRail(rail)}
+          className={cn(buttonClass, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}
+          data-testid="milestone-rail-answer"
+        >
+          <MessageCircleQuestion className="h-3 w-3" aria-hidden />
+          {t('milestoneProgress.rail.answer')}
+        </button>
+      )}
+    </>
+  )
+}
+
+export function MilestoneRailRow({ rail, now, onReview, onOpenRail, onResumeRun }: MilestoneRailRowProps) {
   const { t } = useTranslation('builder')
   const name = rail.name ?? t('milestoneProgress.rail.fallbackName', { n: rail.railIndex + 1 })
-  const elapsed = rail.active && rail.startedAt ? Math.max(0, now - Date.parse(rail.startedAt)) : null
+  const elapsed = rail.hold ? null : railElapsedMs(rail, now)
   const decision = rail.delivery?.decision ?? null
   const reviewable = decision !== null && REVIEWABLE_DECISIONS.has(decision) && rail.delivery !== null
   return (
@@ -122,15 +194,25 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
           {rail.chunkIndex}
         <span className="sr-only"> ({t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })})</span></span>
       )}
-      <button
-        type="button"
-        onClick={() => onOpenRail?.(rail)}
-        className="min-w-0 flex-1 truncate text-left text-caption font-medium hover:underline"
-        title={t('milestoneProgress.rail.open')}
-      >
-        {name}
-      </button>
-      {rail.active ? (
+      <span className="flex min-w-0 flex-1 flex-col">
+        <button
+          type="button"
+          onClick={() => onOpenRail?.(rail)}
+          className="min-w-0 truncate text-left text-caption font-medium hover:underline"
+          title={t('milestoneProgress.rail.open')}
+        >
+          {name}
+        </button>
+        {rail.engine && (
+          <span className="truncate text-caption text-muted-foreground" data-testid="milestone-rail-engine">
+            <span className="sr-only">{t('milestoneProgress.rail.engine', { engine: engineLabel(t, rail.engine) })}</span>
+            <span aria-hidden>{engineLabel(t, rail.engine)}</span>
+          </span>
+        )}
+      </span>
+      {rail.active && rail.hold ? (
+        <HeldRailStatus rail={rail} now={now} onOpenRail={onOpenRail} onResumeRun={onResumeRun} />
+      ) : rail.active ? (
         <span className="flex shrink-0 items-center gap-1 text-caption text-accent-info" data-testid="milestone-rail-running">
           <RunStateDot state="working" />
           {elapsed != null ? t('milestoneProgress.rail.running', { elapsed: formatElapsed(elapsed) }) : t('milestoneProgress.state.running')}
@@ -280,6 +362,10 @@ function ChainOfferControls({ chain, busy, testId, onResume }: { chain: Mileston
 
 export interface MilestoneChainRowProps {
   chain: MilestoneChainSnapshot
+  /** The milestone's rails: the chain names the held rail it waits on. */
+  rails?: MilestoneRail[]
+  /** Opens a rail's run (a held rail that waits for the person's answer). */
+  onOpenRail?: (rail: MilestoneRail) => void
   busy?: boolean
   onResume?: (chainId: string, from?: ChainResumeFrom) => void
   onCancel?: (chainId: string) => void
@@ -287,9 +373,14 @@ export interface MilestoneChainRowProps {
   onSetAutoAdvance?: (chainId: string, on: boolean) => void
 }
 
-export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onSetAutoAdvance }: MilestoneChainRowProps) {
+export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false, onResume, onCancel, onSetAutoAdvance }: MilestoneChainRowProps) {
   const { t } = useTranslation('builder')
   const live = chainIsLive(chain)
+  // A live chain waiting on a rail whose run is held (paused by you, a
+  // question, a limit…): it adopts the run and waits (reconcile), so the row
+  // says why and offers the run's next step while the chain is still running.
+  const held = chainHeldRail(chain, rails)
+  const next = chainNextEngine(chain)
   const paused = chain.status === 'paused'
   const checkpoint = chainAtCheckpoint(chain)
   const reason = chainPauseReason(chain.pauseReason)
@@ -301,6 +392,11 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
   // The server's reconciliation names the next step; older payloads fall back
   // to the failed-chunk menu below.
   const planned = (paused || checkpoint) && (chain.plan?.offers.length ?? 0) > 0
+  // A held run the chain follows: Resume (paused by you, the budget, a limit,
+  // a restart) goes through the chain's own resume; a question opens the run.
+  const heldOffers = !paused && !checkpoint && held !== null
+    && (chain.plan?.action?.kind === 'resume_run') && (chain.plan?.offers.length ?? 0) > 0
+  const answerRail = !paused && !checkpoint && held !== null && (held.key === 'question' || held.key === 'approval') ? held.rail : null
   const pausedSpecDelivered = paused && chain.plan?.pausedSpecSettled === true && chain.plan.pausedTicketId !== null
   const failedSpec = paused && chain.retryChunk !== null
     && (chain.launched.find((entry) => entry.chunk === chain.retryChunk! + 1)?.runIds.length ?? 0) === 1
@@ -308,7 +404,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
     <div
       className={cn(
         'rounded-md border px-2 py-1.5 text-caption',
-        paused
+        paused || (held && held.key !== 'queued')
           ? 'border-accent-warning/40 bg-accent-warning/5'
           : checkpoint
             ? 'border-accent-success/40 bg-accent-success/5'
@@ -316,6 +412,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
       )}
       data-testid="milestone-chain-row"
       data-status={chain.status}
+      data-held={held?.key}
     >
       <div className="flex items-center gap-1.5">
         <Layers className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
@@ -409,6 +506,20 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
               <span className="truncate font-mono" title={chain.headBranch}> · {t('milestoneProgress.chain.stackedOn', { branch: chain.headBranch })}</span>
             )}
           </>
+        ) : held ? (
+          <>
+            {held.key === 'queued'
+              ? <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
+              : held.key === 'question' || held.key === 'approval'
+                ? <MessageCircleQuestion className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
+                : <Pause className="h-3 w-3 shrink-0 text-accent-warning" aria-hidden />}
+            <span
+              className={held.key === 'queued' ? undefined : held.key === 'question' || held.key === 'approval' ? 'text-accent-primary' : 'text-accent-warning'}
+              data-testid="milestone-chain-held"
+            >
+              {t(`milestoneProgress.chain.held.${held.key}`, { k: held.chunk })}
+            </span>
+          </>
         ) : chain.status === 'running' ? (
           <>
             <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
@@ -428,10 +539,35 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
           <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
+      {next && (
+        <p className={cn('mt-0.5 truncate', next.changed ? 'text-foreground' : 'text-muted-foreground')} data-testid="milestone-chain-next-engine" data-source={next.source} data-changed={next.changed}
+          title={t(`milestoneProgress.chain.engineSource.${next.source}`)}>
+          {t(next.changed ? 'milestoneProgress.chain.nextEngineChanged' : 'milestoneProgress.chain.nextEngine', { engine: engineLabel(t, next.engine) })}
+          <span className="sr-only"> ({t(`milestoneProgress.chain.engineSource.${next.source}`)})</span>
+        </p>
+      )}
       {pausedSpecDelivered && (
         <p className="mt-0.5 text-muted-foreground" data-testid="milestone-chain-paused-delivered">
           {t('milestoneProgress.chain.pausedSpecDelivered', { paused: `#${chain.plan!.pausedTicketId}` })}
         </p>
+      )}
+      {heldOffers && onResume && (
+        <div className="mt-1.5 flex min-w-0" data-testid="milestone-chain-next-step">
+          <ChainOfferControls chain={chain} busy={busy} onResume={onResume} testId="milestone-chain-resume" />
+        </div>
+      )}
+      {answerRail && onOpenRail && (
+        <div className="mt-1.5 flex min-w-0" data-testid="milestone-chain-next-step">
+          <button
+            type="button"
+            onClick={() => onOpenRail(answerRail)}
+            className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 text-left font-medium text-accent-primary hover:bg-accent-primary/20"
+            data-testid="milestone-chain-answer"
+          >
+            <MessageCircleQuestion className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="min-w-0 leading-snug">{t('milestoneProgress.chain.answerRun', { k: held!.chunk })}</span>
+          </button>
+        </div>
       )}
       {planned && onResume && (
         <div className="mt-1.5 flex min-w-0" data-testid="milestone-chain-next-step">
@@ -462,13 +598,16 @@ export interface MilestoneCardProps {
   onResume?: (chainId: string, from?: ChainResumeFrom) => void
   onCancel?: (chainId: string) => void
   onSetAutoAdvance?: (chainId: string, on: boolean) => void
+  /** Resume a rail run the person paused. */
+  onResumeRun?: (runId: string) => void | Promise<void>
   className?: string
 }
 
-export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRail, onResume, onCancel, onSetAutoAdvance, className }: MilestoneCardProps) {
+export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRail, onResume, onCancel, onSetAutoAdvance, onResumeRun, className }: MilestoneCardProps) {
   const { t } = useTranslation('builder')
   const anyActive = progress.rails.some((r) => r.active)
-  const now = useNow(1000, anyActive)
+  // Only a working run ticks; a held run's time is frozen where it stopped.
+  const now = useNow(1000, progress.rails.some((r) => r.active && !r.hold))
   const { counts } = progress
   const showChain = progress.chain !== null && progress.chain.status !== 'completed' && progress.chain.status !== 'cancelled'
     ? progress.chain
@@ -505,13 +644,13 @@ export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRa
       {actions && <div className="mt-2 flex flex-col gap-1.5">{actions}</div>}
       {showChain && (
         <div className="mt-2">
-          <MilestoneChainRow chain={showChain} busy={chainBusy} onResume={onResume} onCancel={onCancel} onSetAutoAdvance={onSetAutoAdvance} />
+          <MilestoneChainRow chain={showChain} rails={progress.rails} onOpenRail={onOpenRail} busy={chainBusy} onResume={onResume} onCancel={onCancel} onSetAutoAdvance={onSetAutoAdvance} />
         </div>
       )}
       {progress.rails.length > 0 && (
         <div className="mt-2 space-y-1" data-testid="milestone-rails">
           {progress.rails.map((rail) => (
-            <MilestoneRailRow key={rail.railIndex} rail={rail} now={now} onReview={onReview} onOpenRail={onOpenRail} />
+            <MilestoneRailRow key={rail.railIndex} rail={rail} now={now} onReview={onReview} onOpenRail={onOpenRail} onResumeRun={onResumeRun} />
           ))}
         </div>
       )}

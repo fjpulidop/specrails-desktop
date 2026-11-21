@@ -13,6 +13,7 @@ import { resolveIntegrationBranch } from './integration-branch'
 import { internalApiError, type InternalApi } from './internal-api'
 import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
+import type { RunHoldSources } from './modules/loops/runtime/loop-run-hold'
 import { MilestoneProgressBroadcaster, markMilestoneDone, readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
 import { getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, listTerminalPrDeliveries, toPrDeliverySnapshot } from './modules/delivery/runtime/rail-pr-store'
 import { getRails } from './modules/delivery/runtime/rails-store'
@@ -155,6 +156,8 @@ export function createProjectMilestoneProgress(deps: {
   blueprintWorkspace: () => string | null
   /** The chain manager, read per derivation. */
   getChains: () => MilestoneChainManager | null
+  /** Live run holds (the loop engine + startup recovery), read per derivation. */
+  holdSources?: () => RunHoldSources
   broadcast: (msg: WsMessage) => void
 }): MilestoneProgressBroadcaster {
   const { project, db, railJobs, railLoopRuns, ticketStorePath, blueprintWorkspace, broadcast: boundBroadcast } = deps
@@ -168,6 +171,7 @@ export function createProjectMilestoneProgress(deps: {
       railJobs,
       railLoopRuns,
       chains: () => deps.getChains()?.listForProgress() ?? [],
+      holdSources: deps.holdSources,
     }),
     persistDone: (milestoneId) => markMilestoneDone(blueprintWorkspace(), milestoneId) !== null,
     broadcast: boundBroadcast,
