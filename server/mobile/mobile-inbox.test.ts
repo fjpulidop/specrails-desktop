@@ -6,7 +6,7 @@ import { initDesktopDb, setDesktopSetting } from '../desktop-db'
 import type { DbInstance } from '../db'
 import { createDevice, hashToken, setAllowedProjects, _resetAclColumnCacheForTests } from './mobile-devices'
 import { createMobileRouter } from './mobile-router'
-import { companionTargetsFor } from './mobile-inbox'
+import { applyInboxDismissals, companionTargetsFor, dismissalHides, dismissInboxItem, readInboxDismissals, restoreInboxItem, INBOX_DISMISSALS_KEY, MAX_INBOX_DISMISSALS } from './mobile-inbox'
 import type { InboxItem } from '../modules/inbox'
 
 // A stand-in desktop API: records every call the gateway forwards so each safe
@@ -95,6 +95,78 @@ describe('companion inbox decisions', () => {
 
     it('needs a device token', async () => {
       expect((await request(app).get('/v1/inbox')).status).toBe(401)
+    })
+
+    it('hides items snoozed or done on another remote surface; ?all=1 lists them marked', async () => {
+      dismissInboxItem(db, { itemId: 'p2:question:r9', version: 'v' })
+      const res = await request(app).get('/v1/inbox').set(auth)
+      expect(res.body.items.map((i: InboxItem) => i.id)).toEqual(['p1:question:r1'])
+      const all = await request(app).get('/v1/inbox?all=1').set(auth)
+      expect(all.body.items.map((i: InboxItem & { dismissed?: unknown }) => [i.id, !!i.dismissed])).toEqual([['p1:question:r1', false], ['p2:question:r9', true]])
+    })
+  })
+
+  describe('POST/DELETE /v1/inbox/dismissals', () => {
+    it('snoozes or marks done at the version seen, and brings an item back', async () => {
+      const done = await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p1:question:r1', version: 'v' })
+      expect(done.status).toBe(200)
+      expect(done.body.dismissed).toMatchObject({ kind: 'done', version: 'v', until: null })
+      const until = new Date(Date.now() + 3_600_000).toISOString()
+      const snoozed = await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p2:question:r9', version: 'v', until })
+      expect(snoozed.body.dismissed).toMatchObject({ kind: 'snooze', until })
+      expect((await request(app).get('/v1/inbox').set(auth)).body.items).toEqual([])
+      const back = await request(app).delete('/v1/inbox/dismissals/p1:question:r1').set(auth)
+      expect(back.body).toEqual({ ok: true, itemId: 'p1:question:r1', restored: true })
+      expect((await request(app).get('/v1/inbox').set(auth)).body.items.map((i: InboxItem) => i.id)).toEqual(['p1:question:r1'])
+    })
+
+    it('refuses bad input, past times and projects outside the device grant', async () => {
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'nope', version: 'v' })).status).toBe(400)
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p1:question:r1', version: 'v', until: '2000-01-01T00:00:00Z' })).status).toBe(400)
+      const [{ id }] = db.prepare('SELECT id FROM mobile_devices').all() as Array<{ id: string }>
+      setAllowedProjects(db, id, ['p1'])
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p2:question:r9', version: 'v' })).status).toBe(404)
+      expect((await request(app).delete('/v1/inbox/dismissals/p2:question:r9').set(auth)).status).toBe(404)
+      expect(readInboxDismissals(db)).toEqual({})
+    })
+  })
+
+  describe('the dismissal store', () => {
+    const now = new Date('2026-11-21T10:00:00.000Z')
+    it('Done holds while the version is unchanged; a snooze until its time', () => {
+      const done = dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v1' }, now)
+      expect(dismissalHides(done, 'v1', now)).toBe(true)
+      expect(dismissalHides(done, 'v2', now)).toBe(false)
+      const snooze = dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v1', until: '2026-11-21T11:00:00.000Z' }, now)
+      expect(dismissalHides(snooze, 'v9', now)).toBe(true)
+      expect(dismissalHides(snooze, 'v9', new Date('2026-11-21T11:00:01.000Z'))).toBe(false)
+    })
+
+    it('caps a snooze at 30 days and refuses a past or invalid time', () => {
+      expect(dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v', until: '2027-12-01T00:00:00Z' }, now).until).toBe('2026-12-21T10:00:00.000Z')
+      expect(() => dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v', until: '2026-11-20T00:00:00Z' }, now)).toThrow(RangeError)
+      expect(() => dismissInboxItem(db, { itemId: 'bad id', version: 'v' }, now)).toThrow(RangeError)
+    })
+
+    it('splits visible from hidden and prunes dismissals that no longer hide anything', () => {
+      dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v' }, now)
+      dismissInboxItem(db, { itemId: 'p1:failed:gone', version: 'v' }, now)
+      dismissInboxItem(db, { itemId: 'p2:question:r9', version: 'old' }, now)
+      const { visible, hidden } = applyInboxDismissals(db, [item({}), item({ id: 'p2:question:r9' })], { now, prune: true })
+      expect(visible.map((i) => i.id)).toEqual(['p2:question:r9'])
+      expect(hidden.map((i) => i.id)).toEqual(['p1:question:r1'])
+      expect(Object.keys(readInboxDismissals(db))).toEqual(['p1:question:r1'])
+      expect(restoreInboxItem(db, 'p1:question:r1')).toBe(true)
+      expect(restoreInboxItem(db, 'p1:question:r1')).toBe(false)
+    })
+
+    it('reads a corrupt record as empty and keeps at most the newest entries', () => {
+      setDesktopSetting(db, INBOX_DISMISSALS_KEY, '{not json')
+      expect(readInboxDismissals(db)).toEqual({})
+      for (let i = 0; i < MAX_INBOX_DISMISSALS + 5; i++) dismissInboxItem(db, { itemId: `p1:failed:r${i}`, version: 'v' }, new Date(now.getTime() + i))
+      const stored = readInboxDismissals(db)
+      expect(Object.keys(stored)).toHaveLength(MAX_INBOX_DISMISSALS)
+      expect(stored['p1:failed:r0']).toBeUndefined()
     })
   })
 

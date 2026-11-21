@@ -1,1 +1,22 @@
-{}
+{
+  "mood.idle": "All quiet: nothing running and nothing waiting for you",
+  "summary.app": "{{headline}}{{spend}}.",
+  "summary.running": "{{count}} running",
+  "summary.needs_you": "{{count}} waiting for you",
+  "summary.failing": "{{count}} failed or blocked",
+  "summary.done_today": "{{count}} done today",
+  "summary.spend": "; {{usd}} USD spent today",
+  "summary.spend_estimated": "; {{usd}} USD spent today (partly estimated)",
+  "summary.top": " Most urgent: “{{title}}” in {{project}}.",
+  "summary.project": "{{name}}: {{specs}} specs ({{columns}}); {{rails}} rails, {{running}} running{{reviews}}{{queue}}.",
+  "summary.project_reviews": ", {{count}} awaiting review",
+  "summary.project_queue": "; {{count}} queued",
+  "summary.project_queue_paused": " (queue paused)",
+  "summary.live": "Live board: {{needs}} need you, {{working}} in progress, {{done}} done today{{scope}}.",
+  "summary.context": "{{name}} briefing: {{specs}} specs, {{rails}} rails, branch {{branch}}{{dirty}}.",
+  "summary.context_dirty": " (uncommitted changes)",
+  "next.act": "{{label}} — {{title}}",
+  "next.wait": "Wait for the running work to settle",
+  "next.projects": "Pick a project to work on",
+  "next.inbox": "See everything waiting for you"
+}

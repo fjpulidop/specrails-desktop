@@ -19,8 +19,10 @@ every item is projected from state other capabilities already persist, one proje
 
 - Project isolation: a source is bound to ONE project's database and the collector drops
   any item whose `projectId` is not its own. Nothing is cached between calls.
-- Read-only. Snooze / Done and the unseen marks never reach the server; they are per viewer, keyed by item id
-  and `version` (see the client README).
+- Read-only. The desktop's Snooze / Done and unseen marks never reach the server; they are per viewer, keyed by
+  item id and `version` (see the client README). Remote surfaces without local storage (the paired phone, MCP
+  clients) share one server-side record instead (`inbox_dismissals`, [mobile-inbox.ts](../../mobile/mobile-inbox.ts)),
+  keyed the same way; this read-model never filters by it.
 - The attention prefs are one app-wide record (`desktop_settings` key `attention_notifications`); the server only
   stores and validates them and broadcasts `desktop.attention_prefs` on change. Whether to notify is decided by
   the client (`client/src/lib/attention`).
