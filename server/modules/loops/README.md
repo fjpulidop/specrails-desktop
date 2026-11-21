@@ -75,7 +75,16 @@ progress check, so an intentionally unchanged candidate is no longer reported as
 `correction-stalled`. As for the developer (`developer-blocker-kind`),
 `fixer-blocker-kind` ends at `fixer-blocked` only for what the person must provide
 (`credential`, `network`, `environment-variable`); any other fixer blocker goes to
-`verify`, so a stale or unreproduced one cannot end the run without the host's own check. Developer and fixer turns receive
+`verify`, so a stale or unreproduced one cannot end the run without the host's own check.
+An unchanged fixer candidate is not a stall yet when it repaired the environment instead of the
+code (a missing dev tool installed into the ignored `node_modules`, a gitignored env file):
+`correction-environment` (`ENVIRONMENT_REPAIR_EXPR`) sends it back to `verify` once per candidate
+(`mark-environment-reverify`) when verification failed and Core reported the surviving failure as
+environmental (`environmentRepairSignal`, `$outputs.verify.environmentFailure`) or the fixer filled
+its optional `environmentRepair`. The fixer turn already spent its correction attempt, so the budget
+still bounds the loop, and a second unchanged correction on the same candidate stalls. With Core
+`reviewTriage: 2` the reviewer prompt asks for `[advice] ` / `[out-of-scope] ` findings, which Core
+moves to `reviewNotes` (shown in the review packet) so they never start a correction round. Developer and fixer turns receive
 `verificationProposalsFrom: 'architect'` so write roles see the complete host plan.
 A failed `validate` (OpenSpec validation or archive preflight) or a `freeze` the artifact
 contract refuses (for example tasks that edit frozen artifacts) sends the architect back

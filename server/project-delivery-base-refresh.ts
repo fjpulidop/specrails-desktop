@@ -26,7 +26,8 @@ import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-reco
 import { BUILTIN_CONSTANTS } from './modules/loops/runtime/loop-constants'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 import { defaultMachineProvider } from './provider-selection'
-import { getProviderDefault } from './modules/specs/runtime/spec-models'
+import { getProviderDefault, isValidModelForProvider, type SpecProvider } from './modules/specs/runtime/spec-models'
+import { hasAdapter } from './providers'
 import { defaultGitRunner, type GitRunner } from './worktree-manager'
 import type { ProjectContext } from './project-registry'
 
@@ -52,11 +53,18 @@ export function baseRefreshCount(c: Pick<ProjectContext, 'db' | 'project'>, runI
 const refused = (status: 404 | 409 | 502, error: string, detail: string, conflicts?: string[]): DeliveryBaseRefreshOutcome =>
   ({ status, body: { ok: false, error, detail, ...(conflicts?.length ? { conflicts } : {}) } })
 
-/** The default resolver: the machine's primary provider in the delivery worktree, with cost recorded. */
-function defaultResolver(c: ProjectContext, deliveryId: string, ticketId: number | null): (input: ResolverInput) => Promise<void> {
+/** The resolver's provider and model: the delivery run's own when it recorded concrete ones, else the machine default. */
+export function resolverRoute(route: { provider: string | null; model: string | null }): { provider: string; model: string } {
+  const provider = route.provider && hasAdapter(route.provider) ? route.provider : defaultMachineProvider()
+  const model = route.provider === provider && isValidModelForProvider(route.model, provider as SpecProvider) ? route.model : getProviderDefault(provider as SpecProvider)
+  return { provider, model }
+}
+
+/** The default resolver: the delivery run's route in the delivery worktree, with cost recorded. */
+function defaultResolver(c: ProjectContext, deliveryId: string, ticketId: number | null, route: { provider: string | null; model: string | null }): (input: ResolverInput) => Promise<void> {
   return async (input) => {
-    const provider = defaultMachineProvider()
-    const model = getProviderDefault(provider)
+    // The delivery run's own provider and model when it recorded concrete ones, else the machine default.
+    const { provider, model } = resolverRoute(route)
     const startedAt = new Date().toISOString()
     const result = await createLoopExecutors().runAiStep({ prompt: buildBaseRefreshResolverPrompt(input, BUILTIN_CONSTANTS.MERGE_SAFE), provider, model, cwd: input.worktreePath, repoDir: input.worktreePath })
     recordMergeStep({ db: c.db, projectId: c.project.id, jobId: deliveryId, ticketId, broadcast: c.broadcast as never }, 'resolve-base', result, startedAt, provider, model)
@@ -96,7 +104,7 @@ export async function refreshDeliveryOnBase(c: ProjectContext, deliveryId: strin
     try { spec = c.getTicketSpec(ticketId) } catch { spec = undefined }
     return { ticketId, title: spec?.title ?? null, description: spec?.description ?? null }
   })
-  const merged = await mergeBaseIntoDelivery({ git, resolve: io.resolve ?? defaultResolver(c, deliveryId, snap.ticketIds[0] ?? null) }, {
+  const merged = await mergeBaseIntoDelivery({ git, resolve: io.resolve ?? defaultResolver(c, deliveryId, snap.ticketIds[0] ?? null, { provider: loopRun.provider ?? null, model: loopRun.model ?? null }) }, {
     worktreePath: run.handle.worktreePath, branch: run.handle.branch, deliverySha, baseBranch, baseSha,
     protectedBranches: [...new Set([baseBranch, row.base_branch, 'main', 'master'])], specs,
     ticketRef: snap.ticketIds.length ? `${snap.ticketIds[0]}${snap.ticketIds.length > 1 ? ` +${snap.ticketIds.length - 1}` : ''}` : '',
