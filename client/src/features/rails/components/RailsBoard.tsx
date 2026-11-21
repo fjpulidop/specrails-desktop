@@ -24,7 +24,8 @@ import {
   toolbarButtonClass,
 } from '../../../components/ui/board-toolbar'
 import { useElementWidth } from '../../../hooks/useElementWidth'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -157,10 +158,10 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 }
 
 /** One live-summary entry in the Rails context row. */
-function SummaryItem({ dot, label, testId, pulse = false }: { dot: string; label: string; testId: string; pulse?: boolean }) {
+function SummaryItem({ state, label, testId }: { state: RunState; label: string; testId: string }) {
   return (
     <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
-      <LiveDot size="xs" dotClassName={dot} pulsing={pulse} aria-hidden />
+      <RunStateDot state={state} />
       {label}
     </span>
   )
@@ -304,13 +305,13 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
             className="flex items-center gap-3 min-w-0 overflow-hidden text-xs text-muted-foreground tabular-nums"
           >
             {running > 0 && (
-              <SummaryItem dot="bg-accent-success" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" pulse />
+              <SummaryItem state="working" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" />
             )}
             {ready > 0 && (
-              <SummaryItem dot="bg-accent-primary" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
+              <SummaryItem state="queued" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
             )}
             {failed > 0 && (
-              <SummaryItem dot="bg-destructive" label={t('railsBoard.summary.failed', { count: failed })} testId="rails-summary-failed" />
+              <SummaryItem state="failed" label={t('railsBoard.summary.failed', { count: failed })} testId="rails-summary-failed" />
             )}
             <span data-testid="rails-summary-total" className="whitespace-nowrap">
               {t('railsBoard.summary.total', { count: rails.length })}

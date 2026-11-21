@@ -39,7 +39,7 @@ To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and star
 
 ## App settings
 
-App settings apply across all projects. Open them from the **left sidebar → App settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
+App settings apply across all projects. Open them from the **left sidebar → Settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
 
 The Global Settings page is organised into the sections below (it also surfaces a read-only **Registered Projects** list, an **Onboarding** replay button, and a **Desktop Information** diagnostics block, which carry no stored settings):
 
@@ -298,7 +298,59 @@ A few env vars are read directly by the app. The two most useful operational one
 |----------|-------------|
 | `SPECRAILS_TECH_URL` | Fallback specrails-tech base URL. Resolution order is the `specrails_tech_url` app setting **first**, then this env var, then `http://localhost:3000` — so a stored app setting takes precedence over this var. |
 | `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for the asynchronous login-shell probe that recovers configured project environment names (default `10000`, capped at `120000`). The synchronous cold fallback keeps its 1.5 s bound. See [Login-shell recovery](#login-shell-recovery-and-resolution-status). |
+| `SPECRAILS_AGENT_POLICY_HOOK` | `false` stops installing the in-turn agent policy hook and removes it from the mission cwd and worktrees Specrails writes next (emergency rollback). Default on. See [agent policy and continuity](agent-policy-and-continuity.md). |
+| `SPECRAILS_WORKTREE_PREPARATION` | `false` turns off prepared run checkouts (Launch all prewarm and preparation alongside the launch fetch); worktrees are then created with a plain `git worktree add`, still with `checkout.workers=4` unless `checkout.workers` is configured. See [delivery › Faster run worktrees](../../server/modules/delivery/README.md#faster-run-worktrees). |
 | `WM_ZOMBIE_TIMEOUT_MS` | Zombie-job detection timeout in milliseconds (default `1800000` = 30 min). This is a stuck-job watchdog, **not** a hard "kill after N minutes" cap. |
+
+### Run worktree ports
+
+Every isolated run worktree (rails, loops, Intent sessions: any mount under
+`~/.specrails/projects/<slug>/worktrees/`) leases a block of 10 ports so rails
+launched together never fight over `:3000`. Its AI steps, shell checks, queue
+jobs, Core definition runs (including resumes and forks) and background
+processes started in it receive:
+
+| Variable | Value |
+| --- | --- |
+| `PORT` | First port of the block, **only when `PORT` is not already set** (a project or shell that pins its own port keeps it). |
+| `SPECRAILS_RUN_PORT` | First port of the block, always. |
+| `SPECRAILS_RUN_PORT_RANGE_START` / `SPECRAILS_RUN_PORT_RANGE_END` | The whole block (inclusive), for an API, HMR socket, preview or e2e server. |
+
+A dev or e2e config that reads `PORT` (Vite `server.port: Number(process.env.PORT)`,
+Playwright `webServer.port`, Next, Express, most frameworks) needs no change.
+
+The block is chosen from a hash of the worktree path (stable), skipping blocks
+leased to other live worktrees and, before a run's first spawn, blocks where
+something already listens. Leases are kept in `~/.specrails/run-ports.json`
+(mode 0600) so a resumed run keeps its ports after a restart, and are dropped
+once their worktree directory is gone. The reserved area is configurable on
+the server:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SPECRAILS_RUN_PORT_BASE` | `30100` | First port of the area (below the Linux, macOS and Windows ephemeral ranges). |
+| `SPECRAILS_RUN_PORT_BLOCK_SIZE` | `10` | Ports per run. |
+| `SPECRAILS_RUN_PORT_BLOCKS` | `200` | Blocks in the area (30100–32099 by default). |
+
+The Resources panel lists ports served from run worktrees (`GET /api/resources/ports`),
+and a check that fails because its port was taken is diagnosed as `port_in_use`,
+not as failed tests. Module: [terminals › Run worktree ports](../../server/modules/terminals/README.md#run-worktree-ports).
+
+### Run browser tool
+
+Every process of a run worktree also receives `SPECRAILS_BROWSE`: the launcher of Desktop's
+headless browser tool, written to `~/.specrails/browser-tool/` at startup. Agents use it to
+look at the UI they build (screenshots at chosen viewports, console errors, page text). It may
+open files inside the run's repositories, public sites, and loopback only on the run's own
+ports above. Chromium is the app's bundled one when present, otherwise Playwright's in
+`~/.specrails/browsers`, downloaded on first use; the launcher sets `PLAYWRIGHT_BROWSERS_PATH`
+for itself only, so the project's own Playwright setup is untouched.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SPECRAILS_PLAYWRIGHT_DIR` | the app's own `playwright` package | Playwright package directory the tool loads. Without one, runs get no `SPECRAILS_BROWSE`. |
+
+Module: [browser › Run browser tool](../../server/modules/browser/README.md#run-browser-tool).
 
 ### Provider rollback gates
 
@@ -314,8 +366,8 @@ A disabled provider stops appearing in Add Project and is rejected by the create
 Provider credentials are not stored by Desktop. Each CLI authenticates on its
 own: Claude through its login/config, Codex via `codex login`, Gemini through
 its native key/config, and Kimi via `kimi login` or user-managed
-`~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
-[Gemini](../gemini.md).
+`~/.kimi-code/config.toml`. See [Codex](../codex.md) and the
+[provider adapters](../../server/providers/).
 
 ### Mission read-only policy
 
@@ -401,6 +453,14 @@ For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server 
 
 ---
 
+### Host log folder
+
+The desktop host sets `SPECRAILS_HOST_LOG_DIR` (an absolute path) for the server
+it launches. The server reads crash markers and the host logs from it for crash
+notices and "Report a problem", and writes only `crashes/acknowledged.json`.
+Unset (browser build, `npm run dev`), the report has no host files and no crash
+notices are shown. See [server recovery and problem reports](server-recovery-and-diagnostics.md).
+
 ### Development build next to the installed app
 
 `npm run dev:desktop` (`scripts/dev-desktop.mjs`) runs the Tauri development
@@ -413,7 +473,7 @@ build as a separate app, so it can stay open while the installed Specrails runs:
 | Server port | `4200` | `4300` (`SPECRAILS_DEV_SERVER_PORT`) |
 | Vite dev client | — | `4301` (`SPECRAILS_DEV_CLIENT_PORT`) |
 | Data home (contains `.specrails/`) | `~` | `~`, shared with the installed app; `~/.specrails-dev` with `--isolated` (`SPECRAILS_REGISTRY_HOME` overrides both) |
-| Sidecar log | `~/Library/Logs/Specrails/` | `~/Library/Logs/Specrails Dev/` |
+| Host log folder (`sidecar.log`, `desktop.log`, `crashes/`; exported to the server as `SPECRAILS_HOST_LOG_DIR`) | `~/Library/Logs/Specrails/` | `~/Library/Logs/Specrails Dev/` |
 
 Without a flag, the development app opens your projects: it uses the installed
 app's `~/.specrails`, with the same registry, history and worktrees. Only one
@@ -444,6 +504,7 @@ stay shared, so agents keep their sign-ins.
   desktop.token           # Auto-generated API token (mode 0600)
   manager.pid             # PID of the running specrails-desktop server process
   desktop.log             # Server stdout/stderr (appended on each start)
+  run-ports.json          # Port blocks leased to run worktrees (mode 0600)
   projects/
     <project-slug>/
       jobs.sqlite         # Per-project job history, invocations, telemetry pointers
@@ -479,16 +540,16 @@ rm -rf ~/.specrails/desktop.sqlite ~/.specrails/projects/
 - [CLI reference](../cli.md) — every command and flag in detail
 - [Customising the app](../customizing.md) — feature flags, env vars, keybindings
 - [Codex](../codex.md) — using the Codex CLI provider
-- [Gemini](../gemini.md) — using the Gemini CLI provider
 - [Adding a provider](adding-a-provider.md) — wiring a new AI CLI adapter
 
 ## Spend caps (daily, weekly, monthly, per run)
 
 Caps are plain settings; there is no feature flag. The week starts on **Monday 00:00** and the month on the
-**1st 00:00**, both in the **local** time of the machine running the server (the day is local for a project cap;
-the app-wide *daily* budget keeps its historical UTC day). A cap counts the recorded `total_cost_usd` of
-`ai_invocations` (the same sum the daily budget has always used); the part priced from the local rate card is
-reported apart in the Budget panel.
+**1st 00:00**, both in the **local** time of the machine running the server; the day is the local day for
+every cap, the app-wide daily budget included (it used the UTC day before). A cap counts the recorded
+`total_cost_usd` of `ai_invocations` plus the mission and Intent turns of the app ledger (`agent_invocations`):
+pinned turns count for their project, every turn counts app-wide. The part priced from the local rate card is
+reported apart in the Budget panel. Spend "today" in Analytics and the MCP status uses the same local day.
 
 | Cap | Project key (`queue_state`) | App-wide key (`desktop_settings`) |
 | --- | --- | --- |
@@ -504,3 +565,16 @@ project scope is reported before the app-wide one. The per-run soft cap pauses a
 provider-reported cost reaches it (the tighter of the project and app-wide default, or the launch's `runCapUsd`);
 Continue waives it for that run and Raise moves it up (persisted in `loop_runs.run_cap_usd`, migration 85). A cap
 that is reached also appears in the inbox ("Raise cap").
+
+## Run capacity (parallel rails)
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `SPECRAILS_RUN_ADMISSION` | on | `off` starts every rail run at once (no queue). |
+| `SPECRAILS_MAX_ACTIVE_RUNS` | 1.2 × cores (2–24) | Runs working at once on this machine; more launches start **queued** and start by themselves. |
+| `SPECRAILS_MAX_RUNS_PER_PROJECT` | half of the above | Runs working at once in one project. |
+| `SPECRAILS_MAX_RUNS_PER_PROVIDER` | none | Per-provider caps, `claude=8,codex=2`. |
+| `SPECRAILS_VERIFY_SLOTS` (Core) | cores ÷ 4 (1–4) | Machine-wide verification turns inside runs. |
+
+See the [capacity module](../../server/modules/capacity/README.md) for the rules (CPU, memory and usage-window checks) and `GET /api/capacity`.
+

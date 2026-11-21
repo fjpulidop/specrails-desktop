@@ -1,0 +1,41 @@
+{
+  "report": {
+    "open": "Segnala un problema…",
+    "title": "Segnala un problema",
+    "description": "Salva su questo computer uno ZIP con i log recenti e le impostazioni. Non viene caricato nulla: decidi tu se condividerlo.",
+    "building": "Raccolta dei log…",
+    "buildFailed": "Impossibile creare il rapporto: {{error}}",
+    "retry": "Riprova",
+    "fileListLabel": "File del rapporto",
+    "redactionNote": "Token, chiavi, password e credenziali sono sostituiti da *** o [REDACTED] e la tua cartella personale appare come ~. Controlla i file prima di condividerli.",
+    "save": "Salva ZIP…",
+    "saving": "Salvataggio…",
+    "saved": "Rapporto salvato",
+    "savedBody": "{{name}} è sul tuo computer. Condividilo solo con chi ti sta aiutando.",
+    "saveFailed": "Impossibile salvare il rapporto.",
+    "expired": "Questa anteprima è scaduta. Creala di nuovo.",
+    "rebuild": "Ricrea",
+    "aboutDescription": "Salva uno ZIP con log anonimizzati da condividere con chi ti aiuta. Non viene caricato nulla."
+  },
+  "banner": {
+    "label": "Ripristino del server locale",
+    "restarted": "Il server locale si è arrestato in modo imprevisto alle {{time}} ({{cause}}) e Specrails lo ha riavviato. Il lavoro in corso potrebbe essere stato interrotto.",
+    "restartedMany_one": "Il server locale si è arrestato in modo imprevisto {{count}} volta dalle {{time}} e Specrails lo ha riavviato. Il lavoro in corso potrebbe essere stato interrotto.",
+    "restartedMany_other": "Il server locale si è arrestato in modo imprevisto {{count}} volte dalle {{time}} e Specrails lo ha riavviato. Il lavoro in corso potrebbe essere stato interrotto.",
+    "stopped": "Il server locale si è arrestato in modo imprevisto alle {{time}} ({{cause}}). Specrails ha smesso di riavviarlo dopo {{count}} tentativi in un minuto.",
+    "exitCode": "codice di uscita {{code}}",
+    "signal": "segnale {{signal}}",
+    "unknownCause": "causa sconosciuta",
+    "report": "Segnala un problema",
+    "dismiss": "Ignora"
+  },
+  "restarting": "Il server locale si è arrestato. Riavvio in corso…",
+  "responsiveness": {
+    "title": "Reattività",
+    "none": "Nessun rallentamento dalle {{time}}",
+    "summary_one": "{{count}} rallentamento · il più lungo {{duration}}",
+    "summary_other": "{{count}} rallentamenti · il più lungo {{duration}}",
+    "last": "Ultimo alle {{time}}: l'app ha impiegato {{duration}} a rispondere",
+    "hint": "Un rallentamento è un momento di {{threshold}} o più in cui l'app non ha potuto rispondere."
+  }
+}

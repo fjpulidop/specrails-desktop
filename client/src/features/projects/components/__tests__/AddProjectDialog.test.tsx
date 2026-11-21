@@ -117,7 +117,7 @@ describe('AddProjectDialog', () => {
     const { rerender } = render(<AddProjectDialog open onClose={onClose} />)
     await waitFor(() => expect(screen.getByTestId('prerequisites-panel')).toHaveAttribute('data-state', 'ok'))
     await user.type(screen.getByPlaceholderText('/Users/me/my-project'), ' /projects/app ')
-    await user.type(screen.getByPlaceholderText('My Project'), ' Shared product ')
+    await user.type(screen.getByPlaceholderText('My project'), ' Shared product ')
     await user.click(screen.getByRole('button', { name: 'Add folder' }))
     await user.type(screen.getByRole('textbox', { name: 'Folder 2' }), ' /projects/api ')
     await user.click(screen.getByRole('button', { name: 'Add folder' }))
@@ -182,19 +182,19 @@ describe('AddProjectDialog', () => {
   it('shows path and name inputs immediately on open', async () => {
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
     expect(screen.getByPlaceholderText('/Users/me/my-project')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('My Project')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('My project')).toBeInTheDocument()
   })
 
   it('submit button is disabled when path is empty', async () => {
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    const addBtn = screen.getByRole('button', { name: /Add Project/i })
+    const addBtn = screen.getByRole('button', { name: /Add project/i })
     expect(addBtn).toBeDisabled()
   })
 
   it('submit button is enabled when path is filled and prerequisites are healthy', async () => {
     const user = userEvent.setup()
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    const addBtn = screen.getByRole('button', { name: /Add Project/i })
+    const addBtn = screen.getByRole('button', { name: /Add project/i })
     // Wait for the prereq fetch to settle into ok state
     await waitFor(() => expect(screen.getByTestId('prerequisites-panel')).toHaveAttribute('data-state', 'ok'))
     const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
@@ -247,7 +247,7 @@ describe('AddProjectDialog', () => {
     render(<AddProjectDialog open={true} onClose={onClose} />)
     const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
     await user.type(pathInput, '/some/path')
-    const addBtn = screen.getByRole('button', { name: /Add Project/i })
+    const addBtn = screen.getByRole('button', { name: /Add project/i })
     await user.click(addBtn)
 
     await waitFor(() => {
@@ -264,7 +264,7 @@ describe('AddProjectDialog', () => {
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
     const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
     await user.type(pathInput, '/bad/path')
-    const addBtn = screen.getByRole('button', { name: /Add Project/i })
+    const addBtn = screen.getByRole('button', { name: /Add project/i })
     await user.click(addBtn)
 
     await waitFor(() => {
@@ -283,7 +283,7 @@ describe('AddProjectDialog', () => {
     render(<AddProjectDialog open={true} onClose={onClose} />)
     const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
     await user.type(pathInput, '/some/path')
-    const addBtn = screen.getByRole('button', { name: /Add Project/i })
+    const addBtn = screen.getByRole('button', { name: /Add project/i })
     await user.click(addBtn)
 
     await waitFor(() => {
@@ -300,9 +300,9 @@ describe('AddProjectDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows Add Project dialog title', async () => {
+  it('shows Add project dialog title', async () => {
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    expect(screen.getByRole('heading', { name: /Add Project/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Add project/i })).toBeInTheDocument()
   })
 
 })

@@ -61,6 +61,8 @@ Chaque fois que vous appuyez sur Play, l'exécution du rail devient un **job**. 
 
 Vous voulez tout lancer d'un coup ? Le bouton **Tout lancer** de l'en-tête Rails démarre toutes les voies prêtes en une fois, après une seule confirmation qui cadre le coût total (N rails × dépense IA). Les rails vides, déjà en cours ou en attente d'une décision de PR sont ignorés et signalés dans un toast récapitulatif compact. L'agent intégré a le même pouvoir via `specrails_rails(launch_all)` — et il créera un nouveau rail quand aucune voie libre n'existe.
 
+Tant que la boîte de dialogue **Launch all** est ouverte, Specrails prépare déjà jusqu’à trois worktrees en arrière-plan, pour que les rails démarrent plus vite une fois que vous confirmez ; un lancement sans rien de préparé remplit son worktree pendant le fetch. Votre hook Git `post-checkout` s’exécute toujours une fois par nouveau worktree. Fermer la boîte sans lancer abandonne ce qui avait été préparé.
+
 Les projets sans git n'ont ni isolation par worktree ni continuation de PR. Ils peuvent tout de même s'exécuter, mais le rail écrit directement dans le dossier partagé du projet et le résultat s'accepte ou se rétablit manuellement depuis le tableau des specs.
 
 Il n'y a pas de réglage de concurrence global à ajuster. Le seul frein automatique est basé sur le budget : si vous avez défini un budget quotidien (par projet ou pour toute l'app), la file s'auto-suspend dès que la dépense du jour atteint le plafond.
@@ -105,6 +107,17 @@ La fourchette correspond à la moitié centrale de votre propre historique : du 
 
 Le montant en dollars n’apparaît que lorsque le moteur est connu pour facturer à l’usage (par exemple une clé d’API). Avec un abonnement, ou tant que le mode de facturation n’est pas connu, seule la durée s’affiche. Quand le rail contient plusieurs specs, la fourchette vaut pour une spec et l’indique par *(par spec)*. Si la dépense du jour plus le haut de la fourchette pouvait atteindre votre budget quotidien, la ligne ajoute *Peut se mettre en pause au budget* avec un lien vers les réglages du budget. Si le budget du jour est déjà épuisé, Lancer demande d’abord une confirmation, car l’exécution se mettrait en pause jusqu’à la réinitialisation.
 
+
+## Limites d'utilisation {#usage-limits}
+
+Les abonnements plafonnent ce que vous pouvez utiliser sur une fenêtre de 5 heures et une fenêtre hebdomadaire. L'app lit cette limite auprès du fournisseur pendant que vos exécutions travaillent : elle connaît donc l'heure exacte de réinitialisation d'une fenêtre au lieu de la deviner d'après le texte du fournisseur.
+
+- **Barre d'état.** L'indicateur d'utilisation affiche le fournisseur le plus proche de sa limite ; il passe à l'orange à 80 % d'une fenêtre et au rouge à 90 %, en nommant le fournisseur. Réglages ▸ Utilisation des abonnements affiche les mêmes chiffres. Quand le fournisseur refuse les requêtes, il affiche *limite · réinit. 15:00*, et une notification le signale une fois (catégorie **Limites de dépense** dans Réglages ▸ Notifications).
+- **Vérifications avant lancement.** **Tout lancer** vérifie en une ou deux secondes : l'espace disque libre là où vivent les worktrees (refus sous 1 Go, avertissement sous 5 Go), si chaque moteur et GitHub sont connectés, et le quota restant. Lancer N rails dans une fenêtre à 80 % ou plus, ou dans une fenêtre refusée, affiche un avertissement avec l'heure de réinitialisation. Une vérification en échec bloque le lancement jusqu'à ce que vous la corrigiez.
+- **En pause à la limite.** Quand une exécution atteint la limite, elle se met en pause au lieu d'échouer. Elle reprend seule à la réinitialisation et relance l'étape refusée par le fournisseur. Désactivez-le pour une exécution avec **Ne pas reprendre automatiquement**, reprenez-la tout de suite avec **Reprendre maintenant** ou, pour une boucle dont l'app exécute les étapes, **Continuer maintenant avec** un autre fournisseur ; le nouveau fournisseur reçoit ce qui a été fait comme contexte, jamais comme instructions. La pause survit à un redémarrage. Une exécution ne démarre jamais pendant que l'ordinateur dort : elle attend qu'il soit réveillé depuis deux minutes.
+- **Missions.** Un tour de mission qui atteint la limite laisse une carte avec l'heure de réinitialisation. Il ne continue jamais seul : choisissez **Continuer à 15:00** ou **Continuer maintenant avec** un autre fournisseur.
+
+Après trois refus d'affilée, l'exécution s'arrête avec le message du fournisseur, comme avant.
 
 ## Où aller ensuite
 

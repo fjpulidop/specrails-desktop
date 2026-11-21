@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "Choisir la question ou approbation en attente",
-    "answerQuestion": "Répondre à la question",
+    "answerQuestion": "Répondre",
     "approval": "Approbation",
-    "approveContinue": "Approuver et continuer",
+    "approveContinue": "Approuver",
     "paused": "En pause",
     "acceptance": "Acceptation",
     "verified": "Vérifié",
@@ -350,7 +350,15 @@
     "inDirectory": "dans {{cwd}}",
     "requiredAction": "Action requise",
     "copyCommand": "Copier la commande",
-    "copiedCommand": "Copié"
+    "copiedCommand": "Copié",
+    "machineInstall": {
+      "question": "Cette exécution a besoin de {{tool}}. L'installer avec cette commande ?",
+      "install": "Installer",
+      "installMeaning": "Specrails exécute cette commande une fois, hors de l'exécution, et l'exécution reprend d'elle-même.",
+      "self": "Je m'en occupe",
+      "selfMeaning": "Rien n'est installé ; l'exécution s'arrête avec cette commande à lancer vous-même.",
+      "once": "Cela modifie cette machine pour tous les projets. Specrails retient votre accord et ne redemandera pas pour cette commande (Réglages ▸ Installations retenues)."
+    }
   },
   "conversion": {
     "title": "Convertir {{name}} vers Core",

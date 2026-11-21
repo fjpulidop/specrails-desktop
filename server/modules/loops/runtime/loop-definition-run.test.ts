@@ -4,6 +4,8 @@ import { LoopRunManager, type LoopExecutors, type LoopRunRequest } from './loop-
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { getLoopRun, readDefinitionExecutionClaim } from './loop-runs-store'
 import type { DefinitionLoopInvocation, DefinitionRuntimeResult } from './loop-definition-run'
+import { carriesHumanDecision } from './loop-definition-run'
+import type { LoopBudgetBreach } from './loop-run-contract'
 
 let db: DbInstance
 beforeEach(() => { db = initDb(':memory:') })
@@ -114,6 +116,45 @@ describe('Core definitions in Loop Manager',()=>{
     expect(manager.sendInteractiveTurn('r1','',{interruptId:'approval-id',approve:true})).toBe(true)
     expect((await running).outcome).toBe('success')
   })
+  it('questionOptions: broadcasts the question card, answers by option id, and refuses a choice the question never offered', async () => {
+    const broadcast = vi.fn()
+    let calls = 0
+    const value = { kind: 'question', prompt: 'Which store?\n\nOptions:\n- SQLite\n- Files', text: 'Which store?', asker: 'architect', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'files', label: 'Files' }], recommended: 'sqlite' }
+    const ex = executors(async input => {
+      if (calls++ === 0) return { text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'clarify', kind: 'question', value }] }
+      expect(input).toMatchObject({ resume: true, answer: 'SQLite', optionId: 'sqlite', interruptId: 'q1' })
+      return complete()
+    })
+    const manager = new LoopRunManager(db, broadcast, ex); const running = manager.run(request()); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    const card = { interruptId: 'q1', kind: 'question', asker: 'planner', text: 'Which store?', recommended: 'sqlite', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'files', label: 'Files' }] }
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'loop.run_paused', reason: 'Which store?', question: expect.objectContaining(card) }))
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'job.interactive', acceptingTurns: true, question: expect.objectContaining(card) }))
+    // The person reads no node ids: neither the pause reason nor the log line carries `clarify`.
+    expect(getJobEvents(db, 'r1').map(event => event.payload).join('\n')).not.toMatch(/clarify:/)
+    expect(manager.sendInteractiveTurn('r1', 'Mongo', { interruptId: 'q1', optionId: 'mongo' })).toBe(false)
+    expect(manager.sendInteractiveTurn('r1', 'SQLite', { interruptId: 'q1', optionId: 'sqlite' })).toBe(true)
+    expect((await running).outcome).toBe('success')
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'job.interactive', acceptingTurns: false, question: null }))
+  })
+  it('questionOptions: rejects a rejectable approval with the person\'s reason, never a plain one or one without a reason', async () => {
+    let calls = 0
+    const ex = executors(async input => {
+      if (calls++ === 0) return { text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'a1', nodePath: 'approve', kind: 'approval', value: { kind: 'approval', prompt: 'Approve archiving?', rejectable: true } }] }
+      expect(input).toMatchObject({ resume: true, reject: 'a1', reason: 'Wrong colours', interruptId: 'a1' })
+      expect(input.approve).toBeUndefined()
+      return complete(false)
+    })
+    const manager = new LoopRunManager(db, () => {}, ex); const running = manager.run(request()); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    expect(manager.sendInteractiveTurn('r1', '  ', { interruptId: 'a1', reject: true })).toBe(false)
+    expect(manager.sendInteractiveTurn('r1', 'Wrong colours', { interruptId: 'a1', reject: true })).toBe(true)
+    await running
+  })
+  it('questionOptions: an approval from an older Core cannot be rejected', async () => {
+    const ex = executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'a1', nodePath: 'approve', kind: 'approval', value: { kind: 'approval', prompt: 'Approve?' } }] }))
+    const manager = new LoopRunManager(db, () => {}, ex); void manager.run(request()).catch(() => undefined); await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    expect(manager.sendInteractiveTurn('r1', 'No', { interruptId: 'a1', reject: true })).toBe(false)
+    manager.shutdown()
+  })
   it('announces a resumed run so cards that showed its pause follow it live', async () => {
     // A paused run whose host went away (an app restart): the next manager resumes it from the frozen request.
     const first = new LoopRunManager(db, () => {}, executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })))
@@ -125,6 +166,29 @@ describe('Core definitions in Loop Manager',()=>{
     const resumed = next.beginDefinitionResume('r1', { answer: 'go on', interruptId: 'q1' })
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'loop.run_resumed', projectId: 'p1', loopRunId: 'r1', railIndex: 0, ticketIds: [4] }))
     expect((await resumed).outcome).toBe('success')
+  })
+  it('a retained question answered while the budget is spent keeps the answer, parks on the budget, and continues with it', async () => {
+    // Soak 2: after a restart, the answer to a question held 100 min hit the budget gate (409) and was dropped.
+    const first = new LoopRunManager(db, () => {}, executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })))
+    void first.run({ ...request(), railIndex: 0, ticketId: 4 }).catch(() => undefined)
+    await vi.waitFor(() => expect(first.isPaused('r1')).toBe(true))
+    first.shutdown()
+    let spent: LoopBudgetBreach | null = { error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 1, spentUsd: 2, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'Today\'s spend has reached the daily budget.', action: 'Raise it.' }
+    const run = vi.fn(async (input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult> => { expect(input).toMatchObject({ resume: true, answer: 'go on', interruptId: 'q1' }); return complete() })
+    const next = new LoopRunManager(db, () => {}, executors(run), undefined, { dailyBudget: () => spent })
+    const resumed = next.beginDefinitionResume('r1', { answer: 'go on', interruptId: 'q1' })
+    await vi.waitFor(() => expect(next.budgetPause('r1')).not.toBeNull())
+    expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'paused', restart_reason: 'budget_paused' })
+    expect(run).not.toHaveBeenCalled()
+    spent = null
+    expect(next.resumeBudgetPause('r1')).toMatchObject({ status: 'resumed' })
+    expect((await resumed).outcome).toBe('success')
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(carriesHumanDecision({ answer: '' })).toBe(true)
+    expect(carriesHumanDecision({ approve: ['a1'] })).toBe(true)
+    expect(carriesHumanDecision({ reject: 'a1', reason: 'no' })).toBe(true)
+    expect(carriesHumanDecision({})).toBe(false)
+    expect(carriesHumanDecision({ approve: [] })).toBe(false)
   })
   it('cancels a paused run without launching a resume and preserves unavailable billing',async()=>{
     const run=vi.fn(async():Promise<DefinitionRuntimeResult>=>({text:'',runtimeStatus:'paused',pendingInterrupts:[{id:'q1',nodePath:'ask',kind:'question'}]}))
@@ -156,7 +220,7 @@ describe('Core definitions in Loop Manager',()=>{
     const unsupported=new LoopRunManager(db,()=>{},{...executors(undefined)})
     await expect(unsupported.run({...request(),runId:'r2'})).rejects.toThrow('engine_unsupported');expect(getLoopRun(db,'r2')).toBeUndefined()
   })
-  it('rolls back event and accounting together, replays once, and retains NULL provider values',async()=>{
+  it('rolls back event and accounting together, replays once, estimates a missing cost and keeps an unpriceable one NULL',async()=>{
     let seen: DefinitionLoopInvocation|undefined
     const manager=new LoopRunManager(db,()=>{},executors(async input=>{seen=input;return complete()}));await manager.run(request())
     const observer=vi.fn();let sequence=100
@@ -164,8 +228,14 @@ describe('Core definitions in Loop Manager',()=>{
     db.exec("CREATE TRIGGER reject_core_event BEFORE INSERT ON events WHEN NEW.event_type='runtime-efficiency-event' BEGIN SELECT RAISE(ABORT,'event write failed'); END")
     expect(()=>project(usage(10))).toThrow('event write failed');expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({n:0});expect(observer).not.toHaveBeenCalled()
     db.exec('DROP TRIGGER reject_core_event');project(usage(10));project(usage(10));project(usage(11,'physical-2',null))
-    const rows=db.prepare('SELECT tokens_in,tokens_out,total_cost_usd FROM ai_invocations ORDER BY id').all()
-    expect(rows).toEqual([{tokens_in:3,tokens_out:1,total_cost_usd:.3},{tokens_in:2,tokens_out:1,total_cost_usd:.3},{tokens_in:3,tokens_out:1,total_cost_usd:null},{tokens_in:2,tokens_out:1,total_cost_usd:null}]);expect(observer).toHaveBeenCalledTimes(2)
+    const unpriceable=usage(12,'physical-3',null);project({...unpriceable,payload:{...unpriceable.payload,model:'model-without-a-price'}})
+    const rows=db.prepare('SELECT id,tokens_in,tokens_out,total_cost_usd,total_cost_usd_estimated AS est FROM ai_invocations ORDER BY id').all() as Array<{id:string;tokens_in:number;tokens_out:number;total_cost_usd:number|null;est:number}>
+    expect(rows.map(({id,...row})=>({...row,id:id.split(':')[2]}))).toEqual([
+      {id:'physical-1',tokens_in:3,tokens_out:1,total_cost_usd:.3,est:0},{id:'physical-1',tokens_in:2,tokens_out:1,total_cost_usd:.3,est:0},
+      // No native cost: priced from the rate card and flagged estimated, split across the tickets.
+      {id:'physical-2',tokens_in:3,tokens_out:1,total_cost_usd:expect.any(Number),est:1},{id:'physical-2',tokens_in:2,tokens_out:1,total_cost_usd:expect.any(Number),est:1},
+      {id:'physical-3',tokens_in:3,tokens_out:1,total_cost_usd:null,est:0},{id:'physical-3',tokens_in:2,tokens_out:1,total_cost_usd:null,est:0},
+    ]);expect(rows[2].total_cost_usd).toBe(rows[3].total_cost_usd);expect(observer).toHaveBeenCalledTimes(3)
     expect(()=>project({...usage(10),payload:{...usage(10).payload,model:'changed'}})).toThrow('changed its committed content')
     expect(()=>seen!.onRuntimeEvent({...step(20,'step_started'),event:{...step(20,'step_started').event,runId:'other'}})).toThrow('another run')
   })
@@ -202,5 +272,33 @@ describe('Core definitions in Loop Manager',()=>{
     expect(getLoopRun(db, 'r1')).toMatchObject({ core_revision: 8, core_event_cursor: 4 })
     expect(progress.mock.lastCall?.[1]).toMatchObject({ cost: .6, tokensIn: 5, tokensOut: 2 })
     prepare.mockRestore()
+  })
+
+  it('pauses a Core run refused on a usage limit until the reset, then resumes the retained run', async () => {
+    const limitFailure: DefinitionRuntimeResult = { text: '', runtimeStatus: 'failed', failed: true, errorText: 'claude usage limit reached (five_hour window, resets 2099-01-01T00:00:00.000Z).',
+      failure: { kind: 'provider_limit', confidence: 'high', resetsAt: '2099-01-01T00:00:00.000Z', resetAt: '3am (Europe/Madrid)', detail: 'claude usage limit reached', resumablePhase: 'map[0]/read' } }
+    const run = vi.fn<(input: DefinitionLoopInvocation) => Promise<DefinitionRuntimeResult>>().mockResolvedValueOnce(limitFailure).mockResolvedValueOnce(complete())
+    const broadcasts: Array<Record<string, unknown>> = []
+    const manager = new LoopRunManager(db, (message) => broadcasts.push(message as unknown as Record<string, unknown>), executors(run))
+    const running = manager.run(request())
+    for (let i = 0; i < 400 && !manager.limitPause('r1'); i++) await new Promise((resolve) => setTimeout(resolve, 5))
+    // The typed reset wins over the provider's words; Core runs cannot switch provider mid-run.
+    expect(manager.limitPause('r1')).toMatchObject({ providerId: 'claude', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, switchable: false })
+    expect(manager.resolveLimitPause('r1', { action: 'switch', provider: 'codex', model: 'x' })).toBe(false)
+    expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'paused', restart_reason: 'limit_paused' })
+    expect(manager.resolveLimitPause('r1', { action: 'resume' })).toBe(true)
+    const result = await running
+    expect(result.outcome).toBe('success')
+    expect(run).toHaveBeenCalledTimes(2)
+    // Core resumes the retained run: the refused step runs again where it stopped.
+    expect(run.mock.calls[1]![0]).toMatchObject({ resume: true })
+  })
+
+  it('keeps a usage-limit failure that Core already completed (nothing to resume)', async () => {
+    const run = vi.fn(async (): Promise<DefinitionRuntimeResult> => ({ text: '', runtimeStatus: 'failed', failed: true, completion: { ok: false, verified: false, reasons: ['x'] }, failure: { kind: 'provider_limit', confidence: 'high' } }))
+    const manager = new LoopRunManager(db, () => {}, executors(run))
+    const result = await manager.run(request())
+    expect(result.outcome).toBe('failed')
+    expect(run).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,6 +1,7 @@
 import { RTCPeerConnection, type RTCDataChannel } from 'werift'
 import { safeEqual } from '../auth'
 import { DataChannelPeer, type DataChannelLike, type DataChannelPeerDeps, type WelcomeResult } from './mobile-datachannel'
+import { logRejection } from '../util/log-rejection'
 
 // werift runtime glue: the desktop is the WebRTC *offerer*. It creates a peer +
 // DataChannel, emits an offer SDP (for the first QR), then applies the scanned
@@ -135,7 +136,7 @@ export class MobileWebrtcGateway {
 
   private _close(pc: RTCPeerConnection): void {
     try {
-      void pc.close()
+      void pc.close().catch(logRejection('mobile WebRTC peer close'))
     } catch {
       /* ignore */
     }

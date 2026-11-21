@@ -31,8 +31,8 @@ describe('reasoning effort — gemini (unsupported)', () => {
 
 describe('reasoning effort — codex (native -c)', () => {
   it('rejects unavailable tiers for each current Codex model before launch', () => {
-    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6-astra', 'minimal')).toBe(false)
-    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6-astra', 'ultra')).toBe(true)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.2-astra', 'minimal')).toBe(false)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.2-astra', 'ultra')).toBe(true)
     expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.6-luna', 'ultra')).toBe(false)
     expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.6-luna', 'max')).toBe(true)
     expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.5', 'max')).toBe(false)
@@ -43,9 +43,9 @@ describe('reasoning effort — codex (native -c)', () => {
     'passes Astra and %s effort unchanged to rail jobs and resumed conversations', (effort) => {
       for (const action of ['rail-job', 'chat-resume'] as const) {
         const args = codexAdapter.buildArgs(action, opts({
-          model: 'gpt-6-astra', reasoning_effort: effort, sessionId: 'astra-session',
+          model: 'gpt-6.2-astra', reasoning_effort: effort, sessionId: 'astra-session',
         }))
-        expect(argAfter(args, '--model')).toBe('gpt-6-astra')
+        expect(argAfter(args, '--model')).toBe('gpt-6.2-astra')
         expect(args).toContain(`model_reasoning_effort="${effort}"`)
       }
     },
@@ -95,15 +95,15 @@ describe('reasoning effort — claude (native --effort flag)', () => {
   })
 })
 
-it.each(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const)('passes GPT-6.1 Sol with %s to Codex unchanged', effort => {
-  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.1-sol', effort)).toBe(true)
-  const args = codexAdapter.buildArgs('rail-job', opts({ model: 'gpt-6.1-sol', reasoning_effort: effort }))
-  expect(argAfter(args, '--model')).toBe('gpt-6.1-sol')
+it.each(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const)('passes GPT-6.2 Sol with %s to Codex unchanged', effort => {
+  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.2-sol', effort)).toBe(true)
+  const args = codexAdapter.buildArgs('rail-job', opts({ model: 'gpt-6.2-sol', reasoning_effort: effort }))
+  expect(argAfter(args, '--model')).toBe('gpt-6.2-sol')
   expect(args).toContain(`model_reasoning_effort="${effort}"`)
-  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.1-sol', 'minimal')).toBe(false)
+  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.2-sol', 'minimal')).toBe(false)
 })
 
-it('defaults Codex to GPT-6.1 Sol and medium reasoning', () => {
-  expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
+it('defaults Codex to GPT-6.2 Sol and medium reasoning', () => {
+  expect(codexAdapter.defaultModel()).toBe('gpt-6.2-sol')
   expect(defaultReasoningEffortForModel(codexAdapter, codexAdapter.defaultModel())).toBe('medium')
 })

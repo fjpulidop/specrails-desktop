@@ -1,3 +1,5 @@
+import { saveLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { saveUserPause } from '../../loops/runtime/loop-user-pauses'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import type { AddressInfo } from 'node:net'
@@ -10,7 +12,7 @@ import { compareInboxItems, inboxItemId, oneLine, toIso, type InboxItem } from '
 import { deriveFailureDiagnosis, serializeDiagnosis } from '../../recovery'
 import { createProjectInboxSource } from '../adapters/project-source'
 import { registerInboxRoutes } from '../adapters/http'
-import { listenOnLoopback } from '../../../loopback-test-server'
+import { listenOnLoopback } from '../../../__fixtures__/loopback-test-server'
 
 const NOW = Date.parse('2026-10-24T12:00:00.000Z')
 const iso = (offsetMs: number): string => new Date(NOW + offsetMs).toISOString()
@@ -70,8 +72,45 @@ describe('inbox projection: runs', () => {
     const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
     expect(byId['r-budget']).toMatchObject({ kind: 'budget', action: 'resume-run' })
     expect(byId['r-human']).toMatchObject({ kind: 'question', action: 'open-run' })
-    expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run' })
+    // A restart is a pause that waits for Resume, worded like the run window (the run's hold).
+    expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:restart' })
     expect(byId['r-fork']).toBeUndefined()
+  })
+
+  it('words a run the person paused as paused by you, also after a restart', () => {
+    run('r-you', 0); pauseLoopRun(db, 'r-you', undefined, 'user_paused')
+    run('r-you-restart', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart' WHERE id='r-you-restart'").run()
+    saveUserPause(db, 'r-you-restart', { requestId: 'req-1', requestedAt: iso(-60_000), pausedAt: iso(-30_000) })
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-you']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:pausedByYou' })
+    expect(byId['r-you-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:pausedByYou' })
+  })
+
+  it('a question item carries its card and a short question for the notification; a limit, budget or restart pause never becomes one', () => {
+    const status = (pending: unknown[]) => JSON.stringify({ pendingInterrupts: pending })
+    const question = { id: 'q1', nodePath: 'developer', kind: 'question', value: { kind: 'question', prompt: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?', text: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?', asker: 'build', options: [{ id: 'implement', label: 'Implement' }, { id: 'drop', label: 'Drop 2.1' }] } }
+    run('r-ask', 0); pauseLoopRun(db, 'r-ask'); db.prepare('UPDATE loop_runs SET runtime_status_json=? WHERE id=?').run(status([question]), 'r-ask')
+    run('r-restart-ask', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart', runtime_status_json=? WHERE id='r-restart-ask'").run(status([question]))
+    run('r-budget-ask', 2); pauseLoopRun(db, 'r-budget-ask', undefined, 'budget_paused'); db.prepare('UPDATE loop_runs SET runtime_status_json=? WHERE id=?').run(status([question]), 'r-budget-ask')
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-ask']).toMatchObject({ kind: 'question', action: 'open-run', detail: 'Task 2.1 needs touch controls, a declared non-goal: implement or drop?',
+      question: { interruptId: 'q1', asker: 'developer', options: [{ id: 'implement' }, { id: 'drop' }] } })
+    expect(byId['r-ask'].version).toContain(':q1')
+    // A run cut off by a restart while it asked still asks the same question.
+    expect(byId['r-restart-ask']).toMatchObject({ kind: 'question', question: { interruptId: 'q1' } })
+    expect(byId['r-budget-ask']).toMatchObject({ kind: 'budget' })
+    expect(byId['r-budget-ask'].question).toBeUndefined()
+  })
+
+  it('shows a run paused at a usage limit as a budget item that names the provider and its resume time', () => {
+    run('r-limit', 0); pauseLoopRun(db, 'r-limit', undefined, 'limit_paused')
+    saveLimitPause(db, 'r-limit', { providerId: 'claude', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: true, message: 'limit', pausedAt: iso(-60_000), switchable: true })
+    run('r-limit-restart', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart' WHERE id='r-limit-restart'").run()
+    saveLimitPause(db, 'r-limit-restart', { providerId: 'codex', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: false, message: 'limit', pausedAt: iso(-60_000), switchable: false })
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-limit']).toMatchObject({ kind: 'budget', action: 'resume-run', detail: 'usage_limit:claude:2026-11-19T02:00:00.000Z' })
+    // Retained over a restart, still a limit; automatic resume off → no time promised.
+    expect(byId['r-limit-restart']).toMatchObject({ kind: 'budget', detail: 'usage_limit:codex:' })
   })
 
   it('lists recent failed/blocked runs, drops old ones, successes and superseded ones', () => {
@@ -95,6 +134,22 @@ describe('inbox projection: runs', () => {
   })
 })
 
+describe('inbox projection: rail runs waiting on the person', () => {
+  it('lists a paused rail run even though its building delivery represents it', () => {
+    run('r-question', 0); pauseLoopRun(db, 'r-question')
+    delivery('d-q', 0, 'building')
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-question"]' WHERE id = 'd-q'`).run()
+    run('r-limit', 1); pauseLoopRun(db, 'r-limit', undefined, 'limit_paused')
+    saveLimitPause(db, 'r-limit', { providerId: 'claude', resumeAt: '2026-11-19T02:00:00.000Z', autoResume: true, message: 'limit', pausedAt: iso(-60_000), switchable: false })
+    delivery('d-l', 1, 'building')
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-limit"]' WHERE id = 'd-l'`).run()
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-question']).toMatchObject({ kind: 'question', action: 'open-run', railIndex: 0 })
+    expect(byId['r-limit']).toMatchObject({ kind: 'budget', action: 'resume-run', detail: 'usage_limit:claude:2026-11-19T02:00:00.000Z' })
+    expect(byId['d-q']).toBeUndefined()
+  })
+})
+
 describe('inbox projection: failure diagnosis', () => {
   const diagnose = (input: Parameters<typeof deriveFailureDiagnosis>[0]) => serializeDiagnosis(deriveFailureDiagnosis(input))
 
@@ -102,7 +157,7 @@ describe('inbox projection: failure diagnosis', () => {
     run('r-limit', 0)
     finishLoopRun(db, 'r-limit', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'stalled', stallReason: 'provider_limit', providerLimit: { kind: 'session_limit', message: "You've hit your session limit", resetsAt: '3am (Europe/Madrid)' } }) })
     const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
-    expect(item).toMatchObject({ kind: 'blocked', detail: "You've hit your session limit", diagnosis: { kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] } })
+    expect(item).toMatchObject({ kind: 'blocked', detail: "You've hit your session limit", diagnosis: { kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', remedies: ['continue', 'open-logs', 'retry'] } })
     expect(item.version).toContain('provider_limit')
   })
 
@@ -111,13 +166,22 @@ describe('inbox projection: failure diagnosis', () => {
     run('r-tests', 1); finishLoopRun(db, 'r-tests', { outcome: 'failed', finishedAt: iso(-50_000), failureDiagnosis: diagnose({ outcome: 'failed', core: { kind: 'tests_failed', phase: 'fixer', rounds: 4, resumablePhase: 'fixer', confidence: 'high' } }) })
     const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
     expect(byId['r-env']).toMatchObject({ kind: 'blocked', diagnosis: { kind: 'environment', remedies: expect.arrayContaining(['fix-environment']) } })
-    expect(byId['r-tests']).toMatchObject({ kind: 'failed', diagnosis: { kind: 'tests_failed', rounds: 4, remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] } })
+    expect(byId['r-tests']).toMatchObject({ kind: 'failed', diagnosis: { kind: 'tests_failed', rounds: 4, remedies: ['continue', 'edit-spec', 'open-logs', 'retry'] } })
   })
 
   it('never claims a cause for a run finished before diagnosis existed', () => {
     run('r-old', 0); finishLoopRun(db, 'r-old', { outcome: 'failed', finishedAt: iso(-60_000) })
     const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
     expect(item).toMatchObject({ kind: 'failed', detail: 'failed', diagnosis: { kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] } })
+  })
+
+  it('leads a failed delivery with its run\'s cause, not the settlement note about its partial work', () => {
+    run('r-env-del', 0)
+    finishLoopRun(db, 'r-env-del', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'failed', errorText: 'Verification cannot run in this environment: `deno` is not installed or not on PATH' }) })
+    delivery('d-env', 0, 'implementation_failed', { runIds: ['r-env-del'], statusCode: 'implementation_failed', statusDetail: 'OpenSpec delivery blocked by new active changes: "openspec/changes/runtime-1". Archive the intended change and review unrelated work before delivery; files were preserved.' })
+    const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
+    expect(item.detail).toMatch(/deno/)
+    expect(item.detail).not.toMatch(/OpenSpec delivery blocked/)
   })
 
   it('explains a failed delivery through its last run', () => {

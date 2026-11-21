@@ -201,7 +201,7 @@ describe('ExploreSpecShell — Review overlay wiring', () => {
     expect(screen.getByTestId('explore-spec-create')).toBeInTheDocument()
   })
 
-  it('edit mode: opens Review with editTicket baseline and Update Spec label', async () => {
+  it('edit mode: opens Review with editTicket baseline and Update spec label', async () => {
     setDraftTitle('Refined title')
     const ws = makeFakeWs()
     render(
@@ -225,7 +225,7 @@ describe('ExploreSpecShell — Review overlay wiring', () => {
     const reviewBtn = await screen.findByTestId('explore-spec-review')
     fireEvent.click(reviewBtn)
     expect(screen.getByTestId('explore-review-overlay')).toBeInTheDocument()
-    expect(screen.getByTestId('review-commit')).toHaveTextContent('Update Spec')
+    expect(screen.getByTestId('review-commit')).toHaveTextContent('Update spec')
   })
 
   it('edit mode: commit hits PATCH /tickets/:id instead of from-draft', async () => {
@@ -273,7 +273,7 @@ describe('ExploreSpecShell — Review overlay wiring', () => {
     global.fetch = originalFetch
   })
 
-  it('commits via Create Spec from inside the overlay', async () => {
+  it('commits via Create spec from inside the overlay', async () => {
     setDraftTitle('Add dark mode toggle')
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

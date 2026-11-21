@@ -12,10 +12,12 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/SubscriptionUsageFooter.tsx](components/SubscriptionUsageFooter.tsx)
 - [components/SubscriptionUsagePanel.tsx](components/SubscriptionUsagePanel.tsx)
+- [lib/store.ts](lib/store.ts)
 
 ## Feature dependencies
 
 - [builder](../builder/README.md)
+- [provider-quota](../provider-quota/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain

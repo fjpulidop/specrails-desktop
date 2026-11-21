@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import fs from 'fs'
 import path from 'path'
 import { ChildProcess } from 'child_process'
@@ -182,7 +183,7 @@ export class AgentRefineManager {
     // Seed history with the user's instruction so reconnects show full thread.
     this._appendHistory(refineId, { role: 'user', content: opts.instruction, timestamp: Date.now() })
 
-    void this._runTurn(refineId, opts.instruction, /* isFirst */ true, body)
+    void this._runTurn(refineId, opts.instruction, /* isFirst */ true, body).catch(logRejection('agent refine turn'))
     return { refineId }
   }
 
@@ -194,7 +195,7 @@ export class AgentRefineManager {
     if (session.status === 'streaming') throw new Error('turn_in_progress')
     if (!session.session_id) throw new Error('no_session_id')
     this._appendHistory(opts.refineId, { role: 'user', content: opts.instruction, timestamp: Date.now() })
-    void this._runTurn(opts.refineId, opts.instruction, /* isFirst */ false, null)
+    void this._runTurn(opts.refineId, opts.instruction, /* isFirst */ false, null).catch(logRejection('agent refine turn'))
   }
 
   /** Cancel an in-flight session. Idempotent. */
@@ -521,7 +522,7 @@ export class AgentRefineManager {
         session2.last_test_at !== null && Date.now() - session2.last_test_at < SMART_TEST_DEBOUNCE_MS
       const sameBody = session2.last_test_hash === draftHash
       if (!recent && !sameBody) {
-        void this._runAutoTest(refineId, session2.agent_id, stripped, draftHash)
+        void this._runAutoTest(refineId, session2.agent_id, stripped, draftHash).catch(logRejection('agent refine auto-test'))
       }
     }
   }

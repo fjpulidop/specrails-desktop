@@ -11,6 +11,8 @@ vi.mock('./agent-cwd-manager', () => ({
   ensureAgentCwd: () => '/tmp/agent-cwd-test',
   ensureAgentConversationCwd: (id: string) => `/tmp/agent-cwd-test/conversations/${id}`,
 }))
+const switches = vi.hoisted(() => ({ claude: vi.fn(() => {}), gemini: vi.fn(() => {}) }))
+vi.mock('./mission-connectors-discovery', () => ({ writeClaudeConnectorDenyFile: switches.claude, writeGeminiExcluded: switches.gemini }))
 const mcp = vi.hoisted(() => ({
   prepare: vi.fn(() => ({ extraArgs: [], env: {} })),
   spec: vi.fn((opts: { capability: string }) => [{ name: 'specrails', command: 'node', args: ['bridge.js'], env: { SPECRAILS_AGENT_CAPABILITY_FILE: `/tmp/cap-${opts.capability.slice(0, 4)}` } }]),
@@ -32,6 +34,7 @@ import { SessionRequestError, type InitializeResult, type SessionEvent, type Ses
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { createAgentConversation, listAgentMessages, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
+import { getAgentInput } from './agent-input-store'
 import { getMissionCoreSession, getSessionCursor, listSubagents } from './agent-session-store'
 import { MissionCoreSessions } from './mission-core-sessions'
 
@@ -314,6 +317,32 @@ describe('missions on Core agent sessions', () => {
     expect(manager.isStreaming(conversation.id)).toBe(false)
   })
 
+  it('marks the turn input read on the server once the Core turn streams output, with no receipt instruction', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    host.script = (inputId, turnId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+    ]
+    const turn = manager.sendMessage(conversation.id, 'Hola', { queueId: 'q-core' })
+    await waitFor(() => getAgentInput(db, conversation.id, 'q-core')?.receipt === 'received')
+    const send = host.requests.find((request) => request.method === 'session.send')!
+    expect((send.params.input as { text: string }).text).not.toContain('acknowledge_inputs')
+    host.emit(conversation.id, [{ type: 'turn.output', turnId: 't1', channel: 'text', delta: 'Hola' }])
+    expect(getAgentInput(db, conversation.id, 'q-core')?.receipt).toBe('read')
+    host.emit(conversation.id, [{ type: 'turn.completed', turnId: 't1', status: 'completed', text: 'Hola', usage: usage(0.001) }, { type: 'session.phase', phase: 'idle' }])
+    await turn
+    expect(broadcasts.filter((message) => message.type === 'agent_input_receipt').map((message) => message.receipt)).toEqual(['received', 'read'])
+  })
+
+  it('leaves the turn input unread when Core rejects it before the turn starts', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    host.script = (inputId) => [{ type: 'input.state', inputId, state: 'rejected', reason: 'provider_unavailable' }]
+    await manager.sendMessage(conversation.id, 'Hola', { queueId: 'q-rejected' })
+    await waitFor(() => !manager.isStreaming(conversation.id))
+    expect(getAgentInput(db, conversation.id, 'q-rejected')?.receipt).not.toBe('read')
+  })
+
   it('closes the Core session when the conversation is deleted', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     await manager.sendMessage(conversation.id, 'hello')
@@ -394,6 +423,76 @@ describe('missions on Core agent sessions', () => {
     sessions.shutdown()
   })
 
+  describe('connectors in missions', () => {
+    function withConnectors(connectors: NonNullable<ConstructorParameters<typeof MissionCoreSessions>[0]['connectors']>) {
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      return new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: () => {}, adapterFor: getAdapter,
+        availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+        connectors,
+      })
+    }
+
+    it('Codex: stops inheriting, lists enabled user servers by name and tags the turned-off set', async () => {
+      const claudeDriver = host.initialize.drivers[0]!
+      host.initialize = { ...host.initialize, drivers: [claudeDriver, { ...claudeDriver, id: 'codex', displayName: 'Codex' }] }
+      const connectors = vi.fn(async () => ({ inheritUserScope: false, servers: [{ name: 'blender' }, { name: 'serena' }], denied: ['premiere-pro'] }))
+      const sessions = withConnectors(connectors)
+      const conversation = createAgentConversation(db, { provider: 'codex', model: 'gpt-6-luna' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('codex'), { capability: 'cap-c', external: [], plugins: [{ name: 'serena', command: 'uvx', args: ['serena'] }] })
+      expect(connectors).toHaveBeenCalledWith('codex', { reserved: ['specrails', 'serena'], deferredMcpTools: false })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: false })
+      expect(context?.mcpServers.map((server) => [server.name, server.command ?? null])).toEqual([['specrails', 'node'], ['serena', 'uvx'], ['blender', null]])
+      expect(context?.mcpServers[0]!.env?.SPECRAILS_MISSION_CONNECTORS_OFF).toMatch(/^[0-9a-f]{8}$/)
+      sessions.shutdown()
+    })
+
+    it('Claude: keeps inheriting account connectors, passes the driver capability and adds no tag when nothing is off', async () => {
+      const claudeDriver = host.initialize.drivers[0]!
+      host.initialize = { ...host.initialize, drivers: [{ ...claudeDriver, capabilities: { ...claudeDriver.capabilities, deferredMcpTools: true } }] }
+      const connectors = vi.fn(async () => ({ inheritUserScope: true, servers: [{ name: 'tokensave', command: 'tokensave', args: ['serve'] }], denied: [] }))
+      const sessions = withConnectors(connectors)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('claude'), { capability: 'cap-d', external: [] })
+      expect(connectors).toHaveBeenCalledWith('claude', { reserved: ['specrails'], deferredMcpTools: true })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: true })
+      expect(context?.mcpServers.map((server) => server.name)).toEqual(['specrails', 'tokensave'])
+      expect(context?.mcpServers[0]!.env?.SPECRAILS_MISSION_CONNECTORS_OFF).toBeUndefined()
+      sessions.shutdown()
+    })
+
+    it('writes the Claude deny file in the mission cwd before a Core turn', async () => {
+      const planForCached = vi.fn(() => ({ inheritUserScope: true, servers: [], denied: ['claude.ai Gmail'] }))
+      manager.setConnectors({ planForCached })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      expect(planForCached).toHaveBeenCalledWith('claude', { reserved: ['specrails'] })
+      expect(switches.claude).toHaveBeenCalledWith('/tmp/agent-cwd-test', ['claude.ai Gmail'])
+    })
+
+    it('turns servers off with -c on a legacy Codex turn', async () => {
+      enabled = false
+      manager.setConnectors({ planForCached: () => ({ inheritUserScope: false, servers: [{ name: 'node_repl' }], denied: ['blender', 'my server'] }) })
+      const conversation = createAgentConversation(db, { provider: 'codex', model: 'gpt-6-luna' })
+      await manager.sendMessage(conversation.id, 'hello')
+      const codexArgv = () => vi.mocked(mockSpawn).mock.calls.map((call) => call[1] as string[]).find((args) => args.includes('mcp_servers.blender.enabled=false'))
+      await waitFor(() => codexArgv() !== undefined)
+      const argv = codexArgv()
+      expect(argv!.join(' ')).not.toContain('my server')
+      expect(switches.claude).not.toHaveBeenCalled()
+    })
+
+    it('inherits everything when the connector plan fails', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const sessions = withConnectors(async () => { throw new Error('boom') })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const context = await sessions.prepareTurn(conversation, getAdapter('claude'), { capability: 'cap-e', external: [] })
+      expect(context?.policy.mcp).toEqual({ inheritUserScope: true })
+      sessions.shutdown()
+    })
+  })
+
   describe('"Allow sub-agents" policy', () => {
     function withPolicy(allow: { value: boolean }) {
       const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
@@ -428,6 +527,24 @@ describe('missions on Core agent sessions', () => {
       expect(updates()).toHaveLength(1)
     })
 
+    it('a toggle between turns reaches the next turn in the same session (Core respawns the provider with --resume)', async () => {
+      const allow = { value: false }
+      withPolicy(allow)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      // Toggled with no refresh reaching the session (e.g. Desktop restarted): the next turn carries it.
+      allow.value = true
+      await manager.sendMessage(conversation.id, 'again')
+      await waitFor(() => doneCount() === 2)
+      const turnUpdates = host.requests.filter((request) => request.method === 'session.update' && request.params.model)
+      expect(turnUpdates.map((request) => [request.params.sessionId, (request.params.policy as { subagents: string }).subagents]))
+        .toEqual([[conversation.id, 'enabled']])
+      // Same Core session (no new generation, no fresh seed): the conversation continues.
+      expect(host.requests.filter((request) => request.method === 'session.open' && !request.params.resume)).toHaveLength(1)
+      expect(host.requests.filter((request) => request.method === 'session.send').map((request) => request.params.sessionId)).toEqual([conversation.id, conversation.id])
+    })
+
     it('explains a policy the provider cannot enforce', async () => {
       withPolicy({ value: false })
       const original = host.request.bind(host)
@@ -458,12 +575,12 @@ describe('missions on Core agent sessions', () => {
   })
 
   describe('who runs sub-agents (hybrid runtime)', () => {
-    function withRuntime(choice: { provider: string; model: string; effort: string | null } | null) {
+    function withRuntime(choice: { provider: string; model: string; effort: string | null } | null, subagents: 'enabled' | 'disabled' = 'enabled') {
       const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
       manager.setCoreSessions(new MissionCoreSessions({
         db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
         availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
-        subagentPolicy: () => 'enabled',
+        subagentPolicy: () => subagents,
         subagentRuntime: () => choice,
       }))
     }
@@ -478,6 +595,17 @@ describe('missions on Core agent sessions', () => {
       await manager.sendMessage(conversation.id, 'hello')
       await waitFor(() => doneCount() === 1)
       expect(openPolicy()).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5.6-terra', effort: 'low' } })
+    })
+
+    it.each(['enabled', 'disabled'] as const)('sends the delegation guidance only when sub-agents are %s', async (subagents) => {
+      host.initialize = { ...host.initialize, capabilities: { sessions: 1, delegation: 1 }, drivers: [claude, codex] }
+      withRuntime({ provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' }, subagents)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      const systemPrompt = host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params.systemPrompt as string
+      expect(systemPrompt.includes('subagent_start')).toBe(subagents === 'enabled')
+      expect(manager['_coreSessions']?.delegates(conversation.id)).toBe(subagents === 'enabled')
     })
 
     it('keeps them native with the supported overrides when the providers match', async () => {

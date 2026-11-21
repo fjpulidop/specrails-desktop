@@ -11,6 +11,9 @@ mod invoke_guard;
 #[allow(dead_code)]
 #[path = "../src/loop_windows.rs"]
 mod loop_windows;
+#[allow(dead_code)]
+#[path = "../src/surface_windows.rs"]
+mod surface_windows;
 use std::{borrow::Cow, sync::atomic::{AtomicI32, Ordering}, time::Duration};
 use serde_json::{json, Value};
 use tauri::{Assets, Listener, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
@@ -27,7 +30,8 @@ async fn await_window_state(message: &str, condition: impl Fn() -> Result<bool, 
     // Tauri close/hide enqueue work on the UI event loop; a successful command
     // does not mean its native window event has already been processed. WebView2
     // also commits a new window's navigation late on a loaded Windows runner.
-    tokio::time::timeout(Duration::from_secs(15), async {
+    // Same 30 s budget as the main origin commit below.
+    tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             if condition()? { return Ok::<(), String>(()); }
             tokio::time::sleep(Duration::from_millis(25)).await;

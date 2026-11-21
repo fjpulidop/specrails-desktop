@@ -5,7 +5,8 @@ import { PassThrough } from 'node:stream'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { CoreHostLauncher, type LaunchedHost } from '../adapters/host-process'
+import { CoreHostLauncher, spawnCoreHostProcess, type LaunchedHost } from '../adapters/host-process'
+import { execFileSync } from 'node:child_process'
 import { StdioSessionHostClient } from '../adapters/rpc-client'
 import { isSessionRequestError } from '../domain/errors'
 
@@ -117,3 +118,18 @@ describe('CoreHostLauncher against the local Core build', () => {
     await expect(new CoreHostLauncher({ cli: () => null }).launch('x')).rejects.toMatchObject({ code: 'driver_unavailable' })
   })
 })
+
+describe.skipIf(process.platform === 'win32')('session host process', () => {
+  it('starts the host in its own process group, so a signal to Desktop\'s group never reaches it', async () => {
+    const child = spawnCoreHostProcess(process.execPath, ['-e', 'process.stdin.resume(); process.stdin.on("end", () => process.exit(0))'], { env: process.env })
+    try {
+      const pgid = Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(child.pid)], { encoding: 'utf8' }).trim())
+      expect(pgid).toBe(child.pid)
+    } finally {
+      const exited = new Promise((resolve) => child.once('exit', resolve))
+      child.stdin!.end()
+      await exited
+    }
+  })
+})
+

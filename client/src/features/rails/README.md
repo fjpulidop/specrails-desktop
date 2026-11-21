@@ -30,6 +30,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [loops](../loops/README.md)
 - [missions](../missions/README.md)
 - [projects](../projects/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [settings](../settings/README.md)
 - [specs](../specs/README.md)
@@ -52,3 +53,8 @@ id (`factory:freestyle`, `factory:sdd-quick-openspec`, `factory:openspec`, `fact
 persisted `freestyle` mode are read as Implement (`migratedRailLoopId`, `deriveRailMode`,
 DashboardPage `toRailMode`); a stale triage recommendation of a retired loop is never preselected.
 There is no Freestyle confirmation dialog or per-rail Freestyle model any more.
+
+**Prepared run worktrees.** While [`LaunchAllDialog`](components/LaunchAllDialog.tsx) is open it asks the
+server to prepare up to three run worktrees ([`lib/worktree-preparation.ts`](lib/worktree-preparation.ts),
+`POST /rails/worktree-preparation`); cancelling or dismissing it releases them. Both calls are advisory and
+never block the launch. See [delivery › Faster run worktrees](../../../../server/modules/delivery/README.md#faster-run-worktrees).

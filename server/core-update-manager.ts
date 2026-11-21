@@ -1,4 +1,3 @@
-import { execFileSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -6,10 +5,11 @@ import path from 'path'
 import { FrameworkManager, readCurrentFrameworkVersion, type FrameworkBroadcast } from './framework-manager'
 import { isNewer, isValidVersion } from './semver-lite'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { runBounded } from './util/bounded-exec'
 import { getBundledCoreVersion } from './bundled-core'
 import { getCoreRuntimeStatus, managedCoreRoot, readCoreRuntime, type CoreRuntimeSource } from './core-runtime'
 import { isSupportedCoreVersion, SUPPORTED_CORE_MAJORS } from './core-package'
-import { atomicWrite, withFileLock } from './artifact-registry'
+import { atomicWrite, withFileLockAsync } from './artifact-registry'
 import { DEFAULT_UPDATE_CHANNEL, isUpdateChannel, type UpdateChannel } from './update-channel'
 
 /** Voluntary Core updates retain the complete npm package and dependencies,
@@ -76,7 +76,7 @@ export interface CoreUpdateManagerOptions {
   /** Override the npm dist-tag fetch (tests). A bare string means `latest`. */
   fetchLatest?: (channel: UpdateChannel) => Promise<string | CoreChannelRelease>
   /** Override the npm install (tests). Installs `spec` into `cwd`. */
-  npmInstall?: (spec: string, cwd: string) => void
+  npmInstall?: (spec: string, cwd: string) => void | Promise<void>
   /** Override FrameworkManager construction for a staged core root (tests). */
   makeFramework?: (coreRoot: string) => FrameworkManager
   reseed?: (version: string) => Promise<Array<{ projectId: string; error?: string }>>
@@ -88,7 +88,7 @@ export class CoreUpdateManager {
   private readonly providersFn: () => string[]
   private readonly fetchLatestFn: (channel: UpdateChannel) => Promise<string | CoreChannelRelease>
   private readonly channelFn: () => UpdateChannel
-  private readonly npmInstallFn: (spec: string, cwd: string) => void
+  private readonly npmInstallFn: (spec: string, cwd: string) => void | Promise<void>
   private readonly makeFrameworkFn: (coreRoot: string) => FrameworkManager
 
   private latestVersion: string | null = null
@@ -239,7 +239,7 @@ export class CoreUpdateManager {
         // staging directories, so native file replacement is avoided too.
         fs.cpSync(path.dirname(path.dirname(retained)), tmp, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       } else {
-        this.npmInstallFn(`${CORE_PACKAGE}@${requested}`, tmp)
+        await this.npmInstallFn(`${CORE_PACKAGE}@${requested}`, tmp)
       }
       let coreRoot = path.join(tmp, 'node_modules', CORE_PACKAGE)
       const cli = path.join(coreRoot, 'dist', 'installer', 'cli.js')
@@ -281,10 +281,22 @@ export class CoreUpdateManager {
 
       this.emit('materializing', { version: installed })
       const providers = uniqueProviders(this.providersFn())
-      withFileLock(this.home, () => {
+      const refuseDowngrade = () => {
         const now = readCurrentFrameworkVersion(this.home)
         if (now && isNewer(now, installed)) throw new Error(`Core advanced to ${now} while downloading; refusing to downgrade.`)
-        const mat = fm.materialize(installed, providers)
+      }
+      refuseDowngrade()
+      // Materialize (`install-framework --no-swap`) off the event loop: it only
+      // writes framework/<installed>/ and never moves `current`, so it does not
+      // need the registry lock. Publication — the downgrade re-check, recovery
+      // state and the `current` swap — still happens atomically under the lock,
+      // exactly as before, so no rail ever observes a half-swapped `current`.
+      const mat = await fm.materializeAsync(installed, providers)
+      // The swap child is awaited under the async variant of the SAME registry
+      // lock: publication stays serialised, but the event loop is not frozen
+      // for the length of `swap-current`.
+      await withFileLockAsync(this.home, async () => {
+        refuseDowngrade()
         if (!mat.ran) {
           throw new Error('framework materialize did not run (no usable core)')
         }
@@ -307,7 +319,7 @@ export class CoreUpdateManager {
         this.pendingVersion = installed
         this.migrationError = null
         this.persistStatus(true)
-        const swapped = fm.swapCurrentDetailed(installed)
+        const swapped = await fm.swapCurrentDetailedAsync(installed)
         if (!swapped.ok) {
           throw new Error(`framework swap-current failed${swapped.detail ? `: ${swapped.detail}` : ''}`)
         }
@@ -437,19 +449,36 @@ async function fetchDistTag(distTag: 'latest' | 'stable', fetchImpl: typeof fetc
  * (CVE-2024-27980) refuses to spawn a `.cmd` without a shell, so run through the
  * shell there. POSIX spawns directly.
  */
-function defaultNpmInstall(spec: string, cwd: string): void {
+export async function defaultNpmInstall(
+  spec: string,
+  cwd: string,
+  opts: { command?: string; args?: string[]; timeoutMs?: number } = {},
+): Promise<void> {
   fs.writeFileSync(
     path.join(cwd, 'package.json'),
     JSON.stringify({ name: 'core-update-stage', private: true, version: '0.0.0' }),
   )
-  execFileSync('npm', ['install', spec, '--no-audit', '--no-fund', '--no-save', '--ignore-scripts', '--silent'], {
+  const command = opts.command ?? 'npm'
+  const args = opts.args ?? ['install', spec, '--no-audit', '--no-fund', '--no-save', '--ignore-scripts', '--silent']
+  const timeoutMs = opts.timeoutMs ?? INSTALL_TIMEOUT_MS
+  // Async + bounded: the old execFileSync froze every project, WebSocket and
+  // queue for the whole download (up to INSTALL_TIMEOUT_MS). On timeout the
+  // npm process TREE is killed (npm forks registry/extract workers).
+  const res = await runBounded(command, args, {
     cwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'inherit', 'inherit'],
-    timeout: INSTALL_TIMEOUT_MS,
+    timeoutMs,
     shell: process.platform === 'win32',
     // SystemRoot/ComSpec so npm.cmd's cmd.exe can start even if the packaged
     // sidecar inherited a stripped Windows environment.
     env: windowsSpawnEnv(),
   })
+  // npm output used to be inherited onto the server's stdout/stderr; keep it visible in the log.
+  if (res.stdout.trim()) process.stdout.write(res.stdout.endsWith('\n') ? res.stdout : `${res.stdout}\n`)
+  if (res.stderr.trim()) process.stderr.write(res.stderr.endsWith('\n') ? res.stderr : `${res.stderr}\n`)
+  if (res.error) throw new Error(`npm install failed to start: ${res.error.message}`)
+  if (res.timedOut) throw new Error(`npm install timed out after ${Math.round(timeoutMs / 1000)} s`)
+  if (res.code !== 0) {
+    const detail = res.stderr.trim().split(/\r?\n/).slice(-3).join(' ')
+    throw new Error(`npm install exited with ${res.code ?? res.signal}${detail ? `: ${detail}` : ''}`)
+  }
 }

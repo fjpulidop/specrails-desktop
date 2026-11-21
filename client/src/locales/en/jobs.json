@@ -14,7 +14,6 @@
     "failed": "Job exited with a non-zero exit code",
     "canceled": "Job was manually canceled",
     "queued": "Job is waiting in the queue",
-    "queuedToRun": "Job is waiting to run",
     "zombie": "Job was auto-terminated after prolonged inactivity",
     "skipped": "Job was skipped because a parent job in the pipeline failed"
   },
@@ -30,12 +29,12 @@
   "page": {
     "title": "Jobs",
     "subtitle": "Every run on this project, with cost, duration and outcome.",
-    "exportJobs": "Export Jobs",
+    "exportJobs": "Export jobs",
     "proposalDeleted": "Proposal deleted",
     "proposal": {
       "title": "Proposal",
       "noContent": "No proposal content yet.",
-      "githubIssue": "GitHub Issue:",
+      "githubIssue": "GitHub issue:",
       "status": {
         "input": "Awaiting input",
         "exploring": "Exploring",
@@ -63,10 +62,10 @@
     "exportDiagnosticTooltip": "Download ZIP with telemetry, logs, and summary for this job",
     "reExecute": "Run again",
     "reExecuteTooltip": "Spawn a new job with the same command",
-    "cancelJob": "Cancel Job",
+    "cancelJob": "Cancel job",
     "cancelJobTooltip": "Send SIGTERM to the running process. The job will be marked as canceled.",
     "cancelInteractive": "Discard",
-    "finalizeJob": "Finalize Job",
+    "finalizeJob": "Finalize job",
     "finalizing": "Finalizing…",
     "finalizeJobTooltip": "End this interactive session and roll every turn's tokens and cost into the job total.",
     "interactive": {
@@ -168,21 +167,33 @@
     "cancelJob": "Cancel job",
     "stopRun": "Stop run",
     "stopRunConfirmTitle": "Stop this run?",
-    "stopRunConfirmDescription": "The loop run will stop at the next step boundary. This action cannot be undone.",
+    "stopRunConfirmDescription": "It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.",
     "toast": {
       "cancelSignalSent": "Cancel signal sent",
       "cancelSignalSentDescription": "Job will stop at the next safe point",
-      "stopSignalSent": "Stop signal sent",
-      "stopSignalSentDescription": "The run will stop at the next step boundary",
+      "stopSignalSent": "Stopping the run",
+      "stopSignalSentDescription": "It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.",
       "cancelFailed": "Failed to cancel",
-      "networkError": "Network error"
+      "networkError": "Network error",
+      "pauseRequested": "Pausing the run",
+      "pauseRequestedDescription": "It pauses after the current step. Resume continues this same run.",
+      "pauseFailed": "Couldn’t pause the run",
+      "pauseUnsupported": "This run’s engine can’t pause mid-run. Stop it instead: you can continue it later.",
+      "resumed": "Run resumed",
+      "resumedDescription": "It continues from where it paused.",
+      "resumeFailed": "Couldn’t resume the run"
     },
     "title": "{{kind}} job · #{{id}}",
     "titleLoop": "Loop run · #{{id}}",
-    "titleGeneric": "Job · #{{id}}"
+    "titleGeneric": "Job · #{{id}}",
+    "pauseRun": "Pause",
+    "pausing": "Pausing…",
+    "resumeRun": "Resume",
+    "pauseRunTooltip": "Pause after the current step. Nothing is lost: Resume continues this same run.",
+    "pausingTooltip": "Finishing the current step, then the run pauses."
   },
   "comparison": {
-    "title": "Job Comparison",
+    "title": "Job comparison",
     "jobN": "Job {{n}}",
     "loadFailed": "Failed to load comparison. Try again.",
     "duration": "Duration",
@@ -230,7 +241,7 @@
       "low": "low"
     },
     "clearModal": {
-      "title": "Clear Jobs",
+      "title": "Clear jobs",
       "jobsInHistory_one": "{{count}} job in history",
       "jobsInHistory_other": "{{count}} jobs in history",
       "clearAll_one": "Clear all {{count}} job",
@@ -253,14 +264,15 @@
       "networkError": "Network error"
     },
     "emptyCta": "Open specs board",
-    "loading": "Loading jobs…"
+    "loading": "Loading jobs…",
+    "attempt": "Attempt {{number}}"
   },
   "activeJob": {
     "none": "No active job",
     "noneHint": "Select a command below to start a job",
     "exitCode": "exit {{code}}",
     "cancelTooltip": "Send SIGTERM to the running claude process",
-    "viewLogs": "View Logs",
+    "viewLogs": "View logs",
     "toast": {
       "cancelRequested": "Job cancellation requested",
       "cancelRequestedDescription": "Sending SIGTERM to the process",
@@ -289,7 +301,7 @@
     "stalledIdle_one": "No provider output for {{count}} minute — the app stopped this attempt",
     "stalledIdle_other": "No provider output for {{count}} minutes — the app stopped this attempt",
     "providerLimit": "Provider limit",
-    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling.",
+    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app paused the run at the limit instead of cycling.",
     "paused": "Paused",
     "runtimeGraph": "Run graph",
     "graphFullscreen": "Full screen",
@@ -310,8 +322,18 @@
     "repeatFromHere": "Repeat from here",
     "forkFailed": "Could not create the linked run",
     "forkPending": "Retry the originally selected step to finish the pending fork.",
-    "forkCreated": "Linked run created. Open it and resume from the selected checkpoint.",
-    "openFork": "Open linked run"
+    "forkCreated": "Linked run created and resumed from the selected step.",
+    "forkResumeFailed": "Linked run created, but it could not resume on its own ({{detail}}). Open it and resume it.",
+    "openFork": "Open linked run",
+    "graphFollow": "Follow run",
+    "graphFitAll": "Fit all",
+    "graphLegend": "Graph legend",
+    "graphAttempt": "Attempt {{n}}",
+    "graphAttempts_one": "{{count}} attempt",
+    "graphAttempts_other": "{{count}} attempts",
+    "graphTrace": "Trace",
+    "graphPathOnly": "Only the path taken",
+    "notReached": "{{count}} not reached"
   },
   "logViewer": {
     "loading": "Loading logs...",
@@ -364,14 +386,15 @@
       "running": "Running",
       "skipped": "Skipped",
       "passed": "Passed",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "unverified": "Not verified"
     }
   },
   "runHeader": {
     "details": "Details",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Reported by the provider so far; the final figures arrive when the job finishes.",
-    "questionPending": "Answer the question"
+    "questionPending": "Answer"
   },
   "runDetail": {
     "failure": "Failure reasons",
@@ -379,6 +402,59 @@
     "graph": "Execution graph",
     "detail": "Log detail",
     "navigation": "Run detail",
-    "sections": "Log sections"
+    "sections": "Log sections",
+    "stopped": "Continue"
+  },
+  "held": {
+    "label": {
+      "restart": "Paused",
+      "interrupted": "Interrupted",
+      "provider_limit": "Usage limit",
+      "budget": "Spending limit",
+      "question": "Needs attention",
+      "approval": "Needs attention",
+      "paused": "Paused",
+      "queued": "Queued",
+      "pausedByYou": "Paused by you"
+    },
+    "tooltip": {
+      "restart": "The app restarted while this run was working. Nothing runs until you continue it.",
+      "interrupted": "A step stopped before it finished. Nothing runs until you continue it.",
+      "provider_limit": "The provider's usage limit was reached. The run waits for it to reset.",
+      "budget": "The spending limit was reached. Nothing runs until you continue it.",
+      "question": "The run asked you something and waits for your answer.",
+      "approval": "The run waits for your approval to go on.",
+      "paused": "Nothing runs until you continue it.",
+      "queued": "Launched, waiting for capacity. It starts by itself when there is room.",
+      "pausedByYou": "You paused this run. It holds no run slot, and nothing runs until you resume it."
+    },
+    "reason": {
+      "restart": "The app restarted during the {{step}} step.",
+      "restartNoStep": "The app restarted while the run was working.",
+      "interrupted": "The {{step}} step stopped before it finished.",
+      "interruptedNoStep": "A step stopped before it finished.",
+      "provider_limit": "Waiting for the provider's usage limit to reset.",
+      "budget": "The spending limit was reached.",
+      "question": "Waiting for your answer.",
+      "approval": "Waiting for your approval.",
+      "paused": "Nothing runs until you continue it.",
+      "queued": "Waiting for capacity before it starts.",
+      "pausedByYou": "Paused by you. Nothing runs until you resume it."
+    },
+    "stoppedTime": "Time it worked until it stopped",
+    "cancelRun": "Cancel run",
+    "cancelRunConfirmTitle": "Cancel this paused run?",
+    "cancelRunConfirmDescription": "It ends as stopped and nothing more runs. Its changes stay in its worktree, and you can still continue it later from the run window.",
+    "keepPaused": "Keep it paused",
+    "queue": {
+      "run_slots": "Waiting for a free run slot: this machine already works on as many runs as it can.",
+      "project_slots": "Waiting for this project's other runs: it already runs as many rails at once as it may.",
+      "provider_slots": "Waiting for this AI provider's other runs: it already runs as many rails at once as it may.",
+      "cpu": "Waiting for the CPU: the machine is saturated, so starting another run would slow every run down.",
+      "memory": "Waiting for free memory before it starts.",
+      "provider_quota": "Waiting for the provider's usage window: it could not finish another run right now.",
+      "other": "Waiting for capacity before it starts.",
+      "position": "Position {{position}} in line; it starts by itself."
+    }
   }
 }

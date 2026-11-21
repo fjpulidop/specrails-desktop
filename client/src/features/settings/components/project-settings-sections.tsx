@@ -7,6 +7,7 @@ import { RecentlyDeletedSection } from './RecentlyDeletedSection'
 import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
 import { AgentRuntimeSettingsSection } from './AgentRuntimeSettingsSection'
 import { ProjectAgentEnvModeSection } from './AgentEnvModeSection'
+import { ProjectEnvFilesSection } from './EnvFilesSection'
 import { ProjectAnchoringSection, ProjectRulesSection } from './ProjectAnchoringSections'
 import {
   ProjectTelemetrySection,
@@ -42,7 +43,7 @@ export const PROJECT_SETTINGS_SECTIONS = [
   { id: 'agentRuntime', icon: Bot, labelKey: 'projectDialog.nav.agentRuntime', panes: [AgentRuntimeSettingsSection] },
   { id: 'subagents', icon: Network, labelKey: 'projectDialog.nav.subagents', panes: [ProjectSubagentsSection] },
   { id: 'branch', icon: GitBranch, labelKey: 'projectDialog.nav.branch', panes: [ProjectIntegrationBranchSection] },
-  { id: 'environment', icon: KeyRound, labelKey: 'projectDialog.nav.environment', panes: [ProjectWorktreeEnvSection, ProjectAgentEnvModeSection] },
+  { id: 'environment', icon: KeyRound, labelKey: 'projectDialog.nav.environment', panes: [ProjectWorktreeEnvSection, ProjectEnvFilesSection, ProjectAgentEnvModeSection] },
   { id: 'budget', icon: Wallet, labelKey: 'projectDialog.nav.budget', panes: [ProjectBudgetSection, ProjectReviewWipSection] },
   { id: 'telemetry', icon: Activity, labelKey: 'projectDialog.nav.telemetry', panes: [ProjectTelemetrySection, ProjectAgentAuditSection] },
   { id: 'rules', icon: ShieldCheck, labelKey: 'projectDialog.nav.rules', panes: [ProjectAnchoringSection, ProjectRulesSection] },
@@ -63,6 +64,7 @@ export const PROJECT_PANE_ANCHORS: ReadonlyMap<ComponentType, string> = new Map<
   [ProjectSubagentsSection, 'subagentsProject'],
   [ProjectIntegrationBranchSection, 'integrationBranch'],
   [ProjectWorktreeEnvSection, 'worktreeEnv'],
+  [ProjectEnvFilesSection, 'envFiles'],
   [ProjectAgentEnvModeSection, 'agentEnv'],
   [ProjectBudgetSection, 'projectBudget'],
   [ProjectReviewWipSection, 'reviewLimit'],

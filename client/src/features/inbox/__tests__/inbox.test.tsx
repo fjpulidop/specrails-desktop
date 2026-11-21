@@ -19,6 +19,8 @@ import { InboxButton } from '../components/InboxButton'
 import { InboxDialog } from '../components/InboxDialog'
 import { DISMISSALS_KEY, type InboxItem } from '../lib/inbox-model'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../lib/app-settings-events'
+import { attentionPrefsStore } from '../../../lib/attention/attention-prefs-store'
+import { SEEN_KEY } from '../lib/inbox-model'
 
 const mk = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:review:d1', projectId: 'p1', projectName: 'Alpha', kind: 'review', title: 'Add login', detail: null,
@@ -74,11 +76,17 @@ const openPanel = async () => {
   return screen.findByTestId('inbox-dialog')
 }
 
+/** Opens a row's "More actions" menu and picks an item (the menu is portalled to the body). */
+function pick(row: HTMLElement, testId: string): void {
+  fireEvent.click(within(row).getByTestId('inbox-more'))
+  fireEvent.click(screen.getByTestId(testId))
+}
+
 describe('Inbox badge and button', () => {
   it('shows the count of items needing you and names it for assistive tech', async () => {
     mount()
     await waitFor(() => expect(screen.getByTestId('inbox-badge')).toHaveTextContent('4'))
-    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, 4 items need you')
+    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, 4 pending items')
   })
 
   it('declares its chord for assistive tech and shows it in the tooltip (Ctrl+Alt+I off macOS)', async () => {
@@ -93,7 +101,7 @@ describe('Inbox badge and button', () => {
     mount()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(screen.queryByTestId('inbox-badge')).toBeNull()
-    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, nothing needs you')
+    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, nothing pending')
   })
 
   it('renders nothing without a provider (secondary windows)', () => {
@@ -112,7 +120,7 @@ describe('Inbox panel', () => {
     expect(groups.map((g) => g.getAttribute('data-project-id'))).toEqual(['p1', 'p2'])
     expect(within(groups[0]).getAllByTestId('inbox-row')).toHaveLength(2)
     expect(within(groups[1]).getAllByTestId('inbox-row')).toHaveLength(2)
-    expect(within(dialog).getByText('Waiting for your answer')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Awaiting your response').length).toBeGreaterThan(0)
   })
 
   it('says why a blocked run stopped, in the diagnosis\' plain words', async () => {
@@ -126,9 +134,12 @@ describe('Inbox panel', () => {
     const rows = within(dialog).getAllByTestId('inbox-row')
     const limited = rows.find((r) => r.getAttribute('data-item-id') === 'p1:blocked:r1')!
     expect(limited).toHaveAttribute('data-cause', 'provider_limit')
+    // Kinds read in the status vocabulary: blocked is the warning triangle, failed the destructive XCircle.
+    expect(limited.querySelector('[data-run-state="blocked"]')).toHaveClass('text-accent-warning')
     expect(limited).toHaveTextContent("The AI provider's usage limit was reached")
     // An unknown cause keeps the raw outcome instead of a made-up reason.
     const unknown = rows.find((r) => r.getAttribute('data-item-id') === 'p1:failed:r2')!
+    expect(unknown.querySelector('[data-run-state="failed"]')).toHaveClass('text-destructive')
     expect(unknown).not.toHaveTextContent('usage limit')
     // No known cause: a calm localized line, with the raw outcome (often English) kept for hover.
     expect(unknown).toHaveTextContent('Stopped before delivery')
@@ -187,7 +198,7 @@ describe('Inbox panel', () => {
   it('shows a calm empty state', async () => {
     items = []
     mount('/?inbox=1')
-    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent('Nothing needs you')
+    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent('Nothing pending')
   })
 
   it('shows an error state with Try again when the read-model is unreachable and there is nothing cached', async () => {
@@ -364,7 +375,7 @@ describe('Primary actions call the real handlers', () => {
     mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row'))[0]
     expect(row).toHaveTextContent('Project weekly limit reached')
-    expect(row).toHaveTextContent('Spend limit reached')
+    expect(row).toHaveTextContent('Work paused')
     expect(row).toHaveTextContent('$52.50 of $50.00 spent')
     expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise limit')
     fireEvent.click(within(row).getByTestId('inbox-primary'))
@@ -382,12 +393,57 @@ describe('Primary actions call the real handlers', () => {
   })
 })
 
+describe('Row actions: one primary, the rest behind "More actions"', () => {
+  it('each row shows ONE action button and a More actions menu with Snooze, Done, read state and Mute', async () => {
+    mount('/?inbox=1')
+    const rows = await screen.findAllByTestId('inbox-row')
+    for (const row of rows) {
+      expect(within(row).getAllByRole('button').map((b) => b.getAttribute('data-testid'))).toEqual(['inbox-primary', 'inbox-more'])
+    }
+    const row = rows[0]
+    const more = within(row).getByTestId('inbox-more')
+    expect(more).toHaveAttribute('aria-haspopup', 'menu')
+    expect(more.getAttribute('aria-label')).toMatch(/^More actions for /)
+    fireEvent.click(more)
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').map((el) => el.textContent)).toEqual([
+      'Snooze 1 hour', 'Snooze until tomorrow', 'Done', 'Mark as read', `Mute notifications from ${row.closest('[data-testid="inbox-group"]')!.querySelector('h3 span')!.textContent}`,
+    ])
+  })
+
+  it('keeps the arrow keys for the menu while it is open, and Escape closes only the menu', async () => {
+    mount('/?inbox=1')
+    const dialog = await screen.findByTestId('inbox-dialog')
+    const row = (await screen.findAllByTestId('inbox-row'))[0]
+    const more = within(row).getByTestId('inbox-more')
+    more.focus()
+    fireEvent.keyDown(more, { key: 'ArrowDown' })
+    const menu = await screen.findByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    items[0].focus()
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(items[1], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(dialog).toBeInTheDocument()
+    expect(document.activeElement).toBe(more)
+  })
+
+  it('the group header has the mute bell and no bare count', async () => {
+    mount('/?inbox=1')
+    const group = (await screen.findAllByTestId('inbox-group'))[0]
+    const header = group.querySelector('h3')!
+    expect(header.textContent).toBe(group.querySelector('h3 span')!.textContent)
+    expect(within(header).getByTestId('inbox-project-mute').getAttribute('aria-label')).toMatch(/^Mute notifications from /)
+  })
+})
+
 describe('Snooze and Done', () => {
   const rowOf = async (id: string) => (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === id)!
 
   it('Done hides the row, lowers the badge and persists per viewer', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     expect(screen.queryByText('Add login')).toBeNull()
     expect(JSON.parse(localStorage.getItem(DISMISSALS_KEY)!)['p1:review:d1']).toMatchObject({ version: 'on_review', until: null })
@@ -396,8 +452,7 @@ describe('Snooze and Done', () => {
   it('Snooze 1 hour hides the row until it lapses', async () => {
     mount('/?inbox=1')
     const row = await rowOf('p1:review:d1')
-    fireEvent.click(within(row).getByTestId('inbox-snooze'))
-    fireEvent.click(within(row).getByTestId('inbox-snooze-hour'))
+    pick(row, 'inbox-snooze-hour')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     const stored = JSON.parse(localStorage.getItem(DISMISSALS_KEY)!)['p1:review:d1']
     expect(stored.until).toBeGreaterThan(Date.now() + 59 * 60_000)
@@ -407,7 +462,7 @@ describe('Snooze and Done', () => {
 
   it('Done says what happened, offers Undo, and Undo brings the row back', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     expect(h.toast).toHaveBeenCalledWith('Marked done', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
     const action = h.toast.mock.calls[0][1].action as { onClick: () => void }
@@ -419,8 +474,7 @@ describe('Snooze and Done', () => {
   it('Snooze says until when, offers Undo, and Undo brings the row back', async () => {
     mount('/?inbox=1')
     const row = await rowOf('p1:review:d1')
-    fireEvent.click(within(row).getByTestId('inbox-snooze'))
-    fireEvent.click(within(row).getByTestId('inbox-snooze-tomorrow'))
+    pick(row, 'inbox-snooze-tomorrow')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     const [message, options] = h.toast.mock.calls[0]
     expect(message).toMatch(/^Snoozed until .+/)
@@ -435,21 +489,21 @@ describe('Snooze and Done', () => {
     const before = within(dialog).getAllByTestId('inbox-row').map((r) => r.getAttribute('data-item-id'))
     const first = (await rowOf('p1:review:d1'))
     const heirId = before[before.indexOf('p1:review:d1') + 1]
-    within(first).getByTestId('inbox-done').focus()
-    fireEvent.click(within(first).getByTestId('inbox-done'))
+    within(first).getByTestId('inbox-more').focus()
+    pick(first, 'inbox-done')
     await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(heirId))
     expect(document.activeElement).toHaveAttribute('data-inbox-primary')
     // the last row hands the focus back to its predecessor
     const rows = within(dialog).getAllByTestId('inbox-row')
     const last = rows[rows.length - 1]
     const previousId = rows[rows.length - 2].getAttribute('data-item-id')
-    fireEvent.click(within(last).getByTestId('inbox-done'))
+    pick(last, 'inbox-done')
     await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(previousId))
   })
 
   it('a dismissed item comes back when its state changes', async () => {
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     items = items.map((i) => (i.id === 'p1:review:d1' ? { ...i, version: 'pr_draft' } : i))
     act(() => handlers.get('inbox')!({ type: 'rail.pr_state', projectId: 'p1' }))
@@ -465,7 +519,7 @@ describe('Snooze and Done', () => {
   it('works when storage is unavailable', async () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
     mount('/?inbox=1')
-    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    pick(await rowOf('p1:review:d1'), 'inbox-done')
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
     spy.mockRestore()
   })
@@ -487,5 +541,91 @@ describe('Refresh from live events', () => {
     })
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'), { timeout: 2000 })
     expect(reads()).toBe(base + 1)
+  })
+})
+
+describe('Unseen items, Dock badge and project mute', () => {
+  let badge: { set: ReturnType<typeof vi.fn> }
+  let attention: Record<string, unknown>
+  const patches: unknown[] = []
+
+  beforeEach(() => {
+    attentionPrefsStore.reset()
+    patches.length = 0
+    badge = { set: vi.fn() }
+    attention = { enabled: true, sound: false, dockBadge: true, mutedProjects: [], categories: { question: true, review: true, failed: true, budget: true, done: true } }
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/attention-prefs')) {
+        if (init?.method === 'PATCH') {
+          const patch = JSON.parse(String(init.body))
+          patches.push(patch)
+          attention = { ...attention, ...patch }
+        }
+        return { ok: true, status: 200, json: async () => attention }
+      }
+      return base(input, init)
+    })
+  })
+
+  const mountWithBadge = () => render(
+    <MemoryRouter initialEntries={['/']}>
+      <SharedWebSocketContext.Provider value={ws()}>
+        <InboxProvider dockBadge={badge}><InboxButton /><InboxDialog /><Probe /></InboxProvider>
+      </SharedWebSocketContext.Provider>
+    </MemoryRouter>,
+  )
+
+  it('the Dock badge counts unseen items; looking at the inbox clears it', async () => {
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(4))
+    const dialog = await openPanel()
+    // Displayed = seen: the badge drops at once, the dots stay for this open session.
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+    expect(within(dialog).getAllByTestId('inbox-unseen-dot')).toHaveLength(4)
+    expect(Object.keys(JSON.parse(localStorage.getItem(SEEN_KEY)!))).toHaveLength(4)
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('inbox-dialog')).toBeNull())
+    const reopened = await openPanel()
+    expect(within(reopened).queryAllByTestId('inbox-unseen-dot')).toHaveLength(0)
+  })
+
+  it('Mark as unread brings the dot and the badge back; Mark as read clears them', async () => {
+    mountWithBadge()
+    const dialog = await openPanel()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+    const row = within(dialog).getAllByTestId('inbox-row')[0]
+    pick(row, 'inbox-mark-read')
+    expect(within(row).queryByTestId('inbox-unseen-dot')).toBeNull()
+    pick(row, 'inbox-mark-unread')
+    expect(within(row).getByTestId('inbox-unseen-dot')).toBeInTheDocument()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(1))
+    // Still unread while the inbox stays open (it is not re-marked as seen under the person's finger).
+    expect(JSON.parse(localStorage.getItem(SEEN_KEY)!)).not.toHaveProperty([row.getAttribute('data-item-id')!])
+    pick(row, 'inbox-mark-read')
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(0))
+  })
+
+  it('the Dock badge pref off clears the badge', async () => {
+    attention.dockBadge = false
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenCalled())
+    expect(badge.set).not.toHaveBeenCalledWith(4)
+    expect(badge.set).toHaveBeenLastCalledWith(null)
+  })
+
+  it('the group bell mutes a project and its items stay listed', async () => {
+    mountWithBadge()
+    await waitFor(() => expect(badge.set).toHaveBeenLastCalledWith(4))
+    const dialog = await openPanel()
+    const group = within(dialog).getAllByTestId('inbox-group')[1]
+    const bell = within(group).getByTestId('inbox-project-mute')
+    expect(bell).toHaveAttribute('aria-pressed', 'false')
+    expect(bell).toHaveAttribute('aria-label', 'Mute notifications from Beta')
+    fireEvent.click(bell)
+    await waitFor(() => expect(patches).toEqual([{ mutedProjects: ['p2'] }]))
+    await waitFor(() => expect(within(group).getByTestId('inbox-project-mute')).toHaveAttribute('aria-pressed', 'true'))
+    expect(within(group).getAllByTestId('inbox-row')).toHaveLength(2)
+    await waitFor(() => expect(h.toast).toHaveBeenCalledWith('Notifications from Beta muted'))
   })
 })

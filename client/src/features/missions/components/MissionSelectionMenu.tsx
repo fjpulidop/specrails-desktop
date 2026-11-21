@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation, useInRouterContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, GitFork, MessageSquarePlus, Plus, LoaderCircle } from 'lucide-react'
+import { ChevronRight, GitFork, MessageCircleQuestion, MessageSquarePlus, Plus, LoaderCircle } from 'lucide-react'
 import { notifyError } from '../../../lib/notify-error'
 import { useUiMode } from '../../../context/UiModeContext'
 import { LAYER_CLASS } from '../../../lib/layers'
@@ -11,6 +11,7 @@ import { useAgentChat } from '../context/AgentChatContext'
 import { useMissionSplitViews } from '../context/MissionSplitViewsContext'
 import { branchAgentConversation } from '../lib/agent-api'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
+import { MissionAskDialog, type MissionAskTarget } from './MissionAskDialog'
 
 /** The Range is in document order even when the person selects backwards. Both
  * ends must be committed messages of THIS transcript, never another pane or editor. */
@@ -33,7 +34,7 @@ export function readMissionSelection(root: HTMLElement, selection: Selection | n
   return { text, throughMessageId, range }
 }
 
-type Snapshot = { text: string; throughMessageId: string; sourceId: string; queueId: string; x: number; y: number; send: ReturnType<typeof useAgentChat>['send'] }
+type Snapshot = { text: string; throughMessageId: string; sourceId: string; modelLabel: string; queueId: string; x: number; y: number; send: ReturnType<typeof useAgentChat>['send'] }
 
 /** Appears on selection, with right-click / Shift+F10 as keyboard alternatives.
  * Captures the source send closure before focus or the active panel can change. */
@@ -62,6 +63,7 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [submenu, setSubmenu] = useState(false)
   const [pending, setPending] = useState(false)
+  const [asking, setAsking] = useState<MissionAskTarget | null>(null)
 
   const dismiss = (restoreFocus = false) => {
     setSnapshot(null)
@@ -74,7 +76,8 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
     if (!selected) { dismiss(); return false }
     const rect = selected.range.getBoundingClientRect()
     origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    setSnapshot(previous => ({ text: selected.text, throughMessageId: selected.throughMessageId, sourceId: active.id,
+    const modelLabel = active.model ?? t('ask.providerDefault', { provider: active.provider })
+    setSnapshot(previous => ({ text: selected.text, throughMessageId: selected.throughMessageId, sourceId: active.id, modelLabel,
       queueId: previous?.sourceId === active.id && previous.text === selected.text && previous.throughMessageId === selected.throughMessageId ? previous.queueId : `selection-${crypto.randomUUID()}`, send, x: position?.x ?? rect.left, y: position?.y ?? rect.bottom + 8 }))
     setSubmenu(false)
     if (keyboard) requestAnimationFrame(() => menu.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }))
@@ -139,6 +142,13 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
         ? error.message : t('selection.failed'))
     } finally { busy.current = false; setPending(false) }
   }
+  // A side question never touches the mission: open the help modal with the captured selection.
+  const askAbout = () => {
+    if (!snapshot || busy.current) return
+    setAsking({ conversationId: snapshot.sourceId, selection: snapshot.text, throughMessageId: snapshot.throughMessageId, modelLabel: snapshot.modelLabel })
+    setSnapshot(null)
+    setSubmenu(false)
+  }
   const itemClass = 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50'
   return <div ref={root} className="contents" onPointerUp={event => {
     if (event.button === 0 && root.current?.contains(event.target as Node)) capture()
@@ -171,6 +181,9 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
         if (event.key === 'ArrowLeft') { event.preventDefault(); setSubmenu(false) }
       }}>
       {pending && <div role="status" className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"><LoaderCircle className="h-3.5 w-3.5 animate-spin" />{t('selection.working')}</div>}
+      <button type="button" role="menuitem" disabled={pending} className={itemClass} onClick={askAbout}>
+        <MessageCircleQuestion className="h-4 w-4 shrink-0" />{t('ask.menu')}
+      </button>
       <button type="button" role="menuitem" disabled={pending} aria-haspopup="menu" aria-expanded={submenu} className={itemClass} onClick={() => setSubmenu(value => !value)}>
         <Plus className="h-4 w-4 shrink-0" />{t('selection.start')}<ChevronRight className="ml-auto h-4 w-4" />
       </button>
@@ -186,5 +199,9 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
         <MessageSquarePlus className="h-4 w-4 shrink-0" />{t('selection.add')}
       </button>
     </div>, document.body)}
+    <MissionAskDialog target={asking} onClose={() => {
+      setAsking(null)
+      requestAnimationFrame(() => { if (origin.current?.isConnected) origin.current.focus({ preventScroll: true }) })
+    }} />
   </div>
 }

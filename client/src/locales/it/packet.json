@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "Nessun punteggio del revisore prodotto.",
     "evidenceUnavailable": "prove non disponibili",
     "hostCommandPassed": "Il runtime ha eseguito {{label}} da solo: codice di uscita {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Il runtime ha eseguito {{label}} da solo, ma il controllo legge solo il contenuto dei file e non esegue il codice: codice di uscita {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Il runtime ha eseguito {{label}} da solo ed è FALLITO: codice di uscita {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Controllo del revisore superato: {{name}}",
     "acceptanceCheckFailed": "Controllo del revisore FALLITO: {{name}}",
     "reviewerSummary": "Riepilogo del revisore IA:",
-    "reviewerFinding": "Il revisore IA ha segnalato:"
+    "reviewerFinding": "Il revisore IA ha segnalato:",
+    "earlierAttempts_one": "{{count}} esecuzione precedente di questo controllo",
+    "earlierAttempts_other": "{{count}} esecuzioni precedenti di questo controllo",
+    "earlierAttempt": "Fallito con codice di uscita {{exitCode}} ({{seconds}} s), prima della correzione che lo ha fatto passare"
   },
   "watch": {
     "humanReviewRecommended": "Il revisore IA ha dato {{overall}}/100 e consiglia che una persona lo guardi.",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "Approccio previsto (dalla spec)",
     "caveat": "Ciò che la richiesta proponeva, non un resoconto di ciò che ha fatto l'IA. I fatti qui sopra sono ciò che è cambiato davvero."
+  },
+  "delivered": {
+    "title": "Cosa è cambiato",
+    "caveat": "Dalla proposta OpenSpec consegnata: scritta dall'agente e verificata dal revisore.",
+    "why": "Perché"
   },
   "outcome": {
     "succeeded": "Implementato",

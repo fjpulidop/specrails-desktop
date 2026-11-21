@@ -21,9 +21,13 @@ All four tiers are granted out of the box, so a connected assistant can drive th
 
 ## For agents only: connect your client
 
-When a person asks an agent to connect, read the [dedicated MCP connection runbook](../../../agents/mcp.md). It covers Claude Code and Codex CLI and desktop: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
+When a person asks an agent to connect, read the [dedicated MCP connection runbook](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). It covers Claude Code and Codex CLI and desktop: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
 
 Keep Specrails running and open **Settings ▸ MCP ▸ Copy client config**. Some versions return only `specrails-mcp`, which may not be on PATH; the runbook explains how to locate the actual executable and script. The bridge reads the token locally, so no token belongs in client configuration. Registration alone is not proof of connection: complete `initialize`, `tools/list`, and a read-only `specrails_projects` call with `{"action":"list"}`.
+
+For a quick look at everything, the assistant can call `specrails_status`: what is running, what needs you, recent failures, today's spend and the machine's CPU and memory, in one call. `specrails_inbox` reads and answers the **Needs attention** inbox, `specrails_missions` lists and messages your missions, `specrails_board` shows one project's backlog and rails, `specrails_spend` your spend and caps, and `specrails_resources` what Specrails launched. A failed job comes with its diagnosis, the saved AI analysis and the end of its log.
+
+Every answer starts with a short plain-language summary and suggests the next calls, and errors say what went wrong and whether retrying helps. A destructive call from an external assistant is never carried out on the first try: Specrails answers that it needs confirmation, and the assistant has to send the call again with `confirm: true`. It can also do a dry run first to see what would happen.
 
 Before acting, the assistant can use `specrails_context` for a current briefing on the project, specs, runs and Git state. Unavailable sections are reported explicitly; they do not mean the project is empty. `specrails_code(search)` finds source text, and `read_file` reads specific line ranges with continuation information when more content remains.
 

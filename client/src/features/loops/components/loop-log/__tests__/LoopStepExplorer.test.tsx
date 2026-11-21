@@ -191,6 +191,33 @@ describe('LoopStepExplorer', () => {
     expect(screen.queryByTestId('resume-follow-pill')).not.toBeInTheDocument()
   })
 
+  it('follow mode on a settled failed run opens and scrolls to the last failed step, not the terminal node', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+    const events = [
+      graphEv(),
+      stepEv(1, 'ai-step', '🤖 Implement', { nodeId: 'ai1', iteration: 0 }),
+      logEv('implement output'),
+      endEv(1, { nodeId: 'ai1', status: 'failed', exitCode: 3 }),
+      stepEv(2, 'decider', '🔍 Loop Decider (iteration 1)', { nodeId: 'dec', iteration: 1 }),
+      logEv('decider output'),
+      endEv(2, { nodeId: 'dec' }),
+    ]
+    render(<LoopStepExplorer events={events} jobStatus="failed" view="detail" />)
+    expect(screen.getByText('implement output')).toBeInTheDocument()
+    expect(screen.queryByText('decider output')).not.toBeInTheDocument()
+    const failed = screen.getAllByTestId('loop-step-section')[0]
+    expect(failed.getAttribute('data-status')).toBe('failed')
+    expect(scroll.mock.instances).toContain(failed)
+    scroll.mockRestore()
+  })
+
+  it('detail view strip shows only reached steps with a "not reached" caption', () => {
+    render(<LoopStepExplorer events={liveRunEvents()} jobStatus="running" view="detail" />)
+    const chips = screen.getAllByTestId('loop-node-chip')
+    expect(chips.map((c) => c.getAttribute('data-state'))).not.toContain('pending')
+    expect(screen.getByTestId('loop-not-reached')).toHaveTextContent('1 not reached')
+  })
+
   it('decider chip shows the verdict arrow when decided', () => {
     const events = [
       graphEv(),

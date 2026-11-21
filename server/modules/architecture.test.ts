@@ -11,7 +11,13 @@ const coreDependencies: Record<string, string[]> = {
   'subscription-usage/domain.ts': [],
   'subscription-usage/ports.ts': ['./domain'],
   'subscription-usage/application.ts': ['./domain'],
-  'subscription-usage/index.ts': ['./domain', './ports'],
+  // Provider quota and launch preflight: pure rules, no infrastructure.
+  'provider-quota/domain.ts': [],
+  'provider-quota/ports.ts': ['./domain'],
+  'launch-preflight/domain.ts': [],
+  // Run capacity: pure admission rules; the queue and its probes are injected.
+  'capacity/domain.ts': [],
+  'capacity/index.ts': ['./domain', './admission'],
   'project-settings/domain.ts': ['../../shared/git-branch-name'],
   'project-settings/ports.ts': ['./domain'],
   'project-settings/application.ts': ['./domain', './ports'],
@@ -29,6 +35,10 @@ const coreDependencies: Record<string, string[]> = {
   'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/spend-caps', './domain/agent-env'],
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
+  'delivery/domain/merge-preview.ts': [],
+  'delivery/domain/launch-overlap.ts': [],
+  'delivery/domain/retained-worktrees.ts': [],
+  'delivery/domain/static-check.ts': [],
   'delivery/domain/review-wip.ts': ['./state'],
   'delivery/index.ts': ['./domain/decision-policy', './domain/state', './domain/review-wip'],
   'agent-sessions/domain/protocol.ts': [],
@@ -43,15 +53,31 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/domain/recovery-context.ts': [],
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
+  'terminals/domain/app-resources.ts': ['./mission-resources'],
   'terminals/domain/app-urls.ts': [],
   'terminals/domain/mission-resources.ts': [],
+  'terminals/domain/run-ports.ts': ['./mission-resources'],
+  'terminals/domain/worktree-leftovers.ts': ['./mission-resources'],
   // Failure recovery: pure diagnosis vocabulary and rules (the provider-limit classifier is itself pure).
-  'recovery/domain.ts': ['../../provider-limit'],
-  'recovery/index.ts': ['./domain'],
+  'recovery/domain.ts': ['../../provider-limit', './continuation'],
+  'recovery/index.ts': ['./domain', './continuation', './analysis', './verification-tests'],
   'audit/domain.ts': [],
   'audit/ports.ts': ['./domain'],
-  'audit/application.ts': ['./domain', './ports'],
+  // The stream tap recognises in-turn policy denials with the policy's own (pure) marker parser.
+  'audit/application.ts': ['./domain', './ports', '../agent-policy/domain/denial'],
   'audit/index.ts': ['./application', './domain', './ports'],
+  // Agent policy: pure rules (git rules shared with the app's push path), shell reader, denial marker, settings merge.
+  'agent-policy/domain/shell.ts': [],
+  'agent-policy/domain/rules.ts': ['../../../git-guardrails', './shell'],
+  'agent-policy/domain/denial.ts': ['./rules'],
+  'agent-policy/domain/settings.ts': [],
+  'agent-policy/domain/report.ts': ['./rules'],
+  'agent-policy/index.ts': ['./domain/rules', './domain/denial', './domain/settings', './adapters/install', './adapters/spool', './adapters/ingest', './domain/report'],
+  // Restart continuity: pure marker/offer rules; use cases depend only on their own port.
+  'continuity/domain.ts': [],
+  'continuity/ports.ts': ['./domain'],
+  'continuity/application.ts': ['./domain', './ports'],
+  'continuity/index.ts': ['./application', './domain', './ports'],
   // Intent: pure state machine; use cases depend only on their own ports.
   'intent/domain.ts': [],
   'intent/ports.ts': ['./domain'],
@@ -70,15 +96,27 @@ const coreDependencies: Record<string, string[]> = {
   // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
   'project-rules/domain.ts': [],
   // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
-  'inbox/domain.ts': [],
+  'machine-installs/domain.ts': [],
+  'machine-installs/application.ts': ['./domain'],
+  'machine-installs/index.ts': ['./application', './domain'],
+  'inbox/domain.ts': ['../../shared/run-question'],
   'inbox/ports.ts': ['./domain'],
   'inbox/application.ts': ['./domain', './ports'],
   'inbox/index.ts': ['./application', './domain', './ports'],
+  // Live board (every run across projects): pure columns/lanes; the collector depends only on its own ports.
+  'live-board/domain.ts': ['../../shared/run-question'],
+  'live-board/ports.ts': ['./domain'],
+  'live-board/application.ts': ['./domain', './ports'],
+  'live-board/index.ts': ['./application', './domain', './ports'],
   // Onboarding (sample project): pure preset/naming rules; the use cases depend only on their own ports.
   'onboarding/domain.ts': [],
   'onboarding/ports.ts': ['./domain'],
   'onboarding/application.ts': ['./domain', './ports'],
-  'onboarding/index.ts': ['./application', './domain', './ports'],
+  // Diagnostics: crash-marker, stall and problem-report rules; use cases depend only on their own ports.
+  'diagnostics/domain.ts': [],
+  'diagnostics/ports.ts': ['./domain'],
+  'diagnostics/application.ts': ['./domain', './ports'],
+  'diagnostics/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

@@ -1,8 +1,8 @@
 {
   "title": "待处理",
-  "subtitle_one": "有 {{count}} 项在等你",
-  "subtitle_other": "有 {{count}} 项在等你",
-  "subtitleEmpty": "没有等你处理的事项",
+  "subtitle_one": "{{count}} 项待处理",
+  "subtitle_other": "{{count}} 项待处理",
+  "subtitleEmpty": "全部处理完毕",
   "loading": "正在检查你的项目…",
   "empty": {
     "title": "暂无待处理事项",
@@ -21,7 +21,7 @@
     "budget": "因预算暂停",
     "jira": "Jira 同步失败",
     "failedNoCause": "在交付前停止",
-    "capReached": "已达到预算上限"
+    "capReached": "工作已暂停"
   },
   "actions": {
     "open": "打开",
@@ -34,15 +34,11 @@
   "working": "处理中…",
   "rowLabel": "{{action}}：{{title}}",
   "snooze": {
-    "label": "稍后提醒",
-    "hour": "1 小时",
-    "tomorrow": "明天再说",
-    "cancel": "取消"
+    "hour": "1 小时后提醒",
+    "tomorrow": "明天再提醒"
   },
-  "snoozeItem": "稍后提醒 {{title}}",
-  "snoozeFor": "将 {{title}} 推迟",
   "done": "完成",
-  "doneItem": "将 {{title}} 标记为完成",
+  "more": "{{title}} 的更多操作",
   "age": {
     "now": "刚刚",
     "ago": "{{age}}前"
@@ -63,7 +59,10 @@
     "snoozed": "已推迟到 {{when}}",
     "undo": "撤销",
     "stillOverBudget_week": "仍超出每周预算",
-    "stillOverBudget_month": "仍超出每月预算"
+    "stillOverBudget_month": "仍超出每月预算",
+    "muted": "已将 {{project}} 的通知静音",
+    "unmuted": "已重新开启 {{project}} 的通知",
+    "muteFailed": "无法更改该项目的通知"
   },
   "cap": {
     "title": {
@@ -80,5 +79,13 @@
     },
     "detail": "已花费 {{spent}} / {{budget}}"
   },
-  "stale": "无法刷新，当前显示的是上一次的列表。"
+  "stale": "无法刷新，当前显示的是上一次的列表。",
+  "unseen": "新",
+  "markRead": "标为已读",
+  "markUnread": "标为未读",
+  "mute": {
+    "mute": "将 {{project}} 的通知静音",
+    "unmute": "重新开启 {{project}} 的通知"
+  },
+  "attempt": "第 {{number}} 次尝试"
 }

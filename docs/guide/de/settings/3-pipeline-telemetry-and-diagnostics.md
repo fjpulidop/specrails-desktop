@@ -44,3 +44,12 @@ Genau dieses Paket schnappst du dir, wenn du einen kniffligen Lauf nachvollziehe
 ## Deaktivieren
 
 Stell den Schalter jederzeit wieder aus. Neue Jobs hören sofort auf aufzuzeichnen. Was bereits erfasst wurde, bleibt auf der Festplatte, bis es verdichtet wird oder du das Projekt entfernst – nichts wird irgendwohin gesendet oder hinter deinem Rücken verloren.
+
+
+## Belege zum Abschluss
+
+Der Loop-Verlauf speichert ein Endergebnis unabhängig von der optionalen Telemetrie des Anbieters.
+Er trennt die Prozessausführung von der Abnahme und Auslieferung durch Core und unterscheidet
+Schritte, Auswertungen des Entscheiders und Agentenrunden. Phasendauern und Versuche stammen aus
+dem Journal von Core; aus der Gesamtsumme werden keine Kosten pro Phase abgeleitet. Bei älteren Laufzeiten
+bleiben Abnahmebelege nicht verfügbar.

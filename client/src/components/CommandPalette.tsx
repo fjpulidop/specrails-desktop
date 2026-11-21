@@ -28,11 +28,14 @@ import {
   BookOpen,
   GraduationCap,
   X,
+  ArrowRight,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { usePlaceHistory } from '../hooks/usePlaceHistory'
 import { useInbox } from '../features/inbox/context/InboxContext'
+import { useLiveBoard } from '../features/live-board/context/LiveBoardContext'
 import { useUndo } from '../hooks/useUndo'
 import { useThemeOptional } from '../features/settings/context/ThemeContext'
 import { loopsApi } from '../features/loops/lib/loops-api'
@@ -42,7 +45,7 @@ import { openDocs } from '../lib/docs-events'
 import { useTicketDetailModal } from '../features/specs/context/TicketDetailModalContext'
 import { usePaletteSurfaces } from '../lib/palette-bridge'
 import { isGlobalRoute } from '../lib/sidebar-layout'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { FEATURE_AGENT_MODE, FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
 import { SPEC_PARAM } from '../lib/places'
 import {
@@ -71,6 +74,7 @@ import {
   type SearchScope,
 } from './command-palette/search-scopes'
 import { rankSettings, type SettingsSearchRow } from './command-palette/settings-search'
+import { buildJumpBackIn, jobLabel, refreshJumpEntries, type JumpEntry, type JumpSources } from './command-palette/jump-back-in'
 import { isRemoteScope, useScopedSearch, type DocRow, type FileRow, type LogRow, type SpecRow } from './command-palette/useScopedSearch'
 import { getApiBase } from '../lib/api'
 import type { CommandInfo, JobSummary } from '../types'
@@ -95,7 +99,10 @@ import {
   type PaletteGroup,
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
-import { LiveDot, type LiveDotTone } from './ui/live-dot'
+import { RunStateDot } from './ui/run-state/run-state-dot'
+import { RunStateGlyph } from './ui/run-state/run-state-glyph'
+import { runStateLook } from './ui/run-state/run-state'
+import { jobStatusLook } from '../features/jobs/lib/job-run-state'
 import { Kbd } from './ui/kbd'
 import { replayTour } from '../lib/onboarding-events'
 import { RailTrack } from './brand/RailTrack'
@@ -120,12 +127,13 @@ interface ServerHits {
 }
 
 const EMPTY_HITS: MissionSearchHit[] = []
+const EMPTY_IDS: ReadonlySet<string> = new Set()
+const NO_JUMP_ROWS: JumpEntry[] = []
 
-/** What a job is called in lists: its spec (`#14 Add login`) when it has one, else the raw command. */
-function jobLabel(job: JobSummary): string {
-  return job.ticketTitle ? `#${job.ticketId} ${job.ticketTitle}` : job.command
+/** The ⌘1…⌘6 chord of a "Jump back in" row (Ctrl+1… off macOS): visible label and `aria-keyshortcuts`. */
+function jumpChord(n: number): { label: string; aria: string } {
+  return { label: keyboardLabel(`⌘${n}`), aria: isMacKeyboard() ? `Meta+${n}` : `Control+${n}` }
 }
-const JOB_LAMP: Partial<Record<JobSummary['status'], LiveDotTone>> = { completed: 'success', failed: 'destructive', running: 'info', queued: 'muted' }
 /** Rows per group (missions, jobs) while nothing is typed: the empty palette stays scannable. */
 const EMPTY_LIST_MAX = 5
 
@@ -208,11 +216,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const [scope, setScope] = useState<SearchScope | null>(null)
   const [commands, setCommands] = useState<CommandInfo[]>([])
   const [recentJobs, setRecentJobs] = useState<JobSummary[]>([])
+  // The jobs list of this opening has answered (or failed): "Jump back in" may settle its order.
+  const [jobsLoaded, setJobsLoaded] = useState(false)
   const [serverHits, setServerHits] = useState<ServerHits>({ query: '', hits: EMPTY_HITS })
   const { projects, activeProjectId, setActiveProjectId } = useDesktop()
   const { leftMode, rightMode, cycleLeftMode, cycleRightMode } = useSidebarPin()
   const { uiMode, setUiMode } = useUiMode()
-  const { conversations, selectConversation, open: openAgentPanel, startNewConversation } = useAgentChat()
+  const {
+    conversations, selectConversation, open: openAgentPanel, startNewConversation,
+    unreadConversationIds, attentionConversationIds, attentionKinds, conversationsLoading,
+  } = useAgentChat()
   const streamingConversationIds = useStreamingConversationIds()
   const leftLabel = leftMode === 'pinned-open'
     ? t('palette.sidebar.collapseLeftKeepPinned')
@@ -230,6 +243,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const [searchParams] = useSearchParams()
   const places = usePlaceHistory()
   const inbox = useInbox()
+  const liveBoard = useLiveBoard()
   const { undoLast, peekUndo } = useUndo()
   const { openTicketDetail } = useTicketDetailModal()
   const theme = useThemeOptional()
@@ -263,6 +277,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       setScope(null)
       setPages([])
       setLoadedOptions(null)
+      setJobsLoaded(false)
       return
     }
     setRecentIds(readRecentActionIds())
@@ -280,11 +295,14 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           setCommands(configData.commands)
         }
         if (jobsRes.ok) {
-          const jobsData = await jobsRes.json() as { jobs: JobSummary[] }
-          setRecentJobs(jobsData.jobs)
+          const jobsData = await jobsRes.json() as { jobs?: JobSummary[] }
+          // A malformed body must not take the palette down (every list here iterates the jobs).
+          setRecentJobs(Array.isArray(jobsData.jobs) ? jobsData.jobs : [])
         }
       } catch {
         // Silently fail — palette still works with projects and navigation
+      } finally {
+        setJobsLoaded(true)
       }
     }
     fetchData()
@@ -316,20 +334,52 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     }
   }, [parsedQuery.explicit, parsedQuery.text, scope, open])
 
+  // ─── Jump back in (empty query) ────────────────────────────────────────────
+  // Built from what the missions context and this palette already hold (no fetch of its own). What needs the
+  // person is not listed here: one row says how many things wait and opens the inbox.
+  const showJump = open && scope === null && pages.length === 0 && !search.trim()
+  const jumpSources = useMemo<JumpSources>(() => ({
+    missions: conversations,
+    attention: attentionConversationIds ?? EMPTY_IDS,
+    attentionKinds,
+    streaming: streamingConversationIds,
+    unread: unreadConversationIds ?? EMPTY_IDS,
+    jobs: recentJobs,
+    jobsProjectId: activeProjectId,
+    activeProjectId,
+  }), [conversations, attentionConversationIds, attentionKinds, streamingConversationIds, unreadConversationIds, recentJobs, activeProjectId])
+  // Every source has answered once for this opening (an error counts: nothing more is coming).
+  const jumpReady = jobsLoaded && !conversationsLoading
+  // The order is chosen when the palette opens and once more when the data first becomes ready,
+  // then frozen for the rest of the opening (a row must not move under the person's ⌘N).
+  const [jumpFrozen, setJumpFrozen] = useState<{ entries: JumpEntry[]; complete: boolean } | null>(null)
+  useEffect(() => {
+    if (!open) { setJumpFrozen(null); return }
+    setJumpFrozen((prev) => (prev && (prev.complete || !jumpReady) ? prev : { entries: buildJumpBackIn(jumpSources), complete: jumpReady }))
+  }, [open, jumpReady, jumpSources])
+  const jumpEntries = useMemo<JumpEntry[]>(() => {
+    if (!open) return []
+    return jumpFrozen ? refreshJumpEntries(jumpFrozen.entries, jumpSources) : buildJumpBackIn(jumpSources)
+  }, [open, jumpFrozen, jumpSources])
+  const jumpRows = showJump ? jumpEntries : NO_JUMP_ROWS
+  const jumpKeys = useMemo(() => new Set(jumpRows.map((e) => e.key)), [jumpRows])
+
   const untitledMission = tAgent('mission.untitled')
   const missionRows = useMemo<MissionSearchRow[]>(() => {
     if (parsedQuery.explicit || (scope !== null && scope !== 'missions')) return []
     const q = parsedQuery.text
     if (!q) {
       // Nothing typed: a short list, the open project's missions first, so Enter never lands in another project.
+      // A mission already under "Jump back in" is not listed twice.
       const mine = (c: (typeof conversations)[number]) => !c.pinned_project_id || c.pinned_project_id === activeProjectId
-      const rows = recentMissions(conversations.filter(mine), EMPTY_LIST_MAX)
-      if (rows.length < EMPTY_LIST_MAX) rows.push(...recentMissions(conversations.filter((c) => !mine(c)), EMPTY_LIST_MAX - rows.length))
+      const rest = conversations.filter((c) => !jumpKeys.has(`mission:${c.id}`))
+      const rows = recentMissions(rest.filter(mine), EMPTY_LIST_MAX)
+      if (rows.length < EMPTY_LIST_MAX) rows.push(...recentMissions(rest.filter((c) => !mine(c)), EMPTY_LIST_MAX - rows.length))
       return rows
     }
     const titleRows = matchMissionTitles(conversations, q, untitledMission)
     return mergeMissionResults(titleRows, serverHits.query === q ? serverHits.hits : EMPTY_HITS)
-  }, [conversations, activeProjectId, parsedQuery.explicit, parsedQuery.text, scope, serverHits, untitledMission])
+  }, [conversations, activeProjectId, parsedQuery.explicit, parsedQuery.text, scope, serverHits, untitledMission, jumpKeys])
 
   const projectNameById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
 
@@ -367,6 +417,41 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     setOpen(false)
     navigate(`/jobs/${jobId}`)
   }, [navigate])
+
+  // "Jump back in": each row opens exactly like its own kind does elsewhere.
+  const handleSelectJump = useCallback((entry: JumpEntry) => {
+    if (entry.kind === 'mission') handleSelectMission(entry.id)
+    else handleSelectJob(entry.id)
+  }, [handleSelectMission, handleSelectJob])
+  // The one row about what needs the person: it opens the inbox, the list where those things live.
+  const inboxCount = inbox?.count ?? 0
+  const showInboxRow = showJump && !!inbox && inboxCount > 0
+  const handleOpenInbox = useCallback(() => {
+    setOpen(false)
+    inbox?.openInbox()
+  }, [inbox])
+
+  // ⌘1…⌘6 (Ctrl+1… off macOS) open the matching "Jump back in" row. Captured on the window while the
+  // palette is open so the app's own digit chords (⌘1–5 pages, ⌥⌘1–9 projects) never fire underneath it.
+  const jumpActivateRef = useRef<(index: number) => void>(() => {})
+  jumpActivateRef.current = (index) => {
+    const entry = jumpRows[index]
+    if (entry) handleSelectJump(entry)
+  }
+  useEffect(() => {
+    if (!open) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.metaKey && !e.ctrlKey) return
+      const digit = /^Digit([0-9])$/.exec(e.code)
+      if (!digit) return
+      e.preventDefault()
+      e.stopPropagation()
+      const chord = isMacKeyboard() ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
+      if (chord && !e.altKey && !e.shiftKey) jumpActivateRef.current(Number(digit[1]) - 1)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [open])
 
   const handleNavigate = useCallback((path: string) => {
     setOpen(false)
@@ -418,7 +503,11 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   // and it must not be what Enter does on open. A typed name still finds it.
   const visibleProjects = commandMode || !unscoped ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]) && (textQuery !== '' || p.id !== activeProjectId))
   const visibleCommands = commandMode || !unscoped ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
-  const visibleJobs = commandMode || !unscoped ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${jobLabel(job)} ${job.command} ${job.id}`, [job.status])).slice(0, textQuery ? undefined : EMPTY_LIST_MAX)
+  const visibleJobs = commandMode || !unscoped
+    ? []
+    : recentJobs
+      .filter((job) => matchesPaletteQuery(textQuery, `${jobLabel(job)} ${job.command} ${job.id}`, [job.status]) && !jumpKeys.has(`job:${job.id}`))
+      .slice(0, textQuery ? undefined : EMPTY_LIST_MAX)
 
   interface NavEntry {
     key: string
@@ -454,6 +543,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     theme: theme ? { id: theme.themeId, set: theme.setTheme } : null,
     history: places ? { canBack: places.canBack, canForward: places.canForward, back: places.back, forward: places.forward } : null,
     inbox: inbox ? { count: inbox.count, open: inbox.openInbox } : null,
+    liveBoard: liveBoard ? { open: liveBoard.openBoard } : null,
     undoLabel: open ? peekUndo() : null,
     sidebarLabels: { left: leftLabel, right: rightLabel },
     go: {
@@ -615,6 +705,61 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     </Command.Group>
   )
 
+  const inboxRowLabel = t('notifications.attention.pending', { count: inboxCount })
+  const jumpGroup = (jumpRows.length > 0 || showInboxRow) && (
+    <Command.Group key="jumpBackIn" heading={t('palette.groups.jumpBackIn')} data-testid="palette-group-jump-back-in">
+      {showInboxRow && (
+        <Command.Item
+          key="inbox"
+          value="jump:inbox"
+          onSelect={handleOpenInbox}
+          className={navItemClass}
+          aria-label={`${inboxRowLabel}, ${t('palette.actions.openInbox')}`}
+          data-testid="palette-jump-inbox"
+        >
+          <Inbox className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{inboxRowLabel}</span>
+          <span className="flex shrink-0 items-center gap-1 text-caption text-muted-foreground" aria-hidden>
+            {t('palette.actions.openInbox')}
+            <ArrowRight className="size-3.5" />
+          </span>
+        </Command.Item>
+      )}
+      {jumpRows.map((entry, index) => {
+        const title = entry.kind === 'mission' ? entry.title?.trim() || untitledMission : entry.title
+        const attemptLabel = entry.kind === 'job' && entry.attempt ? t('palette.jumpAttempt', { number: entry.attempt }) : null
+        const stateLabel = entry.state ? t(runStateLook(entry.state).labelKey) : null
+        const projectName = entry.projectId && entry.projectId !== activeProjectId
+          ? projectNameById.get(entry.projectId) ?? null
+          : null
+        const chord = jumpChord(index + 1)
+        return (
+          <Command.Item
+            key={entry.key}
+            value={`jump:${entry.key}`}
+            onSelect={() => handleSelectJump(entry)}
+            className={navItemClass}
+            aria-label={[title, attemptLabel, stateLabel, projectName, chord.label].filter(Boolean).join(', ')}
+            aria-keyshortcuts={chord.aria}
+            data-testid={`palette-jump-${entry.kind}-${entry.id}`}
+            data-run-state={entry.state ?? undefined}
+          >
+            {entry.state
+              ? <RunStateGlyph state={entry.state} size="md" />
+              : <MessagesSquare className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />}
+            <span className="min-w-0 flex-1 truncate">{title}</span>
+            {(attemptLabel || stateLabel || projectName) && (
+              <span className="min-w-0 shrink truncate text-caption text-muted-foreground" aria-hidden>
+                {[attemptLabel, stateLabel, projectName].filter(Boolean).join(' · ')}
+              </span>
+            )}
+            <Kbd className="shrink-0" aria-hidden>{chord.label}</Kbd>
+          </Command.Item>
+        )
+      })}
+    </Command.Group>
+  )
+
   const settingsGroup = settingRows.length > 0 && (
     <Command.Group key="settings" heading={t('palette.groups.settings')} data-testid="palette-group-settings">
       {settingRows.map((row) => (
@@ -773,9 +918,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{conversation.title?.trim() || untitledMission}</span>
                   {streaming && (
-                    <LiveDot
-                      size="xs"
-                      aria-label={tAgent('mission.working')}
+                    <RunStateDot
+                      state="working"
+                      label={tAgent('mission.working')}
                       data-testid={`palette-mission-live-${conversation.id}`}
                     />
                   )}
@@ -855,16 +1000,15 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           >
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
             <span className="flex-1 truncate">{jobLabel(job)}</span>
-            <span className={cn(
-              'inline-flex items-center gap-1.5 text-caption font-medium',
-              job.status === 'completed' && 'text-accent-success',
-              job.status === 'failed' && 'text-destructive',
-              job.status === 'running' && 'text-accent-info',
-              job.status === 'queued' && 'text-muted-foreground',
-            )}>
-              <LiveDot size="xs" tone={JOB_LAMP[job.status] ?? 'muted'} pulsing={job.status === 'running'} aria-hidden />
-              {t(`common:status.${job.status}`, { defaultValue: job.status })}
-            </span>
+            {(() => {
+              const look = jobStatusLook(job)
+              return (
+                <span data-run-state={look.state} className={cn('inline-flex items-center gap-1.5 text-caption font-medium', runStateLook(look.state).text)}>
+                  <RunStateDot state={look.state} />
+                  {t(`jobs:${look.labelKey}`)}
+                </span>
+              )
+            })()}
           </Command.Item>
         ))}
       </Command.Group>
@@ -1000,6 +1144,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
               <Command.Empty className="py-8 text-center text-body text-muted-foreground">
                 {t('palette.noResults')}
               </Command.Empty>
+              {jumpGroup}
               {actionRows.leading && actionsGroup}
               {!search.trim() && recentActionsGroup}
               {!search.trim() && recentPlacesGroup}

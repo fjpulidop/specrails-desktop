@@ -4,17 +4,11 @@ import { Activity, FolderOpen, Loader2 } from 'lucide-react'
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 import { startWorktreeScan, type MissionResourcesSnapshot } from '../lib/mission-resources-api'
 import { summarizeHistory, type ResourceSample } from '../lib/mission-resource-history'
+import { formatBytes } from '../lib/format-bytes'
+
+export { formatBytes }
 
 export { MISSION_RESOURCES_POLL_MS } from '../hooks/useMissionResourceHistory'
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let value = bytes / 1024
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++ }
-  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`
-}
 
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 

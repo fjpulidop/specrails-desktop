@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, Circle } from 'lucide-react'
 import type { InvocationRow, Surface } from '../types/spending'
-import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
+import { SURFACE_LABEL, SURFACE_ACCENT, categoryForSurface } from '../types/spending'
+import { useCategoryColors } from '../lib/category-colors'
 import { formatUsd } from '../lib/format'
 import { CostValue } from './CostValue'
 import { ModelName } from './ModelName'
@@ -84,6 +85,7 @@ export function InvocationsTable({
   rows, loading, truncated, totalAvailable, tableFilters, onTableFiltersChange,
 }: Props) {
   const { t, i18n } = useTranslation('analytics')
+  const categoryColor = useCategoryColors()
   const [openId, setOpenId] = useState<string | null>(null)
   const inferredModels = buildInferredModelMap(rows)
   // Show the Provider column only when the rows span more than one engine —
@@ -98,7 +100,7 @@ export function InvocationsTable({
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h2 className="text-strong">{t('table.title')}</h2>
+        <h2 className="text-title">{t('table.title')}</h2>
         <div className="flex flex-wrap items-center gap-2 text-caption">
           <select
             value={tableFilters.status ?? ''}
@@ -136,7 +138,7 @@ export function InvocationsTable({
           <table className="w-full text-label num">
             <thead className="text-xs text-muted-foreground">
               <tr className="text-left">
-                <th className="font-medium px-2 py-2">{t('table.colSurface')}</th>
+                <th className="font-medium px-2 py-2">{t('table.colWhy')}</th>
                 <th className="font-medium px-2 py-2">{t('table.colTicket')}</th>
                 <th className="font-medium px-2 py-2 text-right">{t('table.colCost')}</th>
                 <th className="font-medium px-2 py-2 text-right">{t('table.colTurns')}</th>
@@ -159,6 +161,8 @@ export function InvocationsTable({
                 const isContractLayer = isContractLayerInvocation(r)
                 const surfaceLabel = isContractLayer ? t('table.contractLayer') : SURFACE_LABEL[surface]
                 const model = inferredModelFor(r, inferredModels)
+                const category = categoryForSurface(surface)
+                const isAgentRow = r.ledger === 'agent'
                 return (
                   <tr
                     key={r.id}
@@ -173,13 +177,27 @@ export function InvocationsTable({
                         className="text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <span className={`inline-flex items-center gap-1.5 px-2 h-5 rounded-full text-caption font-medium ${accent.bg} ${accent.text}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: categoryColor[category] }} aria-hidden />
                           {surfaceLabel}
+                        </span>
+                        <span className="mt-0.5 block text-caption text-muted-foreground" data-testid="invocation-category">
+                          {t(`categories.${category}.label`)}
                         </span>
                       </button>
                     </td>
                     <td className="px-2 py-2 max-w-[260px]">
-                      {r.ticket_id != null
+                      {isAgentRow
+                        ? (
+                          <span
+                            className="truncate block"
+                            title={t('table.missionConversation', { id: r.conversation_id ?? '—' })}
+                            data-testid="invocation-mission-conversation"
+                          >
+                            {r.ticket_title?.trim() || (r.conversation_id ? r.conversation_id.slice(0, 8) : '—')}
+                            <span className="sr-only"> ({t('table.missionConversation', { id: r.conversation_id ?? '—' })})</span>
+                          </span>
+                        )
+                        : r.ticket_id != null
                         ? (
                           <span className="truncate block">
                             #{r.ticket_id}{' '}

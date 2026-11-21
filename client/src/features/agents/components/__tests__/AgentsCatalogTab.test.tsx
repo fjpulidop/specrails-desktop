@@ -119,13 +119,13 @@ describe('AgentsCatalogTab', () => {
 
     await userEvent.click(screen.getAllByRole('button', { name: /^Template$/ })[0])
 
-    const open = await screen.findByRole('button', { name: 'Security Reviewer' })
+    const open = await screen.findByRole('button', { name: 'Security reviewer' })
     expect(open.tagName).toBe('BUTTON')
-    expect(screen.getAllByRole('button', { name: /Software Engineering/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Software engineering/ }).length).toBeGreaterThan(0)
 
     await userEvent.click(screen.getAllByRole('button', { name: 'owasp' })[0])
     expect(screen.getByText('Tag filter:')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Security Reviewer' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Data Analyst' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Security reviewer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Data analyst' })).not.toBeInTheDocument()
   })
 })

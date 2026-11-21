@@ -6,6 +6,7 @@
     "noResults": "Nenhum resultado encontrado.",
     "activeBadge": "ativo",
     "groups": {
+      "jumpBackIn": "Retomar",
       "projects": "Projetos",
       "missions": "Missões",
       "spec": "Spec",
@@ -25,7 +26,7 @@
       "desktopAnalytics": "Análises do Desktop",
       "projectAnalytics": "Análises do projeto",
       "activityFeed": "Feed de atividade",
-      "desktopSettings": "Definições do Desktop",
+      "desktopSettings": "Definições",
       "docs": "Docs",
       "replayTour": "Rever o tour"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "Trocar tema",
       "switchToMission": "Mudar para o modo Missão",
       "switchToBoard": "Mudar para o modo Quadro",
-      "openAppSettings": "Abrir configurações do app",
+      "openAppSettings": "Abrir definições",
       "openProjectSettings": "Abrir configurações do projeto",
       "switchProject": "Trocar de projeto",
       "runLoop": "Executar loop",
@@ -94,7 +95,7 @@
         "themeTitle": "Tema",
         "themePlaceholder": "Escolha um tema...",
         "noThemes": "Nenhum tema disponível.",
-        "appSettingsTitle": "Configurações do app",
+        "appSettingsTitle": "Definições",
         "projectSettingsTitle": "Configurações do projeto",
         "sectionPlaceholder": "Escolha uma seção...",
         "noSections": "Nenhuma seção.",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "Copiar descrição de PR de #{{id}}",
       "exportHandoff": "Exportar passagem",
       "copyPrDescription": "Copiar descrição de PR",
-      "moveFocusedSpec": "Mover a spec em foco…"
+      "moveFocusedSpec": "Mover a spec em foco…",
+      "openLiveBoard": "Abrir quadro ao vivo",
+      "openLiveBoardKeywords": "quadro, ao vivo, execuções, em andamento, todos os projetos, missões, estado",
+      "toggleKeepAwake": "Manter o computador acordado (ativar / desativar)",
+      "toggleKeepAwakeKeywords": "manter acordado, impedir repouso, repouso, suspensão"
     },
     "scopes": {
       "remove": "Remover escopo",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Configurações do Desktop",
+      "appScope": "Definições",
       "projectScope": "Configurações do projeto",
       "entries": {
         "theme": {
@@ -246,6 +251,10 @@
         "subagentsApp": {
           "label": "Sub-agentes (Desktop)",
           "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
+        },
+        "missionConnectors": {
+          "label": "Conectores nas missões",
+          "keywords": "conectores, mcp, claude.ai, codex, servidores, google drive, ferramentas"
         },
         "mobileCompanion": {
           "label": "App móvel complementar",
@@ -282,6 +291,10 @@
         "about": {
           "label": "Informações do Desktop",
           "keywords": "sobre, info, porta, banco de dados, versão, about"
+        },
+        "reportProblem": {
+          "label": "Reportar um problema",
+          "keywords": "relatório, problema, erro, falha, registos, diagnóstico, zip, suporte"
         },
         "repositories": {
           "label": "Repositórios",
@@ -350,9 +363,30 @@
         "reduceMotion": {
           "label": "Reduzir movimento",
           "keywords": "reduzir movimento, animação, acessibilidade, vestibular, calma, transições, motion"
+        },
+        "retainedWorktrees": {
+          "label": "Worktrees de execuções no disco",
+          "keywords": "armazenamento, disco, worktrees, limpar, limpeza, espaço, retidos, branches, remover"
+        },
+        "safetyArchives": {
+          "label": "Arquivos guardados fora de um PR",
+          "keywords": "armazenamento, disco, arquivo de segurança, arquivos guardados, quarentena, limpar, excluir"
+        },
+        "autoContinue": {
+          "label": "Continuar automaticamente execuções falhadas",
+          "keywords": "continuar, repetir, execução falhada, automático, recuperação"
+        },
+        "machineInstalls": {
+          "label": "Instalações lembradas",
+          "keywords": "instalar, brew, toda a máquina, ferramenta, aprovação, revogar"
+        },
+        "envFiles": {
+          "label": "Arquivos de ambiente nas execuções",
+          "keywords": "arquivos env, .env, dotenv, APP_KEY, segredos, ambiente, worktree"
         }
       }
-    }
+    },
+    "jumpAttempt": "Tentativa {{number}}"
   },
   "toasts": {
     "queued": "{{name}} em fila",
@@ -403,6 +437,7 @@
       "navigateProjectPageWithAgents": "Navegar para página do projeto (Dashboard/Jobs/Análises/Agentes/Definições)",
       "navigateProjectPage": "Navegar para página do projeto (Dashboard/Jobs/Análises/Definições)",
       "switchProject": "Mudar de projeto por posição",
+      "paletteJumpBackIn": "Abrir uma linha de “Retomar” com a paleta ⌘K aberta",
       "goDashboard": "Ir para o Dashboard",
       "goActivity": "Ir para Atividade / Jobs",
       "goAnalytics": "Ir para Análises",
@@ -424,7 +459,12 @@
       "boardSelectClick": "Quadro: clique alterna uma spec, Shift+clique seleciona um intervalo",
       "boardSelectColumn": "Quadro: selecionar todas as specs da coluna",
       "boardClearSelection": "Quadro: limpar a seleção",
-      "boardMove": "Quadro: mover a spec em foco (estado ou rail)"
+      "boardMove": "Quadro: mover a spec em foco (estado ou rail)",
+      "openLiveBoard": "Abrir o quadro ao vivo (todas as execuções de todos os projetos)",
+      "splitFocusPane": "Ir para o painel de missão seguinte / anterior",
+      "splitMaximize": "Maximizar ou restaurar o painel de missão ativo",
+      "splitEqualize": "Igualar os painéis de missão",
+      "splitClose": "Fechar o painel de missão ativo"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",
@@ -440,7 +480,9 @@
       "downloading": "A transferir atualização",
       "installing": "A instalar atualização",
       "ready": "Atualização pronta",
-      "error": "Falha na atualização"
+      "error": "Falha na atualização",
+      "busy": "Ainda há trabalho em andamento",
+      "waiting": "Aguardando para reiniciar"
     },
     "desc": {
       "available": "Está pronta a instalar uma nova versão do Specrails.",
@@ -448,12 +490,15 @@
       "progress": "{{percent}}% · {{downloaded}} de {{total}}",
       "installing": "A verificar a assinatura e a concluir…",
       "ready": "Reinicie para abrir a versão {{version}}.",
-      "errorFallback": "Não foi possível concluir a atualização. Tente novamente."
+      "errorFallback": "Não foi possível concluir a atualização. Tente novamente.",
+      "busy": "Reiniciar agora interrompe {{what}}.",
+      "waiting": "Reinicia quando nada estiver em execução · {{what}}"
     },
     "pill": {
       "downloading": "A transferir",
       "installing": "A instalar",
-      "ready": "Pronta"
+      "ready": "Pronta",
+      "waiting": "Aguardando"
     },
     "actions": {
       "restart": "Reiniciar",
@@ -461,7 +506,10 @@
       "update": "Atualizar",
       "installing": "A instalar…",
       "tryAgain": "Tentar novamente",
-      "dismiss": "Dispensar"
+      "dismiss": "Dispensar",
+      "whenIdle": "Instalar quando nada estiver em execução",
+      "restartNow": "Reiniciar agora",
+      "cancelWait": "Cancelar"
     },
     "mockReady": "Atualização simulada pronta — reinício ignorado",
     "errors": {
@@ -470,6 +518,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} turno de missão",
+      "missions_other": "{{count}} turnos de missão",
+      "runs_one": "{{count}} execução",
+      "runs_other": "{{count}} execuções",
+      "something": "o trabalho em andamento"
+    },
+    "chip": {
+      "text": "Atualizar",
+      "label": "O Specrails {{version}} está disponível. Ver a atualização"
     }
   },
   "notifications": {
@@ -483,8 +542,43 @@
     "jobStuckStopped": "Execução parada",
     "jobStuckStopFailed": "Não foi possível parar a execução",
     "providerLimit": "Limite de utilização do fornecedor atingido",
-    "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução parou; volta a lançar ou usa Recuperar e tentar de novo após a reposição.",
-    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução parou; volta a lançar após a reposição."
+    "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução está em pausa e retoma sozinha após a reposição; também podes continuá-la agora com outro fornecedor.",
+    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução está em pausa; retoma-a após a reposição do limite ou continua-a agora com outro fornecedor.",
+    "attention": {
+      "open": "Abrir",
+      "openInbox": "Abrir caixa de entrada",
+      "actions": {
+        "answer": "Responder",
+        "review": "Revisar",
+        "view": "Ver",
+        "open": "Abrir"
+      },
+      "single": {
+        "question": "{{subject}} aguarda sua resposta",
+        "approval": "{{subject}} precisa da sua aprovação",
+        "review": "{{subject}} está pronto para revisão",
+        "stopped": "{{subject}} parou",
+        "stuck": "{{subject}}: um run não avança",
+        "paused": "{{subject}} está pausado por um limite",
+        "pausedByYou": "{{subject}} está pausado (por você)",
+        "held": "{{subject}} está pausado",
+        "done": "{{subject}} terminou",
+        "generic": "{{subject}} requer sua atenção"
+      },
+      "pending_one": "{{count}} pendência",
+      "pending_other": "{{count}} pendências",
+      "breakdown": "{{list}} pendentes",
+      "group": {
+        "question_one": "{{count}} pergunta",
+        "question_other": "{{count}} perguntas",
+        "approval_one": "{{count}} aprovação",
+        "approval_other": "{{count}} aprovações",
+        "review_one": "{{count}} revisão",
+        "review_other": "{{count}} revisões"
+      },
+      "missionReplied": "{{title}} respondeu",
+      "untitledMission": "Sua missão"
+    }
   },
   "templates": {
     "emptyState": {

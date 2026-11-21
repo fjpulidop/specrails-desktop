@@ -1,0 +1,77 @@
+{
+  "defaults": { "provider": "claude", "model": "haiku", "timeoutMinutes": 25 },
+  "scenarios": [
+    {
+      "name": "decision-hidden-conflict", "group": "features",
+      "notes": "The conflict lives in a test the planner is unlikely to read: the developer should ask through decisionNeeded with options.",
+      "repo": { "template": "node-lib", "files": {
+        "docs/design.md": "# Cart design\nTotals are integers in cents. Never round.\n",
+        "test/legacy-total.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nimport { total } from '../src/cart.js'\n// Billing exports depend on this exact shape.\ntest('total returns a formatted string', () => assert.equal(total([{ price: 250, qty: 1 }]), '2.50'))\n"
+      } },
+      "ticket": { "title": "Return cart totals as integer cents", "description": "Change `total()` in src/cart.js to return an integer number of cents, as docs/design.md says. Keep every existing test passing." },
+      "answers": [ { "asker": "developer", "recommended": true }, { "asker": "planner", "recommended": true }, { "text": "Keep the integer cents and update the legacy test to the new shape." } ],
+      "expect": { "status": "delivered" }
+    },
+    {
+      "name": "approval-reject", "group": "features", "approvalBeforeArchive": true,
+      "repo": "node-lib",
+      "ticket": { "title": "Add a discount helper", "description": "Add `applyDiscount(total, percent)` to src/cart.js that returns the total reduced by percent (0-100), with tests." },
+      "answers": [ { "kind": "approval", "reject": "Not now: the pricing team wants to review discounts first." } ],
+      "expect": { "status": "failed" }
+    },
+    {
+      "name": "approval-approve", "group": "features", "approvalBeforeArchive": true,
+      "repo": "node-lib",
+      "ticket": { "title": "Add an item count helper", "description": "Add `itemCount(items)` to src/cart.js returning the sum of qty, with tests." },
+      "answers": [ { "kind": "approval", "approve": true } ],
+      "expect": { "status": "delivered" }
+    },
+    {
+      "name": "install-ask", "group": "features",
+      "repo": "gha-lint",
+      "ticket": { "title": "Add a release workflow", "description": "Add .github/workflows/release.yml that runs `npm test` on tags. `npm test` must pass (it runs actionlint)." },
+      "answers": [ { "match": "actionlint|install", "optionId": "install" } ],
+      "expect": { "status": "delivered" }
+    },
+    {
+      "name": "install-remembered", "group": "features",
+      "repo": { "template": "gha-lint", "name": "install-remembered" },
+      "ticket": { "title": "Add a nightly workflow", "description": "Add .github/workflows/nightly.yml that runs `npm test` on a schedule. `npm test` must pass (it runs actionlint)." },
+      "expect": { "status": "delivered" }
+    },
+    {
+      "name": "triage-device", "group": "features",
+      "repo": { "template": "node-lib", "files": { "README.md": "# cart\nUsed by the checkout on Android phones (Chrome).\n" } },
+      "ticket": { "title": "Format totals for display", "description": "Add `formatTotal(cents)` returning `$12.34` for 1234. Acceptance: it reads correctly on a physical Android phone." },
+      "expect": { "status": "delivered" }
+    },
+    { "name": "reg-react", "group": "regression", "repo": "react-vite",
+      "ticket": { "title": "Filter books by text", "description": "Add a search input above the list that filters books case-insensitively as you type, with a test." } },
+    { "name": "reg-fastapi", "group": "regression", "repo": "fastapi",
+      "ticket": { "title": "Create notes", "description": "Add POST /notes {text} that appends a note and returns it with an id; 422 for empty text. Tests with TestClient." } },
+    { "name": "reg-rust", "group": "regression", "repo": "rust-cli",
+      "ticket": { "title": "Count lines too", "description": "Add `line_count(&str) -> usize` and a `--lines` flag to the CLI, with tests." } },
+    { "name": "reg-go", "group": "regression", "repo": "go-api",
+      "ticket": { "title": "Filter tasks by title", "description": "Add `FilterTitle(ts []Task, q string) []Task` (case-insensitive substring) with a table test." } },
+    { "name": "reg-canvas", "group": "regression", "repo": "canvas-game",
+      "ticket": { "title": "Show lives on screen", "description": "Draw the remaining lives as text in the top-left corner of the canvas and expose them on window.__game, with a unit test for the state." } },
+    { "name": "reg-godot", "group": "regression", "repo": "godot-game",
+      "ticket": { "title": "Reset the score", "description": "Add `reset()` to Score that sets points back to 0 and extend tests/run_tests.gd." } },
+    { "name": "reg-multi", "group": "regression", "repos": ["mr-api", "mr-web"],
+      "ticket": { "title": "Show user emails", "description": "Add `email` to the API's userDto and render it in the web repository's renderUser as a <small> element. Tests in both repositories." } },
+    { "name": "reg-docs", "group": "regression", "repo": "docs-site",
+      "ticket": { "title": "Document rollbacks", "description": "Add docs/rollbacks.md explaining how to roll back a deploy and link it from docs/index.md. Documentation only." } },
+    {
+      "name": "restart-mid-step", "group": "restarts", "repo": { "template": "node-lib", "name": "restart-mid-step" },
+      "ticket": { "title": "Add a tax helper", "description": "Add `withTax(cents, ratePercent)` to src/cart.js rounding half up, with tests." },
+      "actions": [ { "when": "phase:build", "do": "restart" } ]
+    },
+    {
+      "name": "restart-on-question", "group": "restarts",
+      "repo": { "template": "node-lib", "name": "restart-on-question" },
+      "ticket": { "title": "Persist the cart", "description": "Goal: the cart survives restarts by saving to cart.json. Non-goal: the library must never touch the filesystem." },
+      "actions": [ { "when": "question", "do": "restart" } ],
+      "answers": [ { "recommended": true } ]
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import {
 } from '../../../worktree-manager'
 import { OVERLAY_MANIFEST, applyWorktreeOverlay } from '../../../worktree-overlay'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 import type { WsMessage } from '../../../types'
 import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -52,6 +53,7 @@ import {
 } from '../domain'
 import type { Clock, IntentDiffFile, IntentLaunchOptions, IntentEffectsStore, IntentPorts, IntentProcesses, IntentProviderBilling, IntentProviderCost, IntentPublication, IntentRepository, IntentSpecBlocker, IntentTickets, WorktreeReservation } from '../ports'
 import type { IntentService } from '../application'
+import { clipOnLineBoundary } from '../../../util/diff-prompt-budget'
 
 /** What Intent needs from the mission agent host (implemented by AgentChatManager). */
 export interface IntentAgentHost {
@@ -446,6 +448,7 @@ export function createFlowWorktrees(
           branch = head.code === 0 && head.stdout.trim() !== 'HEAD' ? head.stdout.trim() : null
         }
         if (mounted) {
+          await reapWorktreeLeftovers({ worktreePaths: [target], reason: 'intent-worktree-removed' })
           await removeWorktree(git, { repoDir: repo, worktreePath: target, branch: branch ?? '', deleteBranch: Boolean(branch), force: true })
         } else if (branch) {
           // The mount is gone but the Intent-created branch may remain.
@@ -983,7 +986,8 @@ export async function readDerivedChange(git: GitRunner, repo: string, input: { r
     changeName: chosen?.[1].name ?? input.changeName,
     proposal: await show(chosen?.[1].files.get('proposal')),
     design: await show(chosen?.[1].files.get('design')),
-    diffstat: stat.code === 0 ? stat.stdout.slice(0, 8000) : null,
+    // Whole lines only: a stat cut mid-line misnames a file.
+    diffstat: stat.code === 0 ? clipOnLineBoundary(stat.stdout, 8000) : null,
   }
 }
 

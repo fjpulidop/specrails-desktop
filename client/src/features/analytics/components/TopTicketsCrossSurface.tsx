@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
-import { SURFACE_LABEL } from '../types/spending'
 import { formatUsd } from '../lib/format'
 import { Skeleton } from '../../../components/ui/skeleton'
 
@@ -20,23 +19,19 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <h2 className="text-strong mb-3">{t('topTickets.title')}</h2>
+      <h2 className="text-title mb-3">{t('topTickets.title')}</h2>
       {list.length === 0 ? (
         <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('topTickets.empty')}</div>
       ) : (
         <ul className="divide-y divide-border/30">
           {list.map((tk, i) => {
-            const breakdown = (Object.entries(tk.bySurface) as Array<[string, { count: number; costUsd: number; unpricedCount?: number }]>)
-              .filter(([, v]) => v.count > 0)
-              .map(([s, v]) => t('topTickets.breakdownItem', { n: v.count, label: SURFACE_LABEL[s as keyof typeof SURFACE_LABEL].toLowerCase() }))
-              .join(' + ')
             const isUnattributed = tk.isUnattributed
             const label = isUnattributed
               ? t('topTickets.unattributed')
               : tk.ticketTitle
                 ? `#${tk.ticketId} ${tk.ticketTitle}`
                 : t('topTickets.deletedTicket', { id: tk.ticketId })
-            const dim = !tk.ticketTitle && !isUnattributed ? 'opacity-50' : ''
+            const dim = !tk.ticketTitle && !isUnattributed ? 'text-muted-foreground' : ''
             const unpricedCount = tk.unpricedCount ?? 0
             const costUnavailable = tk.totalRuns > 0 && unpricedCount === tk.totalRuns
             const costPartiallyUnavailable = unpricedCount > 0 && !costUnavailable
@@ -49,8 +44,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                   disabled={isUnattributed}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm truncate">{label}</div>
-                    <div className="text-caption text-muted-foreground truncate">{breakdown || '—'}</div>
+                    <div className="text-body truncate">{label}</div>
                   </div>
                   <div className="text-right num">
                     <div
@@ -66,13 +60,12 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                       {costUnavailable
                         ? t('topTickets.costUnavailable')
                         : formatUsd(tk.totalCostUsd)}
+                      {costPartiallyUnavailable && (
+                        <span className="sr-only"> ({t('topTickets.costPartiallyUnavailable', { count: unpricedCount })})</span>
+                      )}
+                      {costPartiallyUnavailable && <span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-accent-warning align-middle" data-testid="top-ticket-partial" />}
                     </div>
-                    {costPartiallyUnavailable && (
-                      <div className="text-caption text-muted-foreground">
-                        {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
-                      </div>
-                    )}
-                    <div className="text-caption text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
+                    <div className="text-caption text-muted-foreground" data-testid="top-ticket-runs">{t('runs', { count: tk.totalRuns })}</div>
                   </div>
                 </button>
               </li>

@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import type { ProjectRow } from '../../desktop-db'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath, getActiveProject } from './types'
+import { apiCall, projectPath, getActiveProject, projectChoices } from './types'
+import { McpToolError } from './envelope'
 import { canonicalRepositoryPath, getProjectRepositories, repositoryPathKey } from '../../project-repositories'
 
 export function serializeProject(p: ProjectRow): Record<string, unknown> {
@@ -60,9 +61,9 @@ export function projectsTools(): McpToolSpec[] {
             return ctx.registry.listProjects().map((p) => ({ ...serializeProject(p), available: !!ctx.registry.getContext(p.id) }))
           case 'get': {
             const id = (args.projectId as string | undefined) ?? getActiveProject(ctx)
-            if (!id) throw new Error('No project selected. Provide projectId or use specrails_select_project.')
+            if (!id) throw new McpToolError('ambiguous', 'No project selected. Provide projectId or use specrails_select_project.', { choices: projectChoices(ctx) })
             const p = ctx.registry.getProjectRow(id)
-            if (!p) throw new Error(`Unknown projectId "${id}".`)
+            if (!p) throw new McpToolError('not_found', `Unknown projectId "${id}".`, { choices: projectChoices(ctx) })
             return { ...serializeProject(p), available: !!ctx.registry.getContext(id) }
           }
           case 'resolve': {
@@ -80,7 +81,7 @@ export function projectsTools(): McpToolSpec[] {
           case 'unregister': {
             const id = args.projectId as string | undefined
             if (!id) throw new Error('unregister requires a "projectId".')
-            if (!ctx.registry.getProjectRow(id)) throw new Error(`Unknown projectId "${id}".`)
+            if (!ctx.registry.getProjectRow(id)) throw new McpToolError('not_found', `Unknown projectId "${id}".`, { choices: projectChoices(ctx) })
             ctx.registry.removeProject(id)
             return { ok: true, unregistered: id }
           }

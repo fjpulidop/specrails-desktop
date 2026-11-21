@@ -1,4 +1,5 @@
 import { readMissionCode, saveMissionCode } from '../lib/mission-view-state'
+import { SIDE_PANE_FIT } from '../lib/mission-side-pane'
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Maximize2, Minimize2, X } from 'lucide-react'
@@ -120,7 +121,7 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
     <div data-area="files"
       ref={paneRef}
       className={`area-surface flex h-full min-w-0 flex-col overflow-hidden border-l border-border bg-background${
-        maximized ? ' absolute inset-0 z-30 border-l-0' : ' relative'
+        maximized ? ' absolute inset-0 z-30 border-l-0' : ` relative ${SIDE_PANE_FIT}`
       }`}
       style={maximized ? undefined : { width, maxWidth: '100%', flexShrink: 0 }}
       data-testid="agent-code-pane"

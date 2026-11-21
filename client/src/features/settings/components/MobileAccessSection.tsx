@@ -1,12 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Smartphone, ShieldCheck, Trash2, Globe } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
-import { PairWebCompanionModal } from './PairWebCompanionModal'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { SettingsCard } from './SettingsCard'
+import { useMountOnOpen } from '../../../hooks/useMountOnOpen'
+
+// The QR encode/scan libraries (qrcode.react, jsqr) load with the pairing dialog.
+const PairWebCompanionModal = lazy(() => import('./PairWebCompanionModal').then(m => ({ default: m.PairWebCompanionModal })))
 
 import { notifyError } from '../../../lib/notify-error'
 interface MobileStatus {
@@ -42,6 +45,7 @@ export function MobileAccessSection() {
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [webPairOpen, setWebPairOpen] = useState(false)
+  const webPairMounted = useMountOnOpen(webPairOpen)
 
   const loadStatus = useCallback(async () => {
     try {
@@ -178,7 +182,11 @@ export function MobileAccessSection() {
         </>
       )}
 
-      <PairWebCompanionModal open={webPairOpen} onClose={() => setWebPairOpen(false)} onPaired={loadDevices} />
+      {webPairMounted && (
+        <Suspense fallback={null}>
+          <PairWebCompanionModal open={webPairOpen} onClose={() => setWebPairOpen(false)} onPaired={loadDevices} />
+        </Suspense>
+      )}
       <ConfirmDialog
         open={confirmReset}
         onOpenChange={setConfirmReset}

@@ -83,7 +83,7 @@ describe('rankSettings', () => {
     expect(rows.map((r) => r.entry.id)).toEqual(expect.arrayContaining(['budgetAlerts', 'projectBudget']))
     expect(rankSettings(t, 'dark', { hasProject: true, cap: 8 })[0].entry.id).toBe('theme')
     expect(rankSettings(t, 'telemetry', { hasProject: true, cap: 8 })[0]).toMatchObject({ scopeLabel: 'Project settings', sectionLabel: 'Telemetry' })
-    expect(rankSettings(t, 'language', { hasProject: true, cap: 8 })[0]).toMatchObject({ scopeLabel: 'Desktop settings', sectionLabel: 'Appearance' })
+    expect(rankSettings(t, 'language', { hasProject: true, cap: 8 })[0]).toMatchObject({ scopeLabel: 'Settings', sectionLabel: 'Appearance' })
   })
 
   it('hides project settings when no project is open', () => {

@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { runStateLook, type RunState } from '../ui/run-state/run-state'
 
 export type RailStationState = 'pending' | 'active' | 'done' | 'failed'
 
@@ -18,11 +19,22 @@ export interface RailTrackProps {
   'aria-label'?: string
 }
 
+/** A station's state in the run-state vocabulary (components/ui/run-state). */
+export const STATION_RUN_STATE = {
+  pending: 'queued',
+  active: 'working',
+  done: 'done',
+  failed: 'failed',
+} as const satisfies Record<RailStationState, RunState>
+
+/** Station lamp fill. A pending station is a plain hairline lamp on the track
+ *  (not the hollow queued ring, which would vanish at 6px on the line); the
+ *  others take their RunState's lamp colour — active is running, so info. */
 const STATION_TONE: Record<RailStationState, string> = {
   pending: 'bg-border',
-  active: 'bg-accent-primary',
-  done: 'bg-accent-success',
-  failed: 'bg-destructive',
+  active: runStateLook(STATION_RUN_STATE.active).dot,
+  done: runStateLook(STATION_RUN_STATE.done).dot,
+  failed: runStateLook(STATION_RUN_STATE.failed).dot,
 }
 
 /**

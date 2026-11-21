@@ -10,7 +10,7 @@
     "selectProjectFolder": "Selecionar a pasta do projeto",
     "nameLabel": "Nome a apresentar",
     "optional": "(opcional)",
-    "namePlaceholder": "O Meu Projeto",
+    "namePlaceholder": "O meu projeto",
     "nameHint": "Por omissão, o nome do diretório",
     "adding": "A adicionar...",
     "submit": "Adicionar projeto",
@@ -55,7 +55,7 @@
   },
   "instructions": {
     "title": "Instalar ferramentas de desenvolvimento",
-    "description": "O SpecRails precisa de Node.js, npm, npx e Git no PATH. Escolha o snippet para o seu SO, execute-o e clique em \"Já instalei, verificar novamente\".",
+    "description": "O Specrails precisa de Node.js, npm, npx e Git no PATH. Escolha o snippet para o seu SO, execute-o e clique em \"Já instalei, verificar novamente\".",
     "darwin": {
       "intro": "O Homebrew instala ambas as ferramentas numa só linha. Se não tiver o brew, use os downloads oficiais.",
       "installNodeGit": "Instalar Node.js e Git via Homebrew"

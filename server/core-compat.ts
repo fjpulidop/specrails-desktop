@@ -1,16 +1,17 @@
-import { execSync } from 'child_process'
+import { execFile, execSync } from 'child_process'
 import { checkSessionContract, type SessionContractBlock, type SessionContractCheck } from './modules/agent-sessions'
 import fs from 'fs'
 import path from 'path'
 import { CHECKPOINTS } from './setup-manager'
 import { getBundledCoreRoot } from './bundled-core'
 import { getCoreRuntimeStatus } from './core-runtime'
+import { binaryOnPathAsync, runProbeCommand, WHICH_TIMEOUT_MS } from './binary-probe'
 
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 /** Paired development target; older supported contracts (5.1) remain compatible. */
-export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.11'
+export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.17'
 
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([
@@ -157,17 +158,38 @@ export async function findCoreContract(): Promise<string | null> {
     if (fs.existsSync(contractPath)) return contractPath
   } catch { /* not locally installed */ }
 
-  // Strategy 3: npm root -g
-  try {
-    const globalRoot = execSync('npm root -g', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-    }).trim()
+  // Strategy 3: npm root -g (async, bounded, memoized — see globalNpmRoot)
+  const globalRoot = await globalNpmRoot()
+  if (globalRoot) {
     const contractPath = path.join(globalRoot, 'specrails-core', 'integration-contract.json')
     if (fs.existsSync(contractPath)) return contractPath
-  } catch { /* npm not available or failed */ }
+  }
 
   return null
+}
+
+// `npm root -g` boots npm (~0.3–1 s) and used to run through execSync with no
+// timeout on every checkCoreCompat() — i.e. inside every provider detection
+// cycle that saw Kimi. The global prefix practically never changes while the
+// app runs, so resolve it off the event loop, bounded, and memoize it (a
+// failure is memoized too; both expire after the TTL).
+const NPM_ROOT_TIMEOUT_MS = 10_000
+const NPM_ROOT_TTL_MS = 10 * 60_000
+let _npmRoot: { at: number; value: Promise<string | null> } | null = null
+
+function globalNpmRoot(): Promise<string | null> {
+  const now = Date.now()
+  if (_npmRoot && now - _npmRoot.at < NPM_ROOT_TTL_MS) return _npmRoot.value
+  const value = runProbeCommand('npm root -g', { timeout: NPM_ROOT_TIMEOUT_MS })
+    .then((out) => out || null)
+    .catch(() => null /* npm not available or failed */)
+  _npmRoot = { at: now, value }
+  return value
+}
+
+/** Test-only: forget the memoized `npm root -g`. */
+export function _resetGlobalNpmRootForTests(): void {
+  _npmRoot = null
 }
 
 // âââ CLI detection ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -189,7 +211,7 @@ export type CLIProvider = string
 export function detectCLISync(): CLIProvider | null {
   for (const adapter of listAdapters()) {
     try {
-      execSync(`${WHICH_CMD} ${adapter.binary}`, { stdio: 'ignore' })
+      execSync(`${WHICH_CMD} ${adapter.binary}`, { stdio: 'ignore', timeout: WHICH_TIMEOUT_MS })
       return adapter.id
     } catch { /* keep looking */ }
   }
@@ -204,13 +226,26 @@ export function detectAvailableCLIs(): Record<string, boolean> {
   const out: Record<string, boolean> = {}
   for (const adapter of listAdapters()) {
     try {
-      execSync(`${WHICH_CMD} ${adapter.binary}`, { stdio: 'ignore' })
+      execSync(`${WHICH_CMD} ${adapter.binary}`, { stdio: 'ignore', timeout: WHICH_TIMEOUT_MS })
       out[adapter.id] = true
     } catch {
       out[adapter.id] = false
     }
   }
   return out
+}
+
+/**
+ * Non-blocking detectAvailableCLIs: the same PATH probe (`which`/`where`),
+ * run as concurrent child processes so request handlers never stall the
+ * event loop while it resolves.
+ */
+export async function detectAvailableCLIsAsync(): Promise<Record<string, boolean>> {
+  const adapters = listAdapters()
+  const found = await Promise.all(adapters.map((adapter) => new Promise<boolean>((resolve) => {
+    execFile(WHICH_CMD, [adapter.binary], { windowsHide: true, timeout: 5000 }, (error) => resolve(!error))
+  })))
+  return Object.fromEntries(adapters.map((adapter, index) => [adapter.id, found[index]]))
 }
 
 /**
@@ -226,24 +261,22 @@ export interface CLIStatus {
 }
 
 /**
- * Detect the active CLI and its version.
+ * Detect the active CLI (first registered adapter on PATH) and its version.
+ * Non-blocking: the PATH lookups share binaryOnPath's memo and the version
+ * probe is a bounded async child (it used to freeze the server per request).
  */
-export function getCLIStatus(): CLIStatus {
-  const provider = detectCLISync()
-  if (!provider) return { provider: null, version: null }
+export async function getCLIStatus(): Promise<CLIStatus> {
+  let adapter: (ReturnType<typeof listAdapters>)[number] | undefined
+  for (const candidate of listAdapters()) {
+    if (await binaryOnPathAsync(candidate.binary)) { adapter = candidate; break }
+  }
+  if (!adapter) return { provider: null, version: null }
+  const provider = adapter.id
 
   try {
-    const versionFlag = '--version'
-    // Look up the binary name from the registry rather than using the
-    // provider id as the binary (they happen to match for claude/codex but
-    // future providers MAY split them).
-    const adapter = listAdapters().find((a) => a.id === provider)
-    const binary = adapter?.binary ?? provider
-    const raw = execSync(`${binary} ${versionFlag}`, {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
-    }).trim()
+    // Use the registry's binary name rather than the provider id (they match
+    // for claude/codex but future providers MAY split them).
+    const raw = await runProbeCommand(`${adapter.binary} --version`, { timeout: 3000 })
     // Extract semver-like token from output (e.g. "Claude Code 1.2.3" â "1.2.3")
     const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)
     return { provider, version: match ? match[0] : raw }
@@ -252,7 +285,8 @@ export function getCLIStatus(): CLIStatus {
   }
 }
 
-function readDesktopVersion(): string {
+/** The running app's version (its package.json), or 'unknown'. */
+export function readDesktopVersion(): string {
   // __dirname is server/ in dev (tsx) or server/dist/ when compiled
   const candidates = [
     path.join(__dirname, '..', 'package.json'),       // from server/ (dev)

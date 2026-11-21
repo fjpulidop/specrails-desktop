@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { envelopeOf, errorMessage, payloadOf } from './__fixtures__/envelope'
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'rails-origin-test-token-no-filesystem-access' }))
 // Pin legacy launch tests independently of whichever Core is installed locally.
 const coreCapabilities = vi.hoisted(() => ({ value: {} as Record<string, number> }))
@@ -23,7 +24,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // ── End-to-end origin link (design §8, safe-pr-review-flow) ───────────────────
 //
@@ -156,8 +157,8 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-baseline-missing'),
     )
     expect(r.isError).toBe(true)
-    expect(r.content[0].text).toContain('isolation_failed')
-    expect(r.content[0].text).toContain('Could not freeze the OpenSpec delivery baseline')
+    expect(envelopeOf(r).error).toMatchObject({ backendCode: 'isolation_failed', http: { method: 'POST' } })
+    expect(errorMessage(r)).toContain('Could not freeze the OpenSpec delivery baseline')
     expect(loopRun).not.toHaveBeenCalled()
     expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
     const deliveryId = postPrDecisionCard.mock.calls[0][1].prDeliveryId as string
@@ -172,7 +173,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-int-42'),
     )
     expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
-    const payload = JSON.parse(r.content[0].text)
+    const payload = payloadOf(r)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(1) // scope='all' → one unit
 
@@ -221,7 +222,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     )
 
     expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
-    const payload = JSON.parse(r.content[0].text)
+    const payload = payloadOf(r)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(2)
     expect(loopRun.mock.calls[0][0].loopId).toBe('gallery-quick-sdd')
@@ -244,7 +245,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-nogit'),
     )
     expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
-    const payload = JSON.parse(r.content[0].text)
+    const payload = payloadOf(r)
     // Shared-cwd fallback surfaced verbatim + isolated flag absent.
     expect(payload.isolationUnavailable).toBe('no-git')
     expect(payload.isolated).toBeUndefined()
@@ -296,7 +297,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-bare-7'),
     )
     expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
-    const payload = JSON.parse(r.content[0].text)
+    const payload = payloadOf(r)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(1) // derived implement is all-scope → one unit
 
@@ -454,7 +455,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra(conv.id),
     )
     expect(r.isError).toBe(true)
-    expect(r.content[0].text).toContain("provider 'gemini' is not installed")
+    expect(errorMessage(r)).toContain("provider 'gemini' is not installed")
     expect(loopRun).not.toHaveBeenCalled()
   })
 

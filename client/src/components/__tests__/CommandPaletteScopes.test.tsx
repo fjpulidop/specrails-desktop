@@ -160,7 +160,7 @@ describe('CommandPalette — scoped search', () => {
     const row = await screen.findByTestId('palette-spec-12')
     expect(calls('/search/specs')[0]).toContain('q=throttle')
     expect(row).toHaveTextContent('#12')
-    expect(row).toHaveTextContent('In Progress')
+    expect(row).toHaveTextContent('In progress')
     const mark = within(screen.getByTestId('palette-spec-snippet-12')).getByText('throttle')
     expect(mark.tagName).toBe('MARK')
     expect(row).toHaveTextContent('Description')
@@ -201,7 +201,7 @@ describe('CommandPalette — scoped search', () => {
       await user.type(input, '/webhook')
       const row = await screen.findByTestId('palette-setting-webhooks')
       expect(row).toHaveTextContent('Outbound webhooks')
-      expect(row).toHaveTextContent('Desktop settings · Webhooks')
+      expect(row).toHaveTextContent('Settings · Webhooks')
       await user.click(row)
       expect(appEvents).toEqual([{ section: 'webhooks', settingId: 'webhooks' }])
 

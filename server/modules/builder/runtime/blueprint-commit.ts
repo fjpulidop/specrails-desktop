@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -131,7 +132,7 @@ export function renderReadme(blueprint: Blueprint, name: string): string {
   return lines.join('\n')
 }
 
-/** Mirrors desktop-router's slugify/allocateSlug (kept local — same contract). */
+/** Mirrors desktop-router-projects' slugify/allocateSlug (kept local — same contract). */
 function slugifyName(name: string): string {
   return name
     .toLowerCase()
@@ -274,7 +275,7 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
     const validated = validate(input)
     if (!validated.ok) throw new Error(`invalid commit input: ${validated.error}`)
     const commitId = randomUUID()
-    void run(commitId, validated)
+    void run(commitId, validated).catch(logRejection('blueprint commit'))
     return commitId
   }
 

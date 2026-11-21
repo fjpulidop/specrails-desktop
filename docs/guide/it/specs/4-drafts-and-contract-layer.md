@@ -78,4 +78,4 @@ Non sempre. Per una spec piccola e autonoma l'AI riesce a implementarla bene anc
 
 - [Aggiungi spec — Modalità Explore](add-spec-explore-mode.md) — da dove arrivano le bozze.
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — il toggle del Contract Layer in modalità Quick.
-- [Esecuzione delle pipeline](running-pipelines.md) — realizza una spec una volta che è pronta.
+- [Esecuzione delle pipeline](../pipeline/rails-and-jobs) — realizza una spec una volta che è pronta.

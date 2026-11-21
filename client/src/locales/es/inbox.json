@@ -1,11 +1,11 @@
 {
   "title": "Pendientes",
-  "subtitle_one": "{{count}} elemento te espera",
-  "subtitle_other": "{{count}} elementos te esperan",
-  "subtitleEmpty": "Nada te espera",
+  "subtitle_one": "{{count}} aviso pendiente",
+  "subtitle_other": "{{count}} avisos pendientes",
+  "subtitleEmpty": "Estás al día",
   "loading": "Revisando tus proyectos…",
   "empty": {
-    "title": "Nada te necesita",
+    "title": "No tienes nada pendiente",
     "description": "Las revisiones, preguntas y fallos de todos los proyectos aparecen aquí en cuanto ocurren."
   },
   "error": {
@@ -15,13 +15,13 @@
   },
   "kinds": {
     "review": "Revisión lista",
-    "question": "Esperando tu respuesta",
+    "question": "Espera tu respuesta",
     "failed": "Falló",
     "blocked": "Bloqueado",
     "budget": "Pausado por un límite",
     "jira": "Falló la sincronización con Jira",
     "failedNoCause": "Se detuvo antes de entregar",
-    "capReached": "Límite alcanzado"
+    "capReached": "Trabajo en pausa"
   },
   "actions": {
     "open": "Abrir",
@@ -34,15 +34,11 @@
   "working": "Procesando…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Posponer",
-    "hour": "1 hora",
-    "tomorrow": "Hasta mañana",
-    "cancel": "Cancelar"
+    "hour": "Posponer 1 hora",
+    "tomorrow": "Posponer hasta mañana"
   },
-  "snoozeItem": "Posponer {{title}}",
-  "snoozeFor": "Posponer {{title}} durante",
   "done": "Hecho",
-  "doneItem": "Marcar {{title}} como hecho",
+  "more": "Más acciones para {{title}}",
   "age": {
     "now": "ahora mismo",
     "ago": "hace {{age}}"
@@ -63,7 +59,10 @@
     "snoozed": "Pospuesto hasta {{when}}",
     "undo": "Deshacer",
     "stillOverBudget_week": "Sigue superado el límite semanal",
-    "stillOverBudget_month": "Sigue superado el límite mensual"
+    "stillOverBudget_month": "Sigue superado el límite mensual",
+    "muted": "Notificaciones de {{project}} silenciadas",
+    "unmuted": "Notificaciones de {{project}} activadas",
+    "muteFailed": "No se pudieron cambiar las notificaciones del proyecto"
   },
   "cap": {
     "title": {
@@ -80,5 +79,13 @@
     },
     "detail": "{{spent}} de {{budget}} gastados"
   },
-  "stale": "No se pudo actualizar; se muestra la última lista."
+  "stale": "No se pudo actualizar; se muestra la última lista.",
+  "unseen": "Nuevo",
+  "markRead": "Marcar como leído",
+  "markUnread": "Marcar como no leído",
+  "mute": {
+    "mute": "Silenciar las notificaciones de {{project}}",
+    "unmute": "Volver a activar las notificaciones de {{project}}"
+  },
+  "attempt": "intento {{number}}"
 }

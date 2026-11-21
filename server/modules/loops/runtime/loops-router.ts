@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import { defaultLoopAgents } from './loop-agents'
 import { validateLoopRuntimeSettings, loadRuntimeRolePrompts } from '../../agent-runtime/runtime/agent-runtime-settings'
 /**
@@ -80,7 +81,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   // Startup: the registry (and its desktop DB) exists when routes are registered.
   // The Core API probe is synchronous on first use, so defer it past startup
   // (and the listen call) instead of delaying the server by the probe timeout.
-  if (isLoopsEnabled() && deps.builtinLoops) setImmediate(() => { void seedBuiltins() }).unref?.()
+  if (isLoopsEnabled() && deps.builtinLoops) setImmediate(() => { void seedBuiltins().catch(logRejection('builtin loop seeding')) }).unref?.()
 
   // Single gate: every loops route 404s when the feature is disabled.
   function guard(res: Response): boolean {

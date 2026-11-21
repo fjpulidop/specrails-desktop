@@ -53,7 +53,7 @@ Tests use vitest with `:memory:` SQLite databases.
       terminals/          # per-session shell-integration shims
 ```
 
-> **Artifact relocation + bundled framework (pre-release, branch `feat/relocate-artifacts-to-home`).** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See the **Artifact relocation + bundled framework** section in `CLAUDE.md` and the three internal docs: `global-artifacts-relocation-evaluation.md`, `global-artifacts-alignment-contract.md`, `bundled-framework-build-plan.md`.
+> **Artifact relocation + bundled framework.** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See [the relocation evaluation](global-artifacts-relocation-evaluation.md), [the alignment contract](global-artifacts-alignment-contract.md) and the historical [Artifact relocation notes](legacy-implementation-notes.md).
 
 The app SQLite (`desktop.sqlite`) stores only project metadata. All per-project data lives in an isolated `jobs.sqlite` under the project's slug directory — not just jobs and chat, but rails, tickets, agent profiles/versions, AI invocations (cost analytics), telemetry pointers, file provenance, terminal settings/marks, and more (see the `MIGRATIONS` array in `server/db/migrations.ts`). Projects can be removed and re-added without losing history, and the registry can be wiped without touching project data.
 
@@ -95,7 +95,29 @@ Each project in the `ProjectRegistry` gets its own `ProjectContext`:
 | `SetupManager` | Background workspace assembly for added projects (plus the legacy API/MCP install flow) |
 | `cwd` | Absolute path to the project directory on disk |
 
-The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so managers don't need per-project constructor arguments.
+The `boundBroadcast` closure (`project-context-broadcast.ts`) injects `projectId` into all WebSocket messages, so managers don't need per-project constructor arguments.
+
+`ProjectRegistry._loadProjectContext` is a short orchestrator. Each capability's
+wiring is a function in its own `server/project-context-*.ts` file that takes the
+inputs it needs and returns what it creates; the registry calls them in a
+documented order (admission closes first, Jira/audit before the queue, active loop
+runs captured before the loop engine, the context assembled before the services
+that need it, recovery last) and owns teardown in `removeProject`/`shutdown`.
+
+| File | Wiring it owns |
+|------|----------------|
+| `project-context-broadcast.ts` | `projectId` injection, late-bound observer taps, agent-job release |
+| `project-context-queue.ts` | `QueueManager` construction, admission claims, budget hooks, command catalog |
+| `project-context-job-outcome.ts` | `onJobFinished`: ticket outcome, addenda, rail release, Jira/webhook/WS fan-out |
+| `project-context-managers.ts` | Chat, setup, proposals, refine, spec launcher, file summaries, ticket watcher, browser capture |
+| `project-context-budget.ts` | Daily/period cap gates, run cap default, review WIP gate |
+| `project-context-loops.ts` | `LoopRunManager` and executors, host-task dispatcher, clarification publishing |
+| `project-context-loop-outcome.ts` | `onLoopRunFinished` and startup orphan loop reconciliation |
+| `project-context-milestones.ts` | Milestone launch chain and progress broadcaster |
+| `project-context-services.ts` | Mission resources, spec triage, trash purge, PR merge watch |
+| `project-context-intent.ts` | Intent service and hand-off authority |
+| `project-context-recovery.ts` | Ordered restart replay that reopens process admission; PR-decision reprojection |
+| `project-context-tickets.ts` | Project ticket-store path and spec readers |
 
 ---
 
@@ -106,9 +128,9 @@ The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so
 | `index.ts` | Entry point: PATH resolution, auth bootstrap, port binding, router mounts, WS server |
 | `auth.ts` | Token bootstrap + `requireAuth` middleware + WS upgrade token check |
 | `desktop-db.ts` | App-level SQLite: project registry CRUD, app settings |
-| `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext` |
-| `desktop-router.ts` | `/api/*` routes: projects, settings, themes, specrails-tech proxy, cross-project analytics |
-| `project-router.ts` | `/api/projects/:id/*` routes: all project-scoped operations |
+| `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext`; `_loadProjectContext` orchestrates the `project-context-*.ts` wiring (see below) |
+| `desktop-router.ts` | `/api/*` router composition; route groups live in `desktop-router-*.ts` (projects, providers, analytics, settings, agents/specrails-tech, webhooks, runtime providers, core update) |
+| `project-router.ts` | `/api/projects/:id/*` router composition: mounts `project-router-*.ts` groups (tickets split by sub-resource in `project-router-tickets-*.ts`, jobs, loop runs, spending, chat, git, settings, terminals, …) and module routers |
 | `db.ts`, `db/` | Stable persistence facade with separate connection, migrations and domain repositories; see [source boundaries](source-architecture.md) |
 | `modules/execution/runtime/queue-manager.ts` | Legacy job queue: spawn provider CLI processes serially per project |
 | `modules/loops/runtime/loop-run-manager.ts` | Loop runs: the default rail execution path, concurrent across rails |
@@ -137,7 +159,7 @@ Provider, terminal, profile, plugin, code-explorer, and explore subsystems each 
 client/src/
 ├── App.tsx                     # Mounts DesktopProvider + DesktopApp unconditionally
 ├── components/                 # App shell and shared primitives
-│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar (projects, Loops, Plugins, …) — see Sidebar shell
+│   ├── ArcSidebar.tsx          # Collapsible left sidebar (projects, Loops, Plugins, …) — see Sidebar shell
 │   ├── ProjectLayout.tsx       # Per-project three-panel wrapper
 │   ├── ProjectRightSidebar.tsx # Project nav (Jobs, Analytics, Agents, Code, …)
 │   ├── TitleBar.tsx            # Custom frameless titlebar (desktop)
@@ -270,7 +292,7 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 
 | Subsystem | Server modules | Notes |
 |-----------|---------------|-------|
-| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,kimi-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Four first-class providers — Claude, Codex, Gemini, and Kimi — enabled by default** behind a `ProviderAdapter` contract. Claude reports native cost and supports persistent stdin; Codex (`≥ 0.128.0`) and Gemini (`≥ 0.11.0`) expose estimated usage; Kimi (`≥ 0.27.0`) runs CLI-only prompt-mode JSONL, resumes through terminal hints, uses `.kimi-code` skills/MCP, and leaves absent cost/tokens unavailable. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by executable detection, Core target compatibility, and the existing Codex/Gemini emergency switches. See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), [`../gemini.md`](../gemini.md), and [`../kimi.md`](../kimi.md). |
+| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,kimi-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Four first-class providers — Claude, Codex, Gemini, and Kimi — enabled by default** behind a `ProviderAdapter` contract. Claude reports native cost and supports persistent stdin; Codex (`≥ 0.128.0`) and Gemini (`≥ 0.11.0`) expose estimated usage; Kimi (`≥ 0.27.0`) runs CLI-only prompt-mode JSONL, resumes through terminal hints, uses `.kimi-code` skills/MCP, and leaves absent cost/tokens unavailable. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by executable detection, Core target compatibility, and the existing Codex/Gemini emergency switches. See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), [`gemini-adapter.ts`](../../server/providers/gemini-adapter.ts), and [`kimi-adapter.ts`](../../server/providers/kimi-adapter.ts). |
 | **Spending analytics** | `server/modules/accounting/runtime/spending.ts`, `server/modules/accounting/runtime/ai-invocations.ts`, `server/modules/accounting/runtime/pricing.ts` | `recordInvocation` writes an `ai_invocations` row per AI CLI call across twelve surfaces (`job`, `loop`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`, `chat-sidebar`, `spec-launcher`, `proposal`, `agent-studio`, `setup`); mission turns record to the app-level `agent_invocations` ledger and are folded into a pinned project's spending. Powers the Analytics page and `spending.invalidated`. |
 | **Agent profiles** | `server/modules/agents/runtime/profile-manager.ts`, `server/modules/agents/runtime/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0` in general and the Core 4.12 Kimi target for Kimi roles (the app installs Core 6: `CORE_PACKAGE_SPEC` in `server/core-package.ts`). Claude and Kimi advertise profile support; other adapters force legacy/no-profile mode. |
 | **Plugins (Integrations)** | `server/plugin-manager.ts`, `server/plugins/` | Bundled-only, MCP-based, additivity invariant, surgical `.mcp.json` merge, `plugin.*` WS events. Serena ships today. |
@@ -280,7 +302,7 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 | **Explore acceleration + Contract Refine** | `server/modules/conversations/runtime/explore-cwd-manager.ts`, `server/modules/specs/runtime/contract-refine-runner.ts` | App-managed Explore spawn cwd for fast first-token; optional post-commit Contract Layer enrichment. Kill switches: `SPECRAILS_EXPLORE_CONTRACT_REFINE`, `SPECRAILS_EXPLORE_LEGACY_CWD`. |
 | **Tickets / drafts** | `server/modules/specs/runtime/ticket-store.ts` | Spec tickets (incl. `draft` status) backing the Specs board and Save-as-Draft flow. |
 | **Jira integration** | `server/jira/*` (`jira-sync-manager`, `jira-client`, `jira-materializer`, `jira-status-resolver`, `jira-db`, `jira-credential-store`), `server/jira-router.ts` | Optional per-project sync that backs a project's specs with a Jira board (Cloud or Data Center). Desktop is the sync layer — specrails-core reads the materialized cache unchanged and stays read-only. Inbound polling + a durable outbox handle write-back (`transition`, `comment`, `update`, and `create` — durable promotion of a local ticket enqueued by `enqueuePromote`, idempotent on its key and on an existing link, sharing `promoteTicketToJira`'s create-link-flip logic; created issues carry an invisible `sh.specrails.created-from` property, so a retry recovers an issue whose create response was lost instead of creating a duplicate); the encrypted token lives on-device. Routes under `/api/projects/:id/jira/*` (gated by `SPECRAILS_JIRA_SECTION`, 404 when off); project-scoped WS events `jira.synced`, `jira.sync_error`, `jira.auth_expired`, `jira.outbox_changed`, `jira.degraded`. See [`../jira-integration-plan.md`](../jira-integration-plan.md). |
-| **Theme system** | `server/desktop-router.ts` (`GET/PATCH /api/theme`) | Five built-in themes (`dracula`, `aurora-light`, `obsidian-dark`, `matrix`, `specrails`), default `specrails`, persisted app-wide with an anti-FOUC inline script. |
+| **Theme system** | `server/desktop-router-settings.ts` (`GET/PATCH /api/theme`) | Five built-in themes (`dracula`, `aurora-light`, `obsidian-dark`, `matrix`, `specrails`), default `specrails`, persisted app-wide with an anti-FOUC inline script. |
 
 Most client feature sections are gated by VITE flags, and they share one polarity: `VITE_FEATURE_TERMINAL_PANEL`, `VITE_FEATURE_AGENTS_SECTION`, `VITE_FEATURE_EXPLORE_PREMIUM_UX`, and `VITE_FEATURE_CODE_EXPLORER` are all **opt-out** — default ON, set the flag to `false` to hide that section. See [`configuration.md`](configuration.md) for the full flag and settings reference.
 
@@ -288,7 +310,7 @@ Most client feature sections are gated by VITE flags, and they share one polarit
 
 ## Project add and workspace assembly
 
-There is no setup wizard in the app UI. `POST /api/projects` (`server/desktop-router.ts`) registers the project with the auto-detected providers, answers `201`, and then calls `SetupManager.startSilentAssemble` in the background (skipped when the workspace is already populated):
+There is no setup wizard in the app UI. `POST /api/projects` (`server/desktop-router-projects.ts`) registers the project with the auto-detected providers, answers `201`, and then calls `SetupManager.startSilentAssemble` in the background (skipped when the workspace is already populated):
 
 1. **Assemble** — one specrails-core `init` per detected provider, sequential, with per-provider failure isolation. The bundled Core is preferred (`spawnBundledCoreInit` in `server/offline-assemble.ts`, offline, with the bundled OpenSpec); without a bundle the fallback is `npx` with `CORE_PACKAGE_SPEC` from `server/core-package.ts` (currently `specrails-core@^6.0.0`, a deliberately pinned major range). `SPECRAILS_CORE_BIN` overrides the binary locally. Local (OpenAI-compatible) engines have no Core target and are skipped.
 2. **Relocation** — the framework lands in `~/.specrails/projects/<slug>/workspace` (`workspacePathFor`), never in the user's repository.
@@ -346,6 +368,6 @@ macOS desktop builds are signed + notarized. Windows builds (x64 and arm64) ship
 - [Configuration](configuration.md) — env vars, feature flags, app/project settings
 - [Agent profiles](profiles.md) — profile schema, resolution order, snapshot-per-job
 - [Adding a provider](adding-a-provider.md) — the `ProviderAdapter` contract
-- [Codex](../codex.md) / [Gemini](../gemini.md) / [Kimi](../kimi.md) — per-provider user guides
+- [Codex](../codex.md) — Codex user guide; Gemini and Kimi are covered by their adapters and the [AI providers guide](../guide/en/integrations/1-ai-providers.md)
 - [OpenSpec workflow](openspec-workflow.md) — the spec-driven change lifecycle
 - [Operations runbook](operations-runbook.md) — running, upgrading, and recovering the app

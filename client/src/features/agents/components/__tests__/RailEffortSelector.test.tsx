@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '../../../../test-utils'
 import { RailEffortSelector } from '../RailEffortSelector'
 
+const openSelect = (trigger: HTMLElement) =>
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+
 describe('RailEffortSelector', () => {
   it('renders Kimi low/high/max and replaces an invalid inherited medium', () => {
     render(
@@ -12,9 +15,10 @@ describe('RailEffortSelector', () => {
         onChange={vi.fn()}
       />,
     )
-    const select = screen.getByTestId('rail-effort-selector') as HTMLSelectElement
-    expect(select.value).toBe('high')
-    expect(Array.from(select.options, (option) => option.value)).toEqual(['low', 'high', 'max'])
+    const trigger = screen.getByTestId('rail-effort-selector')
+    expect(trigger).toHaveTextContent('high')
+    openSelect(trigger)
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['low', 'high', 'max'])
   })
 
   it('emits Kimi max unchanged', () => {
@@ -27,9 +31,8 @@ describe('RailEffortSelector', () => {
         onChange={onChange}
       />,
     )
-    fireEvent.change(screen.getByTestId('rail-effort-selector'), {
-      target: { value: 'max' },
-    })
+    openSelect(screen.getByTestId('rail-effort-selector'))
+    fireEvent.click(screen.getByRole('option', { name: 'max' }))
     expect(onChange).toHaveBeenCalledWith('max')
   })
 })

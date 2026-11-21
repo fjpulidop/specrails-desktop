@@ -1,0 +1,53 @@
+{
+  "policy": {
+    "blocked": "Bloqueado pela política do Specrails",
+    "rules": {
+      "git-force-push": "Push forçado",
+      "git-push-protected": "Push para a branch de integração",
+      "git-push-delete": "Exclusão de branch remota",
+      "git-reset-hard": "git reset --hard fora da branch do run",
+      "git-branch-delete": "Exclusão de branch",
+      "gh-pr-merge": "Merge de uma pull request",
+      "rm-outside-run": "Exclusão fora do run",
+      "secret-access": "Acesso a credenciais",
+      "policy-tamper": "Alteração dos arquivos da política",
+      "machine-install": "Instalação em toda a máquina",
+      "policy-error": "Comando arriscado não verificável"
+    }
+  },
+  "resume": {
+    "title": "Continue de onde parou",
+    "description": {
+      "quit": "O Specrails foi fechado enquanto este trabalho estava em andamento.",
+      "update": "O Specrails reiniciou para instalar uma atualização enquanto este trabalho estava em andamento.",
+      "crash": "O Specrails parou inesperadamente enquanto este trabalho estava em andamento.",
+      "mixed": "O Specrails parou enquanto este trabalho estava em andamento."
+    },
+    "selectAll": "Selecionar tudo",
+    "missions_one": "{{count}} missão estava no meio de um turno",
+    "missions_other": "{{count}} missões estavam no meio de um turno",
+    "runs_one": "{{count}} execução foi pausada pelo reinício",
+    "runs_other": "{{count}} execuções foram pausadas pelo reinício",
+    "untitled": "Missão sem título",
+    "trigger": {
+      "quit": "App fechado",
+      "update": "Atualização instalada",
+      "crash": "Parada inesperada"
+    },
+    "startedAt": "turno iniciado às {{time}}",
+    "runPaused": "pausada pelo reinício",
+    "failed": "Não foi possível retomar. Tente de novo ou abra-a.",
+    "nothingAutomatic": "Nada é retomado sozinho. As missões continuam a própria sessão; as execuções usam o Retomar de sempre.",
+    "progress": "Retomando {{done}} de {{total}}",
+    "notNow": "Agora não",
+    "resume_one": "Retomar {{count}}",
+    "resume_other": "Retomar {{count}}",
+    "resumed_one": "{{count}} item retomado",
+    "resumed_other": "{{count}} itens retomados",
+    "prompt": {
+      "quit": "O Specrails foi fechado enquanto você trabalhava no meu último pedido. Continue de onde parou: verifique primeiro o estado atual e não refaça o trabalho já feito.",
+      "update": "O Specrails reiniciou para instalar uma atualização enquanto você trabalhava no meu último pedido. Continue de onde parou: verifique primeiro o estado atual e não refaça o trabalho já feito.",
+      "crash": "O Specrails parou inesperadamente enquanto você trabalhava no meu último pedido. Continue de onde parou: verifique primeiro o estado atual e não refaça o trabalho já feito."
+    }
+  }
+}

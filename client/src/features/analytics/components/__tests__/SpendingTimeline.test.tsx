@@ -69,27 +69,36 @@ describe('SpendingTimeline', () => {
     expect(screen.queryByText(/No spend in this period/i)).not.toBeInTheDocument()
   })
 
-  it('renders chart with one Bar per surface (including smash + loop)', () => {
+  it('stacks by category and draws only the categories with spend in the window', () => {
     const data = emptyData([
-      day('2026-05-01', { jobsCostUsd: 5 }),
-      day('2026-05-02', { quickCostUsd: 1, exploreCostUsd: 2, aiEditCostUsd: 0.5 }),
+      day('2026-05-01', { jobsCostUsd: 5, totalCostUsd: 5 }),
+      day('2026-05-02', { quickCostUsd: 1, exploreCostUsd: 2, aiEditCostUsd: 0.5, totalCostUsd: 3.5 }),
     ])
     render(<SpendingTimeline data={data} loading={false} />)
-    expect(screen.getByTestId('bar-chart')).toBeInTheDocument()
-    // BUG-ANALYTICS-13: jobs, explore, quick, refine, fileSummaries, smash, loop + Others = 8.
     const bars = screen.getAllByTestId('bar')
-    expect(bars.length).toBe(8)
+    expect(bars.map((b) => b.getAttribute('data-key'))).toEqual(['Implementation', 'Specs'])
     // No two series share a colour.
     const fills = bars.map((b) => b.getAttribute('data-fill'))
     expect(new Set(fills).size).toBe(fills.length)
     expect(screen.getByTestId('legend')).toBeInTheDocument()
   })
 
-  it('stacks the unbroken-down remainder as Others so each day reconciles with its total', () => {
+  it('prefers the server per-day category split', () => {
+    const data = emptyData([day('2026-05-01', {
+      jobsCostUsd: 1, totalCostUsd: 3,
+      byCategory: { implementation: 1, missions: 0, specs: 0, code: 0, support: 2 },
+    })])
+    render(<SpendingTimeline data={data} loading={false} />)
+    const chart = JSON.parse(screen.getByTestId('bar-chart').getAttribute('data-chart') ?? '[]') as Array<Record<string, number>>
+    expect(chart[0]).toMatchObject({ Implementation: 1, Support: 2 })
+    expect(screen.getAllByTestId('bar').map((b) => b.getAttribute('data-key'))).toEqual(['Implementation', 'Support'])
+  })
+
+  it('folds surfaces without a legacy field into Support so each day reconciles with its total', () => {
     const data = emptyData([day('2026-05-01', { jobsCostUsd: 4, totalCostUsd: 10 })])
     render(<SpendingTimeline data={data} loading={false} />)
     const chart = JSON.parse(screen.getByTestId('bar-chart').getAttribute('data-chart') ?? '[]') as Array<Record<string, number>>
-    expect(chart[0].Others).toBeCloseTo(6)
+    expect(chart[0].Support).toBeCloseTo(6)
   })
 
   it('BUG-ANALYTICS-13: renders the chart (not empty) for a smash-only day', () => {

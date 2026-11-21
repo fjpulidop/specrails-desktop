@@ -131,6 +131,24 @@ describe('createWorktree (resume-aware)', () => {
     await expect(createWorktree(git, base)).rejects.toThrow(/boom/)
   })
 
+  it('removes the branch and registration a failed add created, and keeps a branch that existed', async () => {
+    // lowdisk: each launch on a full disk left another fix/2-…-N branch behind.
+    const fresh = fakeGit({ addFails: true })
+    await expect(createWorktree(fresh.git, { ...base, branch: 'fix/2-x' })).rejects.toThrow(/boom/)
+    expect(fresh.calls).toContainEqual(['worktree', 'prune'])
+    expect(fresh.calls).toContainEqual(['branch', '-D', 'fix/2-x'])
+    const existing = fakeGit({ addFails: true, branchExists: true })
+    await expect(createWorktree(existing.git, { ...base, branch: 'fix/2-x' })).rejects.toThrow(/boom/)
+    expect(existing.calls.some((c) => c[0] === 'branch' && c[1] === '-D')).toBe(false)
+  })
+
+  it('names a full disk instead of git\'s raw error', async () => {
+    const { git } = fakeGit({ addFails: true })
+    const full: GitRunner = { run: async (args, cwd) => (args[0] === 'worktree' && args[1] === 'add'
+      ? { code: 128, stdout: '', stderr: "fatal: could not write to '/wt/ticket-3/.git': No space left on device" } : git.run(args, cwd)) }
+    await expect(createWorktree(full, base)).rejects.toThrow(/The disk that holds the run checkouts is full.*Free disk space there, then launch again/)
+  })
+
   it('uses the preferred conventional branch name when provided', async () => {
     const { git, addCalls } = fakeGit()
     const h = await createWorktree(git, { ...base, branch: 'feat/PROJ-3-add-dark-mode' })
@@ -457,6 +475,86 @@ describe('commitWorktree', () => {
       } finally {
         fs.rmSync(sharedMemory, { recursive: true, force: true })
       }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('hides the overlay manifest from git status so agents never see it as untracked work', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-overlay-status-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      fs.writeFileSync(path.join(dir, '.sr-rail-overlay.json'), '{"version":2}\n')
+      fs.mkdirSync(path.join(dir, 'pkg'))
+      fs.writeFileSync(path.join(dir, 'pkg', '.sr-rail-overlay.json'), 'a project file of the same name, deeper\n')
+      expect(git(['status', '--porcelain', '--untracked-files=all'])).toBe('?? pkg/.sr-rail-overlay.json\n')
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('never commits build caches the checks leave untracked, but keeps committing tracked ones', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-generated-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.mkdirSync(path.join(dir, 'pkg', '__pycache__'), { recursive: true })
+      fs.writeFileSync(path.join(dir, 'tracked.tsbuildinfo'), 'v1\n')
+      git(['add', '-A'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      fs.writeFileSync(path.join(dir, 'tsconfig.tsbuildinfo'), '{}\n')
+      fs.writeFileSync(path.join(dir, 'pkg', '__pycache__', 'm.cpython-312.pyc'), 'x')
+      fs.mkdirSync(path.join(dir, 'target', 'debug'), { recursive: true })
+      fs.writeFileSync(path.join(dir, 'target', 'debug', 'app'), 'bin')
+      fs.writeFileSync(path.join(dir, 'tracked.tsbuildinfo'), 'v2\n')
+      fs.writeFileSync(path.join(dir, 'App.tsx'), 'export {}\n')
+      const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [])
+      expect(result.error).toBeUndefined()
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD']).slice(0, -1).split('\0').sort()
+      expect(committed).toEqual(['App.tsx', 'tracked.tsbuildinfo'])
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('never commits Core run state that lands in the checkout of an unassembled project', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-core-state-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      const run = path.join(dir, '.specrails', 'pipeline', 'run-1', 'agent-workflow')
+      fs.mkdirSync(run, { recursive: true })
+      fs.writeFileSync(path.join(run, 'artifact.json'), '{}\n')
+      fs.mkdirSync(path.join(dir, '.specrails', 'pipeline', 'runtime-packages', 'abc', 'node_modules', 'dep'), { recursive: true })
+      fs.writeFileSync(path.join(dir, '.specrails', 'pipeline', 'runtime-packages', 'abc', 'node_modules', 'dep', 'index.js'), '\n')
+      fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite'), 'db')
+      fs.writeFileSync(path.join(dir, '.specrails', 'engine-store.sqlite-wal'), 'wal')
+      fs.mkdirSync(path.join(dir, '.specrails', 'browser-evidence', 'capture-1'), { recursive: true })
+      fs.writeFileSync(path.join(dir, '.specrails', 'browser-evidence', 'capture-1', 'desktop.png'), 'png')
+      fs.writeFileSync(path.join(dir, 'app.py'), 'code = 1\n')
+
+      const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [])
+
+      expect(result.error).toBeUndefined()
+      expect(result).toMatchObject({ staged: true, committed: true })
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD']).slice(0, -1).split('\0')
+      expect(committed).toEqual(['app.py'])
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }

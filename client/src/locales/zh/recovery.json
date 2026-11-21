@@ -10,9 +10,14 @@
     },
     "provider_limit": "已达到 AI 提供商的使用上限",
     "environment": "环境无法运行检查",
+    "port_in_use": {
+      "port": "端口 {{port}} 已被其他进程占用",
+      "plain": "运行所需的端口已被其他进程占用"
+    },
     "blocked": {
       "phase": "运行在{{phase}}阶段被阻塞",
-      "plain": "运行被阻塞"
+      "plain": "运行被阻塞",
+      "corrections": "自动修正次数已用完"
     },
     "timeout": {
       "phase": "{{phase}}阶段超时",
@@ -26,31 +31,55 @@
       "phase": "代理在{{phase}}阶段意外停止",
       "plain": "代理意外停止"
     },
-    "unknown": "原因未知"
+    "provider_unavailable": {
+      "phase": "{{phase}} 阶段时提供方服务不可用",
+      "plain": "提供方服务不可用"
+    },
+    "incomplete_tasks": "有已批准的任务未完成",
+    "spec_invalid": "OpenSpec 拒绝了该变更的规范",
+    "workflow_protocol": {
+      "role": "{{role}} 的模型跳过了必需的 OpenSpec 步骤",
+      "plain": "模型跳过了必需的 OpenSpec 步骤"
+    },
+    "unknown": "原因未知",
+    "stepFailed": "{{phase}} 步骤失败"
   },
   "why": {
     "provider_limit": {
-      "reset": "将在 {{resetAt}} 重置。重置后再继续。",
-      "noReset": "等待上限重置，然后继续。"
+      "resetsAt": "将于 {{time}} 重置。届时继续，或换用其他提供方运行。",
+      "reset": "将于 {{resetAt}} 重置。届时继续，或换用其他提供方运行。",
+      "noReset": "等待限额重置后继续，或换用其他提供方运行。"
     },
     "environment": "问题不在改动本身，机器需要先准备好一些东西。",
+    "port_in_use": "问题不在于这次变更：有其他程序占用了该端口。停止它，或让项目读取 PORT（每次运行都有自己的端口），然后重新运行。",
     "tests_failed": "修正之后检查仍然失败。",
     "blocked": "是某个上限或某项决定让它停下的，并没有崩溃。",
     "timeout": "在完成之前达到了时间上限。",
     "tool_inactivity": "它太久没有使用工具，也没有回复。",
     "crash": "提供商进程或其连接在运行中断开了。",
-    "unknown": "应用无法确定它为什么停止，也不会猜测。"
+    "provider_unavailable": "即使 Specrails 重试了约一分钟，提供方服务仍暂时没有响应。工作本身没有问题。",
+    "incomplete_tasks": "其余都已完成。继续会用浏览器和工具完成剩余部分；只能由人完成的检查可以改为送去评审。",
+    "spec_invalid": "计划或规范未通过 OpenSpec，规划也无法修复。",
+    "workflow_protocol": {
+      "plain": "即使收到提醒，它仍在未执行 Specrails 要求的步骤时结束了回合。该步骤之前的工作已保留：从该步骤继续。",
+      "stronger": "{{model}} 是小型模型，即使收到提醒，仍在未执行 Specrails 要求的步骤时结束了回合。从该步骤继续；如果再次发生，请为此角色选择 {{stronger}}。"
+    },
+    "unknown": "运行自身的记录没有说明原因。用 AI 阅读日志通常能找到原因。",
+    "correctionsExhausted": "经过 {{count}} 次自动修正后，审阅者仍要求修改。没有崩溃：运行在继续消耗之前停了下来。"
   },
   "remedies": {
-    "label": "恢复方式"
+    "label": "恢复方式",
+    "more": "更多恢复方式"
   },
   "remedy": {
-    "resume": "继续",
-    "resumeFrom": "从{{phase}}继续",
-    "retry": "再次运行",
+    "retry": "从头开始",
     "editSpec": "编辑规格并重新启动",
     "fixEnvironment": "修复环境",
-    "openLogs": "在失败处打开日志"
+    "openLogs": "在失败处打开日志",
+    "continueToReview": "继续进入评审",
+    "continue": "继续",
+    "continueFrom": "从{{phase}}继续",
+    "copyEnvFiles": "将此项目的 .env 复制到运行中"
   },
   "environment": {
     "command": "命令",
@@ -59,7 +88,7 @@
     "inDirectory": "位于 {{cwd}}",
     "requiredAction": "需要的操作",
     "generic": "需要先处理环境问题，运行才能继续。",
-    "then": "处理完成后，继续运行。"
+    "then": "完成后，继续运行。"
   },
   "logTail": {
     "title": "日志末尾"
@@ -73,5 +102,139 @@
     "apply": "检查时使用 Python {{version}} venv",
     "saved": "已保存到项目设置。下次启动会在检查前创建 venv。",
     "failed": "无法保存设置。请打开项目设置进行配置。"
+  },
+  "analysis": {
+    "title": "AI 分析",
+    "offer": "让 AI 阅读日志并解释此次运行停止的原因。",
+    "run": "用 AI 分析",
+    "retry": "重试",
+    "running": "正在阅读日志查找停止原因…",
+    "failed": "无法完成分析：{{detail}}",
+    "noDetail": "无详细信息",
+    "evidence": "日志摘录",
+    "nextSteps": "解决计划",
+    "failedStep": "步骤：{{step}}",
+    "by": "由 {{model}} 完成的 AI 分析。它基于日志，请核对引用的行。",
+    "stale": "此分析之后日志已变化。",
+    "regenerate": "重新分析",
+    "category": {
+      "providerLimit": "配额或用量上限",
+      "missingArtifact": "缺少产物",
+      "configuration": "配置",
+      "tests": "测试",
+      "environment": "环境",
+      "agentError": "代理错误",
+      "interrupted": "已中断",
+      "incompleteTasks": "未完成的任务",
+      "other": "其他"
+    },
+    "interrupted": "分析被中断了（运行时应用重新启动了）。请重试。",
+    "action": {
+      "changeModel": "更换模型",
+      "changeModelFor": "更换{{role}}的模型"
+    },
+    "continueCarriesPlan": "无需选择其中一项：上方的“继续”会把这些步骤交给智能体并执行。"
+  },
+  "facts": {
+    "label": "失败位置",
+    "step": "步骤",
+    "attempt": "尝试",
+    "iteration": "迭代",
+    "time": "时间"
+  },
+  "incomplete": {
+    "title": "未完成的任务"
+  },
+  "ai": {
+    "label": "来自 AI 分析",
+    "running": "AI 正在读取日志以查找原因…"
+  },
+  "remedyResult": {
+    "continued": "正在进入评审，剩余项作为人工检查。",
+    "notResumed": "继续的运行未能启动",
+    "failed": "无法继续运行",
+    "continuing": "正在继续运行。",
+    "continuingFrom": "正在从{{step}}步骤继续。",
+    "envFilesCopied": "已将 {{files}} 复制到运行中。继续。",
+    "envFilesUnavailable": "此项目没有可复制的 .env 文件。请在你的工作副本中创建它，然后重试。",
+    "continuingWith": "正在按此继续：{{label}}",
+    "continuingWithInstruction": "正在按你的指令继续。"
+  },
+  "consequence": {
+    "continue": "保留全部内容，从失败的步骤继续。",
+    "continueTasks": "保留全部内容，只重做缺少的部分，并附上浏览器和安装指引。",
+    "continueEnvironment": "保留全部内容；告诉代理缺少什么，由它安装后继续。",
+    "continueLimit": "保留全部内容，待提供方重新接受请求后继续。",
+    "continueTransient": "保留全部内容，重新运行同一步骤。",
+    "continueStopped": "在同一个 worktree 中从停止处继续，保留目前所做的一切。",
+    "continueToReview": "立即送去评审，剩余事项列为人工检查。",
+    "editSpec": "打开规格；修改后会启动新的运行。",
+    "fixEnvironment": "显示机器需要什么以及要运行的命令。",
+    "openLogs": "滚动到日志中失败的步骤。",
+    "retry": "从基线重新运行。此次尝试的工作不会带过去，仍保留在旧的 worktree 中。",
+    "analyze": "AI 阅读日志并说明停止原因。",
+    "copyEnvFiles": "为此项目打开该设置并继续。其运行中的智能体可以读取这些文件；它们绝不会被提交，也不会在评审中显示。",
+    "continueCorrections": "为修正者再提供 3 次修正机会并附上审阅者的要求，然后重新审阅。"
+  },
+  "stopped": {
+    "headline": "你停止了此次运行",
+    "why": "没有任何损失。",
+    "whyNoContinue": "其工作保留在 worktree 中。从头开始会从基线重新运行。"
+  },
+  "lineage": {
+    "title": "尝试",
+    "explain": "每次尝试都接续上一次并保留其工作。最新一次代表全部。",
+    "attempt": "第 {{attempt}} 次尝试（共 {{total}} 次）",
+    "attemptShort": "第 {{attempt}} 次尝试",
+    "continuedFromStep": "从第 {{attempt}} 次尝试的{{step}}步骤继续",
+    "continuedFrom": "接续第 {{attempt}} 次尝试",
+    "supersededBy": "第 {{attempt}} 次尝试已接手",
+    "automatic": "Specrails 已自动继续",
+    "this": "本次",
+    "open": "打开",
+    "fromStep": "从{{step}}步骤",
+    "byAutomatic": "Specrails 自动继续",
+    "byPerson": "由你继续",
+    "byReview": "附人工检查送去评审",
+    "guidance": "发送给代理的指引",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "按价目表估算，并非实际计费"
+  },
+  "resolution": {
+    "title": "选择如何继续",
+    "intro": "每个选项都说明它做什么以及可能发生什么。点一下，运行就会继续。",
+    "recommended": "推荐",
+    "whatMayHappen": "可能发生：",
+    "risk": {
+      "low": "低风险",
+      "medium": "有一定风险",
+      "high": "高风险"
+    },
+    "other": "其他指令…",
+    "otherLabel": "要让代理做什么？",
+    "otherPlaceholder": "例如：在关闭测试中不带调试器启动 Electron，只断言退出码",
+    "send": "按此指令继续",
+    "sending": "正在继续…",
+    "keepTrying": {
+      "label": "照原样继续尝试",
+      "does": "用同样的做法和新一轮修正继续。",
+      "consequence": "很可能会以同样的方式再次停下；到目前为止每次尝试约花费 {{cost}}。",
+      "consequenceNoCost": "很可能会以同样的方式再次停下。"
+    }
+  },
+  "repeat": {
+    "title_one": "以同样的方式停下 {{count}} 次",
+    "title_other": "连续 {{count}} 次以同样的方式停下",
+    "spend_one": "{{count}} 次尝试，目前花费 {{cost}}",
+    "spend_other": "{{count}} 次尝试，目前花费 {{cost}}",
+    "attempts_one": "目前 {{count}} 次尝试",
+    "attempts_other": "目前 {{count}} 次尝试",
+    "advice": "不做改变就继续，很可能还会停在这里。请从下面选择一种继续方式。",
+    "adviceNoOptions": "不做改变就继续，很可能还会停在这里。下面的 AI 分析会给出继续的方式。"
+  },
+  "flaky": {
+    "title_one": "这个测试似乎不稳定",
+    "title_other": "这些测试似乎不稳定",
+    "explain": "它们在之前的轮次或相同代码上通过过，现在因时序问题失败。继续时会要求代理让它们变得确定，而不是延长超时。"
   }
 }

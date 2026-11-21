@@ -168,33 +168,37 @@ export function totalEntries(entries: MissionResourceEntry[]): MissionResourceTo
 }
 
 /**
+ * Whether a command line names `worktreePath` as a whole path component: `ticket-4` never
+ * matches `ticket-40`. Windows paths use either separator and compare case-insensitively.
+ */
+export function commandReferencesPath(command: string, worktreePath: string, windows = false): boolean {
+  const normalize = (value: string) => {
+    const slashed = windows ? value.replace(/\\/g, '/') : value
+    return windows ? slashed.toLowerCase() : slashed
+  }
+  const base = normalize(worktreePath).replace(/\/+$/, '')
+  if (!base) return false
+  const text = normalize(command)
+  let from = 0
+  for (;;) {
+    const i = text.indexOf(base, from)
+    if (i < 0) return false
+    const previous = text[i - 1]
+    const next = text[i + base.length]
+    if ((previous === undefined || /\s|["'=]/.test(previous)) &&
+        (next === undefined || next === '/' || /\s|["':=]/.test(next))) return true
+    from = i + 1
+  }
+}
+
+/**
  * Finds processes that belong to the mission by working location: any process
  * whose command line references the mission worktree (sub-agents, jobs and tools
  * launched as a consequence of the mission). Only top-most matches become roots;
  * their descendants are measured with them.
  */
 export function findWorktreeRoots(samples: ProcessSample[], worktreePath: string, options: { windows?: boolean } = {}): MissionResourceRoot[] {
-  // Windows paths use either separator in a command line and compare case-insensitively.
-  const normalize = (value: string) => {
-    const slashed = options.windows ? value.replace(/\\/g, '/') : value
-    return options.windows ? slashed.toLowerCase() : slashed
-  }
-  const base = normalize(worktreePath).replace(/\/+$/, '')
-  if (!base) return []
-  const matches = (s: ProcessSample) => {
-    const command = normalize(s.command)
-    let from = 0
-    for (;;) {
-      const i = command.indexOf(base, from)
-      if (i < 0) return false
-      const previous = command[i - 1]
-      const next = command[i + base.length]
-      if ((previous === undefined || /\s|["'=]/.test(previous)) &&
-          (next === undefined || next === '/' || /\s|["':=]/.test(next))) return true
-      from = i + 1
-    }
-  }
-  const matched = new Set(samples.filter(matches).map((s) => s.pid))
+  const matched = new Set(samples.filter((s) => commandReferencesPath(s.command, worktreePath, options.windows)).map((s) => s.pid))
   return samples
     .filter((s) => matched.has(s.pid) && !matched.has(s.ppid))
     .map((s) => ({ id: `mission-activity:${s.pid}`, kind: 'mission-activity' as const, label: s.command, pid: s.pid }))

@@ -256,14 +256,15 @@ row; the group card does not surface it yet.
   legacy row without a snapshot, or conflicting per-branch snapshots all preserve the worktree
   (`durableSettlementIgnoredPaths`, cleanup-and-checkout-tolerate-run-artifacts). Authorized ignored
   roots are archived as well: the snapshot grants release authority for their names, never deletion
-  authority for user edits or additions under those directories. Authenticated overlay roots are atomically renamed to a unique
-  persistent same-filesystem quarantine batch and revalidated there; automatic cleanup never unlinks that
-  quarantine, so a raced replacement or open-descriptor write remains recoverable. The batch root is
-  persisted before the first move and pointers are never evicted while their bytes remain on disk. A recreated
-  original path makes final non-force removal fail closed. Each quarantine batch root is persisted and shown
-  in a collapsed card section without changing an otherwise successful delivery to
-  `cleanup_incomplete`. If a terminal dashboard action creates an archive, a persistent notification
-  exposes its exact paths and a Copy paths action before the card is removed. Dirty, unknown,
+  authority for user edits or additions under those directories. See
+  [Overlay kit on release](#overlay-kit-on-release) for what is removed and what is archived: only
+  paths that could not be proven to be Specrails's own unchanged kit land in a persistent
+  same-filesystem safety archive (`<worktree>.specrails-overlay-quarantine-XXXXXX`), recorded before
+  the first kept path is moved in and never deleted or restored automatically. A recreated original
+  path makes final non-force removal fail closed. Each archive root is persisted and shown as a short
+  notice ("N files were kept that didn't go into the PR", Delete / Dismiss / Details) without
+  changing an otherwise successful delivery to `cleanup_incomplete`; a terminal dashboard action
+  raises a short toast whose Details opens the same notice. Dirty, unknown,
   ignored-user-data, concurrent-write, or ref-
   mismatched worktrees become retryable `needs-review`; push failure retains the exact SHA.
 - Project admission remains closed while startup reconciliation runs under the repo lock. Every
@@ -351,14 +352,9 @@ at launch:
   and makes those exclusions authoritative with `git commit --only`. Unexcluded staged symlinks
   with absolute destinations outside the checkout block commit rather than leaking machine paths.
   The writable manifest alone
-  never grants cleanup authority. Cleanup atomically renames each authenticated root into a unique
-  sibling quarantine, revalidates it after the move, discloses raced content there, and never
-  deletes or restores quarantined paths automatically over a possibly recreated source. A modified
-  or concurrently extended overlay is preserved as user data, while a no-op overlay keeps the
-  byte-identical ordinary staging behavior.
-  Successful quarantine batches deliberately remain beside the former worktree; automatic GC is
-  out of scope because deleting a path still writable through an open descriptor would reintroduce
-  the data-loss race. A future cleanup flow must be explicit and inspectable.
+  never grants cleanup authority: its v2 per-path records are trusted only while the manifest's own
+  SQLite fingerprint still matches. Release follows
+  [Overlay kit on release](#overlay-kit-on-release).
 - **Degrade, don't abort**: entry-level failures produce `warnings` — surfaced as a
   server log line plus the project-scoped `rail.overlay_degraded` WS event — and the
   spawn proceeds (a partial surface beats an aborted rail). `applyWorktreeOverlay` never
@@ -369,8 +365,64 @@ at launch:
   `SPECRAILS_BACKLOG_CONFIG_PATH` / `SPECRAILS_PROFILES_DIR` / `SPECRAILS_STATE_DIR` /
   `SPECRAILS_WORKSPACE_DIR`) rides the executors' lazily-resolved base env
   (`workspace-resolution.ts` `resolveLoopBaseEnv`, wired per project in
-  `project-registry.ts`) — the worktree's cwd-relative `${ENV:-legacy}` defaults would
+  `project-context-loops.ts`) — the worktree's cwd-relative `${ENV:-legacy}` defaults would
   otherwise resolve to nothing. Legacy projects keep `process.env` untouched.
+
+## Overlay kit on release
+
+`server/worktree-overlay.ts` writes Specrails's kit into each worktree (command/skill links, the
+copied instruction file, `.mcp.json`, OpenSpec config, the managed `.claude/settings.local.json`
+with the agent policy hook) and lists it in `.sr-rail-overlay.json`. Manifest **v2** also records,
+per path, what it wrote: a link's resolved target, a file's sha256 and size (plus the parsed JSON of
+the managed settings), a copied directory's dereferenced digest. Records exist only for paths
+authenticated against the overlay sources at write time.
+
+On release (`releaseRailWorktrees` → `clearVerifiedOverlayEntries`) each overlay or authorized
+ignored path is **removed** when one proof holds on the live path *and again* on its atomically
+moved copy:
+
+| Proof | Holds when |
+| --- | --- |
+| Allocation evidence (SQLite) | Live fingerprint equals the allocation fingerprint that settlement re-authenticated against the sources. |
+| v2 record | Link target equals the recorded target; file bytes equal the recorded hash; the managed settings equal the recorded JSON after removing only Specrails-owned entries (every `specrails-policy-hook` hook entry, and `deniedMcpServers` when the recorded content did not carry it); directory digest equal. |
+| v1 manifest (no records) | A link resolving inside a provider dir (`.claude`, `.codex`, `.gemini`, `.kimi-code`) of the project's Specrails workspace or the base checkout; managed settings holding nothing but Specrails-owned entries. Copied files are not provable under v1. |
+| Warm dependency links | Re-authenticated live against the base checkout (`node_modules`). |
+
+Records are read from the manifest only while its own SQLite fingerprint matches; an edited
+manifest grants nothing and its paths stay ordinary dirt. Overlay paths whose allocation proof
+was revoked (an agent edited `CLAUDE.md`, replaced a link) no longer hold the worktree: they are
+excluded from the cleanliness check (only when untracked) and kept in the archive. An ignored
+directory that mixes kit with other files is descended, so only the other files are archived.
+Anything changed, unknown or unprovable is archived exactly as before; a proof that fails on the
+moved copy keeps it in the archive and stops the release (`needs-review`). When nothing had to be
+kept the sibling folder is removed and no archive is recorded, so no notice appears. Regenerable
+installs (`node_modules`) are left for Git's removal; the browser tool writes its output to the
+system temp directory, never into the worktree.
+
+Archives are listed and deleted through `/api/worktrees/quarantines*`
+([API](api-reference.md)); deletion accepts only a real `*.specrails-overlay-quarantine-XXXXXX`
+directory beneath that project's own worktrees root, never follows links and is logged
+(`[overlay-quarantine] deleted project=… path=… files=… bytes=…`).
+
+## Retained run worktrees
+
+Settlement removes a run worktree only when release can prove it loses nothing. Otherwise the ledger row stays `needs-review`, and a failed removal can leave a terminal row still mounted. Nothing sweeps these rows, so **Settings ▸ Storage** lists them across projects (`GET /api/worktrees/retained`, [api-reference](api-reference.md#retained-run-worktrees-app-wide)).
+
+- **Evidence** comes from [`runtime/retained-worktrees.ts`](../../server/modules/delivery/runtime/retained-worktrees.ts):
+  - `status --porcelain=v1 -z --untracked-files=all --ignored=matching`, excluding the same overlay proofs release uses (persisted fingerprints plus live warm links);
+  - `rev-list --count <tip> --not --remotes --exclude=<branch> --branches HEAD`, i.e. commits that exist on no remote, no other branch and not in the main checkout;
+  - the delivery that lists the ledger id (`json_each(worktree_ids)`);
+  - the latest of the ledger update and the worktree's `index`/`HEAD`/`logs/HEAD` mtimes. These are read before Git runs, and reads take no optional locks.
+- **Ignored paths** are safe when they are regenerable (`node_modules`), a link, covered by the settlement snapshot (quarantined on release), or byte-identical to the same path in the main checkout ([`runtime/ignored-copy-identity.ts`](../../server/modules/delivery/runtime/ignored-copy-identity.ts), bounded at 2,000 entries and 64 MiB).
+- **The decision** is pure ([`domain/retained-worktrees.ts`](../../server/modules/delivery/domain/retained-worktrees.ts)):
+  - Removal is blocked by a run or PR operation in flight, Intent ownership, unknown Git evidence, uncommitted changes, at-risk ignored files, or activity in the last hour.
+  - Branch deletion is additionally blocked by unique commits (unless the delivery is `merged`), an unreadable branch, or an open delivery.
+  - No reasons ⇒ **Nothing to lose**; any reason ⇒ **Waiting for you**.
+- **Removal** takes the repository lock and re-reads the candidate and its evidence. It refuses if HEAD differs from the confirmed one, then calls `releaseRailWorktrees`, the same path settlement and Discard use, with two opt-ins:
+  - `acceptIgnoredBaseCopies` re-proves the link or identical-copy rule live;
+  - `reclaimTerminalMounts` lets a terminal row's surviving mount go while the row keeps its recorded state.
+
+  The branch is deleted only with `update-ref -d` against the checked commit and only when no checkout uses it.
 
 ## The one decision endpoint
 
@@ -715,11 +767,11 @@ New status in `TicketStatus` / `VALID_STATUSES` (`server/modules/specs/runtime/t
 **Universal ask-first (both completion chokepoints).** Under the default-on PR-delivery flag
 EVERY completed job/run promotes its tickets `todo|in_progress → on_review`, never `done`:
 
-- **Loop runs** (`project-registry.ts` `onLoopRunFinished`): explicit `ticketCompletionStatus`
+- **Loop runs** (`project-context-loop-outcome.ts` `onLoopRunFinished`): explicit `ticketCompletionStatus`
   from `launchIsolatedRail` (launch-captured `prMode`); absent opts default to the flag (see
   "Per-run settle" above) — covering shared-cwd rail launches, standalone loop runs, and the
   isolation-unavailable fallback.
-- **QueueManager jobs** (`project-registry.ts` `onJobFinished`): bare-mode launches, MCP
+- **QueueManager jobs** (`project-context-job-outcome.ts` `onJobFinished`): bare-mode launches, MCP
   `/spawn` jobs, freestyle Finalize, interactive auto-settles. `QueueManager._startJob` reads
   `isRailPrDeliveryEnabled()` ONCE per job at spawn — the SAME read that injects
   `SPECRAILS_GIT_AUTO=false` — records it in the in-memory `_jobPrDelivery` map (restart-durable
@@ -836,8 +888,8 @@ the launch INSERT. As-built:
   (base branch, PR url), designed degraded/failed states, distinct stale-vs-operation-busy 409 UX;
   English source strings, all 8 locales, locale-parity green.
 - **D12 — no automatic data loss**: live tracked/untracked/ignored state, HEAD, and branch ref are
-  revalidated before non-force automatic release; overlay roots are atomically moved into persistent
-  quarantine rather than unlinked; dirty, concurrent, unknown, user-ignored, ref-
+  revalidated before non-force automatic release; overlay kit is deleted only after it is re-proven
+  unchanged on the moved copy, everything else goes to a persistent safety archive; dirty, concurrent, unknown, user-ignored, ref-
   mismatched, or advanced worktrees/branches are preserved.
 - **D13 — one active generation**: migration 48 supersedes historical duplicates and a partial
   unique index enforces one active row per rail; snapshot consumers enforce lineage with

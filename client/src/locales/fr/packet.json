@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "Aucun score de relecteur produit.",
     "evidenceUnavailable": "preuves indisponibles",
     "hostCommandPassed": "Le runtime a exécuté {{label}} lui-même : code de sortie {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Le runtime a exécuté {{label}} lui-même, mais cette vérification lit seulement le contenu de fichiers et n'exécute pas le code : code de sortie {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Le runtime a exécuté {{label}} lui-même et cela a ÉCHOUÉ : code de sortie {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Vérification du relecteur réussie : {{name}}",
     "acceptanceCheckFailed": "Vérification du relecteur ÉCHOUÉE : {{name}}",
     "reviewerSummary": "Résumé du relecteur IA :",
-    "reviewerFinding": "Le relecteur IA a noté :"
+    "reviewerFinding": "Le relecteur IA a noté :",
+    "earlierAttempts_one": "{{count}} exécution précédente de cette vérification",
+    "earlierAttempts_other": "{{count}} exécutions précédentes de cette vérification",
+    "earlierAttempt": "Échec avec le code de sortie {{exitCode}} ({{seconds}} s), avant la correction qui l’a fait réussir"
   },
   "watch": {
     "humanReviewRecommended": "Le relecteur IA a noté {{overall}}/100 et recommande une relecture humaine.",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "Approche prévue (d'après la spec)",
     "caveat": "Ce que la demande proposait — pas un compte rendu de ce que l'IA a fait. Les faits ci-dessus sont ce qui a réellement changé."
+  },
+  "delivered": {
+    "title": "Ce qui a changé",
+    "caveat": "D'après la proposition OpenSpec livrée : rédigée par l'agent et vérifiée par le relecteur.",
+    "why": "Pourquoi"
   },
   "outcome": {
     "succeeded": "Implémenté",

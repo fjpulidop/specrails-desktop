@@ -1,22 +1,26 @@
-import { PageHeader } from '../../../components/ui/page-header'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, RefreshCw } from 'lucide-react'
+import { ChevronRight, RefreshCw, X } from 'lucide-react'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-capabilities'
+import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type {
-  Period, Surface, SpendingFilters, SpendingResponse, InvocationsResponse,
+  Period, Surface, SpendCategory, SpendingFilters, SpendingResponse, InvocationsResponse,
 } from '../types/spending'
+import { SPEND_CATEGORIES, SURFACE_LABEL, isSpendCategory } from '../types/spending'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { ExportDropdown } from '../components/ExportDropdown'
+import { InfoHint } from '../components/InfoHint'
+import { SegmentedControl } from '../../../components/ui/segmented-control'
 import { SpendingHero } from '../components/SpendingHero'
 import { ProviderBreakdownCard } from '../components/ProviderBreakdownCard'
 import { SpendingTimeline } from '../components/SpendingTimeline'
 import { QuickVsExploreCard } from '../components/QuickVsExploreCard'
-import { AgentMissionsCard } from '../components/AgentMissionsCard'
+import { SpendBreakdownCard } from '../components/SpendBreakdownCard'
 import { ModelBreakdown } from '../components/ModelBreakdown'
 import { CostScatter } from '../components/CostScatter'
 import { TopTicketsCrossSurface } from '../components/TopTicketsCrossSurface'
@@ -34,16 +38,16 @@ const PERIODS: { value: Period; labelKey: string }[] = [
   { value: 'all', labelKey: 'periods.all' },
 ]
 
-const SURFACE_CHIPS: { value: Surface | 'all'; labelKey: string }[] = [
-  { value: 'all', labelKey: 'page.all' },
-  { value: 'job', labelKey: 'surfaces.job' },
-  { value: 'explore-spec', labelKey: 'surfaces.exploreSpec' },
-  { value: 'quick-spec', labelKey: 'surfaces.quickSpec' },
-  { value: 'ai-edit', labelKey: 'surfaces.aiEdit' },
-  { value: 'smash', labelKey: 'surfaces.smash' },
-  { value: 'file-summary', labelKey: 'surfaces.fileSummary' },
-  { value: 'loop', labelKey: 'surfaces.loop' },
-]
+const CHIP_CLASS = 'h-7 px-2.5 rounded-full text-label transition-colors'
+const CHIP_ACTIVE = 'bg-muted text-foreground ring-1 ring-border'
+const CHIP_IDLE = 'text-muted-foreground hover:text-foreground hover:bg-muted'
+/** An active filter: click clears it. */
+const FILTER_CHIP = 'inline-flex items-center gap-1 h-6 px-2 rounded-full text-caption font-medium bg-muted text-foreground ring-1 ring-border hover:bg-accent'
+
+/** Engines with activity in the period, excluding the internal agent runtime. */
+export function activeEngines(byProvider: SpendingResponse['byProvider']): string[] {
+  return byProvider.filter((entry) => entry.count > 0 && entry.provider !== 'agent-runtime').map((entry) => entry.provider)
+}
 
 function buildQuery(filters: SpendingFilters): string {
   const params = new URLSearchParams()
@@ -51,6 +55,7 @@ function buildQuery(filters: SpendingFilters): string {
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
   if (filters.surface && filters.surface.length > 0) params.set('surface', filters.surface.join(','))
+  if (filters.category && filters.category.length > 0) params.set('category', filters.category.join(','))
   if (filters.provider && filters.provider.length > 0) params.set('provider', filters.provider.join(','))
   if (filters.model && filters.model.length > 0) params.set('model', filters.model.join(','))
   // Provider-aligned model filter (BUG-ANALYTICS-30): emit `modelProvider` only
@@ -92,11 +97,14 @@ export default function AnalyticsPage() {
   useEffect(() => { if (wantsBudget) setLandOnBudget(true) }, [wantsBudget])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
-  const installedProviders = activeProject ? projectProviders(activeProject) : ['claude']
-  const multiProvider = installedProviders.length > 1
+  // Only the engines the project has configured, minus any the registry reports
+  // unavailable (unknown while the catalog loads = kept). Spend by a provider
+  // outside this list still counts in the totals; it just gets no chip.
+  const { available: providerAvailability } = useAvailableProviders()
 
   const initialPeriod = (searchParams.get('period') as Period | null) ?? '30d'
   const initialSurface = (searchParams.get('surface') ?? '').split(',').filter(Boolean) as Surface[]
+  const initialCategory = (searchParams.get('category') ?? '').split(',').filter(isSpendCategory)
   const initialProvider = (searchParams.get('provider') ?? '').split(',').filter(Boolean)
   const initialTicketId = searchParams.get('ticketId')
   const initialModel = (searchParams.get('model') ?? '').split(',').filter(Boolean)
@@ -114,6 +122,7 @@ export default function AnalyticsPage() {
   const [filters, setFilters] = useState<SpendingFilters>({
     period: initialPeriod,
     surface: initialSurface.length > 0 ? initialSurface : undefined,
+    category: initialCategory.length > 0 ? initialCategory : undefined,
     provider: initialProvider.length > 0 ? initialProvider : undefined,
     ticketId: initialTicketId ? Number(initialTicketId) : undefined,
     model: initialModel.length > 0 ? initialModel : undefined,
@@ -121,6 +130,26 @@ export default function AnalyticsPage() {
     tzOffsetMinutes,
   })
   const [data, setData] = useState<SpendingResponse | null>(null)
+  // The engines worth a chip: the project's configured ones plus any that ran in
+  // the period (a rail can run on another engine), minus those the registry
+  // reports unavailable. Installed-but-unused CLIs get no chip.
+  const installedProviders = useMemo(() => {
+    const configured = activeProject ? projectProviders(activeProject) : ['claude']
+    const active = (data?.byProvider ?? []).filter((entry) => entry.count > 0).map((entry) => entry.provider)
+    return [...new Set([...configured, ...active])]
+      .filter((p) => providerAvailability[p] !== false && p !== 'agent-runtime')
+  }, [activeProject, data?.byProvider, providerAvailability])
+  // Engine filter: only the engines that did work in the period (count > 0),
+  // never the internal runtime. Remembered from the last unfiltered response so
+  // filtering to one engine never hides the control that undoes it.
+  const [engineOptions, setEngineOptions] = useState<string[]>([])
+  useEffect(() => { setEngineOptions([]) }, [activeProjectId])
+  useEffect(() => {
+    if (!data || (filters.provider && filters.provider.length > 0)) return
+    setEngineOptions(activeEngines(data.byProvider))
+  }, [data, filters.provider])
+  const engines = useMemo(() => [...new Set([...engineOptions, ...(filters.provider ?? [])])], [engineOptions, filters.provider])
+  const showEngines = engines.length >= 2
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -142,6 +171,7 @@ export default function AnalyticsPage() {
     const next = new URLSearchParams()
     next.set('period', filters.period)
     if (filters.surface && filters.surface.length > 0) next.set('surface', filters.surface.join(','))
+    if (filters.category && filters.category.length > 0) next.set('category', filters.category.join(','))
     if (filters.provider && filters.provider.length > 0) next.set('provider', filters.provider.join(','))
     if (filters.ticketId) next.set('ticketId', String(filters.ticketId))
     if (filters.model && filters.model.length > 0) {
@@ -152,7 +182,7 @@ export default function AnalyticsPage() {
     }
     if (landOnBudget) next.set(BUDGET_PANEL_PARAM, 'budget')
     setSearchParams(next, { replace: true })
-  }, [filters.period, filters.surface, filters.provider, filters.ticketId, filters.model, filters.modelKeys, landOnBudget, setSearchParams])
+  }, [filters.period, filters.surface, filters.category, filters.provider, filters.ticketId, filters.model, filters.modelKeys, landOnBudget, setSearchParams])
 
   const fetchSpending = useCallback(async () => {
     if (!activeProjectId) return
@@ -254,11 +284,21 @@ export default function AnalyticsPage() {
     }
   }, [ws, activeProjectId, fetchSpending, fetchInvocations])
 
-  function toggleSurface(s: Surface | 'all') {
-    if (s === 'all') {
-      setFilters((f) => ({ ...f, surface: undefined }))
+  // Category chips ("why" filter). Multi-select; "All" clears.
+  function toggleCategory(c: SpendCategory | 'all') {
+    if (c === 'all') {
+      setFilters((f) => ({ ...f, category: undefined }))
       return
     }
+    setFilters((f) => {
+      const curr = f.category ?? []
+      const next = curr.includes(c) ? curr.filter((x) => x !== c) : [...curr, c]
+      return { ...f, category: next.length > 0 ? next : undefined }
+    })
+  }
+
+  // Surface-level filter, reached from the breakdown card (and `?surface=`).
+  function toggleSurface(s: Surface) {
     setFilters((f) => {
       const curr = f.surface ?? []
       const next = curr.includes(s) ? curr.filter((x) => x !== s) : [...curr, s]
@@ -313,13 +353,15 @@ export default function AnalyticsPage() {
   }
 
   const surfaceFilter = filters.surface
-  const isAll = !surfaceFilter || surfaceFilter.length === 0
+  const categoryFilter = filters.category
+  const isAllCategories = !categoryFilter || categoryFilter.length === 0
   const providerFilter = filters.provider
   const isAllProviders = !providerFilter || providerFilter.length === 0
 
   const exportParams = useMemo(() => {
     const p: Record<string, string> = { period: filters.period }
     if (filters.surface && filters.surface.length > 0) p.surface = filters.surface.join(',')
+    if (filters.category && filters.category.length > 0) p.category = filters.category.join(',')
     if (filters.provider && filters.provider.length > 0) p.provider = filters.provider.join(',')
     if (filters.ticketId) p.ticketId = String(filters.ticketId)
     return p
@@ -329,48 +371,101 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 pb-12">
-      {/* Sticky filter header */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border/40">
-        <PageHeader
-          title={t('page.title')}
-          description={t('page.subtitle')}
-          titleExtra={<>
-            {filters.ticketId && (
+      {/* Sticky filter header: one row — title, active filters, category chips,
+          engine, period, export, refresh. */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border" data-testid="analytics-header">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-headline text-foreground">{t('page.title')}</h1>
+          <InfoHint testId="analytics-subtitle">{t('page.subtitle')}</InfoHint>
+          {filters.ticketId && (
+            <button
+              type="button"
+              onClick={() => setFilters((f) => ({ ...f, ticketId: undefined }))}
+              className={FILTER_CHIP}
+            >
+              {t('page.ticketChipLabel', { id: filters.ticketId })}
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {filters.model && filters.model.length > 0 && (
+            <button
+              type="button"
+              data-testid="analytics-model-chip"
+              onClick={clearModel}
+              title={t('page.clearModelFilter')}
+              className={FILTER_CHIP}
+            >
+              {t('page.modelChip', { model: filters.model[0] })}
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {surfaceFilter && surfaceFilter.length > 0 && (
+            <button
+              type="button"
+              data-testid="analytics-surface-chip"
+              onClick={() => setFilters((f) => ({ ...f, surface: undefined }))}
+              title={t('page.clearSurfaceFilter')}
+              className={FILTER_CHIP}
+            >
+              {t('page.surfaceChip', { surface: surfaceFilter.map((s) => SURFACE_LABEL[s]).join(', ') })}
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          )}
+          {/* Category chips: the "why" filter. Surface-level filters live in the breakdown card. */}
+          <TooltipProvider delayDuration={300}>
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('page.categoryFilterAria')} data-testid="analytics-category-chips">
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, ticketId: undefined }))}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-caption font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
-              >
-                {t('page.ticketChip', { id: filters.ticketId })}
-              </button>
-            )}
-            {filters.model && filters.model.length > 0 && (
-              <button
-                type="button"
-                data-testid="analytics-model-chip"
-                onClick={clearModel}
-                title={t('page.clearModelFilter')}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-caption font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
-              >
-                {t('page.modelChip', { model: filters.model[0] })}
-                <span aria-hidden className="opacity-70">×</span>
-              </button>
-            )}
-          </>}
-          actions={<>
-            <div className="flex items-center gap-1 rounded-md border border-border/60 bg-card/40 p-0.5">
-              {PERIODS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  aria-pressed={filters.period === p.value}
-                  onClick={() => setFilters((f) => ({ ...f, period: p.value }))}
-                  className={`px-2.5 h-6 rounded text-caption font-medium transition-colors ${
-                    filters.period === p.value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >{t(p.labelKey)}</button>
-              ))}
+                aria-pressed={isAllCategories}
+                onClick={() => toggleCategory('all')}
+                className={`${CHIP_CLASS} ${isAllCategories ? CHIP_ACTIVE : CHIP_IDLE}`}
+              >{t('page.all')}</button>
+              {SPEND_CATEGORIES.map((c) => {
+                const active = categoryFilter?.includes(c) ?? false
+                return (
+                  <Tooltip key={c}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        aria-describedby={`analytics-category-why-${c}`}
+                        onClick={() => toggleCategory(c)}
+                        className={`${CHIP_CLASS} ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                      >
+                        {t(`categories.${c}.label`)}
+                        <span id={`analytics-category-why-${c}`} className="sr-only">{t(`categories.${c}.why`)}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t(`categories.${c}.why`)}</TooltipContent>
+                  </Tooltip>
+                )
+              })}
             </div>
+          </TooltipProvider>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* Engine: only when at least two engines did work in the period. */}
+            {showEngines && (
+              <Select
+                value={isAllProviders ? 'all' : providerFilter?.length === 1 ? providerFilter[0] : ''}
+                onValueChange={(v) => (v === 'all' ? toggleProvider('all') : setFilters((f) => ({ ...f, provider: [v] })))}
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[8rem] gap-2" aria-label={t('page.engine')} data-testid="analytics-provider-select">
+                  <SelectValue placeholder={t('page.allEngines')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('page.allEngines')}</SelectItem>
+                  {engines.map((p) => (
+                    <SelectItem key={p} value={p}>{providerLabel(p)}{isLocalEngineId(p) ? ` · ${t('page.localEngine')}` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <SegmentedControl
+              value={filters.period}
+              onChange={(period) => setFilters((f) => ({ ...f, period }))}
+              label={t('page.period')}
+              options={PERIODS.map((p) => ({ value: p.value, label: t(p.labelKey) }))}
+            />
             <ExportDropdown
               baseUrl={`${getApiBase()}/analytics/export`}
               params={exportParams}
@@ -379,82 +474,12 @@ export default function AnalyticsPage() {
             <button
               type="button"
               onClick={() => { cacheRef.current.clear(); fetchSpending(); fetchInvocations() }}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-control border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent"
               title={t('common:actions.refresh')}
               aria-label={t('common:actions.refresh')}
             ><RefreshCw className="w-3 h-3" /></button>
-          </>}
-        />
-        {/* Surface chips */}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {SURFACE_CHIPS.map((c) => {
-            const active = c.value === 'all' ? isAll : (surfaceFilter?.includes(c.value as Surface) ?? false)
-            return (
-              <button
-                key={c.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => toggleSurface(c.value)}
-                className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
-                  active
-                    ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
-                }`}
-              >{t(c.labelKey)}</button>
-            )
-          })}
-        </div>
-        {/* Provider chips — only when the project has more than one engine */}
-        {multiProvider && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="analytics-provider-chips">
-            <span className="text-xs text-muted-foreground mr-1">{t('page.engine')}</span>
-            {installedProviders.length > 4 ? (
-              <Select
-                value={isAllProviders ? 'all' : providerFilter?.length === 1 ? providerFilter[0] : ''}
-                onValueChange={(v) => (v === 'all' ? toggleProvider('all') : setFilters((f) => ({ ...f, provider: [v] })))}
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[8rem] gap-2" aria-label={t('page.engine')} data-testid="analytics-provider-select">
-                  <SelectValue placeholder={t('page.all')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('page.all')}</SelectItem>
-                  {installedProviders.map((p) => (
-                    <SelectItem key={p} value={p}>{providerLabel(p)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <>
-            <button
-              type="button"
-              aria-pressed={isAllProviders}
-              onClick={() => toggleProvider('all')}
-              className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
-                isAllProviders
-                  ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
-              }`}
-            >{t('page.all')}</button>
-            {installedProviders.map((p) => {
-              const active = providerFilter?.includes(p) ?? false
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleProvider(p)}
-                  className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
-                    active
-                      ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
-                  }`}
-                >{providerLabel(p)}{isLocalEngineId(p) && <span className="ml-1 rounded-full bg-accent-secondary/15 px-1.5 text-xs text-accent-secondary">{t('page.localEngine')}</span>}</button>
-              )
-            })}
-              </>
-            )}
           </div>
-        )}
+        </div>
       </div>
 
       {error && (
@@ -468,23 +493,19 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Block 1: Hero */}
+      {/* How much */}
       <SpendingHero data={data} loading={loading} period={filters.period} />
+      {/* On what and why */}
+      <SpendBreakdownCard data={data} loading={loading} activeSurfaces={surfaceFilter} onSelectSurface={toggleSurface} />
       {/* Internal telemetry: development builds only. */}
       {import.meta.env.DEV && activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
 
-      {/* Budget: caps, projection and what-if. `?panel=budget` (inbox, forecast) lands here. */}
-      {activeProjectId && <div ref={budgetAnchor}><BudgetCard projectId={activeProjectId} onReady={onBudgetReady} refreshKey={data?.summary?.totalCostUsd ?? null} /></div>}
-
-      {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
-      <ProviderBreakdownCard data={data} loading={loading} />
-
-      {/* Block 2: Timeline */}
+      {/* When */}
       <SpendingTimeline data={data} loading={loading} />
 
-      {/* Blocks 3 + 4 side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <QuickVsExploreCard data={data} loading={loading} />
+      {/* With which engines and models */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:[&>*:only-child]:col-span-2" data-testid="analytics-engines-models">
+        <ProviderBreakdownCard data={data} loading={loading} configuredProviders={installedProviders} />
         <ModelBreakdown
           data={data}
           loading={loading}
@@ -493,14 +514,17 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      {/* Block 6: Top tickets */}
+      {/* Limits: plan meters or dollar caps, projection and what-if. `?panel=budget` (inbox, forecast) lands here. */}
+      {activeProjectId && <div ref={budgetAnchor}><BudgetCard projectId={activeProjectId} onReady={onBudgetReady} refreshKey={data?.summary?.totalCostUsd ?? null} configuredProviders={installedProviders} /></div>}
+
+      {/* Which specs */}
       <TopTicketsCrossSurface
         data={data}
         loading={loading}
         onSelectTicket={(id) => setFilters((f) => ({ ...f, ticketId: id ?? undefined }))}
       />
 
-      {/* Block 7: Raw table */}
+      {/* The individual calls */}
       <div className="flex flex-col gap-2">
         {/* BUG-ANALYTICS-35: cost/recency ordering toggle for the raw table so the
             costliest rows can be surfaced on page 1, not just the most recent. */}
@@ -537,15 +561,13 @@ export default function AnalyticsPage() {
         />
       </div>
       {/* Secondary breakdowns: collapsed by default so the primary story
-          (hero → timeline → models → table) reads first. */}
+          (how much → why → when → models → calls) reads first. */}
       <details className="group rounded-lg border border-border/40" data-testid="analytics-more-breakdowns">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 group-open:rotate-90" aria-hidden />
           {t('page.moreBreakdowns')}
         </summary>
         <div className="flex flex-col gap-6 px-4 pb-4 pt-2">
-          {/* Agent-mission spend (pinned Agent Chat turns — hidden when empty) */}
-          <AgentMissionsCard data={data} loading={loading} />
           {/* Time to decision / merge per delivery (period-scoped only) */}
           {activeProjectId && (
             <DecisionTimesCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
@@ -562,6 +584,7 @@ export default function AnalyticsPage() {
               setFilters((f) => ({ ...f, ticketId: point.ticketId ?? undefined }))
             }}
           />
+          <QuickVsExploreCard data={data} loading={loading} />
         </div>
       </details>
     </div>

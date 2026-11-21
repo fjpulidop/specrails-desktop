@@ -110,7 +110,7 @@ describe('JiraConnectWizard', () => {
     await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1), WAIT)
   })
 
-  it('renders the On Review mapping row and includes on_review in the connect statusMap when mapped', async () => {
+  it('renders the On review mapping row and includes on_review in the connect statusMap when mapped', async () => {
     api.test.mockResolvedValue({ ok: true, deployment: 'cloud', displayName: 'Jane' })
     api.discoverProjects.mockResolvedValue({ projects: [{ id: '1', key: 'OPS', name: 'Ops' }] })
     api.discoverStatuses.mockResolvedValue({ statuses: STATUSES })
@@ -119,8 +119,8 @@ describe('JiraConnectWizard', () => {
     render(<JiraConnectWizard onConnected={vi.fn()} />)
     await goToMappingStep()
 
-    // The On Review row renders between In Progress and Done, same pattern as the others.
-    const onReview = screen.getByRole('combobox', { name: 'On Review' })
+    // The On review row renders between In Progress and Done, same pattern as the others.
+    const onReview = screen.getByRole('combobox', { name: 'On review' })
     expect(onReview).toHaveTextContent('Automatic (by category)')
     await pick(onReview, 'In Review')
 
@@ -145,7 +145,7 @@ describe('JiraConnectWizard', () => {
     render(<JiraConnectWizard onConnected={vi.fn()} />)
     await goToMappingStep()
 
-    // Map another state but leave On Review on the automatic option.
+    // Map another state but leave On review on the automatic option.
     await pick(screen.getByRole('combobox', { name: 'Backlog / To Do' }), 'To Do')
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))

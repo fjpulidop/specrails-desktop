@@ -92,6 +92,12 @@ describe('DocsDialog', () => {
     window.removeEventListener('specrails:replay-tour', onReplay)
   })
 
+  it('a surface window hides Replay tour (the tour runs in the main window only)', async () => {
+    render(<DocsDialog open={true} onClose={vi.fn()} showReplayTour={false} />)
+    expect(await screen.findByTestId('docs-modal')).toBeInTheDocument()
+    expect(screen.queryByTestId('docs-replay-tour')).not.toBeInTheDocument()
+  })
+
   it('renders category names from API', async () => {
     render(<DocsDialog open={true} onClose={vi.fn()} />)
     await waitFor(() => {

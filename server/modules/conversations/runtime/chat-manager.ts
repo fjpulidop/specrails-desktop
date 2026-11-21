@@ -48,9 +48,10 @@ import { readBlueprint } from '../../builder/runtime/blueprint-render'
 import { premiumSpecContract } from '../../specs/runtime/spec-contract-prompt'
 import type { ChatConversationRow } from '../../../types'
 import { generateAutoTitle } from './explore-draft-title'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 const COMMAND_INSTRUCTION =
-  'When you want to suggest a SpecRails command for the user to execute, wrap it in a command block like this: ' +
+  'When you want to suggest a Specrails command for the user to execute, wrap it in a command block like this: ' +
   ':::command\n/specrails:implement #42\n::: ' +
   'The user will be prompted to confirm before the command runs.'
 
@@ -547,7 +548,7 @@ export class ChatManager {
 
     return (
       `You are a project assistant for the "${name}" specrails project with full access to this repository via Claude Code. ` +
-      `You can help answer questions about the codebase, explain SpecRails concepts, and suggest commands to run.` +
+      `You can help answer questions about the codebase, explain Specrails concepts, and suggest commands to run.` +
       `\n\nIMPORTANT: You have explicit permission to read and write .specrails/local-tickets.json — ` +
       `this is the project's local ticket store managed by Specrails. It is NOT sensitive. ` +
       `When creating or updating tickets, write directly to this JSON file.` +
@@ -1219,6 +1220,7 @@ export class ChatManager {
 
     const readerHandler = (line: string) => {
       if (this._disposed) return
+      observeQuotaLine(adapter.id, line)
       for (const ev of parseStreamEvents(adapter, line)) {
         adapterEvents.push(ev)
         switch (ev.kind) {
@@ -2000,6 +2002,7 @@ export class ChatManager {
 
       const onLine = (line: string) => {
         if (this._disposed || settled) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           adapterEvents.push(ev)
           switch (ev.kind) {
@@ -2262,6 +2265,7 @@ export class ChatManager {
 
       reader.on('line', (line) => {
         if (this._disposed) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           titleEvents.push(ev)
           if (!titleText && ev.kind === 'text-delta') {

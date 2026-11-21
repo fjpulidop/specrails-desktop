@@ -10,6 +10,8 @@ export interface PhaseDefinition {
 // ─── ProjectRow (app-level) — re-exported from desktop-db for WS message use ──
 
 import type { ProjectRow } from './desktop-db'
+import type { AttentionPrefs } from './modules/inbox/attention-prefs'
+import type { RunQuestion } from './shared/run-question'
 export type { ProjectRow }
 
 // ─── ProposalRow re-export ────────────────────────────────────────────────────
@@ -394,6 +396,13 @@ export interface DesktopProjectAddedMessage {
 export interface DesktopProjectRemovedMessage {
   type: 'desktop.project_removed'
   projectId: string
+  timestamp: string
+}
+
+/** App-wide attention preferences changed (Settings ▸ Notifications); every window re-reads them. */
+export interface DesktopAttentionPrefsMessage {
+  type: 'desktop.attention_prefs'
+  prefs: AttentionPrefs
   timestamp: string
 }
 
@@ -794,6 +803,16 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
+/**
+ * A project's merge previews changed (a background refresh found new
+ * conflicts, a resolved one, or a moved base). Clients refetch
+ * `GET /rails/merge-preview` (and the live board) on it.
+ */
+export interface RailMergePreviewMessage {
+  type: 'rail.merge_preview'
+  projectId: string
+}
+
 /** An Intent session as clients receive it (server/modules/flow IntentSession). */
 export interface IntentSessionWire {
   id: string
@@ -934,6 +953,7 @@ export interface RailPrStateMessage {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
+    failureDetail?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
@@ -1022,8 +1042,12 @@ export interface LoopRunPausedMessage {
   ticketIds: number[]
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
-  pauseKind?: 'budget_paused'
+  pauseKind?: 'budget_paused' | 'limit_paused' | 'user_paused'
   budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
+  /** `limit_paused`: the provider refused on its usage limit; resumes at `resumeAt` when `autoResume`. */
+  limit?: { providerId: string; resumeAt: string | null; autoResume: boolean; message: string; pausedAt: string; switchable: boolean }
+  /** A human-decision pause of a definition run: the question card every surface renders. */
+  question?: RunQuestion | null
 }
 
 export interface LoopRunResumedMessage {
@@ -1032,6 +1056,18 @@ export interface LoopRunResumedMessage {
   loopRunId: string
   railIndex: number | null
   ticketIds: number[]
+}
+
+/** A launched run waits for capacity (machine run admission); `loop.run_resumed` follows when it starts. */
+export interface LoopRunQueuedMessage {
+  type: 'loop.run_queued'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+  /** The capacity module's `WaitingFor`: run_slots, project_slots, provider_slots, cpu, memory or provider_quota. */
+  waitingFor: string
+  /** 1 = next to start. */
+  position: number
 }
 
 export interface LoopRunStoppedMessage {
@@ -1373,7 +1409,7 @@ export type WsMessage =
   | ChatStreamMessage | ChatDoneMessage | ChatErrorMessage
   | ChatCommandProposalMessage | ChatTitleUpdateMessage
   | SpecDraftUpdateMessage
-  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage | DesktopProjectRecoveredMessage
+  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage | DesktopProjectRecoveredMessage | DesktopAttentionPrefsMessage
   | SetupLogMessage | SetupCheckpointMessage | SetupChatMessage
   | SetupInstallDoneMessage | SetupCompleteMessage | SetupErrorMessage
   | SetupTurnDoneMessage
@@ -1385,9 +1421,9 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailMergePreviewMessage | RailPrStateMessage
   | IntentStateMessage
- | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
+ | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunQueuedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
   | AgentRefineAppliedMessage
@@ -1409,7 +1445,7 @@ export type WsMessage =
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
-  | AgentTitleMessage
+  | AgentTitleMessage | AgentContextUsageMessage | AgentLimitContinueMessage
   | { type: 'agent_conversation_created'; conversationId: string; openOnArrival?: boolean; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
@@ -1576,6 +1612,32 @@ export interface AgentTitleMessage {
   type: 'agent_title'
   conversationId: string
   title: string
+  timestamp: string
+}
+
+/** provider-quota: the person scheduled (or cancelled, `at` null) a mission continue at a usage-limit reset. */
+export interface AgentLimitContinueMessage {
+  type: 'agent_limit_continue'
+  conversationId: string
+  at: string | null
+  timestamp: string
+}
+
+/** The mission's provider-session context snapshot changed (null = unknown / fresh session).
+ *  Shape: `ContextUsageSnapshot` in server/modules/missions/runtime/mission-context-usage.ts. */
+export interface AgentContextUsageMessage {
+  type: 'agent_context_usage'
+  conversationId: string
+  contextUsage: {
+    provider: string
+    model: string | null
+    usedTokens: number | null
+    windowTokens: number | null
+    percent: number | null
+    source: 'response' | 'session-file'
+    measuredAt: string
+    compacted?: boolean
+  } | null
   timestamp: string
 }
 
@@ -1761,6 +1823,7 @@ export interface PrDecisionCardEnvelope {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
+    failureDetail?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
@@ -2006,6 +2069,8 @@ export interface JobInteractiveMessage {
   /** Settle mode of the session that just started/settled (loops are 'auto'). */
   settleMode: 'finalize' | 'auto'
   timestamp: string
+  /** The question card a paused definition run waits on; null once it is answered. */
+  question?: RunQuestion | null
 }
 
 /**
@@ -2027,6 +2092,8 @@ export interface LoopProviderLimitMessage {
   /** The provider's own sentence, verbatim. */
   message: string
   resetsAt: string | null
+  /** provider-quota: the exact instant the provider accepts requests again, when known (ISO). */
+  resumeAt?: string
   timestamp: string
 }
 

@@ -6,6 +6,7 @@ import type { PrDecision, PrDeliveryStatusCode } from '../../domain/state'
 import { isExactOpenPr, observePrLifecycle } from '../pr-lifecycle'
 import type { Exec } from '../pr-publisher'
 import { removeWorktree } from '../../../../worktree-manager'
+import { reapWorktreeLeftovers } from '../../../terminals/runtime/worktree-process-reaper'
 import { getPrCiAdmission, listStartedPrCiAdmissions, releasePrCiAdmission, settlePrCiAdmission, type PrCiAdmissionRow } from './pr-ci-admission'
 import { prCiTerminalState, readHostTaskOutcomes } from './pr-ci-offer'
 
@@ -229,6 +230,8 @@ export async function settleAdmissionRun(deps: PrCiAdmissionSettlementDeps, admi
   settlePrCiAdmission(deps.db, admission.id, { state: terminal.state as 'green' | 'no-ci' | 'needs-attention', ...(terminal.reason ? { reason: terminal.reason } : {}), pushes: terminal.pushes ?? 0, rounds: terminal.rounds ?? 0 }, deps.now)
   const settled = getPrCiAdmission(deps.db, admission.project_id, admission.id)!
   deps.announce(settled)
+  // Test servers the run's tools started in their own process group outlive the CLI.
+  if (admission.worktree_path) await reapWorktreeLeftovers({ worktreePaths: [admission.worktree_path], reason: 'pr-ci-run-settled', projectId: admission.project_id, runId: admission.run_id })
   if (settlement && admission.worktree_path) {
     // Clean at the PR head by now; refuse (not force) so nothing unexpected is lost.
     await removeWorktree(deps.git, { repoDir: admission.repository_path, worktreePath: admission.worktree_path, branch: admission.head_branch, deleteBranch: false, force: false })

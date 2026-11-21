@@ -34,6 +34,17 @@ describe('ProjectRightSidebar', () => {
     expect(screen.getByTestId('project-right-sidebar-panel')).not.toHaveAttribute('inert')
   })
 
+  it('a floating (unpinned) sidebar collapses once a page is chosen', () => {
+    render(<ProjectRightSidebar />)
+    const sidebar = screen.getByRole('complementary', { name: 'Project navigation' })
+    const panel = screen.getByTestId('project-right-sidebar-panel')
+    fireEvent.mouseEnter(sidebar)
+    act(() => sidebar.focus())
+    expect(panel).not.toHaveAttribute('inert')
+    fireEvent.click(screen.getByRole('link', { name: 'Project settings' }))
+    expect(panel).toHaveAttribute('inert')
+  })
+
   it('is drag-resizable when expanded', () => {
     window.localStorage.setItem('specrails-desktop:sidebar-mode:right', 'pinned-open')
     const { container } = render(<ProjectRightSidebar />)

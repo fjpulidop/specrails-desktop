@@ -55,7 +55,7 @@ describe('CostScatter', () => {
     expect(screen.queryByText(/No invocations to plot/i)).not.toBeInTheDocument()
   })
 
-  it('groups points by surface and renders one Scatter per surface', () => {
+  it('groups points by spend category and renders one Scatter per category', () => {
     const scatter: SpendingResponse['scatter'] = [
       { id: '1', surface: 'job', costUsd: 1, numTurns: 3, durationMs: 1000, ticketId: null, startedAt: '2026-05-06T00:00:00Z' },
       { id: '2', surface: 'job', costUsd: 2, numTurns: 4, durationMs: 1500, ticketId: 7, startedAt: '2026-05-06T00:00:00Z' },
@@ -65,10 +65,12 @@ describe('CostScatter', () => {
     expect(screen.getByTestId('scatter-chart')).toBeInTheDocument()
     expect(screen.getByTestId('scatter-set-2')).toBeInTheDocument() // 2 jobs
     expect(screen.getByTestId('scatter-set-1')).toBeInTheDocument() // 1 explore
-    // Legend lists only surfaces that have points, each with its own shape.
-    expect(screen.getByTestId('legend-symbol-circle')).toBeInTheDocument() // job
-    expect(screen.getByTestId('legend-symbol-triangle')).toBeInTheDocument() // explore
-    expect(screen.queryByText('Loops')).not.toBeInTheDocument()
+    // Legend lists only categories that have points, each with its own shape.
+    expect(screen.getByTestId('legend-symbol-circle')).toBeInTheDocument() // implementation
+    expect(screen.getByTestId('legend-symbol-square')).toBeInTheDocument() // specs
+    expect(screen.getByText('Implementation')).toBeInTheDocument()
+    expect(screen.getByText('Specs')).toBeInTheDocument()
+    expect(screen.queryByText('Code')).not.toBeInTheDocument()
   })
 
   it('BUG-ANALYTICS-15: plots file-summary + loop points (previously dropped)', () => {
@@ -81,9 +83,9 @@ describe('CostScatter', () => {
     // one Scatter set with the 2 loop points, one with the 1 file-summary point.
     expect(screen.getByTestId('scatter-set-2')).toBeInTheDocument() // 2 loops
     expect(screen.getByTestId('scatter-set-1')).toBeInTheDocument() // 1 file-summary
-    // legend now lists both surfaces.
-    expect(screen.getByText('Loops')).toBeInTheDocument()
-    expect(screen.getByText('File summaries')).toBeInTheDocument()
+    // legend lists both categories.
+    expect(screen.getByText('Implementation')).toBeInTheDocument()
+    expect(screen.getByText('Code')).toBeInTheDocument()
   })
 
   it('BUG-ANALYTICS-34: shows a truncation notice when the scatter was recency-capped', () => {

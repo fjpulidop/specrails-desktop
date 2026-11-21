@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "No reviewer score was produced.",
     "evidenceUnavailable": "evidence unavailable",
     "hostCommandPassed": "The runtime ran {{label}} itself: exit code {{exitCode}} ({{seconds}}s)",
+    "hostStaticCheckPassed": "The runtime ran {{label}} itself, but it only reads file contents and does not run the code: exit code {{exitCode}} ({{seconds}}s)",
     "hostCommandFailed": "The runtime ran {{label}} itself and it FAILED: exit code {{exitCode}} ({{seconds}}s)",
     "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
     "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",
     "reviewerSummary": "The AI reviewer's summary:",
-    "reviewerFinding": "The AI reviewer noted:"
+    "reviewerFinding": "The AI reviewer noted:",
+    "earlierAttempts_one": "{{count}} earlier run of this check",
+    "earlierAttempts_other": "{{count}} earlier runs of this check",
+    "earlierAttempt": "Failed with exit code {{exitCode}} ({{seconds}} s), before the fix that made it pass"
   },
   "watch": {
     "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "Planned approach (from the spec)",
     "caveat": "What the request proposed — not a report of what the AI did. The facts above are what actually changed."
+  },
+  "delivered": {
+    "title": "What changed",
+    "caveat": "From the delivered OpenSpec proposal: written by the agent and checked by the reviewer.",
+    "why": "Why"
   },
   "outcome": {
     "succeeded": "Implemented",

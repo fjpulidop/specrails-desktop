@@ -8,7 +8,7 @@ Specrails agiert als **Sync-Schicht** zwischen Jira und deinem Projekt. Die Grun
 
 - Wenn du eine Rail startest, verschiebt Specrails den verknüpften Jira-Vorgang nach **In Arbeit**.
 - Wenn ein Job abschließt, überführt Specrails den Vorgang: bei Erfolg in deinen gemappten **Prüf**-Status — **Fertig** wird er erst, wenn die Liefer-PR gemerged oder das lokale Ergebnis akzeptiert wurde; bei Fehlschlag zurück nach **To Do** mit einem Abschlusskommentar, der Ergebnis, Run-ID, Kosten, Dauer und die Jira-Statusänderung enthält.
-- Wenn du Follow-up-Änderungen anfragst, während der Jira-Vorgang bereits in Prüfung ist, versucht Specrails, die bestehende offene PR-Branch für dieses Ticket fortzusetzen, statt eine neue Branch zu erstellen. Falls dein Jira-Prüfstatus nicht explizit gemappt ist und lokal noch als **In Arbeit** erscheint, kann Specrails die PR trotzdem fortsetzen, wenn der Jira-Schlüssel zum offenen Pull-Request passt.
+- Wenn du Follow-up-Änderungen anfragst, während der Jira-Vorgang bereits in Prüfung ist, versucht Specrails, die bestehende offene PR-Branch für diese Spec fortzusetzen, statt eine neue Branch zu erstellen. Falls dein Jira-Prüfstatus nicht explizit gemappt ist und lokal noch als **In Arbeit** erscheint, kann Specrails die PR trotzdem fortsetzen, wenn der Jira-Schlüssel zum offenen Pull-Request passt.
 - In regelmäßigen Abständen **pollt** Specrails Jira nach Änderungen, die jemand auf dem Board vorgenommen hat, und spiegelt sie zurück in deine Specs.
 
 Alle Rückschreibungen laufen über eine dauerhafte, absturzsichere Outbox, sodass ein kurzzeitiger Jira-Aussetzer niemals einen Job kaputtmacht — das Update wird einfach erneut versucht.

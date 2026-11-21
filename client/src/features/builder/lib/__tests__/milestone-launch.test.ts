@@ -184,6 +184,20 @@ describe('resumeChain / cancelChain', () => {
     expect(urls).toEqual(['/api/projects/p/blueprint/chains/c1/resume', '/api/projects/p/blueprint/chains/c1/cancel'])
   })
 
+  it('sends where to resume a failed spec and parses its retry chunk', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = []
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      return jsonRes(202, { chain: { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'paused', pauseReason: 'chunk_failed', retryChunk: 0, nextChunk: 1, totalChunks: 3, currentRailIndex: 3, headBranch: null, launched: [], updatedAt: 'x' } })
+    }) as unknown as typeof fetch
+    const r = await resumeChain('p', 'c1', fetchImpl, 'failed_step')
+    expect(calls[0].url).toBe('/api/projects/p/blueprint/chains/c1/resume')
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ from: 'failed_step' })
+    if (r.ok) expect(r.chain?.retryChunk).toBe(0)
+    await resumeChain('p', 'c1', fetchImpl)
+    expect(calls[1].init?.body).toBeUndefined()
+  })
+
   it('relays the server error + detail and reports network failures', async () => {
     const fetchImpl = vi.fn(async () => jsonRes(409, { error: 'head_missing', detail: 'branch gone' })) as unknown as typeof fetch
     expect(await resumeChain('p', 'c1', fetchImpl)).toEqual({ ok: false, error: 'head_missing', detail: 'branch gone' })

@@ -27,6 +27,10 @@ export interface DailyBudgetRejection {
   resetsAt: string | null
   detail: string
   action: string
+  /** Per-run cap only: how far the run's cost went past the cap (when it did). */
+  overshootUsd?: number
+  /** Per-run cap only: the next turn's expected cost, when the cap was enforced before that turn. */
+  nextTurnUsd?: number
 }
 
 /** Local calendar-day start as a UTC ISO instant (comparable to `started_at`). */

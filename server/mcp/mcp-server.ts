@@ -11,7 +11,8 @@ import { AGENT_CAPABILITY_HEADER } from '../modules/missions/runtime/agent-tier'
 import { setDesktopSetting } from '../desktop-db'
 import { buildToolSpecs } from './tools/catalog'
 import { registerTieredTool, type McpToolContext } from './tools/types'
-import { registerResources } from './resources'
+import { registerResources, registerResourceSubscriptions } from './resources'
+import { registerPrompts } from './prompts'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
 
 export interface McpServerManagerDeps {
@@ -45,6 +46,8 @@ interface McpSession {
   capabilityHash: string | null
   timer?: ReturnType<typeof setTimeout>
   unsubscribe?: () => void
+  /** Stops this session's resource-update notifications. */
+  dispose: () => void
   closed: boolean
 }
 
@@ -106,6 +109,7 @@ export class McpServerManager {
     session.closed = true
     if (session.timer) clearTimeout(session.timer)
     session.unsubscribe?.()
+    session.dispose()
     this._pending.delete(session)
     if (session.transport.sessionId) this._sessions.delete(session.transport.sessionId)
   }
@@ -125,18 +129,21 @@ export class McpServerManager {
     }
   }
 
-  /** Build a fresh McpServer with the full tool + resource catalog registered. */
-  private buildServer(): McpServer {
+  /** Build a fresh McpServer with the full tool, resource and prompt catalog registered. */
+  private buildServer(options: { inApp?: boolean } = {}): { server: McpServer; dispose: () => void } {
     const server = new McpServer(
       { name: 'specrails-desktop', version: this._version },
-      { capabilities: { logging: {}, tools: {}, resources: {} } },
+      { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} } },
     )
     const context = { ...this._ctx, sessionState: { activeProjectId: null } }
-    for (const spec of buildToolSpecs()) {
-      registerTieredTool(server, context, spec)
+    const specs = buildToolSpecs()
+    for (const spec of specs) {
+      registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
     }
-    registerResources(server, context)
-    return server
+    registerResources(server, context, specs)
+    registerPrompts(server)
+    const dispose = registerResourceSubscriptions(server, context)
+    return { server, dispose }
   }
 
   /**
@@ -185,7 +192,8 @@ export class McpServerManager {
             res.status(400).json(jsonRpcError('Missing mcp-session-id and body is not an initialize request.'))
             return
           }
-          const server = this.buildServer()
+          // A verified in-app agent capability: the session is a Specrails turn.
+          const { server, dispose } = this.buildServer({ inApp: capability !== null && capability !== undefined })
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sid: string) => {
@@ -193,7 +201,7 @@ export class McpServerManager {
               this._sessions.set(sid, created)
             },
           })
-          const created: McpSession = { transport, server, capabilityHash, closed: false }
+          const created: McpSession = { transport, server, capabilityHash, dispose, closed: false }
           session = created
           this._pending.add(created)
           transport.onclose = () => { this.forgetSession(created) }

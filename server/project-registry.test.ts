@@ -64,9 +64,7 @@ vi.mock('./modules/specs/runtime/proposal-manager', () => {
 })
 
 vi.mock('./config', () => ({
-  getConfig: vi.fn().mockReturnValue({
-    commands: [{ id: 'implement', name: 'Implement', slug: 'implement' }],
-  }),
+  getProjectCommands: vi.fn().mockReturnValue([{ id: 'implement', name: 'Implement', slug: 'implement' }]),
 }))
 
 import { emitRecoveredPrDelivery, ProjectRegistry, reprojectActivePrDeliveries, type ProjectContext } from './project-registry'
@@ -694,7 +692,7 @@ describe('ProjectRegistry', () => {
   describe('config loading failure', () => {
     it('still creates context when config loading fails', async () => {
       const configMod = await import('./config')
-      vi.mocked(configMod.getConfig).mockImplementation(() => {
+      vi.mocked(configMod.getProjectCommands).mockImplementation(() => {
         throw new Error('No .claude/commands found')
       })
 

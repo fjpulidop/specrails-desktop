@@ -12,12 +12,28 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { ProjectContext } from './project-registry'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
+import { definitionRunNeverReachedCore, getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
+import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
+import { normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
+import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
+import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
+import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
+import { continuationGuidance, parseStoredDiagnosis, readStoredOptions, resolutionGuidance, type ResolutionChoice } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
-import { appendEvent } from './db'
+import { appendEvent, updateProjectSettings } from './db'
+import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { clearRetainedBudgetPause, readRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
+import { clearUserPause } from './modules/loops/runtime/loop-user-pauses'
+import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-resume'
+import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
+import { createLoopProviderSwitch, routeOverrideRequest, validateSwitchChoice } from './modules/loops/runtime/loop-provider-switch'
+import { carriesHumanDecision } from './modules/loops/runtime/loop-definition-run'
+import { acceptedRouteOverrides, type DefinitionRouteOverride } from './modules/agent-runtime/runtime/agent-runtime-route-overrides'
+import { readFrozenRuntimeHost, retainedRuntimeRouteOverrideSupport } from './modules/agent-runtime/runtime/agent-runtime-bridge'
+import { settledProviderSwitch, settledSwitchLimit, type ProviderSwitchChoice, type SettledProviderSwitch } from './modules/loops/runtime/loop-provider-switch-settled'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { getLaunchForecast } from './modules/execution/runtime/launch-forecast'
@@ -30,14 +46,14 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
-import { readRunDiagnosis } from './modules/recovery/adapters/sqlite'
+import { readChainResolution, readFailureAnalysis, readRunDiagnosis, readVerificationTests } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
 import { getRails, getRail, createRail, deleteRail, MAX_RAILS } from './modules/delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from './modules/delivery/runtime/rail-pr-store'
 import { isolationApplies } from './modules/delivery/runtime/rail-isolation'
-import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
+import { assertProcessAdmission, awaitProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 const pendingCancellations = new WeakMap<object, Map<string, Promise<void>>>()
 
@@ -68,8 +84,113 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
     }
-    const outcome = await resumeRetainedDefinitionRun(c, runId, req.body ?? {})
+    // A resident run the person paused resumes in place: the same attempt continues from its next step.
+    if (run && run.project_id === c.project.id && c.loopRunManager.resumeUserPause?.(runId)) {
+      res.status(202).json({ loopRunId: runId, resumed: true }); return
+    }
+    // provider-quota: a resident run waiting for a usage-limit reset resumes now (the provider may still refuse).
+    if (run && run.project_id === c.project.id && c.loopRunManager.limitPause?.(runId)) {
+      c.loopRunManager.resolveLimitPause(runId, { action: 'resume' })
+      res.status(202).json({ loopRunId: runId, resumed: true }); return
+    }
+    // A run a restart retained while parked at its budget answers the budget gate first, with
+    // the same choices as a resident one; only then does it resume like any restart-paused run.
+    const retainedBudget = !!run && run.project_id === c.project.id && run.status === 'paused' && readRetainedBudgetPause(c.db, runId)
+    if (retainedBudget) {
+      const rejection = retainedRunCapRejection(c.db, runId, req.body) ?? c.dailyBudgetRejection?.() ?? null
+      if (rejection) { res.status(409).json(rejection); return }
+    }
+    // A run a Desktop restart interrupted is resumed from the inbox or the restart dialog
+    // with an empty body. That click is the person's explicit recovery (see resumeRetainedDefinitionRun).
+    const rawBody = (req.body ?? {}) as Record<string, unknown>
+    const { runCap: _runCap, runCapUsd: _runCapUsd, ...withoutCap } = rawBody
+    const controls: unknown = retainedBudget ? withoutCap : rawBody
+    const restartResume = !!run && isRestartResume(run, controls)
+    // Any Continue of a run the restart paused (also one naming the attempts to recover)
+    // waits out the dead Core child's lease instead of answering runtime_run_active.
+    const outcome = await resumeRetainedDefinitionRun(c, runId, controls, { restartResume, waitForStaleLease: !!run && run.status === 'paused' && run.restart_reason === 'restart' })
     res.status(outcome.status).json(outcome.body)
+  })
+
+  // provider-quota: answer a run paused on a provider usage limit — resume now,
+  // continue on another provider (never one sharing the quota), or turn its
+  // automatic resume at the reset on/off. A run retained over a restart
+  // resumes through the regular retained-run path.
+  router.post('/:projectId/loop-runs/:id/limit', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    const body = (req.body ?? {}) as { action?: unknown; provider?: unknown; enabled?: unknown; model?: unknown; effort?: unknown; remember?: unknown }
+    const live = c.loopRunManager.limitPause?.(runId) ?? null
+    const retained = live ? null : run.status === 'paused' ? readLimitPause(c.db, runId) : null
+    if (!live && !retained) { res.status(409).json({ error: 'not_limit_paused' }); return }
+    if (body.action === 'auto' && typeof body.enabled === 'boolean') {
+      if (live) c.loopRunManager.resolveLimitPause(runId, { action: 'auto', enabled: body.enabled })
+      else saveLimitPause(c.db, runId, { ...retained!, autoResume: body.enabled })
+      res.json({ limit: live ? c.loopRunManager.limitPause(runId) : readLimitPause(c.db, runId) }); return
+    }
+    if (body.action === 'resume') {
+      if (live) { c.loopRunManager.resolveLimitPause(runId, { action: 'resume' }); res.status(202).json({ loopRunId: runId, resumed: true }); return }
+      const outcome = await resumeRetainedDefinitionRun(c, runId, {}, limitResumeOptions(run))
+      res.status(outcome.status).json(outcome.body); return
+    }
+    // A Core definition run (Core routeOverrides): the roles on the limited provider continue on the
+    // chosen provider/model/effort for the rest of the run. Validated here against the offer and the
+    // provider catalogs; Core validates the effective configuration again before it runs a step.
+    if (body.action === 'switch' && (live ?? retained!).switchTargets) {
+      const limit = live ?? retained!
+      const checked = validateSwitchChoice(limit, body)
+      if (!checked.ok) { res.status(checked.status).json({ error: checked.error, detail: checked.detail }); return }
+      const installed = validateRequestedProvider(c.project, checked.choice.provider)
+      if (!installed.ok) { res.status(400).json({ error: 'invalid_provider', detail: installed.error }); return }
+      const { choice } = checked
+      if (live) {
+        if (!c.loopRunManager.resolveLimitPause(runId, { action: 'switch', ...choice })) { res.status(409).json({ error: 'switch_unavailable' }); return }
+        res.status(202).json({ loopRunId: runId, provider: choice.provider, model: choice.model, effort: choice.effort ?? null }); return
+      }
+      // Retained over a restart: resume it through the regular retained-run path with the override.
+      const contextPath = readDefinitionRun(c.db, runId)?.metadata.contextPath
+      if (!contextPath || !limit.switchRoles?.length) { res.status(409).json({ error: 'switch_unavailable', detail: 'This run cannot change provider mid-run' }); return }
+      const routeOverrides = routeOverrideRequest({ runId, sequence: acceptedRouteOverrides(contextPath).length + 1, fromProvider: limit.providerId, roles: limit.switchRoles, choice })
+      if (choice.remember) {
+        try { createLoopProviderSwitch(c.project).remember(Object.fromEntries(limit.switchRoles.map(role => [role, choice]))) }
+        catch (error) { res.status(409).json({ error: 'remember_failed', detail: error instanceof Error ? error.message : String(error) }); return }
+      }
+      const outcome = await resumeRetainedDefinitionRun(c, runId, { routeOverrides }, limitResumeOptions(run))
+      res.status(outcome.status).json(outcome.status < 300 ? { ...outcome.body, provider: choice.provider, model: choice.model, effort: choice.effort ?? null } : outcome.body); return
+    }
+    if (body.action === 'switch' && typeof body.provider === 'string') {
+      const limit = live ?? retained!
+      if (!live || !limit.switchable) { res.status(409).json({ error: 'switch_unavailable', detail: 'This run cannot change provider mid-run' }); return }
+      if (sharesQuota(limit.providerId, body.provider)) { res.status(409).json({ error: 'shares_quota', detail: `${body.provider} uses the same usage limit` }); return }
+      const checked = validateRequestedProvider(c.project, body.provider)
+      if (!checked.ok || !hasAdapter(body.provider)) { res.status(400).json({ error: 'invalid_provider', detail: checked.ok ? 'Unknown provider' : checked.error }); return }
+      const model = getAdapter(body.provider).defaultModel()
+      if (!c.loopRunManager.resolveLimitPause(runId, { action: 'switch', provider: body.provider, model })) { res.status(409).json({ error: 'switch_unavailable' }); return }
+      res.status(202).json({ loopRunId: runId, provider: body.provider, model }); return
+    }
+    res.status(400).json({ error: 'invalid_limit_action' })
+  })
+
+  // The person's Pause of a running Core definition run: Core finishes the step in progress and
+  // parks at the next step boundary; the run holds as paused by you until Resume (same attempt).
+  router.post('/:projectId/loop-runs/:id/pause', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    if (run.engine_version !== 2) { res.status(409).json({ error: 'pause_unsupported', detail: 'This run cannot pause; Stop ends it at its next step.' }); return }
+    try {
+      const result = await c.loopRunManager.requestUserPause(runId)
+      if (result.status === 'pausing') { res.status(202).json({ loopRunId: runId, pausing: true, requestId: result.requestId }); return }
+      if (result.status === 'paused') { res.status(200).json({ loopRunId: runId, paused: true }); return }
+      const detail = result.status === 'unsupported' ? "This run's Core cannot pause mid-run; Stop ends it at its next step."
+        : result.status === 'held' ? 'The run is already held and does no work.'
+          : result.status === 'not_ready' ? 'The run has not started its first step yet.'
+            : 'The run is not running in this app.'
+      res.status(409).json({ error: result.status === 'unsupported' ? 'pause_unsupported' : `pause_${result.status}`, detail })
+    } catch (error) {
+      res.status(409).json({ error: 'pause_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
   })
 
   router.post('/:projectId/loop-runs/:id/cancel', async (req: Request, res: Response) => {
@@ -100,11 +221,74 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     try {
       assertProcessAdmission(c.project.id)
       const result = await forkDefinitionRun(c, runId, input)
-      res.status(201).json(result)
+      // The linked run continues on its own from the selected step: a fork
+      // nobody resumes is a paused job the user must find and restart.
+      const resumed = await resumeDefinitionRunFromStop(c, result.loopRunId)
+      res.status(201).json({ ...result, resumed: resumed.ok, ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) })
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error)
       res.status(detail === 'runtime_status_unavailable' ? 503 : 409).json({ error: 'runtime_fork_rejected', detail })
     }
+  })
+
+  // Continue a failed or stopped run, keeping its work: in place when the runtime can resume it,
+  // otherwise as the next attempt from the step that failed or stopped, with the cause's guidance.
+  // `continue-to-review` hands the remaining checks to a person. `retry-with-browser` is the older id of `continue`.
+  router.post('/:projectId/loop-runs/:id/remedy', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    // "Copy this project's .env into runs": turn the project setting on, copy the env files into
+    // this run's worktree(s), then the regular Continue (its guidance names the copies).
+    if ((req.body ?? {}).remedy === 'copy-env-files') {
+      let envFilesCopied: string[]
+      try {
+        const copy = await enableEnvFilesForRun(c, runId, { enable: () => updateProjectSettings(c.db, { worktreeEnvFiles: true }) })
+        envFilesCopied = copy.copied
+        if (copy.warnings.length) console.warn(`[continue] env files for ${runId}: ${copy.warnings.join('; ')}`)
+      } catch (error) {
+        if (error instanceof EnvFilesUnavailableError) { res.status(409).json({ error: error.code, detail: error.message }); return }
+        res.status(500).json({ error: 'env_files_failed', detail: error instanceof Error ? error.message : String(error) }); return
+      }
+      const outcome = await continueDefinitionRun(c, runId, 'continue', { envFilesCopied })
+      res.status(outcome.status).json({ ...outcome.body, envFilesEnabled: true, envFilesCopied })
+      return
+    }
+    // A resolution the person picked from the AI analysis (by id: its guidance is read from the stored
+    // analysis, never from the request), or their own instruction.
+    const choice = resolutionRequest(c.db, runId, req.body ?? {})
+    if ('error' in choice) { res.status(choice.status).json({ error: choice.error, ...(choice.detail ? { detail: choice.detail } : {}) }); return }
+    const remedy = choice.remedy ?? normalizeContinueRemedy((req.body ?? {}).remedy)
+    if (!remedy) { res.status(400).json({ error: 'invalid_remedy' }); return }
+    // "Continue with <Provider>": the next attempt moves the roles on the limited provider (validated against this run's offer).
+    let providerSwitch: ContinueOptions['providerSwitch']
+    if ((req.body ?? {}).switch !== undefined) {
+      if (remedy !== 'continue') { res.status(400).json({ error: 'invalid_switch', detail: 'Switching provider continues the run' }); return }
+      const checked = await checkSettledSwitch(c, runId, (req.body as { switch?: unknown }).switch)
+      if (!checked.ok) { res.status(checked.status).json({ error: checked.error, detail: checked.detail }); return }
+      providerSwitch = { choice: checked.choice, offer: checked.offer }
+    }
+    const outcome = await continueDefinitionRun(c, runId, remedy, { ...(choice.resolution ? { resolution: choice.resolution } : {}), ...(providerSwitch ? { providerSwitch } : {}) })
+    res.status(outcome.status).json({ ...outcome.body, ...(choice.label ? { option: choice.label } : {}),
+      ...(providerSwitch && outcome.status < 300 ? { provider: providerSwitch.choice.provider, model: providerSwitch.choice.model, effort: providerSwitch.choice.effort ?? null } : {}) })
+  })
+
+  // The attempt chain a run belongs to (oldest first), for the run window's lineage (null without
+  // lineage), and whether Continue applies: a settled or paused definition run no later attempt took over.
+  router.get('/:projectId/loop-runs/:id/attempts', async (req: Request, res: Response) => {
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    const continuable = run.engine_version === 2 && (run.status === 'completed' ? run.final_outcome !== 'success' : run.status === 'paused' && run.restart_reason !== 'fork')
+      && !readDefinitionSuccessor(c.db, runId)
+    let chain: ReturnType<typeof readAttemptChain> = null
+    try { chain = readAttemptChain(c.db, runId) } catch { chain = null }
+    // The chain's spend and whether it keeps stopping for the same cause (the card then leads with the options).
+    let resolution: ReturnType<typeof readChainResolution> = null
+    try { resolution = chain ? readChainResolution(c.db, runId) : null } catch { resolution = null }
+    // A run that settled on a provider's usage limit may continue on another provider.
+    let providerSwitch: SettledProviderSwitch | null = null
+    if (continuable && run.status === 'completed') { try { providerSwitch = await settledSwitchOffer(c, runId) } catch { providerSwitch = null } }
+    res.json({ chain, continuable, resolution, providerSwitch })
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
@@ -121,13 +305,15 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       || !hasAdapter(run.provider)
       || getAdapter(run.provider).capabilities.reportsUsage !== false
     const { failure_diagnosis: _stored, ...publicRun } = run
+    const limitPause = c.loopRunManager.limitPause?.(run.id) ?? (run.status === 'paused' ? readLimitPause(c.db, run.id) : null)
     const failureDiagnosis = (() => { try { return readRunDiagnosis(c.db, run.id) } catch { return null } })()
     res.json({
       loopRun: usageAvailable
-        ? { ...publicRun, failureDiagnosis, usage_available: true }
+        ? { ...publicRun, failureDiagnosis, limitPause, usage_available: true }
         : {
             ...publicRun,
             failureDiagnosis,
+            limitPause,
             total_cost_usd: null,
             total_tokens: null,
             usage_available: false,
@@ -356,6 +542,20 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
  */
 export async function cancelDefinitionRun(c: ProjectContext, runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
   const resident = c.loopRunManager.isDefinitionRunActive(runId)
+  // A restart stopped it while it waited for capacity: Core never saw it, so it settles stopped here.
+  const never = getLoopRun(c.db, runId)
+  if (!resident && never?.status === 'paused' && never.restart_reason === 'restart' && definitionRunNeverReachedCore(c.db, runId)) {
+    assertProcessAdmission(c.project.id)
+    const claim = readDefinitionExecutionClaim(c.db, runId)
+    if (claim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+      AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+      .run(runId, claim.owner, runId, c.project.id)
+    const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+    const result = await c.loopRunManager.stopNeverStarted(runId)
+    if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+    else c.onLoopRunFinished(runId, result.outcome)
+    return
+  }
   await c.loopRunManager.cancelDefinition(runId, requestId)
   let pending = pendingCancellations.get(c)
   if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
@@ -407,22 +607,200 @@ export async function settleCompletedDefinitionRun(c: ProjectContext, runId: str
   await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
 }
 
-export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {
+export interface ContinueOptions {
+  /** Specrails continued on its own (recorded, and bounded to one per chain by the caller). */
+  automatic?: boolean
+  /** Env files the person's remedy just copied into the run's worktree (named in the guidance). */
+  envFilesCopied?: string[]
+  /** The resolution the person picked (an AI option or their own instruction): its guidance goes with Continue. */
+  resolution?: ResolutionChoice
+  /** Continue on another provider (a run that settled on a usage limit): the checked choice and the offer it was checked against. */
+  providerSwitch?: { choice: ProviderSwitchChoice; offer: SettledProviderSwitch }
+}
+
+/** The provider switch a settled run offers (null when it offers none). */
+export async function settledSwitchOffer(c: ProjectContext, runId: string): Promise<SettledProviderSwitch | null> {
+  const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
+  return settledProviderSwitch(runId, {
+    db: c.db, providerSwitch: createLoopProviderSwitch(c.project), diagnosis: parseStoredDiagnosis(stored?.failure_diagnosis ?? null),
+    support: ({ runId: id, contextPath }) => retainedRuntimeRouteOverrideSupport({ runId: id, contextPath, ...readFrozenRuntimeHost(contextPath, process.env, id) }),
+  })
+}
+
+/** Check a person's "Continue with <Provider>" against the run's offer and the provider catalogs (the pause switch's rules). */
+export async function checkSettledSwitch(c: ProjectContext, runId: string, raw: unknown): Promise<{ ok: true; choice: ProviderSwitchChoice; offer: SettledProviderSwitch } | { ok: false; status: number; error: string; detail: string }> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, status: 400, error: 'invalid_switch', detail: 'switch must be { provider, model?, effort?, remember? }' }
+  const body = raw as Record<string, unknown>
+  if (Object.keys(body).some(key => !['provider', 'model', 'effort', 'remember'].includes(key))) return { ok: false, status: 400, error: 'invalid_switch', detail: 'Unknown switch field' }
+  const offer = await settledSwitchOffer(c, runId)
+  if (!offer) return { ok: false, status: 409, error: 'switch_unavailable', detail: 'This run cannot continue on another provider' }
+  const checked = validateSwitchChoice(settledSwitchLimit(offer), body)
+  if (!checked.ok) return checked
+  const installed = validateRequestedProvider(c.project, checked.choice.provider)
+  if (!installed.ok) return { ok: false, status: 400, error: 'invalid_provider', detail: installed.error }
+  return { ok: true, choice: checked.choice, offer }
+}
+
+/** Longest instruction a person can continue a run with. */
+export const MAX_INSTRUCTION_CHARS = 4_000
+
+type ResolutionRequest =
+  | { remedy?: ContinueRemedy; resolution?: ResolutionChoice; label?: string }
+  | { error: string; status: number; detail?: string }
+
+/**
+ * Validate a remedy request's resolution: `{ optionId }` picks an option of this run's stored AI
+ * analysis (the server reads its kind and guidance), `{ instruction }` continues with the person's
+ * own words. Options that are not a Continue (edit the spec, change a model, start over) run on the client.
+ */
+export function resolutionRequest(db: ProjectContext['db'], runId: string, body: Record<string, unknown>): ResolutionRequest {
+  const { optionId, instruction } = body
+  if (optionId === undefined && instruction === undefined) return {}
+  if (optionId !== undefined && instruction !== undefined) return { error: 'invalid_resolution', status: 400, detail: 'Send an option or an instruction, not both' }
+  if (body.remedy !== undefined && body.remedy !== 'continue') return { error: 'invalid_resolution', status: 400, detail: 'A resolution continues the run' }
+  if (instruction !== undefined) {
+    const text = typeof instruction === 'string' ? instruction.trim() : ''
+    if (!text || text.length > MAX_INSTRUCTION_CHARS) return { error: 'invalid_instruction', status: 400, detail: `An instruction is 1-${MAX_INSTRUCTION_CHARS} characters` }
+    return { remedy: 'continue', resolution: { kind: 'instruction', text } }
+  }
+  if (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId)) return { error: 'invalid_option', status: 400 }
+  let options: ReturnType<typeof readStoredOptions> = []
+  try { options = readStoredOptions(readFailureAnalysis(db, runId)?.analysis) } catch { options = [] }
+  const option = options.find((candidate) => candidate.id === optionId)
+  if (!option) return { error: 'option_not_found', status: 404, detail: 'The analysis has no such option (it may have been regenerated)' }
+  if (option.kind === 'continue-to-review') return { remedy: 'continue-to-review', label: option.label }
+  if (option.kind === 'continue-with-guidance' || option.kind === 'mark-human-check') {
+    return { remedy: 'continue', label: option.label, resolution: { kind: option.kind, label: option.label, does: option.does, guidance: option.guidance } }
+  }
+  // "Change the model" on a run stopped by a usage limit is the provider switch: Continue with the chosen route.
+  if (option.kind === 'change-model' && body.switch !== undefined) {
+    return { remedy: 'continue', label: option.label, resolution: { kind: 'continue-with-guidance', label: option.label, does: option.does, guidance: option.guidance } }
+  }
+  return { error: 'option_runs_on_client', status: 400, detail: `${option.kind} is not a continuation` }
+}
+
+/**
+ * Continue a failed or stopped definition run (the person's Continue and the
+ * automatic continuation). Keeps every piece of work: resumes in place when the
+ * runtime can, otherwise forks the next attempt from the step that failed or
+ * stopped. The cause's guidance is queued as an operator instruction before the
+ * run goes on, so its next agent turn reads it. Returns the HTTP outcome.
+ */
+function completionReasonsOf(completion: unknown): unknown[] | null {
+  return completion && typeof completion === 'object' && Array.isArray((completion as { reasons?: unknown }).reasons) ? (completion as { reasons: unknown[] }).reasons : null
+}
+
+export async function continueDefinitionRun(c: ProjectContext, runId: string, remedy: ContinueRemedy, options: ContinueOptions = {}): Promise<{ status: number; body: object }> {
+  try {
+    assertProcessAdmission(c.project.id)
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) return { status: 409, body: budgetRejection }
+    const successor = readDefinitionSuccessor(c.db, runId)
+    if (successor) return { status: 409, body: { error: 'runtime_fork_owns_worktree', detail: 'This attempt was already continued', loopRunId: successor } }
+    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId, true)
+    if (probe.status === 'unavailable') return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } }
+    const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined
+    const diagnosis = parseStoredDiagnosis(stored?.failure_diagnosis ?? null)
+    let plan = planContinuation(c.db, runId, remedy, probe, diagnosis)
+    // Continue on another provider: the next attempt starts with the moved routes (withProviderSwitch).
+    let routeOverrides: DefinitionRouteOverride | undefined
+    if (options.providerSwitch) {
+      const contextPath = readDefinitionRun(c.db, runId)?.metadata.contextPath
+      if (!contextPath) return { status: 409, body: { error: 'switch_unavailable', detail: 'This run cannot continue on another provider' } }
+      ;({ plan, routeOverrides } = withProviderSwitch(plan, { runId, sequence: acceptedRouteOverrides(contextPath).length + 1, ...options.providerSwitch }))
+    }
+    const target = plan.mode === 'fork' ? (await forkDefinitionRun(c, runId, plan.request)).loopRunId : runId
+    if (options.providerSwitch?.choice.remember) {
+      const { choice, offer } = options.providerSwitch
+      try { createLoopProviderSwitch(c.project).remember(Object.fromEntries(offer.roles.map(role => [role, { provider: choice.provider, model: choice.model, ...(choice.effort ? { effort: choice.effort } : {}) }]))) }
+      catch (error) { console.warn(`[continue] could not remember the routes of ${runId}: ${error instanceof Error ? error.message : String(error)}`) }
+    }
+    // Checks handed to a person need no guidance; Continue carries the cause's (and the flaky tests' rule).
+    let flakyTests: string[] = []
+    try { flakyTests = remedy === 'continue' ? readVerificationTests(c.db, runId).flakyTests : [] } catch { flakyTests = [] }
+    const cause = remedy === 'continue' ? continuationGuidance(diagnosis, { completionReasons: completionReasonsOf(probe.completion), envFilesCopied: options.envFilesCopied ?? null, flakyTests }) : null
+    // A picked resolution is what the person chose Continue to do; otherwise the person read the AI
+    // analysis' steps as what Continue does (older analyses, with no options): hand them to the agent too.
+    const chosen = resolutionGuidance(options.resolution)
+    const guidance = remedy !== 'continue' ? cause
+      : chosen ? [cause, chosen].filter(Boolean).join('\n\n')
+        : withAnalysisSteps(cause, analysisStepsOf(c.db, runId))
+    let guided: boolean | undefined
+    if (guidance) {
+      try {
+        await signalDefinitionRun(c, target, guidance, `continue-${target}-${Date.now().toString(36)}`.slice(0, 128))
+        guided = true
+      } catch (error) {
+        guided = false
+        console.warn(`[continue] could not queue the guidance for ${target}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    try {
+      recordRunContinuation(c.db, { runId: target, sourceRunId: runId, remedy, mode: plan.mode, fromStep: plan.fromStep, cause: diagnosis?.kind ?? null, guidance: guided ? guidance : null, automatic: !!options.automatic })
+    } catch (error) { console.warn(`[continue] could not record the continuation of ${runId}:`, error instanceof Error ? error.message : error) }
+    const resumed = await resumeDefinitionRunFromStop(c, plan.mode === 'fork' ? target : runId, routeOverrides ? { routeOverrides } : {})
+    return { status: plan.mode === 'fork' ? 201 : 202, body: { loopRunId: target, remedy, mode: plan.mode, fromStep: plan.fromStep, resumed: resumed.ok, ...(guided === undefined ? {} : { guided }),
+      ...(resumed.ok ? {} : { resumeError: resumed.error, ...(resumed.detail ? { resumeDetail: resumed.detail } : {}) }) } }
+  } catch (error) {
+    if (error instanceof IncompleteTasksRemedyError) return { status: 409, body: { error: error.code, detail: error.message } }
+    if (error instanceof ProcessAdmissionClosedError) return { status: 409, body: { error: 'process_admission_closed', detail: error.message } }
+    const detail = error instanceof Error ? error.message : String(error)
+    return { status: detail === 'runtime_status_unavailable' ? 503 : 409, body: { error: 'runtime_fork_rejected', detail } }
+  }
+}
+
+/**
+ * Continue a stopped definition run from where it stopped, authorizing a re-run
+ * of every interrupted step (what the job's Recover/Resume button does). An
+ * already running run counts as resumed.
+ */
+export async function resumeDefinitionRunFromStop(c: ProjectContext, runId: string, extra: { routeOverrides?: DefinitionRouteOverride } = {}): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  if (c.loopRunManager.isDefinitionRunActive(runId)) return { ok: true }
+  const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+  if (probe.lease?.active) return { ok: true }
+  if (!probe.resumable) return { ok: false, error: 'run_not_resumable', ...(probe.error?.message ? { detail: probe.error.message } : {}) }
+  const recover = probe.recoverableSteps.map(step => step.attemptId)
+  const outcome = await resumeRetainedDefinitionRun(c, runId, { ...(recover.length ? { recover } : {}), ...(extra.routeOverrides ? { routeOverrides: extra.routeOverrides } : {}) })
+  if (outcome.status < 300) return { ok: true }
+  const body = outcome.body as { error?: unknown; detail?: unknown }
+  return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${outcome.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
+}
+
+export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown, options: { restartResume?: boolean; waitForStaleLease?: boolean } = {}): Promise<{ status: number; body: object }> {
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
-    assertProcessAdmission(c.project.id)
-    // Continuing a workflow is cost-incurring: same gate as a rail launch.
+    await awaitProcessAdmission(c.project.id)
+    // Continuing a workflow is cost-incurring: same gate as a rail launch. A person's answer to
+    // the run's question or approval is never refused for it: the run keeps the answer and parks
+    // on the budget before Core continues (as a resident run does), instead of dropping it.
     const budgetRejection = c.dailyBudgetRejection?.() ?? null
-    if (budgetRejection) { return { status: 409, body: budgetRejection } }
+    if (budgetRejection && !carriesHumanDecision(rawControls)) { return { status: 409, body: budgetRejection } }
     const successor = readDefinitionSuccessor(c.db, runId)
     if (successor) { return { status: 409, body: { error: 'runtime_fork_owns_worktree', loopRunId: successor } } }
     const observedClaim = readDefinitionExecutionClaim(c.db, runId)
-    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    // A run the app stopped before it reached Core (it waited, queued for
+    // capacity) has no Core context to inspect or resume: it starts afresh.
+    if (run.status === 'paused' && run.restart_reason === 'restart' && definitionRunNeverReachedCore(c.db, runId)) {
+      return startNeverStartedRun(c, runId, observedClaim)
+    }
+    let probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    const residentHere = c.loopRunManager.isDefinitionRunActive?.(runId) ?? false
+    // Restart resume: the Core child the restart killed still holds its lease (up to a
+    // minute) and the restart dialog offers Resume at boot, so wait it out (bounded)
+    // instead of answering runtime_run_active. Nothing in this process runs it.
+    const staleWait = options.restartResume || options.waitForStaleLease ? staleLeaseWaitMs(probe.lease, Date.now(), residentHere) : 0
+    if (staleWait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, staleWait))
+      probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    }
     if (probe.status === 'unavailable') { return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } } }
     if (probe.lease?.active) { return { status: 409, body: { error: 'runtime_run_active' } } }
+    // The person's Resume of a run the restart cut off authorizes re-running the
+    // interrupted steps, instead of failing on "An interrupted write requires explicit recovery".
+    const requested = options.restartResume && !residentHere ? restartRecoveryControls(rawControls, probe.recoverableSteps ?? []) : rawControls
     let controls
-    try { controls = validateDefinitionResumeControls(rawControls, probe) }
+    try { controls = validateDefinitionResumeControls(requested, probe) }
     catch (error) { return { status: 400, body: { error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) } } }
     // A retained claim can outlive its Core lease. Only release the exact
     // owner observed before inspection, while this remains a restart pause.
@@ -443,6 +821,9 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
       return { status: 200, body: { loopRunId: runId, settled: true } }
     }
     const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
+    // A resume answers any usage-limit or budget pause the run carried over a restart (the
+    // resume route answered the budget gate first), so neither holds the run once it moves on.
+    try { clearLimitPause(c.db, runId); clearRetainedBudgetPause(c.db, runId); clearUserPause(c.db, runId) } catch { /* the records are advisory once the run moves on */ }
     // Resident executions already own their original settlement callback.
     if (!resident) void completion.then(async result => {
       if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
@@ -455,4 +836,72 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   } catch (error) {
     return { status: 409, body: { error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) } }
   }
+}
+
+/** Continue a run the restart stopped while it waited for capacity: nothing ran, so it starts
+ *  from the beginning (through admission again) and settles like any recovered run. */
+function startNeverStartedRun(c: ProjectContext, runId: string, observedClaim: ReturnType<typeof readDefinitionExecutionClaim>): { status: number; body: object } {
+  if (c.loopRunManager.isDefinitionRunActive(runId)) return { status: 409, body: { error: 'runtime_run_active' } }
+  if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+    AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+    .run(runId, observedClaim.owner, runId, c.project.id)
+  const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+  const completion = c.loopRunManager.beginDefinitionResume(runId)
+  void completion.then(async result => {
+    if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+    else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
+  }).catch(error => console.error('[loop-runs] restarted queued run failed:', runId, error))
+  return { status: 202, body: { loopRunId: runId, startedAfresh: true } }
+}
+
+/** An empty-handed resume of a run paused by a Desktop restart (no answer, no explicit recovery). */
+/**
+ * A usage-limit resume (the person's click or the automatic one at the reset) of a
+ * run retained over a Desktop restart authorizes re-running the step the restart cut
+ * off, as the restart dialog's Resume does; without it Core refuses with "An
+ * interrupted write requires explicit recovery" and the run fails.
+ */
+export function limitResumeOptions(run: { status: string; restart_reason?: string | null } | undefined): { restartResume: boolean } {
+  return { restartResume: !!run && isRestartResume(run, {}) }
+}
+
+export function isRestartResume(run: { status: string; restart_reason?: string | null }, controls: unknown): boolean {
+  if (run.status !== 'paused' || run.restart_reason !== 'restart') return false
+  const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>
+  return body.recover === undefined && body.answer === undefined && body.interruptId === undefined
+}
+
+/** The resume controls that authorize re-running every step the restart interrupted. */
+export function restartRecoveryControls(controls: unknown, recoverable: ReadonlyArray<{ attemptId: string }>): unknown {
+  if (recoverable.length === 0) return controls
+  const body = (controls && typeof controls === 'object' ? controls : {}) as Record<string, unknown>
+  return { ...body, recover: recoverable.map((step) => step.attemptId) }
+}
+
+/** Longest wait for the lease of a Core child that died with the previous Desktop process. */
+export const STALE_LEASE_MAX_WAIT_MS = 75_000
+
+/** How long to wait before a restart resume: until the dead owner's lease expires (bounded), never for a run alive here. */
+export function staleLeaseWaitMs(lease: { active: boolean; expiresAt?: number | null } | null, nowMs: number, runningHere: boolean): number {
+  if (runningHere || !lease?.active || typeof lease.expiresAt !== 'number') return 0
+  const remaining = lease.expiresAt - nowMs + 250
+  return remaining > 0 && remaining <= STALE_LEASE_MAX_WAIT_MS ? remaining : 0
+}
+
+/** The stored AI analysis' next steps for this run, as plain lines (empty when there is none, or when
+ *  the analysis offers options: the person then picks one, and a plain Continue is "keep going"). */
+function analysisStepsOf(db: ProjectContext['db'], runId: string): string[] {
+  try {
+    const analysis = readFailureAnalysis(db, runId)?.analysis
+    if (readStoredOptions(analysis).length) return []
+    const steps = analysis?.nextSteps
+    return Array.isArray(steps) ? steps.filter((step): step is string => typeof step === 'string' && !!step.trim()).slice(0, 8) : []
+  } catch { return [] }
+}
+
+/** Continue's guidance plus the analysis' steps, which the person sees as the plan Continue carries out. */
+export function withAnalysisSteps(guidance: string | null, steps: readonly string[]): string | null {
+  if (steps.length === 0) return guidance
+  const plan = ['The person continued this run after reading this analysis of the failure. Carry out these steps (verify each against the code; the reviewer\'s findings stay authoritative):', ...steps.map((step, index) => `${index + 1}. ${step.slice(0, 600)}`)].join('\n')
+  return guidance ? `${guidance}\n\n${plan}` : plan
 }

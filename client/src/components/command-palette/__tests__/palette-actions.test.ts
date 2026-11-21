@@ -56,6 +56,7 @@ function ctx(overrides: Partial<PaletteContext> = {}): PaletteContext {
     history: { canBack: true, canForward: false, back: vi.fn(), forward: vi.fn() },
     undoLabel: null,
     inbox: null,
+    liveBoard: null,
     sidebarLabels: { left: 'Collapse left sidebar (keep pinned)', right: 'Pin right sidebar open' },
     go: {
       navigate: vi.fn(), setUiMode: vi.fn(), openAppSettings: vi.fn(), openProjectSettings: vi.fn(), newMission: vi.fn(), setProject: vi.fn(),
@@ -102,7 +103,9 @@ describe('registry', () => {
     // 30 before the board selection / saved-views actions (CD4); they exist only while mounted + selected.
     // 36 with the spec hand-off pair (BB2); they exist only while that spec's modal is open.
     // 37 with Move focused spec (BB4); it exists only while a board card has been focused.
-    expect(all.length).toBeLessThanOrEqual(37)
+    // 38 with Open live board; it exists only where the board does (main window).
+    // 39 with Keep computer awake; desktop app only (the switch is hidden while nothing runs).
+    expect(all.length).toBeLessThanOrEqual(39)
   })
 
   it('pins the project settings ids to the real sections', () => {
@@ -169,6 +172,17 @@ describe('availability per context', () => {
     expect(got).toContain('undo.last')
     expect(got).toContain('history.forward')
     expect(got).not.toContain('history.back')
+  })
+
+  it('offers Open live board only where the board exists, with its chord, and opens it', () => {
+    expect(ids(ctx({ liveBoard: null }))).not.toContain('liveBoard.open')
+    const open = vi.fn()
+    const c = ctx({ liveBoard: { open } })
+    expect(ids(c)).toContain('liveBoard.open')
+    const action = PALETTE_ACTIONS.find((a) => a.id === 'liveBoard.open')!
+    expect(action.shortcut).toBe('⌘⇧B')
+    action.run(c, undefined)
+    expect(open).toHaveBeenCalledTimes(1)
   })
 
   it('offers Open inbox only where an inbox exists, shows how many wait, and opens it', () => {

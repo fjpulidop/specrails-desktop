@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BACKGROUND_PROCESS_REQUEST_TIMEOUT_MS, backgroundProcessKey, getBackgroundProcessLogs, listBackgroundProcesses, stopBackgroundProcess } from '../background-processes-api'
 import type { BackgroundProcess } from '../../../../types'
 const process: BackgroundProcess = { processId: 'execution#1', pid: 77, projectId: 'project/a', chatId: 'chat&1', command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running' }
-const response = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
+const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 const logs = () => ({ process, lines: [{ at: 11, sequence: 1, source: 'stdout', line: 'Starting…', partial: true }], truncated: false, droppedLines: 0, maxLines: 2000, maxLineChars: 4000, retentionMs: 120000, nextSequence: 1 })
 beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
@@ -27,7 +27,7 @@ describe('background process API', () => {
     expect(String(url)).toContain('/77/logs?chatId=chat%261&processId=execution%231&limit=2000'); expect(String(url)).not.toContain('after='); expect(init?.signal).toBeInstanceOf(AbortSignal)
   })
   it('bounds the optional log snapshot size', async () => {
-    vi.mocked(fetch).mockResolvedValue(response(logs()))
+    vi.mocked(fetch).mockImplementation(async () => response(logs()))
     await getBackgroundProcessLogs(process, { limit: 99999 }); expect(String(vi.mocked(fetch).mock.calls[0][0])).toMatch(/limit=2000$/)
     await getBackgroundProcessLogs(process, { limit: -3 }); expect(String(vi.mocked(fetch).mock.calls[1][0])).toMatch(/limit=1$/)
     await getBackgroundProcessLogs(process, { limit: NaN }); expect(String(vi.mocked(fetch).mock.calls[2][0])).toMatch(/limit=2000$/)
@@ -42,7 +42,7 @@ describe('background process API', () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({})); await expect(listBackgroundProcesses(process.projectId, process.chatId)).rejects.toThrow('Invalid background process snapshot')
   })
   it('uses HTTP status when an error response has no readable JSON body', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 503, json: async () => { throw new Error('HTML') } } as unknown as Response); await expect(stopBackgroundProcess(process)).rejects.toThrow('HTTP 503')
+    vi.mocked(fetch).mockResolvedValueOnce(new Response('', { status: 503 })); await expect(stopBackgroundProcess(process)).rejects.toThrow('HTTP 503')
   })
   it('keys UUID executions independently of PID reuse and legacy executions by start time and scope', () => {
     expect(backgroundProcessKey(process)).not.toBe(backgroundProcessKey({ ...process, processId: 'new' })); expect(backgroundProcessKey(process)).not.toBe(backgroundProcessKey({ ...process, chatId: 'new' }))

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Timer } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { Period } from '../types/spending'
+import { requestJson } from '../../../lib/api-response'
 
 export interface DurationStats {
   measured: number
@@ -83,9 +84,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
     setState({ key, loading: true, error: false })
     void (async () => {
       try {
-        const response = await fetch(`${getApiBase()}/analytics/decision-times?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Decision times unavailable')
-        const parsed = parseDecisionTimes(await response.json())
+        const parsed = parseDecisionTimes(await requestJson<unknown>(`${getApiBase()}/analytics/decision-times?${key.slice(key.indexOf('?') + 1)}`, { signal: controller.signal }))
         if (!current) return
         cache.current.set(key, parsed)
         setState({ key, loading: false, error: false })
@@ -126,7 +125,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
     <section className="rounded-xl border border-border/50 bg-card p-4 space-y-3" aria-label={t('decisionTimes.title')} data-testid="decision-times-card">
       <div className="flex items-center gap-2">
         <Timer className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
-        <h3 className="text-strong">{t('decisionTimes.title')}</h3>
+        <h3 className="text-title">{t('decisionTimes.title')}</h3>
         <span className="text-caption text-muted-foreground">{t('decisionTimes.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('decisionTimes.unavailable')}</p>}

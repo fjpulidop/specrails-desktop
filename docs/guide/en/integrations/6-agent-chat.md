@@ -1,6 +1,6 @@
 # Operate Specrails by chatting (Agent Chat)
 
-The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority specs and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](./5-mcp-server.md) exposes — while you watch the dashboard update live behind it.
+The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority specs and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](mcp-server) exposes — while you watch the dashboard update live behind it.
 
 > **Not to be confused with the pipeline agents.** The *Agents* section (Architect → Developer → Reviewer) is about *how a rail implements a spec*. The **Agent Chat** is a single assistant that *operates the app itself*. Different thing, same word.
 
@@ -12,7 +12,11 @@ It's **non-modal on purpose**: the dashboard behind it stays live, so when the a
 
 ## Reuse selected text
 
-Select text in a mission conversation to open its context menu. **Add to mission**
+Select text in a mission conversation to open its context menu.
+
+**Ask about this** opens a side conversation about the selection, like a quick "by the way" question. Type a question, or press Enter on an empty box to have the text explained in this mission's context. The answer uses the mission's earlier conversation, and you can ask follow-ups. Nothing is saved: the mission, its composer and its agent session are not touched, and closing the window discards the side conversation. The footer names the model that answered.
+
+**Add to mission**
 sends it to that same mission, using its normal queue if it is busy, and keeps
 your unfinished composer draft.
 
@@ -28,13 +32,30 @@ You can also right-click the selection or press **Shift+F10**. Use arrow keys to
 move through the menu and **Escape** to close it. Select committed messages;
 text still streaming or waiting in the queue is not available yet.
 
+## Several missions side by side {#split-view}
+
+Right-click a mission in the sidebar (or press **Shift+F10** on it) and choose **Split view**, **Open to the right** or **Open below**. Split view puts it next to the mission you are in when there is room for both, otherwise below it.
+
+- **Resize** by dragging the line between two missions. It snaps to the middle; double-click it to share that space evenly. With the line focused, the arrow keys move it (Shift for bigger steps) and Home centres it.
+- **Split and arrange panes** (the split-square button in each mission's header): open another mission to the right or below, move the mission left, right, up or down, swap it with another one, maximize it, equalize all missions, or close it. Options that would leave a mission too small (under about 360 × 240 px) are disabled.
+- **Shortcuts:** **⌥⌘]** / **⌥⌘[** next or previous mission, **⌘⇧↵** maximize or restore, **⌥⌘=** equalize, **⌥⌘W** close the mission you are in (on Windows/Linux, Ctrl+Alt instead of ⌥⌘ and Ctrl+Shift+Enter).
+- **Small windows:** when the missions no longer fit, they stack: a row of tabs at the top picks the one shown, and the others keep running.
+
+The layout and its sizes are remembered in this window across restarts; missions that were archived or deleted are left out. Closing a mission's pane never stops or deletes it.
+
+## How full the context is {#context-ring}
+
+A small ring next to the message box shows how much of the mission's context window the provider session has used, as the provider reports it. Click it for the tokens used, the window size and the model. When the provider does not report the window, or has just compacted the context, the ring stays empty and says what is unknown. Providers compact the context on their own when it fills up.
+
+**Start fresh with a summary.** From the ring's popover (the main button once the context is 75 % full), Specrails writes a summary of the mission: goal, decisions, current state and next steps. Your next message then starts a new provider session that knows only that summary. The conversation stays in the history, and a collapsed **Session renewed · summary** line shows what the new session knows. It asks you to confirm first, and it is not available while a turn is running or while the mission is in Intent, which runs in its own session.
+
 ## Prerequisite: the MCP server
 
-The Agent Chat drives the app through the embedded **Specrails MCP server**, so that has to be on. If it isn't, the panel opens with a one-click **Enable Specrails MCP** banner — press it and you're ready (no restart). See [Control Specrails from any AI](./5-mcp-server.md) for the details; nothing is installed, it's all local to your machine.
+The Agent Chat drives the app through the embedded **Specrails MCP server**, so that has to be on. If it isn't, the panel opens with a one-click **Enable Specrails MCP** banner — press it and you're ready (no restart). See [Control Specrails from any AI](mcp-server) for the details; nothing is installed, it's all local to your machine.
 
 ## Choosing what it works on
 
-The header has a **project selector** (like Cursor's). Pick a project and everything you ask is scoped to it — *"launch the high-priority ones"* resolves against that project. Leave it on **Home** and the agent works across your whole setup: it can list or create projects and answer questions that span everything. If you ask something project-specific while on Home, it will ask you which project (or offer to create one) rather than guess.
+The header has a **project selector**. Pick a project and everything you ask is scoped to it — *"launch the high-priority ones"* resolves against that project. Leave it on **Home** and the agent works across your whole setup: it can list or create projects and answer questions that span everything. If you ask something project-specific while on Home, it will ask you which project (or offer to create one) rather than guess.
 
 Picking a project here **does not** move your dashboard — the agent's target and what you're looking at are independent.
 
@@ -98,12 +119,23 @@ In the expanded Mission sidebar, the selector beside **Projects** offers **Activ
 
 Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **on by default**; turn them off per project if you want to keep each request's cost down, since they multiply what one request costs.
 
-- **Turn them off per project.** Open the project's **Settings → Sub-agents** and switch off **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
+- **Turn them off per project.** Open the project's **Settings → Sub-agents** and switch off **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **Settings → AI providers → Allow sub-agents in missions without a project**.
 - **Choose who runs them.** Under **Run sub-agents with**, the default **Same as the mission agent** lets the mission's own CLI launch them natively: fastest, and they share its prompt cache. Pick a provider, model and effort instead to mix providers — for example a Codex mission with Claude sub-agents. Missions already on that provider stay native with that model; on another provider Specrails launches each sub-agent itself, which starts colder and can cost more, but gives you more control and shows each one's real cost. Specrails asks you to confirm before switching, and those sub-agents carry a provider badge in the mission.
 - **Watch them work.** The agents a reply launched appear as one compact line under that reply. It stays open while they work, and once they all finish it folds into a summary with the total time and tokens. Expand a row to read its result and what it cost, or to follow its activity live. Each launch stays at its point in the conversation, so later launches never mix with earlier ones. Stop a running agent from its row, or stop them all from the line.
 - **The agent follows up on its own.** When background agents finish, the agent continues and posts what they found, marked *Continued after background agents*.
 - **Changing the setting is safe.** A mission with agents still running applies the change once they finish; it tells you so and offers **Stop agents and apply now**.
 - **Nothing restarts behind your back.** Agents interrupted by a restart stay marked as interrupted; **Relaunch** only drafts a message asking the agent to redo that work.
+
+## Connectors in missions {#connectors}
+
+Missions can use the connectors and MCP servers you already set up in each provider: your **claude.ai account connectors** (Google Drive, Gmail…) and the servers in `~/.claude.json` when the mission runs on Claude, the servers in `~/.codex/config.toml` when it runs on Codex, and Gemini's servers on Gemini. Open **Settings → AI providers → Connectors in missions** to see them, grouped by provider.
+
+- **Everything starts on.** A connector you add later is on too. Switch off the ones your missions don't need: each one can add thousands of tokens to every request.
+- **Sizes.** **Measure sizes** starts each local MCP server once and shows how many tools it has and roughly how many tokens their definitions take. Claude sends those definitions in full with every request; Codex only loads them when the agent looks a tool up, so on Codex a connector costs almost nothing until it's used.
+- **Specrails' own MCP is never loaded twice.** If a provider config also lists the Specrails server, it is shown as always left out: the mission already has its own.
+- **Some rows can't be switched.** A server turned off in the provider's own config stays off; a server you add through **External MCP servers** follows that setting; Kimi loads its servers itself.
+- **Your own Claude MCP servers wait for tool search.** Claude missions don't load the servers in `~/.claude.json` yet: without on-demand tool loading, a big server (some have hundreds of tools) would fill the context. They load once Claude can look tools up on demand.
+- **A change applies on the next turn.** That turn rebuilds the provider's prompt cache once, so it costs a little more. **Refresh** re-reads the provider configs.
 
 ## A few things to know
 

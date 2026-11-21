@@ -15,10 +15,23 @@ On Stable, if no release has been promoted yet, **Check for updates** says so in
 
 ## How updates arrive
 
-- **Specrails Desktop** checks at launch and every 6 hours. When an update is available a card appears; download, install and restart from there. You can also click **Check for updates**.
+- **Specrails Desktop** checks at launch and every 6 hours. When an update is available, a small **Update** button appears in the status bar once the app has been idle for about 30 seconds, never over an open window or dialog. Click it for the update card: download, install and restart from there. **Dismiss** skips that version. You can also click **Check for updates** here; the card then shows right in Settings.
 - **specrails-core** never updates on its own. Click **Check for updates** on the Core card, then **Update** to install it. Your projects switch to the new framework without restarting the app.
 
 ## Good to know
 
 - Switching from Latest to Stable never downgrades you. You stay on your version until Stable catches up.
 - Every update is signed and verified before it installs, on both channels.
+
+## When work is running
+
+The update card checks what a restart would stop. If mission turns or runs are still working it says so and offers:
+
+- **Install when nothing is running**: the card waits and restarts by itself as soon as the last turn or run ends.
+- **Restart now**: restart anyway. Interrupted work is offered back after the restart.
+
+## After a restart
+
+When Specrails closes, restarts for an update, or stops unexpectedly while work is running, the next launch shows **Pick up where you left off**: the missions that were mid-turn and the runs the restart paused, each with a checkbox. Nothing resumes on its own. Missions continue in their own session (with a short note that the app restarted); runs use their usual Resume. **Not now** dismisses the list; paused runs stay in the Inbox. Escape or a click outside only hides it: it comes back at the next start.
+
+It is the only window that opens by itself at launch. If the app also stopped unexpectedly, the explanation shows as a bar at the top of the window (it never blocks you). On a first install, the product tour waits for a launch with neither.

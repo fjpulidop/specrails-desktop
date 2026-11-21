@@ -12,16 +12,23 @@ every item is projected from state other capabilities already persist, one proje
 | Per-project source port | [ports.ts](ports.ts) |
 | Collect across projects, isolate failures, cap per project | [application.ts](application.ts) |
 | SQL/store reads for one project (deliveries, loop runs, Jira outbox, reached spend caps) | [adapters/project-source.ts](adapters/project-source.ts) |
-| `GET /api/inbox` | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
+| `GET /api/inbox`; `createInboxSources` (one source per project, also projected by the [live board](../live-board/README.md) so both agree) | [adapters/http.ts](adapters/http.ts), registered by [desktop-router.ts](../../desktop-router.ts) |
+| Attention notification prefs (defaults, tolerant read, validated PATCH) | [attention-prefs.ts](attention-prefs.ts) (pure); `GET/PATCH /api/attention-prefs` in [desktop-router-settings.ts](../../desktop-router-settings.ts) |
 
 ## Invariants
 
 - Project isolation: a source is bound to ONE project's database and the collector drops
   any item whose `projectId` is not its own. Nothing is cached between calls.
-- Read-only. Snooze / Done never reach the server; they are per viewer, keyed by item id
+- Read-only. Snooze / Done and the unseen marks never reach the server; they are per viewer, keyed by item id
   and `version` (see the client README).
+- The attention prefs are one app-wide record (`desktop_settings` key `attention_notifications`); the server only
+  stores and validates them and broadcasts `desktop.attention_prefs` on change. Whether to notify is decided by
+  the client (`client/src/lib/attention`).
 - A broken project or a missing table costs that source only; the others still answer.
 - A run a delivery already represents (`rail_pr_deliveries.run_ids`) is left to the delivery.
+- An attempt that a later attempt continued (an adopted fork, `supersededAttemptSql` in
+  `loops/runtime/run-attempts.ts`) never counts on its own: the chain is one item, its latest attempt,
+  with `attempt: { number, of }`. The live board and `GET /jobs` share the rule.
 - A failed or blocked run (and a failed delivery, through its last run) carries the [failure diagnosis](../recovery/README.md) read from `loop_runs.failure_diagnosis`; a high-confidence provider limit or environment problem is listed as `blocked`, not `failed`, and the item `version` moves with the cause.
 - A reached spend cap (daily, weekly or monthly; project or app-wide) is a `budget` item with action `raise-cap` and a structured `cap`; it leaves on its own once raised or after the reset, and an app-wide cap is listed once (under the first project).
 - A delivery or run item may carry `railIndex`, and a delivery item its `decision`; the paired companion's decision remote ([docs](../../../docs/internals/companion-inbox-decisions.md), [mobile-inbox.ts](../../mobile/mobile-inbox.ts)) uses them to offer Retry and Create PR. They are hints for that surface; the desktop routes still re-validate.

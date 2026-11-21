@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
@@ -11,6 +10,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { getApiBase } from '../../../lib/api'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
+import { InfoHint } from './InfoHint'
 import { cn } from '../../../lib/utils'
 import { formatUsd } from '../lib/format'
 import { isPlanBilledSpend, useBilling, type Billing } from '../lib/use-billing'
@@ -54,30 +54,83 @@ function planOnly(spend: PeriodSpend, billing: Billing): boolean {
   return isPlanBilledSpend(spend.byProvider, billing)
 }
 
+interface PlanWindow { label: string; usedPercent: number }
+interface PlanProvider { provider: string; windows: PlanWindow[] }
+
 /**
- * "Claude: session 7% · weekly 71% · Codex: weekly 0%" from the plan providers' usage windows (turns and
- * limits instead of dollars). Each provider appears once and is named, so a window is never anonymous.
+ * The plan providers' usage windows (session, weekly), one entry per provider
+ * that did work in the period and that the project has configured. Turns and
+ * limits replace dollars under plan billing.
  */
-function planLimits(spend: PeriodSpend, billing: Billing, t: TFunction<'analytics'>): string | null {
+function planProviders(overview: BudgetOverview, billing: Billing, configuredProviders?: readonly string[]): PlanProvider[] {
   const providers = (billing.snapshot as { providers?: Array<{ providerId?: string; windows?: Array<{ label?: string; usedPercent?: number | null }> }> } | null)?.providers
-  if (!Array.isArray(providers)) return null
-  const parts: string[] = []
+  if (!Array.isArray(providers)) return []
+  const result: PlanProvider[] = []
   const seen = new Set<string>()
-  for (const row of spend.byProvider) {
-    if (seen.has(row.provider)) continue
-    seen.add(row.provider)
-    const entry = providers.find((p) => p.providerId === row.provider)
-    const windows: string[] = []
-    for (const w of entry?.windows ?? []) {
-      if (typeof w.usedPercent === 'number' && Number.isFinite(w.usedPercent) && w.label) {
-        const known = w.label.toLowerCase()
-        const label = known === 'session' || known === 'weekly' ? t(`budget.windowLabel.${known}`) : w.label
-        windows.push(`${label} ${Math.round(w.usedPercent)}%`)
+  for (const period of CAP_PERIODS) {
+    for (const row of overview.spend[period].byProvider) {
+      if (seen.has(row.provider)) continue
+      if (configuredProviders && !configuredProviders.includes(row.provider)) continue
+      seen.add(row.provider)
+      const entry = providers.find((p) => p.providerId === row.provider)
+      const windows: PlanWindow[] = []
+      for (const w of entry?.windows ?? []) {
+        if (typeof w.usedPercent === 'number' && Number.isFinite(w.usedPercent) && w.label) windows.push({ label: w.label, usedPercent: w.usedPercent })
       }
+      if (windows.length) result.push({ provider: row.provider, windows: windows.slice(0, 2) })
     }
-    if (windows.length) parts.push(t('budget.providerWindow', { provider: providerLabel(row.provider), windows: windows.slice(0, 2).join(' · ') }))
   }
-  return parts.length ? parts.slice(0, 4).join(' · ') : null
+  return result
+}
+
+/** A usage-window meter: neutral until 80%, then the caution lamp. */
+function WindowMeter({ window: w }: { window: PlanWindow }) {
+  const { t } = useTranslation('analytics')
+  const known = w.label.toLowerCase()
+  const label = known === 'session' || known === 'weekly' ? t(`budget.windowLabel.${known}`) : w.label
+  const pct = Math.max(0, Math.min(100, Math.round(w.usedPercent)))
+  const high = pct >= 80
+  return (
+    <span className="inline-flex items-center gap-2" data-testid="budget-plan-window" data-level={high ? 'caution' : 'ok'}>
+      <span className="text-caption text-muted-foreground">{label}</span>
+      <span className="h-1.5 w-20 overflow-hidden rounded-pill bg-border" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <span className={cn('block h-full rounded-pill', high ? 'bg-accent-warning' : 'bg-foreground/40')} style={{ width: `${pct}%` }} />
+      </span>
+      <span className={cn('num text-caption', high ? 'text-accent-warning' : 'text-foreground')}>{pct}%</span>
+      {high && <span className="size-1.5 rounded-full bg-accent-warning" aria-hidden />}
+    </span>
+  )
+}
+
+/** Plan billing: per-provider session and weekly meters, and turns today, this week and this month. */
+function PlanLimits({ overview, billing, configuredProviders }: { overview: BudgetOverview; billing: Billing; configuredProviders?: readonly string[] }) {
+  const { t } = useTranslation('analytics')
+  const providers = planProviders(overview, billing, configuredProviders)
+  return (
+    <section className="flex flex-col gap-3" data-testid="budget-plan-limits" aria-label={t('budget.planLimits')}>
+      <dl className="flex flex-wrap gap-x-6 gap-y-1" data-testid="budget-plan-turns">
+        {CAP_PERIODS.map((period) => (
+          <div key={period} className="flex flex-col">
+            <dt className="text-caption text-muted-foreground">{t(`budget.period.${period}`)}</dt>
+            <dd className="num text-title text-foreground" data-testid={`budget-turns-${period}`}>
+              {overview.spend[period].byProvider.reduce((sum, row) => sum + row.turns, 0)}
+              <span className="ml-1 text-caption font-normal text-muted-foreground">{t('budget.turnsUnit')}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {providers.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {providers.map((p) => (
+            <li key={p.provider} className="flex flex-wrap items-center gap-x-4 gap-y-1" data-testid={`budget-plan-provider-${p.provider}`}>
+              <span className="w-20 text-label text-foreground">{providerLabel(p.provider)}</span>
+              {p.windows.map((w) => <WindowMeter key={w.label} window={w} />)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 interface RowProps {
@@ -123,7 +176,6 @@ function UsageRow({ scope, period, overview, config, billing, plan, value, inval
   const spent = periodSpentUsd(overview, period, scope)
   const level = barLevel(spent, cap)
   const pending = !billing.ready && spend.byProvider.length > 0
-  const limits = plan ? planLimits(spend, billing, t) : null
   const turns = spend.byProvider.reduce((sum, row) => sum + row.turns, 0)
   const resets = status ? resetLabel(status.resetsAt) : null
   const label = t(`budget.period.${period}`)
@@ -149,11 +201,10 @@ function UsageRow({ scope, period, overview, config, billing, plan, value, inval
       {plan ? <span aria-hidden /> : (
         <CapInput scope={scope} field={period} value={value} invalid={invalid} onChange={onChange} />
       )}
-      {(limits || resets || (period === 'month' && spend.estimatedUsd > 0 && !plan)) && (
+      {(resets || (period === 'month' && spend.estimatedUsd > 0 && !plan)) && (
         <p className="num text-caption text-muted-foreground sm:col-start-2 sm:col-span-3">
-          {limits}
           {!plan && period === 'month' && spend.estimatedUsd > 0 && t('budget.estimatedPart', { amount: formatUsd(spend.estimatedUsd) })}
-          {resets && `${limits || (period === 'month' && spend.estimatedUsd > 0 && !plan) ? ' · ' : ''}${t('budget.resets', { time: resets })}`}
+          {resets && `${period === 'month' && spend.estimatedUsd > 0 && !plan ? ' · ' : ''}${t('budget.resets', { time: resets })}`}
         </p>
       )}
     </div>
@@ -217,8 +268,8 @@ function CapGroup({ scope, overview, config, billing, plan, onSaved }: GroupProp
 
   const runRow = (
     <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)_7rem]" data-testid={`budget-row-${scope}-run`}>
-      <span className="text-label text-foreground">{t('budget.period.run')}</span>
-      <p className="text-caption text-muted-foreground">{t('budget.runHint')}</p>
+      <span className="inline-flex items-center gap-1 text-label text-foreground">{t('budget.period.run')}<InfoHint>{t('budget.runHint')}</InfoHint></span>
+      <span aria-hidden />
       <CapInput scope={scope} field="run" value={values.run} invalid={invalid.has('run')} onChange={(v) => change('run', v)} />
     </div>
   )
@@ -233,30 +284,28 @@ function CapGroup({ scope, overview, config, billing, plan, onSaved }: GroupProp
   return (
     <section className="flex flex-col gap-2.5" data-testid={`budget-group-${scope}`} aria-label={t(`budget.scope.${scope}`)}>
       <h4 className="text-caption text-muted-foreground">{t(`budget.scope.${scope}`)}</h4>
-      {CAP_PERIODS.map((period) => (
-        <UsageRow
-          key={period} scope={scope} period={period} overview={overview} config={config} billing={billing} plan={plan}
-          value={values[period]} invalid={invalid.has(period)}
-          onChange={(v) => change(period, v)}
-        />
-      ))}
       {plan ? (
-        // Plan billing has no per-use dollar meaning: the dollar caps (for metered providers) stay one click away.
-        <details className="group flex flex-col gap-2.5" data-testid={`budget-caps-metered-${scope}`}>
-          <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{t('budget.capsMetered')}</summary>
-          <div className="mt-2.5 flex flex-col gap-2.5">
-            {CAP_PERIODS.map((period) => (
-              <div key={period} className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
-                <span className="text-label text-foreground">{t(`budget.period.${period}`)}</span>
-                <CapInput scope={scope} field={period} value={values[period]} invalid={invalid.has(period)} onChange={(v) => change(period, v)} />
-              </div>
-            ))}
-            {runRow}
-            {saveRow}
-          </div>
-        </details>
+        // Plan billing has no per-use dollar meaning: only the dollar caps (for
+        // metered providers), inside the card's collapsed editor.
+        <>
+          {CAP_PERIODS.map((period) => (
+            <div key={period} className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
+              <span className="text-label text-foreground">{t(`budget.period.${period}`)}</span>
+              <CapInput scope={scope} field={period} value={values[period]} invalid={invalid.has(period)} onChange={(v) => change(period, v)} />
+            </div>
+          ))}
+          {runRow}
+          {saveRow}
+        </>
       ) : (
         <>
+          {CAP_PERIODS.map((period) => (
+            <UsageRow
+              key={period} scope={scope} period={period} overview={overview} config={config} billing={billing} plan={plan}
+              value={values[period]} invalid={invalid.has(period)}
+              onChange={(v) => change(period, v)}
+            />
+          ))}
           {runRow}
           {saveRow}
         </>
@@ -304,6 +353,8 @@ interface BudgetCardProps {
   refreshKey?: unknown
   /** Called once the card has real content (not the loading skeleton), e.g. to scroll it into view. */
   onReady?: () => void
+  /** Engines configured for the project: plan-limit rows name only these. */
+  configuredProviders?: readonly string[]
 }
 
 /**
@@ -311,7 +362,7 @@ interface BudgetCardProps {
  * project and app-wide), the per-run soft cap, a month-end projection and a
  * what-if pricer. Caps are enforced by the same gate as the daily budget.
  */
-export function BudgetCard({ projectId, refreshKey, onReady }: BudgetCardProps) {
+export function BudgetCard({ projectId, refreshKey, onReady, configuredProviders }: BudgetCardProps) {
   const { t } = useTranslation('analytics')
   // The project's own overview (null on the app-wide overlay) and the app-wide one.
   const [project, setProject] = useState<BudgetOverview | null>(null)
@@ -355,28 +406,34 @@ export function BudgetCard({ projectId, refreshKey, onReady }: BudgetCardProps) 
   const plan = billing.ready && [project, app].every((o) => o === null || planOnly(o.spend.month, billing)) && (project ?? app) !== null
 
   const refresh = () => load()
+  const primary = project ?? app
+  const groups = project && app
+    ? [<CapGroup key="project" scope="project" overview={project} config={project.config} billing={billing} plan={plan} onSaved={refresh} />,
+      <CapGroup key="desktop" scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />]
+    : app ? [<CapGroup key="desktop" scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />] : []
   return (
     <section id="budget-panel" className="flex flex-col gap-4 rounded-card border border-border bg-card p-4" data-testid="budget-card" aria-labelledby="budget-panel-title">
-      <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-1">
-          <h3 id="budget-panel-title" className="text-strong">{t('budget.title')}</h3>
-          <HelpHint topic="dailyBudget" />
-        </div>
-        {plan && <p className="text-caption text-muted-foreground" data-testid="budget-plan-note">{t('budget.planNote')}</p>}
+      <header className="flex items-center gap-1">
+        <h3 id="budget-panel-title" className="text-title">{t(plan ? 'budget.planLimits' : 'budget.title')}</h3>
+        <HelpHint topic="dailyBudget" />
+        {plan && <InfoHint testId="budget-plan-note">{t('budget.planNote')}</InfoHint>}
       </header>
-      {project && app ? (
+      {plan && primary ? (
         <>
-          <CapGroup scope="project" overview={project} config={project.config} billing={billing} plan={plan} onSaved={refresh} />
-          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />
-          <ProjectionBlock overview={project} plan={plan} />
-          <WhatIfPanel projectBase={base as string} billing={billing} />
+          <PlanLimits overview={primary} billing={billing} configuredProviders={configuredProviders} />
+          <details className="group" data-testid="budget-caps-metered">
+            <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{t('budget.capsMetered')}</summary>
+            <div className="mt-2.5 flex flex-col gap-4">{groups}</div>
+          </details>
+          {project && <WhatIfPanel projectBase={base as string} billing={billing} />}
         </>
-      ) : app ? (
+      ) : (
         <>
-          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />
-          <ProjectionBlock overview={app} plan={plan} />
+          {groups}
+          {primary && <ProjectionBlock overview={primary} plan={false} />}
+          {project && <WhatIfPanel projectBase={base as string} billing={billing} />}
         </>
-      ) : null}
+      )}
     </section>
   )
 }

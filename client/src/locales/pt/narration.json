@@ -105,6 +105,8 @@
       "stopped": "O motor parou: {{target}}",
       "corrections": "A continuar as tarefas restantes (developer)",
       "resumed": "Retomando a execução guardada",
+      "pausedByYou": "Pausada por você",
+      "resumedByYou": "Retomada por você",
       "blocked": "O ambiente do host bloqueou a execução: {{target}}"
     },
     "check": {
@@ -118,5 +120,7 @@
   "repeats": "×{{count}}",
   "round": "Rodada de correção {{round}} de {{total}}",
   "checks_one": "+1 verificação",
-  "checks_other": "+{{count}} verificações"
+  "checks_other": "+{{count}} verificações",
+  "modeSteps": "Passos",
+  "modeLabel": "Vista"
 }

@@ -45,3 +45,24 @@ describe('process admission', () => {
     expect(() => spawnAiCli('definitely-not-a-real-binary', [])).toThrow(/application shutdown/)
   })
 })
+
+describe('awaitProcessAdmission', () => {
+  it('waits for a project that is still hydrating and refuses at once during shutdown', async () => {
+    const admission = await import('./process-admission')
+    admission.resetProcessAdmissionForTests()
+    admission.beginProjectProcessQuiescence('hydrating')
+    let admitted = false
+    const pending = admission.awaitProcessAdmission('hydrating', 5_000).then(() => { admitted = true })
+    await Promise.resolve()
+    expect(admitted).toBe(false)
+    admission.openProjectProcessAdmission('hydrating')
+    await pending
+    expect(admitted).toBe(true)
+    await expect(admission.awaitProcessAdmission('open-project')).resolves.toBeUndefined()
+    admission.beginProjectProcessQuiescence('stuck')
+    await expect(admission.awaitProcessAdmission('stuck', 20)).rejects.toThrow(/closed for project stuck/)
+    admission.beginAppProcessQuiescence()
+    await expect(admission.awaitProcessAdmission('hydrating', 5_000)).rejects.toThrow(/Process admission is closed/)
+    admission.resetProcessAdmissionForTests()
+  })
+})

@@ -7,7 +7,7 @@ import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import type { UseChatReturn } from '../hooks/useChat'
 import type { DesktopProject } from '../../../hooks/useDesktop'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 720
@@ -138,7 +138,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
                   {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
                 </span>
                 {conv.isStreaming && (
-                  <LiveDot tone="primary" size="xs" aria-hidden />
+                  <RunStateDot state="working" />
                 )}
               </div>
               <button

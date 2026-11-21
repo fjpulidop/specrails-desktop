@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { premiumDescription, premiumCriteria } from './blueprint-spec-fixtures'
+import { premiumDescription, premiumCriteria } from './__fixtures__/blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'

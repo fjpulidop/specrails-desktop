@@ -53,6 +53,8 @@ export interface SessionHostRegistryOptions {
   policy?: HostSupervisionPolicy
   /** Observability hook (logs, UI notices). */
   onStatus?: (scope: string, status: HostStatus, detail?: string, code?: string) => void
+  /** The provider account's usage-limit state reported by a tracked session (machine-wide quota). */
+  onRateLimit?: (report: { scope: string; sessionId: string; driver: string | null; rateLimit: Record<string, unknown>; at: string }) => void
 }
 
 /**
@@ -118,12 +120,26 @@ export class SessionHostRegistry {
   async track(scope: string, sessionId: string, sink: ProjectionSink, listener: PumpListener): Promise<SessionEventPump> {
     const client = await this.acquire(scope)
     const entry = this.entry(scope)
-    const tracked: Tracked = entry.tracked.get(sessionId) ?? { sessionId, sink, listener, pump: null }
+    const observed = this.withQuota(scope, listener)
+    const tracked: Tracked = entry.tracked.get(sessionId) ?? { sessionId, sink, listener: observed, pump: null }
     entry.tracked.set(sessionId, tracked)
     tracked.pump?.detach()
-    tracked.pump = new SessionEventPump(sessionId, client, sink, listener)
+    tracked.pump = new SessionEventPump(sessionId, client, sink, tracked.listener)
     await tracked.pump.attach()
     return tracked.pump
+  }
+
+  /** Forward usage-limit reports to the quota observer; the surface listener sees every op unchanged. */
+  private withQuota(scope: string, listener: PumpListener): PumpListener {
+    const onRateLimit = this.options.onRateLimit
+    if (!onRateLimit) return listener
+    return (sessionId, ops, state) => {
+      for (const op of ops) {
+        if (op.kind !== 'rate-limit') continue
+        try { onRateLimit({ scope, sessionId, driver: op.driver, rateLimit: op.rateLimit, at: op.at }) } catch { /* quota is advisory */ }
+      }
+      listener(sessionId, ops, state)
+    }
   }
 
   untrack(scope: string, sessionId: string): void {

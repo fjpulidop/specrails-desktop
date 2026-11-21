@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from '../../../db'
 import { BUILDER_TURN_INTENTS, type BlueprintChatManager, type BuilderTurnIntent } from './blueprint-chat-manager'
@@ -248,7 +249,7 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       reasoningEffort = body.reasoning_effort
     }
     const intent = (BUILDER_TURN_INTENTS as readonly string[]).includes(String(body.intent)) ? body.intent as BuilderTurnIntent : undefined
-    void manager.sendMessage(conversation.id, text, { model, reasoningEffort, ...(intent ? { intent } : {}) })
+    void manager.sendMessage(conversation.id, text, { model, reasoningEffort, ...(intent ? { intent } : {}) }).catch(logRejection('blueprint chat message'))
     res.status(202).json({ accepted: true })
   })
 

@@ -42,4 +42,4 @@ Eine im Quick-Modus erstellte Spec ist eine ganz normale Spec: Du kannst sie sp�
 
 - [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md) – für Specs, die noch geformt werden müssen.
 - [Entwürfe & der Contract Layer](drafts-and-contract-layer.md) – die Contract-Layer-Anreicherung erklärt.
-- [Pipelines ausführen](running-pipelines.md) – zieh deine neue Spec auf eine Rail und setze sie um.
+- [Pipelines ausführen](../pipeline/rails-and-jobs) – zieh deine neue Spec auf eine Rail und setze sie um.

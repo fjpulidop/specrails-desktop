@@ -15,3 +15,11 @@ it('bounds and scopes advisory data and deduplicates persisted event IDs across 
     expect(isRecordedRuntimeEfficiencyEvent(db, 'run', line)).toBe(true)
   } finally { db.close() }
 })
+
+it('keeps a provider call usage (attribution input) and rejects malformed figures', () => {
+  const event = { type: 'runtime-efficiency-event', schemaVersion: 1, eventId: 'run:3', runId: 'run', attemptId: 'a1', kind: 'role-context', payload: { provider: 'codex', model: 'gpt', usage: { costUsd: null, inputTokens: 10, outputTokens: 2, cacheReadInputTokens: 4, secret: 'x' } } }
+  const line = JSON.parse(runtimeEfficiencyEventLine(JSON.stringify(event), 'run')!)
+  expect(line.payload.usage).toEqual({ costUsd: null, inputTokens: 10, outputTokens: 2, cacheReadInputTokens: 4 })
+  expect(runtimeEfficiencyEventLine(JSON.stringify({ ...event, payload: { provider: 'codex', usage: { inputTokens: -1 } } }), 'run')).toBeNull()
+  expect(runtimeEfficiencyEventLine(JSON.stringify({ ...event, payload: { provider: 'codex', usage: [1] } }), 'run')).toBeNull()
+})

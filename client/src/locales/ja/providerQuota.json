@@ -1,0 +1,101 @@
+{
+  "statusBar": {
+    "rejected": "上限に到達",
+    "rejectedUntil": "上限 · {{time}} にリセット"
+  },
+  "window": {
+    "fiveHour": "5時間",
+    "weekly": "週間",
+    "default": "利用"
+  },
+  "attention": {
+    "warningTitle": "{{provider}} の利用率 {{percent}}%",
+    "warningBody": "{{provider}} は{{window}}上限の {{percent}}% を使用しました。新しい実行は上限で一時停止する可能性があります。",
+    "rejectedTitle": "{{provider}} の利用上限に到達",
+    "rejectedBody": "{{provider}} は {{time}} までリクエストを拒否します。上限で一時停止した実行はその時点で自動的に再開します。",
+    "rejectedBodyNoReset": "{{provider}} は上限がリセットされるまでリクエストを拒否します。"
+  },
+  "preflight": {
+    "label": "起動前チェック",
+    "checking": "確認中…",
+    "recheck": "再確認",
+    "disk": {
+      "ok": "空き {{free}}",
+      "warn": "空きは {{free}} のみ",
+      "fail": "空きは {{free}} のみ — 先に容量を空けてください",
+      "unknown": "ディスク容量不明"
+    },
+    "provider": {
+      "signed-in": "{{provider}} にサインイン済み",
+      "signed-out": "{{provider}} からサインアウト — 先にサインインしてください",
+      "missing": "{{provider}} が未インストール",
+      "unknown": "{{provider}} のサインイン状態不明"
+    },
+    "github": {
+      "signed-in": "GitHub にサインイン済み",
+      "signed-out": "GitHub からサインアウト — プルリクエストは開かれません",
+      "missing": "GitHub CLI が未インストール — プルリクエストは開かれません",
+      "unknown": "GitHub のサインイン状態不明"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}}% 使用",
+      "warning": "{{provider}} {{percent}}% 使用",
+      "critical": "{{provider}} {{percent}}% 使用",
+      "rejected": "{{provider}} が上限",
+      "rejectedUntil": "{{provider}} が上限 — {{time}} にリセット",
+      "unknown": "{{provider}} の利用状況不明"
+    },
+    "headless": {
+      "ok": "実行中、{{framework}} のウィンドウは非表示のままです",
+      "warn": "実行中に {{framework}} のウィンドウが表示される場合があります — ランチャーとテストで SPECRAILS_HEADLESS を尊重してください"
+    },
+    "blocking": "起動する前に失敗したチェックを解決してください。",
+    "quotaWarning_one": "{{provider}} は{{window}}上限の {{percent}}% を使用しました。{{count}} 本のレールを起動すると上限で一時停止する可能性があり、リセット後に自動で再開します。",
+    "quotaWarning_other": "{{provider}} は{{window}}上限の {{percent}}% を使用しました。{{count}} 本のレールを起動すると上限で一時停止する可能性があり、リセット後に自動で再開します。",
+    "quotaRejected_one": "{{provider}} は {{time}} までリクエストを拒否します。レールは待機し、リセット後に作業を開始します。",
+    "quotaRejected_other": "{{provider}} は {{time}} までリクエストを拒否します。レールは待機し、リセット後に作業を開始します。",
+    "quotaRejectedNoReset": "{{provider}} は現在リクエストを拒否しており、上限のリセット時刻を示していません。"
+  },
+  "pause": {
+    "title": "{{provider}} の利用上限で一時停止中",
+    "resumesAt": "{{time}}（{{in}}後）に自動で再開します。",
+    "resumesAtPassed": "コンピューターが起動していればすぐに自動で再開します。",
+    "resetsAt": "上限は {{time}} にリセットされます。自動再開はオフです。",
+    "noReset": "{{provider}} は上限のリセット時刻を示していません。",
+    "resumeNow": "今すぐ再開",
+    "autoOn": "{{time}} に再開",
+    "autoOff": "自動で再開しない",
+    "continueWith": "今すぐ {{provider}} で続ける",
+    "failed": "一時停止中の実行を更新できませんでした：{{detail}}",
+    "switch": {
+      "title": "別のプロバイダーで今すぐ続行",
+      "provider": "プロバイダー",
+      "model": "モデル",
+      "effort": "推論エフォート",
+      "consequence": "この実行の残りに適用されます。中断したステップと、{{from}} を使っていた以降のすべてのステップが {{provider}} に切り替わります。worktree にある作業はそのまま残ります。ステップの会話はプロバイダー間で引き継がれないため、ステップは新しいセッションでやり直します。",
+      "settingsKept": "プロジェクトの設定は変わりません。",
+      "settingsUpdated": "今後、プロジェクトのエージェント設定でもこれらのロールが {{provider}} を使います。",
+      "remember": "このプロジェクトで記憶する",
+      "resume": "{{provider}} で再開"
+    }
+  },
+  "mission": {
+    "title": "{{provider}} の利用上限に到達",
+    "body": "{{provider}} は {{time}} までリクエストを拒否します。",
+    "bodyNoReset": "{{provider}} は上限がリセットされるまでリクエストを拒否します。",
+    "continueAt": "{{time}} に続ける",
+    "scheduled": "{{time}} に自動で続けます。",
+    "cancel": "キャンセル",
+    "continueWith": "今すぐ {{provider}} で続ける",
+    "continuePrompt": "前のエージェントが利用上限で止まったところから続けてください。手順を繰り返す前に、すでに完了した内容を確認してください。",
+    "failed": "ミッションを予約できませんでした：{{detail}}"
+  },
+  "settledSwitch": {
+    "title": "別のプロバイダーで続行",
+    "consequence": "次の試行はこの試行が止まったところから続き、{{from}} を使っていたすべてのステップは実行の残りで {{provider}} で動きます。worktree の作業はそのまま残ります。会話はプロバイダー間で引き継がれないため、ステップは新しいセッションで始まります。",
+    "consequenceFrom": "次の試行は {{step}} ステップから続き、{{from}} を使っていたすべてのステップは実行の残りで {{provider}} で動きます。worktree の作業はそのまま残ります。会話はプロバイダー間で引き継がれないため、ステップは新しいセッションで始まります。",
+    "resume": "{{provider}} で続行",
+    "continuing": "{{provider}} で続行しています",
+    "failed": "{{provider}} で続行できませんでした"
+  }
+}

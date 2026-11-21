@@ -17,6 +17,7 @@
 // message's card can fire, and never while a turn is in flight.
 
 import { Compass, CircleHelp, CornerDownLeft, FileCode2 } from 'lucide-react'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { ProblemFrame, ProblemFrameReading } from './agent-problem-frame'
@@ -203,7 +204,9 @@ export function AgentProblemFramePending() {
       data-testid="agent-problem-frame-pending"
       className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-label text-accent-info"
     >
-      <Compass className="h-3 w-3 motion-safe:animate-pulse" />
+      {/* Still streaming in: the working lamp; the Compass stays the object. */}
+      <RunStateDot state="working" />
+      <Compass className="h-3 w-3" aria-hidden />
       {t('problemFrame.framing')}
     </span>
   )

@@ -13,7 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Setup",
     "triage": "Triage",
-    "flow": "Intent"
+    "flow": "Intent spec",
+    "failureAnalysis": "Failure analysis",
+    "mission": "Missions",
+    "intent": "Intent turns"
   },
   "periods": {
     "d7": "7d",
@@ -37,7 +40,13 @@
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
     "localEngine": "local",
-    "moreBreakdowns": "More breakdowns"
+    "moreBreakdowns": "More breakdowns",
+    "categoryFilterAria": "Filter by category",
+    "surfaceChip": "Surface: {{surface}}",
+    "clearSurfaceFilter": "Clear surface filter",
+    "ticketChipLabel": "spec #{{id}}",
+    "allEngines": "All engines",
+    "period": "Period"
   },
   "hero": {
     "spending": "Spending",
@@ -64,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Billed",
     "legendEstimated": "Estimated",
-    "apiEquivalent": "API-equivalent estimate"
+    "apiEquivalent": "API-equivalent estimate",
+    "statInvocations": "Invocations",
+    "statTokens": "Tokens",
+    "statBilledEstimated": "Billed · Est.",
+    "statEstimated": "Estimated",
+    "withoutCost_one": "{{count}} of {{total}} runs without cost data.",
+    "withoutCost_other": "{{count}} of {{total}} runs without cost data.",
+    "withoutUsage_one": "{{count}} of {{total}} runs without token usage.",
+    "withoutUsage_other": "{{count}} of {{total}} runs without token usage."
   },
   "providerCard": {
     "title": "By provider",
@@ -110,7 +127,7 @@
     "costPartiallyUnavailableTooltip": "Known subtotal only; some runs of this model have no cost telemetry."
   },
   "scatter": {
-    "title": "Cost vs Turns",
+    "title": "Cost vs turns",
     "empty": "No invocations to plot.",
     "turnsLabel": "turns",
     "costLabel": "cost",
@@ -164,7 +181,9 @@
     "sortLabel": "Sort",
     "sortRecency": "Recent",
     "sortCost": "Cost",
-    "costUnknownLocalTooltip": "Cost unknown (local engine). Add rates to the connection to see an estimate."
+    "costUnknownLocalTooltip": "Cost unknown (local engine). Add rates to the connection to see an estimate.",
+    "colWhy": "Why",
+    "missionConversation": "Mission conversation {{id}}"
   },
   "export": {
     "summaryCsv": "Summary CSV",
@@ -176,27 +195,27 @@
     "failed": "Export failed"
   },
   "desktop": {
-    "title": "Desktop Analytics",
+    "title": "Desktop analytics",
     "refreshAria": "Refresh analytics",
     "failedToLoad": "Desktop analytics couldn’t be loaded. Try refreshing.",
-    "totalCost": "Total Cost",
+    "totalCost": "Total cost",
     "costToday": "{{value}} today",
     "costTodayUnavailable": "cost unavailable today",
-    "totalJobs": "Total Jobs",
+    "totalJobs": "Total jobs",
     "jobsToday": "{{n}} today",
-    "successRate": "Success Rate",
+    "successRate": "Success rate",
     "acrossAllProjects": "across all projects",
-    "avgCostPerJob": "Avg Cost / Job",
+    "avgCostPerJob": "Avg cost / job",
     "periodAverage": "period average",
     "averageUnavailable": "average unavailable with incomplete cost telemetry",
-    "costOverTime": "Cross-Project Cost Over Time",
+    "costOverTime": "Cross-project cost over time",
     "noCostData": "No cost data for this period",
-    "projectComparison": "Project Comparison",
+    "projectComparison": "Project comparison",
     "noProjects": "No projects registered.",
     "jobsCount_one": "{{count}} job",
     "jobsCount_other": "{{count}} jobs",
     "successPct": "{{pct}}% success",
-    "costByProject": "Cost by Project",
+    "costByProject": "Cost by project",
     "includesEstimated": "~{{amount}} estimated",
     "includesEstimatedTooltip": "Includes {{amount}} of rate-card estimated cost (codex/gemini), not provider-billed.",
     "includesEstimatedShort": "incl. estimated",
@@ -205,7 +224,11 @@
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",
     "costPartiallyUnavailable_one": "Known cost subtotal; {{count}} invocation unavailable.",
-    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable."
+    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable.",
+    "homeAndBlueprint": "Home & Blueprint",
+    "homeAndBlueprintHint": "Agent turns not pinned to a loaded project: Home missions and Blueprint / Builder chats.",
+    "agentTurns_one": "{{count}} agent turn",
+    "agentTurns_other": "{{count}} agent turns"
   },
   "windowLabels": {
     "7d": "Last 7 days",
@@ -214,14 +237,45 @@
     "all": "All time",
     "custom": "Custom range"
   },
-  "agentMissions": {
-    "title": "Agent missions",
-    "subtitle": "Agent Chat turns pinned to this project",
-    "vsPrev": "vs previous period",
-    "turnsAndTokens": "{{turns}} turns · {{tokens}} tokens",
+  "categories": {
+    "implementation": {
+      "label": "Implementation",
+      "why": "Building specs with rails, loops and jobs"
+    },
+    "missions": {
+      "label": "Missions",
+      "why": "Talking to the agent and Intent mode"
+    },
+    "specs": {
+      "label": "Specs",
+      "why": "Writing and refining specs"
+    },
+    "code": {
+      "label": "Code",
+      "why": "Explaining the code"
+    },
+    "support": {
+      "label": "Support",
+      "why": "Setup, diagnosis and side chats"
+    }
+  },
+  "breakdown": {
+    "title": "Where the money went",
+    "empty": "No AI activity in this period.",
+    "share": "{{pct}}% of spend",
+    "invocations_one": "{{count}} call",
+    "invocations_other": "{{count}} calls",
+    "tokens": "{{tokens}} tokens",
+    "unpriced_one": "{{count}} without cost data",
+    "unpriced_other": "{{count}} without cost data",
+    "costUnavailable": "cost unavailable",
+    "surfaceFilter": "Show only {{surface}}",
+    "topConversations": "Top conversations",
     "untitled": "Untitled mission",
-    "estimatedNote": "Includes estimated costs",
-    "flowShare": "Of which Intent: {{cost}} · {{turns}} turns"
+    "turns_one": "{{count}} turn",
+    "turns_other": "{{count}} turns",
+    "noActivity": "No activity: {{categories}}",
+    "filterCategory": "Show only {{category}}"
   },
   "legacyUsage": {
     "title": "Legacy workflow usage",
@@ -362,6 +416,8 @@
       "session": "session",
       "weekly": "weekly"
     },
-    "capsMetered": "Dollar limits (metered providers)"
+    "capsMetered": "Dollar limits (metered providers)",
+    "planLimits": "Plan limits",
+    "turnsUnit": "turns"
   }
 }

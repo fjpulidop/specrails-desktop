@@ -10,7 +10,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Clock } from 'lucide-react'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { cn } from '../../../../lib/utils'
 import { buildNarration, type NarrationMilestone } from './narration-model'
 import type { EventRow } from '../../../../types'
@@ -281,9 +281,7 @@ export function NarratedProgress({
               )}
             >
               {track(station ? (
-                live
-                  ? <LiveDot tone="primary" size="sm" className="mt-1.5" />
-                  : <span className={cn('relative mt-1.5 size-2 rounded-full ring-2 ring-background', failed ? 'bg-destructive' : 'bg-accent-success')} />
+                <RunStateDot state={live ? 'working' : failed ? 'failed' : 'done'} size="sm" className="mt-1.5 rounded-full ring-2 ring-background" />
               ) : (
                 <span className={cn('relative mt-2 size-1 rounded-full', failed ? 'bg-destructive' : 'bg-muted-foreground/40')} />
               ))}

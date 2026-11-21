@@ -7,21 +7,35 @@ const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
 
+/**
+ * Trigger sizes. `default` is the form-field trigger (h-8); `sm` is the dense
+ * trigger for toolbars and rail headers (h-7, caption text, tight padding, a
+ * truncating value so a long label never widens its row).
+ */
+export type SelectTriggerSize = 'default' | 'sm'
+
+const SELECT_TRIGGER_SIZES: Record<SelectTriggerSize, string> = {
+  default: 'h-8 w-full px-3 py-1 text-xs [&>span]:line-clamp-1',
+  sm: 'h-7 w-auto min-w-0 gap-1 px-2 py-0 text-caption [&>span]:min-w-0 [&>span]:truncate',
+}
+
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { size?: SelectTriggerSize }
+>(({ className, children, size = 'default', ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-size={size}
     className={cn(
-      'flex h-8 w-full items-center justify-between rounded-control border border-input bg-background px-3 py-1 text-xs placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
+      'flex items-center justify-between rounded-control border border-input bg-background placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+      SELECT_TRIGGER_SIZES[size],
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-3 w-3 opacity-50" />
+      <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))

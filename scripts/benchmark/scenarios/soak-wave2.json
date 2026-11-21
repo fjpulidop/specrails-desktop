@@ -1,0 +1,61 @@
+{
+  "defaults": {
+    "provider": "claude",
+    "model": "haiku",
+    "timeoutMinutes": 660
+  },
+  "scenarios": [
+    {
+      "timeoutMinutes": 660,
+      "answers": [
+        {
+          "recommended": true,
+          "once": false
+        }
+      ],
+      "expect": {
+        "status": "delivered"
+      },
+      "group": "long",
+      "name": "marathon",
+      "notes": "40 tasks + cross-cutting changes in every file, 10-minute suite",
+      "repo": {
+        "template": "big-lib-xl",
+        "name": "marathon",
+        "files": {
+          "test/integration/integration.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nconst wait = ms => new Promise(r => setTimeout(r, ms))\ntest('integration (slow on purpose: about 10 min)', async t => {\n  for (let i = 1; i <= 40; i++) {\n    await t.test('scenario ' + i, async () => { await wait(15000); assert.ok(true) })\n  }\n})\n"
+        }
+      },
+      "ticket": {
+        "title": "Forty features plus a library-wide input contract",
+        "description": "Extend the library with 40 small, independent features. Each one needs unit tests in `test/unit/<module>.test.js` covering the normal case and every error case named here, and a line in CHANGELOG.md under \"Unreleased\". Follow CONTRIBUTING.md (JSDoc on every exported function; the lint runs in `npm test`).\n\n1. `src/money.js`: add `toCents(amount)` that converts a decimal amount (number or numeric string) to integer cents, rounding half away from zero; it throws `TypeError` for anything not finite.\n2. `src/slug.js`: add `slugify(text)` that lowercases, strips diacritics (NFD), replaces every run of non-alphanumerics with one `-` and trims leading/trailing `-`.\n3. `src/dates.js`: add `daysInMonth(year, month)` (month 1–12, leap years respected) that throws `RangeError` for a month outside 1–12.\n4. `src/queue.js`: add `enqueue(q, x)`, `dequeue(q)` (returns `undefined` on empty) and `size(q)`; `dequeue` must be O(1) amortised (no `Array.prototype.shift`).\n5. `src/lru.js`: add `get(cache, key)` and `set(cache, key, value)` with least-recently-used eviction once `limit` entries are stored; `get` refreshes recency.\n6. `src/csv.js`: add `parseCsvLine(line)` that splits on commas but keeps commas inside double quotes and unescapes `\"\"` to `\"`.\n7. `src/stats.js`: add `mean(xs)` and `median(xs)`; both throw `RangeError` on an empty list; `median` must not mutate its input.\n8. `src/retry.js`: add `backoff(attempt, { base = 100, cap = 10000 } = {})` returning `min(cap, base * 2 ** attempt)`; negative attempts throw `RangeError`.\n9. `src/color.js`: add `hexToRgb(hex)` returning `{ r, g, b }` for `#rrggbb` and the short `#rgb` form; invalid input throws `TypeError`.\n10. `src/words.js`: add `titleCase(s)` that capitalises every word except the small words `a, an, the, of, and, or, in` (unless first).\n11. `src/matrix.js`: add `transpose(m)` for rectangular matrices and `multiply(a, b)`, which throws `RangeError` when the inner dimensions differ.\n12. `src/range.js`: add `range(start, end, step = 1)` (end exclusive, negative steps allowed) that throws `RangeError` for a zero step.\n13. `src/roman.js`: add `toRoman(n)` for 1–3999 using subtractive notation; outside that range throw `RangeError`.\n14. `src/bytes.js`: add `formatBytes(n)` using 1024 steps and one decimal (`1536` → `\"1.5 KB\"`, `0` → `\"0 B\"`); negative input throws `RangeError`.\n15. `src/url.js`: add `parseQuery(qs)` returning an object; repeated keys become arrays; `+` decodes to a space; a leading `?` is ignored.\n16. `src/tree.js`: add `depth(tree)` and `flatten(tree)` (pre-order values); both must be iterative (no recursion), so deep trees do not overflow the stack.\n17. `src/diff.js`: add `lcsLength(a, b)` for two arrays (the length of their longest common subsequence) in O(len(a)·len(b)) time and O(min) memory.\n18. `src/semver.js`: add `compare(a, b)` returning -1/0/1 for `MAJOR.MINOR.PATCH` with an optional `-prerelease` (a prerelease sorts before its release).\n19. `src/events.js`: add `on(em, name, fn)` returning an unsubscribe function, and `emit(em, name, ...args)` that calls handlers in subscription order.\n20. `src/throttle.js`: add `rateLimiter(limit, windowMs, clock = Date.now)` returning `tryAcquire()` that allows at most `limit` calls per sliding window.\n21. `src/ini.js`: add `parseIni(text)` supporting `[section]` headers, `key = value` pairs, and `;`/`#` comments; keys before any section go to `\"\"`.\n22. `src/luhn.js`: add `isValidLuhn(s)` (spaces allowed, any other non-digit makes it invalid, fewer than 2 digits is invalid).\n23. `src/template.js`: add `render(tpl, data)` replacing `{{ name }}` (spaces optional) with HTML-escaped values; unknown names render as an empty string.\n24. `src/geo.js`: add `haversineKm(a, b)` for `{ lat, lon }` points in degrees; the result is rounded to 3 decimals.\n25. `src/bits.js`: add `isPowerOfTwo(n)` (integers only, `0` is not) and `nextPowerOfTwo(n)` for positive integers up to 2^30.\n26. `src/chunk.js`: add `chunk(xs, size)` (last chunk may be shorter) and `zip(...arrays)` truncated to the shortest array; `size < 1` throws `RangeError`.\n27. `src/path.js`: add `normalize(p)` that resolves `.` and `..` segments and duplicate slashes for POSIX paths, keeping a leading `/`.\n28. `src/heap.js`: add `push(h, x)`, `pop(h)` (returns `undefined` on empty) and `peek(h)` as a binary heap using `h.compare`.\n29. `src/crc.js`: add `crc32(input)` for a string (UTF-8) or `Uint8Array`, returning an unsigned 32-bit integer (`crc32(\"hello\")` is `907060870`).\n30. `src/duration.js`: add `formatDuration(seconds)` → `\"1h 2m 3s\"` style (omit zero units, `0` → `\"0s\"`) and `parseDuration(text)` as its inverse.\n31. `src/mask.js`: add `maskEmail(email)` keeping the first character of the local part and the domain (`ada@x.io` → `a**@x.io`); invalid emails throw `TypeError`.\n32. `src/graph.js`: add `addEdge(g, a, b)` (directed) and `topoSort(g)` (Kahn); a cycle throws `Error` whose message names one node of the cycle.\n33. `src/currency.js`: add `formatMoney(cents, code)` → `\"€12.34\"`, negative as `\"-€12.34\"`; an unknown code throws `RangeError`.\n34. `src/ids.js`: add `toBase36(n)` / `fromBase36(s)` for non-negative safe integers; invalid characters throw `TypeError`.\n35. `src/schedule.js`: add `nextWeekday(date, weekday)` returning a new `Date` for the next given weekday (never the same day) in UTC.\n36. `src/sanitize.js`: add `safeFilename(name)` that removes path separators, control characters and leading dots, and limits the result to 100 characters.\n37. `src/vector.js`: add `addV`, `scaleV`, `dot` and `length` for 2-D vectors; none of them mutates its arguments.\n38. `src/pager.js`: add `paginate(items, page, size)` returning `{ items, page, pages, hasNext }` (1-based pages; out-of-range pages return empty items).\n39. `src/tokens.js`: add `tokenize(expr)` for arithmetic expressions (numbers with decimals, `+ - * / ( )`), throwing `SyntaxError` with the position of an unknown character.\n40. `src/bloom.js`: add `addB(b, s)` and `mightContain(b, s)` with three FNV-1a based hashes; an added string must always be reported as present.\n41. Library-wide: every EXISTING exported function in `src/` validates its arguments and throws `TypeError` with the message `<module>.<function>: invalid <param>` for a wrong type; add one test per function in its unit test file.\n42. Add `src/index.js` re-exporting every module as a namespace (`export * as money from './money.js'` …) and a test that imports each namespace.\n43. README.md: one `## <module>` section per module with a usage example of each new function.\n\nOut of scope: renaming or removing any existing export, adding dependencies."
+      }
+    },
+    {
+      "timeoutMinutes": 660,
+      "answers": [
+        {
+          "recommended": true,
+          "once": false
+        }
+      ],
+      "expect": {
+        "status": "any"
+      },
+      "group": "long",
+      "name": "verify-timeout",
+      "notes": "integration suite of ~16 minutes, beyond the 15-minute verification timeout",
+      "repo": {
+        "template": "big-lib-a",
+        "name": "verify-timeout",
+        "files": {
+          "test/integration/integration.test.js": "import test from 'node:test'\nimport assert from 'node:assert'\nconst wait = ms => new Promise(r => setTimeout(r, ms))\ntest('integration (slow on purpose: about 16 min)', async t => {\n  for (let i = 1; i <= 32; i++) {\n    await t.test('scenario ' + i, async () => { await wait(30000); assert.ok(true) })\n  }\n})\n"
+        }
+      },
+      "ticket": {
+        "title": "Three features on a very slow suite",
+        "description": "Extend the library with 3 small, independent features. Each one needs unit tests in `test/unit/<module>.test.js` covering the normal case and every error case named here, and a line in CHANGELOG.md under \"Unreleased\". Follow CONTRIBUTING.md (JSDoc on every exported function; the lint runs in `npm test`).\n\n1. `src/money.js`: add `toCents(amount)` that converts a decimal amount (number or numeric string) to integer cents, rounding half away from zero; it throws `TypeError` for anything not finite.\n2. `src/slug.js`: add `slugify(text)` that lowercases, strips diacritics (NFD), replaces every run of non-alphanumerics with one `-` and trims leading/trailing `-`.\n3. `src/dates.js`: add `daysInMonth(year, month)` (month 1–12, leap years respected) that throws `RangeError` for a month outside 1–12.\n\nOut of scope: renaming or removing any existing export, adding dependencies."
+      }
+    }
+  ]
+}

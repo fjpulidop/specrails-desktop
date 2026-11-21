@@ -42,4 +42,4 @@ Una spec creada en modo Quick es una spec totalmente normal: más adelante puede
 
 - [Añadir spec — Modo Explore](add-spec-explore-mode.md): para specs que necesitan darse forma.
 - [Borradores y la Contract Layer](drafts-and-contract-layer.md): el enriquecimiento con Contract Layer explicado.
-- [Ejecutar pipelines](running-pipelines.md): arrastra tu nueva spec a un rail e impleméntala.
+- [Ejecutar pipelines](../pipeline/rails-and-jobs): arrastra tu nueva spec a un rail e impleméntala.

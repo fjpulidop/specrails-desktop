@@ -10,6 +10,8 @@ Os ficheiros do próprio Specrails — as suas bases de dados, o estado por proj
 ~/.specrails/
 ```
 
+**Definições ▸ Sobre** mostra a localização exata da base de dados e a versão da aplicação que está a usar.
+
 Essa pasta é o workspace privado da aplicação. É onde ficam o registo de projetos, as bases de dados por projeto, as ferramentas integradas e toda a parte operacional. Os seus repositórios de código nunca são usados como depósito para nada disto.
 
 Isto significa que:
@@ -46,3 +48,31 @@ A conclusão, para si: pode adicionar um projeto, executar pipelines, explorar s
 ## Remover um projeto
 
 Quando remove um projeto do Specrails, a aplicação limpa o seu próprio estado por projeto dentro de `~/.specrails/`. As specs já commitadas no seu repositório ficam onde pertencem — no seu repositório — porque são suas.
+
+## Worktrees de execuções mantidos no disco {#retained-worktrees}
+
+Cada execução de um rail trabalha no seu próprio worktree Git em `~/.specrails/projects/<projeto>/worktrees/`. Quando uma execução termina, o Specrails remove esse worktree, mas só se conseguir provar que nada se perde. Se não conseguir (alterações sem commit, ficheiros que só existem lá ou uma remoção que falhou), mantém-no. Com o tempo vão-se acumulando.
+
+**Definições ▸ Armazenamento** lista-os para todos os projetos. Também pode lá chegar a partir do popover **Recursos da app** da barra de estado. Cada worktree mostra o seu tamanho (medido em segundo plano), há quanto tempo está sem uso, a sua PR e o que se perderia ao removê-lo:
+
+- **Nada a perder**: sem alterações sem commit, e cada ficheiro ignorado é regenerável (`node_modules`), uma ligação ou idêntico ao mesmo ficheiro no seu checkout principal (um `.env` copiado, por exemplo). Todos os commits da sua branch estão num remoto ou noutra branch, ou a sua entrega foi integrada.
+- **À sua espera**: algo ainda precisa de si. Cada motivo é indicado: alterações sem commit, ficheiros ignorados que só existem lá, commits só nesta branch, uma entrega que espera a sua decisão, atividade recente (a última hora) ou o Git não conseguiu verificá-lo. Um worktree que o Git não consegue verificar nunca é considerado limpo.
+
+Selecione worktrees e escolha **Remover**. A confirmação indica quanto espaço recupera e o que acontece às branches:
+
+- Por predefinição as branches são **mantidas**, por isso os seus commits continuam disponíveis.
+- Com **Eliminar também as branches que não contêm nada de novo**, uma branch só é eliminada se não tiver nada a perder e só se ainda apontar para o commit verificado pelo Specrails.
+
+Os worktrees com alterações sem commit ou ficheiros que só existem lá não podem ser selecionados. Primeiro faça commit desse trabalho, copie-o ou descarte-o. Um worktree que pertence a uma sessão Intent aparece na lista, mas é tratado a partir da sua sessão. Imediatamente antes da remoção, cada worktree é verificado de novo: se algo mudou depois de ter confirmado, é mantido e o resultado explica porquê. Os processos que ainda corriam num worktree removido (um servidor de desenvolvimento, por exemplo) são parados.
+
+## Arquivos guardados fora de um PR {#safety-archives}
+
+Enquanto uma execução trabalha, o Specrails adiciona ao worktree alguns arquivos próprios: as instruções do projeto (`CLAUDE.md`), configurações locais com o seu hook de segurança e links para os seus comandos e skills. Nunca entram no PR. Quando o worktree é removido, o Specrails apaga-os se estiverem exatamente como os escreveu, por isso uma execução normal não deixa nada para trás.
+
+Se algum mudou (por exemplo, um agente editou `CLAUDE.md`) ou o Specrails não consegue provar que um arquivo é seu, não o apaga. Move-o para uma pasta ao lado do worktree (`<worktree>.specrails-overlay-quarantine-…`) e o cartão do PR diz **N arquivos foram guardados fora do PR**:
+
+- **Detalhes** mostra a pasta (com **Copiar caminho** e **Mostrar no Finder**) e cada arquivo guardado com o seu tamanho.
+- **Excluir** pergunta antes, indicando a pasta e quantos arquivos tem, e apaga apenas essa pasta.
+- **Dispensar** oculta o aviso. Os arquivos ficam onde estão.
+
+**Definições ▸ Armazenamento ▸ Arquivos guardados fora de um PR** lista todas essas pastas de todos os projetos com tamanho e idade. Selecione várias e exclua-as de uma vez. O Specrails só apaga uma pasta com esse nome exato dentro da área de worktrees do próprio projeto, e nunca segue links para fora.

@@ -22,6 +22,17 @@ Sélectionnez des lignes en cliquant sur leurs numéros (Maj-clic étend la plag
 
 **Ouvrir dans l'éditeur** ouvre le fichier, à la ligne sélectionnée, dans VS Code, Cursor ou un IDE JetBrains. Choisissez l'éditeur dans **Réglages → Code → Éditeur**. Le fichier s'ouvre depuis votre propre copie du projet, où la branche de la revue n'est peut-être pas extraite.
 
+## Voir les conflits avant de fusionner {#merge-preview}
+
+Chaque livraison qui vous attend est comparée à sa branche de base **telle qu’elle est maintenant** (le dernier `origin/<base>` récupéré), sans toucher à votre checkout : Git fusionne les deux en mémoire et rien n’est écrit dans votre dépôt. La carte du rail, le dossier de revue et le live board indiquent alors :
+
+- **Conflit avec main dans …** : le changement ne se fusionne plus proprement ; les fichiers sont listés. Il prend l’aspect d’avertissement.
+- **En collision avec le Rail N dans …** : une autre livraison en attente sur la même base modifie les mêmes lignes, donc celle qui fusionnera en second aura des conflits.
+- **main a avancé de N commits depuis la création de cette branche** : la base a progressé ; pensez à mettre la branche à jour avant de décider.
+- **Déjà dans main** : le changement est déjà intégré (par exemple après un squash merge).
+
+Sur le tableau en direct, le résultat est une courte pastille (**2 conflits**, **Recoupe 1 run**, **Base avancée**) dont la phrase complète s’affiche au survol ou au focus. L’aperçu se met à jour quand une livraison change d’état ou qu’un run se termine. Quand Specrails fusionne lui-même plusieurs résultats, il fusionne d’abord ceux qui s’appliquent proprement. Git 2.38 ou plus récent est nécessaire ; avec un Git plus ancien, l’aperçu indique qu’il est indisponible.
+
 ## Choisir ce qu'il advient d'une livraison {#pr-decision}
 
 Une exécution terminée ne vous demande qu'une chose : que faire de son résultat. La carte affiche un bouton principal pour l'étape suivante (créer la PR, la publier ou la vérifier) et, à côté, **Relire**, qui ouvre le dossier de relecture en langage clair. Tout le reste se trouve sous **Plus d'actions** :
@@ -31,6 +42,12 @@ Une exécution terminée ne vous demande qu'une chose : que faire de son résult
 - **Abandonner** supprime le résultat et sa branche. Vous confirmez d'abord.
 
 Si une action échoue, la notification dit ce qui n'a pas pu être fait et propose **Réessayer**.
+
+## Laisser Specrails garder la PR au vert {#pr-ci}
+
+Après avoir créé une PR depuis une mission, la conversation propose **Surveiller et corriger la CI de la PR #N**. C'est facultatif et cela ne démarre jamais tout seul. Choisissez **Démarrer** et Specrails attend les checks de la PR, corrige ceux qui échouent, résout les conflits avec la branche de base en la fusionnant, vérifie le résultat sur votre ordinateur et pousse la correction dans la même PR, jusqu'à ce que les checks soient au vert. Vous pouvez suivre l'avancement dans le bandeau d'exécution (« En attente de la CI », « Correction des checks en échec », « Envoi de la correction dans la PR »).
+
+Il ne fait jamais de force-push, ne réécrit jamais la branche, n'affaiblit jamais un check, et ne publie, ne fusionne ni ne ferme jamais la PR : ces décisions restent les vôtres. S'il ne peut pas terminer (les checks continuent d'échouer, un check requis ne remonte jamais, il lui faut un secret que vous seul pouvez fournir), il s'arrête et dit pourquoi. **Pas maintenant** masque la proposition pour cette livraison. Vous pouvez la lancer plus tard avec **Corriger CI / Conflits** dans **Plus d'actions** sur la carte de la PR ou sur le rail.
 
 ## Clavier
 

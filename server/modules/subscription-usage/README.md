@@ -4,7 +4,6 @@ Machine-scoped, ephemeral read-only observations for the active host Claude/Code
 
 ## Public subpaths
 
-- `index.ts`: type-only contracts.
 - `runtime/composition.ts`: explicit production composition; no import-time probes.
 - `runtime/usage-service.ts`: injected service, single-flight cache, shutdown and type.
 - `adapters/http.ts`: desktop route registration.

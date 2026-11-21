@@ -119,11 +119,11 @@ describe('JobDetailPage', () => {
     render(<JobDetailPage />)
     expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
     const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
-    fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
     expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
-    expect(panel).toContainElement(screen.getByTestId('job-run-details'))
-    expect(screen.getByTestId('job-run-header')).not.toContainElement(panel)
-    expect(within(screen.getByTestId('job-run-header')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    fireEvent.click(within(screen.getByTestId('run-detail-bar')).getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog', { name: 'Details' })).toContainElement(screen.getByTestId('job-run-details'))
+    expect(screen.getByTestId('run-detail-bar')).not.toContainElement(panel)
+    expect(within(screen.getByTestId('run-detail-bar')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
   })
@@ -135,36 +135,39 @@ describe('JobDetailPage', () => {
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
-  it('reveals a question-only answer form through the compact header', async () => {
-    const answer = vi.fn()
-    mockUseRuntimeRuns.mockReturnValue({ runs: [{ runId: 'r', status: 'paused', canResume: true, recoverableSteps: [], pendingQuestion: { question: 'Which backend?' } }], error: '', busy: null, answers: { r: 'Redis' }, setAnswer: vi.fn(), act: answer, refresh: vi.fn() })
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+  it('shows a live pause\'s structured question as its card and answers it by choice on the turn door', async () => {
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
+    const question = { interruptId: 'q1', kind: 'question', asker: 'developer', text: 'Task 2.1 needs touch controls, a declared non-goal.', options: [{ id: 'implement', label: 'Implement touch', meaning: 'Adds it.' }, { id: 'drop', label: 'Drop 2.1', meaning: 'Keeps the non-goal.' }], recommended: 'drop', endsRun: [], mayEndRun: false, canReject: false }
+    global.fetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => init?.method === 'POST'
+      ? { ok: true, status: 202, json: async () => ({ ok: true }) }
+      : { ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:implement', loopPaused: true, question }, events: mockEvents }) })
     render(<JobDetailPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByLabelText('Your answer')).toBeVisible()
-    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    expect(answer).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r' }), 'answer')
+    const card = await screen.findByTestId('run-question-card')
+    expect(card).toHaveTextContent('The developer needs you to decide')
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getAllByTestId('run-question-option')[1])
+    await screen.findByTestId('run-question-sent')
+    const post = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(String(post[0])).toMatch(/\/jobs\/.+\/messages$/)
+    expect(JSON.parse(String(post[1].body))).toEqual({ text: 'Drop 2.1', interruptId: 'q1', optionId: 'drop' })
   })
 
-  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals loop graph before the remedy scrolls and leaves narrated detail preference unchanged', async () => {
+  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals the failed step in Log detail before the remedy scrolls and leaves narrated detail preference unchanged', async () => {
     localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
     const rows = [{ ...mockEvents[0], event_type: 'loop_step', payload: JSON.stringify({ index: 1, kind: 'ai-step', title: 'Verify' }) }, mockEvents[0], { ...mockEvents[0], id: 3, seq: 3, event_type: 'loop_step_end', payload: JSON.stringify({ index: 1, status: 'failed', exitCode: 1 }) }]
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l', status: 'failed', failureDiagnosis: diagnosis }, events: rows }) })
     const scroll = vi.fn(function (this: HTMLElement) {
       expect(this).toBeVisible()
       expect(this).toHaveAttribute('data-status', 'failed')
-      expect(screen.getByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'Log detail' })).toHaveAttribute('aria-selected', 'true')
     })
     const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scroll)
     render(<JobDetailPage />)
     fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
     await waitFor(() => expect(scroll).toHaveBeenCalled())
     expect(localStorage.getItem('specrails-desktop:job-log-mode')).toBe('narrated')
-    fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
-    expect(screen.getByTestId('job-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByTestId('job-narration-mode-log'))
+    expect(screen.getByTestId('loop-detail-mode-steps')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
     spy.mockRestore()
   })
@@ -174,8 +177,9 @@ describe('JobDetailPage', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: mockEvents }) })
     render(<JobDetailPage />)
     fireEvent.click(await screen.findByRole('tab', { name: 'Log detail' }))
+    expect(screen.queryByTestId('loop-detail-mode-narrated')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
-    expect(screen.queryByTestId('job-narration-mode-log')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Execution graph' })).toBeVisible()
   })
 
@@ -290,7 +294,7 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('does not show Cancel Job button for completed jobs', async () => {
+  it('does not show Cancel job button for completed jobs', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ job: mockJob, events: mockEvents }),
@@ -299,10 +303,10 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /Cancel Job/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cancel job/i })).not.toBeInTheDocument()
   })
 
-  it('shows Cancel Job button for running jobs', async () => {
+  it('shows Cancel job button for running jobs', async () => {
     const runningJob = { ...mockJob, status: 'running' as const }
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -310,7 +314,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
   })
 
@@ -323,10 +327,10 @@ describe('JobDetailPage', () => {
 
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /Cancel Job/i }))
+    await user.click(screen.getByRole('button', { name: /Cancel job/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/jobs/job-abc123/cancel',
@@ -417,14 +421,15 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('offers "Run again" once, in the diagnosis card, when a failed job has a diagnosis with the retry remedy', async () => {
+  it('offers a fresh run once, as the diagnosis card\'s Start over, when a failed job has a diagnosis with the retry remedy', async () => {
     const diagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['retry', 'open-logs'] }
     const failedJob = { ...mockJob, status: 'failed' as const, failureDiagnosis: diagnosis }
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: failedJob, events: [] }) })
     render(<JobDetailPage />)
     const card = await screen.findByTestId('failure-diagnosis-card')
-    expect(screen.getAllByRole('button', { name: /Run again/i })).toHaveLength(1)
-    expect(card).toContainElement(screen.getByRole('button', { name: /Run again/i }))
+    // The header's own Run again steps aside; the card keeps it in its menu, as Start over.
+    expect(screen.queryByRole('button', { name: /Run again/i })).toBeNull()
+    expect(card).toContainElement(screen.getByTestId('failure-remedy-more'))
   })
 
   it('keeps the header "Run again" when the diagnosis does not offer the retry', async () => {
@@ -446,7 +451,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cancel job/i })).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /Run again/i })).not.toBeInTheDocument()
   })
@@ -614,7 +619,7 @@ describe('JobDetailPage', () => {
       })
       render(<JobDetailPage />)
       await waitFor(() => {
-        expect(screen.getByTestId('job-run-header')).toBeInTheDocument()
+        expect(screen.getByTestId('run-detail-bar')).toBeInTheDocument()
       })
       expect(screen.getByTestId('job-run-activity')).toHaveTextContent('Connecting to the agent…')
       // No placeholder "calculated when finished" tiles — nothing to disclose yet.
@@ -649,7 +654,7 @@ describe('JobDetailPage', () => {
         })
       render(<JobDetailPage />)
 
-      // Numbers live behind the collapsed Details disclosure.
+      // Numbers live behind the Details popover.
       fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
       await waitFor(() => {
         expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
@@ -785,6 +790,8 @@ describe('JobDetailPage', () => {
       await waitFor(() => {
         expect(screen.getByTestId('loop-step-explorer')).toBeInTheDocument()
       })
+      // The step logs live in Log detail; the graph tab has the outcome and graph.
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       // The step box renders with the cleaned title (also echoed on the strip
       // chip) and the live step line
       expect(screen.getAllByTestId('loop-step-section')).toHaveLength(1)
@@ -809,6 +816,7 @@ describe('JobDetailPage', () => {
       global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: loopJob, events: mode === 'replay' ? records : [] }) })
       render(<JobDetailPage />)
       await screen.findByTestId('loop-step-explorer')
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       if (mode === 'live') {
         const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
         act(() => {
@@ -845,6 +853,7 @@ describe('JobDetailPage', () => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
       render(<JobDetailPage />)
       await screen.findByTestId('loop-step-explorer')
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
       act(() => handler({ type: 'log', processId: loopJob.id, line: 'Verification A succeeded', source: 'stdout', attemptId: 'attempt-0', timestamp: loopEvents[0].timestamp }))
       // Open the first (finished receiving) attempt to observe the delayed line.
@@ -887,7 +896,7 @@ describe('JobDetailPage', () => {
       }) as unknown as typeof fetch
 
       render(<JobDetailPage />)
-      await waitFor(() => expect(screen.getByText('Finalize Job')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Finalize job')).toBeInTheDocument())
 
       const textarea = screen.getByPlaceholderText(/Send a message to the running job/i)
       await user.type(textarea, 'add error handling')
@@ -896,7 +905,7 @@ describe('JobDetailPage', () => {
         expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/messages') && c.method === 'POST')).toBe(true),
       )
 
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() =>
         expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/finalize') && c.method === 'POST')).toBe(true),
       )
@@ -909,7 +918,7 @@ describe('JobDetailPage', () => {
       }) as unknown as typeof fetch
       render(<JobDetailPage />)
       await waitFor(() => expect(screen.getByText('/specrails:freestyle #1 --yes')).toBeInTheDocument())
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
       expect(screen.queryByPlaceholderText(/Send a message to the running job/i)).not.toBeInTheDocument()
     })
   })

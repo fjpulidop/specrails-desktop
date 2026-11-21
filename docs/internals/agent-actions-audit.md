@@ -53,6 +53,7 @@ Targets are single-line and capped at 512 characters.
 | Mission Core sessions | `MissionSessionProjector` | `turn.tool` (role `mission`) and sub-agent tool output (role `subagent`), recorded after the projection commit, in the mission's pinned project |
 | Mission native sessions | `AgentChatManager` | Adapter tool-use previews (truncated input; paths are recovered when visible) |
 | Mission MCP calls | `recordMissionMcpAction` in `registerTieredTool` | Only first-party (capability-bearing) calls of a pinned project; external MCP clients leave no rows |
+| In-turn policy denials | stream taps, `MissionSessionProjector`, `AgentChatManager`, denial spool | Source `policy-hook`, target `denied by policy (<rule>): <attempted target>`, recorded next to the attempt; see [agent policy and continuity](agent-policy-and-continuity.md#reporting-a-denial) |
 | Post-run diff | `recordProvenanceForJob` | One `write` row per provenance row (role `run`), hashed patch, same transaction, guarded against a pre-migration database |
 
 Missions without a pinned project, or whose project is not loaded, are not

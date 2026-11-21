@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { errorMessage, payloadOf } from './__fixtures__/envelope'
 import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
@@ -15,7 +16,7 @@ import { AGENT_CAPABILITY_HEADER } from '../../modules/missions/runtime/agent-ti
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listenOnLoopback } from '../../loopback-test-server'
+import { listenOnLoopback } from '../../__fixtures__/loopback-test-server'
 
 // ── Conversation-provider engine default on specrails_jobs(spawn) ─────────────
 //
@@ -90,7 +91,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(spawnArgs, spawnExtra(conv.id))
     expect(r.isError).toBeFalsy()
-    expect(JSON.parse(r.content[0].text)).toMatchObject({ jobId: 'job-1' })
+    expect(payloadOf(r)).toMatchObject({ jobId: 'job-1' })
 
     expect(enqueue).toHaveBeenCalledTimes(1)
     expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'codex' })
@@ -114,7 +115,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
     const r = await captured!({ ...spawnArgs, model: 'not-a-codex-model' }, spawnExtra(conv.id))
     expect(r.isError).toBe(true)
-    expect(r.content[0].text).toContain('model')
+    expect(errorMessage(r)).toContain('model')
     expect(enqueue).not.toHaveBeenCalled()
   })
 
@@ -130,11 +131,11 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
   it('validates an explicit repository ID for a legacy single-repository project', async () => {
     const foreign = await captured!({ ...spawnArgs, repositoryId: 'foreign' }, spawnExtra())
     expect(foreign.isError).toBe(true)
-    expect(foreign.content[0].text).toContain('does not belong')
+    expect(errorMessage(foreign)).toContain('does not belong')
     expect(enqueue).not.toHaveBeenCalled()
     const primary = await captured!({ ...spawnArgs, repositoryId: 'primary-p1' }, spawnExtra())
     expect(primary.isError).toBeFalsy()
-    expect(JSON.parse(primary.content[0].text)).toMatchObject({ jobId: 'job-1' })
+    expect(payloadOf(primary)).toMatchObject({ jobId: 'job-1' })
     expect(enqueue).toHaveBeenCalledTimes(1)
   })
 
@@ -151,16 +152,16 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     it('requires an explicit repository before reaching the queue route', async () => {
       const result = await captured!(spawnArgs, spawnExtra())
       expect(result.isError).toBe(true)
-      expect(result.content[0].text).toContain('Provide repositoryId')
+      expect(errorMessage(result)).toContain('Provide repositoryId')
       expect(enqueue).not.toHaveBeenCalled()
     })
 
     it('rejects a secondary target with coordinated execution instructions before enqueue', async () => {
       const result = await captured!({ ...spawnArgs, repositoryId: 'secondary-p1' }, spawnExtra())
       expect(result.isError).toBe(true)
-      expect(result.content[0].text).toContain('only the primary repository')
-      expect(result.content[0].text).toContain('specrails_rails(action:"launch"')
-      expect(result.content[0].text).toContain('specrails_loops(action:"run"')
+      expect(errorMessage(result)).toContain('only the primary repository')
+      expect(errorMessage(result)).toContain('specrails_rails(action:"launch"')
+      expect(errorMessage(result)).toContain('specrails_loops(action:"run"')
       expect(enqueue).not.toHaveBeenCalled()
     })
 
@@ -169,7 +170,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
       project.repositories!.push({ ...project.repositories![0], id: 'foreign', projectId: 'another-project' })
       const result = await captured!({ ...spawnArgs, repositoryId: 'foreign' }, spawnExtra())
       expect(result.isError).toBe(true)
-      expect(result.content[0].text).toContain('does not belong')
+      expect(errorMessage(result)).toContain('does not belong')
       expect(enqueue).not.toHaveBeenCalled()
     })
 
@@ -177,7 +178,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
       const conversation = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
       const result = await captured!({ ...spawnArgs, repositoryId: 'primary-p1' }, spawnExtra(conversation.id))
       expect(result.isError).toBeFalsy()
-      expect(JSON.parse(result.content[0].text)).toMatchObject({ jobId: 'job-1', hint: expect.stringContaining('primary repository') })
+      expect(payloadOf(result)).toMatchObject({ jobId: 'job-1', hint: expect.stringContaining('primary repository') })
       expect(enqueue).toHaveBeenCalledTimes(1)
       expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra' })
       expect(enqueue.mock.calls[0][2]).not.toHaveProperty('cwd')
@@ -196,7 +197,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     const conv = createAgentConversation(desktopDb, { provider: 'gemini' })
     const r = await captured!(spawnArgs, spawnExtra(conv.id))
     expect(r.isError).toBe(true)
-    expect(r.content[0].text).toContain("provider 'gemini' is not installed")
+    expect(errorMessage(r)).toContain("provider 'gemini' is not installed")
     expect(enqueue).not.toHaveBeenCalled()
   })
 

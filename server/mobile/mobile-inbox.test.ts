@@ -15,6 +15,7 @@ let internal: http.Server
 let internalPort = 0
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let runState: Record<string, unknown> = {}
+let loopRunStatus = 'paused'
 
 const item = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:question:r1', projectId: 'p1', projectName: 'P1', kind: 'question', title: 'Run', detail: null,
@@ -38,6 +39,10 @@ beforeAll(async () => {
   app.get('/api/projects/:id/agent-runtime/runs/:rid', (req, res) => {
     calls.push({ method: 'GET', path: req.path, body: null })
     res.json({ runs: [runState] })
+  })
+  app.get('/api/projects/:id/loop-runs/:rid', (req, res) => {
+    calls.push({ method: 'GET', path: req.path, body: null })
+    res.json({ loopRun: { id: req.params.rid, status: loopRunStatus } })
   })
   app.use((req, res) => {
     calls.push({ method: req.method, path: req.path, body: req.body })
@@ -111,6 +116,11 @@ describe('companion inbox decisions', () => {
       expect(companionTargetsFor(item({ kind: 'failed', railIndex: 1, diagnosis: null })).ids).toEqual([])
     })
 
+    it('offers Resume for a run whose primary remedy is Continue (and its older id)', () => {
+      expect(companionTargetsFor(item({ kind: 'failed', diagnosis: diagnosis(['continue', 'open-logs', 'retry']) }))).toEqual({ ids: ['resume'], target: { runId: 'r1' } })
+      expect(companionTargetsFor(item({ kind: 'blocked', diagnosis: diagnosis(['resume', 'retry']) })).ids).toEqual(['resume'])
+    })
+
     it('leaves budget caps and Jira to the desktop', () => {
       expect(companionTargetsFor(item({ kind: 'budget', action: 'raise-cap' })).ids).toEqual([])
       expect(companionTargetsFor(item({ kind: 'jira', action: 'retry-jira' })).ids).toEqual([])
@@ -121,7 +131,7 @@ describe('companion inbox decisions', () => {
     it('shows the pending question', async () => {
       runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' } }
       const res = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
-      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't' })
+      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't', card: null })
     })
 
     it('answers a workflow run through the loop-run resume the desktop uses, pinned to the exact question', async () => {
@@ -129,6 +139,18 @@ describe('companion inbox decisions', () => {
       const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: '  SQLite  ', evil: 1 })
       expect(res.status).toBe(200)
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1' } })
+    })
+
+    it('shows the structured card and answers by a choice the question offered (Core questionOptions)', async () => {
+      const card = { interruptId: 's1', kind: 'question', asker: 'planner', text: 'Which database?', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'pg', label: 'Postgres' }], endsRun: [], mayEndRun: true, canReject: false }
+      runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' }, question: card }
+      const shown = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
+      expect(shown.body.card).toMatchObject({ asker: 'planner', options: [{ id: 'sqlite' }, { id: 'pg' }] })
+      const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'SQLite', optionId: 'sqlite' })
+      expect(res.status).toBe(200)
+      expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1', optionId: 'sqlite' } })
+      const refused = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'x', optionId: 'mongo' })
+      expect(refused.status).toBe(400)
     })
 
     it('answers a v1 runtime run through the agent-runtime resume', async () => {
@@ -150,6 +172,14 @@ describe('companion inbox decisions', () => {
     it('resumes through the desktop loop-run resume, addressed to the item project', async () => {
       await request(app).post('/v1/projects/p2/inbox/resume').set(auth).send({ runId: 'r9' })
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p2/loop-runs/r9/resume', body: {} })
+    })
+
+    it('continues a run that already ended, the desktop\'s Continue', async () => {
+      loopRunStatus = 'completed'
+      try {
+        await request(app).post('/v1/projects/p1/inbox/resume').set(auth).send({ runId: 'r1' })
+        expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/remedy', body: { remedy: 'continue' } })
+      } finally { loopRunStatus = 'paused' }
     })
 
     it('carries the run-cap choice: ignore or raise, never both nor junk', async () => {

@@ -72,6 +72,12 @@ posts architect clarifications, and loop executors forward `baselineOnTouch` to
 Core (capability-gated in the agent-runtime bridge). See
 [existing-project anchoring](../../../docs/internals/existing-project-anchoring.md).
 
+`worktreeEnvFiles` (default `false`) is a strict boolean stored as `config.worktree_env_files`
+only while on. The delivery core reads it at run worktree materialization to copy the
+project's gitignored `.env` files into the run (see the
+[delivery guide](../delivery/README.md#environment-files-in-run-worktrees-opt-in)); the recovery
+adapter reads the same row to offer the `copy-env-files` remedy, which turns it on.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

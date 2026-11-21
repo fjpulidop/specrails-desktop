@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+import { isReadOnlyGitInvocation } from './util/git-invocation'
 import {
   runGitDiagnostic,
   isGitDiagnosticAction,
@@ -59,5 +63,30 @@ describe('git-diagnostics — fixed read-only allowlist', () => {
     expect(isGitDiagnosticAction(42)).toBe(false)
     const help = gitDiagnosticHelp()
     for (const a of GIT_DIAGNOSTIC_ACTIONS) expect(help[a]).toBeTruthy()
+  })
+})
+
+describe('git-diagnostics — index lock and optional locks', () => {
+  it('every git action is a read-only invocation (runs without optional locks)', async () => {
+    const seen: string[][] = []
+    const exec: DiagnosticExec = vi.fn(async (cmd, args) => { if (cmd === 'git') seen.push(args); return { code: 0, stdout: '', stderr: '' } })
+    for (const action of GIT_DIAGNOSTIC_ACTIONS) await runGitDiagnostic(action, '/repo', exec)
+    expect(seen.length).toBeGreaterThan(0)
+    for (const args of seen) expect(isReadOnlyGitInvocation(args)).toBe(true)
+  })
+
+  it('reports an index.lock that outlives the wait on status instead of silent dirt', async () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-diag-lock-'))
+    try {
+      fs.mkdirSync(path.join(repo, '.git'))
+      fs.writeFileSync(path.join(repo, '.git', 'index.lock'), '')
+      const r = await runGitDiagnostic('status', repo, okExec(' M a.ts'))
+      expect(r.indexLock?.path).toBe(path.join(repo, '.git', 'index.lock'))
+      expect(r.indexLock?.note).toMatch(/never deletes it/)
+      const plain = await runGitDiagnostic('remote', repo, okExec('origin'))
+      expect(plain.indexLock).toBeUndefined()
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true })
+    }
   })
 })

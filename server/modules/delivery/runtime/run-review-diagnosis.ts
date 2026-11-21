@@ -1,6 +1,6 @@
 /**
  * The reviewer's outcome for one run, for the operator's diagnosis tools
- * (`specrails_jobs runtime_diagnose` / `runtime_evidence`): approved, score,
+ * (`specrails_runs(diagnose)` / `specrails_runs(evidence)`): approved, score,
  * bounded issues, the summary's first lines, failing host checks and — for
  * Intent → Spec — the derivation coverage. Read through the SAME evidence path
  * as settlement: the delivery's stored settle evidence first, else the

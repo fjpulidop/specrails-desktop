@@ -4,13 +4,14 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { SidebarPinProvider, useSidebarPin } from '../SidebarPinContext'
 
 function Harness() {
-  const { leftMode, rightMode, effectiveLeftMode, effectiveRightMode, cycleLeftMode, cycleRightMode, setLeftMode } = useSidebarPin()
+  const { leftMode, rightMode, effectiveLeftMode, effectiveRightMode, cycleLeftMode, cycleRightMode, setLeftMode, leftFlyoutOpen } = useSidebarPin()
   return (
     <div>
       <span data-testid="left">{leftMode}</span>
       <span data-testid="right">{rightMode}</span>
       <span data-testid="effective-left">{effectiveLeftMode}</span>
       <span data-testid="effective-right">{effectiveRightMode}</span>
+      <span data-testid="flyout">{String(leftFlyoutOpen)}</span>
       <button onClick={cycleLeftMode}>cycle-left</button>
       <button onClick={cycleRightMode}>cycle-right</button>
       <button onClick={() => setLeftMode('pinned-open')}>force-open</button>
@@ -83,6 +84,17 @@ describe('SidebarPinContext', () => {
     expect(screen.getByTestId('effective-right').textContent).toBe('unpinned')
     expect(window.localStorage.getItem('specrails-desktop:sidebar-mode:left')).toBe('pinned-open')
     expect(window.localStorage.getItem('specrails-desktop:sidebar-mode:right')).toBe('pinned-open')
+  })
+
+  it('in a narrow window the left toggle opens and closes the overlay instead of cycling the hidden mode', () => {
+    mockNarrow(true)
+    render(<SidebarPinProvider><Harness /></SidebarPinProvider>)
+    fireEvent.click(screen.getByText('cycle-left'))
+    expect(screen.getByTestId('flyout').textContent).toBe('true')
+    expect(screen.getByTestId('left').textContent).toBe('pinned-open')
+    fireEvent.click(screen.getByText('cycle-left'))
+    expect(screen.getByTestId('flyout').textContent).toBe('false')
+    expect(screen.getByTestId('left').textContent).toBe('pinned-open')
   })
 
   it('keeps the chosen mode as the effective one in a wide window', () => {

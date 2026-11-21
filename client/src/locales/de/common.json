@@ -59,6 +59,28 @@
     "draft": "Entwurf",
     "onReview": "In Prüfung"
   },
+  "runState": {
+    "queued": "In Warteschlange",
+    "working": "Läuft",
+    "needs-input": "Antwort nötig",
+    "review": "Bereit zur Prüfung",
+    "paused": "Pausiert",
+    "blocked": "Blockiert",
+    "failed": "Fehlgeschlagen",
+    "done": "Fertig",
+    "stopped": "Gestoppt",
+    "hint": {
+      "queued": "Wartet auf den Start",
+      "working": "Die Arbeit läuft",
+      "needs-input": "Ein Agent wartet auf deine Antwort",
+      "review": "Ein Ergebnis wartet auf deine Entscheidung",
+      "paused": "Pausiert: setze fort, um weiterzumachen",
+      "blocked": "Kann erst weiter, wenn sich etwas außerhalb ändert",
+      "failed": "Mit einem Fehler beendet",
+      "done": "Erfolgreich abgeschlossen",
+      "stopped": "Ohne Abschluss beendet: abgebrochen, übersprungen oder ersetzt"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implementierung läuft",
     "implementation_failed": "Implementierung fehlgeschlagen",
@@ -259,7 +281,11 @@
       "specsBoard": "Specs und das Backlog",
       "specTimeline": "den Spec-Verlauf und die Übergabe",
       "accessibility": "Barrierefreiheit und Anpassung",
-      "prDecision": "die Lieferoptionen"
+      "prDecision": "die Lieferoptionen",
+      "attention": "Benachrichtigungen",
+      "liveBoard": "das Live-Board",
+      "serverRecovery": "Wenn der lokale Server stoppt",
+      "retainedWorktrees": "auf der Festplatte behaltene Run-Worktrees"
     }
   },
   "forecast": {
@@ -294,8 +320,8 @@
       "startedRail": "Rail {{rail}}: Run gestartet",
       "pausedBudget": "Run pausiert: eine Ausgabengrenze wurde erreicht",
       "pausedLimit": "Run pausiert: Limit des Anbieters erreicht",
-      "needsYou": "Ein Run braucht dich",
-      "needsYouRail": "Rail {{rail}}: Ein Run braucht dich",
+      "needsYou": "Ein Run erfordert deine Aufmerksamkeit",
+      "needsYouRail": "Rail {{rail}}: Ein Run erfordert deine Aufmerksamkeit",
       "failed": "Run fehlgeschlagen",
       "failedRail": "Rail {{rail}}: Run fehlgeschlagen",
       "finished": "Run abgeschlossen",
@@ -310,12 +336,50 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} abgeschlossen",
       "failedSpec": "Rail {{rail}}: #{{id}} fehlgeschlagen",
       "stoppedSpec": "Rail {{rail}}: #{{id}} gestoppt",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} braucht dich",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} erfordert deine Aufmerksamkeit",
       "reviewReadySpec": "Rail {{rail}}: Review für #{{id}} bereit"
     }
   },
   "errors": {
     "technicalDetails": "Technische Details",
     "copyDetails": "Details kopieren"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "Der Planer braucht eine Entscheidung",
+      "developer": "Der Entwickler braucht deine Entscheidung",
+      "fixer": "Der Korrektor braucht deine Entscheidung",
+      "reviewer": "Der Prüfer braucht deine Entscheidung",
+      "install": "Specrails braucht deine Erlaubnis",
+      "run": "Der Lauf braucht deine Antwort"
+    },
+    "approval": "Der Lauf braucht deine Freigabe",
+    "recommended": "Empfohlen",
+    "other": "Andere Antwort…",
+    "otherLabel": "Deine Antwort",
+    "otherPlaceholder": "Schreib deine Antwort",
+    "answer": "Antworten",
+    "approve": "Freigeben",
+    "reject": "Ablehnen",
+    "rejectLabel": "Warum lehnst du ab?",
+    "rejectPlaceholder": "Dein Grund",
+    "back": "Zurück",
+    "sending": "Wird gesendet…",
+    "consequence": {
+      "waits": "Der Lauf wartet kostenlos, bis du antwortest.",
+      "mayEnd": "Wenn du sagst, dass es nicht hierher gehört, endet der Lauf.",
+      "endsRunOption": "„{{label}}“ beendet den Lauf.",
+      "reject": "Ablehnen beendet den Lauf. Nichts wird archiviert oder zusammengeführt."
+    },
+    "sent": "Antwort gesendet – der Lauf geht weiter.",
+    "approved": "Freigegeben – der Lauf geht weiter.",
+    "rejected": "Abgelehnt – der Lauf endet.",
+    "failed": "Deine Antwort konnte nicht gesendet werden",
+    "showMore": "Alles anzeigen",
+    "showLess": "Weniger anzeigen",
+    "notice": "Erfordert Aufmerksamkeit",
+    "notHere": "Nicht hier umsetzen",
+    "notHereMeaning": "Diese Spec gehört nicht in dieses Repository; der Lauf endet ohne Änderungen.",
+    "sentEnds": "Antwort gesendet – der Lauf endet."
   }
 }

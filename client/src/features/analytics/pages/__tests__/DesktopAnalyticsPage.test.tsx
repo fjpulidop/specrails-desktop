@@ -77,10 +77,10 @@ describe('DesktopAnalyticsPage', () => {
     })
   })
 
-  it('renders Desktop Analytics heading', async () => {
+  it('renders Desktop analytics heading', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    expect(screen.getByText('Desktop Analytics')).toBeInTheDocument()
+    expect(screen.getByText('Desktop analytics')).toBeInTheDocument()
   })
 
   it('renders loading skeleton initially', async () => {
@@ -100,10 +100,10 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Total Cost')).toBeInTheDocument()
+      expect(screen.getByText('Total cost')).toBeInTheDocument()
     })
-    expect(screen.getByText('Total Jobs')).toBeInTheDocument()
-    expect(screen.getByText('Success Rate')).toBeInTheDocument()
+    expect(screen.getByText('Total jobs')).toBeInTheDocument()
+    expect(screen.getByText('Success rate')).toBeInTheDocument()
   })
 
   it('renders project comparison section', async () => {
@@ -111,7 +111,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Project Comparison')).toBeInTheDocument()
+      expect(screen.getByText('Project comparison')).toBeInTheDocument()
     })
     expect(screen.getByText('Project Alpha')).toBeInTheDocument()
   })
@@ -334,7 +334,7 @@ describe('DesktopAnalyticsPage', () => {
   it('MED-10: states the active window once, in the header (default 7d)', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
     expect(screen.getByTestId('analytics-window-label')).toHaveTextContent('Last 7 days')
     // No per-card duplicate of the window.
     expect(screen.queryByTestId('kpi-window-label')).not.toBeInTheDocument()
@@ -350,11 +350,11 @@ describe('DesktopAnalyticsPage', () => {
         </DialogContent>
       </Dialog>,
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Desktop Analytics' })
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    const dialog = await screen.findByRole('dialog', { name: 'Desktop analytics' })
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
     // The accessible name comes from the one visible heading — no sr-only twin.
-    expect(screen.getAllByText('Desktop Analytics')).toHaveLength(1)
-    expect(screen.getByText('Desktop Analytics')).not.toHaveClass('sr-only')
+    expect(screen.getAllByText('Desktop analytics')).toHaveLength(1)
+    expect(screen.getByText('Desktop analytics')).not.toHaveClass('sr-only')
     expect(dialog).toHaveAccessibleDescription('Last 7 days')
     expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
     // One close button, in the header row next to the period controls.
@@ -367,7 +367,7 @@ describe('DesktopAnalyticsPage', () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
 
     const before = fetchMock.mock.calls.length
     // Cross-project page: a spend broadcast from ANY project must refetch.
@@ -383,7 +383,7 @@ describe('DesktopAnalyticsPage', () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Total cost')).toBeInTheDocument())
 
     const before = fetchMock.mock.calls.length
     wsMock.emit({ type: 'log', event_type: 'job_done' })
@@ -405,5 +405,59 @@ describe('DesktopAnalyticsPage', () => {
     expect(screen.queryByTestId('project-estimated-badge')).not.toBeInTheDocument()
     // No ~-prefixed figure anywhere
     expect(screen.queryByText(/^~\$/)).not.toBeInTheDocument()
+  })
+  it('shows Home & Blueprint as its own row with agent turns, and mission turns on a project row', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...mockAnalyticsData,
+        projectBreakdown: [
+          { ...mockAnalyticsData.projectBreakdown[0], kind: 'project', agentTurns: 4 },
+          { projectId: 'app:home-blueprint', projectName: 'Home & Blueprint', kind: 'app', agentTurns: 3, totalCostUsd: 0.75, pricedRuns: 3, unpricedRuns: 0, totalJobs: 0, successRate: 0, avgDurationMs: null },
+        ],
+      }),
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    const row = await screen.findByTestId('desktop-app-ledger-row')
+    expect(row).toHaveTextContent('Home & Blueprint')
+    expect(row).toHaveTextContent('3 agent turns')
+    // The app-level row has no jobs, so it shows neither a job count nor a success rate.
+    expect(row).not.toHaveTextContent(/jobs?\b/)
+    expect(row).not.toHaveTextContent('% success')
+    expect(screen.getByText('4 agent turns')).toBeInTheDocument()
+  })
+
+  it('renders the category split the server sends, with shares of the total', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...mockAnalyticsData,
+        byCategory: [
+          { category: 'implementation', costUsd: 1.5, estimatedCostUsd: 0, count: 10, tokens: 100, unpricedCount: 0 },
+          { category: 'missions', costUsd: 1, estimatedCostUsd: 0.5, count: 6, tokens: 50, unpricedCount: 0 },
+          { category: 'code', costUsd: 0, estimatedCostUsd: 0, count: 2, tokens: 0, unpricedCount: 2 },
+          { category: 'specs', costUsd: 0, estimatedCostUsd: 0, count: 0, tokens: 0, unpricedCount: 0 },
+        ],
+      }),
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    const split = await screen.findByTestId('desktop-category-split')
+    expect(split).toHaveTextContent('Where the money went')
+    expect(screen.getByTestId('desktop-category-implementation')).toHaveTextContent('60%')
+    expect(screen.getByTestId('desktop-category-missions')).toHaveTextContent('40%')
+    expect(screen.getByTestId('desktop-category-missions')).toHaveTextContent('6 calls')
+    // A category with calls but no cost data says so instead of $0.
+    expect(screen.getByTestId('desktop-category-code')).toHaveTextContent('unavailable')
+    expect(screen.queryByTestId('desktop-category-specs')).not.toBeInTheDocument()
+    expect(screen.getByTestId('desktop-category-bar-missions')).toBeInTheDocument()
+  })
+
+  it('omits the category split for an older server that sends none', async () => {
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    await screen.findByText('$2.50')
+    expect(screen.queryByTestId('desktop-category-split')).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,11 @@
+import { readLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { readRunHold } from '../../loops/runtime/loop-run-hold'
+import { runQuestionFromStatus, shortQuestion } from '../../../shared/run-question'
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
 import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
+import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
 import type { ProjectInboxSource } from '../ports'
 import type { PresentedFailureDiagnosis } from '../../recovery'
@@ -30,6 +34,7 @@ interface RunRow {
   ticket_ids_json: string | null
   rail_index: number | null
   failure_diagnosis: string | null
+  runtime_status_json: string | null
 }
 
 function parseJsonArray(raw: string | null | undefined): unknown[] {
@@ -55,9 +60,9 @@ function ticketLabel(raw: string | null): string {
   return ` · ${ids.slice(0, 3).map((id) => `#${id}`).join(', ')}${ids.length > 3 ? ` +${ids.length - 3}` : ''}`
 }
 
-/** Provider limits and environment problems wait for the person; they are not defects of the change. */
+/** Provider limits, environment problems and taken ports wait for the person; they are not defects of the change. */
 function needsHost(diagnosis: PresentedFailureDiagnosis | null): boolean {
-  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment')
+  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment' || diagnosis.kind === 'port_in_use')
 }
 
 function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): PresentedFailureDiagnosis | null {
@@ -68,9 +73,15 @@ function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): 
   return null
 }
 
+function attemptField(position: { attempt: number; attempts: number } | undefined): { attempt?: { number: number; of: number } } {
+  return position ? { attempt: { number: position.attempt, of: position.attempts } } : {}
+}
+
 /** Deliveries that wait for a decision or ended badly, mirroring the client's `deliveryAttention`. */
 function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], nowIso: string): InboxItem[] {
   const out: InboxItem[] = []
+  const lastRun = (row: RailPrDeliveryRow): string | undefined => parseJsonArray(row.run_ids).filter((v): v is string => typeof v === 'string').pop()
+  const attempts = readRunAttempts(handle.db, rows.map(lastRun).filter((id): id is string => !!id))
   for (const row of rows) {
     const decision = row.decision
     const changesRequested = decision === 'implementation_failed' && row.status_code === 'review_changes_requested'
@@ -86,7 +97,11 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       projectName: handle.project.name,
       kind,
       title: deliveryTitle(row),
-      detail: oneLine(row.status_detail) ?? (failed ? oneLine(diagnosis?.detail) ?? row.status_code : null),
+      // The run's diagnosis is the cause; a settlement note (for example why the
+      // partial work of a failed run could not be committed) is only a consequence.
+      detail: failed
+        ? oneLine(diagnosis?.detail) ?? oneLine(row.status_detail) ?? row.status_code
+        : oneLine(row.status_detail),
       diagnosis,
       at: toIso((waiting ? row.on_review_at : null) ?? row.updated_at, nowIso),
       version: `${decision}:${row.status_code ?? ''}:${row.pr_state}`,
@@ -95,6 +110,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       conversationId: row.origin_conversation_id,
       decision,
       ...(Number.isInteger(row.rail_index) ? { railIndex: row.rail_index } : {}),
+      ...attemptField(attempts.get(lastRun(row) ?? '')),
     })
   }
   return out
@@ -109,10 +125,11 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
 function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<string>, nowIso: string, nowMs: number): InboxItem[] {
   const since = new Date(nowMs - FAILED_RUN_WINDOW_MS).toISOString()
   const rows = handle.db.prepare(`
-    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis
+    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis, r.runtime_status_json
     FROM loop_runs r
     WHERE r.project_id = ?
-      AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id = r.id AND f.adopted = 1)
+      -- An attempt a later one continued is history: the chain speaks through its latest attempt.
+      AND NOT ${supersededAttemptSql('r')}
       AND (
         (r.status = 'paused' AND COALESCE(r.restart_reason, '') != 'fork')
         OR (r.status = 'completed' AND r.final_outcome IN ('failed','blocked','stalled') AND r.finished_at >= ?
@@ -126,8 +143,11 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
     LIMIT 100
   `).all(handle.project.id, since) as RunRow[]
   const out: InboxItem[] = []
+  const attempts = readRunAttempts(handle.db, rows.map((run) => run.id))
   for (const run of rows) {
-    if (representedRunIds.has(run.id)) continue
+    // A paused run waits on the person (a question, a usage limit, a budget, a restart) while its
+    // delivery is still building, and the inbox lists no building delivery: never hide it behind one.
+    if (run.status !== 'paused' && representedRunIds.has(run.id)) continue
     const title = `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
     const version = `${run.status}:${run.final_outcome ?? ''}:${run.restart_reason ?? ''}`
     const base = {
@@ -139,14 +159,31 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       conversationId: null,
       diagnosis: null as PresentedFailureDiagnosis | null,
       ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),
+      ...attemptField(attempts.get(run.id)),
     }
     if (run.status === 'paused') {
-      if (run.restart_reason === 'budget_paused') {
+      // One classification for every surface (the run's hold): only a question or an approval
+      // needs the person's answer; a usage limit or the budget is a pause, a restart or an
+      // interruption waits for Resume.
+      const hold = readRunHold(handle.db, run.id)
+      // A legacy (pre-Core) loop paused on a human decision records no checkpoint and no reason: it asks.
+      const legacyAsk = !run.runtime_status_json && !run.restart_reason
+      const kind = hold?.kind === 'paused' && legacyAsk ? 'question' : hold?.kind ?? 'paused'
+      if (kind === 'question' || kind === 'approval') {
+        const question = runQuestionFromStatus(run.runtime_status_json)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', version: `${version}:${question?.interruptId ?? ''}`,
+          detail: shortQuestion(question), ...(question ? { question } : {}), at: toIso(run.started_at, nowIso), action: 'open-run' })
+      } else if (kind === 'provider_limit') {
+        const limit = readLimitPause(handle.db, run.id)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit?.resumeAt ?? ''}:${limit?.autoResume ?? ''}`,
+          detail: limit ? `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}` : null, at: toIso(limit?.pausedAt ?? run.started_at, nowIso), action: 'resume-run' })
+      } else if (kind === 'budget') {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', detail: null, at: toIso(run.started_at, nowIso), action: 'resume-run' })
-      } else if (run.restart_reason === 'restart') {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: 'interrupted', at: toIso(run.started_at, nowIso), action: 'resume-run' })
       } else {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', detail: null, at: toIso(run.started_at, nowIso), action: 'open-run' })
+        // `held:<kind>[:<step>]`: the client words it like the run window ("The app restarted during the Developer step.").
+        // The person's own Pause is `held:pausedByYou` ("Paused by you"), never a plain or limit pause.
+        const heldKind = kind === 'paused' && hold?.byYou ? 'pausedByYou' : kind
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: `held:${heldKind}${hold?.step ? `:${hold.step}` : ''}`, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       }
       continue
     }

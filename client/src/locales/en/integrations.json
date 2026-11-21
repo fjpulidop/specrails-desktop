@@ -202,7 +202,7 @@
         "notRouted": "Not routed"
       },
       "savings": {
-        "title": "Headroom Token Savings",
+        "title": "Headroom token savings",
         "learningOn": "output measured",
         "waitingForOutputSamples": "output not measured",
         "baseline": "{{method}} baseline",

@@ -59,6 +59,28 @@
     "draft": "草稿",
     "onReview": "评审中"
   },
+  "runState": {
+    "queued": "排队中",
+    "working": "运行中",
+    "needs-input": "需要回复",
+    "review": "待审阅",
+    "paused": "已暂停",
+    "blocked": "受阻",
+    "failed": "失败",
+    "done": "完成",
+    "stopped": "已停止",
+    "hint": {
+      "queued": "等待开始",
+      "working": "工作正在进行",
+      "needs-input": "有代理在等待你的回答",
+      "review": "有结果在等待你的决定",
+      "paused": "已暂停：恢复后继续",
+      "blocked": "需要外部情况改变后才能继续",
+      "failed": "以错误结束",
+      "done": "已成功完成",
+      "stopped": "未完成即结束：已取消、已跳过或已被取代"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "实现进行中",
     "implementation_failed": "实现失败",
@@ -259,7 +281,11 @@
       "specsBoard": "规格与待办列表",
       "specTimeline": "规格时间线与交接",
       "accessibility": "无障碍与个性化",
-      "prDecision": "交付选项"
+      "prDecision": "交付选项",
+      "attention": "通知",
+      "liveBoard": "实时看板",
+      "serverRecovery": "如果本地服务器停止运行",
+      "retainedWorktrees": "磁盘上保留的运行工作树"
     }
   },
   "forecast": {
@@ -295,7 +321,7 @@
       "pausedBudget": "运行已暂停:已达支出上限",
       "pausedLimit": "运行已暂停:已达提供商限额",
       "needsYou": "有运行需要你处理",
-      "needsYouRail": "Rail {{rail}}:有运行需要你处理",
+      "needsYouRail": "Rail {{rail}}：有运行需要你处理",
       "failed": "运行失败",
       "failedRail": "Rail {{rail}}:运行失败",
       "finished": "运行已完成",
@@ -310,12 +336,50 @@
       "finishedSpec": "Rail {{rail}}:#{{id}} 已完成",
       "failedSpec": "Rail {{rail}}:#{{id}} 失败",
       "stoppedSpec": "Rail {{rail}}:#{{id}} 已停止",
-      "needsYouSpec": "Rail {{rail}}:#{{id}} 需要你处理",
+      "needsYouSpec": "Rail {{rail}}：#{{id}} 需要你处理",
       "reviewReadySpec": "Rail {{rail}}:#{{id}} 的审阅已就绪"
     }
   },
   "errors": {
     "technicalDetails": "技术详情",
     "copyDetails": "复制详情"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "规划者需要你做决定",
+      "developer": "开发者需要你来决定",
+      "fixer": "修复者需要你来决定",
+      "reviewer": "审查者需要你来决定",
+      "install": "Specrails 需要你的许可",
+      "run": "运行正在等待你的回答"
+    },
+    "approval": "运行正在等待你的批准",
+    "recommended": "推荐",
+    "other": "其他回答…",
+    "otherLabel": "你的回答",
+    "otherPlaceholder": "写下你的回答",
+    "answer": "回答",
+    "approve": "批准",
+    "reject": "拒绝",
+    "rejectLabel": "为什么拒绝？",
+    "rejectPlaceholder": "你的理由",
+    "back": "返回",
+    "sending": "正在发送…",
+    "consequence": {
+      "waits": "在你回答之前，运行会免费等待。",
+      "mayEnd": "如果你说不应在这里做，运行将结束。",
+      "endsRunOption": "选择“{{label}}”会结束运行。",
+      "reject": "拒绝会结束运行。不会归档或合并任何内容。"
+    },
+    "sent": "已发送回答，运行继续。",
+    "approved": "已批准，运行继续。",
+    "rejected": "已拒绝，运行结束。",
+    "failed": "无法发送你的回答",
+    "showMore": "显示全部",
+    "showLess": "收起",
+    "notice": "需要处理",
+    "notHere": "不在这里做",
+    "notHereMeaning": "这个 spec 不属于此仓库；运行将结束且不做任何更改。",
+    "sentEnds": "已发送回答，运行结束。"
   }
 }

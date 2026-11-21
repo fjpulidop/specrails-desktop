@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Activity, ChevronRight, RefreshCw, TerminalSquare } from 'lucide-react'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
-import { isStale, usageIssue, usageLabel, useUsageClock } from './SubscriptionUsagePanel'
+import { coolingDown, isStale, usageIssue, usageLabel, useUsageClock } from './SubscriptionUsagePanel'
 import { cn } from '../../../lib/utils'
 import { EnterpriseSpendMeter } from './EnterpriseSpendMeter'
 export function SubscriptionUsageSection({ expanded, menu = false }: { expanded: boolean; menu?: boolean }) {
@@ -33,7 +33,7 @@ export function SubscriptionUsageSection({ expanded, menu = false }: { expanded:
   }
   const empty = snapshot?.providers.every(p => p.installed === false)
   const refreshing = busy || snapshot?.providers.some(p => p.refreshState === 'refreshing')
-  const cooling = snapshot?.providers.every(p => p.retryAt && Date.parse(p.retryAt) > now)
+  const cooling = snapshot?.providers.every(p => coolingDown(p, now))
   const warning = snapshot?.providers.some(p => !isStale(p, now) && ((p.spend?.usedPercent ?? 0) >= 90 || p.windows.some(w => w.usedPercent !== null && w.usedPercent >= 90)))
   return <div className={cn('shrink-0 px-1.5 py-2', !menu && 'border-t border-border', expanded && 'space-y-1.5')} data-testid="subscription-usage-section">
     {expanded ? <>

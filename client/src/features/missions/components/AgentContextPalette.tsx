@@ -18,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Rea
 import { useTranslation } from 'react-i18next'
 import type { AgentContextChip, AgentContextKind, AgentPaletteItem, AgentPaletteMode } from '../lib/agent-context-palette'
 
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 const modeIcon: Record<AgentPaletteMode, LucideIcon> = {
   reference: AtSign,
   trace: Hash,
@@ -383,7 +383,7 @@ export function AgentPlusMenu({
             data-testid="agent-plus-file-attachment"
           >
             {uploading
-              ? <LiveDot tone="primary" size="sm" aria-hidden />
+              ? <RunStateDot state="working" size="sm" />
               : <Paperclip className="h-4 w-4 text-muted-foreground" aria-hidden />}
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{t('palette.plus.fileAttachment')}</span>

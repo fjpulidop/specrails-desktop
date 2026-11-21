@@ -93,7 +93,7 @@ Architect ──► Developer ──► Reviewer ──► Ship
 
 In plain terms: the project's **agent profile** decides which AI agent handles each phase. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; a profile's routing rules can add extra agents or swap which one runs a phase. The phase progress bar only renders when the command defines phases. For the full format, see [internals/profiles.md](internals/profiles.md).
 
-**How the work is delivered (ask-first).** By default (`SPECRAILS_RAIL_DELIVER_PR` on — set `0`/`false`/`off` to disable) a rail runs in isolated git worktree(s) off your project's designated integration branch (*Settings → Integration branch*, defaults to the repo default branch). When the run finishes, **nothing is pushed and no PR is opened yet**: the work stays committed on its isolated branches, the specs move to a new **On Review** status, and the app asks you what to do — a persistent decision bar appears on the rail with **Create PR** and **Discard**. **Create PR** assembles the branches into **one draft pull request** — combined across every spec on the rail, with per-ticket commit history preserved; you can then **Approve** it (promote to ready-for-review) and later **Check merge** — once a human merges it in GitHub, the specs flip to Done. **Discard** cleans up the worktrees and branches and returns the specs to the backlog. specrails never merges and never modifies your working tree; a human owns the merge. Creating the PR needs `gh` authenticated + a remote; otherwise the work is still committed to a branch you can PR from yourself (the bar offers a retry). When the flow is disabled, the rail integrates its branches locally instead (the legacy behaviour) and no decision is asked. This is desktop-owned: specrails-core's `implement` is told to skip its own shipping (`SPECRAILS_GIT_AUTO=false`) so it never opens a second, uncoordinated PR.
+**How the work is delivered (ask-first).** By default (`SPECRAILS_RAIL_DELIVER_PR` on — set `0`/`false`/`off` to disable) a rail runs in isolated git worktree(s) off your project's designated integration branch (*Settings → Integration branch*, defaults to the repo default branch). When the run finishes, **nothing is pushed and no PR is opened yet**: the work stays committed on its isolated branches, the specs move to a new **On review** status, and the app asks you what to do — a persistent decision bar appears on the rail with **Create PR** and **Discard**. **Create PR** assembles the branches into **one draft pull request** — combined across every spec on the rail, with per-ticket commit history preserved; you can then **Approve** it (promote to ready-for-review) and later **Check merge** — once a human merges it in GitHub, the specs flip to Done. **Discard** cleans up the worktrees and branches and returns the specs to the backlog. specrails never merges and never modifies your working tree; a human owns the merge. Creating the PR needs `gh` authenticated + a remote; otherwise the work is still committed to a branch you can PR from yourself (the bar offers a retry). When the flow is disabled, the rail integrates its branches locally instead (the legacy behaviour) and no decision is asked. This is desktop-owned: specrails-core's `implement` is told to skip its own shipping (`SPECRAILS_GIT_AUTO=false`) so it never opens a second, uncoordinated PR.
 
 ### Freestyle
 
@@ -151,12 +151,13 @@ Click a card to open the **Job Detail page**.
 
 ### Job Detail page
 
-Two panels sit above the streaming log:
+A compact status header (status, live duration, current activity, steps and actions) and the spec chips sit above one navigation row:
 
-- **Status header** — a status icon and a live duration timer (the one genuinely live number), plus an activity line showing what the job is doing right now and a count of steps taken. Cost, turns, and tokens are deliberately **not** estimated mid-run — they show as pending and are revealed with their final, authoritative values when the job exits.
-- **Ticket header** — chips for every spec the job touched (matched from the launched command). Click a chip to open that spec's detail over the job page without leaving it. With four or more tickets, the chips collapse into a `+N more` mode you can expand.
+- **Failure reasons** — for a failed or canceled run with a diagnosis (or a pending question): the diagnosis card with ranked remedies and an **AI analysis** of the log on the job's own provider and model, with verbatim evidence.
+- **Execution graph** and **Log detail** — for loop runs: the workflow graph with the path taken, attempts and **Repeat from here**, and the step-by-step log that opens on the failed step.
+- **Log** — for plain jobs: the streaming log with auto-scroll, search and copy.
 
-Below: the full streaming log with auto-scroll, search, and copy.
+Cost, turns and tokens are deliberately **not** estimated mid-run; the bounded **Details** disclosure shows them once the provider reports them. In the desktop app, a job opened from a mission shows in its own window. The [guide page](guide/en/pipeline/2-the-job-detail-view.md) describes each view.
 
 ### Cancelling a job
 

@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import type { DbInstance } from '../../../db'
 import { deleteConversation, getConversation } from '../../../db'
 import { readStore } from './ticket-store'
@@ -61,7 +62,7 @@ const PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 /** Purge now (startup) and every few hours while the project is loaded. */
 export function startProjectTrashPurge(deps: TrashFinalizeDeps): { stop(): void } {
-  const run = (): void => { void purgeProjectTrash(deps) }
+  const run = (): void => { void purgeProjectTrash(deps).catch(logRejection('ticket trash purge')) }
   const first = setTimeout(run, 5_000)
   const timer = setInterval(run, PURGE_INTERVAL_MS)
   first.unref?.()

@@ -10,6 +10,8 @@ Les fichiers propres à Specrails — ses bases de données, l'état par projet,
 ~/.specrails/
 ```
 
+**Réglages ▸ À propos** indique l'emplacement exact de la base de données et la version de l'application que vous utilisez.
+
 Ce dossier est l'espace de travail privé de l'application. C'est là que résident le registre des projets, les bases de données par projet, l'outillage embarqué et tous les rouages opérationnels. Vos véritables dépôts de code ne servent jamais de décharge pour quoi que ce soit de tout cela.
 
 Cela signifie :
@@ -46,3 +48,31 @@ Le bénéfice pour vous : vous pouvez ajouter un projet, lancer des pipelines, e
 ## Retirer un projet
 
 Quand vous retirez un projet de Specrails, l'application nettoie son propre état par projet sous `~/.specrails/`. Les specs déjà commitées dans votre dépôt restent là où elles doivent être — dans votre dépôt — parce qu'elles sont à vous.
+
+## Worktrees d'exécution conservés sur le disque {#retained-worktrees}
+
+Chaque exécution de rail travaille dans son propre worktree Git sous `~/.specrails/projects/<projet>/worktrees/`. Quand une exécution se termine, Specrails supprime ce worktree, mais seulement s'il peut prouver que rien ne sera perdu. Sinon (modifications non commitées, fichiers qui n'existent que là, ou suppression qui a échoué), il le conserve. Avec le temps, ils s'accumulent.
+
+**Réglages ▸ Stockage** les liste pour tous les projets. Vous pouvez aussi y accéder depuis la fenêtre **Ressources de l'app** de la barre d'état. Chaque worktree affiche sa taille (mesurée en arrière-plan), depuis combien de temps il est inutilisé, sa PR et ce que sa suppression ferait perdre :
+
+- **Rien à perdre** : aucune modification non commitée, et chaque fichier ignoré est régénérable (`node_modules`), un lien ou identique au même fichier de votre checkout principal (un `.env` copié, par exemple). Chaque commit de sa branche est sur un remote ou sur une autre branche, ou sa livraison a été fusionnée.
+- **Vous attend** : quelque chose a encore besoin de vous. Chaque raison est indiquée : modifications non commitées, fichiers ignorés qui n'existent que là, commits uniquement sur cette branche, livraison qui attend votre décision, activité récente (la dernière heure), ou Git n'a pas pu le vérifier. Un worktree que Git ne peut pas vérifier n'est jamais considéré comme propre.
+
+Sélectionnez des worktrees et choisissez **Retirer**. La confirmation indique l'espace disque récupéré et ce qui arrive aux branches :
+
+- Par défaut, les branches sont **conservées**, leurs commits restent donc disponibles.
+- Avec **Supprimer aussi les branches qui ne contiennent rien de nouveau**, une branche n'est supprimée que si elle n'a rien à perdre, et seulement si elle pointe encore sur le commit vérifié par Specrails.
+
+Les worktrees avec des modifications non commitées ou des fichiers qui n'existent que là ne peuvent pas être sélectionnés. Commitez, copiez ou abandonnez d'abord ce travail. Un worktree qui appartient à une session Intent apparaît dans la liste mais se gère depuis sa session. Juste avant la suppression, chaque worktree est revérifié : si quelque chose a changé après votre confirmation, il est conservé et le résultat explique pourquoi. Les processus encore actifs dans un worktree retiré (un serveur de développement, par exemple) sont arrêtés.
+
+## Fichiers conservés hors d'une PR {#safety-archives}
+
+Pendant une exécution, Specrails ajoute au worktree quelques fichiers à lui : les instructions du projet (`CLAUDE.md`), des réglages locaux avec son hook de sécurité et des liens vers ses commandes et skills. Ils n'entrent jamais dans la PR. Quand le worktree est retiré, Specrails les supprime s'ils sont exactement tels qu'il les a écrits : une exécution normale ne laisse donc rien derrière elle.
+
+Si l'un d'eux a changé (un agent a modifié `CLAUDE.md`, par exemple), ou si Specrails ne peut pas prouver qu'un fichier vient de lui, il ne le supprime pas. Il le déplace dans un dossier à côté du worktree (`<worktree>.specrails-overlay-quarantine-…`) et la carte de la PR indique **N fichiers ont été conservés hors de la PR** :
+
+- **Détails** affiche le dossier (avec **Copier le chemin** et **Afficher dans le Finder**) et chaque fichier conservé avec sa taille.
+- **Supprimer** demande d'abord confirmation, en nommant le dossier et le nombre de fichiers, puis supprime uniquement ce dossier.
+- **Ignorer** masque l'avis. Les fichiers restent en place.
+
+**Réglages ▸ Stockage ▸ Fichiers conservés hors d'une PR** liste tous ces dossiers, pour tous les projets, avec leur taille et leur ancienneté. Sélectionnez-en plusieurs et supprimez-les d'un coup. Specrails ne supprime qu'un dossier portant exactement ce nom dans la zone des worktrees du projet, et ne suit jamais de lien vers l'extérieur.

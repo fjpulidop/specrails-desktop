@@ -25,7 +25,8 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
-import { execSync } from 'child_process'
+import { safeProviderSessionId } from './session-id'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import type {
   AdapterEvent,
@@ -36,8 +37,6 @@ import type {
   SpawnAction,
   SpawnOptions,
 } from './types'
-
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CODEX_MIN_VERSION = '0.128.0'
 
@@ -52,14 +51,16 @@ const CODEX_MODELS = [
   // CODEX_MIN_VERSION. Desktop does not gate on it (an older CLI rejects the
   // unknown model itself and the turn failure is surfaced to the user);
   // `codexModelMinCliVersion` exposes it for hints and tests.
-  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', default: true as const },
+  { value: 'gpt-6.2-sol', label: 'GPT-6.2 Sol', default: true as const },
   { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', minCliVersion: '0.159.0' },
-  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+  { value: 'gpt-6.2-astra', label: 'GPT-6.2 Astra' },
   { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
-  { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna', small: true as const },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
-  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', small: true as const },
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
 ] as const
 
 // Model-specific CLI capabilities (models/list, reviewed 2026-09-05).
@@ -67,8 +68,10 @@ const CODEX_MODELS = [
 const BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ReasoningEffort[]> = {
   // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
+  'gpt-6.2-sol': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6.1-sol': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6.1-terra': BASE_EFFORTS,
+  'gpt-6.2-astra': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-astra': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-sol': BASE_EFFORTS,
   // Most efficient tier: efforts up to `max`, no `ultra`.
@@ -160,7 +163,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // framing; the per-turn argv must stay user-text-only so codex doesn't
       // mistake the system prompt for the user request.
       args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
-      args.push(opts.sessionId)
+      args.push(safeProviderSessionId(opts.sessionId, 'codex'))
       args.push(opts.prompt)
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -176,7 +179,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
         throw new Error(`${action} requires sessionId`)
       }
       args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
-      args.push(opts.sessionId)
+      args.push(safeProviderSessionId(opts.sessionId, 'codex'))
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -333,18 +336,11 @@ function compareSemver(a: string, b: string): number {
 }
 
 async function detectCodexInstalled(): Promise<DetectionResult> {
-  try {
-    execSync(`${WHICH_CMD} codex`, { stdio: 'ignore' })
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  try {
-    const raw = execSync('codex --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
-    }).trim()
+  // Shared non-blocking PATH + `--version` probe (binary-probe.ts).
+  const probe = await probeCliBinary('codex', { versionTimeoutMs: 3000 })
+  if (!probe.executable) return probe
+  {
+    const raw = probe.versionOutput
     const match = raw.match(/\d+\.\d+\.\d+/)
     const version = match ? match[0] : raw
     const meetsMinimum = match ? compareSemver(version, CODEX_MIN_VERSION) >= 0 : false
@@ -358,8 +354,6 @@ async function detectCodexInstalled(): Promise<DetectionResult> {
       result.error = `codex ${version} is older than required ${CODEX_MIN_VERSION}. Upgrade with: brew upgrade codex (or follow https://developers.openai.com/codex).`
     }
     return result
-  } catch {
-    return { installed: true, executable: false }
   }
 }
 
@@ -404,7 +398,7 @@ export const codexAdapter = {
   modelCatalog: () => CODEX_MODELS,
   reasoningEffortsForModel: (model: string) => CODEX_MODEL_EFFORTS[model]
     ?? ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
-  defaultModel: () => 'gpt-6.1-sol',
+  defaultModel: () => 'gpt-6.2-sol',
   buildArgs: buildCodexArgs,
   parseStreamLine: parseCodexStreamLine,
   extractResult: extractCodexResult,

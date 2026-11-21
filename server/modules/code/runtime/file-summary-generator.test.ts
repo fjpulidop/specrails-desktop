@@ -5,7 +5,7 @@ import { Readable } from 'stream'
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
 import treeKill from 'tree-kill'
-import { createFileSummaryGenerator, buildSystemPrompt } from './file-summary-generator'
+import { createFileSummaryGenerator, buildSystemPrompt, isUnsupportedModelError, resetRejectedCheapModels } from './file-summary-generator'
 import { getAdapter } from '../../../providers'
 
 function fakeChild() {
@@ -63,6 +63,47 @@ describe('createFileSummaryGenerator', () => {
     const out = await p
     expect(out.summary).toBe('This file declares a constant.')
     expect(out.provider).toBe('claude')
+  })
+
+  it('falls back to the provider default once the account rejects the cheap model, and remembers it', async () => {
+    resetRejectedCheapModels()
+    const codex = getAdapter('codex')
+    const models: string[] = []
+    const children: any[] = []
+    const spawn = vi.fn((_bin: string, args: string[]) => {
+      models.push(args[args.indexOf('--model') + 1])
+      const child = fakeChild(); children.push(child); return child
+    }) as any
+    const gen = createFileSummaryGenerator({ adapter: codex, cwd: '/tmp', spawn })
+    const settle = async (child: any, lines: object[], code: number) => {
+      await new Promise((r) => setImmediate(r))
+      for (const line of lines) child.stdout.push(JSON.stringify(line) + '\n')
+      child.stdout.push(null)
+      await new Promise((r) => setImmediate(r))
+      child.emit('close', code)
+    }
+    const rejected = { type: 'turn.failed', error: { message: "The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account." } }
+    const answered = [{ type: 'item.completed', item: { id: 'i', type: 'agent_message', text: 'A summary.' } }, { type: 'turn.completed', usage: { input_tokens: 10, cached_input_tokens: 0, output_tokens: 3 } }]
+
+    const first = gen(INPUT)
+    await settle(children[0], [rejected], 1)
+    await new Promise((r) => setImmediate(r))
+    await settle(children[1], answered, 0)
+    expect((await first).summary).toBe('A summary.')
+    expect(models).toEqual(['gpt-6-luna', codex.defaultModel()])
+
+    const second = gen(INPUT)
+    await settle(children[2], answered, 0)
+    await second
+    expect(models[2]).toBe(codex.defaultModel())
+    resetRejectedCheapModels()
+  })
+
+  it('recognises a provider rejecting the model, not other failures', () => {
+    expect(isUnsupportedModelError(new Error("The 'gpt-5.4-mini' model is not supported when using Codex with a ChatGPT account."))).toBe(true)
+    expect(isUnsupportedModelError(new Error('model_not_found'))).toBe(true)
+    expect(isUnsupportedModelError(new Error('codex exit code=1; stderr=boom'))).toBe(false)
+    expect(isUnsupportedModelError(new Error("You've hit your usage limit"))).toBe(false)
   })
 
   it('fails closed before spawning Kimi because pure-output tool isolation is unavailable', async () => {

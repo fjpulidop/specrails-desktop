@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { API_ORIGIN } from '../../../lib/origin'
 import { readFailureDiagnosis, type FailureDiagnosis } from '../lib/failure-diagnosis'
+import { requestJson } from '../../../lib/api-response'
 
 /**
  * The diagnosis of ONE run in ONE project (`GET /loop-runs/:id` carries it for
@@ -17,10 +18,8 @@ export function useRunDiagnosis(projectId: string | null | undefined, runId: str
     const controller = new AbortController()
     void (async () => {
       try {
-        const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/loop-runs/${encodeURIComponent(runId)}`, { signal: controller.signal })
-        if (!res.ok) { setDiagnosis({ key, value: null }); return }
-        const body = (await res.json()) as { loopRun?: { failureDiagnosis?: unknown } }
-        if (!controller.signal.aborted) setDiagnosis({ key, value: readFailureDiagnosis(body.loopRun?.failureDiagnosis) })
+        const body = await requestJson<{ loopRun?: { failureDiagnosis?: unknown } } | null>(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/loop-runs/${encodeURIComponent(runId)}`, { signal: controller.signal })
+        if (!controller.signal.aborted) setDiagnosis({ key, value: readFailureDiagnosis(body?.loopRun?.failureDiagnosis) })
       } catch { if (!controller.signal.aborted) setDiagnosis({ key, value: null }) }
     })()
     return () => controller.abort()

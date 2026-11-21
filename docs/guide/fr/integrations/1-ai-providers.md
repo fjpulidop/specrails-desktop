@@ -1,36 +1,19 @@
-# Fournisseurs d'IA (Claude, Codex) {#ai-providers}
+<!-- guide-revision: mission-first-v1 -->
 
-## Les deux fournisseurs
+# Connecter un fournisseur d'IA {#ai-providers}
 
-| Fournisseur | CLI | Édité par | Notes |
-|---|---|---|---|
-| **Claude** | `claude` | Anthropic | Coût natif et transport interactif persistant. |
-| **Codex** | `codex` | OpenAI | Nécessite codex `0.128.0+`. Lit ses serveurs MCP depuis votre fichier global `~/.codex/config.toml`. |
+Specrails coordonne votre CLI Claude ou Codex authentifiée. L'installation du fournisseur, l'accès au compte et la facturation des modèles restent séparés de l'application.
 
-## Les fournisseurs sont détectés automatiquement
+## Connecter et vérifier
 
-Si un fournisseur que vous voulez n'apparaît nulle part, c'est presque toujours
-parce que le CLI n'est pas installé ou absent de votre `PATH`. Installez-le,
-connectez-vous et revenez sur l'app — la détection se relance au focus de la
-fenêtre et le fournisseur apparaît de lui-même partout, sa surface de workspace
-assemblée en arrière-plan. Un fournisseur installé mais non connecté apparaît
-quand même, avec un badge *Non connecté* sur les sélecteurs de moteur.
+Installez la CLI souhaitée en suivant ses instructions officielles et connectez-vous avec le compte que vous comptez utiliser. Vérifiez sa disponibilité dans Specrails, puis choisissez un modèle pris en charge et les réglages de la mission ou du rail.
 
-Quelques points utiles sur les machines multi-fournisseurs :
+Une détection réussie ne garantit ni le quota ni la disponibilité du réseau pour l'appel suivant. Corrigez les erreurs d'authentification et de compatibilité avant de relancer une implémentation.
 
-- **Un seul fournisseur se comporte exactement comme avant.** Si un seul est détecté, vous ne verrez jamais de sélecteur de fournisseur — l'app reste sobre et simple.
-- **Rien n'est verrouillé.** Installer ou retirer un CLI met à jour tous les
-  projets automatiquement — il n'y a aucun réglage de fournisseur par projet à gérer.
+## Comprendre la frontière
 
-## Choisir un fournisseur à chaque invocation
+L'app conserve les données du projet en local, tandis que les requêtes aux modèles et les intégrations configurées peuvent envoyer du contexte hors de votre machine. Choisissez les références et les pièces jointes à fournir en gardant cela en tête.
 
-Tout l'intérêt d'un projet multi-fournisseurs, c'est de choisir l'IA la plus adaptée à chaque tâche — sans toucher au moindre réglage global. Partout où une IA s'exécute, un petit sélecteur de fournisseur apparaît (uniquement lorsque le projet en compte plusieurs) :
+Les capacités diffèrent : les réglages de raisonnement, les réponses structurées, les sous-agents et le pilotage d'un tour en cours ne sont pas interchangeables d'un fournisseur à l'autre. Voir [les réglages d'exécution du fournisseur](../pipeline/picking-an-engine-per-rail) et [le pilotage](../pipeline/the-job-detail-view).
 
-- **En-tête de rail** — choisissez le moteur de ce rail précis avant de le lancer.
-- **Terminal** — le bouton « Open AI CLI » (Sparkles) ouvre un menu de fournisseurs pour basculer dans n'importe quelle CLI installée, dans le répertoire de ce projet.
-
-Votre choix est mémorisé par projet, avec le fournisseur principal comme valeur par défaut, pour ne pas avoir à le refaire à chaque fois.
-
-## Dépannage
-
-- **Les serveurs MCP de Codex ne se chargent pas dans le chat.** Codex lit ses serveurs MCP depuis votre fichier global `~/.codex/config.toml` — enregistrez-les là avec `codex mcp add`.
+La sélection Sonnet exécute Claude Sonnet 5.5 (`claude-sonnet-5-5`). [Anthropic](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).

@@ -196,7 +196,7 @@ describe('SpecCard', () => {
   })
 
   describe('on_review variant', () => {
-    it('renders an On Review pill in place of the priority pill', () => {
+    it('renders an On review pill in place of the priority pill', () => {
       render(
         <SpecCard
           ticket={makeTicket({ status: 'on_review', priority: 'high' })}
@@ -204,7 +204,7 @@ describe('SpecCard', () => {
         />,
       )
       expect(screen.getByTestId('on-review-badge-42')).toBeInTheDocument()
-      expect(screen.getByText('On Review')).toBeInTheDocument()
+      expect(screen.getByText('On review')).toBeInTheDocument()
       expect(screen.queryByText('high')).not.toBeInTheDocument()
     })
 

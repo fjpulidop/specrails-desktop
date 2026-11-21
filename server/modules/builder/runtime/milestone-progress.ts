@@ -27,12 +27,15 @@ import {
 } from '../../delivery/runtime/rail-pr-store'
 import { getRails } from '../../delivery/runtime/rails-store'
 import { getLoopRun, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
+import type { ChainPlan } from './milestone-chain-reconcile'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { workspacePathFor } from '../../../workspace-manager'
 
 // ─── Model ───────────────────────────────────────────────────────────────────
 
-export type MilestoneState = 'planned' | 'committed' | 'running' | 'delivered' | 'done'
+/** `paused` = a chain owns the milestone but stopped (a pause or a wave
+ *  checkpoint): not "ready to launch", not running. */
+export type MilestoneState = 'planned' | 'committed' | 'running' | 'paused' | 'delivered' | 'done'
 
 export interface MilestoneCounts {
   total: number
@@ -87,9 +90,17 @@ export interface MilestoneChainSnapshot {
   totalChunks: number
   currentRailIndex: number | null
   headBranch: string | null
+  /** 0-based chunk a paused chain stopped on because it FAILED (Resume can
+   *  continue it from the failed step or relaunch it), else null. */
+  retryChunk: number | null
   launched: MilestoneChainLaunched[]
   createdAt: string
   updatedAt: string
+  /** Reconciled against the live rows (tickets, deliveries, runs — manual ones
+   *  included): the next action and the offers every surface renders. Absent
+   *  on a projection made without the chain manager (e.g. the discard hook);
+   *  the manager re-emits with it. */
+  plan?: ChainPlan | null
 }
 
 export interface MilestoneProgress {
@@ -107,6 +118,8 @@ export interface ProgressTicket {
   id: number
   status: string
   labels: string[]
+  /** Spec title (the chain's offers name the spec they act on). */
+  title?: string | null
   /** Spec ids that must be delivered first (launch ordering only). */
   prerequisites?: number[]
   /** Planner-assigned position (launch ordering tie-break). */
@@ -221,12 +234,17 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
     })
 
     const chainLive = chain !== null && (chain.status === 'running' || chain.status === 'waiting')
+    // A chain still driving the milestone (running, or stopped on a pause /
+    // checkpoint) outranks "delivered": its last spec may be on review only
+    // until the chain integrates or rebuilds it.
+    const chainStopped = chain !== null && (chain.status === 'paused' || chain.status === 'awaiting_approval')
     const state: MilestoneState =
       counts.total > 0 && counts.done === counts.total ? 'done'
-        : counts.total > 0 && counts.todo + counts.inProgress === 0 && counts.onReview > 0 ? 'delivered'
-          : counts.inProgress > 0 || chainLive ? 'running'
-            : counts.total > 0 ? 'committed'
-              : m.status
+        : counts.inProgress > 0 || chainLive ? 'running'
+          : chainStopped ? 'paused'
+            : counts.total > 0 && counts.todo === 0 && counts.onReview > 0 ? 'delivered'
+              : counts.total > 0 ? 'committed'
+                : m.status
 
     return {
       id: m.id,

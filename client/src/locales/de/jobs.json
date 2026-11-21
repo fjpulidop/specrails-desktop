@@ -14,7 +14,6 @@
     "failed": "Job wurde mit einem Exit-Code ungleich null beendet",
     "canceled": "Job wurde manuell abgebrochen",
     "queued": "Job wartet in der Warteschlange",
-    "queuedToRun": "Job wartet auf Ausführung",
     "zombie": "Job wurde nach längerer Inaktivität automatisch beendet",
     "skipped": "Job wurde übersprungen, weil ein übergeordneter Job in der Pipeline fehlgeschlagen ist"
   },
@@ -168,18 +167,30 @@
     "cancelJob": "Job abbrechen",
     "stopRun": "Lauf stoppen",
     "stopRunConfirmTitle": "Diesen Lauf stoppen?",
-    "stopRunConfirmDescription": "Der Loop-Lauf stoppt an der nächsten Schrittgrenze. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "stopRunConfirmDescription": "Er stoppt beim nächsten Schritt und wird abgeschlossen. Du kannst ihn später in einem neuen Versuch fortsetzen, die Arbeit bleibt erhalten.",
     "toast": {
       "cancelSignalSent": "Abbruchsignal gesendet",
       "cancelSignalSentDescription": "Der Job stoppt am nächsten sicheren Punkt",
-      "stopSignalSent": "Stoppsignal gesendet",
-      "stopSignalSentDescription": "Der Lauf stoppt an der nächsten Schrittgrenze",
+      "stopSignalSent": "Lauf wird gestoppt",
+      "stopSignalSentDescription": "Er stoppt beim nächsten Schritt und wird abgeschlossen. Du kannst ihn später in einem neuen Versuch fortsetzen, die Arbeit bleibt erhalten.",
       "cancelFailed": "Abbrechen fehlgeschlagen",
-      "networkError": "Netzwerkfehler"
+      "networkError": "Netzwerkfehler",
+      "pauseRequested": "Lauf wird pausiert",
+      "pauseRequestedDescription": "Er pausiert nach dem aktuellen Schritt. Fortsetzen setzt genau diesen Lauf fort.",
+      "pauseFailed": "Lauf konnte nicht pausiert werden",
+      "pauseUnsupported": "Die Engine dieses Laufs kann nicht mittendrin pausieren. Stoppe ihn stattdessen: Du kannst ihn später fortsetzen.",
+      "resumed": "Lauf fortgesetzt",
+      "resumedDescription": "Er macht dort weiter, wo er pausiert wurde.",
+      "resumeFailed": "Lauf konnte nicht fortgesetzt werden"
     },
     "title": "{{kind}}-Job · #{{id}}",
     "titleLoop": "Loop-Lauf · #{{id}}",
-    "titleGeneric": "Job · #{{id}}"
+    "titleGeneric": "Job · #{{id}}",
+    "pauseRun": "Pausieren",
+    "pausing": "Wird pausiert…",
+    "resumeRun": "Fortsetzen",
+    "pauseRunTooltip": "Nach dem aktuellen Schritt pausieren. Nichts geht verloren: Fortsetzen setzt genau diesen Lauf fort.",
+    "pausingTooltip": "Der aktuelle Schritt wird abgeschlossen, dann pausiert der Lauf."
   },
   "comparison": {
     "title": "Job-Vergleich",
@@ -253,7 +264,8 @@
       "networkError": "Netzwerkfehler"
     },
     "emptyCta": "Spec-Board öffnen",
-    "loading": "Jobs werden geladen…"
+    "loading": "Jobs werden geladen…",
+    "attempt": "Versuch {{number}}"
   },
   "activeJob": {
     "none": "Kein aktiver Job",
@@ -289,7 +301,7 @@
     "stalledIdle_one": "{{count}} Minute ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
     "stalledIdle_other": "{{count}} Minuten ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
     "providerLimit": "Anbieter-Limit",
-    "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen.",
+    "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf am Limit pausiert statt weiterzudrehen.",
     "paused": "Pausiert",
     "runtimeGraph": "Ausführungsgraph",
     "graphFullscreen": "Vollbild",
@@ -310,8 +322,18 @@
     "repeatFromHere": "Ab hier wiederholen",
     "forkFailed": "Verknüpfter Lauf konnte nicht erstellt werden",
     "forkPending": "Wiederholen Sie den ursprünglich ausgewählten Schritt, um die ausstehende Abzweigung abzuschließen.",
-    "forkCreated": "Verknüpfter Lauf erstellt. Öffnen Sie ihn und setzen Sie am ausgewählten Prüfpunkt fort.",
-    "openFork": "Verknüpften Lauf öffnen"
+    "forkCreated": "Verknüpfter Lauf erstellt und ab dem gewählten Schritt fortgesetzt.",
+    "forkResumeFailed": "Verknüpfter Lauf erstellt, konnte aber nicht automatisch fortgesetzt werden ({{detail}}). Öffne ihn und setze ihn fort.",
+    "openFork": "Verknüpften Lauf öffnen",
+    "graphFollow": "Ausführung folgen",
+    "graphFitAll": "Alles anzeigen",
+    "graphLegend": "Graph-Legende",
+    "graphAttempt": "Versuch {{n}}",
+    "graphAttempts_one": "{{count}} Versuch",
+    "graphAttempts_other": "{{count}} Versuche",
+    "graphTrace": "Trace",
+    "graphPathOnly": "Nur der gegangene Pfad",
+    "notReached": "{{count}} nicht erreicht"
   },
   "logViewer": {
     "loading": "Logs werden geladen…",
@@ -364,14 +386,15 @@
       "running": "Läuft",
       "skipped": "Übersprungen",
       "passed": "Bestanden",
-      "unavailable": "Nicht verfügbar"
+      "unavailable": "Nicht verfügbar",
+      "unverified": "Nicht verifiziert"
     }
   },
   "runHeader": {
     "details": "Details",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Bisher vom Anbieter gemeldet; die endgültigen Zahlen kommen, wenn der Job endet.",
-    "questionPending": "Frage beantworten"
+    "questionPending": "Antworten"
   },
   "runDetail": {
     "failure": "Fehlerursachen",
@@ -379,6 +402,59 @@
     "graph": "Ausführungsgraph",
     "detail": "Protokolldetails",
     "navigation": "Ausführungsdetails",
-    "sections": "Protokollbereiche"
+    "sections": "Protokollbereiche",
+    "stopped": "Fortsetzen"
+  },
+  "held": {
+    "label": {
+      "restart": "Pausiert",
+      "interrupted": "Unterbrochen",
+      "provider_limit": "Nutzungslimit",
+      "budget": "Ausgabenlimit",
+      "question": "Erfordert Aufmerksamkeit",
+      "approval": "Erfordert Aufmerksamkeit",
+      "paused": "Pausiert",
+      "queued": "In Warteschlange",
+      "pausedByYou": "Von dir pausiert"
+    },
+    "tooltip": {
+      "restart": "Die App wurde neu gestartet, während dieser Lauf arbeitete. Nichts läuft, bis du ihn fortsetzt.",
+      "interrupted": "Ein Schritt wurde vor dem Ende angehalten. Nichts läuft, bis du ihn fortsetzt.",
+      "provider_limit": "Das Nutzungslimit des Anbieters wurde erreicht. Der Lauf wartet, bis es zurückgesetzt wird.",
+      "budget": "Das Ausgabenlimit wurde erreicht. Nichts läuft, bis du ihn fortsetzt.",
+      "question": "Der Lauf hat dir eine Frage gestellt und wartet auf deine Antwort.",
+      "approval": "Der Lauf wartet auf deine Freigabe, um weiterzumachen.",
+      "paused": "Nichts läuft, bis du ihn fortsetzt.",
+      "queued": "Gestartet, wartet auf Kapazität. Es beginnt von selbst, sobald Platz ist.",
+      "pausedByYou": "Du hast diesen Lauf pausiert. Er belegt keinen Lauf-Slot, und nichts läuft, bis du ihn fortsetzt."
+    },
+    "reason": {
+      "restart": "Die App wurde während des Schritts {{step}} neu gestartet.",
+      "restartNoStep": "Die App wurde neu gestartet, während der Lauf arbeitete.",
+      "interrupted": "Der Schritt {{step}} wurde vor dem Ende angehalten.",
+      "interruptedNoStep": "Ein Schritt wurde vor dem Ende angehalten.",
+      "provider_limit": "Wartet, bis das Nutzungslimit des Anbieters zurückgesetzt wird.",
+      "budget": "Das Ausgabenlimit wurde erreicht.",
+      "question": "Wartet auf deine Antwort.",
+      "approval": "Wartet auf deine Freigabe.",
+      "paused": "Nichts läuft, bis du ihn fortsetzt.",
+      "queued": "Wartet auf Kapazität, bevor es beginnt.",
+      "pausedByYou": "Von dir pausiert. Nichts läuft, bis du ihn fortsetzt."
+    },
+    "stoppedTime": "Arbeitszeit bis zum Anhalten",
+    "cancelRun": "Lauf abbrechen",
+    "cancelRunConfirmTitle": "Diesen pausierten Lauf abbrechen?",
+    "cancelRunConfirmDescription": "Er endet als gestoppt und es läuft nichts mehr. Seine Änderungen bleiben in seinem Worktree, und du kannst ihn später im Lauffenster noch fortsetzen.",
+    "keepPaused": "Pausiert lassen",
+    "queue": {
+      "run_slots": "Wartet auf einen freien Platz: Dieser Rechner arbeitet bereits an so vielen Läufen wie möglich.",
+      "project_slots": "Wartet auf die anderen Läufe dieses Projekts: Es führt bereits so viele Rails gleichzeitig aus wie erlaubt.",
+      "provider_slots": "Wartet auf die anderen Läufe dieses KI-Anbieters: Er führt bereits so viele Rails gleichzeitig aus wie erlaubt.",
+      "cpu": "Wartet auf die CPU: Der Rechner ist ausgelastet, ein weiterer Lauf würde alle verlangsamen.",
+      "memory": "Wartet auf freien Arbeitsspeicher, bevor es beginnt.",
+      "provider_quota": "Wartet auf das Nutzungsfenster des Anbieters: Ein weiterer Lauf könnte jetzt nicht fertig werden.",
+      "other": "Wartet auf Kapazität, bevor es beginnt.",
+      "position": "Position {{position}} in der Warteschlange; es beginnt von selbst."
+    }
   }
 }

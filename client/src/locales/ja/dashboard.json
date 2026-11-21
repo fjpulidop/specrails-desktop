@@ -83,9 +83,6 @@
     "cleanupIncomplete_other": "クリーンアップが不完全です（警告 {{count}} 件）",
     "cleanupIncompleteHint": "ローカルの復旧データを保持しました。手動で削除する前に、以下の詳細を確認してください。",
     "copyCleanupDetails": "復旧情報をコピー",
-    "safetyArchiveTitle": "安全アーカイブ（{{count}}）",
-    "safetyArchiveHint": "念のため、一時ワークスペースファイルを PR の外部に保存しました。内容を確認するか、手動で削除できます。",
-    "copySafetyArchive": "パスをコピー",
     "unit": {
       "failed": "実装失敗",
       "blocked": "配信ブロック",
@@ -103,7 +100,7 @@
     "implementationFailed": "実装に失敗しました",
     "implementationFailedHint": "実装の実行に失敗しました。実行ログを開き、再実行する前にこのカードを破棄してください。",
     "runStopped": "停止",
-    "runStoppedHint": "何も納品される前にこの実行を停止しました。続けたいときに再実行するか、このカードを破棄してください。",
+    "runStoppedHint": "納品前にこの実行を停止しました。続行すると止まったところから再開します。不要ならこのカードを破棄してください。",
     "prFailed": "PR 失敗",
     "prFailedDetail": "PR 失敗",
     "createDegraded": "PR を公開できませんでした — {{detail}}。解決後に再試行してください。",
@@ -156,9 +153,10 @@
     "actionFailed": "PR の決定を適用できませんでした",
     "mergedToast": "PR がマージされました — スペックは完了に移動しました",
     "discardedToast": "PR を破棄しました — スペックは Specs に戻されました",
-    "decisionPending": "このレールには未処理の PR 決定があります — 再起動する前に作成・公開・破棄のいずれかを行ってください",
+    "decisionPendingOnRail": "レール {{rail}} にレビュー待ちのデリバリーがあります",
+    "decisionPendingAction": "先にレビューする（PR を作成、承認、または破棄）か、これらのスペックを別のレールで起動してください。",
     "discardConfirmTitle": "この成果物を破棄しますか？",
-    "discardConfirmBody": "PR はリモートブランチを削除せずにクローズされます。SpecRails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。スペックは Specs のバックログに戻ります。削除されたローカルリソースは復旧できません。",
+    "discardConfirmBody": "PR はリモートブランチを削除せずにクローズされます。Specrails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。スペックは Specs のバックログに戻ります。削除されたローカルリソースは復旧できません。",
     "implementationFailedDiscardTitle": "失敗した配信を破棄しますか？",
     "implementationFailedDiscardBody": "カードを閉じ、スペックを Specs に戻します。ローカルの作業とブランチは確認できるよう保持されます。安全にクリーンアップできることが確認されたリソースのみ削除される場合があります。",
     "mergeLocal": "ローカルに統合",
@@ -187,7 +185,9 @@
     "fixCi": "CI / コンフリクトを修正",
     "fixCiTooltip": "チェックを待ち、失敗とコンフリクトを修正して、グリーンになるまでこの PR にプッシュします",
     "fixCiStarted": "CI 監視を開始しました",
-    "fixCiFailed": "CI ループを開始できませんでした"
+    "fixCiFailed": "CI ループを開始できませんでした",
+    "continue": "続行",
+    "continueHint": "すべてを残し、実行が失敗または停止したところから同じ worktree で再開します。"
   },
   "railsBoard": {
     "title": "レール",
@@ -266,6 +266,7 @@
     "worktreesNeedsReview": "{{count}} 件要確認",
     "execSteps": "{{count}} ステップ",
     "execLines": "{{count}} 行",
+    "execHeld": "待機中",
     "recommended": "推奨",
     "recommendedOption": "{{label}} · 推奨",
     "loopDescriptions": {
@@ -334,5 +335,45 @@
   "board": {
     "pageTitle": "{{project}}：ボード",
     "pageTitleBare": "ボード"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "{{files}} で {{base}} とコンフリクトします",
+    "conflictsWithBase_other": "{{count}} ファイルで {{base}} とコンフリクトします: {{files}}",
+    "collidesWithRail": "Rail {{rail}} と {{files}} で衝突します",
+    "alreadyMerged": "すでに {{base}} に含まれています",
+    "clean": "現在の {{base}} にコンフリクトなしでマージできます",
+    "unknown": "マージのプレビューを利用できません（Git 2.38 以降が必要か、参照が存在しません）",
+    "baseMoved_one": "このブランチの作成後、{{base}} は {{count}} コミット進みました",
+    "baseMoved_other": "このブランチの作成後、{{base}} は {{count}} コミット進みました",
+    "moreFiles": "ほか {{count}} 件",
+    "title": "マージのプレビュー"
+  },
+  "safetyArchive": {
+    "title_one": "PR に含まれなかったファイルを {{count}} 件保管しました",
+    "title_other": "PR に含まれなかったファイルを {{count}} 件保管しました",
+    "hint": "Specrails 自身のファイルだと確認できなかったため、削除せずに別の場所へ移しました。",
+    "toastHint": "詳細から確認または削除できます。",
+    "delete": "削除",
+    "dismiss": "閉じる",
+    "details": "詳細",
+    "close": "閉じる",
+    "copyPath": "パスをコピー",
+    "copied": "コピーしました",
+    "revealFinder": "Finder で表示",
+    "revealFolder": "フォルダで表示",
+    "filesLabel": "保管されたファイル",
+    "link": "リンク",
+    "moreFiles_one": "ほか {{count}} 件",
+    "moreFiles_other": "ほか {{count}} 件",
+    "confirmTitle_one": "保管された {{count}} 件のファイルを削除しますか?",
+    "confirmTitle_other": "保管された {{count}} 件のファイルを削除しますか?",
+    "confirmDescription_one": "フォルダ {{folder}}({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescription_other": "フォルダ {{folder}}({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescriptionMany_one": "{{folders}} 個のフォルダ({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "confirmDescriptionMany_other": "{{folders}} 個のフォルダ({{count}} 件、{{size}})を削除します。元に戻せません。",
+    "deleteFailed_one": "{{count}} 個のフォルダを削除できませんでした。",
+    "deleteFailed_other": "{{count}} 個のフォルダを削除できませんでした。",
+    "goneTitle": "確認するものはありません",
+    "gone": "これらのファイルはすでに削除されたか、通知を閉じました。"
   }
 }

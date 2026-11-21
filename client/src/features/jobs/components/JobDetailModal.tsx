@@ -1,7 +1,8 @@
 import { modalDialogStyle, modalOverlayStyle } from '../../../lib/modal-safe-area'
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useId, useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from './job-run/RunDetailTabs'
+import { LoopRunDetail } from './job-run/LoopRunDetail'
 import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { formatDistanceToNow } from 'date-fns'
@@ -14,7 +15,9 @@ import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
+import { RunPauseControl } from './job-run/RunPauseControl'
 import { Button } from '../../../components/ui/button'
+import { SegmentedControl } from '../../../components/ui/segmented-control'
 import {
   DIALOG_PANEL_CLASS,
   DIALOG_SCRIM_CLASS,
@@ -24,8 +27,14 @@ import {
   DialogHeader,
   DialogLayerProvider,
   DialogTitle,
+  SURFACE_WINDOW_PANEL_CLASS,
+  surfaceWindowHeaderProps,
+  useSurfaceWindowFrame,
 } from '../../../components/ui/dialog'
+import { useNativeSurface } from '../../../components/ui/surface'
+import { getActiveProjectId } from '../../../lib/api'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { jobDisplayStatus, jobHoldOf } from '../lib/job-run-state'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
 import { useRuntimeRuns } from './job-run/useRuntimeRuns'
@@ -37,15 +46,16 @@ import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
 import { InteractiveJobComposer } from './InteractiveJobComposer'
+import { RunQuestionDock, runWindowQuestion } from './job-run/RunQuestionDock'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
-import { useWebSocket } from '../../../hooks/useWebSocket'
-import { WS_URL } from '../../../lib/ws-url'
+import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 
 import { notifyError } from '../../../lib/notify-error'
+import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
 /** Short, human-readable job id for the title ("#1a2b3c4d"). */
 function shortJobId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id
@@ -72,7 +82,24 @@ interface JobDetailModalProps {
   projectId?: string
 }
 
-export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobDetailModalProps) {
+/**
+ * Job detail. In the desktop app it opens as its own native window (one per
+ * job, `job-detail` surface); in the browser, or when that window cannot open,
+ * it is the entity modal below.
+ */
+export function JobDetailModal(props: JobDetailModalProps) {
+  const native = useNativeSurface({
+    id: 'job-detail',
+    open: true,
+    // The window has no "active project" of its own: always pass the scope.
+    params: { jobId: props.jobId, projectId: props.projectId ?? getActiveProjectId() },
+    onClose: props.onClose,
+  })
+  return native ? null : <JobDetailModalContent {...props} />
+}
+
+function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobDetailModalProps) {
+  const framed = useSurfaceWindowFrame()
   const [jobId, openFork] = useState(initialJobId)
   useEffect(() => { openFork(initialJobId) }, [initialJobId])
   const { t } = useTranslation('jobs')
@@ -184,9 +211,18 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   // Cleanup rAF on unmount
   useEffect(() => () => { if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current) }, [])
 
+  // At most one re-read every 3 s while the row still says held.
+  const holdRefetchRef = useRef(0)
+
   // Subscribe to live WebSocket updates
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as { type: string } & Record<string, unknown>
+    // A held run that streams again was continued: re-read its row once so the
+    // header stops saying paused (no paused→running event exists for every door).
+    if (jobHoldOf(job) && Date.now() - holdRefetchRef.current > 3000 && (msg.jobId === jobId || msg.processId === jobId) && (msg.type === 'event' || msg.type === 'log')) {
+      holdRefetchRef.current = Date.now()
+      refetchJob()
+    }
 
     if (msg.type === 'event' && msg.jobId === jobId) {
       const eventRow: EventRow = {
@@ -220,7 +256,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
       (msg.type === 'job.finalized' && msg.jobId === jobId)
       || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
       || (msg.type === 'job.interactive' && msg.jobId === jobId)
-      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === jobId)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended') && msg.loopRunId === jobId)
     ) {
       // The interactive session settled — refetch the authoritative row so the
       // header flips to the terminal status and the composer unmounts.
@@ -238,7 +274,13 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     }
   }, [jobId, job, enqueuePending, refetchJob])
 
-  useWebSocket(WS_URL, handleMessage)
+  // The app's one shared socket; this modal only reacts to its job's frames.
+  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const handlerKey = `job-detail-modal-${useId()}`
+  useEffect(() => {
+    registerHandler(handlerKey, handleMessage)
+    return () => unregisterHandler(handlerKey)
+  }, [handlerKey, handleMessage, registerHandler, unregisterHandler])
 
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
@@ -270,10 +312,16 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   }
 
   const isRunning = job?.status === 'running'
+  // Held: stopped without settling (a restart, a limit, a question). Ending it is
+  // "Cancel run" with its own consequence, not Stop of a live run.
+  const held = !!jobHoldOf(job)
+  const displayStatus = job ? jobDisplayStatus(job) : 'queued'
+  const settledView = displayStatus !== 'running' && displayStatus !== 'queued'
   const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal({
     persistKey: 'specrails.modal.job-detail',
+    enabled: !framed,
   })
 
   // Focus return: this controlled dialog has no Radix `DialogTrigger`, so
@@ -313,10 +361,10 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     // transform would otherwise be the containing block for the fixed panel.
     <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
+        {!framed && <DialogPrimitive.Overlay
           style={modalOverlayStyle()}
           className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)}
-        />
+        />}
         <DialogPrimitive.Content
           ref={setPanelNode}
           data-testid="job-detail-modal"
@@ -325,8 +373,11 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           {...(notFound && !job ? { 'aria-describedby': undefined } : {})}
           // Bespoke geometry: the fullscreen size token, movable by the header
           // and resizable from inset grips (persisted per surface).
-          className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.entity, DIALOG_SIZE_CLASS.fullscreen)}
-          style={{ ...modalDialogStyle(92), ...panelStyle }}
+          data-surface-window={framed ? '' : undefined}
+          className={framed
+            ? cn(SURFACE_WINDOW_PANEL_CLASS, DIALOG_LAYER_CLASS.entity)
+            : cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.entity, DIALOG_SIZE_CLASS.fullscreen)}
+          style={framed ? undefined : { ...modalDialogStyle(92), ...panelStyle }}
           onCloseAutoFocus={(e) => {
             const target = returnFocusRef.current
             returnFocusRef.current = null
@@ -349,28 +400,32 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           <TooltipProvider delayDuration={400}>
           <DialogLayerProvider layer="entity">
             <DialogHeader
-              {...headerHandleProps}
-              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
-              actions={<DialogCloseButton className="-mr-1.5 -mt-1" />}
+              {...(framed ? {} : headerHandleProps)}
+              data-tauri-drag-region={surfaceWindowHeaderProps(framed)['data-tauri-drag-region']}
+              className={framed ? surfaceWindowHeaderProps(framed).className : isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
+              actions={framed ? undefined : <DialogCloseButton className="-mr-1.5 -mt-1" />}
             >
-              <DialogTitle className="truncate">{title}</DialogTitle>
-              {job ? (
-                <DialogDescription className="flex min-w-0 items-baseline gap-2">
-                  {(() => {
-                    const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
-                    return friendly
-                      ? <span className="min-w-0 truncate text-xs text-foreground" title={job.command}>{friendly}</span>
-                      : <code className="min-w-0 truncate font-mono text-xs text-foreground">{job.command}</code>
-                  })()}
-                  <span className="shrink-0 text-xs">
-                    {activityTime
-                      ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
-                      : '—'}
-                  </span>
-                </DialogDescription>
-              ) : isLoading ? (
-                <DialogDescription>{t('common:states.loading')}</DialogDescription>
-              ) : null}
+              {/* One line: title · what ran · when. The command truncates first. */}
+              <div className="flex min-w-0 items-baseline gap-2">
+                <DialogTitle className="shrink-0 truncate">{title}</DialogTitle>
+                {job ? (
+                  <DialogDescription className="flex min-w-0 flex-1 items-baseline gap-2 text-label">
+                    {(() => {
+                      const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
+                      return friendly
+                        ? <span className="min-w-0 truncate text-foreground" title={job.command}>{friendly}</span>
+                        : <code className="min-w-0 truncate font-mono text-foreground" title={job.command}>{job.command}</code>
+                    })()}
+                    <span className="shrink-0 num">
+                      {activityTime
+                        ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
+                        : '—'}
+                    </span>
+                  </DialogDescription>
+                ) : isLoading ? (
+                  <DialogDescription className="text-label">{t('common:states.loading')}</DialogDescription>
+                ) : null}
+              </div>
             </DialogHeader>
 
             {/* The ONE run header shared with the board's Job Detail page. */}
@@ -392,17 +447,26 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                     job={job}
                     events={events}
                     surface="modal"
+                    projectId={projectId}
                     isLoop={job.command.startsWith('loop:')}
                     onOpenLogs={handleOpenLogs}
-                    graphContent={<>
+                    graphContent={navigation => <>
                       {eventBuffer.omitted && (
                         <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopStepExplorer events={events} jobStatus={job.status} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} />
+                      <LoopStepExplorer events={events} jobStatus={displayStatus} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
                     </>}
-                    logContent={<>
+                    logContent={navigation => job.command.startsWith('loop:') ? <>
+                      {eventBuffer.omitted && (
+                        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                          {t('logViewer.retainedTail')}
+                        </p>
+                      )}
+                      <LoopRunDetail events={events} jobStatus={displayStatus} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
+                        settled={settledView} elapsedMs={job.duration_ms ?? null} />
+                    </> : <>
                       {eventBuffer.omitted && (
                         <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                           {t('logViewer.retainedTail')}
@@ -411,30 +475,23 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                       <div className="min-h-0 flex-1 overflow-hidden relative">
                         {FEATURE_NARRATED_PROGRESS ? (
                           <div className="flex h-full min-h-0 flex-col">
-                            <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
-                              {(['narrated', 'log'] as const).map((mode) => (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  data-chip=""
-                                  onClick={() => setNarrationMode(mode)}
-                                  aria-pressed={narrationMode === mode}
-                                  data-testid={`modal-narration-mode-${mode}`}
-                                  className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
-                                    narrationMode === mode
-                                      ? 'bg-accent-primary/15 text-accent-primary'
-                                      : 'text-muted-foreground hover:bg-surface/60'
-                                  }`}
-                                >
-                                  {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                                </button>
-                              ))}
+                            <div className="flex items-center border-b border-border/40 px-3 py-1">
+                              <SegmentedControl
+                                value={narrationMode}
+                                onChange={setNarrationMode}
+                                label={tNarration('modeLabel')}
+                                options={(['narrated', 'log'] as const).map(mode => ({
+                                  value: mode,
+                                  label: tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog'),
+                                  testId: `modal-narration-mode-${mode}`,
+                                }))}
+                              />
                             </div>
                             <div className="min-h-0 flex-1 overflow-hidden">
                               {narrationMode === 'narrated' ? (
                                 <NarratedProgress
                                   events={events}
-                                  settled={job.status !== 'running' && job.status !== 'queued'}
+                                  settled={settledView}
                                   elapsedMs={job.duration_ms ?? null}
                                   variant="glass"
                                 />
@@ -450,7 +507,9 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                     </>}
                   />
                 )}
-                actions={isRunning ? (
+                actions={isRunning ? (<>
+                  {/* Pause is the primary control while the run's Core can pause; Stop stays beside it. */}
+                  <RunPauseControl job={job} projectId={projectId ?? null} onChanged={refetchJob} />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -459,13 +518,15 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                     className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
-                    {isLoopRun
+                    {held
+                      ? t('held.cancelRun')
+                      : isLoopRun
                       ? t('dashboard:railControls.stop')
                       : cancelKind === 'interactive'
                         ? t('common:actions.discard')
                         : t('common:actions.cancel')}
                   </Button>
-                ) : null}
+                </>) : null}
               />
             )}
 
@@ -480,7 +541,15 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
             {/* Interactive in-job agent composer — the SAME control the board's Job
                 Detail page mounts, so a mission-mode user steers the running job
                 without leaving the workspace. */}
-            {!!job?.interactive && job.status === 'running' && (
+            {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+            {/* The run's question: its one place in the run window, answered inline. */}
+            {job && projectId && (
+              <RunQuestionDock projectId={projectId} runId={job.id} initial={runWindowQuestion(job, runtime.runs[0])} onAnswered={runtime.refresh} />
+            )}
+            {job && projectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
+              <RunLimitPause projectId={projectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
+            )}
+            {!!job?.interactive && job.status === 'running' && !jobHoldOf(job) && (
               <InteractiveJobComposer
                 jobId={jobId}
                 projectId={projectId}
@@ -501,10 +570,10 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
               open={showCancelConfirm}
               onOpenChange={setShowCancelConfirm}
               testId="job-cancel-confirm"
-              title={isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
-              description={isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
-              cancelLabel={t('modal.keepRunning')}
-              confirmLabel={isLoopRun
+              title={held ? t('held.cancelRunConfirmTitle') : isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
+              description={held ? t('held.cancelRunConfirmDescription') : isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
+              cancelLabel={held ? t('held.keepPaused') : t('modal.keepRunning')}
+              confirmLabel={held ? t('held.cancelRun') : isLoopRun
                 ? t('modal.stopRun')
                 : cancelKind === 'interactive'
                   ? t('common:actions.discard')
@@ -513,7 +582,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
             />
           </DialogLayerProvider>
           </TooltipProvider>
-          <ResizeGrips handles={resizeHandles} placement="inset" />
+          {!framed && <ResizeGrips handles={resizeHandles} placement="inset" />}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

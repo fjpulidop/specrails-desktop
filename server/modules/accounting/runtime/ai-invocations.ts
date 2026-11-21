@@ -23,6 +23,20 @@ export type Surface =
   | 'flow'
   // Spec triage (launch-triage): one cheap structured-output call per spec.
   | 'triage'
+  // The AI reading of why a failed job stopped (Failure reasons tab).
+  | 'failure-analysis'
+/**
+ * Read-only virtual surfaces. They are never written to `ai_invocations`
+ * (recordInvocation rejects them): the spending read model derives them from
+ * the app-level `agent_invocations` ledger rows pinned to the project —
+ * 'mission' for Agent Chat / Mission turns, 'intent' for Intent-mode turns
+ * (agent_invocations surface 'flow'). Note `ai_invocations` surface 'flow' is
+ * the Intent spec rewrite, a different row.
+ */
+export type VirtualSurface = 'mission' | 'intent'
+export const VIRTUAL_SURFACES: readonly VirtualSurface[] = ['mission', 'intent']
+/** Every surface the spending read model can report (recorded + virtual). */
+export type SpendSurface = Surface | VirtualSurface
 export type InvocationStatus = 'success' | 'failed' | 'aborted'
 
 const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
@@ -40,6 +54,7 @@ const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
   'setup',
   'flow',
   'triage',
+  'failure-analysis',
 ])
 
 export interface RecordInput extends NormalisedResult {
@@ -253,6 +268,7 @@ export function getTicketSpendingSummary(
     setup: { count: 0, costUsd: 0, unpricedCount: 0 },
     flow: { count: 0, costUsd: 0, unpricedCount: 0 },
     triage: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'failure-analysis': { count: 0, costUsd: 0, unpricedCount: 0 },
   }
   let totalCostUsd = 0
   let estimatedCostUsd = 0

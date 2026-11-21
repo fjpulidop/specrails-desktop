@@ -110,6 +110,7 @@ function appWith(
     desktopDb?: DbInstance
     loopRunManager?: { run: (...args: unknown[]) => Promise<unknown>; cancel: (id: string) => void }
     railLoopRuns?: Map<string, { railIndex: number; ticketIds: number[] }>
+    railJobs?: Map<string, { railIndex: number; mode: string }>
     getTicketSpec?: (ticketId: number) => { title: string; description: string; repositoryIds?: string[] } | undefined
     onLoopRunFinished?: (runId: string, outcome: string) => void
     projectPath?: string
@@ -126,7 +127,7 @@ function appWith(
     // (+ queueManager/broadcast for launch, + loop fields for loop mode).
     ;(req as unknown as { projectCtx: unknown }).projectCtx = {
       db,
-      railJobs: new Map(),
+      railJobs: opts?.railJobs ?? new Map(),
       railLoopRuns: opts?.railLoopRuns ?? new Map(),
       project: { id: 'p1', slug: 's1', provider: providers[0], providers, path: opts?.projectPath ?? '/repo', repositories: opts?.repositories },
       queueManager: opts?.queueManager,
@@ -1368,6 +1369,29 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
     expect(res.body.activeLoopRuns['1']).toMatchObject({ loopRunId: 'run-db', loopId: 'loop-x', steps: 0, lines: 0 })
     expect(res.body.activeLoopRuns['1'].startedAt).toBeTruthy()
   })
+
+  it('says a run is held (a question) and how long it already was, so the rail card stops its clock (bench5)', async () => {
+    createLoopRun(db, {
+      id: 'run-q', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement',
+      railIndex: 0, ticketId: 1, provider: 'claude', model: 'haiku', iterationLimit: 12,
+      startedAt: new Date(3000).toISOString(),
+    })
+    db.prepare("UPDATE loop_runs SET status = 'paused', held_ms = 4547, runtime_status_json = ? WHERE id = 'run-q'")
+      .run(JSON.stringify({ pendingInterrupts: [{ kind: 'question', nodePath: 'fixer' }] }))
+    const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
+    expect(res.body.activeLoopRuns['0']).toMatchObject({ loopRunId: 'run-q', heldMs: 4547, hold: { kind: 'question' } })
+  })
+
+  it('leaves a working run without hold or held time', async () => {
+    createLoopRun(db, {
+      id: 'run-w', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement',
+      railIndex: 0, ticketId: 1, provider: 'claude', model: 'haiku', iterationLimit: 12,
+      startedAt: new Date(3000).toISOString(),
+    })
+    const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
+    expect(res.body.activeLoopRuns['0']).not.toHaveProperty('hold')
+    expect(res.body.activeLoopRuns['0']).not.toHaveProperty('heldMs')
+  })
 })
 
 describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-pr-review-flow)', () => {
@@ -1418,7 +1442,9 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const row = mkDelivery()
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id, railIndex: 0,
+      detail: expect.stringMatching(/^Rail 1 has a delivery waiting for your review/),
+      action: 'Review that delivery first (create its PR, approve or discard it), or launch these specs on another rail.' })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled() // the guard sits before the probe
   })
@@ -1476,7 +1502,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled()
   })
@@ -1499,7 +1525,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(mockRepoStatus).not.toHaveBeenCalled()
   })
@@ -1807,7 +1833,7 @@ describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-r
     const res = await request(launchApp()).post('/rails/0/launch')
       .send({ loopId: 'factory:implement', targetPrNumber: 151 })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 
@@ -1972,7 +1998,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     const res = await request(appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
       .post('/rails/0/launch').send({ loopId: 'factory:implement' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
   })
 
   it('shared-cwd loop launch claims the open addenda for the run and briefs the engine with them', async () => {
@@ -2502,7 +2528,7 @@ describe('rails-router DELETE /:railIndex', () => {
     } as CreatePrDeliveryInput)
     const res = await request(appWith(db)).delete('/rails/1')
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(res.body).toMatchObject({ error: 'pr_decision_pending', prDeliveryId: row.id })
   })
 })
 
@@ -3497,5 +3523,39 @@ describe('rails-router launch — review WIP limit (review-wip-limit)', () => {
     delivery(1, [11])
     const res = await request(app()).get('/rails')
     expect(res.body.reviewWip).toMatchObject({ limit: 2, reached: false, pending: [{ railIndex: 1, ticketIds: [11] }] })
+  })
+})
+
+describe('rails-router GET / — optional paging (limit + cursor)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('keeps the default response unpaged and pages with an opaque cursor when limit is passed', async () => {
+    const { createRail, getRails } = await import('./rails-store')
+    while (getRails(db).length < 5) createRail(db, null)
+    const railJobs = new Map([['job-a', { railIndex: 0, mode: 'implement' }], ['job-b', { railIndex: 3, mode: 'implement' }]])
+    const app = appWith(db, { railJobs })
+    const all = await request(app).get('/rails')
+    expect(all.body.rails).toHaveLength(5)
+    expect(all.body).not.toHaveProperty('nextCursor')
+    expect(all.body).not.toHaveProperty('total')
+
+    const first = await request(app).get('/rails?limit=2')
+    expect(first.status).toBe(200)
+    expect(first.body.rails.map((rail: { railIndex: number }) => rail.railIndex)).toEqual([0, 1])
+    expect(first.body).toMatchObject({ total: 5, offset: 0, limit: 2, nextOffset: 2 })
+    expect(Object.keys(first.body.activeJobs)).toEqual(['0'])
+    const second = await request(app).get(`/rails?limit=2&cursor=${first.body.nextCursor}`)
+    expect(second.body.rails.map((rail: { railIndex: number }) => rail.railIndex)).toEqual([2, 3])
+    expect(Object.keys(second.body.activeJobs)).toEqual(['3'])
+    const last = await request(app).get(`/rails?limit=2&cursor=${second.body.nextCursor}`)
+    expect(last.body.rails).toHaveLength(1)
+    expect(last.body.nextCursor).toBeNull()
+  })
+
+  it('rejects a malformed cursor with 400 invalid_cursor', async () => {
+    const res = await request(appWith(db, {})).get('/rails?limit=2&cursor=not-a-cursor')
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('invalid_cursor')
   })
 })

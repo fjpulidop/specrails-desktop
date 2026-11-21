@@ -8,7 +8,7 @@ Statt Prompts hin und her zu kopieren, beschreibst du als **Spec**, was du haben
 
 Das Herzstück von specrails ist eine einfache Idee: **Der beste Weg zu gutem Code aus einer KI führt über eine klare Spec.**
 
-Eine *Spec* ist eine kurze, strukturierte Beschreibung einer einzelnen Aufgabe – ein Feature, ein Fix, ein Refactoring. Du schreibst sie in Sekunden oder formst sie in einem geführten Chat, der die richtigen Fragen stellt und sie für dich entwirft. Jede Spec wird zu einem **Ticket** auf deinem Projektboard, genau wie eine Aufgabe in jedem Issue-Tracker.
+Eine *Spec* ist eine kurze, strukturierte Beschreibung einer einzelnen Aufgabe – ein Feature, ein Fix, ein Refactoring. Du schreibst sie in Sekunden oder formst sie in einem geführten Chat, der die richtigen Fragen stellt und sie für dich entwirft. Jede Spec wird zu einer **Spec** auf deinem Projektboard, genau wie eine Aufgabe in jedem Issue-Tracker.
 
 Von dort aus übergibst du die Spec an die Pipeline und überlässt der KI die Schwerarbeit.
 

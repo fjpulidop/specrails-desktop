@@ -1,5 +1,5 @@
 import { SPEC_DRAG_TYPE, readSpecDrag, insertDroppedSpec } from '../lib/agent-spec-drag'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Activity, Zap, Paperclip } from 'lucide-react'
@@ -27,6 +27,7 @@ import {
   clearSubmittedComposerDraft,
   restoreSubmittedComposerDraft,
   NEW_MISSION_DRAFT_KEY,
+  missionPlaceholderIndex,
   type AgentComposerDraftSnapshot,
 } from '../lib/agent-composer-drafts'
 import { isBrowserCaptureEnabled } from '../../browser/lib/browser-capture'
@@ -52,6 +53,7 @@ import { AgentTierChip } from './AgentTierChip'
 import { MissionModeBadge } from './MissionModeBadge'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
+import { AgentContextUsageRing } from './AgentContextUsageRing'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
@@ -61,7 +63,6 @@ import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineRe
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
 import { BackgroundProcessLogsModal } from '../../background/components/BackgroundProcessLogsModal'
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
-import { MissionResourcesPanel } from '../../background/components/MissionResourcesPanel'
 import { useMissionResourceHistory } from '../../background/hooks/useMissionResourceHistory'
 import { BackgroundProcessesPanel } from '../../background/components/BackgroundProcessesPanel'
 import { HoverPopover } from '../../../components/ui/hover-popover'
@@ -70,6 +71,10 @@ import { useAvailableProviders } from '../../providers/hooks/useAvailableProvide
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
 import { notifyError } from '../../../lib/notify-error'
+
+// The resource charts (recharts) load when the popover first opens.
+const MissionResourcesPanel = lazy(() => import('../../background/components/MissionResourcesPanel').then(m => ({ default: m.MissionResourcesPanel })))
+
 function replaceInlineRange(
   text: string,
   references: AgentInlineReference[],
@@ -148,8 +153,8 @@ export function AgentComposer({
   const backgroundProjectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
   const missionResources = useMissionResourceHistory(backgroundProjectId ?? null, active?.id ?? null, resourcesOpen)
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
-  // Keep the welcome stable while typing; choose again for another mission.
-  const welcomeIndex = useMemo(() => Math.floor(Math.random() * 20), [draftKey])
+  // Stable per mission across renders and reloads; varies between missions.
+  const welcomeIndex = missionPlaceholderIndex(draftKey)
   const missionWindows = useMissionWindows()
   const recoveredKey = useRef<string | null>(null)
   if (recoveredKey.current !== draftKey) {
@@ -977,7 +982,9 @@ export function AgentComposer({
                 </button>
               }
             >
-              <MissionResourcesPanel projectId={backgroundProjectId} chatId={activeId} snapshot={missionResources.latest} samples={missionResources.samples} error={missionResources.error} onScanned={() => void missionResources.refresh()} />
+              <Suspense fallback={null}>
+                <MissionResourcesPanel projectId={backgroundProjectId} chatId={activeId} snapshot={missionResources.latest} samples={missionResources.samples} error={missionResources.error} onScanned={() => void missionResources.refresh()} />
+              </Suspense>
             </HoverPopover>
           )}
           {active === null && !hideProjectSelector && (
@@ -988,6 +995,7 @@ export function AgentComposer({
         )}
 
           <div className="ml-auto flex min-w-0 max-w-[60%] items-center gap-1">
+            {active && <AgentContextUsageRing usage={active.contextUsage} conversationId={active.id} busy={isStreaming} modeBlocked={!!conversationMode} />}
             <AgentRuntimeSelector provider={provider} providers={selectableProviders.map(value => ({ value, label: providerOptionLabel(value) }))}
               models={models} model={effectiveModel} efforts={efforts} effort={effort}
               defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}

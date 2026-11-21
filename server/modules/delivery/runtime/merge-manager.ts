@@ -12,6 +12,7 @@
  */
 import { formatConventionalSubject } from './pr-naming'
 import type { GitRunner } from '../../../worktree-manager'
+import { compareForMergeBack } from '../domain/merge-preview'
 
 export type MergeState = 'merged' | 'needs-review' | 'skipped'
 
@@ -22,6 +23,10 @@ export interface BranchToMerge {
   succeeded: boolean
   /** Contract-Layer file touch list (optional) — drives merge ordering. */
   touchList?: string[]
+  /** Merge preview facts (optional): conflicted paths against the current
+   *  base (null = unknown) and how many siblings it collides with. Clean
+   *  candidates merge first (domain/merge-preview.ts compareForMergeBack). */
+  preview?: { baseConflicts: number | null; siblingConflicts: number }
 }
 
 export interface MergeDeps {
@@ -46,14 +51,17 @@ export interface MergeOutcome {
 }
 
 /**
- * Merge order: least-overlapping branches first (so the most-conflicting one
+ * Merge order: with merge-preview facts, candidates that merge cleanly into
+ * the current base first and conflicting ones last; then least-overlapping branches first (so the most-conflicting one
  * rebases onto the most-complete base last), tie-broken by ticket id. With no
  * touch-lists, plain ascending ticket-id order. Pure.
  */
 export function orderBranches(branches: BranchToMerge[]): BranchToMerge[] {
   const eligible = branches.filter((b) => b.succeeded)
+  const byPreview = (a: BranchToMerge, b: BranchToMerge): number =>
+    a.preview && b.preview ? compareForMergeBack({ ticketId: a.ticketId, ...a.preview }, { ticketId: b.ticketId, ...b.preview }) : 0
   const haveTouch = eligible.some((b) => (b.touchList?.length ?? 0) > 0)
-  if (!haveTouch) return [...eligible].sort((a, b) => a.ticketId - b.ticketId)
+  if (!haveTouch) return [...eligible].sort((a, b) => byPreview(a, b) || a.ticketId - b.ticketId)
   const overlap = (b: BranchToMerge): number => {
     const others = new Set<string>()
     for (const o of eligible) if (o !== b) for (const f of o.touchList ?? []) others.add(f)
@@ -61,7 +69,7 @@ export function orderBranches(branches: BranchToMerge[]): BranchToMerge[] {
     for (const f of b.touchList ?? []) if (others.has(f)) n++
     return n
   }
-  return [...eligible].sort((a, b) => overlap(a) - overlap(b) || a.ticketId - b.ticketId)
+  return [...eligible].sort((a, b) => byPreview(a, b) || overlap(a) - overlap(b) || a.ticketId - b.ticketId)
 }
 
 async function revParse(git: GitRunner, baseDir: string): Promise<string> {

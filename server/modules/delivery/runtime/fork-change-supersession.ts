@@ -48,10 +48,19 @@ function directoryNames(directory: string): string[] {
 }
 
 /**
- * Remove active OpenSpec changes this checkout introduced that a fork in
- * `forkRunIds` replaced with its own (active or archived) successor change.
+ * Retire active OpenSpec changes this checkout introduced that a fork in
+ * `forkRunIds` (nearest first: `forkRunIds[0]` is the run being settled)
+ * replaced with its own (active or archived) successor change.
  * Baseline changes, symlinks and changes without a successor are never touched.
- * Returns the removed change names.
+ *
+ * Core truncates a change name to 42 characters before appending
+ * `-fork-<digest>`, so after two forks every change in the chain shares one
+ * prefix and each looks like the "successor" of the other under some run of
+ * the chain. The settled run's OWN change (its successor of an active change)
+ * is therefore never retired — run fork-dddf836f lost its in-progress change
+ * that way. A retired change is moved, never deleted, into the repository's
+ * git directory (`specrails/retired-openspec-changes/`), outside the working
+ * tree and every delivery. Returns the retired change names.
  */
 export async function retireSupersededForkChanges(input: { git: GitRunner; worktreePath: string; baseRef: string; forkRunIds: readonly string[] }): Promise<string[]> {
   if (!input.forkRunIds.length) return []
@@ -62,12 +71,39 @@ export async function retireSupersededForkChanges(input: { git: GitRunner; workt
   const successors = new Set([...active, ...directoryNames(path.join(changes, 'archive')).map(name => name.replace(ARCHIVE_DATE_PREFIX, ''))])
   // Decide every supersession before removing anything: in a fork-of-a-fork
   // chain an intermediate change is both a successor and superseded.
-  const superseded = active.filter(name => !baseline.has(name)
+  const settled = input.forkRunIds[0]
+  const own = new Set(active.map(name => forkSuccessorChangeName(name, settled)).filter(name => active.includes(name)))
+  const superseded = active.filter(name => !baseline.has(name) && !own.has(name)
     && !fs.lstatSync(path.join(changes, name)).isSymbolicLink()
     && input.forkRunIds.some(runId => {
       const successor = forkSuccessorChangeName(name, runId)
       return successor !== name && successors.has(successor)
     }))
-  for (const name of superseded) fs.rmSync(path.join(changes, name), { recursive: true, force: true })
+  if (!superseded.length) return []
+  const backup = await retiredChangesDirectory(input.git, input.worktreePath)
+  for (const name of superseded) {
+    const target = path.join(backup, name)
+    fs.mkdirSync(backup, { recursive: true })
+    fs.rmSync(target, { recursive: true, force: true })
+    moveDirectory(path.join(changes, name), target)
+  }
   return superseded
+}
+
+/** `<git common dir>/specrails/retired-openspec-changes/<timestamp>`: outside the
+ *  working tree (never staged or delivered) and kept with the repository. */
+async function retiredChangesDirectory(git: GitRunner, worktreePath: string): Promise<string> {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const common = await git.run(['rev-parse', '--git-common-dir'], worktreePath).catch(() => null)
+  const dir = common && common.code === 0 && common.stdout.trim() ? path.resolve(worktreePath, common.stdout.trim()) : null
+  if (!dir) throw new Error('Could not locate the git directory to keep retired OpenSpec changes; nothing was removed')
+  return path.join(dir, 'specrails', 'retired-openspec-changes', stamp)
+}
+
+function moveDirectory(from: string, to: string): void {
+  try { fs.renameSync(from, to) } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+    fs.cpSync(from, to, { recursive: true })
+    fs.rmSync(from, { recursive: true, force: true })
+  }
 }

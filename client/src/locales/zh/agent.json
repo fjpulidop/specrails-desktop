@@ -346,7 +346,7 @@
       "building": "正在隔离的 worktree 中实现…",
       "buildingInPlace": "正在项目文件夹中实现…",
       "buildingExistingPr": "正在向现有 PR 应用更改…",
-      "paused": "需要人工决策",
+      "paused": "已暂停",
       "on_review": "实现已完成，待评审",
       "pr_draft": "已创建草稿 PR",
       "pr_draft_degraded": "PR 交付未完成",
@@ -428,8 +428,6 @@
     "retryPushNote": "实现已成功，更改安全保存在本地。请仅重试推送。",
     "cleanupIncomplete_one": "清理未完成（{{count}} 条警告）",
     "cleanupIncomplete_other": "清理未完成（{{count}} 条警告）",
-    "safetyArchiveTitle": "安全存档（{{count}}）",
-    "safetyArchiveHint": "为安全起见，临时工作区文件已保存在 PR 之外。你可以检查或手动删除它们。",
     "confirm": {
       "recoverAndRetryTitle": "提交并推送已保留的结果？",
       "recoverAndRetryBody": "Specrails 只会使用 {{branch}} 对应的隔离 worktree 或已记录且可快进的分支。必要时，它会提交可交付文件；仅当 PR 仍以预期的源分支和目标分支保持打开状态时，才会推送这个精确提交。不会触碰项目主目录及其中尚未提交的更改。",
@@ -442,7 +440,7 @@
       "mergeLocalTitle": "在本地集成？",
       "mergeLocalBody": "交付的分支将在本地合并到 {{base}}。现有更改会被保留；重叠的更改可能需要先解决才能集成。",
       "freshDiscardTitle": "丢弃此交付？",
-      "freshDiscardBody": "PR 将关闭，但不会删除其远程分支。只会删除归 SpecRails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。spec 将返回待办列表。已删除的本地资源无法恢复。",
+      "freshDiscardBody": "PR 将关闭，但不会删除其远程分支。只会删除归 Specrails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。spec 将返回待办列表。已删除的本地资源无法恢复。",
       "implementationFailedDiscardTitle": "丢弃此失败的交付？",
       "implementationFailedDiscardBody": "卡片将被关闭，spec 会返回待办列表。本地工作和分支将保留以供检查。只有确认可安全清理的资源才可能被移除。",
       "dismissTitle": "关闭此后续任务？",
@@ -544,7 +542,11 @@
       "failing_pr": "{{pr}}：失败的检查：{{checks}}"
     },
     "ciBuildingHint": "等待检查结果，修复代码导致的失败并推送到同一个 PR。非代码原因的失败只报告，不重试。",
-    "runStoppedNote": "你在交付之前停止了此运行。想继续时可以重新启动。"
+    "runStoppedNote": "你在交付前停止了此次运行。继续会在同一个 worktree 中从停止处接着运行。",
+    "runStoppedNoteNoContinue": "你在交付前停止了此次运行。其工作保留在 worktree 中。",
+    "continue": "继续",
+    "startOver": "从头开始",
+    "startOverHint": "从基线重新运行；此次尝试的工作保留在旧的 worktree 中。"
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -815,7 +817,8 @@
       "feature_unavailable": "Intent 不可用",
       "daily_budget_exceeded": "已达到每日预算，未启动任何任务。",
       "review_wip_limit_reached": "已达到评审上限，未启动任何任务。",
-      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
+      "launch_preflight_blocked": "启动前请先修复未通过的检查。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",
@@ -934,7 +937,26 @@
     "add": "在拆分视图中添加对话",
     "close": "关闭拆分视图",
     "loadFailed": "无法加载此对话。",
-    "retry": "重试"
+    "retry": "重试",
+    "openRight": "在右侧打开",
+    "openBelow": "在下方打开",
+    "layoutMenu": "拆分和排列窗格",
+    "splitRight": "向右拆分",
+    "splitDown": "向下拆分",
+    "moveLeft": "左移",
+    "moveRight": "右移",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "swap": "交换位置",
+    "maximize": "最大化窗格",
+    "restore": "恢复布局",
+    "equalize": "平分窗格",
+    "closePane": "关闭窗格",
+    "noMissions": "没有其他可打开的任务",
+    "noRoom": "空间不足，无法使用此布局",
+    "stacks": "堆叠",
+    "resize": "调整 {{first}} 和 {{second}} 的大小",
+    "panes": "已打开的任务"
   },
   "runtimeSelector": {
     "label": "模型和推理强度",
@@ -1389,7 +1411,7 @@
     "paused": "已暂停。等待你处理",
     "pausedReason": "已暂停：{{reason}}",
     "decision": {
-      "approval": "等待你的批准",
+      "approval": "需要处理",
       "changes": "审阅者要求修改",
       "on_review": "可供你评审",
       "pr_draft": "草稿 PR 已可发布",
@@ -1537,11 +1559,7 @@
     "greeting": "{{project}} 接下来要交付什么?",
     "greetingNoProject": "接下来要交付什么?",
     "statusTodo_one": "{{count}} 项待办",
-    "statusTodo_other": "{{count}} 项待办",
-    "statusReview_one": "{{count}} 项等待评审",
-    "statusReview_other": "{{count}} 项等待评审",
-    "statusRunning_one": "{{count}} 项运行中",
-    "statusRunning_other": "{{count}} 项运行中"
+    "statusTodo_other": "{{count}} 项待办"
   },
   "prCi": {
     "title": "监控并修复 PR {{pr}} 的 CI",
@@ -1620,5 +1638,68 @@
     "history": "历史",
     "peakValue": "峰值 {{value}}",
     "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。"
+  },
+  "contextUsage": {
+    "open": "已用上下文：{{percent}}%",
+    "title": "上下文",
+    "description": "此任务的提供方会话上下文的占用情况（由提供方报告）。",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "模型",
+    "sourceResponse": "根据上一次响应测得",
+    "sourceSessionFile": "从 {{provider}} 会话读取",
+    "compacted": "提供方在上一轮中压缩了上下文。",
+    "highNote": "上下文填满时，提供方会自动压缩。带着摘要开始新会话也会有帮助。",
+    "openUnknown": "上下文：窗口占用比例未知",
+    "tokensUsedOnly": "已使用 {{used}} 个 token",
+    "windowUnknown": "提供方未报告上下文窗口，因此占用比例未知。",
+    "usageUnknown": "提供方刚压缩了上下文，当前用量未知。"
+  },
+  "sessionRenew": {
+    "action": "用摘要重新开始",
+    "hint": "为此任务撰写摘要；你的下一条消息将开启一个只了解该摘要的新会话。",
+    "confirmBody": "Specrails 将为此任务撰写摘要（目标、决定、当前状态、后续步骤）。你的下一条消息将开启一个只了解该摘要的新提供方会话。对话会保留在历史记录中。",
+    "confirm": "重新开始",
+    "cancel": "取消",
+    "running": "正在撰写摘要…",
+    "retry": "重试",
+    "blockedBusy": "当前轮次结束后可用。",
+    "blockedMode": "此模式下不可用：它使用自己的会话。",
+    "marker": "会话已更新 · 摘要",
+    "markerDetail": "新会话了解的内容",
+    "showSummary": "显示摘要",
+    "hideSummary": "隐藏摘要",
+    "basedOn": "基于完整对话",
+    "basedOnPartial": "基于 {{total}} 条消息中最新的 {{included}} 条",
+    "errors": {
+      "MISSION_BUSY": "请等待当前轮次结束后重试。",
+      "MISSION_IN_INTENT": "此任务处于 Intent 中，使用自己的会话。退出 Intent 后才能开启新会话。",
+      "MISSION_ARCHIVED": "开启新会话前，请先恢复此已归档的任务。",
+      "NOTHING_TO_SUMMARIZE": "还没有可以摘要的对话。",
+      "RENEWAL_CANCELLED": "新会话已取消。",
+      "generic": "无法撰写摘要。",
+      "SHUTTING_DOWN": "撰写摘要时 Specrails 重新启动了。没有任何更改，请重试。"
+    }
+  },
+  "ask": {
+    "menu": "询问这段内容",
+    "title": "询问这段内容",
+    "description": "针对所选文本的旁路对话，使用此任务之前的上下文。任务本身不会改变。",
+    "selection": "所选文本",
+    "showAll": "显示全部",
+    "showLess": "收起",
+    "thread": "旁路对话",
+    "running": "思考中…",
+    "failed": "无法获得回答，请重试。",
+    "retry": "重试",
+    "inputLabel": "关于所选文本的问题",
+    "placeholder": "输入问题，或按 Enter 获取解释 · 不会保存",
+    "placeholderFollowUp": "继续提问 · 不会保存",
+    "send": "提问",
+    "footer": "由 {{model}} 回答 · 关闭后将丢弃此对话",
+    "footerPending": "使用 {{model}} · 关闭后将丢弃此对话",
+    "answer": "回答",
+    "defaultQuestion": "解释这在此上下文中的含义。",
+    "providerDefault": "{{provider}} 默认模型"
   }
 }

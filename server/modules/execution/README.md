@@ -18,6 +18,29 @@ reservation, process handles, durable recovery and notifications. The accounting
 use case does not swallow errors, open transactions or retry individual writes.
 These responsibilities have not yet been migrated out of QueueManager.
 
+### Job start stages
+
+`QueueManager._startJob` only sequences named stages; each is a move of the
+former inline body, in the original order, with a slot-ownership check after
+every await:
+
+| Stage | Where |
+| --- | --- |
+| Admission of the reserved slot, adapter pin, execution context, running mark | `_admitReservedStart`, `_prepareJobExecution`, `_markJobRunning` |
+| Spawn plan: system prompt, prompt, addenda, model, profile, argv | `_buildSpawnPlan` with [job-prompt](runtime/job-prompt.ts) and [job-spawn-profile](runtime/job-spawn-profile.ts) |
+| Env: agent base env, telemetry, profile path, repo map, plugins | [job-spawn-env](runtime/job-spawn-env.ts), then `_applyProviderSpawnEnv` (provider, relocation, openspec shim, PR delivery) |
+| Interactive hand-off or provenance snapshot → durable promotion → spawn & reservation | `_handOffInteractiveJob`, `_captureSpawnSnapshot`, `_promoteToRunning`, `_spawnAndReserve` |
+| Stream handling and close hand-off | [job-output-stream](runtime/job-output-stream.ts) through a narrow host |
+
+Plugin resolution is awaited only when it actually runs, so an ineligible spawn
+stays in the tick of its synchronous slot reservation. The terminal outcome of a
+one-shot exit is [job-terminal-outcome](runtime/job-terminal-outcome.ts); settle-time
+provenance is [job-provenance](runtime/job-provenance.ts) (finish diff before the next
+snapshot). Supporting modules: the [orphan-recovery outbox contract](runtime/orphan-recovery-payload.ts),
+the [queued-job projection](runtime/queued-job-store.ts), [budget enforcement and cost
+alerts](runtime/queue-budget-enforcement.ts) and the [execution context](runtime/queue-execution-context.ts).
+Spawn-stage characterization tests: [queue-manager-spawn-stages.test.ts](runtime/queue-manager-spawn-stages.test.ts).
+
 [Agent environment policy](domain/agent-env.ts) is pure: `buildAgentEnv` returns
 the source unchanged in `inherit` mode and, in `minimal` mode, a fresh object with
 the shared allowlist, Windows essentials (case-insensitive on Windows),
@@ -28,6 +51,14 @@ Run `npx vitest run server/modules/execution server/modules/execution/runtime/qu
 The queue suite covers settlement failure, crash replay, cancellation and budgets;
 [port tests](__tests__/accounting.test.ts) cover attribution and error propagation.
 [Architecture guards](../architecture.test.ts) prevent infrastructure imports.
+
+## Leftover processes
+
+Tree-kill (`treeKillSafe`) on timeout, cancel or finalize walks parent links only, and a
+normal exit kills nothing: test/preview servers a CLI started in their own process group
+are re-parented to init/launchd and escape it. Isolated runs reap them by worktree path
+at settlement and before worktree removal; see
+[terminals › Leftover processes](../terminals/README.md#leftover-processes-in-run-worktrees).
 
 ## Daily budget admission
 
@@ -71,3 +102,11 @@ historical one; week/month add `period`. `LoopRunManager` additionally checks th
 `loop_runs.run_cap_usd`, migration 85) on the same `budget_paused` pause, with Core's cooperative pause when the run is
 mid-step; `resumeBudgetPause(runId, { ignore } | { raiseTo })` is the explicit answer. Storage keys are in
 [budget-storage](adapters/budget-storage.ts).
+
+Mission and Intent turns live in the app ledger (desktop.sqlite `agent_invocations`), not in `ai_invocations`. The
+composition root passes that DB as `appLedgerDb`: a project's caps (gate, queue day budget, Budget panel, projection)
+add the turns pinned to the project, and the app-wide caps add every turn (Home, Blueprint and Builder chats included;
+`appWideSpendSince`). The app-wide daily budget uses the same basis as the other caps (all recorded costs since the
+LOCAL day start); it used to read completed jobs since the UTC day. An unreadable ledger adds nothing (fail-open).
+Missions themselves are not gated: a mission over a cap keeps running, but its spend now counts, so the next job,
+rail, loop or PR-CI launch is refused (and the queue pauses at its next drain) until the cap resets or is raised.

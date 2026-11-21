@@ -126,6 +126,16 @@ describe('InteractiveJobSession', () => {
     expect(h.session.send('must not be accepted')).toBe(false)
   })
 
+  it('reports the resident child pid only while the child lives', async () => {
+    expect(h.session.processPid()).toBeNull()
+    h.child.pid = 4242
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    expect(h.session.processPid()).toBe(4242)
+    h.child.emit('close', 0)
+    await tick()
+    expect(h.session.processPid()).toBeNull()
+  })
+
   it('hands every parsed frame to onProviderEvent and survives a throwing observer', async () => {
     const seen: string[] = []
     h = setup('observed', {

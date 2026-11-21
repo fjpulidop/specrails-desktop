@@ -27,11 +27,14 @@ import { getProjectRepositories } from '../../../project-repositories'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { fetchOrigin, resolveIntegrationBranch, resolveWorktreeBaseRef } from '../../../integration-branch'
 import {
-  createWorktree, defaultGitRunner, listLocalBranches, removeWorktree, worktreeBranch,
-  type GitRunner, type WorktreeHandle,
+  createWorktree, defaultGitRunner, initializeWorktreeSubmodules, listLocalBranches, removeWorktree, worktreeBranch,
+  type ClaimPreparedCheckout, type GitRunner, type WorktreeHandle,
 } from '../../../worktree-manager'
+import { ensurePreparedCheckout, preparedCheckoutClaimer } from './worktree-preparation-pool'
 import { applyWorktreeOverlay, type OverlayCleanupEvidence } from '../../../worktree-overlay'
+import { currentPolicyHookCommand } from '../../agent-policy'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { syncWorktreeEnvFiles } from '../../../worktree-env-files'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { resolveCollisionFreeName, ticketBranchName, type TicketNamingInput } from './pr-naming'
 import type { ProjectContext } from '../../../project-registry'
@@ -84,6 +87,24 @@ export interface IsolatedWorktreeIO {
   resolveExecution?: typeof resolveProjectExecution
   /** Code-Explorer pre-run worktree snapshot. */
   snapshot?: typeof snapshotWorkingTree
+  /** Prepared checkouts (worktree-preparation-pool). Default: on only with the
+   *  real Git runner and worktree creator, so injected doubles stay exact. */
+  preparation?: boolean
+  /** Populates the checkout's submodules (`git worktree add` leaves them empty).
+   *  Default: on only with the real Git runner and worktree creator, like `preparation`. */
+  submodules?: typeof initializeWorktreeSubmodules
+  /** Copies the project's gitignored env files into the checkout (setting `worktreeEnvFiles`). */
+  envFiles?: typeof syncWorktreeEnvFiles
+}
+
+function worktreeSubmodules(io: IsolatedWorktreeIO): typeof initializeWorktreeSubmodules | null {
+  if (io.submodules) return io.submodules
+  return (io.git === undefined || io.git === defaultGitRunner) && io.create === undefined ? initializeWorktreeSubmodules : null
+}
+
+/** Whether a launch with this IO prepares/adopts checkouts. */
+export function usesWorktreePreparation(io: IsolatedWorktreeIO): boolean {
+  return io.preparation ?? ((io.git === undefined || io.git === defaultGitRunner) && io.create === undefined)
 }
 
 /** `adopted`: an Intent session worktree/branch the rail took over at hand-off. From the
@@ -98,6 +119,9 @@ export interface OverlaySources {
   fallbackSourceRoots?: string[]
   providerDir: string
   instructionsFilename: string
+  /** Claude worktrees: the agent policy hook command the overlay merges into
+   *  the managed `.claude/settings.local.json` (null: policy off). */
+  policyHookCommand?: string | null
 }
 
 /**
@@ -175,7 +199,10 @@ export function resolveOverlaySources(
     providerDir = adapter.projectDirName
     instructionsFilename = adapter.instructionsFilename
   } catch { /* unknown provider — claude-shaped defaults */ }
-  return { sourceRoot, fallbackSourceRoots, providerDir, instructionsFilename }
+  // The in-turn policy hook rides in the worktree's managed local settings
+  // (Claude reads them through `--setting-sources project,local`).
+  const policyHookCommand = providerDir === '.claude' ? currentPolicyHookCommand() : undefined
+  return { sourceRoot, fallbackSourceRoots, providerDir, instructionsFilename, ...(policyHookCommand !== undefined ? { policyHookCommand } : {}) }
 }
 
 export interface MaterializeIsolatedWorktreeInput {
@@ -194,10 +221,16 @@ export interface MaterializeIsolatedWorktreeInput {
   refreshFromBaseRef?: boolean
   fresh?: boolean
   reuseBranchWorktree?: boolean
+  /** Fresh branches: adopt a prepared checkout (worktree-preparation-pool). */
+  claimPrepared?: ClaimPreparedCheckout
   /** Verifies the materialized checkout and returns its pre-run HEAD. Throwing
    *  rolls back resources this call created. Default: read HEAD. */
   verifyHead?: (handle: WorktreeHandle, git: GitRunner) => Promise<string | null>
   overlay: OverlaySources
+  /** The project's `worktreeEnvFiles` setting. true: copy (recopy) the
+   *  repository's gitignored env files; false: remove earlier copies;
+   *  omitted: leave the checkout's env files alone. */
+  copyEnvFiles?: boolean
   /** Degraded overlay/warm-link warnings (the run proceeds regardless). */
   onDegraded: (warnings: string[]) => void
 }
@@ -212,6 +245,8 @@ export interface MaterializedIsolatedWorktree {
   overlayExcludes: string[]
   overlayCleanupEvidence: OverlayCleanupEvidence[]
   warmLinkEvidence: OverlayCleanupEvidence[]
+  /** Worktree-relative env files copied from the person's checkout (also in `overlayExcludes`). */
+  envFiles: string[]
   provenanceSnapshot: WorkingTreeSnapshot | null
   branchOwnership: IsolatedBranchOwnership
   worktreeOwnership: IsolatedWorktreeOwnership
@@ -239,6 +274,7 @@ export async function materializeIsolatedWorktree(
     refreshFromBaseRef: input.refreshFromBaseRef,
     fresh: input.fresh,
     reuseBranchWorktree: input.reuseBranchWorktree,
+    ...(input.claimPrepared ? { claimPrepared: input.claimPrepared } : {}),
   })
   const worktreeOwnership: IsolatedWorktreeOwnership = handle.worktreeCreated === false ? 'preexisting' : 'created'
   let branchOwnership = input.branchOwnership
@@ -247,6 +283,9 @@ export async function materializeIsolatedWorktree(
   }
   let initialSha: string | null
   try {
+    // Before HEAD is proven and before any agent runs: a checkout missing a submodule its
+    // code imports fails every baseline check. Unavailable → the launch fails clearly.
+    await worktreeSubmodules(io)?.(git, input.repoDir, handle.worktreePath)
     initialSha = input.verifyHead
       ? await input.verifyHead(handle, git)
       : await readHeadSha(git, handle.worktreePath)
@@ -274,6 +313,7 @@ export async function materializeIsolatedWorktree(
       fallbackSourceRoots: input.overlay.fallbackSourceRoots,
       providerDir: input.overlay.providerDir,
       instructionsFilename: input.overlay.instructionsFilename,
+      ...(input.overlay.policyHookCommand !== undefined ? { policyHookCommand: input.overlay.policyHookCommand } : {}),
     })
     overlayExcludes = res.createdPaths
     overlayCleanupEvidence = res.cleanupEvidence ?? []
@@ -300,13 +340,23 @@ export async function materializeIsolatedWorktree(
   } catch (err) {
     input.onDegraded([err instanceof Error ? err.message : String(err)])
   }
+  // Opt-in env files: recopied on every materialization (the person may have
+  // changed them), removed when the setting is off. Only gitignored files are
+  // copied; they also join the exclusions so status/settlement never count them.
+  let envFiles: string[] = []
+  if (input.copyEnvFiles !== undefined) {
+    const synced = await (io.envFiles ?? syncWorktreeEnvFiles)({ git, repoDir: input.repoDir, worktreePath: handle.worktreePath, enabled: input.copyEnvFiles })
+    envFiles = synced.copied
+    if (envFiles.length > 0) overlayExcludes = overlayExcludes.concat(envFiles.filter((entry) => !overlayExcludes.includes(entry)))
+    if (synced.warnings.length > 0) input.onDegraded(synced.warnings)
+  }
   // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha +
   // the overlay's untracked set) so the settle diff attributes exactly the
   // run's own writes. Best-effort — a snapshot failure only loses provenance.
   let provenanceSnapshot: WorkingTreeSnapshot | null = null
   if (isCodeExplorerEnabled()) {
     try {
-      provenanceSnapshot = (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
+      provenanceSnapshot = await (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
     } catch (err) {
       console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
     }
@@ -319,6 +369,7 @@ export async function materializeIsolatedWorktree(
     overlayExcludes,
     overlayCleanupEvidence,
     warmLinkEvidence,
+    envFiles,
     provenanceSnapshot,
     branchOwnership,
     worktreeOwnership,
@@ -403,7 +454,11 @@ export async function prepareIsolatedWorktree(
   const resolveExecution = io.resolveExecution ?? (target.primary ? undefined : () => resolveProjectExecution(ctx.project))
   const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, resolveExecution)
   return withRepoLock(baseRepo, async () => {
-    const fetchResult = await fetchOrigin(git, baseRepo)
+    const fetching = fetchOrigin(git, baseRepo)
+    // Populate a checkout from the pre-fetch base while the fetch is on the
+    // network; adoption below resets it to the exact fetched base.
+    if (usesWorktreePreparation(io)) await startPreparationBesideFetch(git, baseRepo, target.worktreesRoot, input.baseRef ?? undefined, target.primary ? target.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch : target.integrationBranch ?? undefined)
+    const fetchResult = await fetching
     const integration = await resolveIntegrationBranch(git, {
       repoDir: baseRepo,
       explicit: input.baseRef ?? undefined,
@@ -434,9 +489,32 @@ export async function prepareIsolatedWorktree(
       branch,
       branchOwnership: 'created',
       fresh: true,
+      ...(!usesWorktreePreparation(io) ? {} : { claimPrepared: preparedCheckoutClaimer(git, baseRepo, target.worktreesRoot) }),
       overlay: overlaySources,
+      copyEnvFiles: getProjectSettings(ctx.db).worktreeEnvFiles,
       onDegraded,
     }, io)
     return { ...prepared, runId, baseRef: worktreeBaseRef.baseRef, baseSha, integrationBranch: integration.branch }
   })
+}
+
+/**
+ * Start (without awaiting) one prepared checkout cut from the launch's best
+ * pre-fetch base guess — the remote-tracking ref of the integration branch as
+ * it stands before this fetch, else the local branch — so populating the files
+ * overlaps the network round trip. Never throws; a failed guess only means no
+ * prepared checkout (the plain `worktree add` path runs).
+ */
+export async function startPreparationBesideFetch(
+  git: GitRunner,
+  repoDir: string,
+  worktreesRoot: string,
+  explicit: string | undefined,
+  projectSetting: string | null | undefined,
+): Promise<void> {
+  try {
+    const integration = await resolveIntegrationBranch(git, { repoDir, explicit, projectSetting: projectSetting ?? undefined })
+    const guess = await resolveWorktreeBaseRef(git, { repoDir, integration, fetchOk: true })
+    ensurePreparedCheckout({ git, repoDir, worktreesRoot, baseRef: guess.baseRef })
+  } catch { /* no preparation; the launch creates its worktree normally */ }
 }

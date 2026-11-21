@@ -63,5 +63,13 @@
     "limitUnknown": "月度限额不可用",
     "resets": "{{time}} 重置",
     "progress": "Claude 月度消费"
+  },
+  "statusBar": {
+    "label": "套餐用量：{{provider}} {{percent}}%。查看详情",
+    "rejectedLabel": "套餐用量：{{provider}} 已达上限。查看详情"
+  },
+  "today": {
+    "title": "今日花费",
+    "estimated": "包含未报告价格的提供商的估算值"
   }
 }

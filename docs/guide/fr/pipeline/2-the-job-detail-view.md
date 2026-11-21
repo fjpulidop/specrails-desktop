@@ -1,12 +1,22 @@
 # La vue détaillée du job
 
-Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ici : le poste de pilotage d'une exécution de rail unique. Tout repose sur une promesse — **les chiffres en direct que vous voyez sont réels, jamais des estimations.** Cette page parcourt les phases, les métriques en direct, les cartes de ticket — et le composeur qui vous permet de **parler au job en cours**.
+Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ici : le poste de pilotage d'une exécution de rail unique. Tout repose sur une promesse — **les chiffres en direct que vous voyez sont réels, jamais des estimations.** Cette page parcourt les phases, les métriques en direct, les cartes de spec — et le composeur qui vous permet de **parler au job en cours**.
 
 ## La disposition
 
-L’en-tête compact conserve statut, durée, phase, actions et puces du pipeline. **Causes de l’échec** est sélectionné à l’ouverture d’une exécution échouée ou annulée avec diagnostic ; les autres ouvrent **Journal**. Une question en attente de réponse rend aussi cet onglet disponible : le bouton de question ouvre Détails pour répondre, même sans diagnostic.
+L’en-tête compact conserve statut, durée, phase, actions et puces du pipeline. Juste en dessous, **une seule ligne de navigation** réunit tout ce que vous pouvez consulter :
 
-Causes de l’échec contient cause, remèdes et **Détails** dans un panneau borné à défilement interne. Sinon, Détails reste dans Journal. Les loops proposent **Graphe d’exécution** et **Détail du journal** ; les autres jobs uniquement le détail. La section et l’ouverture de Détails sont mémorisées séparément pour la page et la modale de mission ; l’onglet principal se réinitialise à chaque visite. Le composeur reste en dessous.
+- **Causes de l’échec** — présent pour une exécution échouée ou annulée avec diagnostic, et sélectionné en premier. Une question en attente à laquelle on peut répondre le rend aussi disponible : cliquez sur le bouton de question de l’en-tête pour y aller et répondre, même sans diagnostic.
+- **Graphe d’exécution** et **Détail du journal** — pour les exécutions de loop, le graphe du workflow et le journal étape par étape.
+- **Journal** — pour les jobs simples, le log en streaming.
+
+À côté des onglets n’apparaissent que les puces que l’exécution a méritées : **Vérification** (avec le nombre de contrôles, dans la couleur de son état) quand l’exécution a enregistré des preuves de vérification — cliquez pour voir les contrôles et leur sortie — et un bouton **Détails** (icône d’histogramme) quand il y a des chiffres réels à montrer. Les deux s’ouvrent en popover, le journal garde donc toujours toute la hauteur. La dernière section du journal choisie est mémorisée séparément pour la page et la fenêtre de mission ; l’onglet sélectionné est réinitialisé à chaque visite.
+
+### Instructions d’exécution
+
+Tant qu’une exécution peut encore les lire, un compositeur d’une ligne est ancré en bas du journal : écrivez ce dont l’agent doit tenir compte et appuyez sur le bouton d’envoi ou **⌘↵** (**Ctrl+Entrée**). **Entrée** ajoute une ligne. Le **ⓘ** explique la règle : les instructions sont appliquées au prochain tour compatible de l’agent ; elles ne répondent pas à une question et n’accordent pas d’approbation. Ce que vous avez envoyé apparaît en puce à côté du compositeur — *1 en attente*, *2 appliquées* — qui liste chaque message et son statut. Une fois l’exécution terminée, le compositeur disparaît ; une exécution passée qui a reçu des instructions garde la puce, en lecture seule, à côté des onglets.
+
+Dans l’application de bureau, un job ouvert depuis une mission s’affiche dans **sa propre fenêtre**, une fenêtre par job. Appuyez sur **Échap** ou fermez la fenêtre pour revenir ; la version navigateur affiche le même contenu dans une modale.
 
 ## Les phases du pipeline
 
@@ -29,7 +39,7 @@ Quel agent gère chaque phase est décidé par le **profil d'agent** du projet. 
 
 ## Métriques en direct — honnêtes par conception
 
-L’en-tête compact affiche statut, durée, activité, étapes et actions. Les chiffres réels et les commandes de continuation sont dans **Détails**, dans un panneau borné :
+L’en-tête compact affiche statut, durée, activité, étapes et actions. Les chiffres réels et les notes de reprise s’ouvrent depuis le bouton **Détails** à côté des onglets :
 
 | Métrique | Quand vous voyez la vraie valeur |
 |--------|------------------------------|
@@ -42,18 +52,18 @@ Le principe de conception : **aucun chiffre approximatif ou estimé en cours d'e
 
 Le libellé et l'icône de l'en-tête correspondent au statut du job, et le panneau s'affiche aussi bien pour les jobs `running`, `completed` que `failed` — ainsi la vue détaillée d'un job terminé montre les mêmes métriques figées sur leurs valeurs finales.
 
-## Les cartes de ticket
+## Les cartes de spec
 
-L'**en-tête de ticket** se trouve entre l'en-tête de statut et le log. C'est une carte d'identité premium qui affiche une puce pour chaque spec touchée par le job — issues de la commande lancée, donc elle reflète exactement quels tickets concernait cette exécution.
+L'**en-tête de spec** se trouve entre l'en-tête de statut et le log. C'est une carte d'identité premium qui affiche une puce pour chaque spec touchée par le job — issues de la commande lancée, donc elle reflète exactement quelles specs concernait cette exécution.
 
-- **2 à 3 tickets** — affichés sous forme de liste de puces.
+- **2 à 3 specs** — affichés sous forme de liste de puces.
 - **4 ou plus** — repliés en un mode compact `+ N de plus` avec un chevron de dépliage, pour que l'en-tête reste net.
 
-Cliquer sur une puce ouvre le détail de cette spec **par-dessus la page du job** — vous ne perdez pas votre place et ne changez pas de route. C'est un moyen rapide de relire ce qu'un job est censé livrer pendant que vous le regardez travailler. (Sur les écrans de largeur tablette, vous pouvez même glisser une fenêtre de ticket sur le côté pour comparer deux specs côte à côte.)
+Cliquer sur une puce ouvre le détail de cette spec **par-dessus la page du job** — vous ne perdez pas votre place et ne changez pas de route. C'est un moyen rapide de relire ce qu'un job est censé livrer pendant que vous le regardez travailler. (Sur les écrans de largeur tablette, vous pouvez même glisser une fenêtre de spec sur le côté pour comparer deux specs côte à côte.)
 
 ## Le log en streaming
 
-Ouvrez **Journal → Détail du journal** pour le log en direct, ou Story si la narration est activée. La sortie arrive en temps réel via WebSocket :
+Ouvrez **Journal** (jobs simples) ou **Détail du journal** (exécutions de loop) pour le log en streaming, ou choisissez Story si la narration est activée. La sortie brute arrive en temps réel via WebSocket :
 
 - **L'auto-défilement** garde la sortie la plus récente en vue (faites défiler vers le haut et il se met en pause pour vous laisser lire).
 - **Recherche** pour sauter à une expression.
@@ -61,16 +71,23 @@ Ouvrez **Journal → Détail du journal** pour le log en direct, ou Story si la 
 
 C'est la vérité brute de ce que fait l'IA — chaque appel d'outil, chaque modification de fichier, chaque exécution de test.
 
-## Exécutions de loop : l'explorateur d'étapes
+## Exécutions de loop : le graphe et le journal des étapes
 
-Pour une **exécution de loop** (voir [Le Loop Builder](the-loop-builder)), **Journal → Graphe d’exécution** affiche l’**explorateur d’étapes**. Détail du journal propose séparément le log brut et, si activée, la narration :
+Pour une **exécution de loop** (voir [Le Loop Builder](the-loop-builder)), deux onglets montrent les éléments de preuve.
 
-- **Le bandeau de synthèse** en haut est la carte en direct du loop — une pastille par nœud (Étape IA, Shell, Décideur de boucle…), dans l'ordre où circule le graphe. Les pastilles s'allument au fil de l'exécution : estompées en attente, pulsantes pendant l'exécution, puis une coche ou une croix. La pastille d'un Décideur affiche aussi le verdict qu'il a suivi — reboucler ou passer à la suite — et un compteur d'itérations (`Itération 3/10`) tient le score à droite. Cliquez sur n'importe quelle pastille pour sauter directement à la dernière étape de ce nœud.
+**Graphe d’exécution** est le workflow tel qu’il a tourné. Il est toujours déplié et suit l’étape en cours, ou celle qui a échoué :
+
+- **Le chemin suivi est en trait plein.** Les étapes par lesquelles l’exécution est passée sont tracées en plein ; celles jamais atteintes sont en pointillés et estompées. Activez **Seulement le chemin suivi** pour masquer le reste. Une légende figure à côté.
+- **Inspecter une étape.** Sélectionnez un nœud pour lister ses tentatives avec leur état et leur durée. Cliquez sur une tentative pour ouvrir son journal dans Détail du journal. **Reprendre à partir d’ici** figure sur la ligne de chaque tentative terminée, pour qu’une exécution liée démarre exactement à la tentative choisie. Les identifiants techniques sont sous **Trace**.
+
+**Détail du journal** contient la piste des étapes et le journal, et s’ouvre sur l’étape qui a échoué :
+
+- **Le bandeau des étapes** en haut ne liste que les étapes atteintes par l’exécution, dans l’ordre, avec un compteur d’itérations (`Itération 3/10`) à droite. Les pastilles sont estompées en attente, pulsent pendant l’exécution, puis affichent une coche ou une croix ; la pastille d’un Décideur affiche aussi le verdict qu’il a suivi. Cliquez sur une pastille pour sauter à cette étape.
 - **Une boîte repliable par étape.** Chaque passage sur un nœud devient sa propre section, avec le numéro de l'étape, son nom, un badge d'itération, sa durée une fois terminée — et son propre bouton de copie, pour récupérer exactement la sortie d'une étape. (La copie de la barre d'outils emporte toujours le log entier.) Tout ce qui s'affiche avant la première étape — la bannière de lancement, l'avis de worktree — est rangé dans une section **Préparation**.
 - **Le mode suivi** est actif par défaut : l'étape en cours reste ouverte et défile automatiquement pendant que les précédentes se replient. Dès que vous remontez ou ouvrez une étape plus ancienne, le suivi se met en pause pour vous laisser lire — une pastille flottante **Reprendre le suivi** vous ramène au direct. **Tout développer / Tout réduire** vivent dans la barre d'outils, et la recherche parcourt toutes les étapes à la fois.
 - **Les étapes interrompues aussi sont honnêtes.** Une étape qui n'a jamais pu rapporter son issue — l'exécution a été annulée ou l'app s'est arrêtée en pleine étape — est marquée **Interrompue** avec une bordure en pointillés, plutôt que de faire semblant d'avoir fini.
 
-L’exploration du graphe et le défilement du log en pause sont conservés en changeant de section. Les jobs sans loop affichent le détail sans commande de graphe.
+Story, si la narration est activée, est proposé dans Détail du journal. L’exploration du graphe et un défilement du journal en pause sont conservés en changeant d’onglet.
 
 ## Parlez au job en cours
 
@@ -85,7 +102,7 @@ Quelques points à connaître :
 
 ## Export de diagnostic
 
-Si la [télémétrie](../settings/customizing) était activée pour le job, un bouton **Exporter le diagnostic** apparaît dans l'en-tête. Il télécharge un ZIP contenant :
+Si la [télémétrie](../settings/pipeline-telemetry-and-diagnostics) était activée pour le job, un bouton **Exporter le diagnostic** apparaît dans l'en-tête. Il télécharge un ZIP contenant :
 
 - `job-metadata.json` — commande, statut, profil, plugins.
 - `telemetry.ndjson` — signaux OTLP/JSON non compressés.
@@ -97,20 +114,43 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 
 ## Quand une exécution échoue
 
-Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** affiche la **carte de diagnostic**, avec la cause et les explications connues. Aucun résumé de cause ne précède les onglets :
+Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** s’ouvre sur la **carte de diagnostic**, qui explique la cause et, si on le sait, pourquoi c’est arrivé. Quand l’exécution a enregistré quelle étape a échoué, la carte le dit : l’étape, la tentative, l’itération et l’heure. Les causes :
 
 - **Tests échoués** : les vérifications échouent encore après les tours de correction.
-- **Limite du fournisseur** : la limite d'utilisation du fournisseur d'IA est atteinte. La carte cite le moment de la réinitialisation, avec les mots du fournisseur.
+- **Limite du fournisseur** — la limite d'utilisation du fournisseur d'IA a été atteinte. La carte indique la réinitialisation à votre heure locale quand le fournisseur a donné l'heure exacte, sinon avec ses propres mots. Une exécution encore en pause à la limite affiche sa propre carte : quand elle reprend seule, **Reprendre maintenant** et **Continuer maintenant avec** un autre fournisseur. Voir [Limites d'utilisation](1-rails-and-jobs.md#usage-limits).
 - **Environnement** : la machine ne peut pas exécuter les vérifications (identifiants, outil manquant, commande de préparation en échec). *Réparer l'environnement* montre précisément quoi exécuter ou changer.
+- **Port déjà utilisé** : la vérification ou le serveur de l'exécution n'a pas pu démarrer parce qu'un autre processus occupait déjà son port (`EADDRINUSE`). Ce n'est pas compté comme des tests en échec. Chaque worktree d'exécution reçoit ses propres ports via `PORT` et `SPECRAILS_RUN_PORT_RANGE_START`/`_END` ; un projet qui lit `PORT` n'entre jamais en collision. Arrêtez l'autre processus, ou faites lire `PORT` au projet, puis **Relancer**.
 - **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
-- **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.
+- **Tâches inachevées** : l'exécution a fait le travail mais laissé des tâches approuvées non cochées, par exemple une vérification visuelle. La carte les liste. **Continuer** garde le travail et relance le développeur avec l'outil navigateur et la règle d'installer ce qui manque, pour exactement ces tâches ; quand il ne reste que des vérifications qu'une personne doit faire, **Continuer vers la relecture** l'envoie en relecture avec elles comme *vérifications manuelles* dans le dossier de relecture.
+- **Spécification rejetée** : OpenSpec a rejeté le plan ou la spécification et la planification n'a pas pu le réparer. **Modifier la spec et relancer**.
+- **Cause inconnue** : les enregistrements de l'exécution ne donnent pas de cause, et l'app ne devine pas. La carte affiche d'abord l'analyse IA, indiquée comme telle, ou propose **Analyser avec l'IA** comme première action ; la fin du journal reste à un clic.
 
-Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici : **Reprendre depuis** la phase arrêtée, **Relancer**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement à l'exécution suivante), **Réparer l'environnement** et **Ouvrir le journal à l'échec**. La même cause apparaît en une ligne dans la [liste À traiter](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
+Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici, chacun avec une ligne dessous qui dit ce qu'il fait de votre travail : **Continuer**, **Continuer vers la relecture**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement dans l'exécution suivante), **Réparer l'environnement** et **Ouvrir les logs à l'échec**. **Recommencer** attend dans le menu **⋯** : il lance une nouvelle exécution depuis la base, et le travail de cette tentative n'est pas repris (il reste dans l'ancien worktree). La même cause apparaît en une ligne dans la [boîte de réception](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
+
+Les exécutions Implement vérifient elles-mêmes l'interface et le comportement visuel : chaque exécution dispose d'un outil de navigateur headless (`$SPECRAILS_BROWSE`) qui ouvre l'app sur le port propre à l'exécution, ou une page du dépôt, en taille bureau et téléphone, et renvoie des captures que l'agent lit. Une vérification que seule une personne peut faire (goût, un vrai appareil, de vrais identifiants) est planifiée comme *vérification à la main* : l'exécution n'échoue jamais à cause d'elle, et elle vous parvient dans le paquet de revue.
+
+### Continuer une exécution {#continue}
+
+**Continuer** est le seul chemin pour une exécution en échec ou arrêtée. Il garde tout ce que l'exécution a fait et reprend dans le même worktree : une exécution en pause reprend sur place ; une exécution en échec ou arrêtée continue comme sa *tentative* suivante, depuis l'étape qui a échoué ou là où vous l'avez arrêtée. Il dit aussi à l'agent ce qui s'est mal passé : pour des tâches inachevées, les tâches exactes avec l'outil navigateur et la règle d'installer ce qui manque ; pour un problème de la machine, ce qui manquait et comment l'installer ; après une erreur passagère du fournisseur, rien (la même étape est simplement relancée).
+
+Une exécution que vous avez arrêtée le dit (**Vous avez arrêté cette exécution**) et propose le même **Continuer**, jamais une relance à partir de zéro.
+
+Les tentatives d'un même travail forment une unité. La fenêtre de l'exécution montre où en est celle-ci, par exemple *Tentative 3 sur 4 · reprise depuis l'étape Développeur de la tentative 2* ; cliquez pour voir chaque tentative, ouvrir n'importe laquelle et ce qui a changé entre elles (qui a continué, depuis quelle étape, les consignes envoyées). La boîte de réception, le tableau en direct, la liste des jobs et **⌘K** n'affichent que la dernière tentative, avec son numéro : une tentative précédente en échec reprise par une autre ne compte plus comme quelque chose qui vous attend.
+
+Quand la cause est connue et qu'un peu plus de travail peut la corriger (tâches inachevées, outil manquant, erreur passagère du fournisseur, tentative bloquée), Specrails continue **une fois** de lui-même et écrit *Specrails a continué automatiquement* dans l'historique de l'exécution. Jamais pour des identifiants ou des secrets, des refus de politique, des limites de dépense, des limites d'usage, un arrêt que vous avez choisi ou le même échec deux fois. Désactivez-le dans **Réglages → Agents Specrails → Continuer les exécutions en échec**.
+
+Quand l'analyse IA ci-dessous suggère une étape qui est l'un de ces remèdes, elle apparaît comme un bouton à côté de l'étape.
+
+### Analyse IA {#ai-failure-analysis}
+
+Sous la carte, une **Analyse IA** lit le journal et explique pourquoi l’exécution s’est arrêtée : la cause, **Que faire**, et les lignes **Extrait du journal** sur lesquelles elle s’appuie, citées mot pour mot. Elle tourne avec le même fournisseur et le même modèle que le job, pour que votre compte puisse toujours l’exécuter. Elle démarre d’elle-même, sauf quand la limite du fournisseur était la cause ; appuyez alors sur **Analyser avec l’IA**. L’analyse est enregistrée avec le job. Si le journal change ensuite, elle le signale et propose **Analyser à nouveau**.
+
+L’analyse est présentée comme une lecture de l’IA et ne remplace jamais la carte : le diagnostic, sa cause et ses remèdes restent ce que l’app a enregistré. Vérifiez les lignes qu’elle cite avant d’agir. Son coût est compté dans **Support** dans [Analytics](../insights/analytics-and-cost-tracking).
 
 ## Où aller ensuite
 
 - [Rails et jobs](rails-and-jobs) — lancement et mise en file.
-- [Suivre le coût](../analytics/tracking-cost) — transformer les coûts par job en analytics de projet.
+- [Analytics et suivi des coûts](../insights/analytics-and-cost-tracking) — transformer les coûts par job en analytics de projet.
 
 ## Après le redémarrage d’un workflow
 

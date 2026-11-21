@@ -84,7 +84,7 @@ is rejected rather than silently translating model aliases.
 
 Codex/Gemini availability itself is gated separately (both default-enabled): set
 `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` to disable a provider
-app-wide. See [../codex.md](../codex.md) and [../gemini.md](../gemini.md).
+app-wide. See [../codex.md](../codex.md).
 
 ## 4. Author a custom agent (Agent Studio)
 

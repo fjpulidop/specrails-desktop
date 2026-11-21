@@ -4,6 +4,7 @@ import { render, screen, waitFor, fireEvent, within } from '../../../../test-uti
 import userEvent from '@testing-library/user-event'
 import GlobalSettingsPage from '../GlobalSettingsPage'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
+import { attentionPrefsStore } from '../../../../lib/attention/attention-prefs-store'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -46,6 +47,9 @@ vi.mock('../../../../hooks/useDesktop', () => ({
 
 const desktopSettings = {
   port: 4200,
+  version: '2.3.4',
+  runningPort: 4395,
+  databasePath: '~/.specrails-dev/.specrails/desktop.sqlite',
   specrailsTechUrl: 'http://localhost:3000',
 }
 
@@ -75,24 +79,24 @@ function defaultFetchMock(url: string) {
   return Promise.resolve({ ok: true, json: async () => desktopSettings })
 }
 
-describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
+describe('GlobalSettingsPage (Settings dialog)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjects = []
     global.fetch = vi.fn().mockImplementation(defaultFetchMock)
   })
 
-  it('renders Desktop Settings title when open', async () => {
+  it('renders the Settings title when open', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
   })
 
-  it('renders the Desktop-wide preferences description', async () => {
+  it('renders the app-wide preferences description', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Appearance, AI providers, updates and Desktop-wide preferences.')).toBeInTheDocument()
+      expect(screen.getByText('Appearance, AI providers, updates and app-wide preferences.')).toBeInTheDocument()
     })
   })
 
@@ -177,17 +181,18 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     expect(secret).toHaveAttribute('autocomplete', 'off')
   })
 
-  it('renders the panes immediately and shows an em dash for the port before settings resolve', async () => {
+  it('renders the panes immediately and leaves the port out (no dash) before settings resolve', async () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    expect(await screen.findByText('Registered Projects')).toBeInTheDocument()
-    expect(screen.getByText('Port').nextElementSibling).toHaveTextContent('—')
+    expect(await screen.findByText('Registered projects')).toBeInTheDocument()
+    expect(screen.queryByTestId('about-port')).not.toBeInTheDocument()
+    expect(screen.getByTestId('about-projects')).toBeInTheDocument()
   })
 
-  it('renders Registered Projects section after load', async () => {
+  it('renders Registered projects section after load', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Registered Projects')).toBeInTheDocument()
+      expect(screen.getByText('Registered projects')).toBeInTheDocument()
     })
   })
 
@@ -213,7 +218,8 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     ]
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('My Project')).toBeInTheDocument()
+      const registered = document.querySelector('[data-setting-id="registeredProjects"]') as HTMLElement
+      expect(within(registered).getByText('My Project')).toBeInTheDocument()
       expect(screen.getByText('/home/user/my-project')).toBeInTheDocument()
     })
   })
@@ -303,19 +309,22 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
 
 
 
-  it('renders Desktop Information section with port', async () => {
+  it('About shows the port and project count', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Desktop Information')).toBeInTheDocument()
-      expect(screen.getByText('4200')).toBeInTheDocument()
+      expect(screen.getByText('About', { selector: 'h3, h2, [data-setting-id] *' })).toBeInTheDocument()
+      // The port this instance listens on, not only the persisted setting.
+      expect(screen.getByTestId('about-port')).toHaveTextContent('4395')
     })
   })
 
-  it('renders desktop.sqlite path in Desktop Information', async () => {
+  it('About shows the real version and database location from the server, and leaves out what it did not report', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('~/.specrails/desktop.sqlite')).toBeInTheDocument()
+      expect(screen.getByTestId('about-version')).toHaveTextContent('2.3.4')
+      expect(screen.getByTestId('about-database')).toHaveTextContent('~/.specrails-dev/.specrails/desktop.sqlite')
     })
+    expect(screen.queryByText('~/.specrails/desktop.sqlite')).not.toBeInTheDocument()
   })
 
   it('does not fetch when open=false', () => {
@@ -339,7 +348,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     // Should not throw — isLoading goes false, settings stay null
     await waitFor(() => {
       // After error, isLoading becomes false
-      expect(screen.queryByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     })
   })
 
@@ -444,7 +453,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
   })
 })
 
-// ─── Outbound Webhooks section ────────────────────────────────────────────────
+// ─── Outbound webhooks section ────────────────────────────────────────────────
 
 const mockWebhook = {
   id: 'wh-1',
@@ -468,17 +477,17 @@ function makeFetchWithWebhooks(webhooks: typeof mockWebhook[]) {
   })
 }
 
-describe('GlobalSettingsPage — Outbound Webhooks', () => {
+describe('GlobalSettingsPage — Outbound webhooks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjects = []
     global.fetch = makeFetchWithWebhooks([])
   })
 
-  it('renders Outbound Webhooks section header', async () => {
+  it('renders Outbound webhooks section header', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
+      expect(screen.getByText('Outbound webhooks')).toBeInTheDocument()
     })
   })
 
@@ -489,7 +498,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
   })
 
-  it('disables Add Webhook button when URL is empty', async () => {
+  it('disables Add webhook button when URL is empty', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /add webhook/i })).toBeInTheDocument()
@@ -646,7 +655,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     const user = userEvent.setup()
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
+      expect(screen.getByText('Outbound webhooks')).toBeInTheDocument()
     })
     // Find the "Daily limit exceeded" checkbox and toggle it
     const checkbox = screen.getByRole('checkbox', { name: /daily limit exceeded/i })
@@ -656,79 +665,77 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
   })
 })
 
-// ─── OS Notifications section ────────────────────────────────────────────────
+// ─── Notifications (attention) section ───────────────────────────────────────
 
-describe('GlobalSettingsPage — OS Notifications', () => {
+describe('GlobalSettingsPage — Notifications', () => {
+  const patches: unknown[] = []
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    mockProjects = []
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (typeof url === 'string' && url.includes('/api/webhooks')) {
-        return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
+    attentionPrefsStore.reset()
+    patches.length = 0
+    mockProjects = [{ id: 'p1', slug: 'acme', name: 'Acme', path: '/acme', db_path: '/x', added_at: '', last_seen_at: '' }]
+    let prefs = {
+      enabled: true, sound: false, dockBadge: true, mutedProjects: [] as string[],
+      categories: { question: true, review: true, failed: true, budget: true, done: true },
+    }
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === 'string' && url.endsWith('/api/attention-prefs')) {
+        if (init?.method === 'PATCH') {
+          const patch = JSON.parse(String(init.body))
+          patches.push(patch)
+          prefs = { ...prefs, ...patch, categories: { ...prefs.categories, ...(patch.categories ?? {}) } }
+        }
+        return Promise.resolve({ ok: true, json: async () => prefs })
       }
-      return Promise.resolve({ ok: true, json: async () => desktopSettings })
+      return defaultFetchMock(url)
     })
   })
 
-  it('renders OS Notifications section header', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('OS Notifications')).toBeInTheDocument()
-    })
+  it('has its own section with the master switch, the categories, sound and the Dock badge', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const card = await screen.findByTestId('attention-settings')
+    expect(within(card).getByRole('switch', { name: 'Notify me' })).toHaveAttribute('aria-checked', 'true')
+    for (const label of ['Questions and replies', 'Reviews ready', 'Failures', 'Spending limits', 'Finished jobs']) {
+      expect(within(card).getByRole('switch', { name: label })).toHaveAttribute('aria-checked', 'true')
+    }
+    expect(within(card).getByRole('switch', { name: 'Play a sound' })).toHaveAttribute('aria-checked', 'false')
+    expect(within(card).getByRole('switch', { name: 'Dock badge' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByTestId('notif-toggle')).not.toBeInTheDocument()
   })
 
-  it('renders enable checkbox checked by default', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('Enable OS Notifications')).toBeInTheDocument()
-    })
-    const toggle = screen.getByTestId('notif-toggle') as HTMLInputElement
-    expect(toggle.checked).toBe(true)
-  })
-
-  it('shows filter options when notifications are enabled', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('All (completed & failed)')).toBeInTheDocument()
-      expect(screen.getByText('Completed only')).toBeInTheDocument()
-      expect(screen.getByText('Failed only')).toBeInTheDocument()
-    })
-  })
-
-  it('hides filter options when notifications are disabled', async () => {
+  it('saves a category on the server and keeps the switch in step', async () => {
     const user = userEvent.setup()
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByTestId('notif-toggle')).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('notif-toggle'))
-    expect(screen.queryByText('All (completed & failed)')).not.toBeInTheDocument()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const done = await screen.findByRole('switch', { name: 'Finished jobs' })
+    await user.click(done)
+    await waitFor(() => expect(patches).toEqual([{ categories: { done: false } }]))
+    expect(done).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('persists toggle to localStorage', async () => {
+  it('turning everything off disables the categories', async () => {
     const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByTestId('notif-toggle')).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('notif-toggle'))
-    const stored = JSON.parse(localStorage.getItem('specrails-os-notifications')!)
-    expect(stored.enabled).toBe(false)
-    expect(toast.success).toHaveBeenCalledWith('OS notifications disabled')
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    await user.click(await screen.findByRole('switch', { name: 'Notify me' }))
+    await waitFor(() => expect(patches).toEqual([{ enabled: false }]))
+    expect(screen.getByRole('switch', { name: 'Failures' })).toBeDisabled()
   })
 
-  it('changes filter to failed-only via radio', async () => {
+  it('mutes a project from the project list', async () => {
     const user = userEvent.setup()
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByText('Failed only')).toBeInTheDocument()
-    })
-    const failedRadio = screen.getByRole('radio', { name: /failed only/i })
-    await user.click(failedRadio)
-    const stored = JSON.parse(localStorage.getItem('specrails-os-notifications')!)
-    expect(stored.filter).toBe('failed')
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    const projects = await screen.findByTestId('attention-projects')
+    await user.click(within(projects).getByRole('switch', { name: 'Acme' }))
+    await waitFor(() => expect(patches).toEqual([{ mutedProjects: ['p1'] }]))
+    expect(within(projects).getByRole('switch', { name: 'Acme' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('migrates the old job-notification prefs once and drops them', async () => {
+    localStorage.setItem('specrails-os-notifications', JSON.stringify({ enabled: true, filter: 'failed' }))
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} initialSection="notifications" />)
+    await waitFor(() => expect(patches).toEqual([{ categories: { done: false } }]))
+    await waitFor(() => expect(localStorage.getItem('specrails-os-notifications')).toBeNull())
+    expect(await screen.findByRole('switch', { name: 'Finished jobs' })).toHaveAttribute('aria-checked', 'false')
   })
 })
 
@@ -741,7 +748,7 @@ describe('GlobalSettingsPage — Effects section', () => {
 
   it('lists Effects in the left nav and shows the thinking-halo switch when selected', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await screen.findByText('Desktop Settings')
+    await screen.findByRole('heading', { name: 'Settings' })
     const nav = await screen.findByRole('button', { name: /effects/i })
     await userEvent.click(nav)
     expect(screen.getByTestId('effects-section')).toBeVisible()

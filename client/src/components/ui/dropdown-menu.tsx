@@ -10,6 +10,12 @@ import { cn } from '../../lib/utils'
  * `aria-haspopup="menu"`/`aria-expanded`, the menu is portalled with fixed
  * positioning (escapes `overflow` ancestors), ArrowUp/ArrowDown/Home/End move
  * focus between items, Escape and outside clicks close and return focus.
+ *
+ * Inside a modal dialog the menu is portalled into the dialog panel instead of
+ * the body: the dialog's focus trap, outside-press dismissal and `hideOthers`
+ * then treat it as part of the dialog, so its items can be focused by keyboard
+ * and clicked. Escape closes the menu only (the dialog stays open). The menu
+ * opens above its trigger when there is no room below.
  */
 
 interface DropdownMenuContextValue {
@@ -105,18 +111,50 @@ export function DropdownMenuContent({
   const { open, setOpen, triggerRef, menuId } = useDropdownMenu()
   const menuRef = React.useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = React.useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null)
+  // The modal dialog the trigger lives in (the menu joins it), else the body.
+  const [host, setHost] = React.useState<HTMLElement | null>(null)
+
+  React.useLayoutEffect(() => {
+    if (!open) { setHost(null); return }
+    setHost(triggerRef.current?.closest<HTMLElement>('[role="dialog"]') ?? null)
+  }, [open, triggerRef])
 
   React.useLayoutEffect(() => {
     if (!open) return
     const rect = triggerRef.current?.getBoundingClientRect()
     if (!rect) return
-    const vertical = side === 'top' ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }
+    // Inside a dialog the menu is absolutely positioned in the panel (its containing block).
+    const frame = host
+      ? (() => {
+        const r = host.getBoundingClientRect()
+        return { top: r.top + host.clientTop - host.scrollTop, left: r.left + host.clientLeft - host.scrollLeft, width: host.clientWidth, height: host.clientHeight }
+      })()
+      : { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight }
+    const height = menuRef.current?.offsetHeight ?? 0
+    const below = frame.height - (rect.bottom - frame.top) - 8
+    const above = rect.top - frame.top - 8
+    const up = side === 'top' ? !(height > 0 && above < height && below > above) : height > 0 && below < height && above > below
+    const vertical = up ? { bottom: frame.height - (rect.top - frame.top) + 4 } : { top: rect.bottom - frame.top + 4 }
     setPos(
       align === 'end'
-        ? { ...vertical, right: Math.max(8, window.innerWidth - rect.right) }
-        : { ...vertical, left: Math.max(8, rect.left) },
+        ? { ...vertical, right: Math.max(8, frame.width - (rect.right - frame.left)) }
+        : { ...vertical, left: Math.max(8, rect.left - frame.left) },
     )
-  }, [open, align, side, triggerRef])
+  }, [open, align, side, triggerRef, host])
+
+  // Escape belongs to the open menu: caught before a dialog's own Escape (which listens on the document).
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open, setOpen, triggerRef])
 
   const items = () =>
     Array.from(
@@ -176,7 +214,7 @@ export function DropdownMenuContent({
       role="menu"
       aria-orientation="vertical"
       onKeyDown={onKeyDown}
-      style={pos ? { position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right } : { position: 'fixed' }}
+      style={{ position: host ? 'absolute' : 'fixed', ...(pos ? { top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right } : { visibility: 'hidden' }) }}
       className={cn(
         'z-[105] min-w-[10rem] rounded-card border border-border bg-popover p-1 text-popover-foreground shadow-2',
         className,
@@ -185,7 +223,7 @@ export function DropdownMenuContent({
     >
       {children}
     </div>,
-    document.body,
+    host ?? document.body,
   )
 }
 

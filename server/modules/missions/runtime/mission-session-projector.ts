@@ -5,7 +5,8 @@ import type { ProviderAdapter } from '../../../providers/types'
 import { finaliseNormalisedResult } from '../../accounting/runtime/result-event'
 import type { ProjectionOp, ProjectionSink, SessionPhase, TurnOrigin, Usage } from '../../agent-sessions'
 import { addAgentMessage, getAgentConversation } from '../../agents/runtime/agent-store'
-import { recordToolCall, type AgentAuditRecorder } from '../../audit'
+import { recordPolicyDenial, recordToolCall, type AgentAuditRecorder } from '../../audit'
+import { parsePolicyDenial, type PolicyDenial } from '../../agent-policy'
 import { advanceSessionCursor, appendSubagentEvent, conversationSessionState, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
 
 type Broadcast = (message: Record<string, unknown>) => void
@@ -20,7 +21,17 @@ export interface MissionSessionProjectorDeps {
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
   /** Copy a generated image into the conversation's attachments; its id, or null when unusable. */
   importGeneratedImage?: (conversationId: string, path: string) => string | null
+  /** A tool call the in-turn policy hook denied (after commit): the mission shows it as a system row. */
+  onPolicyDenial?: (conversationId: string, denial: ProjectedPolicyDenial) => void
 }
+
+export interface ProjectedPolicyDenial extends PolicyDenial {
+  tool: string
+  toolUseId: string
+}
+
+/** Tool calls remembered per projector so a denial names what was blocked. */
+const MAX_REMEMBERED_CALLS = 256
 
 /** Which Core session of the conversation this projector follows. */
 export interface MissionSessionProjection {
@@ -55,6 +66,8 @@ export class MissionSessionProjector implements ProjectionSink {
   /** Extra fields on every broadcast of a non-mission session (the client tells them apart). */
   private readonly tag: Record<string, unknown>
   private readonly missionSession: boolean
+
+  private readonly calls = new Map<string, { name: string; input: unknown }>()
 
   constructor(private readonly conversationId: string, private readonly deps: MissionSessionProjectorDeps, projection: MissionSessionProjection = {}) {
     this.coreSessionId = projection.coreSessionId ?? conversationId
@@ -99,6 +112,17 @@ export class MissionSessionProjector implements ProjectionSink {
     const timestamp = new Date().toISOString()
     let processEnded = false
     const audited: Array<{ name: string; input: unknown; role: string }> = []
+    const denials: Array<ProjectedPolicyDenial & { role: string }> = []
+    const noteTool = (tool: { phase: string; name: string; toolUseId: string; input?: unknown; output?: string | null; isError?: boolean }, role: string) => {
+      if (tool.phase === 'started') {
+        this.calls.set(tool.toolUseId, { name: tool.name, input: tool.input })
+        if (this.calls.size > MAX_REMEMBERED_CALLS) this.calls.delete(this.calls.keys().next().value as string)
+        return
+      }
+      if (!tool.isError) return
+      const denial = parsePolicyDenial(tool.output ?? '')
+      if (denial) denials.push({ ...denial, tool: tool.name, toolUseId: tool.toolUseId, role })
+    }
     this.deps.db.transaction(() => {
       for (const op of ops) {
         switch (op.kind) {
@@ -115,6 +139,7 @@ export class MissionSessionProjector implements ProjectionSink {
             break
           case 'turn.tool':
             if (op.tool.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'mission' })
+            noteTool(op.tool, 'mission')
             if (!this.background.has(op.turnId)) break
             outbox.push(op.tool.phase === 'started'
               ? { type: 'agent_tool', conversationId, turnId: op.turnId, tool: op.tool.name, toolId: op.tool.toolUseId, timestamp }
@@ -151,6 +176,7 @@ export class MissionSessionProjector implements ProjectionSink {
           case 'subagent.output':
             if (!this.subagentKnown(op.subagentId)) break
             if (op.tool?.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'subagent' })
+            if (op.tool) noteTool(op.tool, 'subagent')
             appendSubagentEvent(this.deps.db, conversationId, op.subagentId, op.seq, op.channel, op.delta, op.tool)
             outbox.push({ type: 'agent_subagent_event', conversationId, subagentId: op.subagentId, seq: op.seq, channel: op.channel, ...(op.delta !== null ? { delta: op.delta } : {}), ...(op.tool ? { tool: op.tool } : {}), ...this.tag, timestamp })
             break
@@ -190,6 +216,7 @@ export class MissionSessionProjector implements ProjectionSink {
     })()
     for (const message of outbox) this.deps.broadcast(message)
     if (audited.length > 0) this.recordAudit(audited)
+    if (denials.length > 0) this.recordDenials(denials)
     // The mission's capability belongs to its own resident process only.
     if (processEnded && this.missionSession) this.deps.onProcessEnded?.(conversationId)
   }
@@ -203,6 +230,18 @@ export class MissionSessionProjector implements ProjectionSink {
       if (!recorder) return
       for (const tool of tools) recordToolCall(recorder, { runId: this.conversationId, role: tool.role, source: 'core-session' }, tool.name, tool.input)
     } catch { /* audit is observing only */ }
+  }
+
+  /** After commit: audit each denial and hand it to the mission transcript. */
+  private recordDenials(denials: Array<ProjectedPolicyDenial & { role: string }>): void {
+    for (const { role, ...denial } of denials) {
+      try {
+        const projectId = this.deps.agentAudit ? getAgentConversation(this.deps.db, this.conversationId)?.pinned_project_id : null
+        const recorder = projectId ? this.deps.agentAudit!(projectId) : null
+        if (recorder) recordPolicyDenial(recorder, { runId: this.conversationId, role }, denial, this.calls.get(denial.toolUseId) ?? { name: denial.tool, input: null })
+      } catch { /* audit is observing only */ }
+      try { this.deps.onPolicyDenial?.(this.conversationId, denial) } catch { /* the transcript row is best-effort */ }
+    }
   }
 
   private subagentKnown(subagentId: string): boolean {

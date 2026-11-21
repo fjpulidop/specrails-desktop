@@ -86,6 +86,9 @@ export function ProjectRightSidebar() {
             data-area={to === '/' ? 'specs' : to === '/code' ? 'files' : to.slice(1)}
             to={to}
             end={end}
+            // A floating (unpinned) rail gets out of the way of the page it
+            // just opened; a docked rail stays.
+            onClick={() => { if (overlaying) hover.dismiss() }}
             className={({ isActive }) => cn(
               'area-nav flex items-center gap-2 w-full h-8 rounded-md transition-colors',
               expanded ? 'px-2' : 'px-0 justify-center',

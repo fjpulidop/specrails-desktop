@@ -27,6 +27,8 @@
  * launder a self-report into a measurement. `testEvidence` states which test
  * FILES changed, which is all the diff can actually prove.
  */
+import { isStaticFileCheck } from '../domain/static-check'
+import { isDocumentationPath, isTestFilePath } from '../../../util/test-file-path'
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
@@ -62,6 +64,16 @@ export interface PacketProofItem {
   values?: Record<string, string | number>
   /** Verbatim agent output, shown only inside an explicitly-labelled block. */
   rawExcerpt?: string
+  /** Earlier runs of the same verification, superseded by this final one: history, shown collapsed, never proof. */
+  earlier?: PacketProofAttempt[]
+}
+
+/** One earlier run of a verification command (the packet's collapsed history). */
+export interface PacketProofAttempt {
+  passed: boolean
+  exitCode: number | string
+  seconds: number | string
+  rawExcerpt?: string
 }
 
 export interface PacketTicketSection {
@@ -70,6 +82,10 @@ export interface PacketTicketSection {
   title: string | null
   problem: string | null
   solution: string | null
+  /** The delivered proposal's account of the change (`## What Changes`) and its reason (`## Why`):
+   *  agent-authored, reviewed; null when the run left no proposal. */
+  whatChanged?: string | null
+  whyChanged?: string | null
   /** Solution content beyond the visible digest (markdown; the UI renders it behind a disclosure). */
   solutionOverflow: string | null
   labels: string[]
@@ -226,7 +242,6 @@ function agentActionsForRuns(db: DbInstance, runIds: readonly string[]): PacketA
   }
 }
 
-const TEST_FILE_RE = /(\.test\.|\.spec\.|(^|\/)__tests__\/)/
 
 /** Per-provenance churn for one delivery run, from file_story_contributions. */
 interface ChurnRow {
@@ -295,11 +310,15 @@ function buildProof(
   evidence: DeliveryUnitEvidence[] | null,
   churn: ChurnRow[],
   confidence: DeliveryConfidenceScore | null,
+  /** The run delivered (its final verification gated the delivery). */
+  settled = false,
+  /** The repository this packet speaks for (none: the whole delivery) and display names by id. */
+  scope: { repositoryId?: string; repositoryNames?: Record<string, string> } = {},
 ): PacketProofItem[] {
   const proof: PacketProofItem[] = []
 
   // ── Tier 1: what Specrails measured itself ────────────────────────────────
-  const testFiles = [...new Set(churn.filter((row) => TEST_FILE_RE.test(row.file_path)).map(churnIdentity))]
+  const testFiles = [...new Set(churn.filter((row) => isTestFilePath(row.file_path)).map(churnIdentity))]
   const totalFiles = new Set(churn.map(churnIdentity)).size
   const added = churn.reduce((sum, row) => sum + (row.added_lines || 0), 0)
   const removed = churn.reduce((sum, row) => sum + (row.removed_lines || 0), 0)
@@ -326,14 +345,31 @@ function buildProof(
   // records exit code + output under the pipeline dir. That is a measurement
   // by the runtime, not the agent's claim — so it belongs with the facts.
   const runtimeUnits = (evidence ?? []).map((unit) => unit.runtime).filter((r): r is NonNullable<typeof r> => !!r)
-  const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun))
-  for (const command of hostCommands.slice(0, 6)) {
-    const passed = command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
+  // One run verifies every repository of a multi-repository delivery: a repository's packet proves
+  // only its own commands, and the group's names the repository whenever several ran the same label.
+  const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun && (!scope.repositoryId || !c.repositoryId || c.repositoryId === scope.repositoryId)))
+    .map((command, _index, all) => ({ ...command, label: new Set(all.map((other) => other.repositoryId ?? '')).size > 1 && command.repositoryId ? `${command.label} (${scope.repositoryNames?.[command.repositoryId] ?? command.repositoryId})` : command.label }))
+  const passedOf = (command: (typeof hostCommands)[number]) => command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
+  const secondsOf = (command: (typeof hostCommands)[number]) => command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?'
+  // A delivered packet proves the FINAL verification: when a command later passed, its earlier
+  // failed runs are history (collapsed under it), not proof. A failed packet keeps every run.
+  const finalOnly = settled
+  const proven = finalOnly
+    // The LAST passing run of a command is the proof: an earlier pass is the baseline taken
+    // before the change (or a pass the change later invalidated), never the final state.
+    ? hostCommands.filter((command, index) => passedOf(command) ? hostCommands.map((other) => other.label === command.label && passedOf(other)).lastIndexOf(true) === index
+      : !hostCommands.some((other) => other.label === command.label && passedOf(other)) && hostCommands.map((other) => other.label).lastIndexOf(command.label) === index)
+    : hostCommands
+  for (const command of proven.slice(0, 6)) {
+    const passed = passedOf(command)
+    const earlier = finalOnly ? hostCommands.filter((other) => other !== command && other.label === command.label && !passedOf(other)) : []
     proof.push({
       tier: 'app-verified',
-      code: passed ? 'proof.hostCommandPassed' : 'proof.hostCommandFailed',
-      values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?' },
+      // A pass of a check that only reads file text is labelled as such, never as a run of the code.
+      code: passed ? (isStaticFileCheck(command.commandLine ?? command.label) ? 'proof.hostStaticCheckPassed' : 'proof.hostCommandPassed') : 'proof.hostCommandFailed',
+      values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: secondsOf(command) },
       ...(command.outputTail ? { rawExcerpt: command.outputTail } : {}),
+      ...(earlier.length ? { earlier: earlier.slice(0, 6).map((other) => ({ passed: false, exitCode: other.exitCode ?? '?', seconds: secondsOf(other), ...(other.outputTail ? { rawExcerpt: other.outputTail } : {}) })) } : {}),
     })
   }
 
@@ -415,8 +451,8 @@ function buildWatchOut(
   for (const flag of (confidence?.flags ?? []).slice(0, 3)) {
     out.push({ tier: 'reviewer-score', code: 'watch.reviewerFlag', rawExcerpt: flag })
   }
-  const codeFiles = churn.filter((row) => !TEST_FILE_RE.test(row.file_path))
-  const testFiles = churn.filter((row) => TEST_FILE_RE.test(row.file_path))
+  const codeFiles = churn.filter((row) => !isTestFilePath(row.file_path) && !isDocumentationPath(row.file_path))
+  const testFiles = churn.filter((row) => isTestFilePath(row.file_path))
   if (out.length < 3 && variant !== 'no-changes' && codeFiles.length > 0 && testFiles.length === 0) {
     out.push({ tier: 'app-verified', code: 'watch.noTestsForChangedCode', values: { files: codeFiles.length } })
   }
@@ -499,6 +535,8 @@ export interface ComposeReviewPacketInput {
   includeLegacyProvenance?: boolean
   /** Intent settlement state read by the caller from the Intent module (durable rows). */
   flowSettlement?: PacketFlowSettlement | null
+  /** Repository display names of a multi-repository delivery, by id (from its frozen manifest). */
+  repositoryNames?: Record<string, string>
 }
 
 /** The derivation an Intent session -> Spec delivery recorded at settle (first unit that has one). */
@@ -516,7 +554,13 @@ function followUpReportSource(evidence: DeliverySettleEvidence | null): string |
   return parts.length > 0 ? parts.join('\n') : null
 }
 
-export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null }: ComposeReviewPacketInput): ReviewPacket {
+/** The delivered proposal's summary for one ticket, from settle evidence. */
+function changeNarrative(evidence: DeliverySettleEvidence | null, ticketId: number): { whatChanged: string | null; whyChanged: string | null } {
+  const summary = evidence?.units.find((unit) => unit.ticketId === ticketId && unit.changeSummary)?.changeSummary ?? null
+  return { whatChanged: summary?.whatChanges ?? null, whyChanged: summary?.why ?? null }
+}
+
+export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null, repositoryNames }: ComposeReviewPacketInput): ReviewPacket {
   const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
   const units = safeParse<DeliverBranchRecord[]>(row.branches, [])
@@ -550,6 +594,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
       title: snap?.title ?? null,
       problem: narrative.problem,
       solution: narrative.solution,
+      ...changeNarrative(evidence, ticketId),
       solutionOverflow: narrative.overflow,
       labels: snap?.labels ?? [],
       implementationOutcome: unitRows[0]?.implementationOutcome ?? null,
@@ -559,7 +604,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
         filesTouched: new Set(unitChurn.map(churnIdentity)).size,
         addedLines: unitChurn.reduce((sum, c) => sum + (c.added_lines || 0), 0),
         removedLines: unitChurn.reduce((sum, c) => sum + (c.removed_lines || 0), 0),
-        testFilesTouched: [...new Set(unitChurn.filter((c) => TEST_FILE_RE.test(c.file_path)).map((c) => !repositoryId && c.repository_id ? `${c.repository_id}:${c.file_path}` : c.file_path))],
+        testFilesTouched: [...new Set(unitChurn.filter((c) => isTestFilePath(c.file_path)).map((c) => !repositoryId && c.repository_id ? `${c.repository_id}:${c.file_path}` : c.file_path))],
       },
       runIds: unitRunIds,
     }
@@ -619,7 +664,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     failedCount,
     totalCount: units.length > 0 ? new Set(units.map((u) => u.ticketId)).size : ticketIds.length,
     sections,
-    proof: buildProof(units, evidence?.units ?? null, churn, confidence),
+    proof: buildProof(units, evidence?.units ?? null, churn, confidence, variant !== 'failed', { ...(repositoryId ? { repositoryId } : {}), ...(repositoryNames ? { repositoryNames } : {}) }),
     watchOut: buildWatchOut(confidence, churn, variant),
     confidence,
     whatToLookAt: buildWhatToLookAt(evidence?.units ?? []),

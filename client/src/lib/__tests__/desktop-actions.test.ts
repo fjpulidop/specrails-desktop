@@ -38,7 +38,7 @@ describe('explicit native desktop actions', () => {
     Object.assign(notification, { permission: 'default', requestPermission: vi.fn() })
     vi.stubGlobal('Notification', notification)
     await notifyCommandFinished('native-success', { command: 'npm test', exitCode: 0, elapsedMs: 1000 })
-    expect(invoke).toHaveBeenCalledWith('desktop_notify', { title: expect.stringContaining('npm test'), body: expect.any(String) })
+    expect(invoke).toHaveBeenCalledWith('desktop_notify', { title: expect.stringContaining('npm test'), body: expect.any(String), sound: false })
     invoke.mockRejectedValueOnce(new Error('notifications disabled'))
     await expect(notifyCommandFinished('native-denied', { command: 'test', exitCode: 1, elapsedMs: 1000 })).resolves.toBeUndefined()
     expect(notification).not.toHaveBeenCalled()

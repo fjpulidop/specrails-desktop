@@ -22,6 +22,7 @@ import {
   type HeadroomProvider,
 } from './headroom-routing'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
+import { logRejection } from './util/log-rejection'
 
 export type HeadroomPhase =
   | 'idle'
@@ -2158,7 +2159,7 @@ export class HeadroomManager {
       child.on('close', (code) => settle(code))
       if (this.shuttingDown) {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }
     })
   }
@@ -2193,7 +2194,7 @@ export class HeadroomManager {
       this.trackLifecycleCommand(child, () => settle(null))
       timer = setTimeout(() => {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }, timeoutMs)
       child.stdout?.on('data', (chunk) => { output += chunk.toString() })
       child.stderr?.on('data', (chunk) => { output += chunk.toString() })
@@ -2204,7 +2205,7 @@ export class HeadroomManager {
       child.on('close', (code) => settle(code))
       if (this.shuttingDown) {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }
     })
   }

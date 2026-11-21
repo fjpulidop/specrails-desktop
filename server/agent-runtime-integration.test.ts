@@ -6,7 +6,7 @@ import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo
 import type { RuntimeConfig } from './modules/agent-runtime/runtime/agent-runtime-settings'
 
 const fixture = vi.hoisted(() => ({ cli: null as string | null, legacy: vi.fn(), framework: vi.fn() }))
-vi.mock('./modules/agent-runtime/runtime/agent-runtime-package', () => ({ retainAgentRuntime: (cli: string) => cli, resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./modules/agent-runtime/runtime/agent-runtime-package', () => ({ prepareRetainedAgentRuntime: async () => {}, retainAgentRuntime: (cli: string) => cli, resolveRetainedAgentRuntime: async () => fixture.cli }))
 vi.mock('./modules/agent-runtime/runtime/agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (input: unknown) => input, rolePromptDefaults: () => ({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' }) }) }))
 vi.mock('./path-resolver', async () => ({ ...await vi.importActual<typeof import('./path-resolver')>('./path-resolver'), resolveBundledNodeExe: () => process.execPath }))
 vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation: fixture.legacy }))

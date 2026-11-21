@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { safeProviderSessionId } from '../../../providers/session-id'
 import {
   isSessionRequestError,
   type McpServerSpec,
@@ -10,6 +11,9 @@ import {
 } from '../../agent-sessions'
 import type { InvocationResult } from '../../execution/runtime/spawn-lifecycle'
 import type { LiveInputSink, LiveSessionHooks } from '../../../providers/live-session-types'
+
+/** AdapterEvent `other` type carrying Core's per-turn context measurement. */
+export const CORE_CONTEXT_USAGE_EVENT = 'core-context-usage'
 import type { AdapterEvent, NormalisedResult } from '../../../providers/types'
 
 /** Stop/close for a turn that runs inside a resident Core session (no child process). */
@@ -206,6 +210,8 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           return
         case 'turn.completed': {
           if (event.turnId !== turnId) return
+          // Core's measurement of the provider context (the mission's context ring reads it).
+          if (event.context) emit({ kind: 'other', type: CORE_CONTEXT_USAGE_EVENT, raw: { ...event.context } })
           if (pendingInterrupts.size > 0) {
             // Cut by (or finished before) a correction: keep its usage and wait for the correction's turn.
             if (event.status === 'completed' && event.text.startsWith(streamed) && event.text.length > streamed.length) emit({ kind: 'text-delta', text: event.text.slice(streamed.length) })
@@ -290,7 +296,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           driver: context.driver,
           cwd: hooks.cwd,
           ...config,
-          ...(context.legacyProviderSessionRef ? { providerSessionRef: context.legacyProviderSessionRef } : {}),
+          ...(context.legacyProviderSessionRef ? { providerSessionRef: safeProviderSessionId(context.legacyProviderSessionRef, context.driver) } : {}),
           ...(context.metadata ? { metadata: context.metadata } : {}),
         })).snapshot
       }

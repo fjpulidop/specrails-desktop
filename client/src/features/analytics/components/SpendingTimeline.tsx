@@ -1,73 +1,58 @@
 import { useTranslation } from 'react-i18next'
 import { format, parseISO } from 'date-fns'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
-import type { SpendingResponse } from '../types/spending'
+import type { SpendCategory, SpendingResponse } from '../types/spending'
+import { SPEND_CATEGORIES } from '../types/spending'
+import { useCategoryColors } from '../lib/category-colors'
 import { formatUsd } from '../lib/format'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { Skeleton } from '../../../components/ui/skeleton'
-import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { ChartTooltip } from './ChartTooltip'
+import { InfoHint } from './InfoHint'
 
 interface Props {
   data: SpendingResponse | null
   loading: boolean
 }
 
+type Day = SpendingResponse['dailyTimeline'][number]
+
+/** A day's cost per category: the server's split, else folded from the legacy per-surface fields. */
+export function dayByCategory(d: Day): Record<SpendCategory, number> {
+  if (d.byCategory) return d.byCategory
+  const implementation = d.jobsCostUsd + (d.loopCostUsd ?? 0)
+  const missions = d.missionCostUsd ?? 0
+  const specs = d.quickCostUsd + d.exploreCostUsd + d.aiEditCostUsd + (d.smashCostUsd ?? 0)
+  const code = d.fileSummaryCostUsd ?? 0
+  // Surfaces without a legacy field (setup, failure analysis, side chats…) are support.
+  const support = Math.max(0, (d.totalCostUsd ?? 0) - implementation - missions - specs - code)
+  return { implementation, missions, specs, code, support }
+}
+
 export function SpendingTimeline({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
-  const theme = useActiveTheme()
+  const colors = useCategoryColors()
   if (loading && !data) {
     return <Skeleton className="h-[220px]" />
   }
   if (!data) return null
-
-  // Series colours come from the theme's chart palette (not the semantic
-  // warning/success tokens, which carry state meaning); two extra hues from
-  // the terminal palette cover the 7 named series.
-  const palette = [...theme.chart, theme.xterm.brightBlue, theme.xterm.brightMagenta]
-
-  // Series labels double as recharts dataKeys and tooltip display names.
-  const labels = {
-    jobs: t('surfaces.job'),
-    explore: t('surfaces.exploreSpec'),
-    quick: t('surfaces.quickSpec'),
-    refine: t('surfaces.aiEdit'),
-    fileSummaries: t('surfaces.fileSummary'),
-    smash: t('surfaces.smash'),
-    loop: t('surfaces.loop'),
-    others: t('models.others'),
-  }
 
   // The server already re-buckets dailyTimeline by the viewer's LOCAL calendar
   // day (it receives tzOffsetMinutes and applies it in the day-bucket SQL), so
   // each d.date is already a local YYYY-MM-DD string. The ONLY correct client
   // step is to label it in the viewer's language ("24 Oct") — parseISO reads a date-only
   // string as LOCAL midnight, so no offset is applied twice and the label never shifts a day.
-  const sumOfSeven = (d: (typeof data.dailyTimeline)[number]) =>
-    d.jobsCostUsd +
-    d.exploreCostUsd +
-    d.quickCostUsd +
-    d.aiEditCostUsd +
-    (d.fileSummaryCostUsd ?? 0) +
-    (d.smashCostUsd ?? 0) +
-    (d.loopCostUsd ?? 0)
-  // Surfaces without their own series (chat, setup, flow, triage…) land in
-  // "Others" so each day's stack reconciles with its total.
-  const othersFor = (d: (typeof data.dailyTimeline)[number]) =>
-    Math.max(0, (d.totalCostUsd ?? 0) - sumOfSeven(d))
-  const chartData = data.dailyTimeline.map((d) => ({
+  const split = data.dailyTimeline.map((d) => ({ d, byCategory: dayByCategory(d) }))
+  // One axis: category. Only categories with spend in the window get a series
+  // (and so a legend entry).
+  const series = SPEND_CATEGORIES.filter((category) => split.some(({ byCategory }) => byCategory[category] > 0))
+  const label = (category: SpendCategory) => t(`categories.${category}.label`)
+  const chartData = split.map(({ d, byCategory }) => ({
     date: format(parseISO(d.date), 'd MMM', { locale: getDateFnsLocale() }),
-    [labels.jobs]: d.jobsCostUsd,
-    [labels.explore]: d.exploreCostUsd,
-    [labels.quick]: d.quickCostUsd,
-    [labels.refine]: d.aiEditCostUsd,
-    [labels.fileSummaries]: d.fileSummaryCostUsd ?? 0,
-    [labels.smash]: d.smashCostUsd ?? 0,
-    [labels.loop]: d.loopCostUsd ?? 0,
-    [labels.others]: othersFor(d),
+    ...Object.fromEntries(series.map((category) => [label(category), byCategory[category]])),
   }))
 
-  const isEmpty = data.dailyTimeline.every((d) => sumOfSeven(d) + othersFor(d) === 0)
+  const isEmpty = series.length === 0
   const unpricedCount = data.dailyTimeline.reduce(
     (sum, d) => sum + (d.unpricedCount ?? 0),
     0,
@@ -76,43 +61,43 @@ export function SpendingTimeline({ data, loading }: Props) {
   const costPartiallyUnavailable = !isEmpty && unpricedCount > 0
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-strong">{t('timeline.title')}</h2>
-        <span className="text-caption text-muted-foreground">
-          {costPartiallyUnavailable
-            ? t('timeline.costPartiallyUnavailable', { count: unpricedCount })
-            : t('timeline.subtitle')}
-        </span>
+    <div className="rounded-card border border-border bg-card p-4">
+      <div className="flex items-center gap-1.5 mb-2">
+        <h2 className="text-title">{t('timeline.title')}</h2>
+        {costPartiallyUnavailable && (
+          <InfoHint tone="caution" testId="timeline-cost-partial">{t('timeline.costPartiallyUnavailable', { count: unpricedCount })}</InfoHint>
+        )}
       </div>
       {costUnavailable ? (
         <div
           data-testid="timeline-cost-unavailable"
-          className="h-40 flex items-center justify-center text-xs text-muted-foreground"
+          className="h-40 flex items-center justify-center gap-1.5 text-label text-muted-foreground"
         >
-          {t('timeline.costUnavailable')}
+          {t('hero.costUnavailable')}
+          <InfoHint>{t('timeline.costUnavailable')}</InfoHint>
         </div>
       ) : isEmpty ? (
-        <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
+        <div className="h-40 flex items-center justify-center text-label text-muted-foreground">
           {t('timeline.empty')}
         </div>
       ) : (
-        <div className="h-[220px]">
+        <div className="h-[220px]" data-testid="timeline-chart" data-series={series.join(',')}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} barCategoryGap="28%" margin={{ top: 10, right: 10, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-border/30" vertical={false} />
+              <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} stroke="currentColor" className="text-muted-foreground num" />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground num" tickFormatter={(v: number) => formatUsd(v)} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-accent)', fillOpacity: 0.25 }} />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey={labels.jobs} stackId="a" fill={palette[0]} />
-              <Bar dataKey={labels.explore} stackId="a" fill={palette[1]} />
-              <Bar dataKey={labels.quick} stackId="a" fill={palette[2]} />
-              <Bar dataKey={labels.refine} stackId="a" fill={palette[3]} />
-              <Bar dataKey={labels.fileSummaries} stackId="a" fill={palette[4]} />
-              <Bar dataKey={labels.smash} stackId="a" fill={palette[5]} />
-              <Bar dataKey={labels.loop} stackId="a" fill={palette[6]} />
-              <Bar dataKey={labels.others} stackId="a" fill="var(--color-muted-foreground)" radius={[3, 3, 0, 0]} />
+              {series.map((category, index) => (
+                <Bar
+                  key={category}
+                  dataKey={label(category)}
+                  stackId="a"
+                  fill={colors[category]}
+                  radius={index === series.length - 1 ? [3, 3, 0, 0] : undefined}
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>

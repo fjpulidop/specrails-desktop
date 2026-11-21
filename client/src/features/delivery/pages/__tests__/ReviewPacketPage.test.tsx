@@ -194,6 +194,26 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getByText('This build cost $2.50')).toBeInTheDocument()
   })
 
+  it('shows what the delivered proposal says changed, and why, instead of "No summary was recorded"', async () => {
+    respond({
+      packet: packet({ sections: [{
+        ...packet().sections[0],
+        solution: null,
+        solutionOverflow: null,
+        whatChanged: '- `parse()` accepts `w` and `d` components.\n- Version bumped to 1.5.0.',
+        whyChanged: 'Callers convert days by hand.',
+      }] }),
+    })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('What was done'))
+    const block = screen.getByTestId('packet-what-changed')
+    expect(block).toHaveTextContent('What changed')
+    expect(block).toHaveTextContent('Version bumped to 1.5.0.')
+    expect(block).toHaveTextContent('Callers convert days by hand.')
+    expect(screen.queryByText('No summary was recorded.')).not.toBeInTheDocument()
+  })
+
   it('renders the spec narrative as markdown — lists stay lists, code reads as code, the overflow sits behind a disclosure', async () => {
     respond({
       packet: packet({ sections: [{
@@ -270,6 +290,18 @@ describe('ReviewPacketPage — above the fold', () => {
     respond({ packet: packet({ cost: { totalUsd: null, estimated: false } }) })
     renderPage()
     expect(await screen.findByText('This build cost —')).toBeInTheDocument()
+  })
+
+  it('proves the final verification and folds the earlier failed runs away as history', async () => {
+    respond({ packet: packet({ proof: [{ tier: 'app-verified', code: 'proof.hostCommandPassed', values: { label: 'node --test test/', exitCode: 0, seconds: 1 }, rawExcerpt: 'ok 3',
+      earlier: [{ passed: false, exitCode: 1, seconds: 2, rawExcerpt: 'not ok 3' }] }] }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('How it was checked'))
+    const history = await screen.findByTestId('packet-proof-earlier')
+    expect(history.tagName).toBe('DETAILS')
+    expect(history).not.toHaveAttribute('open')
+    expect(history).toHaveTextContent('1 earlier run of this check')
+    expect(history).toHaveTextContent('Failed with exit code 1 (2 s), before the fix that made it pass')
   })
 
   it('says the reviewer score is unavailable rather than implying a good one', async () => {

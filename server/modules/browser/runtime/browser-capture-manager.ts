@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import path from 'path'
 import { newId } from '../../../ids'
 import type { DbInstance } from '../../../db'
@@ -185,7 +186,7 @@ export class BrowserCaptureManager {
     const sweepIntervalMs = typeof requestedSweepIntervalMs === 'number' && Number.isFinite(requestedSweepIntervalMs) && requestedSweepIntervalMs > 0
       ? requestedSweepIntervalMs
       : Math.min(DEFAULT_SESSION_SWEEP_INTERVAL_MS, this.sessionIdleTtlMs)
-    this.idleSweepTimer = setInterval(() => { void this.sweepIdleSessions() }, sweepIntervalMs)
+    this.idleSweepTimer = setInterval(() => { void this.sweepIdleSessions().catch(logRejection('browser idle session sweep')) }, sweepIntervalMs)
     this.idleSweepTimer.unref?.()
   }
 
@@ -419,7 +420,7 @@ export class BrowserCaptureManager {
     // Popups can themselves open popups (rare, but some IdPs chain windows).
     this.watchPopups(s, popup)
     this.broadcastPopupState(s)
-    void this.applyScreencast(s)
+    void this.applyScreencast(s).catch(logRejection('browser screencast'))
   }
 
   private dropPopup(s: BrowserSession, popup: BrowserPageHandle): void {
@@ -431,7 +432,7 @@ export class BrowserCaptureManager {
     this.broadcastPopupState(s)
     // Re-routes the screencast to the next popup down or back to the opener;
     // startScreencast emits a frame immediately, so the switch paints at once.
-    void this.applyScreencast(s)
+    void this.applyScreencast(s).catch(logRejection('browser screencast'))
   }
 
   private broadcastPopupState(s: BrowserSession): void {
@@ -451,7 +452,7 @@ export class BrowserCaptureManager {
     if (!s) return false
     s.popupView = target === 'popup' && s.popups.length > 0
     this.broadcastPopupState(s)
-    void this.applyScreencast(s)
+    void this.applyScreencast(s).catch(logRejection('browser screencast'))
     return true
   }
 
@@ -482,7 +483,7 @@ export class BrowserCaptureManager {
     s.lastActivityAt = this.now()
     if (s.clients.size === 0 && !s.closed) {
       s.screencastDesired = false
-      void this.applyScreencast(s)
+      void this.applyScreencast(s).catch(logRejection('browser screencast'))
     }
   }
 

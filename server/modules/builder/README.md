@@ -15,6 +15,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/blueprint-types.ts](runtime/blueprint-types.ts)
 - [runtime/milestone-chain-store.ts](runtime/milestone-chain-store.ts)
 - [runtime/milestone-chain.ts](runtime/milestone-chain.ts)
+- [runtime/milestone-chain-reconcile.ts](runtime/milestone-chain-reconcile.ts)
 - [runtime/milestone-generation-settings.ts](runtime/milestone-generation-settings.ts)
 - [runtime/milestone-progress.ts](runtime/milestone-progress.ts)
 
@@ -51,3 +52,9 @@ every subsequent rail and retry uses this frozen engine after restart. Legacy
 NULL rows keep their original behavior. Rails reject a recipe-owned conflicting
 engine when `requireEngineSelection` is set, preserving recipe ownership without
 silently changing the user's choice.
+
+Chain reconciliation (`milestone-chain-reconcile.ts`, pure) re-derives every
+spec's state from tickets, deliveries and runs — manual ones included — before
+each launch, advance and Resume, and the chain snapshot carries the resulting
+`plan` (next action + offers) to every surface. See
+[chain reconciliation](../../../docs/internals/project-builder.md#chain-reconciliation).

@@ -51,6 +51,17 @@ describe('normalizeReviewBrief', () => {
     expect(out.dropped).toBe(6)
   })
 
+  it('drops human checks that only ask the person to read git state the change set answers', () => {
+    // submod: "Run `git status --porcelain -- libs/mid` … I could not run git in this read-only review session."
+    const out = normalizeReviewBrief({ humanChecks: [
+      'Run `git status --porcelain -- libs/mid` and `git diff --quiet -- libs/mid` in the ticket-1 worktree to confirm the submodules are untouched. I could not run git in this read-only review session.',
+      'Run `git -C ticket-2 diff --stat` and confirm only src/lib.rs changed',
+      'On the iPhone Simulator, open the temperature screen and confirm it shows 100 °C for 212 °F',
+    ] })!
+    expect(out.brief.humanChecks).toEqual(['On the iPhone Simulator, open the temperature screen and confirm it shows 100 °C for 212 °F'])
+    expect(out.dropped).toBe(2)
+  })
+
   it('caps risks at five and returns null for non-objects', () => {
     const risks = Array.from({ length: 8 }, (_, i) => ({ severity: 'low', whatToLookAt: `r${i}` }))
     expect(normalizeReviewBrief({ risks })!.brief.risks).toHaveLength(5)

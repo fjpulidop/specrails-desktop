@@ -80,6 +80,10 @@ export function createUsageStore(request: typeof fetch = (...args) => fetch(...a
       }
     }
   }
-  return { subscribe, getSnapshot: () => state, refresh }
+  /** A server push (`subscription_usage.updated`: a run-observed window). Never fetches. */
+  function push(snapshot: unknown) {
+    try { accept(snapshot) } catch { /* an invalid push is ignored; the next read corrects it */ }
+  }
+  return { subscribe, getSnapshot: () => state, refresh, push }
 }
 export const usageStore = createUsageStore()

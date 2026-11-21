@@ -29,6 +29,15 @@ describe('isTestFilePath', () => {
     ['server/db.ts', false],
     ['client/src/latest.tsx', false],
     ['server/protest.ts', false],
+    ['src/test/java/bench/MoneyTest.java', true],
+    ['server_test.go', true],
+    ['tests/test_temps.py', true],
+    ['Tests/HabitsTests/HabitTests.swift', true],
+    ['src-tauri/tests/search.rs', true],
+    ['test/widget_test.dart', true],
+    ['openspec/specs/duration/spec.md', false],
+    ['src/main/java/bench/Money.java', false],
+    ['src/contest.go', false],
   ])('%s → %s', (p, expected) => {
     expect(isTestFilePath(p)).toBe(expected)
   })
@@ -177,6 +186,14 @@ describe('buildCanonicalPrBody', () => {
     // the retired v1 footer is gone
     expect(body).not.toContain('Draft PR produced by specrails')
     expect(body).not.toContain('engineer owns the merge')
+  })
+
+  it('leads with what the delivered proposal says changed', () => {
+    const t = ticket({ whatChanged: '- `parse()` accepts `w` and `d` components.\n- Version bumped to 1.5.0.' })
+    const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!) })
+    expect(body).toContain('**What changed**\n\n- `parse()` accepts `w` and `d` components.')
+    expect(body.indexOf('**What changed**')).toBeLessThan(body.indexOf('**Solution**'))
+    expect(buildCanonicalPrBody({ ...base, tickets: [ticket()], changes: changesFor(t.branch!) })).not.toContain('**What changed**')
   })
 
   it('jira-linked ticket heads with the key (no # prefix)', () => {

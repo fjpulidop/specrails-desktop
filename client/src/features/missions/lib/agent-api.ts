@@ -1,5 +1,5 @@
 import { API_ORIGIN } from '../../../lib/origin'
-import { ApiResponseError, parseApiJson, readApiJson as json } from '../../../lib/api-response'
+import { ApiResponseError, parseApiJson, readApiJson as json, requestJson } from '../../../lib/api-response'
 import i18n from '../../../lib/i18n'
 import { coerceRailPrStateSnapshot } from '../../delivery/lib/pr-delivery'
 import type {
@@ -28,10 +28,25 @@ export interface AgentConversation {
   pinned_project_id: string | null
   tier_level: AgentTierLevel
   archivedAt: string | null
+  /** How full the mission's provider session context is (absent/null = not measured). */
+  contextUsage?: AgentContextUsage | null
   /** Reasoning effort for spawns; null = no provider-specific override. */
   reasoning_effort: string | null
   created_at: string
   updated_at: string
+}
+
+/** Server `ContextUsageSnapshot` (server/modules/missions/runtime/mission-context-usage.ts). */
+export interface AgentContextUsage {
+  provider: string
+  model: string | null
+  usedTokens: number | null
+  windowTokens: number | null
+  /** Not clamped: may exceed 100. */
+  percent: number | null
+  source: 'response' | 'session-file'
+  measuredAt: string
+  compacted?: boolean
 }
 
 export type AgentDeliveryReceipt = 'sent' | 'received' | 'read'
@@ -135,7 +150,7 @@ export interface AgentModel {
 
 export interface AgentModelsResponse {
   models: AgentModel[]
-  /** Provider accepts safe aliases configured outside SpecRails. */
+  /** Provider accepts safe aliases configured outside Specrails. */
   customModelAliases: boolean
   /** Composer gates the image affordance on this capability (design D22). */
   supportsImageInput: boolean
@@ -144,14 +159,12 @@ export interface AgentModelsResponse {
 }
 
 export async function getAgentModels(provider: string): Promise<AgentModelsResponse> {
-  const data = await json<{
+  const data = await requestJson<{
     models: AgentModel[]
     customModelAliases?: boolean
     supportsImageInput?: boolean
     efforts?: string[]
-  }>(
-    await fetch(`${base}/models?provider=${encodeURIComponent(provider)}`),
-  )
+  }>(`${base}/models?provider=${encodeURIComponent(provider)}`)
   return {
     models: data.models,
     customModelAliases: data.customModelAliases === true,
@@ -161,7 +174,7 @@ export async function getAgentModels(provider: string): Promise<AgentModelsRespo
 }
 
 export async function listAgentConversations(opts: { archiveScope?: ArchiveScope } = {}): Promise<AgentConversation[]> {
-  return (await json<{ conversations: AgentConversation[] }>(await fetch(`${base}/conversations?archiveScope=${opts.archiveScope ?? 'active'}`))).conversations
+  return (await requestJson<{ conversations: AgentConversation[] }>(`${base}/conversations?archiveScope=${opts.archiveScope ?? 'active'}`)).conversations
 }
 
 // ─── Mission search (search-missions-in-palette) ──────────────────────────────
@@ -186,7 +199,7 @@ export interface MissionSearchHit {
  *  `AbortSignal` so a superseded keystroke can cancel its request. */
 export async function searchMissions(q: string, limit = 20, signal?: AbortSignal): Promise<MissionSearchHit[]> {
   const params = new URLSearchParams({ q, limit: String(limit) })
-  return (await json<{ results: MissionSearchHit[] }>(await fetch(`${base}/search?${params.toString()}`, { signal }))).results
+  return (await requestJson<{ results: MissionSearchHit[] }>(`${base}/search?${params.toString()}`, { signal })).results
 }
 
 export interface AgentActiveTurnsSnapshot {
@@ -258,28 +271,28 @@ export interface AgentSubagentEvent {
 }
 
 export async function getMissionSubagents(conversationId: string): Promise<{ subagents: AgentSubagent[]; session: AgentSessionState | null }> {
-  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents`))
+  return requestJson(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents`)
 }
 
 export async function getMissionSubagentEvents(conversationId: string, subagentId: string, after = 0, limit = 500): Promise<{ events: AgentSubagentEvent[]; hasMore: boolean }> {
-  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/${encodeURIComponent(subagentId)}/events?after=${after}&limit=${limit}`))
+  return requestJson(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/${encodeURIComponent(subagentId)}/events?after=${after}&limit=${limit}`)
 }
 
 export async function stopMissionSubagents(conversationId: string, subagentIds?: string[]): Promise<{ stopped: string[] }> {
-  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/stop`, {
+  return requestJson(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/stop`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(subagentIds ? { subagentIds } : {}),
-  }))
+  })
 }
 
 /** Retry a Core session host scope that degraded (e.g. after closing another Desktop instance). */
 export async function retryAgentSessionHost(scope: string): Promise<{ host: { scope: string; status: string; detail: string | null; code: string | null } }> {
-  return json(await fetch(`${base}/session-hosts/${encodeURIComponent(scope)}/retry`, { method: 'POST' }))
+  return requestJson(`${base}/session-hosts/${encodeURIComponent(scope)}/retry`, { method: 'POST' })
 }
 
 export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {
-  return json(await fetch(`${base}/active-turns`))
+  return requestJson(`${base}/active-turns`)
 }
 
 export async function createAgentConversation(input: {
@@ -289,15 +302,66 @@ export async function createAgentConversation(input: {
   tierLevel?: AgentTierLevel
   reasoningEffort?: string | null
 }): Promise<AgentConversation> {
-  const res = await fetch(`${base}/conversations`, {
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
-  })
-  return (await json<{ conversation: AgentConversation }>(res)).conversation
+  })).conversation
 }
 
 /** Materialise a separate mission without sending the selected prompt. */
+export interface SideQuestionTurn { role: 'user' | 'assistant'; content: string }
+export interface SideQuestionAnswer { answer: string; provider: string; model: string }
+
+/** "Ask about this": one no-tool side question about selected mission text.
+ * Nothing is stored server-side and the mission's conversation is untouched. */
+export async function askAboutSelection(conversationId: string, body: {
+  selection: string; throughMessageId: string; question: string; thread: SideQuestionTurn[]; language?: string
+}, signal?: AbortSignal): Promise<SideQuestionAnswer> {
+  return requestJson<SideQuestionAnswer>(`${base}/conversations/${encodeURIComponent(conversationId)}/side-questions`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
+  })
+}
+
+/** The `session-summary` marker a renewal stores (role `system`). */
+export interface SessionSummaryRow {
+  kind: 'session-summary'
+  summary: string
+  provider: string
+  model: string
+  includedMessages: number
+  totalMessages: number
+  at: string
+}
+
+/** A refused or failed renewal; `code` is the server's (MISSION_BUSY, MISSION_IN_INTENT, …). */
+export class SessionRenewError extends Error {
+  constructor(message: string, readonly code: string | null, readonly status: number) {
+    super(message)
+    this.name = 'SessionRenewError'
+  }
+}
+
+/** "Start fresh with a summary": the server writes a summary of the mission,
+ * stores it as the transcript marker and the next turn opens a new provider
+ * session seeded with it. The marker also arrives as `agent_system_row`. */
+export async function renewAgentSessionWithSummary(conversationId: string): Promise<{ messageId: string; summary: SessionSummaryRow }> {
+  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/session/renew`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: i18n.language }),
+  })
+  let data: unknown = null
+  try { data = await res.json() } catch { /* empty or non-JSON body */ }
+  const body = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
+  if (!res.ok) {
+    throw new SessionRenewError(
+      typeof body.error === 'string' && body.error ? body.error : i18n.t('network.httpError', { ns: 'common', status: res.status }),
+      typeof body.code === 'string' ? body.code : null,
+      res.status,
+    )
+  }
+  return body as unknown as { messageId: string; summary: SessionSummaryRow }
+}
+
 export async function branchAgentConversation(sourceId: string, throughMessageId: string, mode: 'empty' | 'fork'): Promise<AgentConversation> {
   // A fresh mission needs no history-copy operation. Use the established API
   // so a frontend preview also works against a server without fork support.
@@ -309,50 +373,49 @@ export async function branchAgentConversation(sourceId: string, throughMessageId
       tierLevel: source.tier_level, reasoningEffort: source.reasoning_effort,
     })
   }
-  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(sourceId)}/branch`, {
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations/${encodeURIComponent(sourceId)}/branch`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ throughMessageId, mode }),
-  }))).conversation
+  })).conversation
 }
 
 export async function getAgentConversation(
   id: string,
 ): Promise<AgentConversationSnapshot> {
-  return json(await fetch(`${base}/conversations/${encodeURIComponent(id)}`))
+  return requestJson(`${base}/conversations/${encodeURIComponent(id)}`)
 }
 
 export async function patchAgentConversation(
   id: string,
   patch: Partial<{ title: string | null; provider: string; model: string | null; pinnedProjectId: string | null; tierLevel: AgentTierLevel; reasoningEffort: string | null }>,
 ): Promise<AgentConversation> {
-  const res = await fetch(`${base}/conversations/${id}`, {
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations/${id}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(patch),
-  })
-  return (await json<{ conversation: AgentConversation }>(res)).conversation
+  })).conversation
 }
 
 /** Soft delete: the mission moves to "Recently deleted" (restorable for 30 days). */
 export async function deleteAgentConversation(id: string): Promise<void> {
-  await json(await fetch(`${base}/conversations/${id}`, { method: 'DELETE' }))
+  await requestJson(`${base}/conversations/${id}`, { method: 'DELETE' })
 }
 
 export async function archiveAgentConversation(id: string): Promise<AgentConversation> {
-  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/archive`, { method: 'POST' }))).conversation
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations/${encodeURIComponent(id)}/archive`, { method: 'POST' })).conversation
 }
 
 export async function unarchiveAgentConversation(id: string): Promise<AgentConversation> {
-  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/unarchive`, { method: 'POST' }))).conversation
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations/${encodeURIComponent(id)}/unarchive`, { method: 'POST' })).conversation
 }
 
 /** Undo a delete: the mission comes back with its whole history. */
 export async function restoreAgentConversation(id: string): Promise<AgentConversation> {
-  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/restore`, { method: 'POST' }))).conversation
+  return (await requestJson<{ conversation: AgentConversation }>(`${base}/conversations/${encodeURIComponent(id)}/restore`, { method: 'POST' })).conversation
 }
 
 /** "Delete permanently": removes the mission, its messages and attachments for good. */
 export async function purgeAgentConversation(id: string): Promise<void> {
-  await json(await fetch(`${base}/conversations/${encodeURIComponent(id)}?permanent=1`, { method: 'DELETE' }))
+  await requestJson(`${base}/conversations/${encodeURIComponent(id)}?permanent=1`, { method: 'DELETE' })
 }
 
 export interface DeletedAgentConversation {
@@ -363,7 +426,7 @@ export interface DeletedAgentConversation {
 
 /** Missions of one project deleted within the retention window, newest deletion first. */
 export async function listDeletedAgentConversations(projectId: string, signal?: AbortSignal): Promise<{ items: DeletedAgentConversation[]; retentionDays: number }> {
-  return json(await fetch(`${base}/conversations/trash?projectId=${encodeURIComponent(projectId)}`, { signal }))
+  return requestJson(`${base}/conversations/trash?projectId=${encodeURIComponent(projectId)}`, { signal })
 }
 
 export async function sendAgentMessage(
@@ -403,7 +466,8 @@ export async function sendAgentMessage(
       throw new ApiResponseError('invalidResponse', 200)
     }
   } catch (error) {
-    if (error instanceof ApiResponseError || error instanceof TypeError) {
+    // An unreadable answer or no answer: delivery is unconfirmed. An HTTP refusal is not.
+    if ((error instanceof ApiResponseError && !error.fromHttpStatus) || error instanceof TypeError) {
       const detail = error instanceof ApiResponseError ? error.message : i18n.t('network.requestFailed', { ns: 'common' })
       throw new Error(`${detail} ${i18n.t('network.deliveryUnconfirmed', { ns: 'common' })}`)
     }
@@ -415,13 +479,11 @@ export async function sendAgentMessage(
 export async function uploadAgentAttachment(conversationId: string, file: File): Promise<AgentAttachment> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`${base}/conversations/${conversationId}/attachments`, { method: 'POST', body: form })
-  return (await json<{ attachment: AgentAttachment }>(res)).attachment
+  return (await requestJson<{ attachment: AgentAttachment }>(`${base}/conversations/${conversationId}/attachments`, { method: 'POST', body: form })).attachment
 }
 
 export async function listAgentAttachments(conversationId: string): Promise<AgentAttachment[]> {
-  const res = await fetch(`${base}/conversations/${conversationId}/attachments`)
-  return (await json<{ attachments: AgentAttachment[] }>(res)).attachments
+  return (await requestJson<{ attachments: AgentAttachment[] }>(`${base}/conversations/${conversationId}/attachments`)).attachments
 }
 
 export function agentAttachmentFileUrl(conversationId: string, attachmentId: string): string {
@@ -435,11 +497,11 @@ export async function fetchAgentAttachmentBlob(conversationId: string, attachmen
 }
 
 export async function deleteAgentAttachment(conversationId: string, attachmentId: string): Promise<void> {
-  await json(await fetch(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' }))
+  await requestJson(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' })
 }
 
 export async function abortAgentTurn(id: string): Promise<void> {
-  await json(await fetch(`${base}/conversations/${id}/abort`, { method: 'POST' }))
+  await requestJson(`${base}/conversations/${id}/abort`, { method: 'POST' })
 }
 
 /**
@@ -447,33 +509,35 @@ export async function abortAgentTurn(id: string): Promise<void> {
  * `'conflict'` = the queue already dispatched it (server 409) — the caller
  * keeps the user's text as a draft. Other failures throw.
  */
+/** A queue edit the server refused with 409 lost a race with the turn that took it. */
+async function conflictOrSaved(request: Promise<unknown>): Promise<'saved' | 'conflict'> {
+  try {
+    await request
+    return 'saved'
+  } catch (error) {
+    if (error instanceof ApiResponseError && error.status === 409) return 'conflict'
+    throw error
+  }
+}
+
 export async function editQueuedAgentMessage(
   conversationId: string,
   queueId: string,
   text: string,
 ): Promise<'saved' | 'conflict'> {
-  const res = await fetch(`${base}/conversations/${conversationId}/queue/${encodeURIComponent(queueId)}`, {
+  return conflictOrSaved(requestJson<{ ok: boolean }>(`${base}/conversations/${conversationId}/queue/${encodeURIComponent(queueId)}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text }),
-  })
-  if (res.status === 409) return 'conflict'
-  await json<{ ok: boolean }>(res)
-  return 'saved'
+  }))
 }
 
 export async function steerQueuedAgentMessage(conversationId: string, queueId: string): Promise<'saved' | 'conflict'> {
-  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}/steer`, { method: 'POST' })
-  if (res.status === 409) return 'conflict'
-  await json<{ ok: boolean }>(res)
-  return 'saved'
+  return conflictOrSaved(requestJson<{ ok: boolean }>(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}/steer`, { method: 'POST' }))
 }
 
 export async function removeQueuedAgentMessage(conversationId: string, queueId: string): Promise<'saved' | 'conflict'> {
-  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}`, { method: 'DELETE' })
-  if (res.status === 409) return 'conflict'
-  await json<{ ok: boolean }>(res)
-  return 'saved'
+  return conflictOrSaved(requestJson<{ ok: boolean }>(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}`, { method: 'DELETE' }))
 }
 
 // ── PR-decision card (safe-pr-review-flow) ────────────────────────────────────
@@ -918,7 +982,7 @@ export async function postRailPrCheckout(projectId: string, prDeliveryId: string
 
 // ── Provider availability (no AI CLI installed → degraded banner) ─────────────
 export async function getAvailableProviders(): Promise<{ any: boolean; installed: string[] }> {
-  const data = await json<Record<string, unknown>>(await fetch(`${API_ORIGIN}/api/available-providers`))
+  const data = await requestJson<Record<string, unknown>>(`${API_ORIGIN}/api/available-providers`)
   const installed = Object.entries(data)
     .filter(([k, v]) => k !== 'tiers' && v === true)
     .map(([k]) => k)
@@ -927,10 +991,10 @@ export async function getAvailableProviders(): Promise<{ any: boolean; installed
 
 // ── MCP enable (degraded banner) ──────────────────────────────────────────────
 export async function getMcpStatus(): Promise<{ enabled: boolean; running: boolean }> {
-  return json(await fetch(`${API_ORIGIN}/api/mcp-admin/status`))
+  return requestJson(`${API_ORIGIN}/api/mcp-admin/status`)
 }
 export async function enableMcp(): Promise<void> {
-  await json(await fetch(`${API_ORIGIN}/api/mcp-admin/enable`, { method: 'POST' }))
+  await requestJson(`${API_ORIGIN}/api/mcp-admin/enable`, { method: 'POST' })
 }
 
 /**

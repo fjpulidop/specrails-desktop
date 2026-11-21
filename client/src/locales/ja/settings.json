@@ -61,9 +61,11 @@
       "webhooks": "Webhooks",
       "about": "概要",
       "effects": "エフェクト",
-      "subscriptionUsage": "サブスクリプション使用量"
+      "subscriptionUsage": "サブスクリプション使用量",
+      "notifications": "通知",
+      "storage": "ストレージ"
     },
-    "title": "Desktop 設定",
+    "title": "設定",
     "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
     "registeredProjects": "登録済みプロジェクト",
     "noProjects": "登録されたプロジェクトはまだありません",
@@ -81,10 +83,10 @@
     "platformTour": "プラットフォームツアー",
     "platformTourDescription": "ウェルカムウィザードを再生して主要機能を確認します。",
     "replayTour": "ツアーを再生",
-    "infoHeading": "Desktop 情報",
+    "infoHeading": "情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
-    "infoDb": "Desktop DB",
+    "infoDb": "データベース",
     "removeProjectConfirmTitle": "{{name}} を削除しますか？",
     "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。",
     "navLabel": "設定セクション",
@@ -95,18 +97,8 @@
     },
     "unsavedChanges": "未保存の変更",
     "dailyBudgetCurrent": "現在 1 日 {{amount}}",
-    "dailyBudgetNone": "1 日の上限は未設定"
-  },
-  "notifications": {
-    "heading": "OS 通知",
-    "description": "ジョブの完了・失敗時にネイティブのデスクトップ通知を表示します。通知はタブがフォーカスされていないときのみ表示されます。",
-    "enableLabel": "OS 通知を有効化",
-    "notifyOn": "通知の対象:",
-    "filterAll": "すべて（完了と失敗）",
-    "filterCompleted": "完了のみ",
-    "filterFailed": "失敗のみ",
-    "enabledToast": "OS 通知を有効にしました",
-    "disabledToast": "OS 通知を無効にしました"
+    "dailyBudgetNone": "1 日の上限は未設定",
+    "infoVersion": "バージョン"
   },
   "webhooks": {
     "heading": "アウトバウンド Webhook",
@@ -164,7 +156,7 @@
   "appearance": {
     "taglines": {
       "dracula": "オリジナル — 紫がかったダークにネオンのアクセント",
-      "aurora-light": "プレミアムライト — Linear風のインディゴと温かみのあるオフホワイト",
+      "aurora-light": "昼光の製図台 — 温かみのある紙にインク、柔らかな影で奥行きを表現",
       "obsidian-dark": "グラファイト・プロ — ニュートラルなほぼ黒に、落ち着いた紫のアクセントひとつ",
       "specrails": "ブランドテーマ — 深いネイビーインディゴに鮮やかなシアン",
       "code-rain": "蛍光ターミナル — 緑がかった漆黒にソフトミント",
@@ -177,7 +169,7 @@
   },
   "mobile": {
     "heading": "モバイルコンパニオン",
-    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
+    "description": "スマートフォンの Specrails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
     "accessOn": "モバイルアクセス オン",
     "accessOff": "モバイルアクセス オフ",
     "listeningOnPort": "ポート {{port}} で待機中",
@@ -190,7 +182,7 @@
     "identityReset": "モバイル ID をリセットしました",
     "enableFailed": "モバイルアクセスを有効にできませんでした",
     "disableFailed": "モバイルアクセスを無効にできませんでした",
-    "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
+    "windowsFirewall": "初回有効化時に Windows ファイアウォールが Specrails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
     "revokeDevice": "{{name}} を無効化",
@@ -533,5 +525,114 @@
       "full": "フルモーション",
       "fullHint": "OSが控えめを求めてもアニメーションを表示"
     }
+  },
+  "missionConnectors": {
+    "title": "ミッションのコネクタ",
+    "description": "ミッションでは、各プロバイダーで設定済みのコネクタと MCP サーバーを使えます。最初はすべてオンです。ミッションに不要なものはオフにしてください。",
+    "refresh": "更新",
+    "measure": "サイズを測定",
+    "measuring": "測定中…",
+    "loadFailed": "プロバイダーのコネクタを一覧表示できませんでした。",
+    "measureFailed": "コネクタを測定できませんでした。",
+    "saveFailed": "{{name}} を更新できませんでした。",
+    "empty": "プロバイダーにコネクタや MCP サーバーが見つかりません。",
+    "appliesNextTurn": "変更は次のミッションのターンから適用されます。そのターンではプロバイダーのプロンプトキャッシュが一度作り直されるため、少し費用が増えます。",
+    "claudeListStale": "Claude Code が応答しなかったため、記憶されているアカウントコネクタを表示しています。",
+    "waitsForToolSearch": "Claude がツールを必要に応じて検索できるようになると、Claude のミッションで自分の MCP サーバーが読み込まれます（Core の更新が必要）。",
+    "notLoadedYet": "まだ読み込まれません",
+    "toggleLabel": "{{provider}} のミッションで {{name}} を使う",
+    "sizeTitle": "プロバイダーがツール定義をすべて送る場合のおおよそのサイズ",
+    "size_one": "ツール {{count}} 個 · 約 {{tokens}} トークン",
+    "size_other": "ツール {{count}} 個 · 約 {{tokens}} トークン",
+    "kind": {
+      "account-connector": "アカウントコネクタ",
+      "mcp-server": "MCP サーバー"
+    },
+    "status": {
+      "needsAuth": "プロバイダーでのサインインが必要",
+      "failed": "接続できませんでした"
+    },
+    "lock": {
+      "specrails-duplicate": "Specrails 自身の MCP と同じサーバーです。常に除外されます（ミッションには既にあります）。",
+      "disabled-in-provider": "{{provider}} の設定でオフになっています。",
+      "external-mcp": "外部 MCP サーバー（設定 ▸ MCP）から追加されています。",
+      "unsupported": "{{provider}} が自分で読み込みます。Specrails からはオフにできません。"
+    },
+    "providerNote": {
+      "claude": "claude.ai のアカウントコネクタと ~/.claude.json の MCP サーバー。Claude はリクエストごとにコネクタのツール定義をすべて送ります。",
+      "codex": "~/.codex/config.toml のサーバー。Codex はエージェントが検索したときだけツール定義を読み込みます。",
+      "gemini": "~/.gemini/settings.json のサーバー。",
+      "kimi": "~/.kimi-code/mcp.json のサーバー。"
+    }
+  },
+  "attention": {
+    "heading": "通知",
+    "description": "対応が必要な項目の通知：離れているときはシステム通知、アプリの別の場所にいるときはトースト、すでに画面に表示されているときは何もしません。",
+    "enable": "通知する",
+    "enableHint": "オフにすると、以下の通知とトーストがすべて止まります。",
+    "categoriesLegend": "通知する内容",
+    "categories": {
+      "question": {
+        "label": "質問と返信",
+        "hint": "エージェントがあなたの回答を待っている、またはミッションが返信した"
+      },
+      "review": {
+        "label": "レビューの準備完了",
+        "hint": "デリバリーまたはプルリクエストがあなたの判断を待っている"
+      },
+      "failed": {
+        "label": "失敗",
+        "hint": "実行が失敗した、ブロックされた、または止まった"
+      },
+      "budget": {
+        "label": "支出の上限",
+        "hint": "実行が予算、支出上限、またはプロバイダーの使用上限で一時停止した"
+      },
+      "done": {
+        "label": "完了したジョブ",
+        "hint": "ジョブが完了した（アプリを離れているときのみ）"
+      }
+    },
+    "sound": "サウンドを鳴らす",
+    "soundHint": "システムの通知音",
+    "dockBadge": "Dock バッジ",
+    "dockBadgeHint": "アプリのアイコンに、まだ見ていない受信トレイの項目数を表示します",
+    "dockBadgeDesktopOnly": "デスクトップアプリでは、アプリのアイコンに、まだ見ていない受信トレイの項目数を表示します",
+    "projectsHeading": "プロジェクト",
+    "projectsDescription": "プロジェクトをオフにすると、その通知をミュートします。項目は受信トレイに残ります。",
+    "saveFailed": "通知の設定を保存できませんでした"
+  },
+  "autoContinue": {
+    "title": "失敗した実行の続行",
+    "description": "Specrails が直し方を知っている原因で実行が失敗した場合、一度だけ自動で続行し、その旨を履歴に残します。",
+    "toggleLabel": "一度だけ自動で続行",
+    "stateOn": "オン: 修正できる失敗を一度だけ続行します。",
+    "stateOff": "オフ: 失敗した実行はあなたが続行するまで待ちます。",
+    "explainWhen": "未完了のタスク、足りないツール、プロバイダーの一時的なエラー、停滞のいずれかなら、次の試行は作業をすべて残し、必要な指示を受け取ります。",
+    "explainNever": "認証情報やシークレット、ポリシーによる拒否、支出上限、利用上限、あなたが選んだ停止、同じ失敗の繰り返しでは決して続行しません。",
+    "enabled": "修正できる失敗を一度だけ自動で続行します",
+    "disabled": "失敗した実行はあなたを待ちます",
+    "saveFailed": "設定を保存できませんでした"
+  },
+  "machineInstalls": {
+    "title": "記憶したインストール",
+    "description": "実行のために承認したマシン全体へのインストールです。Specrails は確認なしで再実行します。取り消すと次回また確認します。",
+    "empty": "まだ何も記憶していません。実行でマシン全体へのツールのインストールが必要になると、先に確認します。",
+    "approvedAt": "{{date}} に承認",
+    "uses_one": "1 回使用",
+    "uses_other": "{{count}} 回使用",
+    "revoke": "取り消す",
+    "revoked": "承認を取り消しました。再実行の前に Specrails が確認します。",
+    "revokeFailed": "承認を取り消せませんでした",
+    "loadFailed": "記憶したインストールを読み込めませんでした"
+  },
+  "envFiles": {
+    "title": "実行での環境ファイル",
+    "description": "このプロジェクトの Git で無視されている .env ファイル（.env、.env.local、.env.test などの .env.<名前>）を各リポジトリから各実行のワークツリーにコピーし、それらが必要なテストを実行できるようにします。既定ではオフです。",
+    "label": "このプロジェクトの .env ファイルを実行にコピーする",
+    "consequence": "このプロジェクトの実行のエージェントはこれらのファイルを読み取れます。コミットされることも、レビューに表示されることもありません。",
+    "enabled": "実行にこのプロジェクトの .env ファイルが渡されるようになりました",
+    "disabled": "実行にこのプロジェクトの .env ファイルは渡されなくなりました",
+    "saveFailed": "環境ファイルの設定を保存できませんでした"
   }
 }

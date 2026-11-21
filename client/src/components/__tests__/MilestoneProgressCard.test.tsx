@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { MilestoneAutoAdvanceToggle, MilestoneCard, MilestoneChainRow, MilestoneProgressBar, MilestoneRailRow } from '../../features/builder/components/project-builder/MilestoneProgressCard'
-import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot } from '../../features/builder/lib/milestone-progress'
+import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot, ChainOffer, ChainPlanView } from '../../features/builder/lib/milestone-progress'
 
 function progress(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
   return {
@@ -16,7 +16,7 @@ function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', launched: [], createdAt: null, updatedAt: 'x', ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', plan: null, ...over }
 }
 
 describe('MilestoneProgressBar', () => {
@@ -24,6 +24,7 @@ describe('MilestoneProgressBar', () => {
     render(<MilestoneProgressBar counts={{ total: 8, done: 2, onReview: 3, inProgress: 1, todo: 2, failed: 1 }} />)
     const bar = screen.getByTestId('milestone-progress-bar')
     const segs = Array.from(bar.querySelectorAll('[data-segment]')).map((el) => el.getAttribute('data-segment'))
+    expect(bar.querySelector('.animate-pulse, [class*="animate-pulse"]')).toBeNull()
     expect(segs).toEqual(['done', 'onReview', 'inProgress', 'failed', 'todo'])
     expect(bar.getAttribute('aria-label')).toBe('5 of 8 delivered · 2 done')
   })
@@ -33,6 +34,8 @@ describe('MilestoneCard', () => {
   it('reads a delivered milestone honestly — delivered / awaiting review, never done', () => {
     render(<MilestoneCard progress={progress({ state: 'delivered', counts: { total: 8, done: 0, onReview: 8, inProgress: 0, todo: 0, failed: 0 } })} />)
     expect(screen.getByTestId('milestone-state-pill')).toHaveTextContent('Delivered — awaiting review')
+    // Awaiting review is the review state, never amber.
+    expect(screen.getByTestId('milestone-state-pill')).toHaveAttribute('data-run-state', 'review')
     expect(screen.getByTestId('milestone-counts')).toHaveTextContent('8 of 8 delivered · 0 done')
     expect(screen.queryByText(/complete/i)).not.toBeInTheDocument()
     expect(screen.queryByTestId('milestone-failed-note')).not.toBeInTheDocument()
@@ -99,6 +102,34 @@ describe('MilestoneChainRow / MilestoneRailRow', () => {
     expect(screen.queryByTestId('milestone-chain-resume')).not.toBeInTheDocument()
   })
 
+  it('a chain paused on a failed spec asks where to resume: the failed step or the start', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    const failed = chain({ status: 'paused', pauseReason: 'chunk_stopped', retryChunk: 1, launched: [
+      { chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r1'], deliveryId: 'd-3' },
+      { chunk: 2, railIndex: 4, ticketIds: [2], runIds: ['r2'], deliveryId: 'd-4' },
+    ] })
+    render(<MilestoneChainRow chain={failed} onResume={onResume} />)
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    expect(onResume).not.toHaveBeenCalled()
+    expect(screen.getByTestId('milestone-chain-resume-failed-step')).toHaveTextContent('From the step that failed')
+    expect(screen.getByTestId('milestone-chain-resume-start')).toHaveTextContent('From the start')
+    await user.click(screen.getByTestId('milestone-chain-resume-failed-step'))
+    expect(onResume).toHaveBeenCalledWith('c1', 'failed_step')
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    await user.click(screen.getByTestId('milestone-chain-resume-start'))
+    expect(onResume).toHaveBeenLastCalledWith('c1', 'start')
+  })
+
+  it('a pause that is not a failed spec resumes directly', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'head_missing' })} onResume={onResume} />)
+    await user.click(screen.getByTestId('milestone-chain-resume'))
+    expect(onResume).toHaveBeenCalledWith('c1')
+    expect(screen.queryByTestId('milestone-chain-resume-failed-step')).not.toBeInTheDocument()
+  })
+
   it('a wave checkpoint offers Launch next rail (resume), the auto-continue switch (PATCH) and Cancel', async () => {
     const onResume = vi.fn()
     const onSetAutoAdvance = vi.fn()
@@ -162,7 +193,79 @@ describe('MilestoneChainRow / MilestoneRailRow', () => {
     expect(screen.getByText('Rail 4')).toBeInTheDocument()
     expect(screen.getByText('No delivery yet')).toBeInTheDocument()
     await user.click(screen.getByText('Rail 4'))
-    expect(onOpenRail).toHaveBeenCalledWith(3)
+    expect(onOpenRail).toHaveBeenCalledWith(expect.objectContaining({ railIndex: 3 }))
     expect(screen.queryByTestId('milestone-rail-review')).not.toBeInTheDocument()
+  })
+})
+
+describe('MilestoneChainRow — the reconciled next step', () => {
+  const offer = (kind: ChainOffer['kind'], over: Partial<ChainOffer> = {}): ChainOffer =>
+    ({ kind, from: 'recommended', ticketId: 7, title: 'Animate the tabletop and screen transitions', runId: null, nextTicketId: null, ...over })
+  const plan = (offers: ChainOffer[], over: Partial<ChainPlanView> = {}): ChainPlanView =>
+    ({ offers, specs: [], settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: true, ...over })
+
+  it('the paused rail\'s spec is already delivered: the only offer is to continue with the next spec', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'head_discarded', retryChunk: 1, launched: [{ chunk: 2, railIndex: 3, ticketIds: [6], runIds: ['r'], deliveryId: 'd' }], plan: plan([offer('next')]) })} onResume={onResume} />)
+    const primary = screen.getByTestId('milestone-chain-resume')
+    expect(primary).toHaveAttribute('data-offer', 'next')
+    expect(primary).toHaveTextContent('Continue with the next spec (#7 Animate the tabletop and screen transit…)')
+    expect(primary).toHaveAttribute('title', '#6 is already delivered; nothing runs twice')
+    // Honest reason kept, plus what reconciliation found.
+    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('the delivery the next rail builds on was discarded')
+    expect(screen.getByTestId('milestone-chain-paused-delivered')).toHaveTextContent('#6 is already delivered')
+    // No "from the failed step / from the start" menu for a spec that did not fail.
+    expect(screen.queryByTestId('milestone-chain-resume-more')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('milestone-chain-resume-failed-step')).not.toBeInTheDocument()
+    await user.click(primary)
+    expect(onResume).toHaveBeenCalledWith('c1', 'recommended')
+  })
+
+  it('a genuinely failed spec offers the failed step first and a fresh retry as the alternative', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'chunk_failed', retryChunk: 1, plan: plan([
+      offer('resume_failed_step', { ticketId: 6, from: 'failed_step', runId: 'fork-1' }),
+      offer('retry_from_start', { ticketId: 6, from: 'start' }),
+    ], { pausedSpecSettled: false }) })} onResume={onResume} />)
+    const primary = screen.getByTestId('milestone-chain-resume')
+    expect(primary).toHaveTextContent('Resume #6 from the failed step')
+    expect(screen.queryByTestId('milestone-chain-paused-delivered')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('milestone-chain-resume-more'))
+    expect(await screen.findByTestId('milestone-chain-offer-retry_from_start')).toHaveTextContent('Retry #6 from the start')
+    await user.click(screen.getByTestId('milestone-chain-offer-retry_from_start'))
+    expect(onResume).toHaveBeenCalledWith('c1', 'start')
+  })
+
+  it('names every other step honestly: integrate, follow or resume a run, retry, finish', () => {
+    const cases: Array<[ChainOffer, string]> = [
+      [offer('integrate', { ticketId: 6, nextTicketId: 7 }), 'Integrate #6 and continue'],
+      [offer('rebuild', { ticketId: 3, from: 'start' }), 'Run #3 again on the updated base'],
+      [offer('follow_run'), 'Follow the run of #7'],
+      [offer('answer_run'), 'Follow the run of #7 (it needs your answer)'],
+      [offer('resume_run'), 'Resume the run of #7'],
+      [offer('retry', { ticketId: 6 }), 'Retry #6'],
+      [offer('complete', { ticketId: null, title: null }), 'Finish the chain'],
+    ]
+    for (const [o, text] of cases) {
+      const { unmount } = render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'chunk_stopped', plan: plan([o]) })} onResume={vi.fn()} />)
+      expect(screen.getByTestId('milestone-chain-resume')).toHaveTextContent(text)
+      unmount()
+    }
+  })
+
+  it('a checkpoint launches the reconciled next step', async () => {
+    const onResume = vi.fn()
+    const user = userEvent.setup()
+    render(<MilestoneChainRow chain={chain({ status: 'awaiting_approval', plan: plan([offer('next')]) })} onResume={onResume} />)
+    await user.click(screen.getByTestId('milestone-chain-launch-next'))
+    expect(onResume).toHaveBeenCalledWith('c1', 'recommended')
+  })
+
+  it('a paused milestone reads Paused, not Ready to launch', () => {
+    render(<MilestoneCard progress={progress({ state: 'paused' })} />)
+    expect(screen.getByTestId('milestone-state-pill')).toHaveTextContent('Paused')
+    expect(screen.getByTestId('milestone-state-pill')).toHaveAttribute('data-run-state', 'paused')
   })
 })

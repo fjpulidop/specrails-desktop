@@ -11,5 +11,7 @@ Status 2026-10-21: not archivable as written — the backend shipped (#660, #664
 `~/.specrails/runtime-role-prompts.json`, frozen per job), but #718 unmounted the global editor (3.1, unchecked again):
 `RuntimeRolePrompts.tsx` is no longer rendered and role definitions are edited per workflow in `LoopAgentsEditor`. The
 "Global role definition editor" requirement is therefore false today (and the code has a fourth role, `fixer`).
+The unmounted `RuntimeRolePrompts.tsx`, its test and its `agentRuntime:prompts.*` strings were later deleted as dead
+code (recover them from git history if a global editor is restored).
 Remaining — decide whether to restore a global editor or rewrite the delta around per-workflow definitions, then
 archive.

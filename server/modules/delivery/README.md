@@ -17,14 +17,14 @@ closed on GitHub without anyone pressing Verify PR: per project, it reads the
 due open PRs of each repository in one GraphQL call (age back-off) and runs
 the same `poll-merge` decision only for a terminal PR.
 
-Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail-pr-decision.test.ts server/multi-repo-delivery.test.ts`.
+Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail-pr-decision.test.ts`.
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 
 ## intent.md in the delivered change
 
 Before the isolated settlement commits a one-spec run (`commitWorktreeAndVerify`
-in [rail-isolated-launch.ts](runtime/rail-isolated-launch.ts), fresh runs and
+in [rail-isolated-run-settlement.ts](runtime/rail-isolated-run-settlement.ts), fresh runs and
 reattached ones alike), the spec's intent (intent-mode) is rendered into the
 ONE OpenSpec change the run created — `openspec/changes/<name>/` or its
 `archive/<date>-<name>/` — as `intent.md`
@@ -78,11 +78,111 @@ behind the review packet's Changes tab: delivery head against its merge-base
 (file list, counts, per-file content hash, lazily parsed hunks) plus the
 annotations the delivery already holds. Read-only; git runs through the hardened
 `gitExecEnv` reader and the file endpoint only accepts listed paths. Routes
-`GET /rails/pr-deliveries/:id/changes[/file]` are in `rails-router.ts`. Reviewer
+`GET /rails/pr-deliveries/:id/changes[/file]` are in `rails-review-http.ts`. Reviewer
 finding anchors come from Core contract 5.9 (`readFindingLocations` in
 `delivery-evidence.ts`); older evidence stays unanchored. Real-Git tests:
 [`runtime/delivery-changes.test.ts`](runtime/delivery-changes.test.ts). See the
 [review packet guide](../../../docs/internals/review-packet.md#changes-tab-in-app-diff-review).
+
+## Merge preview
+
+[`domain/merge-preview.ts`](domain/merge-preview.ts) is the pure vocabulary (status,
+summary, worst-of aggregation, merge-back comparator);
+[`runtime/merge-preview-git.ts`](runtime/merge-preview-git.ts) runs
+`git merge-tree --write-tree --name-only -z --no-messages` (Git ≥ 2.38, probed once;
+older Git reports `unknown` / `supported: false`) with `GIT_OBJECT_DIRECTORY` set to a
+temp dir and the repository's objects as an alternate, so a preview writes no object
+into the person's repository and the temp dir is deleted afterwards. No index, working
+tree, ref or lock is touched and nothing is fetched (the base is `origin/<base>` as last
+fetched, else `<base>`). A clean result whose tree equals the base tree is
+`already_merged` (squash and rebase merges included). Pair results are cached by
+(repository, base sha, head sha) — failures are not cached — and at most three Git
+children run at once.
+
+[`runtime/merge-preview.ts`](runtime/merge-preview.ts) previews every active delivery
+(`building`, `on_review`, `pr_draft`, `pr_ready`, `pr_failed`; primary-repository
+branches; a multi-repository group is not previewed): each branch against the base,
+`rev-list --count head..base` for the base lead, and every pair of pending deliveries
+on the same base against each other (siblings — any pending delivery on that base, not
+only one Launch all batch). The last summary per delivery is kept for read-only
+surfaces: the live board attaches it to delivery cards and asks for a throttled (10 s)
+background refresh that broadcasts `rail.merge_preview` when a summary changed. Route:
+`GET /rails/merge-preview[?deliveryId=]` ([rails-merge-preview-http.ts](runtime/rails-merge-preview-http.ts)).
+Clients refetch it on `rail.pr_state`, `rail.job_completed`, `rail.job_stopped` and
+`rail.merge_preview`.
+
+The legacy merge-back ([rail-merge-orchestrator.ts](runtime/rail-merge-orchestrator.ts)
+`withMergePreview`) previews the succeeded branches under the repository lock and
+[merge-manager](runtime/merge-manager.ts) `orderBranches` merges clean candidates first,
+unknown next, conflicting last (fewest conflicted paths first), then fewest sibling
+conflicts, then the touch-list overlap and ticket id as before.
+Tests: [`runtime/merge-preview.test.ts`](runtime/merge-preview.test.ts) (real Git).
+
+## Environment files in run worktrees (opt-in)
+
+With the project setting `worktreeEnvFiles` on (off by default), `materializeIsolatedWorktree`
+calls `syncWorktreeEnvFiles` ([server/worktree-env-files.ts](../../worktree-env-files.ts)) on
+every run checkout of every repository (rail allocation, `prepareIsolatedWorktree`, PR CI):
+regular files named `.env` / `.env.<name>` directly in the repository root (never
+`.env.example|sample|template`, links, directories, files over 256 KB, or files tracked in the
+checkout or the worktree) are recopied atomically with mode 0600; copies whose source is gone, or
+all copies when the setting is off, are removed. Only files Git ignores in the worktree are
+copied; one the repository does not ignore is first added by exact path to a marked Specrails
+block of `info/exclude` (common dir, like the never-stage block; never a `.gitignore`). The copies
+join `overlayExcludes` and a manifest in the worktree's private git dir
+(`specrails-env-files.json`, read by `copiedEnvFilePaths`), so settlement's ignored snapshot,
+retained-worktree evaluation and recovery never count them as the run's output, and release
+deletes them with the worktree (`via: 'env-copy'`, never the safety archive). The environment
+blocker remedy `copy-env-files` ([runtime/run-env-files.ts](runtime/run-env-files.ts)) enables the
+setting and copies into a stopped run's existing worktrees before Continue. Values are redacted
+from failure-analysis uploads and problem reports. Tests:
+[`server/worktree-env-files.test.ts`](../../worktree-env-files.test.ts),
+[`runtime/run-env-files.test.ts`](runtime/run-env-files.test.ts).
+
+## Submodules in run worktrees
+
+`git worktree add` leaves submodules empty, so a repository whose code or tests import
+from one failed at baseline. `materializeIsolatedWorktree` calls
+`initializeWorktreeSubmodules` (in `server/worktree-manager.ts`) on every run checkout,
+before HEAD is proven and before any agent runs. Each recorded submodule, recursively, is
+cloned from the person's own checkout (`<common git dir>/modules/<name>`: local objects,
+no network) and only falls back to its configured or `.gitmodules` URL when that copy is
+missing or lacks the recorded commit (a local-path URL then needs the person's own
+`protocol.file.allow`, as with plain Git). Activation and the URL are passed as `-c`
+options, so the repository config is never written; the clones live in the worktree's
+private git dir. A submodule already populated in the checkout is left as is (a resumed
+run may have moved it). When neither source works the launch fails with
+`submodule_unavailable: … needs submodule <path> at <sha> …` naming both sources, Git's
+reason and the fix, and the created worktree and branch are rolled back. Injected Git
+doubles disable it (`IsolatedWorktreeIO.submodules`).
+
+Git refuses every non-force `worktree remove` of a checkout with populated submodules.
+`removeWorktree({ force: false })` then applies Git's own guard itself (`status
+--porcelain --ignore-submodules=none` must be empty, so changed submodule content or new
+submodule commits still block removal) and only then unmounts with `--force`.
+
+## Faster run worktrees
+
+- `createWorktree` adds `-c checkout.workers=4` unless the person configured
+  `checkout.workers` (any scope). Measured on a 5,245-file repository: 2.2–2.5 s → 1.0–1.2 s.
+- [`runtime/worktree-preparation-pool.ts`](runtime/worktree-preparation-pool.ts) keeps
+  prepared run checkouts: detached linked worktrees under
+  `<worktreesRoot>/.prepared/<id>` created with `worktree add --no-checkout` and
+  populated with `reset --hard` (neither runs hooks). The Launch all dialog asks for up
+  to three (`POST /rails/worktree-preparation`, released on dismiss), and a fresh launch
+  with none prepared starts one before awaiting its fetch, so file writes overlap the
+  network. A fresh unit adopts one (`claimPrepared`): reset to the exact base (only the
+  delta is written), `worktree move` to the run path, then
+  `git checkout --no-track -b <branch>`, which runs the `post-checkout` hook exactly once
+  as `worktree add` would (its previous-HEAD argument is the base sha instead of the null
+  sha). Any failure falls back to a plain `worktree add`; continuations, revisions and
+  Intent adoptions never use it. Unclaimed checkouts expire after 5 minutes, and a new
+  process sweeps `.prepared` leftovers the first time it touches the repository.
+  Injected Git doubles disable it (`IsolatedWorktreeIO.preparation`); kill switch
+  `SPECRAILS_WORKTREE_PREPARATION=false`.
+- Overlay copies use [`util/clone-copy.ts`](../../util/clone-copy.ts): Node's
+  `COPYFILE_FICLONE` does not clone on macOS, so large files and directories are cloned
+  with `cp -c` (APFS clonefile), falling back to a normal copy.
 
 ## PR CI loop
 
@@ -94,6 +194,23 @@ A mission can offer the same card for any open same-repository PR of a project r
 
 **Fork PRs are rejected.** Specrails pushes with the project repository's own rights; a fork head is not writable by that mechanism, so the request is refused before any work starts (same rule as `explicit-pr-target`).
 
+## Retained run worktrees (Settings ▸ Storage)
+
+[`domain/retained-worktrees.ts`](domain/retained-worktrees.ts) is the pure "Nothing to lose / Waiting for you" decision.
+[`runtime/retained-worktrees.ts`](runtime/retained-worktrees.ts) lists one project's retained mounts, gathers their Git evidence, lazily measures disk use, and removes confirmed ones. Removal always goes through `releaseRailWorktrees`, never a second removal path; it uses the cleanup-only opt-ins `acceptIgnoredBaseCopies` and `reclaimTerminalMounts`, and branches are deleted with compare-and-delete `update-ref -d`.
+[`adapters/retained-worktrees-http.ts`](adapters/retained-worktrees-http.ts) serves `/api/worktrees/retained*` across projects, and [desktop-router.ts](../../desktop-router.ts) registers it.
+
+### Overlay kit and safety archives
+
+Release deletes Specrails's own overlay kit when it is provably unchanged (allocation fingerprint, or the v2 manifest record while the manifest itself is unchanged) and moves only changed, unknown or unprovable paths to a safety archive `<worktree>.specrails-overlay-quarantine-XXXXXX`; no folder and no notice when nothing had to be kept. Rules: [safe PR flow › Overlay kit on release](../../../docs/internals/safe-pr-review-flow.md#overlay-kit-on-release); code: [`runtime/rail-worktree-release.ts`](runtime/rail-worktree-release.ts) (`clearVerifiedOverlayEntries`), records in [`worktree-overlay.ts`](../../worktree-overlay.ts).
+[`runtime/overlay-quarantines.ts`](runtime/overlay-quarantines.ts) lists a project's archives and deletes a confirmed one (a real archive directory inside that project's worktrees root only, links never followed, logged); the same HTTP adapter serves `/api/worktrees/quarantines*`. Tests: [`runtime/overlay-kit-release.test.ts`](runtime/overlay-kit-release.test.ts) (real Git: unchanged kit, edited `CLAUDE.md`, replaced/re-pointed links, v1 manifest, edited manifest, settings with Specrails-owned vs foreign keys, mixed ignored `.claude/`) and [`runtime/overlay-quarantines.test.ts`](runtime/overlay-quarantines.test.ts).
+
+Real-Git tests:
+- [`runtime/retained-worktrees.test.ts`](runtime/retained-worktrees.test.ts): dirty, unique commits, pushed, an identical vs a different `.env`, a moved HEAD, a branch raced between the check and the deletion, and terminal-row reclaim.
+- [`adapters/retained-worktrees-http.test.ts`](adapters/retained-worktrees-http.test.ts).
+
+See the [safe PR guide](../../../docs/internals/safe-pr-review-flow.md#retained-run-worktrees).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
@@ -103,6 +220,7 @@ A mission can offer the same card for any open same-repository PR of a project r
 - [runtime/flow-worktree-return.ts](runtime/flow-worktree-return.ts)
 - [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
 - [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
+- [runtime/merge-preview.ts](runtime/merge-preview.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
 - [runtime/multi-repo-execution.ts](runtime/multi-repo-execution.ts)
 - [runtime/pr-merge-watch.ts](runtime/pr-merge-watch.ts)
@@ -117,6 +235,38 @@ A mission can offer the same card for any open same-repository PR of a project r
 - [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
 - [runtime/run-records.ts](runtime/run-records.ts)
 - [runtime/run-review-diagnosis.ts](runtime/run-review-diagnosis.ts)
+
+## Rails HTTP routes
+
+[`runtime/rails-router.ts`](runtime/rails-router.ts) only composes the per-project
+`/rails` router and fixes registration order; each concern registers its own
+routes:
+
+| File | Owns |
+| --- | --- |
+| [`rails-state-http.ts`](runtime/rails-state-http.ts) | list, create and delete rail slots; open-PR candidates |
+| [`rails-settings-http.ts`](runtime/rails-settings-http.ts) | tickets/mode, profile, engine and name of a rail |
+| [`rails-launch-http.ts`](runtime/rails-launch-http.ts) | launch/relaunch admission door, PR CI start on a rail, stop |
+| [`rails-pr-ci-http.ts`](runtime/rails-pr-ci-http.ts) | PR CI status/availability, mission-origin admissions, offer dismiss |
+| [`rails-merge-preview-http.ts`](runtime/rails-merge-preview-http.ts) | merge preview of pending deliveries |
+| [`rails-preparation-http.ts`](runtime/rails-preparation-http.ts) | prepared run checkouts for Launch all (prepare / release) |
+| [`rails-review-http.ts`](runtime/rails-review-http.ts) | review packet, Changes tab, PR decision, local-changes actions, PR checkout |
+| [`rails-http-shared.ts`](runtime/rails-http-shared.ts) | request context, mode normalization, rail/PR broadcasts, `:railIndex` guard |
+| [`rail-delivery-revision.ts`](runtime/rail-delivery-revision.ts) | pure delivery-snapshot predicates (continuation, revision, checkout target) |
+
+Route tests stay in `rails-router*.test.ts` and exercise the composed router.
+
+The rail launch door (`launchRail` in rails-launch-http.ts) only sequences
+stages, each answering a refused request itself: relaunch source and request
+validation ([rail-launch-request.ts](runtime/rail-launch-request.ts)); admission,
+spec/repository scope, bases, capacity, loop recipe and engine
+([rail-launch-admission.ts](runtime/rail-launch-admission.ts)); loop graph, run plan
+and PR continuation ([rail-launch-loop-plan.ts](runtime/rail-launch-loop-plan.ts));
+then the isolation gate and the isolated, shared-cwd or legacy queue launch
+([rail-launch-run.ts](runtime/rail-launch-run.ts)). Stages are synchronous except
+the door's explicit awaits, so a launch needing none still checks in-flight
+tickets and registers its run in one tick. Characterization tests:
+[rails-launch-http.characterization.test.ts](runtime/rails-launch-http.characterization.test.ts).
 
 ## Phase-3 run records
 
@@ -140,7 +290,18 @@ lock) creates or resumes the mount, verifies its HEAD, applies the per-run
 overlay, links warm `node_modules` and freezes the provenance snapshot; a
 verification failure removes only resources the call created.
 `launchIsolatedRail` calls it once per allocation unit and keeps batching, PR
-continuation, delivery rows and the rail ledger. `prepareIsolatedWorktree` is
+continuation, delivery rows and the rail ledger. It composes explicit stages:
+scope ([repository routing, frozen revision/addenda/PR mode/units](runtime/rail-isolated-launch-scope.ts);
+a single-repository launch is routed synchronously), [allocation](runtime/rail-isolated-launch-allocation.ts)
+(repo-locked, all-or-nothing worktree preparation and generation opening),
+[runs](runtime/rail-isolated-launch-runs.ts) (fan-out with guarded per-run settlement) and
+[settlement](runtime/rail-isolated-launch-settlement.ts) (PR-mode persistence before release,
+legacy merge-back, aggregate failure parking), with the continuation push and
+outcome derivation in [the PR decision](runtime/rail-isolated-launch-pr-decision.ts).
+Contracts, helpers, the [per-run Git settlement](runtime/rail-isolated-run-settlement.ts) and
+[restart recovery](runtime/rail-isolated-recovery.ts) live in their own files;
+`rail-isolated-launch.ts` keeps every public export. Characterization tests:
+[rail-isolated-launch.characterization.test.ts](runtime/rail-isolated-launch.characterization.test.ts). `prepareIsolatedWorktree` is
 the self-contained entry for a second consumer (Intent): it takes the repository
 lock, fetches, resolves the integration base and a fresh conventional branch,
 then materializes. It writes no `rail_worktrees` row; the caller owns release
@@ -186,7 +347,7 @@ harvest (`probeDefinitionRuns` + `healRuntimeEvidence({ refreshMissingReview })`
 Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts).
 
 [`readRunReviewDiagnosis`](runtime/run-review-diagnosis.ts) gives the
-operator's diagnosis tools (`runtime_diagnose`, the `runtime_evidence`
+operator's diagnosis tools (`specrails_runs(diagnose)`, the `specrails_runs(evidence)`
 overview) the run's latest reviewer verdict, failing host checks and Intent →
 Spec derivation coverage: stored settle evidence first, else the retained run
 through the same `healRuntimeEvidence` projection (engine 2 probe, engine 1
@@ -293,7 +454,7 @@ for a `factory:pr-ci` generation. The kept worktree's branch records carry
 `run_stopped` instead of `settlement_interrupted`. A multi-repository parent is
 `run_stopped` only when every failed child is.
 
-`runtime_settle` (`POST /agent-runtime/runs/:runId/settle`) on a completed
+`specrails_runs(settle)` (`POST /agent-runtime/runs/:runId/settle`) on a completed
 definition run goes through the same `reattachIsolatedSettlement`
 (`settleCompletedDefinitionRun`, bound at the route composition root). It never
 uses the legacy `.specrails` pipeline journal check, which engine v2 runs do not
@@ -388,3 +549,17 @@ own merge wrapper are outside Desktop's naming seam.
 Recovery discovery reads full messages, accepts exact `Run:` body lines and still
 recognizes legacy `(run …)` subjects. Ref/reflog and unreachable-object candidates
 share the existing bounded uniqueness proof; a prefix-matching run id is rejected.
+
+## Conflict-aware launches
+
+Rails launched in parallel on one repository merge back one after the other.
+Before a launch, [launch-overlap](runtime/launch-overlap.ts) (pure rules in
+[domain/launch-overlap.ts](domain/launch-overlap.ts)) finds the other rails of
+the project, running or waiting for their merge, that will likely touch the
+same files: the files their specs name plus the files their agents actually
+wrote (`agent-event` write tools inside their own worktrees). Lockfiles and
+OpenSpec artifacts never count. The launch still starts; each run logs one
+`⚠ Likely overlap with rail N …` line, the 202 response carries `overlaps`, and
+`GET /rails/:railIndex/launch-overlaps` answers before a launch. Merge such
+deliveries one after the other; the merge preview shows the sibling collision.
+

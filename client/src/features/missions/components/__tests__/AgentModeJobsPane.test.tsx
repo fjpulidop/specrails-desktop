@@ -129,12 +129,28 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
-  it('opens the near-fullscreen execution modal on job click and closes it', () => {
+  it('reads every job status through the shared vocabulary (one working lamp, skipped is stopped)', () => {
+    mockJobs = [
+      job('j1', 'running', 'a'),
+      job('j2', 'skipped', 'b'),
+      job('j3', 'zombie_terminated', 'c'),
+    ]
+    const { container } = renderPane()
+    const states = screen.getAllByTestId('agent-job-status').map((pill) => pill.getAttribute('data-run-state'))
+    expect(states).toEqual(['working', 'stopped', 'failed'])
+    expect(screen.getByText('Skipped')).toBeInTheDocument()
+    expect(screen.getByText('Zombie')).toBeInTheDocument()
+    // The running job has its own lamp only: no second (primary) dot next to it.
+    expect(container.querySelectorAll('[data-live-ring]')).toHaveLength(1)
+    expect(container.querySelector('.bg-accent-primary')).toBeNull()
+  })
+
+  it('opens the near-fullscreen execution modal on job click and closes it', async () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
     renderPane('mission-project')
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('/specrails:implement #7'))
-    expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(await screen.findByTestId('job-modal')).toBeInTheDocument()
     expect(screen.getByTestId('job-modal')).toHaveAttribute('data-project-id', 'mission-project')
     expect(screen.getByText('j-42')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close-modal'))
@@ -155,12 +171,15 @@ describe('AgentModeJobsPane', () => {
   it('maximize covers the whole surface (absolute inset-0), restore returns to the split', () => {
     const { container } = renderPane()
     const pane = container.firstElementChild as HTMLElement
-    expect(pane.className).not.toContain('absolute')
+    // In flow at rest (it only overlays, as a drawer, on a surface too narrow for both: `@max-[680px]/surface:absolute`).
+    const classes = () => pane.className.split(/\s+/)
+    expect(classes()).not.toContain('absolute')
+    expect(classes()).toContain('@max-[680px]/surface:absolute')
     fireEvent.click(screen.getByLabelText('Maximize'))
-    expect(pane.className).toContain('absolute')
-    expect(pane.className).toContain('inset-0')
+    expect(classes()).toContain('absolute')
+    expect(classes()).toContain('inset-0')
     fireEvent.click(screen.getByLabelText('Restore'))
-    expect(pane.className).not.toContain('absolute')
+    expect(classes()).not.toContain('absolute')
     expect(pane.style.width).toBe('480px')
   })
 
@@ -174,10 +193,20 @@ describe('AgentModeJobsPane', () => {
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
   })
 
-  it('opens the job named by the URL (deep link / Forward)', () => {
+  it('opens the job named by the URL (deep link / Forward)', async () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
     renderPane('p1', '/?job=j-42')
-    expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(await screen.findByTestId('job-modal')).toBeInTheDocument()
     expect(screen.getByText('j-42')).toBeInTheDocument()
+  })
+})
+
+describe('AgentModeJobsPane — a run stopped by an app restart', () => {
+  it('lists it as Paused, never as running', () => {
+    mockJobs = [{ ...job('j-held', 'running', 'loop: Implement #15'), hold: { kind: 'restart', step: 'developer', since: new Date().toISOString() } }]
+    renderPane()
+    const pill = screen.getByTestId('agent-job-status')
+    expect(pill).toHaveTextContent('Paused')
+    expect(pill).not.toHaveTextContent('Running')
   })
 })

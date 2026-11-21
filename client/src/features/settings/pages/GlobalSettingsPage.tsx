@@ -1,7 +1,11 @@
+import { AutoContinueSection } from '../components/AutoContinueSection'
+import { MachineInstallsSection } from '../components/MachineInstallsSection'
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
-import { useEffect, useState, useCallback } from 'react'
+import { RetainedWorktreesSection } from '../../background/components/RetainedWorktreesSection'
+import { SafetyArchivesSection } from '../../background/components/SafetyArchivesSection'
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
 import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
@@ -17,8 +21,9 @@ import { AppUpdateSection } from '../components/AppUpdateSection'
 import { UpdateChannelSection } from '../components/UpdateChannelSection'
 import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
+import { MissionConnectorsSection } from '../components/MissionConnectorsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save, HardDrive } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { formatUsd } from '../../../lib/format-usd'
@@ -40,13 +45,11 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import type { DesktopProject } from '../../../hooks/useDesktop'
 import { HelpHint } from '../../../components/HelpHint'
 import { APP_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
-import {
-  getOsNotificationPrefs,
-  setOsNotificationPrefs,
-  type OsNotificationFilter,
-} from '../../../hooks/useOsNotifications'
+import { AttentionSettingsSection } from '../components/AttentionSettingsSection'
 
 import { notifyError } from '../../../lib/notify-error'
+import { useMountOnOpen } from '../../../hooks/useMountOnOpen'
+const ReportProblemDialog = lazy(() => import('../../diagnostics/components/ReportProblemDialog'))
 type WebhookEvent = 'job.completed' | 'job.failed' | 'daily_budget_exceeded'
 
 const WEBHOOK_EVENTS: { value: WebhookEvent; labelKey: string }[] = [
@@ -69,6 +72,12 @@ interface DesktopSettings {
   port: number
   specrailsTechUrl: string
   costAlertThresholdUsd: number | null
+  /** The port this server instance actually listens on (server). */
+  runningPort?: number
+  /** The running app's version (server). */
+  version?: string
+  /** Where this instance keeps its database, home shortened to `~` (server). */
+  databasePath?: string
 }
 
 interface SettingsDialogProps {
@@ -118,6 +127,7 @@ const SETTINGS_GROUPS = [
       { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
       { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
       { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
+      { id: 'notifications', icon: Bell, labelKey: 'desktop.nav.notifications' },
     ],
   },
   {
@@ -135,6 +145,7 @@ const SETTINGS_GROUPS = [
     labelKey: 'desktop.navGroups.system',
     items: [
       { id: 'projects', icon: FolderOpen, labelKey: 'desktop.nav.projects' },
+      { id: 'storage', icon: HardDrive, labelKey: 'desktop.nav.storage' },
       { id: 'advanced', icon: SlidersHorizontal, labelKey: 'desktop.nav.advanced' },
       { id: 'webhooks', icon: Webhook, labelKey: 'desktop.nav.webhooks' },
       { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
@@ -172,6 +183,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
   // Destructive-action confirmations
   const [pendingRemoveProject, setPendingRemoveProject] = useState<DesktopProject | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportMounted = useMountOnOpen(reportOpen)
   const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<WebhookRow | null>(null)
 
   // Webhook state
@@ -180,21 +193,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
   const [newWebhookSecret, setNewWebhookSecret] = useState('')
   const [newWebhookEvents, setNewWebhookEvents] = useState<WebhookEvent[]>(['job.completed', 'job.failed'])
   const [isAddingWebhook, setIsAddingWebhook] = useState(false)
-
-  // OS Notification preferences (localStorage)
-  const [notifEnabled, setNotifEnabled] = useState(() => getOsNotificationPrefs().enabled)
-  const [notifFilter, setNotifFilter] = useState<OsNotificationFilter>(() => getOsNotificationPrefs().filter)
-
-  function handleToggleNotifications(enabled: boolean) {
-    setNotifEnabled(enabled)
-    setOsNotificationPrefs({ enabled, filter: notifFilter })
-    toast.success(enabled ? t('notifications.enabledToast') : t('notifications.disabledToast'))
-  }
-
-  function handleNotifFilterChange(filter: OsNotificationFilter) {
-    setNotifFilter(filter)
-    setOsNotificationPrefs({ enabled: notifEnabled, filter })
-  }
 
   const loadWebhooks = useCallback(async () => {
     try {
@@ -450,6 +448,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('specrailsAgents')}>
               <SettingAnchor id="providers"><ProviderConnectionsCard /></SettingAnchor>
               <SettingAnchor id="subagentsApp"><GlobalSubagentsSection /></SettingAnchor>
+              <SettingAnchor id="autoContinue"><AutoContinueSection /></SettingAnchor>
+              <SettingAnchor id="machineInstalls"><MachineInstallsSection /></SettingAnchor>
+              <MissionConnectorsSection />
             </div>
 
             {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}
@@ -491,6 +492,16 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               </SettingsCard>
             </div>
 
+            <div className={paneCls('storage')}>
+              <SettingsCard title={t('resources:retained.title')} description={t('resources:retained.description')} data-setting-id="retainedWorktrees">
+                {/* Reads Git evidence for every project: only while this pane is shown. */}
+                <RetainedWorktreesSection active={open && activeSection === 'storage'} />
+              </SettingsCard>
+              <SettingsCard title={t('resources:safetyArchives.title')} description={t('resources:safetyArchives.description')} data-setting-id="safetyArchives">
+                <SafetyArchivesSection active={open && activeSection === 'storage'} />
+              </SettingsCard>
+            </div>
+
             <div className={paneCls('advanced')}>
               <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4" data-setting-id="budgetAlerts">
                 <div className="space-y-1.5">
@@ -523,43 +534,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                     className="h-7 text-xs font-mono"
                   />
                 </div>
-              </SettingsCard>
-
-              <SettingsCard title={t('notifications.heading')} description={t('notifications.description')} data-setting-id="notifications">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifEnabled}
-                    onChange={(e) => handleToggleNotifications(e.target.checked)}
-                    className="h-4 w-4"
-                    data-testid="notif-toggle"
-                  />
-                  <Bell className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-                  <span className="text-xs">{t('notifications.enableLabel')}</span>
-                </label>
-                {notifEnabled && (
-                  <fieldset className="space-y-1.5 pl-6">
-                    <legend className="text-xs text-muted-foreground">{t('notifications.notifyOn')}</legend>
-                    <div className="flex flex-wrap gap-3">
-                      {([
-                        { value: 'all' as const, label: t('notifications.filterAll') },
-                        { value: 'completed' as const, label: t('notifications.filterCompleted') },
-                        { value: 'failed' as const, label: t('notifications.filterFailed') },
-                      ]).map(({ value, label }) => (
-                        <label key={value} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            name="notif-filter"
-                            checked={notifFilter === value}
-                            onChange={() => handleNotifFilterChange(value)}
-                            className="h-4 w-4"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
               </SettingsCard>
 
               {/* One save bar for the pane, matching Settings ▸ AI providers. */}
@@ -690,24 +664,35 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               <SettingAnchor id="terminalApp"><TerminalSettingsSection mode="desktop" /></SettingAnchor>
             </div>
 
+            <div className={paneCls('notifications')}>
+              <AttentionSettingsSection />
+            </div>
+
             <div className={paneCls('about')}>
               <SettingsCard title={t('desktop.infoHeading')} contentClassName="space-y-2" data-setting-id="about">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoPort')}</span>
-                  <span className="font-mono">{desktopSettings?.port ?? '—'}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoProjects')}</span>
-                  <span className="font-mono">{projects.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t('desktop.infoDb')}</span>
-                  <span className="font-mono text-muted-foreground">~/.specrails/desktop.sqlite</span>
-                </div>
+                {/* Real values from the running server; a value it did not report is left out (never a dash). */}
+                {([
+                  ['infoVersion', desktopSettings?.version && desktopSettings.version !== 'unknown' ? desktopSettings.version : null, 'about-version'],
+                  ['infoDb', desktopSettings?.databasePath || null, 'about-database'],
+                  ['infoPort', (desktopSettings?.runningPort ?? desktopSettings?.port) != null ? String(desktopSettings?.runningPort ?? desktopSettings?.port) : null, 'about-port'],
+                  ['infoProjects', String(projects.length), 'about-projects'],
+                ] as const).map(([key, value, testId]) => value && (
+                  <div key={key} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="shrink-0 text-muted-foreground">{t(`desktop.${key}`)}</span>
+                    <span data-testid={testId} className="min-w-0 truncate font-mono" title={value}>{value}</span>
+                  </div>
+                ))}
               </SettingsCard>
+              <SettingsCard title={t('diagnostics:report.title')} description={t('diagnostics:report.aboutDescription')} data-setting-id="reportProblem"
+                action={<Button type="button" size="sm" variant="outline" data-testid="settings-report-problem" onClick={() => setReportOpen(true)}>{t('diagnostics:report.open')}</Button>} />
             </div>
           </div>{/* /section content */}
         </DialogBody>
+        {reportMounted && (
+          <Suspense fallback={null}>
+            <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} />
+          </Suspense>
+        )}
         <ConfirmDialog
           open={pendingRemoveProject !== null}
           onOpenChange={(next) => { if (!next) setPendingRemoveProject(null) }}

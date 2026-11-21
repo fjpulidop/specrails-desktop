@@ -6,6 +6,7 @@
     "noResults": "Keine Ergebnisse gefunden.",
     "activeBadge": "aktiv",
     "groups": {
+      "jumpBackIn": "Weitermachen",
       "projects": "Projekte",
       "missions": "Missionen",
       "spec": "Spec",
@@ -25,7 +26,7 @@
       "desktopAnalytics": "Desktop-Analytics",
       "projectAnalytics": "Projekt-Analytics",
       "activityFeed": "Aktivitäts-Feed",
-      "desktopSettings": "Desktop-Einstellungen",
+      "desktopSettings": "Einstellungen",
       "docs": "Doku",
       "replayTour": "Tour wiederholen"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "Theme wechseln",
       "switchToMission": "Zum Mission-Modus wechseln",
       "switchToBoard": "Zum Board-Modus wechseln",
-      "openAppSettings": "App-Einstellungen öffnen",
+      "openAppSettings": "Einstellungen öffnen",
       "openProjectSettings": "Projekteinstellungen öffnen",
       "switchProject": "Projekt wechseln",
       "runLoop": "Loop ausführen",
@@ -94,7 +95,7 @@
         "themeTitle": "Theme",
         "themePlaceholder": "Theme wählen...",
         "noThemes": "Keine Themes verfügbar.",
-        "appSettingsTitle": "App-Einstellungen",
+        "appSettingsTitle": "Einstellungen",
         "projectSettingsTitle": "Projekteinstellungen",
         "sectionPlaceholder": "Bereich wählen...",
         "noSections": "Keine Bereiche.",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "PR-Beschreibung für #{{id}} kopieren",
       "exportHandoff": "Übergabe exportieren",
       "copyPrDescription": "PR-Beschreibung kopieren",
-      "moveFocusedSpec": "Fokussierte Spec verschieben…"
+      "moveFocusedSpec": "Fokussierte Spec verschieben…",
+      "openLiveBoard": "Live-Board öffnen",
+      "openLiveBoardKeywords": "board, live, läufe, laufend, alle projekte, missionen, status",
+      "toggleKeepAwake": "Computer wach halten (an / aus)",
+      "toggleKeepAwakeKeywords": "wach halten, Ruhezustand verhindern, Schlaf"
     },
     "scopes": {
       "remove": "Bereich entfernen",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop-Einstellungen",
+      "appScope": "Einstellungen",
       "projectScope": "Projekteinstellungen",
       "entries": {
         "theme": {
@@ -246,6 +251,10 @@
         "subagentsApp": {
           "label": "Sub-Agents (Desktop)",
           "keywords": "sub-agents, subagents, nativ, delegiert, parallel"
+        },
+        "missionConnectors": {
+          "label": "Konnektoren in Missionen",
+          "keywords": "konnektoren, mcp, claude.ai, codex, server, google drive, werkzeuge"
         },
         "mobileCompanion": {
           "label": "Mobile Begleit-App",
@@ -282,6 +291,10 @@
         "about": {
           "label": "Desktop-Informationen",
           "keywords": "über, info, port, datenbank, version, about"
+        },
+        "reportProblem": {
+          "label": "Problem melden",
+          "keywords": "bericht, problem, fehler, absturz, protokolle, diagnose, zip, support"
         },
         "repositories": {
           "label": "Repositories",
@@ -350,9 +363,30 @@
         "reduceMotion": {
           "label": "Bewegung reduzieren",
           "keywords": "bewegung reduzieren, animation, barrierefreiheit, vestibulär, ruhe, übergänge, motion"
+        },
+        "retainedWorktrees": {
+          "label": "Behaltene Run-Worktrees",
+          "keywords": "speicher, festplatte, worktrees, aufräumen, platz, behalten, branches, entfernen"
+        },
+        "safetyArchives": {
+          "label": "Außerhalb eines PR aufbewahrte Dateien",
+          "keywords": "speicher, festplatte, sicherheitsarchiv, aufbewahrte dateien, quarantäne, aufräumen, löschen"
+        },
+        "autoContinue": {
+          "label": "Fehlgeschlagene Läufe automatisch fortsetzen",
+          "keywords": "fortsetzen, wiederholen, fehlgeschlagener Lauf, automatisch, Wiederherstellung"
+        },
+        "machineInstalls": {
+          "label": "Gemerkte Installationen",
+          "keywords": "installieren, brew, rechnerweit, Werkzeug, Zustimmung, widerrufen"
+        },
+        "envFiles": {
+          "label": "Umgebungsdateien in Läufen",
+          "keywords": "env-Dateien, .env, dotenv, APP_KEY, Geheimnisse, Umgebung, Worktree"
         }
       }
-    }
+    },
+    "jumpAttempt": "Versuch {{number}}"
   },
   "toasts": {
     "queued": "{{name}} eingereiht",
@@ -403,6 +437,7 @@
       "navigateProjectPageWithAgents": "Zu Projektseite navigieren (Dashboard/Jobs/Analytics/Agenten/Einstellungen)",
       "navigateProjectPage": "Zu Projektseite navigieren (Dashboard/Jobs/Analytics/Einstellungen)",
       "switchProject": "Projekt nach Position wechseln",
+      "paletteJumpBackIn": "Eine Zeile aus „Weitermachen“ öffnen, während die ⌘K-Palette offen ist",
       "goDashboard": "Zum Dashboard",
       "goActivity": "Zu Aktivität / Jobs",
       "goAnalytics": "Zu Analytics",
@@ -424,7 +459,12 @@
       "boardSelectClick": "Board: Klick wählt eine Spec an oder ab, Umschalt+Klick wählt einen Bereich",
       "boardSelectColumn": "Board: alle Specs der Spalte auswählen",
       "boardClearSelection": "Board: Auswahl aufheben",
-      "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)"
+      "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)",
+      "openLiveBoard": "Live-Board öffnen (jeder Lauf in jedem Projekt)",
+      "splitFocusPane": "Nächsten / vorherigen Missionsbereich fokussieren",
+      "splitMaximize": "Aktiven Missionsbereich maximieren oder wiederherstellen",
+      "splitEqualize": "Missionsbereiche angleichen",
+      "splitClose": "Aktiven Missionsbereich schließen"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",
@@ -440,7 +480,9 @@
       "downloading": "Update wird heruntergeladen",
       "installing": "Update wird installiert",
       "ready": "Update bereit",
-      "error": "Update fehlgeschlagen"
+      "error": "Update fehlgeschlagen",
+      "busy": "Es läuft noch Arbeit",
+      "waiting": "Warte auf Neustart"
     },
     "desc": {
       "available": "Eine neue Version von Specrails ist bereit zur Installation.",
@@ -448,12 +490,15 @@
       "progress": "{{percent}} % · {{downloaded}} von {{total}}",
       "installing": "Signatur wird geprüft und abgeschlossen…",
       "ready": "Neu starten, um Version {{version}} zu starten.",
-      "errorFallback": "Update konnte nicht abgeschlossen werden. Bitte erneut versuchen."
+      "errorFallback": "Update konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "busy": "Ein Neustart jetzt stoppt {{what}}.",
+      "waiting": "Startet neu, sobald nichts mehr läuft · {{what}}"
     },
     "pill": {
       "downloading": "Wird heruntergeladen",
       "installing": "Wird installiert",
-      "ready": "Bereit"
+      "ready": "Bereit",
+      "waiting": "Wartet"
     },
     "actions": {
       "restart": "Neu starten",
@@ -461,7 +506,10 @@
       "update": "Aktualisieren",
       "installing": "Wird installiert…",
       "tryAgain": "Erneut versuchen",
-      "dismiss": "Schließen"
+      "dismiss": "Schließen",
+      "whenIdle": "Installieren, wenn nichts läuft",
+      "restartNow": "Jetzt neu starten",
+      "cancelWait": "Abbrechen"
     },
     "mockReady": "Mock-Update bereit – Neustart übersprungen",
     "errors": {
@@ -470,6 +518,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} Missionsschritt",
+      "missions_other": "{{count}} Missionsschritte",
+      "runs_one": "{{count}} Run",
+      "runs_other": "{{count}} Runs",
+      "something": "laufende Arbeit"
+    },
+    "chip": {
+      "text": "Update",
+      "label": "Specrails {{version}} ist verfügbar. Update anzeigen"
     }
   },
   "notifications": {
@@ -483,8 +542,43 @@
     "jobStuckStopped": "Ausführung gestoppt",
     "jobStuckStopFailed": "Ausführung konnte nicht gestoppt werden",
     "providerLimit": "Nutzungslimit des Anbieters erreicht",
-    "providerLimitBody": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht — Reset {{resetsAt}}. Der Lauf wurde gestoppt; nach dem Reset neu starten oder „Wiederherstellen und erneut versuchen“.",
-    "providerLimitBodyNoReset": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht. Der Lauf wurde gestoppt; nach dem Reset neu starten."
+    "providerLimitBody": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht — Reset {{resetsAt}}. Der Lauf ist pausiert und setzt nach dem Reset von selbst fort; du kannst ihn auch jetzt mit einem anderen Anbieter fortsetzen.",
+    "providerLimitBodyNoReset": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht. Der Lauf ist pausiert; setze ihn nach dem Reset fort oder jetzt mit einem anderen Anbieter.",
+    "attention": {
+      "open": "Öffnen",
+      "openInbox": "Posteingang öffnen",
+      "actions": {
+        "answer": "Antworten",
+        "review": "Prüfen",
+        "view": "Ansehen",
+        "open": "Öffnen"
+      },
+      "single": {
+        "question": "{{subject}} wartet auf deine Antwort",
+        "approval": "{{subject}} braucht deine Freigabe",
+        "review": "{{subject}} ist bereit zur Prüfung",
+        "stopped": "{{subject}} wurde angehalten",
+        "stuck": "{{subject}}: Ein Run kommt nicht voran",
+        "paused": "{{subject}} ist wegen eines Limits pausiert",
+        "pausedByYou": "{{subject}} ist pausiert (von dir)",
+        "held": "{{subject}} ist pausiert",
+        "done": "{{subject}} ist fertig",
+        "generic": "{{subject}} erfordert deine Aufmerksamkeit"
+      },
+      "pending_one": "{{count}} offener Punkt",
+      "pending_other": "{{count}} offene Punkte",
+      "breakdown": "{{list}} offen",
+      "group": {
+        "question_one": "{{count}} Frage",
+        "question_other": "{{count}} Fragen",
+        "approval_one": "{{count}} Freigabe",
+        "approval_other": "{{count}} Freigaben",
+        "review_one": "{{count}} Review",
+        "review_other": "{{count}} Reviews"
+      },
+      "missionReplied": "{{title}} hat geantwortet",
+      "untitledMission": "Deine Mission"
+    }
   },
   "templates": {
     "emptyState": {

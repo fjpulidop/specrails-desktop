@@ -9,10 +9,9 @@ import {
   type ReactNode,
 } from 'react'
 import { getDesktopTokenProtocol, invalidateInflightReads, refreshDesktopToken } from '../lib/auth'
+import { reconnectDelay } from '../lib/reconnect-backoff'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
-
-const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000]
 
 interface SharedWebSocketContextValue {
   registerHandler: (id: string, fn: (msg: unknown) => void) => void
@@ -25,12 +24,20 @@ interface SharedWebSocketContextValue {
 
 export const SharedWebSocketContext = createContext<SharedWebSocketContextValue | null>(null)
 
-export function SharedWebSocketProvider({ url, children }: { url: string; children: ReactNode }) {
+/**
+ * The app's one WebSocket per window. Every consumer (pages, modals, contexts)
+ * registers a handler and filters the frames it cares about; never open a
+ * second socket to the same URL. `random` is injectable for deterministic
+ * reconnect-jitter tests (see `lib/reconnect-backoff`).
+ */
+export function SharedWebSocketProvider({ url, children, random }: { url: string; children: ReactNode; random?: () => number }) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   const handlers = useRef(new Map<string, (msg: unknown) => void>())
   const wsRef = useRef<WebSocket | null>(null)
   const retryCountRef = useRef(0)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const randomRef = useRef(random)
+  randomRef.current = random
 
   useEffect(() => {
     let disposed = false
@@ -41,8 +48,9 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
       refreshing = true
       // The sidecar may have started after bootstrap timed out or restarted
       // with a different credential. Never retry a cached missing/stale token
-      // forever while the local API has already become healthy.
-      try { await refreshDesktopToken() } finally { refreshing = false }
+      // forever while the local API has already become healthy. A transient
+      // refresh failure still reconnects (and so keeps the retry loop alive).
+      try { await refreshDesktopToken() } catch { /* retry with the current token */ } finally { refreshing = false }
       if (!disposed && !wsRef.current) connect()
     }
 
@@ -51,7 +59,10 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
       const attempt = retryCountRef.current++
       setConnectionStatus('connecting')
-      retryTimeoutRef.current = setTimeout(() => { void reconnect() }, BACKOFF_DELAYS[attempt] ?? 30000)
+      retryTimeoutRef.current = setTimeout(() => {
+        retryTimeoutRef.current = null
+        void reconnect()
+      }, reconnectDelay(attempt, randomRef.current))
     }
 
     function connect() {
@@ -106,8 +117,9 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
     }
 
     const wake = () => {
-      if (wsRef.current) return
+      if (disposed || wsRef.current) return
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
       void reconnect()
     }
     window.addEventListener('online', wake)

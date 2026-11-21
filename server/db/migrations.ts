@@ -4,10 +4,87 @@ import { migrateMultiRepoExecution } from '../modules/delivery/runtime/multi-rep
 import { migrateRepositoryProvenance } from '../project-repository-provenance'
 import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
 import { createJobSearchSchema, rebuildJobSearchIndex } from './job-search'
+import { estimateCostUsd } from '../modules/accounting/runtime/pricing'
+import { attributeProgrammaticUsage } from '../modules/agent-runtime/runtime/agent-runtime-accounting'
+import { distributeIntByWeight, distributeIntEvenly } from '../util/distribute-int'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
 type Migration = (db: DbInstance) => void
+
+interface ProgrammaticLedgerRow {
+  id: string; project_id: string; surface_ref_id: string | null; ticket_id: number | null; status: string
+  started_at: string; finished_at: string | null; duration_ms: number | null; tokens_in: number | null; tokens_out: number | null
+  total_cost_usd: number | null; total_cost_usd_estimated: number; session_id: string | null; created_at: string; loop_run_id: string
+}
+
+/**
+ * Migration 95: Core v1 programmatic runs were recorded as ONE row per
+ * invocation with provider 'agent-runtime' / model 'per-role'. Re-attribute a
+ * row set to its real phases and engines ONLY when the stored Core events prove
+ * it: the run holds exactly one such invocation (so every Core event of the run
+ * is that invocation's), its settled step attempts name one provider each and
+ * their usage reconciles with the stored totals (attributeProgrammaticUsage).
+ * Anything else — several invocations in one run, mixed providers inside an
+ * attempt, recordings without role-context events, figures that disagree —
+ * stays as it was. Totals are unchanged by construction. The deterministic
+ * completion check's $0 rows are removed: no provider was called.
+ */
+function reattributeCoreV1Invocations(db: DbInstance): void {
+  db.prepare(`DELETE FROM ai_invocations WHERE provider = 'agent-runtime' AND model = 'deterministic-verification'
+    AND COALESCE(total_cost_usd, 0) = 0 AND COALESCE(tokens_in, 0) = 0 AND COALESCE(tokens_out, 0) = 0`).run()
+  const rows = db.prepare(`SELECT id, project_id, surface_ref_id, ticket_id, status, started_at, finished_at, duration_ms,
+      tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated, session_id, created_at, loop_run_id
+    FROM ai_invocations WHERE surface = 'loop' AND provider = 'agent-runtime' AND model = 'per-role' AND loop_run_id IS NOT NULL
+    ORDER BY loop_run_id, id`).all() as ProgrammaticLedgerRow[]
+  const byRun = new Map<string, Map<string, ProgrammaticLedgerRow[]>>()
+  for (const row of rows) {
+    const base = row.id.replace(/:t\d+$/, '')
+    const groups = byRun.get(row.loop_run_id) ?? new Map<string, ProgrammaticLedgerRow[]>()
+    groups.set(base, [...(groups.get(base) ?? []), row])
+    byRun.set(row.loop_run_id, groups)
+  }
+  const events = db.prepare(`SELECT payload FROM events WHERE job_id = ? AND source = 'stdout'
+    AND event_type IN ('workflow-event', 'runtime-efficiency-event') ORDER BY seq`)
+  const remove = db.prepare('DELETE FROM ai_invocations WHERE id = ?')
+  const insert = db.prepare(`INSERT INTO ai_invocations (
+      id, project_id, provider, surface, surface_ref_id, ticket_id, model, status, started_at, finished_at,
+      duration_ms, tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated, session_id, created_at, loop_run_id
+    ) VALUES (?, ?, ?, 'loop', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  for (const [runId, groups] of byRun) {
+    if (groups.size !== 1) continue
+    const [[base, group]] = [...groups]
+    const sum = (key: 'tokens_in' | 'tokens_out' | 'total_cost_usd' | 'duration_ms'): number | undefined =>
+      group.some((row) => row[key] === null) ? undefined : group.reduce((acc, row) => acc + (row[key] as number), 0)
+    const shares = attributeProgrammaticUsage(
+      (events.all(runId) as Array<{ payload: string }>).map((row) => row.payload),
+      { cost: sum('total_cost_usd'), tokensIn: sum('tokens_in'), tokensOut: sum('tokens_out') },
+    )
+    if (!shares) continue
+    const first = group[0]
+    const tickets = group.map((row) => row.ticket_id)
+    const refBase = (first.surface_ref_id ?? '').replace(/:t\d+$/, '')
+    const totalDuration = sum('duration_ms')
+    const weights = shares.map((share) => share.durationMs ?? (share.tokensIn ?? 0) + (share.tokensOut ?? 0))
+    const durations = distributeIntByWeight(totalDuration === undefined ? undefined : Math.round(totalDuration), weights)
+    for (const row of group) remove.run(row.id)
+    shares.forEach((share, shareIndex) => {
+      const inTokens = distributeIntEvenly(share.tokensIn, tickets.length)
+      const outTokens = distributeIntEvenly(share.tokensOut, tickets.length)
+      const duration = distributeIntEvenly(durations[shareIndex], tickets.length)
+      tickets.forEach((ticketId, index) => {
+        const suffix = ticketId == null || tickets.length === 1 ? '' : `:t${ticketId}`
+        insert.run(
+          `core-v1:${base}:${shareIndex}${suffix}`, first.project_id, share.provider,
+          `${refBase}${share.stepId ? `:${share.stepId}` : ''}${suffix}`, ticketId, share.model, first.status,
+          first.started_at, first.finished_at, duration[index] ?? null, inTokens[index] ?? null, outTokens[index] ?? null,
+          share.cost === undefined ? null : share.cost / tickets.length, share.cost === undefined ? 1 : 0,
+          first.session_id, first.created_at, runId,
+        )
+      })
+    })
+  }
+}
 
 /** Backfill only terminal Safe-PR rows whose ticket ownership is unambiguous.
  * Eligibility is intentionally deferred to the outbox drainer, which freezes
@@ -2066,6 +2143,79 @@ const MIGRATIONS: Migration[] = [
   // including checkpoint resume, retries and startup recovery. NULL is legacy.
   (db) => {
     db.exec('ALTER TABLE milestone_launch_chains ADD COLUMN engine_config TEXT')
+  },
+
+  // Migration 93: the AI reading of why a failed job stopped (one per job,
+  // replaced when its log, language or prompt version changes).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS job_failure_analyses (
+        job_id      TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+        input_hash  TEXT NOT NULL,
+        language    TEXT NOT NULL,
+        provider    TEXT NOT NULL,
+        model       TEXT,
+        analysis    TEXT NOT NULL,
+        created_at  TEXT NOT NULL
+      )
+    `)
+  },
+
+  // Migration 94: price the Core runtime calls recorded without a cost. Codex and
+  // Gemini report usage but no native cost, and Core v2 rows kept it NULL; the
+  // recorder now estimates from the rate card, so estimate the history the same
+  // way (flagged estimated). Rows without a known model or price stay NULL.
+  (db) => {
+    const rows = db.prepare(`
+      SELECT id, provider, model, tokens_in, tokens_out, tokens_cache_read, tokens_cache_create
+      FROM ai_invocations
+      WHERE surface = 'loop' AND id LIKE 'core:%' AND total_cost_usd IS NULL AND model IS NOT NULL
+    `).all() as Array<{ id: string; provider: string; model: string; tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null; tokens_cache_create: number | null }>
+    const update = db.prepare('UPDATE ai_invocations SET total_cost_usd = ?, total_cost_usd_estimated = 1 WHERE id = ?')
+    for (const row of rows) {
+      const cost = estimateCostUsd(row.provider, row.model, {
+        tokens_in: row.tokens_in ?? undefined, tokens_out: row.tokens_out ?? undefined,
+        tokens_cache_read: row.tokens_cache_read ?? undefined, tokens_cache_create: row.tokens_cache_create ?? undefined,
+      })
+      if (cost !== null) update.run(cost, row.id)
+    }
+  },
+
+  // Migration 95: re-attribute Core v1 'agent-runtime' / 'per-role' rows to their
+  // real phases, providers and models where the stored Core events prove it,
+  // and drop the deterministic completion check's $0 non-invocation rows.
+  reattributeCoreV1Invocations,
+
+  // Migration 96: how each continued attempt of a run chain came to be (the
+  // remedy, the step it continued from, the guidance sent, whether Specrails
+  // continued on its own). One row per continuation: a fork records the new
+  // attempt, a resume in place records the same run again.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS run_continuations (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id         TEXT NOT NULL,
+        source_run_id  TEXT NOT NULL,
+        remedy         TEXT NOT NULL,
+        mode           TEXT NOT NULL,
+        from_step      TEXT,
+        cause          TEXT,
+        guidance       TEXT,
+        automatic      INTEGER NOT NULL DEFAULT 0 CHECK (automatic IN (0, 1)),
+        created_at     TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_run_continuations_run ON run_continuations(run_id);
+      CREATE INDEX IF NOT EXISTS idx_run_continuations_source ON run_continuations(source_run_id);
+    `)
+  },
+
+  // Migration 97: loop_runs.held_ms — the time a run spent held (waiting on a
+  // question or approval, a restart, a provider limit or the budget), summed
+  // at each resume. The run window's elapsed time excludes it, so a resumed
+  // run does not count the hours it waited as work.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('held_ms')) db.exec('ALTER TABLE loop_runs ADD COLUMN held_ms INTEGER NOT NULL DEFAULT 0')
   },
 ]
 

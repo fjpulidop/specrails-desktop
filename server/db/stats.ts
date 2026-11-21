@@ -1,8 +1,11 @@
 import type { DbInstance } from './types'
 import type { StatsRow } from '../types'
+import { localDayWindow } from '../util/local-day'
 
-export function getStats(db: DbInstance): StatsRow {
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+export function getStats(db: DbInstance, now: Date = new Date()): StatsRow {
+  // "Today" is the person's local day (local midnight → next, as UTC instants),
+  // the same basis as spend caps and analytics — not the UTC calendar day.
+  const today = localDayWindow(now)
 
   // Job-COUNT metrics (totalJobs / failedJobs / jobsToday / avgDurationMs) are
   // genuinely about pipeline jobs, so they stay on the jobs table.
@@ -17,8 +20,8 @@ export function getStats(db: DbInstance): StatsRow {
   const jobsTodayRow = db.prepare(`
     SELECT COUNT(*) as jobsToday
     FROM jobs
-    WHERE strftime('%Y-%m-%d', started_at) = ?
-  `).get(today) as { jobsToday: number }
+    WHERE started_at >= ? AND started_at < ?
+  `).get(today.from, today.to) as { jobsToday: number }
 
   // MED-8: cost SUMs come from ai_invocations — ALL billable surfaces (job,
   // explore-spec, chat-sidebar, quick-spec, ai-edit, agent-studio, spec-launcher,
@@ -52,8 +55,8 @@ export function getStats(db: DbInstance): StatsRow {
       COUNT(total_cost_usd) as pricedTodayRuns,
       SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedTodayRuns
     FROM ai_invocations
-    WHERE strftime('%Y-%m-%d', started_at) = ?
-  `).get(today) as {
+    WHERE started_at >= ? AND started_at < ?
+  `).get(today.from, today.to) as {
     costToday: number
     estimatedCostToday: number
     pricedTodayRuns: number

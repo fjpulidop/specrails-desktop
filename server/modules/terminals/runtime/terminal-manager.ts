@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import fs from 'fs'
 import path from 'path'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
@@ -261,6 +262,16 @@ export class TerminalManager {
       if (s) out.push(this.toMeta(s))
     }
     return out.sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  /** Shell pids of live sessions across projects (read-only, for app-wide resource metering). */
+  listProcessRoots(): Array<{ id: string; projectId: string; name: string; pid: number }> {
+    const out: Array<{ id: string; projectId: string; name: string; pid: number }> = []
+    for (const s of this.sessions.values()) {
+      const pid = s.pty.pid
+      if (!s.exited && Number.isInteger(pid) && pid > 0) out.push({ id: s.id, projectId: s.projectId, name: s.name, pid })
+    }
+    return out
   }
 
   /** Scoped lookup: returns session only if both id AND projectId match. */
@@ -677,7 +688,7 @@ export function getTerminalManager(): TerminalManager {
 export function _resetTerminalManagerForTest(): void {
   if (_instance) {
     // Best-effort sync cleanup — tests call this in beforeEach
-    void _instance.shutdown()
+    void _instance.shutdown().catch(logRejection('terminal manager shutdown'))
   }
   _instance = null
 }

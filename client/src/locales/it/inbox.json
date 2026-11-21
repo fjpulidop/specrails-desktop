@@ -1,11 +1,11 @@
 {
   "title": "Da gestire",
-  "subtitle_one": "{{count}} elemento ti aspetta",
-  "subtitle_other": "{{count}} elementi ti aspettano",
-  "subtitleEmpty": "Niente ti aspetta",
+  "subtitle_one": "{{count}} elemento in sospeso",
+  "subtitle_other": "{{count}} elementi in sospeso",
+  "subtitleEmpty": "Sei in pari",
   "loading": "Controllo dei tuoi progetti…",
   "empty": {
-    "title": "Nulla richiede il tuo intervento",
+    "title": "Nulla in sospeso",
     "description": "Revisioni, domande e errori di tutti i progetti compaiono qui appena accadono."
   },
   "error": {
@@ -15,13 +15,13 @@
   },
   "kinds": {
     "review": "Revisione pronta",
-    "question": "In attesa della tua risposta",
+    "question": "Attende la tua risposta",
     "failed": "Fallito",
     "blocked": "Bloccato",
     "budget": "In pausa per budget",
     "jira": "Sincronizzazione Jira non riuscita",
     "failedNoCause": "Interrotto prima della consegna",
-    "capReached": "Limite di budget raggiunto"
+    "capReached": "Lavoro in pausa"
   },
   "actions": {
     "open": "Apri",
@@ -34,15 +34,11 @@
   "working": "In corso…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Posticipa",
-    "hour": "1 ora",
-    "tomorrow": "Fino a domani",
-    "cancel": "Annulla"
+    "hour": "Posticipa di 1 ora",
+    "tomorrow": "Posticipa a domani"
   },
-  "snoozeItem": "Posticipa {{title}}",
-  "snoozeFor": "Posticipa {{title}} di",
   "done": "Fatto",
-  "doneItem": "Segna {{title}} come fatto",
+  "more": "Altre azioni per {{title}}",
   "age": {
     "now": "adesso",
     "ago": "{{age}} fa"
@@ -63,7 +59,10 @@
     "snoozed": "Posticipato a {{when}}",
     "undo": "Annulla",
     "stillOverBudget_week": "Ancora sopra il budget settimanale",
-    "stillOverBudget_month": "Ancora sopra il budget mensile"
+    "stillOverBudget_month": "Ancora sopra il budget mensile",
+    "muted": "Notifiche di {{project}} silenziate",
+    "unmuted": "Notifiche di {{project}} riattivate",
+    "muteFailed": "Impossibile modificare le notifiche del progetto"
   },
   "cap": {
     "title": {
@@ -80,5 +79,13 @@
     },
     "detail": "{{spent}} su {{budget}} spesi"
   },
-  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista."
+  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista.",
+  "unseen": "Nuovo",
+  "markRead": "Segna come letto",
+  "markUnread": "Segna come non letto",
+  "mute": {
+    "mute": "Silenzia le notifiche di {{project}}",
+    "unmute": "Riattiva le notifiche di {{project}}"
+  },
+  "attempt": "tentativo {{number}}"
 }

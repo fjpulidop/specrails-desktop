@@ -33,12 +33,17 @@ describe('SpendingHero', () => {
     expect(screen.getAllByText(/Tracking started 2026-04-01/i).length).toBeGreaterThan(0)
   })
 
-  it('renders total cost and surface segments', () => {
+  it('renders the total, three stat cells and the spend split by category', () => {
     render(<SpendingHero data={baseData} loading={false} />)
-    expect(screen.getByText(/42 invocations/)).toBeInTheDocument()
-    // Surface labels visible (rendered after the bar)
-    expect(screen.getByText('Jobs')).toBeInTheDocument()
-    expect(screen.getByText('Explore')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-stat-invocations')).toHaveTextContent('Invocations42')
+    expect(screen.getByTestId('hero-stat-tokens')).toHaveTextContent('Tokens')
+    expect(screen.getByTestId('hero-stat-billed')).toHaveTextContent('$12.34')
+    // One axis: category. Surfaces never appear in the hero.
+    const legend = screen.getByTestId('hero-category-legend')
+    expect(legend).toHaveTextContent('Implementation')
+    expect(legend).toHaveTextContent('Specs')
+    expect(legend).not.toHaveTextContent('Jobs')
+    expect(legend).not.toHaveTextContent('Missions')
   })
 
   it('renders unavailable — not $0 — when Kimi exposes neither cost nor usage', () => {
@@ -59,7 +64,8 @@ describe('SpendingHero', () => {
     }
     render(<SpendingHero data={data} loading={false} />)
     expect(screen.getByTestId('hero-cost-unavailable')).toHaveTextContent('—')
-    expect(screen.getByTestId('hero-usage-unavailable')).toHaveTextContent('token usage unavailable')
+    expect(screen.getByTestId('hero-usage-unavailable')).toHaveTextContent('—')
+    expect(screen.getByTestId('hero-cost-coverage')).toHaveTextContent(/did not expose enough telemetry/)
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
   })
 
@@ -78,8 +84,12 @@ describe('SpendingHero', () => {
       },
     }
     render(<SpendingHero data={data} loading={false} />)
-    expect(screen.getByTestId('hero-cost-partial')).toHaveTextContent('known subtotal')
-    expect(screen.getByText(/125 known tokens/i)).toBeInTheDocument()
+    // One caution hint carries the caveats; the cells keep their numbers.
+    const hint = screen.getByTestId('hero-cost-coverage')
+    expect(hint).toHaveAttribute('data-tone', 'caution')
+    expect(hint).toHaveTextContent('1 of 2 runs without cost data.')
+    expect(hint).toHaveTextContent('1 of 2 runs without token usage.')
+    expect(screen.getByTestId('hero-stat-tokens')).toHaveTextContent('≥125')
   })
 
   it('renders positive delta with warning accent and arrow up', () => {
@@ -93,7 +103,7 @@ describe('SpendingHero', () => {
     expect(screen.getByText(/10% vs prev/)).toBeInTheDocument()
   })
 
-  it('BUG-ANALYTICS-14: includes file-summary + loop in segments so the bar fills 100%', () => {
+  it('BUG-ANALYTICS-14: every surface (file-summary + loop included) lands in a category so the bar fills 100%', () => {
     // total = 10; the four "legacy" surfaces only sum to 6, the remaining 4 is
     // file-summary + loop. Before the fix those were dropped → bar < 100%.
     const data: SpendingResponse = {
@@ -109,15 +119,14 @@ describe('SpendingHero', () => {
     const { container } = render(<SpendingHero data={data} loading={false} />)
     // The coloured segments live inside the rounded bar; their widths must sum
     // to ~100% now that file-summary + loop participate.
-    const segs = Array.from(container.querySelectorAll<HTMLElement>('.h-3 > div'))
+    const segs = Array.from(container.querySelectorAll<HTMLElement>('[data-testid="hero-category-bar"] > div'))
     const totalWidth = segs.reduce((acc, el) => {
       const m = /width:\s*([\d.]+)%/.exec(el.getAttribute('style') ?? '')
       return acc + (m ? Number(m[1]) : 0)
     }, 0)
     expect(Math.round(totalWidth)).toBe(100)
-    // Loop legend value renders (this surface was previously omitted entirely).
-    expect(screen.getByText('Loops')).toBeInTheDocument()
-    expect(screen.getByText('File summaries')).toBeInTheDocument()
+    expect(segs.map((el) => el.getAttribute('data-category'))).toEqual(['implementation', 'specs', 'code'])
+    expect(screen.getByTestId('hero-category-legend')).toHaveTextContent('Code')
   })
 
   describe('honest first paint', () => {
@@ -127,10 +136,10 @@ describe('SpendingHero', () => {
       expect(container.textContent).not.toMatch(/\$/)
       const data: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
       rerender(<SpendingHero data={data} loading={false} />)
-      expect(screen.getByText('$40.00')).toBeInTheDocument()
+      expect(screen.getByTestId('hero-total')).toHaveTextContent('$40.00')
       const fresher: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 41 } }
       rerender(<SpendingHero data={fresher} loading={false} />)
-      expect(screen.getByText('$41.00')).toBeInTheDocument()
+      expect(screen.getByTestId('hero-total')).toHaveTextContent('$41.00')
     })
   })
 
@@ -157,8 +166,8 @@ describe('SpendingHero', () => {
       ],
     } as unknown as SpendingResponse
     render(<SpendingHero data={data} loading={false} />)
-    // The unknown surface is still itemised (neutral fallback label = raw id).
-    expect(screen.getByText('future-surface')).toBeInTheDocument()
+    // The unknown surface is folded into Support, like the server.
+    expect(screen.getByTestId('hero-category-legend')).toHaveTextContent('Support')
   })
 
   describe('plan-billed periods', () => {
@@ -194,5 +203,17 @@ describe('SpendingHero', () => {
     render(<SpendingHero data={data} loading={false} />)
     expect(screen.getByText(/5\.4M/)).toBeInTheDocument()
     expect(screen.queryByText(/5424/)).not.toBeInTheDocument()
+  })
+})
+
+describe('SpendingHero under plan billing', () => {
+  it('keeps the numeral in the foreground and labels it API-equivalent', async () => {
+    resetLaunchForecastCache()
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ providers: [{ providerId: 'claude', availability: 'available', plan: 'max', windows: [], spend: null }] }) })) as never
+    render(<SpendingHero data={{ ...baseData, byProvider: [{ provider: 'claude', count: 42, costUsd: 12.34, estimatedCostUsd: 0 }] }} loading={false} />)
+    await screen.findByTestId('hero-api-equivalent')
+    expect(screen.getByTestId('hero-total').className).toContain('text-foreground')
+    expect(screen.getByTestId('hero-total').innerHTML).not.toContain('text-muted-foreground')
+    expect(screen.getByTestId('hero-stat-billed')).toHaveTextContent('Estimated~$12.34')
   })
 })

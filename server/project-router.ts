@@ -13,9 +13,9 @@ import { createPluginsRouter } from './plugins-router'
 import { createCodeExplorerRouter, filterCodeExplorerActivityPaths } from './modules/code/runtime/code-explorer-router'
 import { listCodeActivity, parseCodeActivityQuery, CodeActivityQueryError } from './modules/code/runtime/code-activity'
 import { createJiraRouter } from './jira-router'
-import { resolveTicketStoragePath, mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
+import { mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { LocalTicket } from './types'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectExecution, resolveProjectTicketsPath } from './workspace-resolution'
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint, writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
@@ -38,6 +38,7 @@ import { registerGitRoutes } from './project-router-git'
 import { registerRulesRoutes } from './project-router-rules'
 import { registerSearchRoutes } from './project-router-search'
 import { formatDescriptionWithCriteria, type ProjectRoutesDeps } from './project-router-helpers'
+import { awaitProcessAdmission, isProjectAdmissionPending, ProcessAdmissionClosedError } from './process-admission'
 
 // Re-export the spec helpers from their new home so existing importers
 // (`import { ... } from './project-router'`) keep working unchanged.
@@ -73,6 +74,20 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     }
     registry.touchProject(projectId)
     req.projectCtx = ctx
+    // A project that was just registered (or reloaded) is still being reconciled
+    // for a moment before it admits work: a request that changes it waits for that,
+    // bounded, instead of answering 409 for the first seconds after registration.
+    if (req.method !== 'GET' && req.method !== 'HEAD' && isProjectAdmissionPending(projectId)) {
+      void awaitProcessAdmission(projectId).then(() => {
+        if (registry.getContext(projectId) !== ctx) { res.status(404).json({ error: 'Project not found' }); return }
+        next()
+      }, (error: unknown) => {
+        if (!(error instanceof ProcessAdmissionClosedError)) { next(error); return }
+        res.setHeader('Retry-After', '2')
+        res.status(409).json({ error: 'project_recovery_in_progress', retryable: true })
+      })
+      return
+    }
     next()
   })
 
@@ -338,7 +353,9 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     const chains = ctx(req).milestoneChains
     if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
     try {
-      const result = await chains.resume(String(req.params.id))
+      const from = (req.body as { from?: unknown } | undefined)?.from
+      if (from !== undefined && from !== 'failed_step' && from !== 'start' && from !== 'recommended') { res.status(400).json({ error: 'invalid_resume_from' }); return }
+      const result = await chains.resume(String(req.params.id), from ? { from } : {})
       res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
     } catch (err) {
       console.error('[project-router] chain resume error:', err)
@@ -375,8 +392,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   // storagePath). Existing in-repo projects are byte-identical.
   const ticketPath = (req: Request): string => {
     const project = ctx(req).project
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
   }
   // Milestone batch commit (add-project-builder D7): insert one blueprint
   // milestone's generated specs as `M<n>`-labeled todo tickets, flip that

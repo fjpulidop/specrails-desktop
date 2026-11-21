@@ -61,9 +61,11 @@
       "webhooks": "Webhooks",
       "about": "Info",
       "effects": "Effekte",
-      "subscriptionUsage": "Abonnementnutzung"
+      "subscriptionUsage": "Abonnementnutzung",
+      "notifications": "Benachrichtigungen",
+      "storage": "Speicher"
     },
-    "title": "Desktop-Einstellungen",
+    "title": "Einstellungen",
     "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",
     "registeredProjects": "Registrierte Projekte",
     "noProjects": "Noch keine Projekte registriert",
@@ -81,10 +83,10 @@
     "platformTour": "Plattform-Tour",
     "platformTourDescription": "Den Willkommensassistenten erneut abspielen, um die wichtigsten Funktionen zu sehen.",
     "replayTour": "Tour erneut abspielen",
-    "infoHeading": "Desktop-Informationen",
+    "infoHeading": "Über",
     "infoPort": "Port",
     "infoProjects": "Projekte",
-    "infoDb": "Desktop-DB",
+    "infoDb": "Datenbank",
     "removeProjectConfirmTitle": "{{name}} entfernen?",
     "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen.",
     "navLabel": "Einstellungsbereiche",
@@ -95,18 +97,8 @@
     },
     "unsavedChanges": "Ungespeicherte Änderungen",
     "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
-    "dailyBudgetNone": "Kein Tageslimit gesetzt"
-  },
-  "notifications": {
-    "heading": "OS-Benachrichtigungen",
-    "description": "Native Desktop-Benachrichtigungen anzeigen, wenn Jobs abgeschlossen werden oder fehlschlagen. Benachrichtigungen erscheinen nur, wenn der Tab nicht fokussiert ist.",
-    "enableLabel": "OS-Benachrichtigungen aktivieren",
-    "notifyOn": "Benachrichtigen bei:",
-    "filterAll": "Alle (abgeschlossen & fehlgeschlagen)",
-    "filterCompleted": "Nur abgeschlossen",
-    "filterFailed": "Nur fehlgeschlagen",
-    "enabledToast": "OS-Benachrichtigungen aktiviert",
-    "disabledToast": "OS-Benachrichtigungen deaktiviert"
+    "dailyBudgetNone": "Kein Tageslimit gesetzt",
+    "infoVersion": "Version"
   },
   "webhooks": {
     "heading": "Ausgehende Webhooks",
@@ -164,7 +156,7 @@
   "appearance": {
     "taglines": {
       "dracula": "Das Original — dunkel mit Violettstich und lebhaften Neon-Akzenten",
-      "aurora-light": "Premium hell — Linear-inspiriertes Indigo auf warmem Cremeweiß",
+      "aurora-light": "Zeichentisch bei Tageslicht — Tinte auf warmem Papier, Tiefe durch weiche Schatten",
       "obsidian-dark": "Graphit Pro — neutrales Fast-Schwarz mit einem gedämpften Violett-Akzent",
       "specrails": "Marken-Theme — tiefes Marine-Indigo mit satten Cyan-Akzenten",
       "code-rain": "Phosphor-Terminal — sanftes Mint auf grünlichem Fast-Schwarz",
@@ -177,7 +169,7 @@
   },
   "mobile": {
     "heading": "Mobile Companion",
-    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
+    "description": "Steuern Sie Specrails über die Specrails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
     "accessOn": "Mobilzugriff an",
     "accessOff": "Mobilzugriff aus",
     "listeningOnPort": "Lauscht auf Port {{port}}",
@@ -190,7 +182,7 @@
     "identityReset": "Mobile Identität zurückgesetzt",
     "enableFailed": "Mobilzugriff konnte nicht aktiviert werden",
     "disableFailed": "Mobilzugriff konnte nicht deaktiviert werden",
-    "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der SpecRails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
+    "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der Specrails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
     "revokeDevice": "{{name}} widerrufen",
@@ -533,5 +525,114 @@
       "full": "Volle Bewegung",
       "fullHint": "Animiert auch, wenn das System weniger verlangt"
     }
+  },
+  "missionConnectors": {
+    "title": "Konnektoren in Missionen",
+    "description": "Missionen können die Konnektoren und MCP-Server nutzen, die du bei jedem Anbieter bereits eingerichtet hast. Alle sind zunächst aktiv; schalte die aus, die deine Missionen nicht brauchen.",
+    "refresh": "Aktualisieren",
+    "measure": "Größen messen",
+    "measuring": "Wird gemessen…",
+    "loadFailed": "Die Konnektoren der Anbieter konnten nicht aufgelistet werden.",
+    "measureFailed": "Die Konnektoren konnten nicht gemessen werden.",
+    "saveFailed": "{{name}} konnte nicht aktualisiert werden.",
+    "empty": "Bei deinen Anbietern wurden keine Konnektoren oder MCP-Server gefunden.",
+    "appliesNextTurn": "Eine Änderung gilt ab dem nächsten Missionszug. Dieser Zug baut den Prompt-Cache des Anbieters einmal neu auf und kostet daher etwas mehr.",
+    "claudeListStale": "Claude Code hat nicht geantwortet; die Liste zeigt die Kontokonnektoren, die es sich gemerkt hat.",
+    "waitsForToolSearch": "Deine eigenen MCP-Server werden in Claude-Missionen geladen, sobald Claude Werkzeuge bei Bedarf nachschlagen kann (Core-Update nötig).",
+    "notLoadedYet": "Noch nicht geladen",
+    "toggleLabel": "{{name}} in {{provider}}-Missionen verwenden",
+    "sizeTitle": "Ungefähre Größe der Werkzeugdefinitionen, wenn der Anbieter sie vollständig sendet",
+    "size_one": "{{count}} Werkzeug · ≈{{tokens}} Tokens",
+    "size_other": "{{count}} Werkzeuge · ≈{{tokens}} Tokens",
+    "kind": {
+      "account-connector": "Kontokonnektor",
+      "mcp-server": "MCP-Server"
+    },
+    "status": {
+      "needsAuth": "Anmeldung beim Anbieter nötig",
+      "failed": "Keine Verbindung"
+    },
+    "lock": {
+      "specrails-duplicate": "Derselbe Server wie das Specrails-MCP: immer ausgeschlossen (Missionen haben ihn bereits).",
+      "disabled-in-provider": "In deiner {{provider}}-Konfiguration ausgeschaltet.",
+      "external-mcp": "Über Externe MCP-Server hinzugefügt (Einstellungen ▸ MCP).",
+      "unsupported": "{{provider}} lädt ihn selbst; Specrails kann ihn nicht ausschalten."
+    },
+    "providerNote": {
+      "claude": "claude.ai-Kontokonnektoren und die MCP-Server in ~/.claude.json. Claude sendet die vollständigen Werkzeugdefinitionen eines Konnektors mit jeder Anfrage.",
+      "codex": "Server aus ~/.codex/config.toml. Codex lädt Werkzeugdefinitionen erst, wenn der Agent sie nachschlägt.",
+      "gemini": "Server aus ~/.gemini/settings.json.",
+      "kimi": "Server aus ~/.kimi-code/mcp.json."
+    }
+  },
+  "attention": {
+    "heading": "Benachrichtigungen",
+    "description": "Was deine Aufmerksamkeit erfordert: eine Systembenachrichtigung, wenn du weg bist, ein Hinweis, wenn du woanders in der App bist, und nichts, wenn es schon auf dem Bildschirm ist.",
+    "enable": "Benachrichtige mich",
+    "enableHint": "Ausschalten stoppt alle Benachrichtigungen und Hinweise unten.",
+    "categoriesLegend": "Benachrichtige mich bei",
+    "categories": {
+      "question": {
+        "label": "Fragen und Antworten",
+        "hint": "Ein Agent wartet auf deine Antwort oder eine Mission hat geantwortet"
+      },
+      "review": {
+        "label": "Bereite Reviews",
+        "hint": "Eine Lieferung oder ein Pull Request wartet auf deine Entscheidung"
+      },
+      "failed": {
+        "label": "Fehler",
+        "hint": "Ein Lauf ist fehlgeschlagen, blockiert oder kommt nicht mehr voran"
+      },
+      "budget": {
+        "label": "Ausgabenlimits",
+        "hint": "Ein Lauf wurde an einem Budget, einem Ausgabenlimit oder dem Nutzungslimit des Anbieters pausiert"
+      },
+      "done": {
+        "label": "Fertige Jobs",
+        "hint": "Ein Job ist abgeschlossen (nur wenn du nicht in der App bist)"
+      }
+    },
+    "sound": "Ton abspielen",
+    "soundHint": "Der Benachrichtigungston des Systems",
+    "dockBadge": "Dock-Badge",
+    "dockBadgeHint": "Das App-Symbol zeigt, wie viele Einträge im Posteingang du noch nicht gesehen hast",
+    "dockBadgeDesktopOnly": "In der Desktop-App zeigt das App-Symbol, wie viele Einträge im Posteingang du noch nicht gesehen hast",
+    "projectsHeading": "Projekte",
+    "projectsDescription": "Schalte ein Projekt aus, um seine Benachrichtigungen stummzuschalten. Seine Einträge bleiben im Posteingang.",
+    "saveFailed": "Die Benachrichtigungseinstellungen konnten nicht gespeichert werden"
+  },
+  "autoContinue": {
+    "title": "Fehlgeschlagene Läufe fortsetzen",
+    "description": "Wenn ein Lauf aus einem Grund fehlschlägt, den Specrails beheben kann, setzt es ihn einmal selbst fort und vermerkt das im Verlauf.",
+    "toggleLabel": "Einmal automatisch fortsetzen",
+    "stateOn": "An: Specrails setzt einen behebbaren Fehler einmal fort.",
+    "stateOff": "Aus: Ein fehlgeschlagener Lauf wartet, bis du ihn fortsetzt.",
+    "explainWhen": "Unerledigte Aufgaben, ein fehlendes Werkzeug, ein vorübergehender Anbieterfehler oder ein Stillstand: Der nächste Versuch behält die ganze Arbeit und bekommt die nötigen Hinweise.",
+    "explainNever": "Nie bei Zugangsdaten oder Geheimnissen, Richtlinienablehnungen, Ausgabenlimits, Nutzungslimits, einem von dir gewählten Stopp oder demselben Fehler zweimal.",
+    "enabled": "Specrails setzt behebbare Fehler einmal fort",
+    "disabled": "Fehlgeschlagene Läufe warten auf dich",
+    "saveFailed": "Die Einstellung konnte nicht gespeichert werden"
+  },
+  "machineInstalls": {
+    "title": "Gemerkte Installationen",
+    "description": "Rechnerweite Installationen, denen du für einen Lauf zugestimmt hast. Specrails führt sie ohne Nachfrage erneut aus; widerrufe eine, um beim nächsten Mal gefragt zu werden.",
+    "empty": "Noch nichts gemerkt. Braucht ein Lauf ein rechnerweit installiertes Werkzeug, fragt er dich zuerst.",
+    "approvedAt": "Zugestimmt am {{date}}",
+    "uses_one": "Einmal verwendet",
+    "uses_other": "{{count}}-mal verwendet",
+    "revoke": "Widerrufen",
+    "revoked": "Zustimmung widerrufen. Specrails fragt, bevor es sie erneut ausführt.",
+    "revokeFailed": "Zustimmung konnte nicht widerrufen werden",
+    "loadFailed": "Gemerkte Installationen konnten nicht geladen werden"
+  },
+  "envFiles": {
+    "title": "Umgebungsdateien in Läufen",
+    "description": "Kopiert die von Git ignorierten .env-Dateien dieses Projekts (.env, .env.local, .env.test und andere .env.<name>) aus jedem Repository in den Worktree jedes Laufs, damit Tests, die sie brauchen, laufen können. Standardmäßig aus.",
+    "label": ".env-Dateien dieses Projekts in Läufe kopieren",
+    "consequence": "Agenten in den Läufen dieses Projekts können diese Dateien lesen. Sie werden nie committet oder in Reviews angezeigt.",
+    "enabled": "Läufe erhalten jetzt die .env-Dateien dieses Projekts",
+    "disabled": "Läufe erhalten die .env-Dateien dieses Projekts nicht mehr",
+    "saveFailed": "Die Einstellung für Umgebungsdateien konnte nicht gespeichert werden"
   }
 }

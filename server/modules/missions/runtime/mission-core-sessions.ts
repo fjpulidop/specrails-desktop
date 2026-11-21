@@ -9,8 +9,9 @@ import { getAgentConversation, type AgentConversation } from '../../agents/runti
 import { conversationSessionState, ensureSessionCursor, getMissionCoreSession, getSessionCursor, isMissionCoreSessionId, listSessionCursors, listSubagents, missionCoreSessionId, renewMissionCoreSession, resetSessionProjection, setMissionCoreSessionProvider } from './agent-session-store'
 import { FLOW_SUBAGENTS_ADDENDUM } from './agent-flow-prompt'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
-import { MissionSessionProjector } from './mission-session-projector'
+import { MissionSessionProjector, type MissionSessionProjectorDeps } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
+import { connectorsMarker, type ConnectorTurnPlan } from './mission-connectors'
 import type { IntentTurn } from './flow-turn-context'
 
 /** Why an Intent session turn cannot run on Core sessions (there is no legacy Intent path). */
@@ -38,6 +39,13 @@ export interface MissionCoreSessionsDeps {
   subagentRuntime?: (conversation: AgentConversation) => SubagentRuntimeChoice | null
   /** Agent actions audit sink of a project (tool calls of its missions). */
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
+  /** A tool call the in-turn policy hook denied in a Core session (system row in the mission). */
+  onPolicyDenial?: MissionSessionProjectorDeps['onPolicyDenial']
+  /**
+   * "Connectors in missions": which of the provider's own user-scope servers
+   * and account connectors this turn loads. Absent = inherit them all.
+   */
+  connectors?: (providerId: string, options: { reserved: readonly string[]; deferredMcpTools: boolean }) => Promise<ConnectorTurnPlan>
 }
 
 export const GLOBAL_SCOPE = 'global'
@@ -134,10 +142,11 @@ export class MissionCoreSessions {
     // Missions are read-only (mission-read-only-policy): the adapter declares how its
     // Core driver enforces that while MCP tools stay callable. User-scope MCP stays inherited.
     const delegation = client.initialize?.capabilities?.delegation === 1
+    const inheritUserScope = await this.applyConnectors(adapter.id, drivers, mcpServers)
     const policy: SessionPolicyInput = {
       subagents: this.subagentPolicy(conversation),
       ...missionSessionBoundary(adapter, drivers.find((driver) => driver.id === adapter.id)),
-      mcp: { inheritUserScope: true },
+      mcp: { inheritUserScope },
       subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation),
     }
     this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: false })
@@ -147,7 +156,9 @@ export class MissionCoreSessions {
       driver: adapter.id,
       policy,
       mcpServers,
-      ...(policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
+      // Sub-agents off: no delegation guidance either (the operator core never
+      // mentions sub-agents, so each state has one byte-stable system prompt).
+      ...(policy.subagents === 'enabled' && policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
       // A new generation starts clean: the turn seeds it with the conversation
       // history (never another provider's thread).
       legacyProviderSessionRef: renewed ? null : (getAgentConversation(this.deps.db, conversationId) ?? conversation).session_id ?? null,
@@ -206,10 +217,11 @@ export class MissionCoreSessions {
     const drivers = client.initialize?.drivers ?? []
     const delegation = client.initialize?.capabilities?.delegation === 1
     const subagents = this.subagentPolicy(conversation)
+    const inheritUserScope = await this.applyConnectors(adapter.id, drivers, mcpServers)
     const policy: SessionPolicyInput = {
       subagents,
       ...turn.flow.policy,
-      mcp: { inheritUserScope: true },
+      mcp: { inheritUserScope },
       ...(subagents === 'enabled' ? { subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation) } : {}),
     }
     this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: true })
@@ -273,6 +285,17 @@ export class MissionCoreSessions {
     return next
   }
 
+  /**
+   * "Start fresh with a summary": a mission that ran in Core continues in its
+   * next generation (the current one is closed), so the next turn opens a new
+   * Core session seeded by the caller. A mission that never opened a Core
+   * session has nothing to renew (null). Called between turns only.
+   */
+  async renewMissionSessionIfOpened(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id' | 'provider'>, reason: string): Promise<string | null> {
+    if (!getMissionCoreSession(this.deps.db, conversation.id).provider) return null
+    return this.renewMissionSession(conversation, conversation.provider, reason)
+  }
+
   /** Close an Intent session's Core session (pause, discard, hand-off, renewal). Core keeps
    * its journal for the projection; the session never takes another turn. Never throws. */
   async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {
@@ -318,6 +341,30 @@ export class MissionCoreSessions {
     }
   }
 
+  /**
+   * Connectors in missions: add the provider's enabled user servers the turn
+   * must list (Codex: name-only specs, so Core keeps the user's definition),
+   * and mark the Specrails spec when connectors are off so a resident process
+   * restarts at the next turn and reads the provider-native switch (Claude's
+   * deny file). Returns `policy.mcp.inheritUserScope`. Never throws.
+   */
+  private async applyConnectors(providerId: string, drivers: DriverDescriptor[], mcpServers: AgentMcpServerSpec[]): Promise<boolean> {
+    if (!this.deps.connectors) return true
+    const deferredMcpTools = drivers.find((driver) => driver.id === providerId)?.capabilities?.deferredMcpTools === true
+    let plan: ConnectorTurnPlan
+    try {
+      plan = await this.deps.connectors(providerId, { reserved: mcpServers.map((server) => server.name), deferredMcpTools })
+    } catch (error) {
+      console.warn(`[agent-chat] connectors in missions unavailable; inheriting the provider's own: ${(error as Error).message}`)
+      return true
+    }
+    for (const server of plan.servers) if (!mcpServers.some((existing) => existing.name === server.name)) mcpServers.push(server)
+    const marker = connectorsMarker(plan.denied)
+    const specrails = mcpServers.find((server) => server.name === 'specrails')
+    if (marker && specrails) specrails.env = { ...(specrails.env ?? {}), SPECRAILS_MISSION_CONNECTORS_OFF: marker }
+    return plan.inheritUserScope
+  }
+
   /** The turn runs on the legacy transport because its scope is degraded: say why, once per turn. */
   private noticeFallback(conversationId: string, scope: string): void {
     if (this.deps.registry.status(scope) !== 'degraded') return
@@ -336,7 +383,11 @@ export class MissionCoreSessions {
     return resolution.runtime
   }
 
-  private subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {
+  /**
+   * "Allow sub-agents" for this conversation: the single source for Core's
+   * `policy.subagents` and for the legacy transports' `nativeSubagents`.
+   */
+  subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {
     return this.deps.subagentPolicy?.(conversation) ?? 'enabled'
   }
 
@@ -387,7 +438,8 @@ export class MissionCoreSessions {
 
   /** True when this mission's sub-agents (or its Intent's, while in Intent) are launched by Core (another provider). */
   delegates(conversationId: string): boolean {
-    return this.contexts.get(this.sessionOf(conversationId))?.policy.subagentRuntime?.mode === 'delegated'
+    const policy = this.contexts.get(this.sessionOf(conversationId))?.policy
+    return policy?.subagents === 'enabled' && policy.subagentRuntime?.mode === 'delegated'
   }
 
   /** Launch a sub-agent on the configured provider (delegated runtime only), in the current session. */
@@ -479,6 +531,7 @@ export class MissionCoreSessions {
       adapterFor: this.deps.adapterFor,
       onProcessEnded: (id) => this.releaseCapability(id),
       ...(this.deps.agentAudit ? { agentAudit: this.deps.agentAudit } : {}),
+      ...(this.deps.onPolicyDenial ? { onPolicyDenial: this.deps.onPolicyDenial } : {}),
     }, sessionId === conversationId ? {} : isMissionCoreSessionId(conversationId, sessionId) ? { coreSessionId: sessionId, mission: true } : { coreSessionId: sessionId, surface: 'flow' })
     try {
       await this.deps.registry.track(scope, sessionId, projector, () => {})

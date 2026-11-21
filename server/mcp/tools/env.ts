@@ -42,11 +42,9 @@ export function envTools(): McpToolSpec[] {
       name: 'specrails_env',
       title: 'Project worktree environment',
       description:
-        'Read, scan, and configure the per-project environment variable NAME allowlist used for rail jobs and isolated loop worktrees. ' +
-        'Values are never read or stored by this tool; runs read them from the server environment and can recover configured names from the login shell when the desktop process is missing them. scan inspects safe repo config files such as package.json, .npmrc, .yarnrc.yml and pnpm-workspace.yaml for ${VAR} / process.env.VAR references and private scoped package auth hints. ' +
-        'Each configured name reports a value-free resolution status: inherited, recovered (from the login shell), not-defined, probe-timeout or probe-failed. ' +
-        'get also reports the project agentEnvMode (inherit | minimal); that mode is read-only here so an agent cannot widen its own environment. ' +
-        'Actions: get (read current names and their statuses), status (statuses only), recheck (probe the login shell now, then return statuses), scan (discover candidates), set (write names), auto_configure (scan then merge discovered names into settings).',
+        'The per-project allowlist of environment variable NAMES passed to rail jobs and isolated loop worktrees (values are never read or stored here). ' +
+        'Each name reports inherited, recovered (from the login shell), not-defined, probe-timeout or probe-failed. get also reports agentEnvMode (inherit | minimal), read-only here. ' +
+        'Actions: get, status, recheck (probe the login shell now), scan (find ${VAR} / process.env references and scoped package auth hints in safe config files), set (write names), auto_configure (write — scan and merge).',
       hintTier: 'read',
       tier: (args) => (args.action === 'set' || args.action === 'auto_configure' ? 'write' : 'read'),
       inputSchema: {

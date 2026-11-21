@@ -1,0 +1,110 @@
+{
+  "title": "Bacheca live",
+  "description": "Ogni esecuzione di ogni progetto, in diretta",
+  "shortcutHint": "Aprila o chiudila con {{shortcut}}",
+  "stale": "Questa bacheca potrebbe non essere aggiornata.",
+  "loading": "Lettura dei tuoi progetti…",
+  "openInWindow": "Apri in una finestra",
+  "summary": {
+    "needsYou_one": "{{count}} in sospeso",
+    "needsYou_other": "{{count}} in sospeso",
+    "inProgress_one": "{{count}} in corso",
+    "inProgress_other": "{{count}} in corso",
+    "today": "oggi {{cost}}",
+    "todayEstimated": "oggi ~{{cost}} (stime incluse)",
+    "paused_one": "{{count}} in pausa",
+    "paused_other": "{{count}} in pausa"
+  },
+  "layout": {
+    "label": "Vista",
+    "status": "Per stato",
+    "mission": "Per missione"
+  },
+  "columns": {
+    "needs": "Richiede attenzione",
+    "working": "In corso",
+    "done": "Completato oggi",
+    "doneHint": "Si svuota a mezzanotte",
+    "openInbox": "Apri Da gestire"
+  },
+  "columnEmpty": {
+    "needs": "Niente ti aspetta.",
+    "working": "Niente è in esecuzione.",
+    "done": "Oggi non è ancora terminato niente."
+  },
+  "filters": {
+    "label": "Filtri",
+    "project": "Progetto",
+    "kind": "Tipo",
+    "engine": "Motore",
+    "allProjects": "Tutti i progetti"
+  },
+  "kinds": {
+    "rail": "Rail",
+    "loop": "Loop",
+    "intent": "Intent",
+    "job": "Job"
+  },
+  "kind": {
+    "rail": "Rail {{n}}",
+    "railUnknown": "Rail",
+    "loop": "Loop",
+    "intent": "Intent",
+    "job": "Job"
+  },
+  "lane": {
+    "noMission": "Non da una missione",
+    "noMissionHint": "Avviato dalla bacheca, da un loop o da un job",
+    "untitled": "Missione senza titolo",
+    "mission": "missione",
+    "projects_one": "{{count}} progetto",
+    "projects_other": "{{count}} progetti",
+    "runs_one": "{{count}} esecuzione",
+    "runs_other": "{{count}} esecuzioni",
+    "today": "{{cost}} oggi"
+  },
+  "card": {
+    "now": "proprio ora",
+    "waiting": "in attesa da {{age}}",
+    "queuedFor": "in coda da {{age}}",
+    "queued": "In attesa di partire",
+    "steps": "{{done}} di {{total}} passaggi completati",
+    "open": "Apri",
+    "openReview": "Apri revisione",
+    "untitled": "Esecuzione senza titolo",
+    "untitledIntent": "Sessione Intent",
+    "question": "Domanda",
+    "actionLabel": "{{action}}: {{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Stima dal listino, non costo fatturato",
+    "costIncludesEstimate": "Include {{cost}} stimato dal listino, non fatturato",
+    "mergeConflicts_one": "In conflitto con la base in {{count}} file",
+    "mergeConflicts_other": "In conflitto con la base in {{count}} file",
+    "mergeSiblings_one": "Collide con {{count}} altro run",
+    "mergeSiblings_other": "Collide con altri {{count}} run",
+    "baseMoved_one": "La base è avanzata di {{count}} commit",
+    "baseMoved_other": "La base è avanzata di {{count}} commit",
+    "mergeChip": {
+      "conflicts_one": "{{count}} conflitto",
+      "conflicts_other": "{{count}} conflitti",
+      "siblings_one": "Si sovrappone a {{count}} run",
+      "siblings_other": "Si sovrappone a {{count}} run",
+      "baseMoved": "Base avanzata"
+    },
+    "attempt": "tentativo {{number}}",
+    "attemptCost": "Questo tentativo: {{cost}}. Il costo della scheda copre tutti i {{of}} tentativi."
+  },
+  "empty": {
+    "title": "Niente in esecuzione",
+    "description": "Le esecuzioni di tutti i progetti compaiono qui appena partono: rail, loop, sessioni Intent e job."
+  },
+  "emptyFiltered": {
+    "title": "Nessun risultato con questi filtri",
+    "clear": "Rimuovi filtri"
+  },
+  "error": {
+    "title": "Impossibile caricare la bacheca live",
+    "description": "L'app non è riuscita a leggere i tuoi progetti. Riprova tra un momento.",
+    "retry": "Riprova"
+  }
+}

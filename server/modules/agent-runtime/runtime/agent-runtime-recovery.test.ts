@@ -12,7 +12,7 @@ vi.mock('node:child_process', async importOriginal => {
   }) as typeof actual.execFile
   return { ...actual, execFile }
 })
-vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: async () => fixture.cli }))
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
 let root: string
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'recovery-bridge-')); fixture.cli = path.join(root, 'core.cjs'); fixture.timeoutMs = undefined })

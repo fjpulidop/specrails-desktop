@@ -1,15 +1,17 @@
 import { defaultLoopAgents } from '../../loops/runtime/loop-agents'
+import nodePath from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readRuntimeHistory } from './agent-runtime-history'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
+const fixture = vi.hoisted(() => ({ preparing: false, cli: null as string | null, retained: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: { ...(fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {}), ...fixture.capabilities } }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
-vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, prepareRetainedAgentRuntime: async (_cli: string, observer?: { onPreparing?: () => void }) => { if (!fixture.preparing) return false; observer?.onPreparing?.(); return true }, resolveRetainedAgentRuntime: async () => fixture.retained ?? fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
-import { coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
+import { configureCoreChildRegistry } from '../../../util/core-child-process'
+import { CORE_PREPARING_LINE, coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
 let root: string, contextPath: string
 beforeEach(() => {
@@ -19,10 +21,10 @@ beforeEach(() => {
   mkdirSync(join(root, 'state'))
   writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front' }] }))
   writeFileSync(join(root, 'config.json'), JSON.stringify({ schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }], agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } }, verification: [{ repositoryId: 'front', command: 'npm', args: ['test'] }, { repositoryId: 'back', command: './mvnw', args: ['test'] }] }))
-  fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
+  fixture.preparing = false; fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
   fixture.cli = join(root, 'cli.mjs')
 })
-afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null })
+afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null; fixture.retained = null })
 const options = () => ({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', API_SECRET: 'never-store-this' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000 })
 function script(code: string) { writeFileSync(fixture.cli!, code) }
 function final(status = 'succeeded', overrides: object = {}) { return { type: 'runtime-result', runId: 'run-1', status, invocationUsage: { costUsd: null, inputTokens: 12, outputTokens: 4 }, ...overrides } }
@@ -60,21 +62,56 @@ describe('host checks of a package inside a larger checkout', () => {
 })
 
 describe('provider CLI environment', () => {
+  it('gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
+    const pkg = (name: string, guard: boolean) => {
+      const cli = join(root, name, 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
+      if (guard) { mkdirSync(join(root, name, 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, name, 'dist', 'pipeline', 'electron-headless-guard.cjs'), 'globalThis.__fixtureGuard = (globalThis.__fixtureGuard || 0) + 1') }
+      return cli
+    }
+    fixture.cli = pkg('current', true); fixture.retained = pkg('old', false)
+    const seen = join(root, 'seen.json'), copy = join(root, 'state', 'electron-headless-guard.cjs')
+    writeFileSync(fixture.retained, `require('fs').writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ options: process.env.NODE_OPTIONS ?? null, headless: process.env.SPECRAILS_HEADLESS, loaded: globalThis.__fixtureGuard ?? 0 })); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn()
+    const env = { ...options().env, NODE_OPTIONS: '--max-old-space-size=2048' }
+    expect((await runAgentRuntimeInvocation({ ...options(), env, resume: true, onLine })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--max-old-space-size=2048 --require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect(onLine).toHaveBeenCalledWith(expect.stringContaining('Desktop applies it'))
+    // The next resume reuses the run's copy: an already present guard is never added twice.
+    rmSync(join(root, 'current'), { recursive: true })
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...env, NODE_OPTIONS: `--require ${JSON.stringify(copy)}` }, resume: true })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined, SPECRAILS_HEADLESS: '0' }, resume: true })).failed).toBe(false)
+    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: null, headless: '0', loaded: 0 })
+  })
+  it('leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
+    const cli = join(root, 'new', 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
+    mkdirSync(join(root, 'new', 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, 'new', 'dist', 'pipeline', 'electron-headless-guard.cjs'), '')
+    fixture.cli = cli
+    const seen = join(root, 'seen.txt')
+    writeFileSync(cli, `require('fs').writeFileSync(${JSON.stringify(seen)}, String(process.env.NODE_OPTIONS)); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined }, resume: true })).failed).toBe(false)
+    expect(readFileSync(seen, 'utf8')).toBe('undefined')
+    expect(existsSync(join(root, 'state', 'electron-headless-guard.cjs'))).toBe(false)
+  })
   it('trusts the admitted workspace for Gemini CLIs that Core spawns, unless the host set a value', async () => {
     const trust = join(root, 'trust.txt')
     script(`import { writeFileSync } from 'node:fs';writeFileSync(${JSON.stringify(trust)}, String(process.env.GEMINI_CLI_TRUST_WORKSPACE));console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const base = options()
     expect((await runAgentRuntimeInvocation({ ...base, env: { ...base.env, GEMINI_CLI_TRUST_WORKSPACE: undefined } })).failed).toBe(false)
     expect(readFileSync(trust, 'utf8')).toBe('true')
-    expect(coreProviderEnv({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })
+    expect(coreProviderEnv({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: 'false', SPECRAILS_HEADLESS: '1' })
     const env = { PATH: '/bin' }
-    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_HEADLESS: '1', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
     expect(env).toEqual({ PATH: '/bin' })
+  })
+
+  it('runs Core headless unless Desktop\'s environment opts out', () => {
+    expect(coreProviderEnv({ PATH: '/bin', SPECRAILS_HEADLESS: '0' })).toEqual({ PATH: '/bin', SPECRAILS_HEADLESS: '0', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
   })
 
   it('never hands Desktop\'s own Core selection to Core, its agents or verification commands', () => {
     const env = { PATH: '/bin', SPECRAILS_CORE_BIN: '/core/bin/specrails-core.mjs', SPECRAILS_CORE_RUNTIME_PATH: '/core/dist/agent-runtime/index.js', SPECRAILS_FRAMEWORK_AUTOSWAP: 'false', SPECRAILS_GIT_AUTO: 'false' }
-    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_GIT_AUTO: 'false', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_GIT_AUTO: 'false', SPECRAILS_HEADLESS: '1', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
     expect(env.SPECRAILS_CORE_BIN).toBe('/core/bin/specrails-core.mjs')
   })
 })
@@ -149,6 +186,25 @@ describe('definition verification admission', () => {
     expect(unsupported.mock.calls.map(call => call[0]).join('')).toContain('[runtime] setup commands ignored: the installed Core does not advertise setupCommands (1 configured)')
   })
 
+  it('announces the first-launch Core preparation in the run log, and only when it happens', async () => {
+    setup([{ repositoryId: 'front', command: 'npm', args: ['test'] }])
+    script(`console.log(JSON.stringify(${JSON.stringify(final())}))`)
+    const lines = (calls: unknown[][]) => calls.map(call => call[0]).join('')
+    const quiet = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: quiet })
+    expect(lines(quiet.mock.calls)).not.toContain('Preparing the updated Core runtime')
+    expect(lines(quiet.mock.calls)).not.toContain('Core runtime ready')
+
+    fixture.preparing = true
+    for (const name of ['desktop-runtime-config.json', 'desktop-runtime-selection.json']) rmSync(join(root, 'state', name), { force: true })
+    const announced = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: announced })
+    const log = lines(announced.mock.calls)
+    expect(log).toContain(`${CORE_PREPARING_LINE}\n`)
+    expect(log).toMatch(/\[runtime\] Core runtime ready \(\d+\.\d s\)\n/)
+    expect(log.indexOf('Preparing the updated Core runtime')).toBeLessThan(log.indexOf('Core runtime ready'))
+  })
+
   it('allows workflows that supply verification proposals later', async () => {
     setup()
     await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: () => ({ ...definition(), nodes: {
@@ -159,6 +215,26 @@ describe('definition verification admission', () => {
 })
 
 describe('Core process bridge', () => {
+  it.skipIf(process.platform === 'win32')('runs Core in its own process group and records it while it runs', async () => {
+    const registry = join(root, 'core-children')
+    configureCoreChildRegistry(registry)
+    try {
+      // The fake Core reports its process group and what the registry holds while it runs.
+      script(`import { execFileSync } from 'node:child_process'; import fs from 'node:fs'
+const pgid = Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(process.pid)], { encoding: 'utf8' }).trim())
+console.log(JSON.stringify({ type: 'agent-event', role: 'developer', event: { kind: 'text', text: 'group ' + (pgid === process.pid ? 'own' : 'shared') + ' records ' + fs.readdirSync(${JSON.stringify(registry)}).join(',') } }))
+console.log(JSON.stringify(${JSON.stringify(final())}))`)
+      const lines: string[] = []
+      let pid = 0
+      const result = await runAgentRuntimeInvocation({ ...options(), onLine: line => lines.push(line), onSpawn: child => { pid = child.pid! } })
+      expect(result.failed).toBe(false)
+      expect(lines.join('')).toContain(`group own records ${pid}.json`)
+      // Desktop's own process group is not Core's.
+      expect(pid).not.toBe(process.pid)
+      expect(existsSync(join(registry, `${pid}.json`))).toBe(false)
+    } finally { configureCoreChildRegistry(null) }
+  })
+
   it('compacts a large successful Jest stream without changing raw events or its recorded outcome', async () => {
     const identity = { runId: 'run-1', nodePath: 'verify', scopeId: 'root', attemptId: 'attempt-1', attempt: 1, visit: 1 }
     const rows = 77_018
@@ -425,14 +501,15 @@ describe('Core process bridge', () => {
     expect((await runAgentRuntimeInvocation({ ...options(), resume: true })).failed).toBe(false)
     expect(readFileSync(scopedPath, 'utf8')).toBe(scoped)
   })
-  it('launches PATH Node when a packaged sidecar has no bundled Node', async () => {
+  it('launches the absolute PATH Node when a packaged sidecar has no bundled Node (pkg rewrites a bare `node` to itself)', async () => {
     const previous = Object.getOwnPropertyDescriptor(process, 'pkg')
     Object.defineProperty(process, 'pkg', { configurable: true, value: { entrypoint: '/snapshot/server/index.js' } })
     try {
       script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
       let executable: string | undefined
       const result = await runAgentRuntimeInvocation({ ...options(), onSpawn: (child) => { executable = child.spawnfile } })
-      expect(executable).toBe('node')
+      expect(executable && nodePath.isAbsolute(executable)).toBe(true)
+      expect(nodePath.basename(executable!)).toMatch(/^node(\.exe)?$/)
       expect(result.failed).toBe(false)
     } finally {
       if (previous) Object.defineProperty(process, 'pkg', previous)
@@ -468,13 +545,21 @@ describe('Core process bridge', () => {
     const result = await runAgentRuntimeInvocation({ ...options(), resume: true, approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
     expect(result.failed).toBe(false)
   })
+  it('questionOptions: passes the chosen option with its answer and a rejection with its reason', async () => {
+    script(`const a=process.argv; const o=a.indexOf('--option'); if(!a.includes('resume')||o<0||a[o+1]!=='sqlite'||a[a.indexOf('--answer')+1]!=='SQLite')process.exit(7); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), resume: true, answer: 'SQLite', optionId: 'sqlite' })).failed).toBe(false)
+    script(`const a=process.argv; const r=a.indexOf('--reject'); if(!a.includes('resume')||r<0||a[r+1]!=='a1'||a[a.indexOf('--reason')+1]!=='Wrong colours'||a.includes('--approve'))process.exit(7); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation({ ...options(), resume: true, reject: 'a1', reason: 'Wrong colours' })).failed).toBe(false)
+    await expect(runAgentRuntimeInvocation({ ...options(), resume: true, reject: 'a1', reason: ' ' })).rejects.toThrow('needs a reason')
+  })
   it('passes an answer verbatim on resume only and tolerates trace spans in the event stream', async () => {
     script(`const i=process.argv.indexOf('--answer'); if(!process.argv.includes('resume')||i<0||process.argv[i+1]!=='Use Redis, keep the schema')process.exit(7); console.log(JSON.stringify({type:'span',span:{traceId:'t1',spanId:'s1',name:'architect',stepId:'architect',attempt:1,visit:2,startedAt:'a',endedAt:'b',status:'ok'}})); console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const onLine = vi.fn(), onRawLine = vi.fn()
     const result = await runAgentRuntimeInvocation({ ...options(), resume: true, answer: 'Use Redis, keep the schema', onLine, onRawLine })
     expect(result.failed).toBe(false)
     expect(onRawLine).toHaveBeenCalledTimes(2)
-    expect(onLine).not.toHaveBeenCalled()
+    // Trace spans never become log lines (the fixture Core has no headless guard: that advisory is the only line).
+    expect(onLine.mock.calls.filter(([line]) => !String(line).startsWith('[runtime] Windows an app opens'))).toEqual([])
     await expect(runAgentRuntimeInvocation({ ...options(), answer: 'no run yet' })).rejects.toThrow('Answers apply to runtime resume')
   })
   it.each([

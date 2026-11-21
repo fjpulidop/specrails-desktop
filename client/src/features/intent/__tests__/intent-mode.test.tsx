@@ -292,6 +292,10 @@ describe('Intent mode in the conversation', () => {
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Exploring · 3 files'))
     // Intent's own color marks the running Intent (running runs keep the info accent).
     expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-intent)' })
+    // The mode icon keeps its identity; the working lamp is its state badge (no pulsing icon).
+    expect(bar).toHaveAttribute('data-run-state', 'working')
+    expect(screen.getByTestId('mission-run-strip-state-badge').querySelector('[data-run-state="working"]')).toBeInTheDocument()
+    expect(screen.getByTestId('mission-run-strip-mode-mark').querySelector('.animate-pulse, [class*="animate-pulse"]')).toBeNull()
     // A strip showing only the Intent still names it.
     expect(screen.getByTestId('mission-run-strip-label')).toHaveTextContent('Intent')
     const row = within(screen.getByTestId('mission-run-strip-bar'))
@@ -507,6 +511,8 @@ describe('Intent mode in the conversation', () => {
     render(<Providers><IntentStrip /></Providers>)
     const strip = await screen.findByTestId('mission-run-strip')
     expect(strip).toHaveAttribute('data-tone', 'info')
+    // Its copy of the project is missing: blocked in the status vocabulary.
+    expect(strip).toHaveAttribute('data-run-state', 'blocked')
     expect(screen.queryByTestId('mission-run-strip-primary')).toBeNull()
     await openFlowPanel()
     expect(await screen.findByTestId('flow-bar-note')).toHaveTextContent('Nothing was deleted')
@@ -562,6 +568,8 @@ describe('Intent mode in the conversation', () => {
     // Calm: the person just asked for it (no bell, no attention), and the Intent mark stays.
     expect(strip).toHaveAttribute('data-tone', 'info')
     expect(within(strip).getByTestId('mission-run-strip-mode-mark')).toHaveAttribute('data-tone', 'info')
+    // Its result waits for the person's hand-off.
+    expect(strip).toHaveAttribute('data-run-state', 'review')
     expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Ready to turn into a PR')
     // The hand-off settings open on their own as the strip's panel.
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))

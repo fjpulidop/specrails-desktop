@@ -1,12 +1,12 @@
 # Mission rail cards — as-built record
 
-> OpenSpec change `mission-rail-cards` (2026-09-18), branch `feat/mission-rail-cards`. Companion to the CLAUDE.md section of the same name. Everything below is what the code on disk does; "deferred" means it does not.
+> OpenSpec change `mission-rail-cards` (2026-09-18), branch `feat/mission-rail-cards`. Companion to the `rail-launch-cards` guide topic and the operator core's rail-card clause. Everything below is what the code on disk does; "deferred" means it does not.
 
 ## The problem
 
 Mission mode (Agent Mode) replaces the routed dashboard, so `RailsBoard`, `SpecsBoard`, `RailRow` (with `RailPrDecisionStrip` and `AgentRuntimeRuns`) are never mounted there. The only object a mission had for an implementation run was the PR-decision card. On 2026-09-18 three gaps were verified:
 
-1. **No git ⇒ no object.** The shared-cwd launch path in `server/modules/delivery/runtime/rails-router.ts` (`isolationUnavailable = 'no-git' | 'no-commits'`) never received `originConversationId`; no `rail_pr_deliveries` row, no card, only a `202 { isolationUnavailable }` the agent rarely mentioned.
+1. **No git ⇒ no object.** The shared-cwd launch path in `server/modules/delivery/runtime/rails-launch-http.ts` (`isolationUnavailable = 'no-git' | 'no-commits'`) never received `originConversationId`; no `rail_pr_deliveries` row, no card, only a `202 { isolationUnavailable }` the agent rarely mentioned.
 2. **Failure was mute.** `discarded` swallowed `statusDetail` (gated on `deliveryBlocked`); `implementation_failed` offered Discard only; no WS event wrote into the conversation or started a turn; `/agent-runtime/runs` (resume / approve / recover) was absent from MCP.
 3. **Assignment was prose.** Rails were not a palette entity; assigning specs meant dictating rail / engine / profile / loop in sentences, so users went to Board mode.
 
@@ -74,7 +74,7 @@ card also omits the property, instead of sending an invalid empty map.
 }
 ```
 
-Parser pair `server/modules/delivery/runtime/rail-launch-parser.ts` ⇄ `client/src/features/rails/lib/rail-launch-draft.ts` (byte-identical except the mirror note; `server/modules/delivery/runtime/rail-launch-parser.test.ts` enforces parity). `extractRailLaunchProposals(content, streaming)` returns `{ body, proposals, rejected, pending, truncated, repaired }`:
+Parser: `client/src/features/rails/lib/rail-launch-draft.ts` (client only; the server emits the prompt contract but never parses blocks). `extractRailLaunchProposals(content, streaming)` returns `{ body, proposals, rejected, pending, truncated, repaired }`:
 
 - tolerant JSON repair (`json-tolerant`) before rejecting; `repaired` flags it;
 - unknown keys dropped; `ticketIds` accepts `12`, `"12"`, `"#12"` (also under `specs` / `tickets`); `mode` folds the removed `batch` / `batch-implement` into `implement`, `newRail: true` for an unnamed rail; `railIndex` is ignored when `newRail` is set;
@@ -88,10 +88,10 @@ Parser pair `server/modules/delivery/runtime/rail-launch-parser.ts` ⇄ `client/
 
 | Piece | Where | Notes |
 |---|---|---|
-| Operator prompt | `server/modules/missions/runtime/agent-operator-prompt.ts` `RAIL_LAUNCH_CARD_SECTION`, `RAIL_LAUNCH_CARD_SYSTEM_CLAUSE`, `buildOperatorSystemPrompt()` | Propose = block; launch directly only on an explicit "now"; failure briefing reply ≤ 6 lines + one action, no mutation. Gated on `isMissionRailCardsEnabled()`. |
+| Operator prompt | `server/modules/missions/runtime/agent-operator-prompt.ts` `RAIL_LAUNCH_CARD_SYSTEM_CLAUSE`, `buildOperatorSystemPrompt()`; card protocol `RAIL_LAUNCH_CARD_SECTION` in `server/mcp/guide.ts` (topic `rail-launch-cards`) | Propose = block; launch directly only on an explicit "now"; failure briefing reply ≤ 6 lines + one action, no mutation. Gated on `isMissionRailCardsEnabled()`. |
 | Message intent | desktop-db migration 29 (`agent_messages.intent`, column-guarded); `agent-store.ts` `setAgentMessageIntent`; `PATCH /api/agent/conversations/:id/messages/:mid/intent` | JSON ARRAY of decisions keyed by `proposalIndex`; append-only; 409 `already_decided`; 403 when the feature is off. Rows expose `intents[]`. |
 | Envelope | `server/types.ts` `PrDecisionCardEnvelope` (+ `MissionRunPhase`, `MissionRunRuntime`, `MissionRunFailure`) | `hasDelivery`, `phase`, `railName`, `runtime` — all optional; `decision` vocabulary unchanged. |
-| Run-only cards | `server/modules/missions/runtime/mission-run-notify.ts` `runCardId` / `isRunCardId` / `buildRunCardEnvelope` / `postRunCard` / `settleRunCard` / `failureForLoopOutcome` / `runtimeFromSummary` | Synthetic `prDeliveryId = 'run:<runId>'`, `hasDelivery:false`. Wired in the shared-cwd branch of `rails-router.ts` (origin stored on `railLoopRuns` meta; 202 returns `runIds`). |
+| Run-only cards | `server/modules/missions/runtime/mission-run-notify.ts` `runCardId` / `isRunCardId` / `buildRunCardEnvelope` / `postRunCard` / `settleRunCard` / `failureForLoopOutcome` / `runtimeFromSummary` | Synthetic `prDeliveryId = 'run:<runId>'`, `hasDelivery:false`. Wired in the shared-cwd branch of `rails-launch-http.ts` (origin stored on `railLoopRuns` meta; 202 returns `runIds`). |
 | Run-only dismiss | `POST /rails/pr-decision { prDeliveryId:'run:…', action:'dismiss', expectedDecision, conversationId }` → `AgentChatManager.dismissRunCard` | Other actions ⇒ 400 `run_card_dismiss_only`; unknown card ⇒ 404 `run_card_not_found`. |
 | Failure trigger | `notifyMissionRunFailure` (`mission-run-notify.ts`) | Envelope update with `runtime.failure` → `AgentChatManager.postRunFailureRow` (one `system` row per run, WS `agent_run_failure`) → `AgentChatManager.startSystemTurn` (queueId `mission-failure:<runId>`, gated `isMissionFailureTurnEnabled()`). Callers: shared-cwd run promise, isolated settle (`implementation_failed`), `closeFailedGeneration` (`launch_failed`). Cancel updates the card, no turn. No origin ⇒ no-op. |
 | Briefing | `server/modules/missions/runtime/agent-failure-briefing.ts` `buildFailureBriefing`, `failureBriefingRef`, `FAILURE_CODE_LABELS`, `FAILURE_BRIEFING_MAX_TAIL` | Fixed text: rail, specs, failure code + detail, bounded verify tail, recovery options, "do not relaunch by yourself". Persisted as a `user` row whose `context_refs[0].kind === 'system-briefing'`. |
@@ -153,7 +153,8 @@ Migration 29 and the envelope fields are additive; persisted intents are inert w
 
 | Area | Tests |
 |---|---|
-| Parser + promotion + mirror parity | `server/modules/delivery/runtime/rail-launch-parser.test.ts` |
+| Parser | `client/src/features/rails/lib/__tests__/rail-launch-draft.test.ts` |
+| Fence promotion + mirror parity | `server/modules/missions/runtime/agent-fence-promotion.test.ts`, `client/src/features/missions/components/__tests__/agent-fence-promotion.test.ts` |
 | Intent store/route, `dismissRunCard` | `server/agent-message-intent.test.ts` |
 | Run-only cards, availability, run-card dismiss route | `server/modules/delivery/runtime/rails-router.test.ts`, `server/mcp/tools/rails-origin.test.ts` |
 | Failure trigger / briefing / system turn | `server/modules/missions/runtime/mission-run-notify.test.ts`, `server/modules/missions/runtime/agent-failure-briefing.test.ts`, `server/agent-chat-mission-turn.test.ts`, `server/modules/delivery/runtime/rail-isolated-launch.test.ts` |

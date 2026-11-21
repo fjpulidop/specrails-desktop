@@ -14,7 +14,6 @@
     "failed": "O job terminou com um código de saída diferente de zero",
     "canceled": "O job foi cancelado manualmente",
     "queued": "O job está a aguardar na fila",
-    "queuedToRun": "O job está a aguardar para ser executado",
     "zombie": "O job foi terminado automaticamente após inatividade prolongada",
     "skipped": "O job foi ignorado porque um job anterior do pipeline falhou"
   },
@@ -168,18 +167,30 @@
     "cancelJob": "Cancelar job",
     "stopRun": "Parar execução",
     "stopRunConfirmTitle": "Parar esta execução?",
-    "stopRunConfirmDescription": "A execução do loop será interrompida no próximo limite de etapa. Esta ação não pode ser desfeita.",
+    "stopRunConfirmDescription": "Ela para na próxima etapa e é encerrada. Você poderá continuá-la depois em uma nova tentativa que mantém o trabalho.",
     "toast": {
       "cancelSignalSent": "Sinal de cancelamento enviado",
       "cancelSignalSentDescription": "O job vai parar no próximo ponto seguro",
-      "stopSignalSent": "Sinal de parada enviado",
-      "stopSignalSentDescription": "A execução será interrompida no próximo limite de etapa",
+      "stopSignalSent": "Parando a execução",
+      "stopSignalSentDescription": "Ela para na próxima etapa e é encerrada. Você poderá continuá-la depois em uma nova tentativa que mantém o trabalho.",
       "cancelFailed": "Falha ao cancelar",
-      "networkError": "Erro de rede"
+      "networkError": "Erro de rede",
+      "pauseRequested": "Pausando a execução",
+      "pauseRequestedDescription": "Ela pausa após a etapa atual. Retomar continua esta mesma execução.",
+      "pauseFailed": "Não foi possível pausar a execução",
+      "pauseUnsupported": "O motor desta execução não consegue pausar no meio. Pare-a: você poderá continuá-la depois.",
+      "resumed": "Execução retomada",
+      "resumedDescription": "Ela continua de onde pausou.",
+      "resumeFailed": "Não foi possível retomar a execução"
     },
     "title": "Tarefa {{kind}} · #{{id}}",
     "titleLoop": "Execução de loop · #{{id}}",
-    "titleGeneric": "Tarefa · #{{id}}"
+    "titleGeneric": "Tarefa · #{{id}}",
+    "pauseRun": "Pausar",
+    "pausing": "Pausando…",
+    "resumeRun": "Retomar",
+    "pauseRunTooltip": "Pausar após a etapa atual. Nada se perde: Retomar continua esta mesma execução.",
+    "pausingTooltip": "Concluindo a etapa atual; depois a execução pausa."
   },
   "comparison": {
     "title": "Comparação de jobs",
@@ -253,7 +264,8 @@
       "networkError": "Erro de rede"
     },
     "emptyCta": "Abrir o quadro de specs",
-    "loading": "Carregando jobs…"
+    "loading": "Carregando jobs…",
+    "attempt": "Tentativa {{number}}"
   },
   "activeJob": {
     "none": "Nenhum job ativo",
@@ -289,7 +301,7 @@
     "stalledIdle_one": "Sem saída do fornecedor durante {{count}} minuto — a app parou esta tentativa",
     "stalledIdle_other": "Sem saída do fornecedor durante {{count}} minutos — a app parou esta tentativa",
     "providerLimit": "Limite do fornecedor",
-    "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app parou a execução em vez de continuar a ciclar.",
+    "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app pôs a execução em pausa no limite em vez de continuar a ciclar.",
     "paused": "Em pausa",
     "runtimeGraph": "Grafo de execução",
     "graphFullscreen": "Tela cheia",
@@ -310,8 +322,18 @@
     "repeatFromHere": "Repetir a partir daqui",
     "forkFailed": "Não foi possível criar a execução vinculada",
     "forkPending": "Tente novamente a etapa selecionada originalmente para concluir a bifurcação pendente.",
-    "forkCreated": "Execução vinculada criada. Abra-a e retome a partir do ponto selecionado.",
-    "openFork": "Abrir execução vinculada"
+    "forkCreated": "Execução ligada criada e retomada a partir do passo selecionado.",
+    "forkResumeFailed": "Execução ligada criada, mas não conseguiu retomar sozinha ({{detail}}). Abre-a e retoma-a.",
+    "openFork": "Abrir execução vinculada",
+    "graphFollow": "Acompanhar execução",
+    "graphFitAll": "Ver tudo",
+    "graphLegend": "Legenda do grafo",
+    "graphAttempt": "Tentativa {{n}}",
+    "graphAttempts_one": "{{count}} tentativa",
+    "graphAttempts_other": "{{count}} tentativas",
+    "graphTrace": "Rastreio",
+    "graphPathOnly": "Só o caminho percorrido",
+    "notReached": "{{count}} não alcançados"
   },
   "logViewer": {
     "loading": "A carregar logs...",
@@ -364,14 +386,15 @@
       "running": "Em curso",
       "skipped": "Ignorado",
       "passed": "Aprovado",
-      "unavailable": "Indisponível"
+      "unavailable": "Indisponível",
+      "unverified": "Não verificada"
     }
   },
   "runHeader": {
     "details": "Detalhes",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Reportado pelo provedor até agora; os números finais chegam quando o job termina.",
-    "questionPending": "Responder à pergunta"
+    "questionPending": "Responder"
   },
   "runDetail": {
     "failure": "Motivos da falha",
@@ -379,6 +402,59 @@
     "graph": "Grafo de execução",
     "detail": "Detalhe do registo",
     "navigation": "Detalhe da execução",
-    "sections": "Secções do registo"
+    "sections": "Secções do registo",
+    "stopped": "Continuar"
+  },
+  "held": {
+    "label": {
+      "restart": "Pausado",
+      "interrupted": "Interrompido",
+      "provider_limit": "Limite de uso",
+      "budget": "Limite de gastos",
+      "question": "Requer atenção",
+      "approval": "Requer atenção",
+      "paused": "Pausado",
+      "queued": "Na fila",
+      "pausedByYou": "Pausada por você"
+    },
+    "tooltip": {
+      "restart": "O app reiniciou enquanto esta execução trabalhava. Nada é executado até você continuá-la.",
+      "interrupted": "Uma etapa parou antes de terminar. Nada é executado até você continuá-la.",
+      "provider_limit": "O limite de uso do provedor foi atingido. A execução aguarda ele ser restabelecido.",
+      "budget": "O limite de gastos foi atingido. Nada é executado até você continuá-la.",
+      "question": "A execução fez uma pergunta e aguarda sua resposta.",
+      "approval": "A execução aguarda sua aprovação para seguir.",
+      "paused": "Nada é executado até você continuá-la.",
+      "queued": "Lançado, aguardando capacidade. Começa sozinho quando houver espaço.",
+      "pausedByYou": "Você pausou esta execução. Ela não ocupa nenhuma vaga de execução, e nada é executado até você retomá-la."
+    },
+    "reason": {
+      "restart": "O app reiniciou durante a etapa {{step}}.",
+      "restartNoStep": "O app reiniciou enquanto a execução trabalhava.",
+      "interrupted": "A etapa {{step}} parou antes de terminar.",
+      "interruptedNoStep": "Uma etapa parou antes de terminar.",
+      "provider_limit": "Aguardando o limite de uso do provedor ser restabelecido.",
+      "budget": "O limite de gastos foi atingido.",
+      "question": "Aguardando sua resposta.",
+      "approval": "Aguardando sua aprovação.",
+      "paused": "Nada é executado até você continuá-la.",
+      "queued": "Aguardando capacidade antes de começar.",
+      "pausedByYou": "Pausada por você. Nada é executado até você retomá-la."
+    },
+    "stoppedTime": "Tempo de trabalho até parar",
+    "cancelRun": "Cancelar execução",
+    "cancelRunConfirmTitle": "Cancelar esta execução pausada?",
+    "cancelRunConfirmDescription": "Ela termina como parada e nada mais é executado. Suas alterações ficam na worktree dela, e você ainda pode continuá-la depois pela janela da execução.",
+    "keepPaused": "Manter pausada",
+    "queue": {
+      "run_slots": "Aguardando um espaço livre: esta máquina já trabalha em todas as execuções que pode.",
+      "project_slots": "Aguardando as outras execuções deste projeto: ele já executa todos os rails permitidos ao mesmo tempo.",
+      "provider_slots": "Aguardando as outras execuções deste provedor de IA: ele já executa todos os rails permitidos ao mesmo tempo.",
+      "cpu": "Aguardando a CPU: a máquina está saturada e outra execução deixaria todas mais lentas.",
+      "memory": "Aguardando memória livre antes de começar.",
+      "provider_quota": "Aguardando a janela de uso do provedor: agora não conseguiria concluir outra execução.",
+      "other": "Aguardando capacidade antes de começar.",
+      "position": "Posição {{position}} na fila; começa sozinho."
+    }
   }
 }

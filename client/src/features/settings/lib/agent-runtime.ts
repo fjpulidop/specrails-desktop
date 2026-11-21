@@ -3,9 +3,6 @@ import type { RuntimeEfficiency, RuntimeEfficiencySummary } from './runtime-effi
 export const RUNTIME_CLI_PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
 export const RUNTIME_ROLES = ['architect', 'developer', 'reviewer'] as const
 export type RuntimeRole = typeof RUNTIME_ROLES[number]
-/** Roles with an editable prompt definition: the pipeline trio plus the FIXER stance the developer takes on correction rounds (Core ≥ the fixer-prompt catalog; older cores omit it). */
-export const PROMPT_ROLES = [...RUNTIME_ROLES, 'fixer'] as const
-export type PromptRole = typeof PROMPT_ROLES[number]
 /** The optional correction-round role: absent ⇒ the developer corrects its own work. */
 export const FIXER_ROLE = 'fixer' as const
 export type RuntimeAgentRole = RuntimeRole | typeof FIXER_ROLE
@@ -157,7 +154,8 @@ export interface RuntimePendingQuestion { stepId: string; requestedAt: string; q
 export interface RuntimeRun {
   expiredAt?: string
   forkSuccessor?: string
-  recoveryAttempts?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
+  /** Core's interrupted attempts; `effect` is `write` for a step re-running its own workspace writes. */
+  recoveryAttempts?: Array<{ attemptId: string; nodePath: string; scopeId: string; status?: string; effect?: string }>
   engineVersion?: number
   completion?: { ok: boolean; verified: boolean; reasons: string[] } | null
   steering?: {
@@ -171,6 +169,8 @@ export interface RuntimeRun {
   runId: string; traceId?: string; status: string; nextStep: string | null; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
+  /** The question card (engine 2): who asks, the question, its choices. */
+  question?: unknown
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
   /** Settled continuation removable from the rail card (stays in the history). */
   canDismiss?: boolean

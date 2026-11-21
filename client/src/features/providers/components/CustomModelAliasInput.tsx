@@ -23,8 +23,8 @@ interface CustomModelAliasInputProps {
 
 /**
  * Editable model picker for providers whose aliases are configured outside
- * SpecRails. Known models remain available through the native datalist while a
- * new, safe alias can be entered without SpecRails normalising or truncating it.
+ * Specrails. Known models remain available through the native datalist while a
+ * new, safe alias can be entered without Specrails normalising or truncating it.
  */
 export function CustomModelAliasInput({
   value,

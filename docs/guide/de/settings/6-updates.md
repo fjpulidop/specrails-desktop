@@ -15,10 +15,23 @@ Wurde auf Stabil noch keine Version freigegeben, meldet **Nach Updates suchen** 
 
 ## Wie Updates ankommen
 
-- **Specrails Desktop** prüft beim Start und alle 6 Stunden. Ist ein Update verfügbar, erscheint eine Karte zum Herunterladen, Installieren und Neustarten. Du kannst auch auf **Nach Updates suchen** klicken.
+- **Specrails Desktop** prüft beim Start und alle 6 Stunden. Ist ein Update verfügbar, erscheint in der Statusleiste eine kleine Schaltfläche **Update**, sobald die App etwa 30 Sekunden untätig war, nie über einem offenen Fenster oder Dialog. Klicke darauf für die Update-Karte: Dort lädst du herunter, installierst und startest neu. **Schließen** überspringt diese Version. Du kannst auch hier auf **Nach Updates suchen** klicken; die Karte erscheint dann direkt in den Einstellungen.
 - **specrails-core** aktualisiert sich nie von selbst. Klicke auf der Core-Karte auf **Nach Updates suchen** und dann auf **Aktualisieren**. Deine Projekte wechseln ohne Neustart der App zum neuen Framework.
 
 ## Gut zu wissen
 
 - Ein Wechsel von Neueste zu Stabil stuft dich nie herab. Du bleibst auf deiner Version, bis Stabil aufholt.
 - Jedes Update wird auf beiden Kanälen vor der Installation signiert und geprüft.
+
+## Wenn noch Arbeit läuft
+
+Die Update-Karte prüft, was ein Neustart stoppen würde. Laufen noch Missionsschritte oder Runs, sagt sie das und bietet an:
+
+- **Installieren, wenn nichts läuft**: Die Karte wartet und startet von selbst neu, sobald der letzte Schritt oder Run endet.
+- **Jetzt neu starten**: trotzdem neu starten. Unterbrochene Arbeit wird nach dem Neustart wieder angeboten.
+
+## Nach einem Neustart
+
+Wird Specrails geschlossen, für ein Update neu gestartet oder unerwartet beendet, während Arbeit läuft, zeigt der nächste Start **Dort weitermachen, wo du aufgehört hast**: die Missionen, die mitten in einem Schritt waren, und die Runs, die der Neustart pausiert hat, jeweils mit Kontrollkästchen. Nichts wird von selbst fortgesetzt. Missionen laufen in ihrer eigenen Sitzung weiter (mit einem kurzen Hinweis auf den Neustart); Runs nutzen ihr übliches Fortsetzen. **Nicht jetzt** verwirft die Liste; pausierte Runs bleiben im Posteingang. Escape oder ein Klick daneben blendet sie nur aus: Beim nächsten Start erscheint sie wieder.
+
+Es ist das einzige Fenster, das sich beim Start von selbst öffnet. Wurde die App außerdem unerwartet beendet, erscheint die Erklärung als Leiste oben im Fenster (sie blockiert dich nie). Bei einer Neuinstallation wartet die Plattform-Tour auf einen Start ohne beides.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle, ExternalLink, Loader2, X, Terminal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
@@ -6,6 +6,7 @@ import { formatElapsed } from '../../../lib/format-duration'
 import { openExternalUrl } from '../../../lib/tauri-shell'
 import { primaryAppUrl } from './BackgroundProcessAppLinks'
 import type { BackgroundProcess } from '../../../types'
+import { useNow } from '../../../hooks/useNow'
 
 export type BackgroundProcessAccent = 'accent-primary' | 'accent-info' | 'accent-highlight'
 
@@ -80,13 +81,7 @@ export function isBackgroundProcessFinished(process: BackgroundProcess): boolean
 }
 
 export function useBackgroundProcessElapsed(process: BackgroundProcess): string {
-  const [now, setNow] = useState(Date.now())
   const finished = isBackgroundProcessFinished(process)
-  useEffect(() => {
-    setNow(Date.now())
-    if (finished) return
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [finished, process.startedAt])
+  const now = useNow(1000, !finished)
   return formatElapsed(Math.max(0, (process.endedAt ?? process.recoveredAt ?? now) - process.startedAt))
 }

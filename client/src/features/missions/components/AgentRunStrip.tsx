@@ -32,7 +32,7 @@ import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useR
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertTriangle, BellRing, ChevronUp, Info, Pause } from 'lucide-react'
+import { ChevronUp } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
@@ -54,7 +54,9 @@ import {
 import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
 import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, stripKeyCode } from './run-strip-keys'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
+import { runStateLook, type RunState } from '../../../components/ui/run-state/run-state'
+import { deliveryStripRunState, missionToneRunState } from '../lib/mission-run-state'
 import { describePrCiStep } from '../lib/pr-ci-steps'
 import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 
@@ -70,6 +72,8 @@ interface StripEntry {
   key: string
   label: string
   tone: MissionRunTone
+  /** What the run's mark shows (the status vocabulary); the tone keeps ranking urgency. */
+  state: RunState
   urgency: MissionRunUrgency
   /** Running without current activity: no pulse. */
   quiet: boolean
@@ -94,44 +98,28 @@ interface StripEntry {
 
 const MARK_CLASS = 'h-3.5 w-3.5 shrink-0'
 
-/** The state's own shape (never color alone). */
-function StateGlyph({ tone, quiet, className }: { tone: MissionRunTone; quiet: boolean; className: string }) {
-  if (tone === 'launching') return <LiveDot tone="muted" size="sm" className={cn(className, 'h-2 w-2')} aria-hidden />
-  if (tone === 'decision') return <BellRing className={cn(className, 'text-accent-primary')} aria-hidden />
-  if (tone === 'failed') return <AlertTriangle className={cn(className, 'text-destructive')} aria-hidden />
-  if (tone === 'paused') return <Pause className={cn(className, 'text-accent-warning')} aria-hidden />
-  if (tone === 'info') return <Info className={cn(className, 'text-muted-foreground')} aria-hidden />
-  return (
-    <span className={cn('inline-flex shrink-0 items-center justify-center', className)} aria-hidden>
-      <LiveDot tone="info" pulsing={!quiet} />
-    </span>
-  )
-}
-
-/** The status mark: a shape per state, never color alone. A run of an
- *  extension's mode (IntentSession) keeps the mode's icon in the mode's color in every
- *  state; outside running the state's shape sits on it as a small badge. */
-function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolean; mode: MissionModeBadge | null }) {
+/** The status mark: the state's shape from the status vocabulary, never color
+ *  alone. A run of an extension's mode (IntentSession) keeps the mode's icon in the
+ *  mode's color in every state, with the state's shape on it as a small badge
+ *  (the working lamp while it runs). */
+function StatusMark({ tone, state, quiet, mode }: { tone: MissionRunTone; state: RunState; quiet: boolean; mode: MissionModeBadge | null }) {
   if (mode?.icon) {
     const Icon = mode.icon
-    const running = tone === 'running'
     return (
-      <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" style={{ color: modeAccent(mode) }} data-testid="mission-run-strip-mode-mark" data-tone={tone} aria-hidden>
-        <Icon className={cn('h-3.5 w-3.5', running && !quiet && 'motion-safe:animate-pulse')} aria-hidden />
-        {!running && (
-          <span className="absolute -bottom-1 -right-1 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-card" data-testid="mission-run-strip-state-badge">
-            <StateGlyph tone={tone} quiet={quiet} className="h-2 w-2" />
-          </span>
-        )}
+      <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" style={{ color: modeAccent(mode) }} data-testid="mission-run-strip-mode-mark" data-tone={tone} data-run-state={state} aria-hidden>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        <span className="absolute -bottom-1 -right-1 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-card" data-testid="mission-run-strip-state-badge">
+          <RunStateGlyph state={state} quiet={quiet} size="xs" className="h-2 w-2 [&>svg]:h-2 [&>svg]:w-2" />
+        </span>
       </span>
     )
   }
-  return <StateGlyph tone={tone} quiet={quiet} className={MARK_CLASS} />
+  return <RunStateGlyph state={state} quiet={quiet} size="sm" className={MARK_CLASS} />
 }
 
 /** The switcher's small state mark: the same shape per state as the strip mark (never color alone). */
-function ToneDot({ tone }: { tone: MissionRunTone }) {
-  return <StateGlyph tone={tone} quiet className="h-3 w-3 shrink-0" />
+function StateDot({ state }: { state: RunState }) {
+  return <RunStateGlyph state={state} quiet size="xs" />
 }
 
 /** A run that started needing the person while another was shown: a dot AND words. */
@@ -289,7 +277,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     )
     const needsPerson = tone === 'decision' || tone === 'failed' || tone === 'paused'
     return {
-      key, label, tone, urgency: urgencyOfTone(tone), quiet: false, mode: null,
+      key, label, tone, state: deliveryStripRunState(envelope, tone, summary), urgency: urgencyOfTone(tone), quiet: false, mode: null,
       headline: headlineText, headlineText, meta, controls: null,
       wantsPrimary: needsPerson,
       panel: (
@@ -324,7 +312,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       list.push({
         key: proposalRunKey(p.messageId, p.proposalIndex),
         label: t('runStrip.proposalLabel'),
-        tone: 'decision', urgency: 'decision', quiet: false, mode: null,
+        // The agent proposes a launch and asks the person to confirm it.
+        tone: 'decision', state: 'needs-input', urgency: 'decision', quiet: false, mode: null,
         headline: headlineText, headlineText, meta: null, controls: null,
         wantsPrimary: true,
         panel: (
@@ -766,7 +755,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   const toggleContent = (
     <>
-      <StatusMark tone={selected.tone} quiet={selected.quiet} mode={selected.mode} />
+      <StatusMark tone={selected.tone} state={selected.state} quiet={selected.quiet} mode={selected.mode} />
       <span className="sr-only">{t(`runStrip.state.${selected.tone}`)} </span>
       <span
         data-testid="mission-run-strip-headline"
@@ -796,6 +785,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       data-testid="mission-run-strip"
       data-run-key={selected.key}
       data-tone={selected.tone}
+      data-run-state={selected.state}
       {...selected.attributes}
       className={cn('relative shrink-0 pb-2', inline ? 'w-full px-4' : 'px-3')}
     >
@@ -847,7 +837,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           data-testid="mission-run-strip-bar"
           className={cn(
             'flex min-h-10 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border bg-card px-1.5 py-1 shadow-[0_6px_18px_-12px_rgb(0_0_0/0.45)]',
-            selected.tone === 'decision' ? 'border-accent-primary/35' : 'border-border/60',
+            // A run waiting for the person outlines the bar in its state's tone.
+            selected.tone === 'decision' ? runStateLook(selected.state).border : 'border-border/60',
           )}
         >
           {selected.panel ? (
@@ -916,7 +907,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                       onClick={() => switchTo(entry.key)}
                       className={cn(QUIET_CONTROL, entry.key === selected.key && 'bg-surface text-foreground')}
                     >
-                      <ToneDot tone={entry.tone} />
+                      <StateDot state={entry.state} />
                       <span className="max-w-[11rem] truncate">{entry.label}</span>
                       {needsYou.has(entry.key) && <NeedsYouMark />}
                     </button>
@@ -957,7 +948,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                               title={`${entry.label} · ${entry.headlineText}`}
                               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-label text-foreground hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
-                              <ToneDot tone={entry.tone} />
+                              <StateDot state={entry.state} />
                               <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                               {needsYou.has(entry.key) && <NeedsYouMark />}
                               <span className="max-w-[12rem] truncate text-muted-foreground">{entry.headlineText}</span>
@@ -989,6 +980,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     key: run.key,
     label: run.label,
     tone: run.tone,
+    state: run.state ?? missionToneRunState(run.tone),
     urgency: urgencyOfTone(run.tone),
     quiet: run.working === false,
     mode: run.mode ?? null,

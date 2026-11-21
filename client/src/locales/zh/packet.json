@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "未生成审阅者评分。",
     "evidenceUnavailable": "无证据",
     "hostCommandPassed": "运行时自行执行了 {{label}}：退出码 {{exitCode}}（{{seconds}} 秒）",
+    "hostStaticCheckPassed": "运行时自行执行了 {{label}}，但它只读取文件内容，并不运行代码：退出码 {{exitCode}}（{{seconds}} 秒）",
     "hostCommandFailed": "运行时自行执行了 {{label}} 但失败：退出码 {{exitCode}}（{{seconds}} 秒）",
     "acceptanceCheckPassed": "审查检查通过：{{name}}",
     "acceptanceCheckFailed": "审查检查失败：{{name}}",
     "reviewerSummary": "AI 审查者的总结：",
-    "reviewerFinding": "AI 审查者指出："
+    "reviewerFinding": "AI 审查者指出：",
+    "earlierAttempts_one": "此检查之前的 {{count}} 次运行",
+    "earlierAttempts_other": "此检查之前的 {{count}} 次运行",
+    "earlierAttempt": "以退出码 {{exitCode}} 失败（{{seconds}} 秒），之后的修正使其通过"
   },
   "watch": {
     "humanReviewRecommended": "AI 审阅者给出 {{overall}}/100，建议由人来查看。",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "计划方案（来自 Spec）",
     "caveat": "这是需求中提出的方案，而不是 AI 实际所做的报告。上方的事实才是真正发生的变更。"
+  },
+  "delivered": {
+    "title": "变更内容",
+    "caveat": "来自交付的 OpenSpec 提案：由智能体撰写，经审阅者检查。",
+    "why": "原因"
   },
   "outcome": {
     "succeeded": "已实现",

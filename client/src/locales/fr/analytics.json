@@ -13,7 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Configuration",
     "triage": "Triage",
-    "flow": "Intent"
+    "flow": "Spec Intent",
+    "failureAnalysis": "Analyse des échecs",
+    "mission": "Missions",
+    "intent": "Tours Intent"
   },
   "periods": {
     "d7": "7j",
@@ -37,7 +40,13 @@
     "modelChip": "Modèle : {{model}}",
     "clearModelFilter": "Effacer le filtre de modèle",
     "localEngine": "local",
-    "moreBreakdowns": "Plus de répartitions"
+    "moreBreakdowns": "Plus de répartitions",
+    "categoryFilterAria": "Filtrer par catégorie",
+    "surfaceChip": "Surface : {{surface}}",
+    "clearSurfaceFilter": "Retirer le filtre de surface",
+    "ticketChipLabel": "spec #{{id}}",
+    "allEngines": "Tous les moteurs",
+    "period": "Période"
   },
   "hero": {
     "spending": "Dépenses",
@@ -64,7 +73,15 @@
     "segmentTitle": "{{label}} : {{value}}",
     "legendBilled": "Facturé",
     "legendEstimated": "Estimé",
-    "apiEquivalent": "Estimation équivalente en API"
+    "apiEquivalent": "Estimation équivalente en API",
+    "statInvocations": "Invocations",
+    "statTokens": "Tokens",
+    "statBilledEstimated": "Facturé · Est.",
+    "statEstimated": "Estimé",
+    "withoutCost_one": "{{count}} exécution sur {{total}} sans données de coût.",
+    "withoutCost_other": "{{count}} exécutions sur {{total}} sans données de coût.",
+    "withoutUsage_one": "{{count}} exécution sur {{total}} sans usage de tokens.",
+    "withoutUsage_other": "{{count}} exécutions sur {{total}} sans usage de tokens."
   },
   "providerCard": {
     "title": "Par fournisseur",
@@ -164,7 +181,9 @@
     "sortLabel": "Trier",
     "sortRecency": "Récent",
     "sortCost": "Coût",
-    "costUnknownLocalTooltip": "Coût inconnu (moteur local). Ajoutez des tarifs à la connexion pour voir une estimation."
+    "costUnknownLocalTooltip": "Coût inconnu (moteur local). Ajoutez des tarifs à la connexion pour voir une estimation.",
+    "colWhy": "Raison",
+    "missionConversation": "Conversation de mission {{id}}"
   },
   "export": {
     "summaryCsv": "CSV résumé",
@@ -205,7 +224,11 @@
     "costUnavailable": "Des invocations ont été enregistrées, mais la télémétrie de coût est indisponible.",
     "costUnavailableShort": "indisponible",
     "costPartiallyUnavailable_one": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
-    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
+    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
+    "homeAndBlueprint": "Accueil et Blueprint",
+    "homeAndBlueprintHint": "Tours de l’agent sans projet chargé : missions de l’accueil et discussions Blueprint / Builder.",
+    "agentTurns_one": "{{count}} tour de l’agent",
+    "agentTurns_other": "{{count}} tours de l’agent"
   },
   "windowLabels": {
     "7d": "7 derniers jours",
@@ -214,14 +237,45 @@
     "all": "Tout l'historique",
     "custom": "Plage personnalisée"
   },
-  "agentMissions": {
-    "title": "Missions de l’agent",
-    "subtitle": "Tours d’Agent Chat épinglés à ce projet",
-    "vsPrev": "vs période précédente",
-    "turnsAndTokens": "{{turns}} tours · {{tokens}} tokens",
+  "categories": {
+    "implementation": {
+      "label": "Implémentation",
+      "why": "Construire des specs avec des rails, des boucles et des jobs"
+    },
+    "missions": {
+      "label": "Missions",
+      "why": "Discuter avec l’agent et le mode Intent"
+    },
+    "specs": {
+      "label": "Specs",
+      "why": "Rédiger et affiner des specs"
+    },
+    "code": {
+      "label": "Code",
+      "why": "Expliquer le code"
+    },
+    "support": {
+      "label": "Support",
+      "why": "Configuration, diagnostic et discussions annexes"
+    }
+  },
+  "breakdown": {
+    "title": "Où est passé l’argent",
+    "empty": "Aucune activité d’IA sur cette période.",
+    "share": "{{pct}} % des dépenses",
+    "invocations_one": "{{count}} appel",
+    "invocations_other": "{{count}} appels",
+    "tokens": "{{tokens}} jetons",
+    "unpriced_one": "{{count}} sans données de coût",
+    "unpriced_other": "{{count}} sans données de coût",
+    "costUnavailable": "coût indisponible",
+    "surfaceFilter": "Afficher seulement {{surface}}",
+    "topConversations": "Conversations principales",
     "untitled": "Mission sans titre",
-    "estimatedNote": "Inclut des coûts estimés",
-    "flowShare": "Dont Intent : {{cost}} · {{turns}} tours"
+    "turns_one": "{{count}} tour",
+    "turns_other": "{{count}} tours",
+    "noActivity": "Aucune activité : {{categories}}",
+    "filterCategory": "Afficher seulement {{category}}"
   },
   "legacyUsage": {
     "title": "Utilisation des anciens workflows",
@@ -362,6 +416,8 @@
       "session": "session",
       "weekly": "hebdo"
     },
-    "capsMetered": "Plafonds en dollars (fournisseurs à l’usage)"
+    "capsMetered": "Plafonds en dollars (fournisseurs à l’usage)",
+    "planLimits": "Limites du forfait",
+    "turnsUnit": "tours"
   }
 }

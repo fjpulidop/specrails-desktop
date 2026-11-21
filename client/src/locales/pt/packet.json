@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "Não foi gerada pontuação do revisor.",
     "evidenceUnavailable": "sem evidência",
     "hostCommandPassed": "O runtime executou {{label}} por si próprio: código de saída {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "O runtime executou {{label}} por si próprio, mas a verificação só lê o conteúdo de ficheiros e não executa o código: código de saída {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "O runtime executou {{label}} por si próprio e FALHOU: código de saída {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Verificação do revisor aprovada: {{name}}",
     "acceptanceCheckFailed": "Verificação do revisor FALHOU: {{name}}",
     "reviewerSummary": "Resumo do revisor de IA:",
-    "reviewerFinding": "O revisor de IA assinalou:"
+    "reviewerFinding": "O revisor de IA assinalou:",
+    "earlierAttempts_one": "{{count}} execução anterior desta verificação",
+    "earlierAttempts_other": "{{count}} execuções anteriores desta verificação",
+    "earlierAttempt": "Falhou com código de saída {{exitCode}} ({{seconds}} s), antes da correção que a fez passar"
   },
   "watch": {
     "humanReviewRecommended": "O revisor IA pontuou {{overall}}/100 e recomenda que uma pessoa veja.",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "Abordagem prevista (segundo a spec)",
     "caveat": "O que o pedido propunha — não um relatório do que a IA fez. Os factos acima são o que realmente mudou."
+  },
+  "delivered": {
+    "title": "O que mudou",
+    "caveat": "Da proposta OpenSpec entregue: escrita pelo agente e verificada pelo revisor.",
+    "why": "Porquê"
   },
   "outcome": {
     "succeeded": "Implementado",

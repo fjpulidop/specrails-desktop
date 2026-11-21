@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import { createHash, randomUUID, randomBytes } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -957,7 +958,7 @@ export class FileSummaryManager {
     if (pending) clearTimeout(pending)
     const timer = setTimeout(() => {
       state.timers.delete(rel)
-      void this.markStaleIfChanged(state.projectPath, projectId, rel, sumRoot, repositoryId)
+      void this.markStaleIfChanged(state.projectPath, projectId, rel, sumRoot, repositoryId).catch(logRejection('file summary staleness check'))
     }, WATCH_DEBOUNCE_MS)
     timer.unref?.()
     state.timers.set(rel, timer)

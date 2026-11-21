@@ -6,6 +6,7 @@ import { FrameworkManager, frameworkRoot, readCurrentFrameworkVersion } from './
 import { migrateWorkspaceToSymlinks } from './framework-migration'
 import { resolveHome } from './artifact-registry'
 import { mergeSpecrailsIntoWorkspaceMcp } from './agent-mcp-config'
+import { resolveServerPort, type EnvLike } from './dev-ports'
 
 /** Whole-directory framework links for the legacy provider layouts. */
 const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
@@ -313,13 +314,23 @@ export function assembleWorkspaceFramework(
   // merging a `specrails` server into the workspace .mcp.json (app-managed, never
   // the repo). Best-effort: a failure here must not break workspace assembly.
   try {
-    const port = Number(process.env.SPECRAILS_MCP_PORT || process.env.SPECRAILS_PORT || 4200)
+    const port = workspaceMcpPort()
     mergeSpecrailsIntoWorkspaceMcp(ws, port, provider)
   } catch {
     /* non-fatal */
   }
 
   return { assembled: true, workspace: ws, error: res.error }
+}
+
+/**
+ * The port a workspace's Specrails MCP entry points at: an explicit SPECRAILS_MCP_PORT, else the
+ * port this server listens on (SPECRAILS_DEV_SERVER_PORT, SPECRAILS_PORT or --port, as index.ts
+ * resolves it). Reading SPECRAILS_PORT alone sent a dev app on another port to the 4200 app.
+ */
+export function workspaceMcpPort(env: EnvLike = process.env, argv: readonly string[] = process.argv): number {
+  const explicit = Number(env.SPECRAILS_MCP_PORT)
+  return Number.isInteger(explicit) && explicit > 0 && explicit <= 65535 ? explicit : resolveServerPort(argv, env)
 }
 
 /**

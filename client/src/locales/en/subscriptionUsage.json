@@ -63,5 +63,13 @@
     "limitUnknown": "Monthly limit unavailable",
     "resets": "Resets {{time}}",
     "progress": "Claude monthly spend"
+  },
+  "statusBar": {
+    "label": "Plan usage: {{provider}} at {{percent}}%. Show details",
+    "rejectedLabel": "Plan usage: {{provider}} limit reached. Show details"
+  },
+  "today": {
+    "title": "Spent today",
+    "estimated": "Includes estimates for providers that don't report a price"
   }
 }

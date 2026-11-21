@@ -42,4 +42,4 @@ Una spec creata in modalità Quick è una spec del tutto normale: in seguito puo
 
 - [Aggiungi spec — Modalità Explore](add-spec-explore-mode.md) — per le spec che hanno bisogno di essere modellate.
 - [Le bozze e il Contract Layer](drafts-and-contract-layer.md) — l'arricchimento Contract Layer spiegato.
-- [Esecuzione delle pipeline](running-pipelines.md) — trascina la tua nuova spec su un rail e realizzala.
+- [Esecuzione delle pipeline](../pipeline/rails-and-jobs) — trascina la tua nuova spec su un rail e realizzala.

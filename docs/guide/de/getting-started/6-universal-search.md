@@ -2,6 +2,12 @@
 
 Drücke **⌘K** (**Strg+K** unter Windows und Linux), um fast alles in Specrails an einer Stelle zu durchsuchen: Missionen, Specs, Job-Protokolle, Dateien, Einstellungen und diese Anleitung. Gib eine normale Suchanfrage ein, um wie bisher Missionen, Projekte, Specs und aktuelle Jobs zu durchsuchen, oder beginne mit einem **Präfix**, um nur eine Quelle zu durchsuchen.
 
+## Weitermachen
+
+Bei leerem Feld ist die erste Gruppe **Weitermachen**: deine zuletzt aktiven Missionen und Jobs, die neuesten zuerst, wobei der neueste des geöffneten Projekts vorne steht, damit **Enter** dich dort lässt, wo du bist. Jede Zeile zeigt die Statuslampe und den Projektnamen, wenn es nicht das geöffnete Projekt ist. Wenn etwas auf dich wartet, sagt eine Zeile ganz oben, wie viele Dinge es sind (**3 offene Punkte**), und öffnet den Posteingang, die eine Liste dessen, was auf dich wartet; die Einträge des Posteingangs selbst stehen hier nicht.
+
+Drücke **⌘1** bis **⌘6** (**Strg+1** bis **Strg+6** unter Windows und Linux), um eine Missions- oder Jobzeile direkt zu öffnen (die Posteingangszeile hat keine Nummer), oder wähle eine Zeile mit den Pfeiltasten und **Enter**. Eine Zeile öffnet sich genau wie an anderer Stelle: eine Mission öffnet die Mission, ein Job den Job. Solange die Palette offen ist, gehören ihr diese Tasten: die Seitenkürzel (⌘1–5) und der Projektwechsel (⌥⌘1–9) warten, bis sie geschlossen ist. Die Reihenfolge bleibt fest, solange die Palette offen ist, damit keine Zeile unter deinem Finger wandert; Status werden trotzdem aktualisiert, und beim nächsten Öffnen wird neu sortiert. Zeilen aus dieser Gruppe erscheinen nicht noch einmal unter Missionen oder Jobs.
+
 ## Präfixe
 
 | Eingabe | Durchsucht | Enter öffnet |

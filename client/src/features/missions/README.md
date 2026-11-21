@@ -43,6 +43,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)
 - [components/agent-run-failure.ts](components/agent-run-failure.ts)
+- [components/mission-run-strip.ts](components/mission-run-strip.ts)
 - [components/run-primary.tsx](components/run-primary.tsx)
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)
@@ -53,9 +54,11 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useAgentLive.ts](hooks/useAgentLive.ts)
 - [hooks/useAgentRefActions.ts](hooks/useAgentRefActions.ts)
 - [hooks/useMissionPlaceSync.ts](hooks/useMissionPlaceSync.ts)
+- [hooks/useMissionReplyNotifications.ts](hooks/useMissionReplyNotifications.ts)
 - [hooks/useOpenMission.ts](hooks/useOpenMission.ts)
 - [lib/agent-api.ts](lib/agent-api.ts)
 - [lib/agent-refs.ts](lib/agent-refs.ts)
+- [lib/mission-run-state.ts](lib/mission-run-state.ts)
 - [lib/mission-search.ts](lib/mission-search.ts)
 - [lib/mission-windows.ts](lib/mission-windows.ts)
 
@@ -72,6 +75,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
 - [projects](../projects/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
 - [recovery](../recovery/README.md)
@@ -83,6 +87,16 @@ Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 <!-- audit-client-features:end -->
+
+## Structure of the large surfaces
+
+[AgentChatContext](context/AgentChatContext.tsx) is a thin provider that composes focused hooks in
+[context/agent-chat/](context/agent-chat/) (core state, sending, WebSocket events, resync, conversation
+list/loader/actions/settings, unread and attention marks, compose drafts); its context value and memo
+dependencies are part of the contract. [AgentPrDecisionCard](components/AgentPrDecisionCard.tsx) renders from
+`usePrDecisionCardModel` in [components/pr-decision-card/](components/pr-decision-card/), which composes action,
+CI-fix, run-control, confirm and focus hooks with one section component per card state; the card keeps one root
+element so its DOM node and focus survive state changes.
 
 ## Runs in a mission: one strip, a history of events
 
@@ -222,6 +236,11 @@ A streamed token must never re-render anything but the text it extends. The rule
   bails out is an urgent update: it restarts the interruptible render of the mission
   being opened and can starve it under a busy background stream. `markUnread` keeps a
   ref for "already unread"; `MissionSessionsContext` ignores user-turn tokens.
+- **Reply notifications.** `useMissionReplyNotifications` (main window) announces "<mission> replied" on
+  `agent_done` / `agent_turn_done` through the app's attention pipeline (`lib/attention`, category `question`),
+  unless the person is watching that mission: the primary view or a visible split pane in Mission mode, the open
+  floating chat in Board mode, or its own detached window (the host's `desktop_focus_state` says which window
+  has the focus). It reads the screen through refs at event time and never touches React state per event.
 - **Place sync.** With the browser router the History API moves at once while the
   router's React state commits as a transition. `useMissionPlaceSync` acts on the real
   URL and never reads a trailing router state as Back/Forward, so a cached revisit is
@@ -257,6 +276,95 @@ Validate navigation with `node scripts/audit-client-features.mjs --check`.
 Selecting a mission from the sidebar (`hooks/useOpenMission.ts`) moves the app's active
 project to the mission's pinned project when it is registered and differs from the current
 one (`lib/resolve-mission-project-switch.ts`); Home and unregistered pins leave it unchanged.
+
+## Split layout: several missions side by side
+
+The mission surface can show several missions at once. The arrangement is a
+pure binary split tree ([`lib/mission-split-tree.ts`](lib/mission-split-tree.ts)):
+a leaf is a pane (`PRIMARY_PANE`, the window's primary mission, or a
+conversation id) and a split divides its box `row` (side by side) or `column`
+(stacked) with the first child's share as `ratio`. Its operations (split beside,
+remove with the parent collapsing and focus going to the nearest pane of the
+sibling, move beside / toward a side or along an edge, swap, replace, set a
+ratio by path, equalize by pane weight, fit to a size, neighbour lookup, prune,
+parse) are immutable and unit tested.
+
+[`MissionSplitViewsContext`](context/MissionSplitViewsContext.tsx) owns the
+window's layout. The original API is unchanged (`conversationIds` in the order
+panes were added, `primaryVisible`, `focusedId` with `null` = primary,
+`composerFocusId`, `open`, `close`, `closePrimary`, `showPrimary`, `focus`,
+`focusExisting`); it adds `tree`, `maximizedId`, `visiblePaneIds`, `openBeside`,
+`closePane`, `focusPane`, `move`, `swap`, `setRatio`, `equalize`,
+`toggleMaximize`. `open(id)` splits the focused pane to the right when that
+pane can hold two panes side by side, else below (else right, and the layout
+stacks). Maximize is a view state: the tree is untouched.
+
+- **Never remount a live pane.** [`MissionSplitLayout`](components/MissionSplitLayout.tsx)
+  renders ONE flat list of panes in the order they were added and positions
+  each with absolute percentage boxes computed from the tree. Moving, swapping,
+  resizing, maximizing or stacking only changes a pane's box (a hidden pane is
+  `visibility: hidden` + `inert`, still mounted, scroll kept), so transcripts,
+  drafts, streams and embedded browser frames are never remounted or moved in
+  the DOM. A recursive flex render was rejected: React cannot move an element
+  to a new parent without remounting it. Extra panes are memoised; a window
+  resize re-renders the layout only when a ratio clamp or the stacked mode
+  changes.
+- **Minimum size** is 360 × 240 px per pane (`MIN_PANE_SIZE`; 360 is the
+  conversation column's own minimum). Drawn ratios are clamped to it
+  (`fitTree`) without changing the stored ratios, so a wider window brings the
+  chosen layout back. Menu actions whose result would not fit are disabled
+  with the reason as their title.
+- **Narrow windows stack.** When the tree cannot fit at the minimum size, the
+  panes stack: a tab strip (`role="tablist"`, arrows/Home/End) picks the pane
+  shown, the others stay mounted and inert. Chosen over slivers or a scrolling
+  canvas because every pane keeps its composer usable.
+- **Dividers** ([`MissionSplitDivider`](components/MissionSplitDivider.tsx)):
+  1px hairline, 8px hit area, `col-resize` / `row-resize`. A drag captures the
+  pointer, keeps the grab offset, writes the panes' boxes directly (one write
+  per animation frame, no React render) and commits once on release, snapping
+  to one half within 24px. Release, cancel, lost capture, window blur, a hidden
+  page, a move without buttons and unmount all end it; Escape restores the
+  committed layout. A transparent full-window shield covers frames (the
+  browser pane) during the drag. Keyboard: `role="separator"` with
+  `aria-orientation`/`aria-valuenow` (percent), arrows ±2 %, Shift ±10 %, Home
+  centres; double-click equalizes that split.
+- **Controls.** Each pane header (and the empty primary pane) has
+  [`MissionPaneLayoutMenu`](components/MissionPaneLayoutMenu.tsx) on the shared
+  `DropdownMenu`: Split right / Split down (the newest missions not on screen,
+  archived and detached ones excluded), Move left/right/up/down, Swap with,
+  Maximize/Restore, Equalize panes, Close pane. The sidebar's
+  [`MissionConversationMenu`](components/MissionConversationMenu.tsx) offers
+  Split view (the default side), Open to the right and Open below. Dragging a
+  mission from the sidebar onto a pane edge is not implemented (follow-up).
+- **Shortcuts** ([`lib/mission-split-keys.ts`](lib/mission-split-keys.ts), with
+  two or more panes, not inside dialogs, code editors, terminals or workspace
+  side panes): ⌥⌘] / ⌥⌘[ next/previous pane, ⌘⇧↵ maximize/restore, ⌥⌘=
+  equalize, ⌥⌘W close the focused pane; Ctrl+Alt / Ctrl+Shift+Enter off macOS,
+  where Ctrl+Alt chords are ignored while typing (AltGr). Splitting with a
+  palette-picked mission has no shortcut: the menus cover it.
+- **Workspace side panes** (Jobs, Code, Analytics, Specs) never squeeze the
+  conversation under 360px (`max-w: 100cqw - 360px` on the surface container)
+  and, on a surface under 680px, overlay it from the right like a drawer
+  ([`lib/mission-side-pane.ts`](lib/mission-side-pane.ts)): CSS container
+  queries, so a divider drag never measures or renders them.
+- **Persistence.** The main window stores the tree (ratios included) in
+  localStorage under `specrails-desktop:mission-split:v1`
+  ([`lib/mission-split-storage.ts`](lib/mission-split-storage.ts), validated on
+  read, storage optional; the default single pane clears the key). Per window,
+  not per project: missions are global and opening one may switch the active
+  project, which must not swap the layout. Native mission windows keep their
+  layout in memory only. Restored panes whose mission is missing from the first
+  loaded list, or archived, are dropped; later a pane goes only when its
+  mission was listed and then disappears or gets archived, so a list fetched
+  before a fresh fork existed never closes it. Maximize is not persisted.
+- **Primary switch** (unchanged behaviour): a mission already in a pane leaves
+  it (or takes a hidden primary pane's place), a hidden primary pane comes back
+  on a real switch, focus returns to the primary. Places, Back/Forward and
+  `?mission=` still track the primary pane only.
+- **Integrations.** Reply notifications count only visible panes (a pane behind
+  a maximized one or a stacked tab is not on screen); the run strip shortcuts
+  skip inert panes; panes cannot detach to native windows (the primary owns
+  that); closing a pane never stops or deletes its mission.
 
 ## Archive API
 
@@ -304,7 +412,36 @@ selected text in the new composer draft, then adds a split pane and focuses its
 composer. Existing panes keep their keys, transcripts and scroll state. The
 floating panel shares the root split provider so it can open the same layout.
 
+**Ask about this** (first item) opens [`MissionAskDialog`](components/MissionAskDialog.tsx),
+a `wide` modal for a side conversation about the selection, in the spirit of a
+"by the way" question. It shows the quoted selection (collapsed past 280
+characters), the side thread rendered with the mission markdown styles, a
+composer (Enter sends, Shift+Enter adds a line, an empty question asks for a
+plain explanation), a rail running state, the provider's error with Retry, and
+the model used. Each question calls `askAboutSelection` with the newest whole
+Q&A pairs that fit the server bounds. Nothing is persisted: closing aborts an
+in-flight question and discards the thread, and the mission's own conversation,
+composer and provider session are untouched. Focus starts in the composer and
+returns to the transcript on close.
+
 A fork shows its source title and renders inherited assistant/system cards in
 disabled fieldsets. Inherited proposals and deliveries never join the new
 mission's active run strip, and inherited option shortcuts cannot send replies.
 Uploaded files and text drafts from the original composer are never adopted.
+
+## Start fresh with a summary
+
+The composer's context ring ([`AgentContextUsageRing`](components/AgentContextUsageRing.tsx))
+offers **Start fresh with a summary** in its popover once a snapshot exists,
+as the primary button from 75%. A snapshot without a reported window (or right
+after a compaction) shows a neutral, empty ring whose popover says what is
+unknown and still offers the action. It asks for confirmation inline, shows a running
+state, explains known refusals (`MISSION_BUSY`, `MISSION_IN_INTENT`, …) in the
+person's language and shows provider errors as sent, with Try again. It is
+disabled while a turn runs and while an extension mode (Intent) owns the session.
+The ring holds that state, so closing the popover mid-renewal keeps it. The
+server's `session-summary` row arrives as `agent_system_row` (never an unread
+mark) and renders as [`AgentSessionSummaryCard`](components/AgentSessionSummaryCard.tsx):
+a collapsed "Session renewed · summary" event line that expands to the summary
+the new session knows. The cleared snapshot hides the ring until the new
+session reports its context.

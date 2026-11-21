@@ -12,7 +12,7 @@ To shape a spec in Explore mode:
 2. Type your first message — the idea, a question, or a half-formed thought.
 3. Read the AI's response and keep replying. Each turn, it refines its understanding.
 4. Watch the **live draft** update alongside the chat — this is the spec taking shape.
-5. When the draft looks right, click **Create Spec**.
+5. When the draft looks right, click **Create spec**.
 
 The conversation stays in your history, so you can always come back to see how the spec was shaped.
 
@@ -41,17 +41,17 @@ If you want finer control, click **Fine-tune** to flip the underlying options by
 
 ## Buttons in the Explore shell
 
-- **Create Spec** — promotes the live draft to a real spec with status **Todo**. (When you're editing an existing spec, this button reads **Update Spec** instead and patches that spec in place.)
+- **Create spec** — promotes the live draft to a real spec with status **Todo**. (When you're editing an existing spec, this button reads **Update spec** instead and patches that spec in place.)
 - **Review →** — opens a Review overlay that shows the proposed spec diffed against the baseline before you commit, so there are no surprises.
-- **Save as Draft** — persists the conversation as a draft spec so you can pick it up later. Available as soon as you've sent at least one message. See below.
+- **Save as draft** — persists the conversation as a draft spec so you can pick it up later. Available as soon as you've sent at least one message. See below.
 - **Minimize** — parks the conversation as a chip in the minimized-chats dock at the bottom-left. Click the chip any time to drop right back into the conversation — nothing is lost.
 - **Discard** — throws the conversation away (asks for confirmation first).
 
 ## Saving as a draft
 
-Not ready to commit, but don't want to lose the thinking? Click **Save as Draft**. The conversation becomes a **draft spec** on your board, and the draft stays linked to the conversation behind it.
+Not ready to commit, but don't want to lose the thinking? Click **Save as draft**. The conversation becomes a **draft spec** on your board, and the draft stays linked to the conversation behind it.
 
-Later, open the draft from the board and click **Continue Editing** — the original conversation re-opens with its full chat history intact, and you carry on exactly where you left off. Drafts are never auto-deleted; they wait for you.
+Later, open the draft from the board and click **Continue editing** — the original conversation re-opens with its full chat history intact, and you carry on exactly where you left off. Drafts are never auto-deleted; they wait for you.
 
 This makes Explore safe to use for half-baked ideas: start a conversation, get somewhere, save it as a draft, and come back tomorrow.
 
@@ -65,4 +65,4 @@ If your project has more than one AI provider installed, an engine selector lets
 
 - [Drafts & the Contract Layer](drafts-and-contract-layer.md) — saving work in progress and enriching specs for the pipeline.
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — when the idea is already clear.
-- [Running pipelines](running-pipelines.md) — implement your spec once it's ready.
+- [Running pipelines](../pipeline/rails-and-jobs) — implement your spec once it's ready.

@@ -1,5 +1,5 @@
-import { isPluginWindowRoute } from './features/plugins/lib/plugin-windows'
-import { isLoopWindowRoute } from './features/loops/lib/loop-windows'
+import { isPluginWindowRoute, openPluginWindow } from './features/plugins/lib/plugin-windows'
+import { isLoopWindowRoute, openLoopWindow } from './features/loops/lib/loop-windows'
 import { MotionConfig } from 'motion/react'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
@@ -16,16 +16,32 @@ import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
-import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
-import DashboardPage from './features/dashboard/pages/DashboardPage'
-import SettingsPage from './features/settings/pages/SettingsPage'
-import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, openBudgetPanel, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { Surface, useNativeWindowHandoff } from './components/ui/surface'
+import { TooltipProvider } from './components/ui/tooltip'
+import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
+import { useShowSurfaceToasts, useTrackSurfaceToasts } from './lib/surface-toasts'
+import { SurfaceDocsHost } from './features/docs/components/SurfaceDocsHost'
+import { useToastsUsableOverModals } from './lib/toasts-over-modals'
+// The shell is static; its content chunk starts loading as soon as the route is known.
+import { isAppSettingsSurfaceResult, preloadSurfaceWindowContent, SurfaceWindowContent } from './SurfaceWindowContent'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
 import { RailMark } from './components/brand/RailMark'
 import { ThemeEffectLayer } from './features/settings/components/theme-effects/ThemeEffectLayer'
+
+// The Board (Kanban mode's landing route) is lazy because Mission mode, the
+// default, never renders it. When Kanban is the stored mode its chunk starts
+// loading while the shell boots, so the first paint does not wait for it.
+const loadDashboardPage = () => import('./features/dashboard/pages/DashboardPage')
+if (readStoredUiMode() === 'kanban') void loadDashboardPage().catch(() => {})
+const DashboardPage = lazy(loadDashboardPage)
+// Settings (project route and app modal) and the platform tour load on first use.
+const SettingsPage = lazy(() => import('./features/settings/pages/SettingsPage'))
+const SettingsDialog = lazy(() => import('./features/settings/pages/GlobalSettingsPage'))
+const OnboardingWizard = lazy(() => import('./features/projects/components/OnboardingWizard').then(module => ({ default: module.OnboardingWizard })))
 
 // Lazy-loaded pages — never visible at initial render
 const JobDetailPage = lazy(() => import('./features/jobs/pages/JobDetailPage'))
@@ -43,16 +59,21 @@ const DocsDialog = lazy(() => import('./features/docs/components/DocsDialog'))
 const LoopWindowSurface = lazy(() => import('./features/loops/components/LoopWindowSurface').then(module => ({ default: module.LoopWindowSurface })))
 const LoopsPage = lazy(() => import('./features/loops/pages/LoopsPage'))
 const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPage'))
+const LiveBoardDialog = lazy(() => import('./features/live-board/components/LiveBoardDialog'))
+const ReportProblemDialog = lazy(() => import('./features/diagnostics/components/ReportProblemDialog'))
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { OnboardingWizard, hasSeenOnboarding } from './features/projects/components/OnboardingWizard'
+import { hasSeenOnboarding } from './features/projects/lib/onboarding-state'
+import { useMountOnOpen } from './hooks/useMountOnOpen'
 import { SampleGuide } from './features/onboarding/components/SampleGuide'
 import { ArcSidebar } from './components/ArcSidebar'
+import { ServerRecoveryBanner } from './features/diagnostics/components/ServerRecoveryBanner'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
 import { SidebarPinProvider, useSidebarPin } from './context/SidebarPinContext'
 import { UiModeProvider } from './context/UiModeContext'
+import { readStoredUiMode } from './lib/ui-mode-storage'
 import { CommandPalette } from './components/CommandPalette'
 import { SharedWebSocketProvider } from './hooks/useSharedWebSocket'
 import { DesktopProvider, useDesktop, projectProviders } from './hooks/useDesktop'
@@ -60,6 +81,10 @@ import { SpecGenTrackerProvider } from './features/specs/hooks/useSpecGenTracker
 import { ContractRefineTrackerProvider } from './features/specs/hooks/useContractRefineTracker'
 import { SmashTrackerProvider } from './features/specs/context/SmashTrackerContext'
 import { useOsNotifications } from './hooks/useOsNotifications'
+import { useAttentionReturn } from './hooks/useAttentionReturn'
+import { useStartupQueue } from './hooks/useStartupQueue'
+import { decideTour, startupQueue } from './lib/startup-queue'
+import { useMissionReplyNotifications } from './features/missions/hooks/useMissionReplyNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
@@ -96,11 +121,14 @@ import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, 
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
 import { InboxProvider, useInbox } from './features/inbox/context/InboxContext'
+import { ResumeAfterRestartDialog } from './features/continuity/components/ResumeAfterRestartDialog'
 import { InboxDialog } from './features/inbox/components/InboxDialog'
+import { LiveBoardProvider, useLiveBoard } from './features/live-board/context/LiveBoardContext'
 import { usePlaceParam } from './hooks/usePlaceParam'
 import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
 import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
 import { SPECRAILS_TOAST_CLASS_NAMES } from './lib/toast-class-names'
+import { ProviderQuotaBridge } from './features/provider-quota/components/ProviderQuotaBridge'
 
 const STATUSBAR_HEIGHT_PX = 28
 
@@ -260,6 +288,8 @@ function DesktopApp() {
   const terminals = useTerminals()
   const agentChat = useAgentChat()
   const inbox = useInbox()
+  const liveBoard = useLiveBoard()
+  const liveBoardMounted = useMountOnOpen(!!liveBoard?.isOpen)
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -268,6 +298,9 @@ function DesktopApp() {
   const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
   const [settingsSettingId, setSettingsSettingId] = useState<string | undefined>()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsMounted = useMountOnOpen(settingsOpen)
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportMounted = useMountOnOpen(reportOpen)
   // Pages inside features (e.g. the Agents upgrade banner) open a specific
   // app-settings section through a window event (see lib/app-settings-events).
   useEffect(() => {
@@ -334,6 +367,14 @@ function DesktopApp() {
     if (uiModeRef.current === 'agent' && overlayValueRef.current === 'plugins') closeOverlayParam()
     else setPluginsOpen(false)
   }, [closeOverlayParam])
+  // In the desktop app Loops and Plugins open in their own native windows
+  // (loop_windows.rs) instead of these modals; the browser keeps the modals.
+  const loopsInWindow = useNativeWindowHandoff({
+    open: loopsOpen,
+    openWindow: () => openLoopWindow(activeProjectId, loopBuilderId ?? undefined),
+    onOpened: closeLoops,
+  })
+  const pluginsInWindow = useNativeWindowHandoff({ open: pluginsOpen, openWindow: openPluginWindow, onOpened: closePlugins })
   // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
   const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
   const closeReview = useCallback(() => {
@@ -408,7 +449,24 @@ function DesktopApp() {
 
   // Selected mission ⇄ ?mission=<id>.
   useMissionPlaceSync()
-  const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
+  // The product tour opens on a first install only when the startup queue says the
+  // launch is clean (no crash to explain, nothing to resume); otherwise it waits
+  // for the next clean launch. Replay (Help, ⌘K, Settings) opens it at once.
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const onboardingMounted = useMountOnOpen(onboardingOpen)
+  const startup = useStartupQueue()
+  const tourDecided = useRef(false)
+  useEffect(() => {
+    if (tourDecided.current || hasSeenOnboarding()) return
+    const decision = decideTour(startup)
+    if (decision === 'pending') return
+    tourDecided.current = true
+    if (decision === 'show') setOnboardingOpen(true)
+  }, [startup])
+  useEffect(() => {
+    if (!onboardingOpen) return
+    return startupQueue.hold('tour')
+  }, [onboardingOpen])
   // Help ▸ Replay tour (Docs dialog, ⌘K) reopens the platform tour without importing the shell.
   useEffect(() => {
     const onReplay = () => setOnboardingOpen(true)
@@ -438,6 +496,7 @@ function DesktopApp() {
     onToggleLeftSidebar: cycleLeftMode,
     onToggleRightSidebar: cycleRightMode,
     onToggleInbox: inbox?.toggleInbox,
+    onToggleLiveBoard: liveBoard?.toggleBoard,
     onSwitchProject: (index) => {
       const project = projects[index - 1]
       if (project) setActiveProjectId(project.id)
@@ -465,12 +524,16 @@ function DesktopApp() {
     onNavigateForward: places ? places.forward : undefined,
   })
 
-  // OS notifications for job completions/failures
+  // Job attention (completed / failed / stuck / provider limit) through the attention pipeline
   const projectsById = useMemo(
     () => new Map(projects.map((p) => [p.id, p.name])),
     [projects]
   )
   useOsNotifications({ setActiveProjectId, projectsById })
+  // Attention (lib/attention): mission replies the person is not watching, and the
+  // "N things need you" toast when the window comes back after notifications.
+  useMissionReplyNotifications({ pathname: location.pathname })
+  useAttentionReturn()
   // Milestone toasts (chunk launched / chain paused / delivered / complete) —
   // the server-owned chain replaced the browser-local sequencer; drop its
   // leftover plan key once (its runs settled server-side long ago).
@@ -572,7 +635,7 @@ function DesktopApp() {
     terminals.ensureProject(activeProjectId)
   }, [activeProjectId, terminals])
   const chevronSlot =
-    FEATURE_TERMINAL_PANEL && uiMode === 'kanban' && panelState.visibility === 'hidden' ? (
+    FEATURE_TERMINAL_PANEL && panelState.visibility === 'hidden' ? (
       <PanelChevronButton
         isOpen={false}
         onClick={() => activeProjectId && terminals.setVisibility(activeProjectId, 'restored')}
@@ -607,6 +670,7 @@ function DesktopApp() {
         onOpenLoops={() => { if (uiMode === 'agent') openOverlay('loops'); else navigate('/loops') }}
         onOpenPlugins={() => { if (uiMode === 'agent') openOverlay('plugins'); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
+        onOpenLiveBoard={liveBoard ? liveBoard.openBoard : undefined}
         onOpenDocs={() => openOverlay('docs')}
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
       />
@@ -620,6 +684,9 @@ function DesktopApp() {
             data-testid="project-switching-bar"
           />
         )}
+
+        {/* Why the app just reconnected: the local server crashed and was relaunched. */}
+        <ServerRecoveryBanner connectionStatus={connectionStatus} onReportProblem={() => setReportOpen(true)} />
 
         {/* Content */}
         <main
@@ -672,9 +739,8 @@ function DesktopApp() {
           )}
         </main>
 
-        {/* Hoisted terminal panel — single instance shared by both modes.
-            Footer status/chevron chrome is Kanban-only; in Agent Mode the
-            entry point is the workspace sidebar's Terminal tool. */}
+        {/* Hoisted terminal panel — single instance shared by both modes; the
+            status bar's toggle opens it in either mode. */}
         {FEATURE_TERMINAL_PANEL && activeProjectId && activeProject && (
           <BottomPanel
             projectId={activeProjectId}
@@ -685,7 +751,8 @@ function DesktopApp() {
             statusBarHeight={statusBarHeight}
           />
         )}
-        <StatusBar connectionStatus={connectionStatus} minimal={uiMode === 'agent'} rightSlot={uiMode === 'agent' ? undefined : chevronSlot} />
+        <ProviderQuotaBridge />
+        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
@@ -697,7 +764,30 @@ function DesktopApp() {
           transform in Agent Mode) — no standalone overlay. */}
       <SampleGuide onAddProject={() => setAddDialogOpen(true)} />
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
-      <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      {/* App settings: a native window in the desktop app, this modal in the browser. */}
+      <Surface
+        id="app-settings"
+        open={settingsOpen}
+        params={{ section: settingsSection, settingId: settingsSettingId, onboarding: '1' }}
+        onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }}
+        onResult={(result) => {
+          if (!isAppSettingsSurfaceResult(result)) return
+          if (result.action === 'openOnboarding') setOnboardingOpen(true)
+          else openBudgetPanel()
+        }}
+      >
+        {settingsMounted && (
+          <Suspense fallback={null}>
+            <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+          </Suspense>
+        )}
+      </Surface>
+
+      {reportMounted && (
+        <Suspense fallback={null}>
+          <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} />
+        </Suspense>
+      )}
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent size="workspace" data-testid="analytics-modal">
@@ -720,7 +810,7 @@ function DesktopApp() {
       </Dialog>
 
 
-      <Dialog open={loopsOpen} onOpenChange={open => { if (!open) closeLoops() }}>
+      <Dialog open={loopsOpen && !loopsInWindow} onOpenChange={open => { if (!open) closeLoops() }}>
         <DialogContent size="fullscreen" data-testid="loops-modal">
           <GlobalSurfaceDialogHeader surface="loops" />
           <DialogBody className="p-0 overflow-auto">
@@ -731,7 +821,7 @@ function DesktopApp() {
           </DialogBody>
         </DialogContent>
       </Dialog>
-      <Dialog open={pluginsOpen} onOpenChange={(open) => { if (!open) closePlugins() }}>
+      <Dialog open={pluginsOpen && !pluginsInWindow} onOpenChange={(open) => { if (!open) closePlugins() }}>
         <DialogContent size="fullscreen" data-testid="plugins-modal">
           <GlobalSurfaceDialogHeader surface="plugins" />
           <DialogBody className="p-0 overflow-auto">
@@ -761,6 +851,8 @@ function DesktopApp() {
       <Suspense fallback={null}>
         <DocsDialog open={docsOpen} onClose={closeDocs} target={docsTarget} />
       </Suspense>
+      {/* The live board (`?live=1`): every run of every project; loads on first open. */}
+      {liveBoardMounted && <Suspense fallback={null}><LiveBoardDialog /></Suspense>}
 
       <CommandPalette
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
@@ -768,11 +860,15 @@ function DesktopApp() {
         onOpenDocs={() => openOverlay('docs')}
       />
       <KeyboardShortcutsCheatsheet open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
-      <OnboardingWizard
-        open={onboardingOpen}
-        onClose={() => setOnboardingOpen(false)}
-        onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
-      />
+      {onboardingMounted && (
+        <Suspense fallback={null}>
+          <OnboardingWizard
+            open={onboardingOpen}
+            onClose={() => setOnboardingOpen(false)}
+            onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -814,50 +910,8 @@ function ToastLoadingSpinner() {
   return <span aria-hidden style={{ display: 'none' }} />
 }
 
-// Any open modal surface: a standard `DialogContent` (carries
-// `data-dialog-size`), a raw-Radix modal on the shared scrim (`.modal-scrim`),
-// or a hand-rolled `aria-modal` dialog. Non-modal popovers (`role=dialog`
-// without aria-modal, e.g. Move to rail) do not count.
-const OPEN_MODAL_SELECTOR = [
-  '[data-dialog-size][data-state="open"]',
-  '.modal-scrim[data-state="open"]',
-  '[role="dialog"][aria-modal="true"]',
-].join(', ')
-
-/**
- * True while any modal dialog is open. Toasts move to the top-right then, so
- * they never cover a modal's sticky footer (Next / Save / Delete live at the
- * bottom-right of every dialog).
- */
-function useAnyModalDialogOpen(): boolean {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    if (typeof MutationObserver === 'undefined') return
-    let frame = 0
-    const check = () => {
-      frame = 0
-      setOpen(document.querySelector(OPEN_MODAL_SELECTOR) !== null)
-    }
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
-    const observer = new MutationObserver(schedule)
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['data-state', 'aria-modal'],
-    })
-    check()
-    return () => {
-      observer.disconnect()
-      if (frame) cancelAnimationFrame(frame)
-    }
-  }, [])
-  return open
-}
-
 function ThemedToaster() {
   const { theme } = useTheme()
-  const modalOpen = useAnyModalDialogOpen()
   const accent = theme.previewSwatches.accents[0]
   const success = theme.status.completed
   const danger = theme.status.failed
@@ -870,11 +924,12 @@ function ThemedToaster() {
   // TicketDetailModal z-[68], browser-capture z-[80]) no matter its own
   // z-index. At body level its max z-index wins over every modal — toasts are
   // always on top (globals.css pins [data-sonner-toaster] above the toast
-  // layer, LAYERS.toast). While a modal is open they move to the top-right,
-  // clear of the dialog footer.
+  // layer, LAYERS.toast). They stay bottom-right and stay usable over an open
+  // modal (`useToastsUsableOverModals`).
+  useToastsUsableOverModals()
   return createPortal(
     <Toaster
-      position={modalOpen ? 'top-right' : 'bottom-right'}
+      position="bottom-right"
       className="specrails-toaster"
       theme={theme.scheme}
       gap={8}
@@ -911,17 +966,61 @@ function PlaceHistoryOwner({ enabled, children }: { enabled: boolean; children: 
 
 /** The "Needs you" inbox exists in the main window only (it navigates the main window's places). */
 function InboxOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
-  return enabled ? <InboxProvider>{children}<InboxDialog /></InboxProvider> : <>{children}</>
+  // Main window only: the inbox and, once per launch, the "pick up where you
+  // left off" offer for work the last restart interrupted.
+  return enabled ? <InboxProvider>{children}<InboxDialog /><ResumeAfterRestartDialog /></InboxProvider> : <>{children}</>
+}
+
+/** A native surface window: the surface's own content, no app shell (docs/internals/native-window-surfaces.md). */
+function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof surfaceWindowRoute>> }) {
+  return (
+    <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
+      <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
+        <TooltipProvider delayDuration={400}>
+          <div className="h-screen overflow-hidden bg-popover">
+            <SurfaceWindowContent id={route.id} params={route.params} />
+            {/* This window's own toaster: a toast shows where the person acted (closing hands the live ones to the opener). */}
+            <ThemedToaster />
+            <SurfaceToastTracker />
+            {/* "Learn more" opens the guide here: this window has no app shell to ask. */}
+            <SurfaceDocsHost />
+          </div>
+        </TooltipProvider>
+      </UiModeProvider></DesktopProvider>
+    </LanguageProvider></ThemeProvider></SharedWebSocketProvider>
+  )
+}
+
+function SurfaceToastTracker() {
+  useTrackSurfaceToasts()
+  return null
+}
+
+/** Preferences a surface window changes (theme, language, a11y) apply here live. */
+function useSurfaceStorageReplay() {
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    let disposed = false
+    void replaySurfaceStorageWrites().then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
 }
 
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
+  const surface = surfaceWindowRoute()
   useSuppressNativeContextMenu()
+  useSurfaceStorageReplay()
+  useShowSurfaceToasts()
+  if (surface) {
+    preloadSurfaceWindowContent(surface.id)
+    return <SurfaceWindowRoutes route={surface} />
+  }
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
         <div className="h-screen flex flex-col overflow-hidden">
-          <TitleBar />
+          <TitleBar showSidebarToggles={false} />
           <Suspense fallback={null}>{isPluginWindowRoute() ? <div className="flex-1 min-h-0"><PluginsPage /></div> : <LoopWindowSurface />}</Suspense>
           <ThemedToaster />
         </div>
@@ -986,7 +1085,7 @@ function AppRoutes() {
                           <WebViewModalProvider>
                             <MissionWindowBindings />
                             <MissionWindowError />
-                            {secondary ? <MissionWindowSurface /> : <DesktopApp />}
+                            {secondary ? <MissionWindowSurface /> : <LiveBoardProvider><DesktopApp /></LiveBoardProvider>}
                             <AgentBrowserCaptureHost />
                             <LiveAnnouncer />
                             <ThemedToaster />

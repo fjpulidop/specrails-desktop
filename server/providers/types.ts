@@ -58,6 +58,15 @@ export interface SpawnOptions {
    */
   retainMcpTools?: boolean
   /**
+   * `disabled` removes the provider's own sub-agent tool from this invocation
+   * (Claude's `Agent`, legacy name `Task`), so its definition is not sent with
+   * every request. Missions set it from the "Allow sub-agents" setting, the same
+   * source Core sessions use for `policy.subagents`. Providers without a
+   * sub-agent tool (Codex, Gemini, Kimi, local engines) ignore it. Omitted =
+   * the provider's default tool set.
+   */
+  nativeSubagents?: 'disabled'
+  /**
    * Reasoning effort for this invocation. Honoured only by providers whose
    * `capabilities.supportsReasoningEffort` is true: claude emits the native
    * `--effort <level>` flag; codex emits `-c model_reasoning_effort=<value>`.
@@ -207,7 +216,7 @@ export interface ProviderCapabilities {
    * Optional — absent ⇒ false.
    */
   supportsImageInput?: boolean
-  /** Provider can execute SpecRails-owned structured transforms. */
+  /** Provider can execute Specrails-owned structured transforms. */
   structuredActions?: boolean
   /**
    * Non-default tool boundaries that the CLI enforces natively in headless
@@ -223,7 +232,7 @@ export interface ProviderCapabilities {
    * string through the JSON schema and preserves it byte-for-byte.
    */
   customModelAliases?: boolean
-  /** Desktop may discover and invoke provider-native SpecRails role skills. */
+  /** Desktop may discover and invoke provider-native Specrails role skills. */
   customRoles?: boolean
   /**
    * Provider headless mode does not intercept its interactive slash-skill
@@ -252,7 +261,8 @@ export interface ProviderAdapter {
   readonly capabilities: ProviderCapabilities
 
   // Model catalog — populates UI dropdowns and validates profile schemas
-  modelCatalog(): readonly { value: string; label: string; default?: boolean; minCliVersion?: string }[]
+  /** `small`: a fast model of a smaller size class that may skip steps of a long tool protocol; recovery suggests the default model instead. */
+  modelCatalog(): readonly { value: string; label: string; default?: boolean; minCliVersion?: string; small?: boolean }[]
   defaultModel(): string
   /**
    * Optional model-level refinement of `capabilities.reasoningEfforts`.

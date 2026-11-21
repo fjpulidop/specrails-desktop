@@ -154,6 +154,27 @@ One state, one token, on every surface (chips, badges, pills, cards).
 
 `accent-review` must sit at least 60° of hue from `accent-primary` (and 40° from `accent-secondary`) with 4.5:1 text contrast on the card in every theme; a test enforces it.
 
+### Status vocabulary
+Everything that runs or waits (jobs, rails, mission runs, PR deliveries, CI, loop steps, Intent sessions, inbox items, spec activity) speaks one vocabulary of nine states. The table lives in `client/src/components/ui/run-state/run-state.ts` (`runStateLook`); draw it with `<RunStateGlyph>`, `<RunStateDot>` or `<RunStatePill>` and name it with `common:runState.<state>` (meaning in `common:runState.hint.<state>`). Each domain maps its own status with a pure, exhaustive mapper beside its model (`jobs/lib/job-run-state.ts`, `delivery/lib/delivery-run-state.ts`, `missions/lib/mission-run-state.ts`, `rails/lib/rail-run-state.ts`, `loops/lib/loop-run-state.ts`, `intent/lib/intent-run-tone.ts`, `inbox/lib/inbox-run-state.ts`); a surface keeps its own words only when they say more than the state's name.
+
+| State | Tone | Glyph | Dot | Means |
+| --- | --- | --- | --- | --- |
+| queued | `muted-foreground` | Circle | hollow, static | waiting to start, launching, pending |
+| working | `accent-info` | (LiveDot) | pulsing (static when `quiet` or under reduced motion) | running, streaming, in progress, iterating, CI pending |
+| needs-input | `accent-primary` | MessageCircleQuestion | ringed | an agent or run asks the person something |
+| review | `accent-review` | Eye | solid | a result or decision waits for the person (on review, PR ready to decide, a mission run's decision) |
+| paused | `accent-warning` | PauseCircle | static | paused, budget paused, stalled, interrupted |
+| blocked | `accent-warning` | AlertTriangle | solid | cannot continue until something outside changes (provider limit, environment, partial or retryable delivery, CI not green) |
+| failed | `destructive` | XCircle | solid | failed, error, zombie, implementation or PR failed |
+| done | `accent-success` | CheckCircle2 | solid | completed, succeeded, no changes, merged |
+| stopped | `muted-foreground` | CircleSlash | solid muted | cancelled, skipped, discarded, superseded, run stopped, closed without merge |
+
+Rules:
+- **Running is always `working`:** info plus the LiveDot. Never success or primary for running, never a spinner or `animate-pulse` for a state. `Loader2` spinning is reserved for an action the person just triggered (a busy button).
+- **AlertTriangle is always warning (`blocked`); a failure is always XCircle in `destructive`.**
+- **Primary is a state colour only for `needs-input`.** Selection, unread and brand uses of primary are not states.
+- **Object glyphs say what the subject is and take the state's colour** (`objectIcon`): GitBranch a branch being built or reviewed, GitPullRequest an open PR (`pr_ready` is GitPullRequest in the review tone), GitMerge merged only, MessageSquareWarning changes requested, Undo2 returned to its Intent. A mode icon (Intent) stays the mode's identity and carries the state glyph as a small badge.
+
 ### Neutral
 - **Night Ink** (hsl(240 33% 4%)): app background. **Deep Ink** (hsl(240 40% 2%)) for sidebars and code.
 - **Panel** (hsl(240 30% 8%)) cards; **Surface** (hsl(238 28% 11%)) cards-on-card; **Chrome** (hsl(238 22% 16%)) interactive chrome and hover.
@@ -234,7 +255,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 
 ### Badges and lamps
 - **Style:** pill, transparent fill, 30% tinted hairline, a 6 px leading dot in the lamp colour, caption text.
-- **State:** success, running, warning, review, failed, queued, canceled. `LiveDot` adds a soft 2 s ring only while work is live.
+- **State:** success, running, warning, review, failed, queued, canceled. `LiveDot` adds a soft 2 s ring only while work is live; the `running` variant's lamp is that LiveDot. A run's state uses `RunStatePill` (see Status vocabulary) rather than a hand-picked variant.
 
 ### Cards / Containers
 - **Corner Style:** card radius (10 px); panel radius for dialogs.
@@ -245,6 +266,12 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 ### Inputs / Fields
 - **Style:** 32 px, control radius, hairline input border on Night Ink.
 - **Focus:** primary ring; placeholder in Muted Ink; disabled at 50%.
+
+### Status bar
+One skeleton in Mission and Board mode (`components/StatusBar.tsx`), 28 px, caption text, tabular numerals.
+- **Left:** empty while healthy. Only a connection problem speaks: *Reconnecting…* (warning), *Offline* (destructive), *Syncing…* (info) for a moment after a reconnect.
+- **Right, in order:** the update offer chip (after ~30 s idle, see the startup queue), ONE plan-usage meter for the most-loaded provider (neutral below 80 %; named and amber from 80 %, red from 90 % or on a refusal; every provider and today's spend live in its popover), App resources (icon and work-process count only while work runs; memory, CPU and Keep awake in its popover), Keep awake (an icon only while on), the terminal toggle.
+- **No placeholders:** a missing figure renders nothing, never a "—". Popovers speak plain language; internal names (routes, request labels) stay in logs and the problem report.
 
 ### Rail track and RailMark (signature)
 - **RailTrack:** a hairline with an optional gradient pill (cyan to the theme's rail end) and station lamps (pending, active, done, failed). Indeterminate it travels with `--ease-rail`; determinate it sits at progress. It replaces spinners wherever work is in flight.
@@ -260,6 +287,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes. Secondary text is `text-muted-foreground`, never an alpha of it (`/70`, `/80`); `theme-contrast.test.ts` fails on a failing token pair, on an alpha on any text colour (`text-primary/60`, `placeholder-*/50`) and on `opacity-N` over a text element; a decorative, `aria-hidden` mark is the only exception.
 - **Do** show one loading indicator per region: `<RailTrack running />` for a panel or region, a `LiveDot` for a status chip, and a 12 to 14 px `Loader2` only inside a busy button.
 - **Do** add new copy to all eight locales and add new semantic tokens to every `[data-theme]` block.
+- **Do** write UI labels, titles and buttons in sentence case; capitalise only proper nouns (Specrails, GitHub, Jira, Claude). The product is always spelled "Specrails".
 
 ### Don't:
 - **Don't** introduce spinners, bouncing dots or a second ping implementation; use `LiveDot` or `RailTrack`. Exception: a 12–14 px `Loader2` inside a pending button is allowed; content-area waits use `<RailTrack running />` (indeterminate) or `Skeleton`.

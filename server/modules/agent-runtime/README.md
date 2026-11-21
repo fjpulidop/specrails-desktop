@@ -14,6 +14,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-history.ts](runtime/agent-runtime-history.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
 - [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
+- [runtime/agent-runtime-package-schedule.ts](runtime/agent-runtime-package-schedule.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
 - [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
 - [runtime/agent-runtime-retention-records.ts](runtime/agent-runtime-retention-records.ts)
@@ -60,7 +61,7 @@ resolved diagnostic for later history reads.
 
 ## Host tasks
 
-`runtime/host-task-dispatcher.ts` resolves Core `host-task` machine interrupts (capability `hostTasks`, contract 5.11): a registry `task → handler` bound at composition (project-registry), dispatches persisted in `host_task_dispatches` (migration 88) before acting and their results before Core resumes with `--host-result`, replay of a recorded result after a restart, and cancellation per run. Handlers live in their capability module (PR CI: `delivery/runtime/pr-ci`).
+`runtime/host-task-dispatcher.ts` resolves Core `host-task` machine interrupts (capability `hostTasks`, contract 5.11): a registry `task → handler` bound at composition (project-context-loops, wired by project-registry), dispatches persisted in `host_task_dispatches` (migration 88) before acting and their results before Core resumes with `--host-result`, replay of a recorded result after a restart, and cancellation per run. Handlers live in their capability module (PR CI: `delivery/runtime/pr-ci`).
 
 ## Loop admission
 
@@ -127,8 +128,55 @@ to existing Desktop controls. Resume first validates safe node paths, then exact
 membership in the saved run. Metrics use those steps and role IDs from the frozen
 runtime configuration. Legacy runs retain their six phases and three-role
 summary validation. Historical projections without an authoritative catalog keep
-the legacy fallback until D2 supplies the graph projection. SQLite status stays
-uncached because a legacy journal cannot represent its WAL revision.
+the legacy fallback until D2 supplies the graph projection.
+
+## Status read cost
+
+Every Core `status` read is a Node child process, and the Board asks for one
+run per rail (`GET /agent-runtime/runs?railIndex=N`) on every mount and poll.
+`agent-runtime-status-cache.ts` (one per project controller) keeps that cheap:
+
+- Legacy runs are keyed by the checkpoint's content hash, as before.
+- Engine v2 runs are keyed by a stat fingerprint of `agent-workflow/run.sqlite`,
+  its `-wal` (not the read-side `-shm`), the checkpoint and the frozen
+  selection/config files. A cached answer is reused only while the run is
+  settled — no live Core lease, not `running`, no host task in progress, not
+  active in Desktop and its loop run neither running nor paused — and for at
+  most 5 minutes. Seeing the run live drops the entry.
+- Concurrent reads of one run share a single Core process; at most four status
+  processes run per project. Resume, settle, steer, dismiss, cancel and
+  retention collection invalidate the run's entry.
+
+Read-only inspection (`status`, `evidence`) resolves the retained Core package
+with `resolveRetainedAgentRuntimeForInspection`: the same pin rules, but the
+package digest (the whole production dependency closure, ~16k files) is computed
+with async I/O and reused per retained root for 5 minutes. The uncached
+`resolveRetainedAgentRuntime` remains the gate for anything that runs the package
+(resume, recovery, signal, fork, cancel, pause). Before this split each rail read
+hashed the package synchronously (~2 s of blocked event loop per request).
+
+The execution gate is async too: it digests the whole package with async I/O
+(~0.8 s of blocked event loop per resume before; a 6-resume burst froze the app
+~4.4 s). It never reuses a result: every caller gets a digest whose reads all
+start after its request. Concurrent resumes of one shared package join only the
+single digest queued behind the running one, never the running one itself, so a
+burst costs at most two digests. Only the synchronous retention path for a context
+that already has a pin (`retainAgentRuntime`) still digests synchronously.
+
+Launches retain Core once per build in the shared cache
+`<data home>/.specrails/runtime-packages` (`<digest>/`, plus `.refs/<digest>/` records
+naming every pin file written into it). `agent-runtime-package-schedule.ts` collects it
+five minutes after boot and every six hours: it keeps the three most recently used
+builds, every build a pin still names (recorded references, the data home's workspaces
+and worktrees, each project's own `.specrails/pipeline`) and anything used within the
+last hour; the rest is renamed aside under the package lock and deleted asynchronously.
+
+The first launch on a Core build that is not in the cache yet (normally the first run
+after a Core update) copies and digests the package with async I/O before retention
+(`prepareRetainedAgentRuntime`, ~7–9 s for ~16.5k files). The run log says so:
+`[runtime] Preparing the updated Core runtime …` when the wait starts (also for a launch
+that joins another launch's preparation) and `[runtime] Core runtime ready (N s)` when
+it ends. Launches of an already retained build log nothing.
 
 ## Recovery diagnosis
 
@@ -156,7 +204,7 @@ no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.
 
 ## Durable steering
 
-`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `runtime_steer` with write permission. See [live steering](../../../docs/agent-live-steering.md).
+`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `specrails_runs(steer)` with write permission. See [live steering](../../../docs/agent-live-steering.md).
 
 ## History retention
 
@@ -193,3 +241,16 @@ Failed gate outcomes and role error messages are reported explicitly in the read
 Failed terminal completion reasons are preserved as the job error when Core has no
 more specific runtime error, so a scoped correction blocker is not replaced by a
 generic unsuccessful-Core-exit message.
+
+## Headless guard for older retained Cores
+
+[`runtime/agent-runtime-headless-guard.ts`](runtime/agent-runtime-headless-guard.ts)
+keeps Electron windows of a run hidden when its retained Core predates Core's
+Electron headless guard: the bridge copies the installed Core's guard into the
+run's runtime directory once and loads it through `NODE_OPTIONS` of the Core
+process. A retained Core with its own guard, or `SPECRAILS_HEADLESS=0`, leaves
+`NODE_OPTIONS` untouched. The paired suite
+(`agent-runtime-headless-guard-paired.test.ts`) continues a real pre-guard run
+on a guard-carrying Core and checks the verification command loads the guard;
+`SPECRAILS_PREGUARD_CORE_SOURCE_DIR` selects a real older Core build instead of
+the paired Core with its guard removed.

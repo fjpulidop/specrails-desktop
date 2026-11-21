@@ -459,3 +459,11 @@ describe('spec-addenda-core: lint', () => {
     expect(lintSpecAddendum({ body: 'Keep the behaviour described in design.md. Do not modify openspec/specs/architecture/spec.md.' })).toEqual([])
   })
 })
+
+describe('client mirror parity', () => {
+  it('client/src/features/specs/lib/spec-addenda-core.ts is byte-identical to server/modules/specs/runtime/spec-addenda-core.ts', () => {
+    const server = fs.readFileSync(path.join(__dirname, 'spec-addenda-core.ts'), 'utf8')
+    const client = fs.readFileSync(path.resolve(__dirname, '../../../../client/src/features/specs/lib/spec-addenda-core.ts'), 'utf8')
+    expect(client).toBe(server)
+  })
+})

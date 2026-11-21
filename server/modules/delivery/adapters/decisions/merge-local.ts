@@ -188,7 +188,7 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
           cleanupWarnings.push(`assembly abort ${branch}: ${err instanceof Error ? err.message : String(err)}`)
         }
         await removeAssembly()
-        const detail = (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}`
+        const detail = mergeFailureDetail(r)
         const conflict = persistAssemblyFailure(`merging '${branch}': ${detail}`)
         if (conflict) return conflict
         return { status: 502, body: { error: 'merge_failed', detail: `merging '${branch}': ${detail}` } }
@@ -365,4 +365,16 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
     // assembly as well. A failed non-force removal leaves a recorded archive.
     await removeAssembly()
   }
+}
+
+/**
+ * The reason a merge failed, for the delivery card: Git prints "Auto-merging
+ * <file>" before its CONFLICT lines, so the first output line read "Auto-merging
+ * src/cart.js" and hid the conflict. Conflicts are named with their files. Pure.
+ */
+export function mergeFailureDetail(result: { code: number; stdout: string; stderr: string }): string {
+  const lines = `${result.stdout}\n${result.stderr}`.split('\n').map((line) => line.trim()).filter(Boolean)
+  const files = [...new Set(lines.flatMap((line) => /^CONFLICT \([^)]*\): (?:Merge conflict in )?(.+)$/.exec(line)?.[1] ?? []))]
+  if (files.length) return `CONFLICT with the base in ${files.slice(0, 10).join(', ')}${files.length > 10 ? ` +${files.length - 10}` : ''}: integrate the other delivery first, then launch this spec again on the updated base`
+  return lines.find((line) => !/^Auto-merging /.test(line)) ?? lines[0] ?? `exit ${result.code}`
 }

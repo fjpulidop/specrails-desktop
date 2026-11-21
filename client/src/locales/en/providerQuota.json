@@ -1,0 +1,101 @@
+{
+  "statusBar": {
+    "rejected": "limit reached",
+    "rejectedUntil": "limit · resets {{time}}"
+  },
+  "window": {
+    "fiveHour": "5-hour",
+    "weekly": "weekly",
+    "default": "usage"
+  },
+  "attention": {
+    "warningTitle": "{{provider}} usage at {{percent}}%",
+    "warningBody": "{{provider}} has used {{percent}}% of its {{window}} limit. New runs may pause at the limit.",
+    "rejectedTitle": "{{provider}} usage limit reached",
+    "rejectedBody": "{{provider}} refuses requests until {{time}}. Runs paused at the limit resume then on their own.",
+    "rejectedBodyNoReset": "{{provider}} refuses requests until its limit resets."
+  },
+  "preflight": {
+    "label": "Launch checks",
+    "checking": "Checking…",
+    "recheck": "Check again",
+    "disk": {
+      "ok": "{{free}} free",
+      "warn": "Only {{free}} free",
+      "fail": "Only {{free}} free — free up space first",
+      "unknown": "Disk space unknown"
+    },
+    "provider": {
+      "signed-in": "{{provider}} signed in",
+      "signed-out": "{{provider}} signed out — sign in first",
+      "missing": "{{provider}} not installed",
+      "unknown": "{{provider}} sign-in unknown"
+    },
+    "github": {
+      "signed-in": "GitHub signed in",
+      "signed-out": "GitHub signed out — pull requests will not open",
+      "missing": "GitHub CLI not installed — pull requests will not open",
+      "unknown": "GitHub sign-in unknown"
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}}% used",
+      "warning": "{{provider}} {{percent}}% used",
+      "critical": "{{provider}} {{percent}}% used",
+      "rejected": "{{provider}} limit reached",
+      "rejectedUntil": "{{provider}} limit reached — resets {{time}}",
+      "unknown": "{{provider}} usage unknown"
+    },
+    "headless": {
+      "ok": "{{framework}} windows stay hidden during runs",
+      "warn": "{{framework}} windows may appear during runs — make its launcher and tests honour SPECRAILS_HEADLESS"
+    },
+    "blocking": "Fix the failed check before launching.",
+    "quotaWarning_one": "{{provider}} has used {{percent}}% of its {{window}} limit. Launching {{count}} rail may pause it at the limit; it then resumes on its own after the reset.",
+    "quotaWarning_other": "{{provider}} has used {{percent}}% of its {{window}} limit. Launching {{count}} rails may pause them at the limit; they then resume on their own after the reset.",
+    "quotaRejected_one": "{{provider}} refuses requests until {{time}}. The rail will wait and start working after the reset.",
+    "quotaRejected_other": "{{provider}} refuses requests until {{time}}. The rails will wait and start working after the reset.",
+    "quotaRejectedNoReset": "{{provider}} refuses requests right now and did not say when its limit resets."
+  },
+  "pause": {
+    "title": "Paused at the {{provider}} usage limit",
+    "resumesAt": "Resumes on its own at {{time}} (in {{in}}).",
+    "resumesAtPassed": "Resumes on its own as soon as the computer is awake.",
+    "resetsAt": "The limit resets at {{time}}. Automatic resume is off.",
+    "noReset": "{{provider}} did not say when the limit resets.",
+    "resumeNow": "Resume now",
+    "autoOn": "Resume at {{time}}",
+    "autoOff": "Don't resume on its own",
+    "continueWith": "Continue now with {{provider}}",
+    "failed": "Could not update the paused run: {{detail}}",
+    "switch": {
+      "title": "Continue now with another provider",
+      "provider": "Provider",
+      "model": "Model",
+      "effort": "Reasoning effort",
+      "consequence": "This applies to the rest of this run: the interrupted step and every later step that used {{from}} switch to {{provider}}. Work already in the worktree is kept. The step's conversation does not carry across providers, so the step restarts with a fresh session.",
+      "settingsKept": "The project's settings don't change.",
+      "settingsUpdated": "The project's agent settings will also route these roles to {{provider}} from now on.",
+      "remember": "Remember for this project",
+      "resume": "Resume with {{provider}}"
+    }
+  },
+  "mission": {
+    "title": "{{provider}} usage limit reached",
+    "body": "{{provider}} refuses requests until {{time}}.",
+    "bodyNoReset": "{{provider}} refuses requests until its limit resets.",
+    "continueAt": "Continue at {{time}}",
+    "scheduled": "Continues on its own at {{time}}.",
+    "cancel": "Cancel",
+    "continueWith": "Continue now with {{provider}}",
+    "continuePrompt": "Continue where the previous agent stopped at its usage limit. Check what was already done before repeating any step.",
+    "failed": "Could not schedule the mission: {{detail}}"
+  },
+  "settledSwitch": {
+    "title": "Continue with another provider",
+    "consequence": "The next attempt goes on from where this one stopped, and every step that used {{from}} runs on {{provider}} for the rest of the run. Work already in the worktree is kept; the step starts with a fresh session because its conversation does not carry across providers.",
+    "consequenceFrom": "The next attempt goes on from the {{step}} step, and every step that used {{from}} runs on {{provider}} for the rest of the run. Work already in the worktree is kept; the step starts with a fresh session because its conversation does not carry across providers.",
+    "resume": "Continue with {{provider}}",
+    "continuing": "Continuing with {{provider}}",
+    "failed": "Could not continue with {{provider}}"
+  }
+}

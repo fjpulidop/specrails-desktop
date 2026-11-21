@@ -19,6 +19,7 @@ function resolveWsContext(): Context<WsContextValue> {
 const wsContext = resolveWsContext()
 import { coerceBlueprint, type Blueprint } from '../lib/blueprint-draft'
 import { coerceMilestoneProgress, stackedHeadDeliveryIds, type MilestoneProgress } from '../lib/milestone-progress'
+import { sharedFetch } from '../../../lib/shared-fetch'
 
 // Live milestone progress for one project (premium-milestone-progress D5):
 // the server-derived model from `GET /blueprint`, kept live by the
@@ -52,7 +53,8 @@ export function useMilestoneProgress(projectId: string | null): UseMilestoneProg
     projectId,
     initialValue: null,
     fetcher: async ({ projectId: id, signal }) => {
-      const res = await fetch(`/api/projects/${id}/blueprint`, { cache: 'no-store', signal })
+      // Several Board surfaces mount this hook at once; they share one request.
+      const res = await sharedFetch(`/api/projects/${id}/blueprint`, { cache: 'no-store', signal })
       if (res.status === 404) return { blueprint: null, progress: [] }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { blueprint?: unknown; progress?: unknown }

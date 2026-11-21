@@ -15,6 +15,7 @@
 // secret; broadcasting the secret in cleartext would let a mailbox reader / MITM
 // answer the offer. The secret is retained only for the QR (first-pairing) path,
 // which never goes through this mailbox.
+import { logRejection } from '../util/log-rejection'
 
 export interface SignalFetchResult {
   status: number
@@ -45,9 +46,9 @@ export class MobileSignalReconnect {
 
   start(intervalMs = 3000): void {
     if (this._timer) return
-    this._timer = setInterval(() => void this.poll(), intervalMs)
+    this._timer = setInterval(() => void this.poll().catch(logRejection('mobile signal reconnect poll')), intervalMs)
     this._timer.unref?.()
-    void this.poll()
+    void this.poll().catch(logRejection('mobile signal reconnect poll'))
   }
 
   stop(): void {

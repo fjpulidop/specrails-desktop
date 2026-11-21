@@ -372,6 +372,14 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       continue
     }
 
+    // The person's own Pause / Resume (`run-user-pause`, `{ state }`): said in their language
+    // ("Paused by you" / "Resumed by you"), live and after a restart alike.
+    if (event.event_type === 'run-user-pause') {
+      const state = asString(parsePayload(event.payload).state)
+      if (state === 'paused' || state === 'resumed') milestones.push({ seq: event.seq, kind: 'activity', code: state === 'paused' ? 'activity.phase.pausedByYou' : 'activity.phase.resumedByYou', values: { phaseBoundary: 1 }, stepIndex: currentStep, tone: 'neutral' })
+      continue
+    }
+
     // Core's agent runtime reports its own phases (architect → developer →
     // verify → reviewer → archive) as structural events: the phase is a fact,
     // not a claim, so it earns a milestone even though no tool ran yet.

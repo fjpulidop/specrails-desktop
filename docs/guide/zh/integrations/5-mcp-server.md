@@ -1,7 +1,5 @@
 # 从任意 AI 操控 Specrails（MCP 服务器） {#mcp-server}
 
-> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
-
 Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](https://modelcontextprotocol.io) 的 AI 助手——Claude Desktop、Claude Code、Cursor、Cline，或者你自己的 agent。打开这个功能，把你的助手指向 Specrails，你就能靠聊天来驱动整个应用：*「列出我的项目」「在 API 项目里为社交登录创建一份规格」「启动 rail 0，跑完了告诉我」「我这周花了多少钱？」*。你的助手会在幕后调用 Specrails 的工具，而不用你点来点去。
 
 这和插件以及「My approved MCPs」功能的方向正好相反：那些功能是让 Specrails 去*使用*别的 MCP 服务器；而这个功能是让别的应用来使用 **Specrails**。
@@ -21,25 +19,15 @@ Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](http
 
 四个层级默认全部授予，所以接入的助手一开始就能驱动整个应用。把你想自己保留的层级取消勾选即可；之后如果助手试图做该层级涵盖的事，Specrails 会拒绝，并给出一条清晰的提示，告诉你该重新打开哪个层级。
 
-## 连接你的助手
+## 仅供 agent 阅读：连接你的客户端
 
-面板会显示一段可直接粘贴的配置块。最简单、最通用的方式是使用内置的**桥接**（`specrails-mcp`）：你的助手运行它，由它代你转发到 Specrails。这个桥接会在本地读取访问令牌，所以**令牌绝不会出现在你助手的配置里**。
+当有人请 agent 进行连接时，请阅读[专门的 MCP 连接手册](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md)。它涵盖 Claude Code 和 Codex 的 CLI 与桌面版：找到内置的桥接、保留现有配置、验证真实连接并诊断故障。网页版是纯 Markdown，不需要 JavaScript。
 
-在像 Claude Desktop 或 Cursor 这样的客户端里，配置看起来是这样：
+保持 Specrails 运行，打开 **Settings ▸ MCP ▸ Copy client config**。有些版本只返回 `specrails-mcp`，它可能不在 PATH 中；手册说明了如何找到实际的可执行文件和脚本。桥接会在本地读取令牌，所以客户端配置里不应出现任何令牌。仅完成注册并不能证明已经连接：请完成 `initialize`、`tools/list`，以及一次带 `{"action":"list"}` 的只读 `specrails_projects` 调用。
 
-```json
-{ "mcpServers": { "specrails": { "command": "specrails-mcp" } } }
-```
+想快速了解全局，助手可以调用 `specrails_status`：一次调用就能看到正在运行什么、什么在等你处理、最近的失败、今天的花费以及机器的 CPU 和内存。`specrails_inbox` 读取并回答**待处理**列表，`specrails_missions` 列出你的任务并向其发送消息，`specrails_board` 显示某个项目的 backlog 和 rail，`specrails_spend` 显示你的花费和上限，`specrails_resources` 显示 Specrails 启动了什么。失败的 job 会附带它的诊断、已保存的 AI 分析以及日志末尾。
 
-支持远程 HTTP MCP 服务器的客户端，则可以直接指向 `http://127.0.0.1:4200/api/mcp`，并配上面板里的令牌。
-
-# Codex CLI (stdio — 注册 设置 ▸ MCP 中显示的 bridge 命令)
-codex mcp add specrails -- <设置 ▸ MCP 中的 bridge 命令>
-```
-
-也可以使用 `Authorization: Bearer <token>` 请求头。如果修改过应用端口, 请替换 `4200`。
-
-一旦连上，你的助手会看到 **22 个工具**，覆盖整个应用——项目、规格、rail 和任务、聊天 / Explore、agent、插件、Jira、loop、代码浏览器、分析、设置——其中包括一个内置的**指南（guide）**工具，它会先读这个工具，从而无需你解释任何东西就能理解 Specrails 是怎么运作的。
+每个回答都以一段简短的大白话摘要开头，并建议接下来的调用；错误会说明出了什么问题，以及重试是否有用。来自外部助手的破坏性调用第一次绝不会被执行：Specrails 会回复说需要确认，助手必须带上 `confirm: true` 再次发送该调用。它也可以先做一次试运行，看看会发生什么。
 
 操作前，助手可以通过 `specrails_context` 了解项目、规格、执行任务和 Git 的当前状态。无法获取的部分会明确标注，并不表示项目为空。`specrails_code(search)` 用于搜索源代码中的文本，`read_file` 用于读取指定行范围；如果还有内容，会提供继续读取的信息。
 
@@ -63,16 +51,16 @@ codex mcp add specrails -- <设置 ▸ MCP 中的 bridge 命令>
 > *「检查我所有的项目。告诉我哪些在 backlog 里有规格却没有 rail 在跑，并在每个项目里启动优先级最高的那一个。」*
 
 **写代码时不用动手。** 从你的编辑器里或用语音来驱动 Specrails，无需切换窗口：
-> *「用 Opus 在 rail 0 上为任务 #42 启动一条 rail，跑完了告诉我。」*
+> *「用 Opus 在 rail 0 上为 spec #42 启动，跑完了告诉我。」*
 
 **询问费用和历史。** 用大白话查你的分析数据：
-> *「我这周在 AI 上花得最多的是哪里，按项目、按模型分别列出来？给我看最贵的五个任务。」*
+> *「我这周在 AI 上花得最多的是哪里，按项目、按模型分别列出来？给我看最贵的五个规格。」*
 
 **你的每日站会。**
 > *「帮我写站会汇报：昨天哪些 rail 跑了、哪些完成了、哪些失败了、总花费多少——做成可以直接粘进 Slack 的要点列表。」*
 
 **读懂代码。** 不需要编辑器：
-> *「任务 #38 改动了哪些文件？用一句话总结每个文件改了什么。」*
+> *「spec #38 改动了哪些文件？用一句话总结每个文件改了什么。」*
 
 因为你的助手会先读那份内置指南，所以你很少需要点名具体的工具或规格——描述你想要的结果，它就能算出该调用哪些工具。
 
@@ -80,7 +68,7 @@ codex mcp add specrails -- <设置 ▸ MCP 中的 bridge 命令>
 
 - **Specrails 必须在运行。** MCP 服务器活在应用内部，所以只有在 Specrails 开着的时候，你的助手才能连上它。多亏了托盘，关掉窗口它仍会在后台运行——只有从托盘（Mac 菜单栏 / Windows 系统托盘）选择 **Exit**，才会真正把它停掉。
 - **长任务会流式返回。** 启动一条 rail 或生成一份规格会立即返回，并在后台完成；你的助手可以「盯着」它，等它尘埃落定再回来报告。
-- **安全。** MCP 使用它自己专属的访问令牌，与其他一切都分开，并且只监听你自己的机器（本地回环）。你随时可以从面板里复制或重新生成那个令牌。
-- **未暴露的部分（v1）。** 出于安全考虑，有几项高风险能力被刻意排除在外：在终端里执行 shell 命令、内嵌浏览器、应用内文件编辑，以及安装系统先决条件。一切*管理* Specrails 的能力都开放可用；对机器的原始访问则不开放。
+- **安全。** MCP 使用它自己专属的访问令牌，与其他一切都分开，并且只监听你自己的机器（本地回环）。这个令牌无法通过提供层级、项目或会话请求头来冒充代理模式：内嵌的 agent 使用的是一种由服务器签发、私有且短期有效的能力凭证。你随时可以从面板里复制或重新生成这个限定范围的令牌。
+- **未暴露的部分（v1）。** 出于安全考虑，外部 MCP 客户端不能执行原始的终端 shell 命令、使用内嵌浏览器、在应用内编辑文件，或安装系统先决条件。代理模式有一条单独的、经过身份验证的通道，用于在 Autonomous 权限下执行已确认的长时间后台命令；外部客户端无法通过启用 Destructive 来获得它。其余一切*管理* Specrails 的能力都开放可用。
 
 你随时可以从同一个面板禁用 MCP——你的助手只是会失去访问权，其余一切照旧。

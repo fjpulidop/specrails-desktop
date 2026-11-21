@@ -11,6 +11,7 @@ import type { InvocationResult } from '../modules/execution/runtime/spawn-lifecy
 import { buildProviderEnv, parseStreamEvents } from './runtime'
 import { LiveInputDeliveryError, type LiveInput, type LiveSessionHooks } from './live-session-types'
 import type { AdapterEvent } from './types'
+import { observeQuotaLine } from '../modules/provider-quota/runtime/stream-observer'
 
 // Claude Code 2.1.261: stdin user frames enter the native command queue. The
 // query loop handles priority "next" messages after the running tool batch and
@@ -260,6 +261,7 @@ export function runClaudeLiveSession(hooks: LiveSessionHooks): Promise<Invocatio
           // Echoes carry input resources, not tool outcomes or generated text.
           return
         }
+        observeQuotaLine(hooks.adapter.id, line)
         for (const parsed of parseStreamEvents(hooks.adapter, line)) {
           event(parsed)
           if (parsed.kind === 'result') {

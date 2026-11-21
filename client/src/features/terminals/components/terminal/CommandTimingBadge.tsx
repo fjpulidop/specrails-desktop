@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { subscribe, getMarks } from '../../../../lib/command-mark-store'
+import { useNow } from '../../../../hooks/useNow'
 
 interface Props {
   sessionId: string
@@ -15,13 +16,8 @@ interface Props {
 export function CommandTimingBadge({ sessionId }: Props) {
   const { t } = useTranslation('terminal')
   const [openStart, setOpenStart] = useState<number | null>(getMarks(sessionId).openPreExec?.startedAt ?? null)
-  const [now, setNow] = useState(Date.now())
   useEffect(() => subscribe(sessionId, (m) => setOpenStart(m.openPreExec?.startedAt ?? null)), [sessionId])
-  useEffect(() => {
-    if (openStart == null) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [openStart])
+  const now = useNow(1000, openStart != null)
   if (openStart == null) return null
   const elapsed = now - openStart
   if (elapsed < 500) return null

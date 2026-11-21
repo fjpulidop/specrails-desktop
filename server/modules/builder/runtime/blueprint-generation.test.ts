@@ -17,7 +17,7 @@ import {
   rangeFilled,
   cutUnterminatedGenerationBlock,
 } from './blueprint-generation'
-import { premiumSpec } from './blueprint-spec-fixtures'
+import { premiumSpec } from './__fixtures__/blueprint-spec-fixtures'
 
 function outline(count = 5) {
   return {

@@ -267,6 +267,7 @@
       "planned": "Geplant",
       "committed": "Startbereit",
       "running": "Läuft",
+      "paused": "Pausiert",
       "delivered": "Geliefert – wartet auf Review",
       "done": "Fertig"
     },
@@ -298,6 +299,10 @@
       "completed": "Alle Rails gestartet",
       "cancelled": "Kette abgebrochen",
       "resume": "Fortsetzen",
+      "resumeFromFailedStep": "Ab dem fehlgeschlagenen Schritt",
+      "resumeFromFailedStepHint": "Setzt denselben Lauf fort; nur die unterbrochenen Schritte laufen erneut",
+      "resumeFromStart": "Von vorn",
+      "resumeFromStartHint": "Führt die ganze Spec in einem neuen Lauf erneut aus",
       "cancel": "Kette abbrechen",
       "resumed": "Kette fortgesetzt",
       "resumeFailed": "Kette konnte nicht fortgesetzt werden",
@@ -313,7 +318,7 @@
         "unknown": "pausiert",
         "provider_limit": "das Nutzungslimit des Anbieters ist erreicht",
         "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort",
-        "integration_failed": "die Integration der Spec ist fehlgeschlagen ({{detail}}); Fortsetzen versucht die Integration erneut"
+        "integration_failed": "die Integration der Spec ist fehlgeschlagen ({{detail}})"
       },
       "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
       "launchNext": "Nächstes Rail starten",
@@ -326,7 +331,49 @@
       "autoOff": "Automatisches Fortfahren aus — vor jedem Rail wird gefragt",
       "autoFailed": "Kette konnte nicht aktualisiert werden",
       "integrating": "diese Spec wird integriert, bevor die nächste startet",
-      "cancelFailed": "Die Kette konnte nicht abgebrochen werden"
+      "cancelFailed": "Die Kette konnte nicht abgebrochen werden",
+      "offer": {
+        "complete": "Kette abschließen",
+        "next": "Mit der nächsten Spec fortfahren ({{specTitle}})",
+        "launch": "{{specTitle}} starten",
+        "retry": "{{spec}} erneut versuchen",
+        "resume_failed_step": "{{spec}} ab dem fehlgeschlagenen Schritt fortsetzen",
+        "retry_from_start": "{{spec}} von vorn erneut versuchen",
+        "resume_run": "Ausführung von {{spec}} fortsetzen",
+        "follow_run": "Ausführung von {{spec}} folgen",
+        "answer_run": "Ausführung von {{spec}} folgen (wartet auf deine Antwort)",
+        "integrate": "{{spec}} integrieren und fortfahren",
+        "rebuild": "{{spec}} auf der aktualisierten Basis erneut ausführen"
+      },
+      "offerHint": {
+        "complete": "Jede Spec ist geliefert oder erledigt",
+        "next": "{{paused}} ist bereits geliefert; nichts läuft doppelt",
+        "launch": "Startet eine neue Ausführung von {{spec}}",
+        "retry": "Der letzte Versuch ist fehlgeschlagen; sie läuft in einer neuen Ausführung erneut",
+        "resume_failed_step": "Dieselbe Ausführung fortsetzen; nur die unterbrochenen Schritte laufen erneut",
+        "retry_from_start": "Die ganze Spec in einer neuen Ausführung erneut ausführen",
+        "resume_run": "Derselbe Versuch läuft ab dem nächsten Schritt weiter",
+        "follow_run": "An {{spec}} arbeitet bereits eine Ausführung; die Kette wartet darauf, statt eine weitere zu starten",
+        "answer_run": "Die Ausführung wartet auf eine Antwort oder Freigabe; antworte in der Ausführung",
+        "integrate": "Führt die Lieferung von {{spec}} wie die eigenen Rails der Kette in den Integrationszweig zusammen und fährt fort",
+        "rebuild": "Die Lieferung kollidiert mit dem seither Integrierten; eine neue Ausführung startet auf der aktualisierten Basis"
+      },
+      "offerShort": {
+        "complete": "Abschließen",
+        "next": "Weiter mit {{spec}}",
+        "launch": "{{spec}} starten",
+        "retry": "{{spec}} wiederholen",
+        "resume_failed_step": "{{spec}} fortsetzen",
+        "retry_from_start": "{{spec}} wiederholen",
+        "resume_run": "Ausführung von {{spec}} fortsetzen",
+        "follow_run": "{{spec}} folgen",
+        "answer_run": "{{spec}} folgen",
+        "integrate": "{{spec}} integrieren",
+        "rebuild": "{{spec}} neu bauen"
+      },
+      "moreOptions": "Weitere Optionen",
+      "pausedSpecDelivered": "{{paused}} ist bereits geliefert",
+      "nextStep": "Nächster Schritt: {{step}}"
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

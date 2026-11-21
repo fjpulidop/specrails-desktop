@@ -12,6 +12,7 @@
  *  · A state the three verbs cannot describe honestly renders the existing
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
+import { PacketMergePreview } from '../components/review-packet/PacketMergePreview'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
@@ -71,6 +72,20 @@ function ProofRow({ item }: { item: PacketProofItem }) {
         <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
           {item.rawExcerpt}
         </pre>
+      ) : null}
+      {item.earlier?.length ? (
+        // The final run is the proof; the runs it superseded stay readable, folded away.
+        <details className="text-xs" data-testid="packet-proof-earlier">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">{t('proof.earlierAttempts', { count: item.earlier.length })}</summary>
+          <ul className="mt-1 space-y-1.5 border-l border-border/60 pl-3">
+            {item.earlier.map((attempt, index) => (
+              <li key={index} className="space-y-1">
+                <span className="text-muted-foreground">{t('proof.earlierAttempt', { exitCode: attempt.exitCode, seconds: attempt.seconds })}</span>
+                {attempt.rawExcerpt ? <pre className="max-h-24 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 leading-relaxed text-muted-foreground whitespace-pre-wrap">{attempt.rawExcerpt}</pre> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : null}
     </li>
   )
@@ -636,6 +651,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
       ) : null}
 
+      {/* ── Merge preview: conflicts with the base as it stands now and with
+          sibling deliveries, and how far the base moved (no checkout). */}
+      <PacketMergePreview deliveryId={delivery?.prDeliveryId ?? packet.prDeliveryId} />
+
       {/* ── Needs human eyes: the project's human-only rules (rules inventory) */}
       {packet.needsHumanEyes?.length ? <NeedsHumanEyes rules={packet.needsHumanEyes} /> : null}
 
@@ -834,6 +853,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">{t('churn.batchNotSplittable')}</p>
               )}
+              {section.whatChanged ? (
+                <div className="mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2" data-testid="packet-what-changed">
+                  <p className="text-label text-foreground">{t('delivered.title')}</p>
+                  <p className="mt-1 text-xs italic text-muted-foreground">{t('delivered.caveat')}</p>
+                  <PacketMarkdown className="mt-2">{section.whatChanged}</PacketMarkdown>
+                  {section.whyChanged ? (
+                    <>
+                      <p className="mt-2 text-label text-muted-foreground">{t('delivered.why')}</p>
+                      <PacketMarkdown className="mt-1">{section.whyChanged}</PacketMarkdown>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               {section.solution ? (
                 <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
                   <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground">
@@ -842,7 +874,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <p className="mt-1 text-xs italic text-muted-foreground">{t('planned.caveat')}</p>
                   <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
                 </details>
-              ) : (
+              ) : section.whatChanged ? null : (
                 <p className="mt-1 text-xs text-muted-foreground">{t('noSolutionRecorded')}</p>
               )}
             </li>

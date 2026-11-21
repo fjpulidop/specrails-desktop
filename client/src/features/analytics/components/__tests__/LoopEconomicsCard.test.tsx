@@ -34,12 +34,12 @@ const payload = {
     { loopId: 'factory:freestyle', loopName: 'Freestyle', ...noData },
   ],
 }
-const response = (value: unknown, ok = true) => ({ ok, json: async () => value } as Response)
+const response = (value: unknown, ok = true) => new Response(JSON.stringify(value), { status: ok ? 200 : 500 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('LoopEconomicsCard', () => {
   it('renders per-loop columns with estimated share, unknown dashes and no-data rows', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(payload)); vi.stubGlobal('fetch', fetch)
+    const fetch = vi.fn().mockImplementation(async () => response(payload)); vi.stubGlobal('fetch', fetch)
     render(<LoopEconomicsCard projectId="p1" period="30d" />)
     const rows = await screen.findAllByTestId('loop-economics-row')
     expect(rows).toHaveLength(3)
@@ -62,11 +62,11 @@ describe('LoopEconomicsCard', () => {
   })
 
   it('explains untracked escaped defects and shows an empty state', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ ...payload, sources: { ...payload.sources, escapedDefects: 'untracked' } })))
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => response({ ...payload, sources: { ...payload.sources, escapedDefects: 'untracked' } })))
     const { unmount } = render(<LoopEconomicsCard projectId="p1" period="30d" />)
     expect(await screen.findByTestId('loop-economics-untracked')).toBeInTheDocument()
     unmount()
-    const fetch = vi.fn().mockResolvedValue(response({ ...payload, project: noData, byLoop: [] })); vi.stubGlobal('fetch', fetch)
+    const fetch = vi.fn().mockImplementation(async () => response({ ...payload, project: noData, byLoop: [] })); vi.stubGlobal('fetch', fetch)
     render(<LoopEconomicsCard projectId="p1" period="custom" from="2026-10-01" to="2026-10-07" />)
     expect(await screen.findByTestId('loop-economics-empty')).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/projects/current/analytics/loop-economics?period=custom&from=2026-10-01&to=2026-10-07', expect.anything())
@@ -94,7 +94,7 @@ describe('LoopEconomicsCard', () => {
 describe('LoopEconomicsCard — requirements demonstrated', () => {
   it('shows X/Y with the percentage once spec traces exist', async () => {
     const traced = { ...payload, sources: { ...payload.sources, requirementsDemonstrated: 'measured' }, byLoop: [{ loopId: 'factory:implement', loopName: 'Implement', ...group({ requirementsDemonstrated: { demonstrated: 3, total: 4, deliveries: 2 } }) }] }
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(traced)))
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => response(traced)))
     render(<LoopEconomicsCard projectId="p1" period="30d" />)
     const [row] = await screen.findAllByTestId('loop-economics-row')
     expect(row.textContent).toContain('3/4')

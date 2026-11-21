@@ -55,7 +55,7 @@
   },
   "instructions": {
     "title": "開発者ツールをインストール",
-    "description": "SpecRails には PATH 上の Node.js、npm、npx、Git が必要です。お使いの OS のスニペットを選んで実行し、「インストールしました。再チェック」をクリックしてください。",
+    "description": "Specrails には PATH 上の Node.js、npm、npx、Git が必要です。お使いの OS のスニペットを選んで実行し、「インストールしました。再チェック」をクリックしてください。",
     "darwin": {
       "intro": "Homebrew なら1行で両方のツールをインストールできます。brew がない場合は公式ダウンロードを利用してください。",
       "installNodeGit": "Homebrew で Node.js と Git をインストール"

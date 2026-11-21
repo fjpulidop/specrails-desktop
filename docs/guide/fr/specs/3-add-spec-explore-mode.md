@@ -43,7 +43,7 @@ Si vous voulez un contrôle plus fin, cliquez sur **Réglages fins** pour bascul
 
 - **Créer la spec** — promeut le brouillon vivant en spec à part entière, au statut **À faire**. (Quand vous éditez une spec existante, ce bouton affiche plutôt **Mettre à jour la spec** et applique les modifications à cette spec en place.)
 - **Vérifier →** — ouvre une surcouche de vérification qui montre la spec proposée comparée à la version de référence avant validation, pour éviter toute surprise.
-- **Enregistrer comme brouillon** — conserve la conversation comme ticket brouillon pour la reprendre plus tard. Disponible dès que vous avez envoyé au moins un message. Voir ci-dessous.
+- **Enregistrer comme brouillon** — conserve la conversation comme spec brouillon pour la reprendre plus tard. Disponible dès que vous avez envoyé au moins un message. Voir ci-dessous.
 - **Réduire** — range la conversation sous forme de pastille dans le dock des chats réduits, en bas à gauche. Cliquez sur la pastille à tout moment pour replonger directement dans la conversation — rien n'est perdu.
 - **Abandonner** — jette la conversation (avec une demande de confirmation au préalable).
 
@@ -65,4 +65,4 @@ Si votre projet a plus d'un fournisseur IA installé, un sélecteur de moteur vo
 
 - [Les brouillons et le Contract Layer](drafts-and-contract-layer.md) — enregistrer un travail en cours et enrichir les specs pour le pipeline.
 - [Ajouter une spec — mode Quick](add-spec-quick-mode.md) — quand l'idée est déjà claire.
-- [Exécuter les pipelines](running-pipelines.md) — mettez votre spec en œuvre une fois qu'elle est prête.
+- [Exécuter les pipelines](../pipeline/rails-and-jobs) — mettez votre spec en œuvre une fois qu'elle est prête.

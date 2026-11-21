@@ -10,15 +10,20 @@ import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
-import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
+import { retainAgentRuntime, prepareRetainedAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
+import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-process'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
+import { withHeadlessContract } from '../../../util/headless-env'
+import { headlessGuardLogLine, resolveRunHeadlessGuard, withElectronHeadlessGuard } from './agent-runtime-headless-guard'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { coreDefaultMaxTurns, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
+import { observeQuotaFrame } from '../../provider-quota/runtime/stream-observer'
+import { acceptedRouteOverrides, applyRouteOverrides, recordAcceptedRouteOverride, type DefinitionRouteOverride } from './agent-runtime-route-overrides'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -150,9 +155,16 @@ export interface AgentRuntimeInvocationOptions {
   invalidate?: string[]
   /** Answers the pending architect question on resume. */
   answer?: string
+  /** Core `questionOptions`: the chosen option of the pending question (`--option`). */
+  optionId?: string
+  /** Core `questionOptions`: reject this approval interrupt with `reason` (`--reject … --reason …`). */
+  reject?: string
+  reason?: string
   interruptId?: string
   /** Host resolution of one pending `host-task` interrupt (Core `hostTasks`); requires `interruptId`. */
   hostResult?: { outcome: string; output?: unknown }
+  /** Core `routeOverrides`: move roles to another provider/model/effort for the rest of the run (`--route-overrides`). */
+  routeOverrides?: DefinitionRouteOverride
   /** Durable projection errors abort observation; ordinary log callbacks remain advisory. */
   onRuntimeEvent?(event: Record<string, unknown>): void
   timeoutMs?: number
@@ -182,9 +194,11 @@ interface RuntimeResult {
 /** Provider CLIs that Core spawns inherit this environment. Gemini CLI refuses
  * headless runs in a folder the user never trusted interactively (exit 55), and
  * rail worktrees and fresh projects never are. Every other Desktop Gemini spawn
- * already trusts its admitted workspace the same way; an explicit value wins. */
+ * already trusts its admitted workspace the same way; an explicit value wins.
+ * Runs are headless (`SPECRAILS_HEADLESS=1`): Core keeps every agent and
+ * verification window hidden and unfocused from it. */
 export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const scoped = withoutDesktopCoreSelection(env)
+  const scoped = withHeadlessContract(withoutDesktopCoreSelection(env))
   return scoped.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...scoped, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : scoped
 }
 
@@ -222,12 +236,15 @@ export function applyPhase3RuntimeSwitches(config: RuntimeConfig, capabilities: 
   }
 }
 
+/** Run-log line while the first launch on a new Core build prepares its retained package. */
+export const CORE_PREPARING_LINE = '[runtime] Preparing the updated Core runtime (first run on this Core build; this takes a few seconds)…'
+
 /** Core owns the complete agent workflow in one managed process. The existing
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
   const definitionEngine = options.engineVersion === 2 || options.definitionPath !== undefined || options.prepareDefinition !== undefined
   if (options.resume && (options.definitionPath || options.prepareDefinition || options.workflowRoleBindings || options.loopConfig)) throw new Error('Resume must use the frozen workflow definition and role bindings')
-  const selectedCli = options.resume ? resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
+  const selectedCli = options.resume ? await resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
   if (!options.resume && (!options.configPath || !options.change)) throw new Error('New programmatic runs require configuration and a change name')
@@ -278,8 +295,14 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const workflowOrigins = { ...bindWorkflowRoleDefaults(config, draft), ...selectedOrigins }
     if (options.loopConfig) for (const role of Object.keys(config.roles ?? {})) workflowOrigins[role] = 'loop-role'
     const override = options.loopConfig ? undefined : options.providerOverride
-    runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
+    if (runtime.validateRuntimeConfigAsync) await runtime.validateRuntimeConfigAsync(JSON.parse(JSON.stringify(config)))
+    else runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
+    // The first launch on a new Core build copies and digests its package (~7 s, off the
+    // event loop): say so in the run log instead of leaving it silent.
+    const preparationStarted = Date.now()
+    const runLog = (line: string) => { try { options.onLine?.(line) } catch { /* Advisory log observer. */ } }
+    if (await prepareRetainedAgentRuntime(cli, { onPreparing: () => runLog(`${CORE_PREPARING_LINE}\n`) })) runLog(`[runtime] Core runtime ready (${((Date.now() - preparationStarted) / 1000).toFixed(1)} s)\n`)
     cli = retainAgentRuntime(cli, options.contextPath)
     args[0] = cli
     saveHostContext(options)
@@ -295,7 +318,9 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (readFileSync(scopedPath, 'utf8') !== serialized) throw new Error('Desktop runtime configuration changed; start a new run')
     }
     if (definitionEngine) {
-      const validation = runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
+      const validation = runtime.validateWorkflowDefinitionAsync
+        ? await runtime.validateWorkflowDefinitionAsync(draft, { configPath: scopedPath, structural: false })
+        : runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
       if (!validation.ok) throw new Error('definition_invalid: ' + validation.errors.map(error => `${error.path ?? error.nodeId ?? 'graph'}: ${error.message}`).join('; '))
       const definitionPath = join(dirname(options.contextPath), 'desktop-workflow-definition.json')
       const serializedDefinition = JSON.stringify(validation.definition, null, 2) + '\n'
@@ -325,8 +350,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const definitionRoles = definitionEngine ? (JSON.parse(readFileSync(definitionFile, 'utf8')) as { roles?: unknown }).roles : undefined
     const used = Array.isArray(definitionRoles) ? new Set(definitionRoles.filter((role): role is string => typeof role === 'string')) : undefined
     if (used?.has('developer')) used.add('fixer')
+    // Moved roles (Core routeOverrides) show the route they run on now: accepted overrides and the one this resume sends.
+    const moved = applyRouteOverrides({}, [...acceptedRouteOverrides(options.contextPath), ...(options.routeOverrides ? [options.routeOverrides] : [])])
     const assignments = [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : []), ...Object.entries(frozen.roles ?? {})]
       .filter(([role]) => used ? used.has(role) : role in frozen.agents || role === 'fixer')
+      .map(([role, assignment]) => [role, moved[role] ? { ...moved[role], ...(assignment.maxTurns !== undefined ? { maxTurns: assignment.maxTurns } : {}) } : assignment] as const)
     const coreDefault = coreDefaultMaxTurns(assignments.some(([, assignment]) => assignment.maxTurns === undefined) ? (await loadCoreAgentRuntime().catch(() => null))?.api?.capabilities : undefined)
     for (const [role, assignment] of assignments) {
       const turns = assignment.maxTurns !== undefined ? `max ${assignment.maxTurns} turns` : coreDefault === null ? 'no turn limit (Core default)' : `max ${coreDefault} turns (Core default)`
@@ -339,6 +367,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   if (options.answer !== undefined) {
     if (!options.resume) throw new Error('Answers apply to runtime resume')
     args.push('--answer', options.answer)
+    if (options.optionId) args.push('--option', options.optionId)
+  }
+  if (options.reject) {
+    if (!options.resume || !options.reason?.trim()) throw new Error('A rejection applies to runtime resume and needs a reason')
+    args.push('--reject', options.reject, '--reason', options.reason)
   }
   if (options.interruptId) { if (!options.resume) throw new Error('Interrupt selection applies to resume'); args.push('--interrupt-id', options.interruptId) }
   if (options.hostResult) {
@@ -351,6 +384,23 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     writeFileSync(file, JSON.stringify(options.hostResult), { mode: 0o600 })
     args.push('--host-result', file)
   }
+  if (options.routeOverrides) {
+    if (!options.resume || !definitionEngine) throw new Error('Route overrides apply to resuming a workflow definition run')
+    if (options.answer !== undefined || options.approve?.length || options.reject || options.hostResult || options.interruptId || options.invalidate?.length) throw new Error('Route overrides resume a stopped run as is; they cannot carry an answer, approval or host result')
+    // Private, per-request file beside the frozen context; Core validates and records it. The frozen files stay untouched.
+    const directory = join(dirname(options.contextPath), 'route-overrides')
+    mkdirSync(directory, { recursive: true, mode: 0o700 })
+    const file = join(directory, createHash('sha256').update(options.routeOverrides.requestId).digest('hex').slice(0, 32) + '.json')
+    writeFileSync(file, JSON.stringify(options.routeOverrides), { mode: 0o600 })
+    args.push('--route-overrides', file)
+  }
+  // A run keeps the Core it started with: one that predates Core's Electron headless
+  // guard gets it from Desktop, so app windows its verification opens stay hidden.
+  const providerEnv = coreProviderEnv(options.env)
+  const headlessGuard = resolveRunHeadlessGuard({ env: providerEnv, runCli: args[0], runtimeDirectory: dirname(options.contextPath), currentCli: findCoreAgentRuntimeCli })
+  const coreEnv = headlessGuard.source === 'desktop' ? withElectronHeadlessGuard(providerEnv, headlessGuard.path) : providerEnv
+  const guardLine = headlessGuardLogLine(headlessGuard)
+  if (guardLine) { try { options.onLine?.(guardLine) } catch { /* Advisory log observer. */ } }
   const started = Date.now()
   writeRuntimeHistory(options.contextPath, { status: 'running' })
   return new Promise<AiStepResult>((resolve) => {
@@ -359,10 +409,13 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     let stderr = '', summary = '', invalidProtocol = false, timedOut = false
     const stepFailures = new Map<string, string>()
     let timer: ReturnType<typeof setTimeout> | undefined
+    // Own process group: a signal aimed at Desktop's group (Ctrl-C, a dev restart) must not
+    // reach Core, which treats it as "cancel the run". Desktop stops it by tree-kill only.
     const child = spawn(resolveCoreNodeRuntime(), args, {
-      cwd: options.cwd, env: windowsSpawnEnv(coreProviderEnv(options.env)), shell: false, windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: options.cwd, env: windowsSpawnEnv(coreEnv), shell: false, windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'], ...coreChildSpawnOptions(),
     })
+    trackCoreChild(child, 'runtime', `${args[0]} ${args[1]}`)
     // Always leave a terminal result, including synchronous observer failures.
     let observerError: string | undefined
     try { options.onSpawn?.(child) } catch (error) {
@@ -387,6 +440,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (repositories.length) event.repositories = repositories.map(repo => ({ id: repo.id, name: repo.name || repo.id }))
       }
       if (definitionEngine && ((typeof event.runId === 'string' && event.runId !== admittedContext.runId) || (event.type === 'workflow-event' && (event.event as { runId?: unknown })?.runId !== admittedContext.runId))) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
+      // Core accepted a route override (routeOverrides): remember it beside the frozen context.
+      if (definitionEngine && event.type === 'workflow-event' && (event.event as { type?: unknown })?.type === 'routes_overridden') { try { recordAcceptedRouteOverride(options.contextPath, event.event) } catch { /* advisory record; Core's ledger is authoritative */ } }
       const boundary = event.type === 'workflow-event' || event.type === 'runtime-result'
       // Flush buffered output before the projection advances the current step.
       if (boundary) readableLines(readableVerification.project(event))
@@ -418,6 +473,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           ? payload.reason.trim().slice(0, 4_000).split('\n').map(line => '  ' + line.trimEnd()).join('\n') + '\n' : ''
         if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n${failReason}`))
       } else if (event.type === 'agent-event') {
+        // Contract 5.14: the account's usage-limit state, reported by the role's CLI.
+        observe(() => observeQuotaFrame(options.providerOverride?.provider ?? options.defaultProvider ?? 'claude', event))
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
         const role = typeof event.role === 'string' ? event.role : 'agent'
         if (payload?.kind === 'text' && typeof payload.text === 'string') {
@@ -499,7 +556,9 @@ interface AgentRuntimeControlBase {
   onLine?: (line: string, source?: 'stdout' | 'stderr') => void
 }
 export type AgentRuntimeControlInvocation =
-  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string })
+  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string
+    /** Core `forkRouteOverrides`: the child starts with these roles moved to another provider (`--route-overrides`). */
+    routeOverrides?: DefinitionRouteOverride })
   | (AgentRuntimeControlBase & { kind: 'cancel'; requestId: string })
   | (AgentRuntimeControlBase & { kind: 'signal'; requestId: string; text: string })
   | (AgentRuntimeControlBase & { kind: 'pause'; requestId: string; reason: string })
@@ -518,6 +577,8 @@ export interface AgentRuntimeForkResult {
   definitionPath: string
   configPath: string
   context: Record<string, unknown>
+  /** The route override Core recorded on the child (`forkRouteOverrides`), when the fork moved roles. */
+  routesOverridden?: DefinitionRouteOverride
 }
 export interface AgentRuntimeCancelResult { kind: 'cancel'; requestId: string | null; accepted: Record<string, unknown> }
 export interface AgentRuntimeSignalResult { kind: 'signal'; id: string; acceptedAt: string }
@@ -536,9 +597,25 @@ function readHostPause(value: unknown): DefinitionHostPause | undefined {
     ? { requestId: pause.requestId, reason: pause.reason, at: pause.at } : undefined
 }
 
+/** How the run's retained Core moves roles to another provider: on resume (`routeOverrides`) and on fork (`forkRouteOverrides`). */
+export interface RouteOverrideSupport { resume: boolean; fork: boolean }
+export async function retainedRuntimeRouteOverrideSupport(options: AgentRuntimeControlBase): Promise<RouteOverrideSupport> {
+  try {
+    const cli = await resolveRetainedAgentRuntime(options.contextPath)
+    const events = await runControlProcess([cli, 'api'], options)
+    const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
+    return { resume: capabilities?.routeOverrides === 1, fork: capabilities?.routeOverrides === 1 && capabilities?.forkRouteOverrides === 1 }
+  } catch { return { resume: false, fork: false } }
+}
+
+/** True when the run's retained Core moves roles to another provider on resume (`routeOverrides`). */
+export async function retainedRuntimeSupportsRouteOverrides(options: AgentRuntimeControlBase): Promise<boolean> {
+  return (await retainedRuntimeRouteOverrideSupport(options)).resume
+}
+
 /** True when the run's retained Core announces cooperative pause (`pauseRuns`). */
 export async function retainedRuntimeSupportsPause(options: AgentRuntimeControlBase): Promise<boolean> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const events = await runControlProcess([cli, 'api'], options)
   const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
   return capabilities?.pauseRuns === 1
@@ -550,7 +627,7 @@ const CONTROL_TIMEOUT_MS = 60_000
 /** Check the retained package before recording a host operation that requires
  * recoverable publication. Older forks cannot safely retry a lost receipt. */
 export async function assertRetainedForkSupport(options: AgentRuntimeControlBase): Promise<void> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const events = await runControlProcess([cli, 'api'], options)
   const api = events.find(event => event.type === 'runtime-api')
   const capabilities = api?.capabilities as Record<string, unknown> | undefined
@@ -653,7 +730,7 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'signal' }): Promise<AgentRuntimeSignalResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'pause' }): Promise<AgentRuntimePauseResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation): Promise<AgentRuntimeForkResult | AgentRuntimeCancelResult | AgentRuntimeSignalResult | AgentRuntimePauseResult> {
-  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const cli = await resolveRetainedAgentRuntime(options.contextPath)
   const admitted = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown }
   if (typeof admitted.runId !== 'string' || admitted.runId !== options.runId) throw new Error('runtime_scope_changed: Frozen context belongs to another run')
   const args = [cli, options.kind, '--context', options.contextPath]
@@ -697,6 +774,8 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
   if (options.requestId) args.push('--request-id', options.requestId)
   if (options.scopeId !== undefined) args.push('--scope-id', options.scopeId)
   if (options.visit !== undefined) args.push('--visit', String(options.visit))
+  // forkRouteOverrides: an older retained Core would reject the flag; say so before spawning the fork.
+  if (options.routeOverrides && !(await retainedRuntimeRouteOverrideSupport(options)).fork) throw new Error('engine_unsupported: Retained Core cannot move routes on a fork')
   let staged: string | undefined
   if (options.state !== undefined) {
     if (!options.state || typeof options.state !== 'object' || Array.isArray(options.state)) throw new Error('invalid_arguments: Fork state must be an object')
@@ -705,15 +784,29 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     writeFileSync(stateFile, JSON.stringify(options.state), { mode: 0o600 })
     args.push('--state', stateFile)
   }
+  if (options.routeOverrides) {
+    staged ??= mkdtempSync(join(tmpdir(), 'specrails-fork-'))
+    const routesFile = join(staged, 'route-overrides.json')
+    writeFileSync(routesFile, JSON.stringify(options.routeOverrides), { mode: 0o600 })
+    args.push('--route-overrides', routesFile)
+  }
   try {
     const events = await runControlProcess(args, options)
     const forked = events.find(event => event.type === 'runtime-forked') as { runId?: unknown; forkOf?: unknown; fromNodePath?: unknown; scopeId?: unknown; visit?: unknown; revision?: unknown; directory?: unknown } | undefined
     if (!forked || forked.runId !== options.childRunId || forked.forkOf !== options.runId || typeof forked.directory !== 'string') throw new Error('Core returned an invalid fork result')
     if (!existsSync(join(forked.directory, 'run.sqlite')) || realpathSync(dirname(forked.directory)) !== realpathSync(childRuntimeDirectory)) throw new Error('Core placed the fork outside the expected run directory')
     const frozen = materializeForkedRun(options.contextPath, options.childRunId, childContextPath)
+    // The child replays the overrides its source accepted before the cut, then the one this fork carried:
+    // record both beside its frozen context (advisory; Core's ledger is authoritative).
+    const accepted = (forked as { routesOverridden?: unknown }).routesOverridden
+    try {
+      for (const inherited of acceptedRouteOverrides(options.contextPath)) recordAcceptedRouteOverride(childContextPath, inherited)
+      if (options.routeOverrides && accepted && typeof accepted === 'object') recordAcceptedRouteOverride(childContextPath, accepted)
+    } catch { /* advisory record */ }
     return { kind: 'fork', runId: options.childRunId, forkOf: options.runId, fromNodePath: options.fromNodePath,
       scopeId: typeof forked.scopeId === 'string' ? forked.scopeId : null, visit: typeof forked.visit === 'number' ? forked.visit : null,
-      revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen }
+      revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen,
+      ...(options.routeOverrides && accepted && typeof accepted === 'object' ? { routesOverridden: accepted as DefinitionRouteOverride } : {}) }
   } finally {
     // Core owns publication/cleanup. A lost acknowledgement or host-file error
     // must preserve a published child for the same idempotent request to retry.

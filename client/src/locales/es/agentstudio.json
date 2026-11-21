@@ -177,7 +177,7 @@
       "blurb": "Accesibilidad, espaciado, estados vacíos, gestión de errores."
     },
     "api-designer": {
-      "label": "Diseñador de APIs",
+      "label": "Diseñador de aPIs",
       "blurb": "Versionado, paginación, formatos de error, retrocompatibilidad."
     },
     "database-architect": {
@@ -229,7 +229,7 @@
       "blurb": "Dashboards de un vistazo, ejes honestos, una acción por gráfico."
     },
     "iac-reviewer": {
-      "label": "Revisor de IaC / cloud",
+      "label": "Revisor de iaC / cloud",
       "blurb": "Terraform / CloudFormation: IAM, exposición pública, costes."
     },
     "compliance-reviewer": {
@@ -241,7 +241,7 @@
       "blurb": "STRIDE / LINDDUN sobre diagramas de arquitectura."
     },
     "product-manager": {
-      "label": "Product Manager",
+      "label": "Product manager",
       "blurb": "Encuadre de problemas, PRDs, priorización."
     },
     "ux-researcher": {

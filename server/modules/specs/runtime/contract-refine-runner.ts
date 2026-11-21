@@ -35,8 +35,8 @@ import {
 import { ensureExploreCwd } from '../../conversations/runtime/explore-cwd-manager'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
-import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
-import { resolveProjectExecution } from '../../../workspace-resolution'
+import { mutateStore, readStore, type Ticket, type TicketStore } from './ticket-store'
+import { resolveProjectExecution, resolveProjectTicketsPath } from '../../../workspace-resolution'
 import { captureProcessAdmission } from '../../../process-admission'
 import { trackTransientChild } from '../../../transient-children'
 
@@ -50,8 +50,7 @@ const CLAUDE_MISSING_SESSION_DIAGNOSTIC = 'No conversation found with session ID
  * custom-storagePath behaviour for existing repos).
  */
 function resolveContractTicketsPath(projectPath: string): string {
-  const exec = resolveProjectExecution({ path: projectPath })
-  return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(projectPath)
+  return resolveProjectTicketsPath({ path: projectPath })
 }
 
 export type RefineFailureReason =

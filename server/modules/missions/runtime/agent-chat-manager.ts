@@ -1,3 +1,4 @@
+import { logRejection } from '../../../util/log-rejection'
 import type { ChildProcess, SpawnOptions as NodeSpawnOptions } from 'child_process'
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
@@ -26,17 +27,20 @@ import { recordAgentInvocation, type AgentInvocationStatus, type AgentInvocation
 import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
-import { buildOperatorSystemPrompt } from './agent-operator-prompt'
+import { buildOperatorSystemPrompt, providerLoadsOperatorCore } from './agent-operator-prompt'
 import { missionReadOnlyGap, missionSpawnPolicy } from './mission-tool-policy'
 import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { resolveExternalEntries } from '../../../external-mcp'
+import type { MissionConnectors } from './mission-connectors-discovery'
+import { writeClaudeConnectorDenyFile, writeGeminiExcluded } from './mission-connectors-discovery'
+import { installPolicyHookIn, parsePolicyDenial } from '../../agent-policy'
+import { codexDisableOverrides } from './mission-connectors'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from '../../../mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
 import {
-  buildAgentHistoryBlock,
   buildAgentProjectContextBlock,
   buildResolvedAgentContextBlock,
   type AgentContextReference,
@@ -50,8 +54,16 @@ import {
   findAgentSystemMessages,
   deleteAgentMessagesByIds,
   updateAgentMessageContent,
+  setAgentConversationContextUsage,
   type AgentConversation,
 } from '../../agents/runtime/agent-store'
+import { claudeContextUsage, claudeContextUsageFromTranscript, coreContextUsage, codexContextUsageFromRollout, type ContextUsageSnapshot } from './mission-context-usage'
+import { readCodexRolloutTail } from './codex-rollout-reader'
+import { readClaudeTranscriptTail } from './claude-transcript-reader'
+import { classifyProviderLimit } from '../../../provider-limit'
+import { resolveResetText } from '../../provider-quota/domain'
+import { quotaResumeAt, quotaView, reportProviderRefusal, scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
+import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
 import type { PrDecisionCardEnvelope } from '../../../types'
 import { generateAutoTitle } from '../../conversations/runtime/explore-draft-title'
 import {
@@ -69,11 +81,13 @@ import {
 } from './agent-input-store'
 import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteering } from './agent-steering'
 import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
-import { recordToolCall, type AgentAuditRecorder } from '../../audit'
+import { recordPolicyDenial, recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
+import { buildSessionSeedBlock, SESSION_SUMMARY_KIND, SessionRenewalError, type SessionSummaryResult, type SessionSummaryRow } from './mission-session-summary'
 import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -120,6 +134,12 @@ interface QueuedTurn {
   nativeSubmitted?: boolean
 }
 
+/** Observes mission turns starting and settling (restart continuity). Must not throw or block. */
+export interface TurnLifecycleObserver {
+  started(conversationId: string): void
+  settled(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void
+}
+
 /** A projection rebuild was requested while a turn is running. */
 export class SessionRebuildBusyError extends Error {}
 
@@ -162,10 +182,23 @@ export class AgentChatManager {
   private readonly _auxReaders = new Map<ChildProcess, ReturnType<typeof createInterface>>()
   private readonly _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
   private readonly _turnStartedAt = new Map<string, string>()
+  /** Session summaries being written ("Start fresh with a summary"); Stop and shutdown abort them. */
+  private readonly _summaryAborts = new Map<string, AbortController>()
   private _turnSnapshotVersion = 0
+  /** Per-mission measurement generation: a late Codex rollout read never overwrites a newer snapshot or a reset. */
+  private readonly _contextUsageVersion = new Map<string, number>()
+  private _codexRolloutReader: (sessionId: string) => Promise<string | null> = (sessionId) => readCodexRolloutTail(sessionId)
+  /** "Connectors in missions" (app-wide); null = every provider connector is inherited. */
+  private _connectors: Pick<MissionConnectors, 'planForCached'> | null = null
+  /** Claude transcript paths found per provider session (bounded by this manager's missions). */
+  private readonly _claudeTranscriptPaths = new Map<string, string>()
+  private _claudeTranscriptReader: (sessionId: string, cwd: string | null) => Promise<string | null> =
+    (sessionId, cwd) => readClaudeTranscriptTail(sessionId, cwd, { cache: this._claudeTranscriptPaths })
   /** Permanent lifecycle gate: the app DB may be closed immediately after
    * shutdown, so no delayed turn/title/card callback may touch it afterwards. */
   private _disposed = false
+  /** provider-quota: missions the person asked to continue at a usage-limit reset. */
+  private readonly _limitContinues = new Map<string, { cancel(): void }>()
   private _resolveDisposed!: () => void
   private readonly _disposedSignal = new Promise<void>((resolve) => {
     this._resolveDisposed = resolve
@@ -188,9 +221,117 @@ export class AgentChatManager {
     this._coreSessions = coreSessions
   }
 
+  /** Composition-time wiring of "Connectors in missions". */
+  setConnectors(connectors: Pick<MissionConnectors, 'planForCached'> | null): void {
+    this._connectors = connectors
+  }
+
+  /**
+   * Provider-native switches for the turned-off connectors of a mission turn
+   * in the app-owned cwd: Claude's deny file (read at process start through
+   * `--setting-sources project,local`) and, on legacy turns, Codex `-c`
+   * disables / Gemini `mcp.excluded`. Intent turns run in a project worktree,
+   * which Specrails never writes into, so only their Core policy applies.
+   * Returns extra legacy argv. Never throws: a failure keeps the provider default.
+   */
+  private applyConnectorSwitches(adapterId: string, cwd: string, reserved: readonly string[], legacy: boolean): string[] {
+    // Synchronous: nothing may sit between a turn's start and its spawn.
+    if (!this._connectors) return []
+    try {
+      const plan = this._connectors.planForCached(adapterId, { reserved })
+      if (adapterId === 'claude') writeClaudeConnectorDenyFile(cwd, plan.denied)
+      if (!legacy) return []
+      if (adapterId === 'codex') return codexDisableOverrides(plan.denied)
+      if (adapterId === 'gemini') {
+        const file = getAdapter(adapterId).projectMcpPath?.(cwd)
+        if (file) writeGeminiExcluded(file, plan.denied)
+      }
+    } catch (error) {
+      console.warn(`[agent-chat] connectors in missions not applied for ${adapterId}: ${(error as Error).message}`)
+    }
+    return []
+  }
+
   /** Composition-time wiring of the agent actions audit (per pinned project). */
   setAgentAudit(resolve: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null): void {
     this._agentAudit = resolve
+  }
+
+  /** Test seam: where Codex session rollouts are read from (default: $CODEX_HOME/sessions). */
+  setCodexRolloutReader(reader: (sessionId: string) => Promise<string | null>): void {
+    this._codexRolloutReader = reader
+  }
+
+  /** Test seam: where Claude Code session transcripts are read from (default: $CLAUDE_CONFIG_DIR/projects). */
+  setClaudeTranscriptReader(reader: (sessionId: string, cwd: string | null) => Promise<string | null>): void {
+    this._claudeTranscriptReader = reader
+  }
+
+  /** Persist the mission's context snapshot and announce it when it changed. Never throws into a turn. */
+  private _storeContextUsage(conversationId: string, snapshot: ContextUsageSnapshot | null): void {
+    if (this._disposed) return
+    try {
+      if (!setAgentConversationContextUsage(this._db, conversationId, snapshot)) return
+      this._broadcast({ type: 'agent_context_usage', conversationId, contextUsage: snapshot, timestamp: new Date().toISOString() })
+    } catch (err) {
+      console.warn(`[agent-chat] context usage not saved (${conversationId}):`, err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  private _nextContextUsageVersion(conversationId: string): number {
+    const version = (this._contextUsageVersion.get(conversationId) ?? 0) + 1
+    this._contextUsageVersion.set(conversationId, version)
+    return version
+  }
+
+  /**
+   * Measure how full the provider session's context is after a settled turn
+   * (mission-context-usage.ts): Claude from the turn's own frames, Codex from
+   * its session rollout. Other providers (and turns without data) store null,
+   * which hides the indicator rather than showing a stale value.
+   */
+  private _measureContextUsage(conversationId: string, adapter: ProviderAdapter, model: string, outcome: { events: readonly AdapterEvent[]; sessionId: string | null; cwd?: string | null }): void {
+    const version = this._nextContextUsageVersion(conversationId)
+    // Core's own measurement first (Core session turns): exact, and no file read.
+    const previous = getAgentConversation(this._db, conversationId)?.contextUsage
+    const fromCore = coreContextUsage(outcome.events, { provider: adapter.id, configuredModel: model, knownWindow: previous?.provider === adapter.id ? previous.windowTokens : null })
+    if (fromCore) {
+      this._storeContextUsage(conversationId, fromCore)
+      return
+    }
+    if (adapter.id === 'claude') {
+      const fromFrames = claudeContextUsage(outcome.events, { provider: adapter.id, configuredModel: model })
+      if (fromFrames || !outcome.sessionId) {
+        this._storeContextUsage(conversationId, fromFrames)
+        return
+      }
+      // Core session turns carry no provider frames: read the session transcript.
+      // Its window is the last one this mission measured from a stream-json turn.
+      const knownWindow = previous?.provider === adapter.id ? previous.windowTokens : null
+      void this._claudeTranscriptReader(outcome.sessionId, outcome.cwd ?? null)
+        .catch(() => null)
+        .then((tail) => {
+          if (this._disposed || this._contextUsageVersion.get(conversationId) !== version) return
+          this._storeContextUsage(conversationId, tail ? claudeContextUsageFromTranscript(tail, { provider: adapter.id, configuredModel: model, knownWindow }) : null)
+        })
+      return
+    }
+    if (adapter.id === 'codex' && outcome.sessionId) {
+      void this._codexRolloutReader(outcome.sessionId)
+        .catch(() => null)
+        .then((tail) => {
+          if (this._disposed || this._contextUsageVersion.get(conversationId) !== version) return
+          this._storeContextUsage(conversationId, tail ? codexContextUsageFromRollout(tail, { provider: adapter.id, configuredModel: model }) : null)
+        })
+      return
+    }
+    this._storeContextUsage(conversationId, null)
+  }
+
+  /** A provider session reset: its context is gone, so is the snapshot. */
+  private _clearContextUsage(conversationId: string): void {
+    this._nextContextUsageVersion(conversationId)
+    this._storeContextUsage(conversationId, null)
   }
 
   /** Composition-time wiring of Intent mode (the Intent module binds the port). */
@@ -447,17 +588,31 @@ export class AgentChatManager {
     this._broadcast({ type: 'agent_conversation_created', conversationId, timestamp: new Date().toISOString() })
   }
 
+  /** Spend recorded outside a turn (a side question) refreshes the project's dashboards. */
+  notifySpendingInvalidated(projectId: string): void {
+    this._broadcast({ type: 'spending.invalidated', projectId })
+  }
+
+  /** Composition-time wiring of restart continuity (durable per-turn markers, modules/continuity). */
+  setTurnLifecycleObserver(observer: TurnLifecycleObserver | null): void {
+    this._lifecycleObserver = observer
+  }
+
+  private _lifecycleObserver: TurnLifecycleObserver | null = null
+
   private _startLifecycle(conversationId: string): void {
     const startedAt = new Date().toISOString()
     this._turnStartedAt.set(conversationId, startedAt)
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state: 'active', startedAt }))
+    try { this._lifecycleObserver?.started(conversationId) } catch { /* continuity is best-effort */ }
   }
 
   private _settleLifecycle(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void {
     if (!this._turnStartedAt.delete(conversationId)) return
     this._turnSnapshotVersion += 1
     console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state, settledAt: new Date().toISOString() }))
+    try { this._lifecycleObserver?.settled(conversationId, state) } catch { /* continuity is best-effort */ }
   }
 
   /**
@@ -520,49 +675,118 @@ export class AgentChatManager {
     try {
       await this._runTurnSafely(conversation, userText, options)
       this._abortedTurns.delete(conversationId)
-      // Drain messages queued while we were running. Each drained turn re-reads
-      // the conversation row so a mid-flight tier/provider/model change applies.
-      for (;;) {
-        if (this._disposed) break
-        const pending = this._queue.get(conversationId)
-        const next = pending?.shift()
-        if (!next) break
-        if (pending && pending.length === 0) this._queue.delete(conversationId)
-        const conv = getAgentConversation(this._db, conversationId)
-        if (!conv) break // deleted mid-drain (abort() already cleared the queue)
-        if (this._disposed) break
-        // Receipt/persistence failure after a native write is not a license to
-        // execute the same correction a second time in another turn.
-        if (next.nativeSubmitted) {
-          const interrupted = interruptAgentInput(this._db, conversationId, next.queueId)
-          if (interrupted) this._broadcast({
-            type: 'agent_steered', conversationId, queueId: next.queueId,
-            messageId: interrupted.id, text: interrupted.content,
-            contextRefs: next.options.contextRefs, attachmentIds: interrupted.attachment_ids,
-            deliveryStatus: 'interrupted', timestamp: interrupted.created_at,
-          })
-          continue
-        }
-        const message = deliverAgentInput(this._db, conversationId, next.queueId, 'sent')
-        if (!message) continue
-        this._broadcast({
-          type: 'agent_dequeued',
-          conversationId,
-          queueId: next.queueId,
-          text: next.text,
-          contextRefs: next.options.contextRefs ?? [],
-          attachmentIds: next.options.attachmentIds ?? [],
-          messageId: message.id,
-          deliveryReceipt: message.delivery_receipt,
-          timestamp: new Date().toISOString(),
-        })
-        await this._runTurnSafely(conv, next.text, next.options)
-        this._abortedTurns.delete(conversationId)
-      }
+      await this._drainQueuedTurns(conversationId)
     } finally {
       this._reserved.delete(conversationId)
       this._abortedTurns.delete(conversationId)
       this._streamingText.delete(conversationId)
+    }
+  }
+
+  /** Drain messages queued while the conversation was reserved (a turn, a session renewal).
+   *  Each drained turn re-reads the conversation row so a mid-flight tier/provider/model change applies. */
+  private async _drainQueuedTurns(conversationId: string): Promise<void> {
+    for (;;) {
+      if (this._disposed) break
+      const pending = this._queue.get(conversationId)
+      const next = pending?.shift()
+      if (!next) break
+      if (pending && pending.length === 0) this._queue.delete(conversationId)
+      const conv = getAgentConversation(this._db, conversationId)
+      if (!conv) break // deleted mid-drain (abort() already cleared the queue)
+      if (this._disposed) break
+      // Receipt/persistence failure after a native write is not a license to
+      // execute the same correction a second time in another turn.
+      if (next.nativeSubmitted) {
+        const interrupted = interruptAgentInput(this._db, conversationId, next.queueId)
+        if (interrupted) this._broadcast({
+          type: 'agent_steered', conversationId, queueId: next.queueId,
+          messageId: interrupted.id, text: interrupted.content,
+          contextRefs: next.options.contextRefs, attachmentIds: interrupted.attachment_ids,
+          deliveryStatus: 'interrupted', timestamp: interrupted.created_at,
+        })
+        continue
+      }
+      const message = deliverAgentInput(this._db, conversationId, next.queueId, 'sent')
+      if (!message) continue
+      this._broadcast({
+        type: 'agent_dequeued',
+        conversationId,
+        queueId: next.queueId,
+        text: next.text,
+        contextRefs: next.options.contextRefs ?? [],
+        attachmentIds: next.options.attachmentIds ?? [],
+        messageId: message.id,
+        deliveryReceipt: message.delivery_receipt,
+        timestamp: new Date().toISOString(),
+      })
+      await this._runTurnSafely(conv, next.text, next.options)
+      this._abortedTurns.delete(conversationId)
+    }
+  }
+
+  /**
+   * "Start fresh with a summary": write a summary of the mission so far, store
+   * it as a `session-summary` system row (the marker in the transcript), clear
+   * the provider session and its context snapshot, and move a Core mission to
+   * its next generation. The next turn opens a new provider session seeded with
+   * the summary (buildSessionSeedBlock). The conversation is reserved while the
+   * summary is written: input sent meanwhile queues and runs afterwards in the
+   * new session. Nothing changes when the summary fails.
+   */
+  async renewSessionWithSummary(
+    conversationId: string,
+    summarize: (conversation: AgentConversation, signal: AbortSignal) => Promise<SessionSummaryResult>,
+  ): Promise<{ messageId: string; row: SessionSummaryRow }> {
+    if (this._disposed) throw new SessionRenewalError(503, 'SHUTTING_DOWN', 'Specrails is shutting down.')
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || conversation.deleted_at) throw new SessionRenewalError(404, 'NOT_FOUND', 'Unknown conversation')
+    if (conversation.archivedAt) throw new SessionRenewalError(409, 'MISSION_ARCHIVED', 'Restore this archived mission before starting a new session.')
+    if (this.isBusy(conversationId)) throw new SessionRenewalError(409, 'MISSION_BUSY', 'Wait for the current turn to finish before starting a new session.')
+    // An Intent owns its own Core session in the worktree; its context is not the mission's.
+    if (this._flowTurn(conversationId)) throw new SessionRenewalError(409, 'MISSION_IN_INTENT', 'This mission is in Intent, which runs in its own session. Leave Intent before starting a new session.')
+    this._reserved.add(conversationId)
+    const controller = new AbortController()
+    this._summaryAborts.set(conversationId, controller)
+    try {
+      const outcome = await this._awaitWhileLive(summarize(conversation, controller.signal))
+      if (outcome.disposed) throw new SessionRenewalError(503, 'SHUTTING_DOWN', 'Specrails is shutting down.')
+      if (controller.signal.aborted || this._abortedTurns.has(conversationId)) throw new SessionRenewalError(409, 'RENEWAL_CANCELLED', 'The new session was cancelled.')
+      const fresh = getAgentConversation(this._db, conversationId)
+      if (!fresh || fresh.deleted_at) throw new SessionRenewalError(404, 'NOT_FOUND', 'Unknown conversation')
+      const result = outcome.value
+      const row: SessionSummaryRow = {
+        kind: SESSION_SUMMARY_KIND,
+        summary: result.summary,
+        provider: result.provider,
+        model: result.model,
+        includedMessages: result.includedMessages,
+        totalMessages: result.totalMessages,
+        at: new Date().toISOString(),
+      }
+      const messageId = this.postSystemRow(conversationId, { ...row }, `${SESSION_SUMMARY_KIND}:${randomUUID()}`)
+      if (!messageId) throw new SessionRenewalError(500, 'NOT_SAVED', 'The summary could not be saved; the session was not renewed.')
+      // Same reset as a failed or stale session: the next turn starts fresh.
+      updateAgentConversation(this._db, conversationId, { session_id: null })
+      this._clearContextUsage(conversationId)
+      if (this._coreSessions) {
+        try { await this._coreSessions.renewMissionSessionIfOpened(fresh, 'session_summary') }
+        catch (error) { console.warn(`[agent-chat] Core session renewal failed (${conversationId}):`, error) }
+      }
+      console.log(`[agent-chat] mission ${conversationId} renewed its provider session with a summary (${row.summary.length} chars)`)
+      return { messageId, row }
+    } finally {
+      this._summaryAborts.delete(conversationId)
+      this._abortedTurns.delete(conversationId)
+      if (!this._disposed && this._queue.get(conversationId)?.length) {
+        void this._drainQueuedTurns(conversationId).finally(() => {
+          this._reserved.delete(conversationId)
+          this._abortedTurns.delete(conversationId)
+          this._streamingText.delete(conversationId)
+        }).catch(logRejection('mission queued turn drain'))
+      } else {
+        this._reserved.delete(conversationId)
+      }
     }
   }
 
@@ -672,7 +896,9 @@ export class AgentChatManager {
     // (DELETE aborts the child and drops the row) — inserting would violate the FK.
     if (!getAgentConversation(this._db, conversationId)) return
     const currentMessageId = options.queueId ? getAgentInput(this._db, conversationId, options.queueId)?.messageId : null
-    const historyBlock = buildAgentHistoryBlock(decorateAgentInputMessages(this._db, listAgentMessages(this._db, conversationId))
+    // A fresh session is seeded with the bounded history, or after "Start fresh
+    // with a summary" with that summary plus the messages that followed it.
+    const historyBlock = buildSessionSeedBlock(decorateAgentInputMessages(this._db, listAgentMessages(this._db, conversationId))
       .filter((message) => message.id !== currentMessageId && message.delivery_status !== 'cancelled' && message.delivery_status !== 'interrupted'))
     const message = options.queueId
       ? deliverAgentInput(this._db, conversationId, options.queueId, 'sent')
@@ -718,12 +944,12 @@ export class AgentChatManager {
       registry: this._registry,
       fallbackProjectId: conversation.pinned_project_id,
     })
-    const inputReceiptNote = options.queueId
-      ? `[Mission input ID: ${JSON.stringify(options.queueId)}. After reading this message, confirm receipt with specrails_mission(action:"acknowledge_inputs", inputIds:[this exact ID]). This records reading, not completion of the requested work.]\n\n`
-      : ''
+    // The turn's own input needs no agent acknowledgement: the server marks it
+    // read once the provider produces output for it (see `turnInputRead`), so
+    // the prefix carries no receipt instruction (one model request less per turn).
     // Back to Intent: the review the Intent agent must address rides this user turn once.
     const flowBriefing = flowTurn?.briefing ? `${flowTurn.briefing}\n\n` : ''
-    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${flowBriefing}${userWithAttachments}`
+    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${flowBriefing}${userWithAttachments}`
     const basePrompt = flowTurn ? flowTurn.systemPrompt : buildOperatorSystemPrompt()
     const systemPrompt = hasAttachments
       ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
@@ -733,7 +959,16 @@ export class AgentChatManager {
       // session journals the rest); a mission turn includes it when fresh.
       const withHistory = flowTurn ? !this._briefedFlowSessions.has(flowTurn.coreSessionId) : !useResume
       const freshPrompt = withHistory && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
-      return adapter.capabilities.systemPromptArg ? freshPrompt : `${systemPrompt}\n\n---\n\n${freshPrompt}`
+      if (adapter.capabilities.systemPromptArg) return freshPrompt
+      // Codex, Gemini and Kimi read the operator core from their cwd
+      // instructions file once per session; repeating it in every turn would
+      // pile up in a resumed session's history. Only the attachment note rides
+      // the turn. Intent turns carry their own prompt, and local engines read
+      // no file, so those keep the folded prompt.
+      if (!flowTurn && providerLoadsOperatorCore(adapter.id)) {
+        return hasAttachments ? `${USER_ATTACHMENT_SYSTEM_NOTE}\n\n---\n\n${freshPrompt}` : freshPrompt
+      }
+      return `${systemPrompt}\n\n---\n\n${freshPrompt}`
     }
     // Only pass native image paths to providers that can vision-load them (codex
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.
@@ -741,7 +976,9 @@ export class AgentChatManager {
 
     // Native read-only boundary for legacy transports (one-shot and native live
     // sessions). Core sessions get the matching session policy instead.
-    const spawnPolicy = flowTurn ? {} : missionSpawnPolicy(adapter)
+    // "Allow sub-agents" off also removes the provider's own sub-agent tool
+    // (the same setting Core sessions receive as `policy.subagents`).
+    const spawnPolicy = flowTurn ? {} : missionSpawnPolicy(adapter, this._coreSessions?.subagentPolicy(conversation) ?? 'enabled')
     let currentCapability: string | null = null
     let currentInvocationId: string | undefined
     try {
@@ -795,19 +1032,28 @@ export class AgentChatManager {
         let mcpEnv: Record<string, string> = {}
         // Core agent sessions: a resident session presents this turn's capability
         // through structured MCP specs (no provider-specific argv).
+        const external = resolveExternalEntries(adapter.id, this._db)
+        const plugins = this._pluginMcpServers(adapter.id, conversation.pinned_project_id)
         const coreContext = this._coreSessions
-          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id), flow: flowTurn })
+          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external, plugins, flow: flowTurn })
           : null
         if (coreContext && !flowTurn) missionCoreTurn = true
+        const reservedMcp = ['specrails', ...external.map((server) => server.name), ...plugins.map((server) => server.name)]
+        // In-turn policy hook (agent-policy): Claude reads it from the app-owned
+        // cwd's local settings at process start, next to the connector deny-list.
+        // Intent turns run in their worktree, which the worktree overlay covers.
+        if (adapter.id === 'claude' && !flowTurn) installPolicyHookIn(cwd)
+        if (coreContext && !flowTurn) this.applyConnectorSwitches(adapter.id, cwd, reservedMcp, false)
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
             adapterId: adapter.id, conversationId, invocationId, cwd,
             port: this._port, capability: agentCapability,
-            external: resolveExternalEntries(adapter.id, this._db),
+            external,
             readOnly: spawnPolicy.toolPolicy === 'read-only',
           })
           mcpArgs = wiring.extraArgs
           mcpEnv = wiring.env
+          if (!flowTurn) mcpArgs.push(...this.applyConnectorSwitches(adapter.id, cwd, reservedMcp, true))
           const project = conversation.pinned_project_id ? this._registry?.getProjectRow?.(conversation.pinned_project_id) : null
           if (adapter.id === 'codex' && project) {
             const execution = resolveProjectExecution(project)
@@ -868,6 +1114,18 @@ export class AgentChatManager {
           // still surface persistence failures so the agent can retry them.
           try { if (options.queueId) recordReceipt(options.queueId, 'received') }
           catch (err) { console.warn('[agent-chat] initial input receipt could not be saved:', err instanceof Error ? err.message : String(err)) }
+        }
+        // Server-side read receipt for the turn's own input. It is the user turn
+        // itself, so the first model output (text or a tool call) — or a clean
+        // settlement — proves the provider consumed it. Mid-turn native updates
+        // still need the agent's acknowledge_inputs: output streamed after their
+        // injection may come from a request that started before it.
+        let turnInputMarkedRead = false
+        const turnInputRead = () => {
+          if (turnInputMarkedRead || !options.queueId) return
+          turnInputMarkedRead = true
+          try { recordReceipt(options.queueId, 'read') }
+          catch (err) { console.warn('[agent-chat] turn input read receipt could not be saved:', err instanceof Error ? err.message : String(err)) }
         }
         const consumeInputs = async (
           context: { revision: number; isCurrent: () => boolean },
@@ -1045,6 +1303,8 @@ export class AgentChatManager {
         for (const item of this._queue.get(conversationId) ?? []) {
           if (item.options.deliveryMode === 'steer') item.revision = notifyAgentSteering(this._db, agentCapability) ?? undefined
         }
+        // Tool calls of this turn by id, so a policy denial names what was blocked.
+        const legacyToolCalls = new Map<string, { name: string; input: unknown }>()
         const invocation = this._awaitWhileLive((nativeRunner ?? runAiCliInvocation)({
           onInitialInputAccepted: initialReceipt,
           onInputReady: (sink: LiveInputSink) => { nativeSink = sink; notifyNativeInput() },
@@ -1065,6 +1325,7 @@ export class AgentChatManager {
           },
           onEvent: (ev) => {
             if (this._disposed) return
+            if (ev.kind === 'text-delta' || ev.kind === 'tool-use') turnInputRead()
             switch (ev.kind) {
               case 'text-delta':
                 streamed += ev.text
@@ -1077,6 +1338,7 @@ export class AgentChatManager {
                 }
                 break
               case 'tool-use':
+                if (ev.toolUseId) legacyToolCalls.set(ev.toolUseId, { name: ev.name, input: ev.inputPreview })
                 // Core-session turns are audited by the session projector (full
                 // input); native provider turns are audited here from the preview.
                 if (!coreContext && this._agentAudit && conversation.pinned_project_id) {
@@ -1097,6 +1359,22 @@ export class AgentChatManager {
                 }
                 break
               case 'tool-result':
+                // A call the in-turn policy hook denied (agent-policy): audit it
+                // and show it in the mission as a system row. Core-session turns
+                // are handled by the session projector.
+                if (!coreContext && ev.isError && ev.toolUseId) {
+                  const denial = parsePolicyDenial(ev.outputPreview)
+                  if (denial) {
+                    const call = legacyToolCalls.get(ev.toolUseId) ?? null
+                    if (this._agentAudit && conversation.pinned_project_id) {
+                      try {
+                        const recorder = this._agentAudit(conversation.pinned_project_id)
+                        if (recorder) recordPolicyDenial(recorder, { runId: conversationId, role: 'mission' }, denial, call)
+                      } catch { /* audit is observing only */ }
+                    }
+                    this.postPolicyDenialRow(conversationId, { ...denial, tool: call?.name ?? 'tool', toolUseId: ev.toolUseId })
+                  }
+                }
                 // Feeds the activity-log modal's output column. Claude-only
                 // today; other adapters never emit this kind.
                 if (this._isTurnLive(conversationId)) {
@@ -1131,6 +1409,8 @@ export class AgentChatManager {
         try {
           invocationResult = await invocation
           nativeClosing = true
+          // A turn that settled cleanly without streaming output was still read.
+          if (!invocationResult.disposed && invocationResult.value.code === 0 && !invocationResult.value.spawnFailed && !capturedError) turnInputRead()
           // A receipt and turn completion can arrive in the same chunk. Finish
           // its ledger transaction before draining the next accepted turn.
           if (!invocationResult.disposed && awaitingNativeReceipt) await this._awaitWhileLive(nativeDrain)
@@ -1183,12 +1463,15 @@ export class AgentChatManager {
       // provider. Only the session id persists, and only while the row's provider
       // is still the one this turn actually ran on (a foreign session id must not
       // pollute the new provider's freshly-reset state).
-      const persistSession = (sessionId: string | null): void => {
+      const persistSession = (sessionId: string | null, measured?: { events: readonly AdapterEvent[] }): void => {
         // An Intent session turn's provider session belongs to the Intent's Core session, never the mission's.
         if (this._disposed || flowTurn) return
         const fresh = getAgentConversation(this._db, conversationId)
         if (fresh && fresh.provider === conversation.provider) {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
+          // The context snapshot follows the provider session: a reset starts a new, empty context.
+          if (!sessionId) this._clearContextUsage(conversationId)
+          else if (measured) this._measureContextUsage(conversationId, adapter, model, { events: measured.events, sessionId, cwd })
         }
       }
       const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string; events?: readonly AdapterEvent[] }): void => {
@@ -1198,7 +1481,7 @@ export class AgentChatManager {
         const attachmentIds = this._importTurnImages(conversationId, r.events ?? [])
         if ((r.text || attachmentIds.length) && getAgentConversation(this._db, conversationId)) {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
-          persistSession(r.sessionId)
+          persistSession(r.sessionId, { events: r.events ?? [] })
           this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         }
       }
@@ -1323,7 +1606,13 @@ export class AgentChatManager {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
           this._broadcast({ type: 'agent_partial', conversationId, fullText: r.text, messageId: message.id, error: reason, timestamp: timestamp() })
         }
-        this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
+        // provider-quota: a usage-limit refusal is not a broken turn. Say when the
+        // provider accepts requests again and offer to continue then or elsewhere.
+        const limit = classifyProviderLimit(reason) ?? classifyProviderLimit(r.text)
+        if (limit || quotaView(adapter.id)?.level === 'rejected') {
+          this._postUsageLimit(conversationId, adapter.id, limit?.message ?? reason, limit?.resetsAt ?? null)
+          this._emitError(conversationId, reason, { code: 'provider_limit', provider: adapter.id })
+        } else this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
         record(r, 'failed')
         return
       }
@@ -1337,7 +1626,7 @@ export class AgentChatManager {
       const attachmentIds = this._importTurnImages(conversationId, r.events)
       if (r.text || r.checkpointed || attachmentIds.length) {
         const message = r.text || attachmentIds.length ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
-        persistSession(r.sessionId)
+        persistSession(r.sessionId, r)
         // The Core turn id anchors this turn's sub-agents under the reply in every client.
         this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         record(r, 'success')
@@ -1499,6 +1788,7 @@ export class AgentChatManager {
       this._auxReaders.set(child, reader)
       reader.on('line', (line) => {
         if (this._disposed) return
+        observeQuotaLine(adapter.id, line)
         for (const ev of parseStreamEvents(adapter, line)) {
           events.push(ev)
           if (ev.kind === 'text-delta') raw += ev.text
@@ -1658,6 +1948,20 @@ export class AgentChatManager {
   }
 
   private readonly _systemTurnRuns = new Set<string>()
+
+  /**
+   * A tool call the in-turn policy hook denied: one `policy-denied` system row
+   * per blocked call (keyed by its tool-use id). NEVER throws.
+   */
+  postPolicyDenialRow(conversationId: string, denial: { rule: string; reason: string; tool: string; toolUseId: string }): void {
+    this.postSystemRow(conversationId, {
+      kind: 'policy-denied',
+      rule: denial.rule,
+      reason: denial.reason,
+      tool: denial.tool,
+      at: new Date().toISOString(),
+    }, `policy-denied:${denial.toolUseId}`)
+  }
 
   /**
    * Persist an app-authored system row once per `dedupeKey` (durable: an
@@ -1855,6 +2159,7 @@ export class AgentChatManager {
     if (this._disposed) return false
     this._clearQueue(conversationId)
     if (this.isBusy(conversationId)) this._abortedTurns.add(conversationId)
+    this._summaryAborts.get(conversationId)?.abort()
     const capability = this._steeringCapabilities.get(conversationId)
     if (capability) revokeAgentCapability(capability)
     this._steeringCapabilities.delete(conversationId)
@@ -1862,7 +2167,7 @@ export class AgentChatManager {
     const coreTurn = this._coreSessions?.handle(conversationId)
     if (coreTurn) {
       // Stop the turn inside the resident session; never kill a process by PID.
-      void coreTurn.interrupt()
+      void coreTurn.interrupt().catch(logRejection('mission core turn interrupt'))
       return true
     }
     const child = this._active.get(conversationId)
@@ -1915,7 +2220,11 @@ export class AgentChatManager {
     this._steeringCapabilities.clear()
     this._nativeInputNotifiers.clear()
     this._disposed = true
+    for (const timer of this._limitContinues.values()) timer.cancel()
+    this._limitContinues.clear()
     this._resolveDisposed()
+    for (const controller of this._summaryAborts.values()) controller.abort()
+    this._summaryAborts.clear()
     this._queue.clear()
     this._reserved.clear()
     this._abortedTurns.clear()
@@ -1939,11 +2248,70 @@ export class AgentChatManager {
   }
 
   /** `detail.code` lets clients explain known failures (e.g. `policy_unenforceable`) in the user's language. */
+  /**
+   * provider-quota: persist the usage-limit row of a mission turn (the card that
+   * offers "continue at the reset" and "continue now on another provider") and
+   * broadcast it. Missions never continue on their own: the person chooses.
+   */
+  private _postUsageLimit(conversationId: string, providerId: string, message: string, resetWords: string | null): void {
+    if (this._disposed) return
+    try {
+      reportProviderRefusal(providerId, resetWords)
+      const resumeAt = quotaResumeAt(providerId) ?? resolveResetText(resetWords, Date.now())
+      const row = { kind: 'usage-limit' as const, provider: providerId, resumeAt, message: message.slice(0, 400), at: new Date().toISOString() }
+      const stored = addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(row) })
+      this._broadcast({ type: 'agent_system_row', conversationId, messageId: stored.id, dedupeKey: `usage-limit:${stored.id}`, ...row, timestamp: row.at })
+    } catch (err) {
+      console.error(`[agent-chat] usage-limit row failed (${conversationId}):`, err)
+    }
+  }
+
+  /**
+   * The person asked a limit-stopped mission to continue by itself at the
+   * reset (or cancelled that, `at` null). Persisted so a restart keeps it;
+   * fires on the wake-aware clock (never during sleep or a dark wake) and
+   * sends one ordinary "continue" turn.
+   */
+  scheduleLimitContinue(conversationId: string, at: string | null): { at: string | null } {
+    this._limitContinues.get(conversationId)?.cancel()
+    this._limitContinues.delete(conversationId)
+    const key = `mission_limit_continue:${conversationId}`
+    if (!at || !Number.isFinite(Date.parse(at))) {
+      this._db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      this._broadcast({ type: 'agent_limit_continue', conversationId, at: null, timestamp: new Date().toISOString() })
+      return { at: null }
+    }
+    const when = new Date(at).toISOString()
+    setDesktopSetting(this._db, key, when)
+    this._limitContinues.set(conversationId, scheduleLimitResume(when, () => {
+      this._limitContinues.delete(conversationId)
+      this._db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      if (this._disposed || !getAgentConversation(this._db, conversationId)) return
+      void Promise.resolve(this.sendMessage(conversationId, LIMIT_CONTINUE_PROMPT)).catch((err: unknown) => console.error(`[agent-chat] limit continue failed (${conversationId}):`, err))
+    }))
+    this._broadcast({ type: 'agent_limit_continue', conversationId, at: when, timestamp: new Date().toISOString() })
+    return { at: when }
+  }
+
+  /** The scheduled continue of a mission, if any. */
+  limitContinueAt(conversationId: string): string | null {
+    return getDesktopSetting(this._db, `mission_limit_continue:${conversationId}`) ?? null
+  }
+
+  /** Re-arm the continues the person scheduled before a restart. */
+  restoreLimitContinues(): void {
+    const rows = this._db.prepare("SELECT key, value FROM desktop_settings WHERE key LIKE 'mission_limit_continue:%'").all() as Array<{ key: string; value: string }>
+    for (const row of rows) this.scheduleLimitContinue(row.key.slice('mission_limit_continue:'.length), row.value)
+  }
+
   private _emitError(conversationId: string, error: string, detail?: { code: string; provider: string }): void {
     if (this._disposed) return
     this._broadcast({ type: 'agent_error', conversationId, error, ...(detail ?? {}), timestamp: new Date().toISOString() })
   }
 }
+
+/** The one turn a scheduled limit continue sends (an ordinary user-visible message). */
+export const LIMIT_CONTINUE_PROMPT = 'Your usage limit has reset. Continue where you left off: check what the last turn completed before repeating any step.'
 
 const MAX_AI_TITLE_LEN = 80
 

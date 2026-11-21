@@ -16,7 +16,7 @@ import { buildHandoffModel, renderHandoff, parseHandoffFormat, parsePlanProvider
 import { registerSpecTimelineRoutes } from '../adapters/timeline-http'
 import { HANDOFF_LOCALES, handoffLabels, resolveHandoffLocale } from '../domain/handoff-labels'
 import { decodeCursor, pageTimeline, sortTimeline } from '../domain/timeline'
-import { listenOnLoopback } from '../../../loopback-test-server'
+import { listenOnLoopback } from '../../../__fixtures__/loopback-test-server'
 
 // Fake credentials: these prove the export scrubs secrets. The file is on the
 // gitleaks allowlist (.gitleaks.toml) next to the other redaction tests.

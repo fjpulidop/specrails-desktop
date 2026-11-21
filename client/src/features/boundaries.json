@@ -36,16 +36,21 @@
   },
   "background": {
     "publicEntries": [
+      "components/AppResourcesFooter.tsx",
       "components/BackgroundProcessChip.tsx",
       "components/BackgroundProcessHistoryModal.tsx",
       "components/BackgroundProcessLogsModal.tsx",
       "components/BackgroundProcessesPanel.tsx",
       "components/MissionResourcesPanel.tsx",
+      "components/RetainedWorktreesSection.tsx",
+      "components/SafetyArchivesSection.tsx",
       "context/BackgroundProcessesContext.tsx",
       "hooks/useMissionResourceHistory.ts",
       "lib/background-processes-api.ts"
     ],
     "dependencies": [
+      "delivery",
+      "diagnostics",
       "missions"
     ]
   },
@@ -74,6 +79,7 @@
       "lib/milestone-launch.ts"
     ],
     "dependencies": [
+      "inbox",
       "missions",
       "projects",
       "providers"
@@ -111,6 +117,15 @@
       "specs"
     ]
   },
+  "continuity": {
+    "publicEntries": [
+      "components/ResumeAfterRestartDialog.tsx"
+    ],
+    "dependencies": [
+      "inbox",
+      "missions"
+    ]
+  },
   "dashboard": {
     "publicEntries": [
       "pages/DashboardPage.tsx"
@@ -119,6 +134,7 @@
       "delivery",
       "integrations",
       "loops",
+      "provider-quota",
       "providers",
       "rails",
       "settings",
@@ -131,12 +147,15 @@
       "components/LoopChip.tsx",
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
+      "components/SafetyArchiveNotice.tsx",
       "components/TargetPrLaunchDialog.tsx",
       "components/TopRiskLine.tsx",
       "context/RailPrDecisionContext.tsx",
+      "lib/delivery-run-state.ts",
       "lib/pr-ci.ts",
       "lib/pr-delivery.ts",
       "lib/pr-follow-up-scope.ts",
+      "lib/safety-archives-api.ts",
       "pages/ReviewPacketPage.tsx"
     ],
     "dependencies": [
@@ -145,12 +164,22 @@
       "jobs",
       "projects",
       "rails",
+      "recovery",
       "specs"
     ]
+  },
+  "diagnostics": {
+    "publicEntries": [
+      "components/ReportProblemDialog.tsx",
+      "components/ServerRecoveryBanner.tsx",
+      "components/ServerResponsiveness.tsx"
+    ],
+    "dependencies": []
   },
   "docs": {
     "publicEntries": [
       "components/DocsDialog.tsx",
+      "components/SurfaceDocsHost.tsx",
       "pages/DocsPage.tsx"
     ],
     "dependencies": []
@@ -159,10 +188,14 @@
     "publicEntries": [
       "components/InboxButton.tsx",
       "components/InboxDialog.tsx",
-      "context/InboxContext.tsx"
+      "context/InboxContext.tsx",
+      "hooks/useInboxItemText.ts",
+      "lib/inbox-model.ts",
+      "lib/inbox-run-state.ts"
     ],
     "dependencies": [
       "integrations",
+      "provider-quota",
       "recovery"
     ]
   },
@@ -205,7 +238,9 @@
       "hooks/usePipeline.ts",
       "hooks/useRunVitals.ts",
       "lib/cancel-job.ts",
+      "lib/job-run-state.ts",
       "lib/job-time.ts",
+      "lib/log-lines.ts",
       "pages/JobDetailPage.tsx",
       "pages/JobsPage.tsx"
     ],
@@ -215,10 +250,25 @@
       "loops",
       "missions",
       "projects",
-      "providers",
+      "provider-quota",
       "recovery",
       "settings",
       "specs"
+    ]
+  },
+  "live-board": {
+    "publicEntries": [
+      "components/LiveBoardDialog.tsx",
+      "components/LiveBoardWindow.tsx",
+      "context/LiveBoardContext.tsx"
+    ],
+    "dependencies": [
+      "delivery",
+      "inbox",
+      "jobs",
+      "loops",
+      "missions",
+      "providers"
     ]
   },
   "loops": {
@@ -230,6 +280,7 @@
       "hooks/useDefinitionFork.ts",
       "lib/failed-step.ts",
       "lib/loop-run-models.ts",
+      "lib/loop-run-state.ts",
       "lib/loop-ticket-need.ts",
       "lib/loop-windows.ts",
       "lib/loops-api.ts",
@@ -263,6 +314,7 @@
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",
       "components/agent-run-failure.ts",
+      "components/mission-run-strip.ts",
       "components/run-primary.tsx",
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
@@ -273,9 +325,11 @@
       "hooks/useAgentLive.ts",
       "hooks/useAgentRefActions.ts",
       "hooks/useMissionPlaceSync.ts",
+      "hooks/useMissionReplyNotifications.ts",
       "hooks/useOpenMission.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",
+      "lib/mission-run-state.ts",
       "lib/mission-search.ts",
       "lib/mission-windows.ts"
     ],
@@ -291,6 +345,7 @@
       "jobs",
       "loops",
       "projects",
+      "provider-quota",
       "providers",
       "rails",
       "recovery",
@@ -326,6 +381,7 @@
       "components/ProjectErrorBoundary.tsx",
       "components/RepositoryScopeSelector.tsx",
       "hooks/usePrerequisites.ts",
+      "lib/onboarding-state.ts",
       "lib/project-repositories.ts",
       "types/multi-repo.ts"
     ],
@@ -333,6 +389,27 @@
       "integrations",
       "providers",
       "settings"
+    ]
+  },
+  "provider-quota": {
+    "publicEntries": [
+      "components/LaunchPreflightChips.tsx",
+      "components/MissionUsageLimitCard.tsx",
+      "components/ProviderQuotaBridge.tsx",
+      "components/ProviderSwitchSection.tsx",
+      "components/RunLimitPause.tsx",
+      "lib/format-reset.ts",
+      "lib/labels.ts",
+      "lib/limit-pause.ts",
+      "lib/types.ts",
+      "lib/usage-limit-row.ts",
+      "lib/useLaunchPreflight.ts",
+      "lib/useProviderQuota.ts"
+    ],
+    "dependencies": [
+      "loops",
+      "providers",
+      "subscription-usage"
     ]
   },
   "providers": {
@@ -370,6 +447,7 @@
       "loops",
       "missions",
       "projects",
+      "provider-quota",
       "providers",
       "settings",
       "specs"
@@ -377,11 +455,21 @@
   },
   "recovery": {
     "publicEntries": [
+      "components/FailureAnalysisPanel.tsx",
       "components/FailureDiagnosisCard.tsx",
+      "components/ResolutionOptions.tsx",
+      "components/RunLineage.tsx",
+      "components/StoppedRunCard.tsx",
+      "hooks/useAttemptChain.ts",
+      "hooks/useContinueRemedies.ts",
+      "hooks/useFailureAnalysis.ts",
       "hooks/useRunDiagnosis.ts",
-      "lib/failure-diagnosis.ts"
+      "lib/failure-diagnosis.ts",
+      "lib/resolution.ts"
     ],
-    "dependencies": []
+    "dependencies": [
+      "provider-quota"
+    ]
   },
   "settings": {
     "publicEntries": [
@@ -411,7 +499,9 @@
       "pages/SettingsPage.tsx"
     ],
     "dependencies": [
+      "background",
       "builder",
+      "diagnostics",
       "integrations",
       "jobs",
       "loops",
@@ -444,7 +534,6 @@
       "lib/spec-draft.ts",
       "lib/spec-intent.ts",
       "lib/spec-sort.ts",
-      "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
       "lib/ticket-status-moves.ts",
@@ -468,10 +557,12 @@
   "subscription-usage": {
     "publicEntries": [
       "components/SubscriptionUsageFooter.tsx",
-      "components/SubscriptionUsagePanel.tsx"
+      "components/SubscriptionUsagePanel.tsx",
+      "lib/store.ts"
     ],
     "dependencies": [
-      "builder"
+      "builder",
+      "provider-quota"
     ]
   },
   "terminals": {

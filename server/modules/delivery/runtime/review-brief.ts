@@ -108,7 +108,9 @@ export function normalizeReviewBrief(value: unknown): { brief: DeliveryReviewBri
     if (!whatToLookAt || !REVIEW_RISK_SEVERITIES.includes(item.severity as ReviewRiskSeverity)) return null
     return { severity: item.severity as ReviewRiskSeverity, area: text(item.area, 40), whatToLookAt, ref: text(item.ref) }
   }, counter)
-  const humanChecks = list(value.humanChecks, (item) => text(item), counter)
+  // A check that asks the person to run `git status` / `git diff` is not a person's check: the change
+  // set already answers which files changed (a read-only reviewer that could not run git said so).
+  const humanChecks = list(value.humanChecks, (item) => { const check = text(item); return check && !GIT_STATE_CHECK.test(check) ? check : null }, counter)
   const divergences = list(value.divergences, (item) => {
     if (!isRecord(item)) return null
     const capability = text(item.capability), requirement = text(item.requirement), observed = text(item.observed)
@@ -119,6 +121,9 @@ export function normalizeReviewBrief(value: unknown): { brief: DeliveryReviewBri
     dropped: counter.dropped,
   }
 }
+
+/** A human check that only asks the person to read the checkout's git state. */
+export const GIT_STATE_CHECK = /\bgit\s+(?:-C\s+\S+\s+)?(?:status|diff|ls-files)\b/i
 
 /** Stable severity order: high, medium, low; original order within a severity. */
 export function sortRisks<T extends { severity: ReviewRiskSeverity }>(risks: readonly T[]): T[] {

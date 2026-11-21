@@ -6,6 +6,8 @@ import { RuntimeSteering } from './RuntimeSteering'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/button'
+import { RunQuestionCard } from '../../../components/run-question/RunQuestionCard'
+import { plainRunQuestion, readRunQuestion } from '../../../components/run-question/run-question'
 import { AgentRuntimeMetrics } from './AgentRuntimeMetrics'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 
@@ -17,7 +19,7 @@ import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
  */
 export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false }: { projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean }) {
   const { t } = useTranslation('agentRuntime')
-  const { runs, error, busy, answers, setAnswer, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
+  const { runs, error, busy, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
 
   if (contextual && !runs.length && !error) return null
   return <section className="space-y-3 border-t border-border p-3" aria-label={t(contextual ? 'runs.implementation' : 'runs.title')} onClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
@@ -39,17 +41,14 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
       {run.status !== 'expired' && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
       <RuntimeSteering projectId={projectId} run={run} onAccepted={refresh} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
-      {run.pendingQuestion && <div className="space-y-2">
-        <p className="text-label">{t('runs.question')}</p>
-        <p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p>
-        {run.canResume && !run.recoverableSteps.length && <label className="block space-y-1 text-xs">{t('runs.answerLabel')}
-          <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswer(run.runId, event.target.value)} />
-        </label>}
-      </div>}
+      {run.pendingQuestion && (run.canResume && !run.recoverableSteps.length
+        // The same question card as every other surface, answered here.
+        ? <RunQuestionCard question={readRunQuestion(run.question) ?? plainRunQuestion(run.pendingQuestion.question, run.engineVersion === 2 ? run.pendingQuestion.stepId : '')} projectId={projectId} runId={run.runId} engine={run.engineVersion === 2 ? 2 : 1} density="compact" onAnswered={refresh} />
+        : <div className="space-y-1"><p className="text-label">{t('runs.question')}</p><p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p></div>)}
       <div className="flex flex-wrap gap-2">
         {!jobId && <Link className="inline-flex items-center rounded-md border border-border px-3 py-1 text-xs hover:bg-muted" to={`/jobs/${encodeURIComponent(run.runId)}`} onClick={onViewLog}>{t('runs.viewLog')}</Link>}
         {run.canResume && run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy !== null} onRecover={attempts => void act(run, 'recover', attempts)} /> : run.canResume && (run.pendingQuestion && !run.recoverableSteps.length
-          ? <Button size="sm" disabled={busy !== null || !answers[run.runId]?.trim()} onClick={() => void act(run, 'answer')}>{t('runs.answer')}</Button>
+          ? null
           : <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>)}
         {run.canSettle && <Button size="sm" disabled={busy !== null} onClick={() => void act(run, 'settle')}>{t('runs.prepareDelivery')}</Button>}
         {run.canCancel && <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => void act(run, 'cancel')}>{t('runs.cancel')}</Button>}

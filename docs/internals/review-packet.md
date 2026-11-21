@@ -128,7 +128,7 @@ holds no optimistic state; a raced answer surfaces the neutral
 
 "Ask for changes" is a sentence, not a new commission.
 
-**The launch door.** `prDeliveryRevisionAllowed` (`rails-router.ts`) is the ONE
+**The launch door.** `prDeliveryRevisionAllowed` (`rail-delivery-revision.ts`) is the ONE
 exemption to the pending-decision 409, and it is deliberately strict: the launch
 must name the rail's ACTIVE generation, that generation must be non-terminal, and
 the rail must still cover its exact ticket set. Anything else keeps the existing
@@ -214,6 +214,16 @@ two surfaces disagree about what the same person had chosen. With
 `VITE_FEATURE_NARRATED_PROGRESS=false` both surfaces render byte-identically to
 their pre-change behaviour, with no toggle at all.
 
+## Merge preview
+
+The Overview shows a **Merge preview** card right after "What to look at":
+conflicts with the base as it stands now, the sibling
+deliveries this one collides with, how far the base moved since the branch was
+cut, or that the change already landed. It reads `GET /rails/merge-preview`
+(one shared request per project, also used by the delivery strips) and is
+absent until the first preview arrives. Computation, caching and refresh are
+described in the [delivery README](../../server/modules/delivery/README.md#merge-preview).
+
 ## Changes tab (in-app diff review)
 
 The packet has two tabs, **Overview** (everything above) and **Changes**
@@ -222,7 +232,7 @@ reviewer flag where?" without leaving the app. It is read-only and agent-directe
 there are no person-to-person threads; human review stays on GitHub.
 
 **Server** (`server/modules/delivery/runtime/delivery-changes.ts`, routes in
-`rails-router.ts`, endpoints in the [API reference](api-reference.md)):
+`rails-review-http.ts`, endpoints in the [API reference](api-reference.md)):
 
 - Source: the delivery head (settled `delivery_sha`, else the assembled branch;
   per-unit `finalSha`/branch when there is none) against its **merge-base** with

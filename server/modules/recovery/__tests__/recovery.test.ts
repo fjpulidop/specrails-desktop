@@ -13,6 +13,10 @@ describe('parseCoreFailure', () => {
   })
   it('keeps the reset hint only for provider limits', () => {
     expect(parseCoreFailure({ kind: 'provider_limit', resetAt: '3am', confidence: 'high' })?.resetAt).toBe('3am')
+    // Core 5.14: the typed reset instant rides along; anything else is dropped.
+    expect(parseCoreFailure({ kind: 'provider_limit', resetsAt: '2026-11-18T14:00:00Z', confidence: 'high' })?.resetsAt).toBe('2026-11-18T14:00:00.000Z')
+    expect(parseCoreFailure({ kind: 'provider_limit', resetsAt: 'soon', confidence: 'high' })?.resetsAt).toBeNull()
+    expect(parseCoreFailure({ kind: 'tests_failed', resetsAt: '2026-11-18T14:00:00Z', confidence: 'high' })).not.toHaveProperty('resetsAt')
     expect(parseCoreFailure({ kind: 'crash', resetAt: '3am', confidence: 'high' })?.resetAt).toBeNull()
   })
   it('never presents a low-confidence or newer-than-known kind as a cause', () => {
@@ -56,6 +60,12 @@ describe('deriveFailureDiagnosis', () => {
     expect(parseStoredDiagnosis(serializeDiagnosis(diagnosis))?.blocker).toEqual(diagnosis.blocker)
     expect(parseBlocker({ reason: 'x' })).toBeNull()
   })
+  it('keeps the machine-wide install the run asked the person for (Core machineInstalls), one line only', () => {
+    const base = { kind: 'toolchain', reason: 'terraform is missing', command: 'terraform', args: ['validate'], cwd: '.', requiredAction: 'Run `brew install terraform` yourself' }
+    expect(parseBlocker({ ...base, install: 'brew install terraform' })).toMatchObject({ install: 'brew install terraform' })
+    expect(parseBlocker({ ...base, install: 'brew install x\nrm -rf /' })).not.toHaveProperty('install')
+    expect(parseBlocker(base)).not.toHaveProperty('install')
+  })
   it('says unknown, with low confidence, when nothing certain matches', () => {
     expect(deriveFailureDiagnosis({ outcome: 'failed', errorText: 'tests failed somewhere probably', stepId: 's1' }))
       .toEqual({ kind: 'unknown', confidence: 'low', phase: 's1', rounds: null, resetAt: null, detail: 'tests failed somewhere probably', resumablePhase: null, blocker: null, source: 'desktop' })
@@ -66,19 +76,19 @@ describe('rankRemedies', () => {
   const rank = (kind: (typeof FAILURE_KINDS)[number], extra: { resumablePhase?: string | null; confidence?: 'high' | 'low' } = {}) =>
     rankRemedies({ kind, confidence: extra.confidence ?? 'high', resumablePhase: extra.resumablePhase ?? null })
   it('orders remedies by cause', () => {
-    expect(rank('tests_failed', { resumablePhase: 'fixer' })).toEqual(['resume', 'edit-spec', 'open-logs', 'retry'])
+    expect(rank('tests_failed', { resumablePhase: 'fixer' })).toEqual(['continue', 'edit-spec', 'open-logs', 'retry'])
     expect(rank('tests_failed')).toEqual(['edit-spec', 'open-logs', 'retry'])
-    expect(rank('provider_limit')).toEqual(['resume', 'retry', 'open-logs'])
-    expect(rank('environment')).toEqual(['fix-environment', 'resume', 'open-logs', 'retry'])
-    expect(rank('blocked')).toEqual(['resume', 'edit-spec', 'open-logs', 'retry'])
-    for (const kind of ['timeout', 'tool_inactivity', 'crash'] as const) expect(rank(kind)).toEqual(['resume', 'retry', 'open-logs'])
+    expect(rank('provider_limit')).toEqual(['continue', 'open-logs', 'retry'])
+    expect(rank('environment')).toEqual(['continue', 'fix-environment', 'open-logs', 'retry'])
+    expect(rank('blocked')).toEqual(['continue', 'edit-spec', 'open-logs', 'retry'])
+    for (const kind of ['timeout', 'tool_inactivity', 'crash'] as const) expect(rank(kind)).toEqual(['continue', 'open-logs', 'retry'])
   })
   it('offers only logs and a retry when the cause is unknown or uncertain', () => {
     expect(rank('unknown')).toEqual(['open-logs', 'retry'])
     expect(rank('crash', { confidence: 'low' })).toEqual(['open-logs', 'retry'])
   })
   it('only ever names existing remedies', () => {
-    for (const kind of FAILURE_KINDS) for (const remedy of rank(kind, { resumablePhase: 'x' })) expect(['resume', 'retry', 'edit-spec', 'fix-environment', 'open-logs']).toContain(remedy)
+    for (const kind of FAILURE_KINDS) for (const remedy of rank(kind, { resumablePhase: 'x' })) expect(['continue', 'retry', 'edit-spec', 'fix-environment', 'open-logs', 'continue-to-review']).toContain(remedy)
   })
 })
 
@@ -109,7 +119,7 @@ describe('sqlite adapter (migration 84)', () => {
     const stored = serializeDiagnosis(deriveFailureDiagnosis({ outcome: 'failed', core: { kind: 'tests_failed', phase: 'fixer', rounds: 4, resumablePhase: 'fixer', confidence: 'high' } }))
     finishLoopRun(db, 'r1', { outcome: 'failed', finishedAt: '2026-10-24T10:05:00.000Z', failureDiagnosis: stored })
     expect(getLoopRun(db, 'r1')?.failure_diagnosis).toBe(stored)
-    expect(readRunDiagnosis(db, 'r1')).toMatchObject({ kind: 'tests_failed', rounds: 4, remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] })
+    expect(readRunDiagnosis(db, 'r1')).toMatchObject({ kind: 'tests_failed', rounds: 4, remedies: ['continue', 'edit-spec', 'open-logs', 'retry'] })
   })
 
   it('derives unknown for runs finished before the column and none for runs that did not fail', () => {

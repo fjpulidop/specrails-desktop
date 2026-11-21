@@ -1,11 +1,11 @@
 {
   "title": "Offen",
-  "subtitle_one": "{{count}} Eintrag wartet auf dich",
-  "subtitle_other": "{{count}} Einträge warten auf dich",
-  "subtitleEmpty": "Nichts wartet auf dich",
+  "subtitle_one": "{{count}} offener Punkt",
+  "subtitle_other": "{{count}} offene Punkte",
+  "subtitleEmpty": "Alles erledigt",
   "loading": "Projekte werden geprüft …",
   "empty": {
-    "title": "Nichts braucht dich",
+    "title": "Nichts offen",
     "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
   },
   "error": {
@@ -21,7 +21,7 @@
     "budget": "Wegen Budget pausiert",
     "jira": "Jira-Sync fehlgeschlagen",
     "failedNoCause": "Vor der Auslieferung gestoppt",
-    "capReached": "Budgetlimit erreicht"
+    "capReached": "Arbeit pausiert"
   },
   "actions": {
     "open": "Öffnen",
@@ -34,15 +34,11 @@
   "working": "Läuft …",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Zurückstellen",
-    "hour": "1 Stunde",
-    "tomorrow": "Bis morgen",
-    "cancel": "Abbrechen"
+    "hour": "1 Stunde zurückstellen",
+    "tomorrow": "Bis morgen zurückstellen"
   },
-  "snoozeItem": "{{title}} zurückstellen",
-  "snoozeFor": "{{title}} zurückstellen für",
   "done": "Erledigt",
-  "doneItem": "{{title}} als erledigt markieren",
+  "more": "Weitere Aktionen für {{title}}",
   "age": {
     "now": "gerade eben",
     "ago": "vor {{age}}"
@@ -63,7 +59,10 @@
     "snoozed": "Zurückgestellt bis {{when}}",
     "undo": "Rückgängig",
     "stillOverBudget_week": "Wochenbudget weiterhin überschritten",
-    "stillOverBudget_month": "Monatsbudget weiterhin überschritten"
+    "stillOverBudget_month": "Monatsbudget weiterhin überschritten",
+    "muted": "Benachrichtigungen von {{project}} stummgeschaltet",
+    "unmuted": "Benachrichtigungen von {{project}} eingeschaltet",
+    "muteFailed": "Die Benachrichtigungen des Projekts konnten nicht geändert werden"
   },
   "cap": {
     "title": {
@@ -80,5 +79,13 @@
     },
     "detail": "{{spent}} von {{budget}} ausgegeben"
   },
-  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt."
+  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt.",
+  "unseen": "Neu",
+  "markRead": "Als gelesen markieren",
+  "markUnread": "Als ungelesen markieren",
+  "mute": {
+    "mute": "Benachrichtigungen von {{project}} stummschalten",
+    "unmute": "Benachrichtigungen von {{project}} wieder einschalten"
+  },
+  "attempt": "Versuch {{number}}"
 }

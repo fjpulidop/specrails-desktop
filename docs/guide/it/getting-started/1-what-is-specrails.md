@@ -8,7 +8,7 @@ Invece di copiare e incollare prompt avanti e indietro, descrivi ciò che vuoi s
 
 Il cuore di specrails è un'idea semplice: **il modo migliore per ottenere buon codice dall'AI è partire da una spec chiara.**
 
-Una *spec* è una descrizione breve e strutturata di un singolo intervento — una funzionalità, una correzione, un refactor. Puoi scriverne una in pochi secondi, oppure darle forma attraverso una chat guidata che ti pone le domande giuste e la redige al posto tuo. Ogni spec diventa un **ticket** sulla board del tuo progetto, proprio come un'attività in un qualsiasi issue tracker.
+Una *spec* è una descrizione breve e strutturata di un singolo intervento — una funzionalità, una correzione, un refactor. Puoi scriverne una in pochi secondi, oppure darle forma attraverso una chat guidata che ti pone le domande giuste e la redige al posto tuo. Ogni spec diventa una **spec** sulla board del tuo progetto, proprio come un'attività in un qualsiasi issue tracker.
 
 Da lì, affidi la spec alla pipeline e lasci che sia l'AI a fare il lavoro pesante.
 

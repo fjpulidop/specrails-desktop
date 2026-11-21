@@ -1,3 +1,4 @@
+import { supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import type { DbInstance } from '../../../db'
 import type { JobPriority, JobRow } from '../../../types'
 
@@ -15,6 +16,8 @@ export interface UnifiedJobListOptions {
   activeRuntimeIds?: string[]
   from?: string
   to?: string
+  /** `all` also lists the attempts a later attempt continued (history); by default a chain lists only its latest attempt. */
+  attempts?: 'latest' | 'all'
 }
 
 interface QueuedListRecord {
@@ -63,6 +66,8 @@ function queuedConditions(opts: UnifiedJobListOptions): { sql: string; params: u
 function historyConditions(opts: UnifiedJobListOptions): { sql: string; params: unknown[] } {
   const conditions: string[] = ["jobs.status <> 'queued'"]
   const params: unknown[] = []
+  // One row per attempt chain: an attempt a later one continued is history, not a separate failure.
+  if (opts.attempts !== 'all') conditions.push(`NOT ${supersededAttemptSql('jobs')}`)
   if (opts.status) {
     const active = opts.activeRuntimeIds ?? []
     conditions.push(active.length ? `CASE WHEN jobs.id IN (${active.map(() => '?').join(',')}) THEN 'running' ELSE jobs.status END = ?` : 'jobs.status = ?')

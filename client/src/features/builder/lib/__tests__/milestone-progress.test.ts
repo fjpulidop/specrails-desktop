@@ -115,3 +115,29 @@ describe('milestone-progress (client model)', () => {
     expect(coerceChain({ id: 'c', status: 'nope' })).toBeNull()
   })
 })
+
+describe('coerceChainPlan / primaryChainOffer', () => {
+  it('keeps known offers in order, defaults `from`, drops malformed entries', async () => {
+    const { coerceChain, primaryChainOffer, chainOfferKey, chainOfferParams } = await import('../milestone-progress')
+    const chain = coerceChain({
+      id: 'c1', status: 'paused', launched: [],
+      plan: {
+        offers: [
+          { kind: 'resume_failed_step', from: 'failed_step', ticketId: 6, title: 'Add the offline computer opponent', runId: 'fork-1' },
+          { kind: 'retry_from_start', from: 'start', ticketId: 6 },
+          { kind: 'bogus', ticketId: 1 },
+          { kind: 'next', from: 'weird', ticketId: 7 },
+        ],
+        specs: [{ ticketId: 6, state: 'failed', title: null }, { ticketId: 7, state: 'nope' }],
+        settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: false,
+      },
+    })!
+    expect(chain.plan!.offers.map((o) => [o.kind, o.from])).toEqual([['resume_failed_step', 'failed_step'], ['retry_from_start', 'start'], ['next', 'recommended']])
+    expect(chain.plan!.specs).toEqual([{ ticketId: 6, state: 'failed', title: null }])
+    const primary = primaryChainOffer(chain)!
+    expect(chainOfferKey(primary)).toBe('resume_failed_step:6:fork-1')
+    expect(chainOfferParams(primary, chain.plan)).toMatchObject({ spec: '#6', specTitle: '#6 Add the offline computer opponent', paused: '#6' })
+    expect(coerceChain({ id: 'c2', status: 'running' })!.plan).toBeNull()
+    expect(primaryChainOffer(null)).toBeNull()
+  })
+})

@@ -1,6 +1,6 @@
 # Maneja Specrails conversando (Agent Chat)
 
-El **Agent Chat** es un copiloto que vive *dentro* de Specrails y puede manejar toda la app por ti. En lugar de ir haciendo clic por proyectos, specs, raíles y analítica, basta con que preguntes: *«¿cuántos trabajos salieron bien esta semana?»*, *«crea una spec para el inicio de sesión social en el proyecto de la API»*, *«lanza las tres specs de mayor prioridad y avísame cuando terminen»*. Lleva a cabo el trabajo llamando a las propias herramientas de Specrails —las mismas que expone el [servidor MCP](./5-mcp-server.md)— mientras ves el panel actualizarse en directo detrás de él.
+El **Agent Chat** es un copiloto que vive *dentro* de Specrails y puede manejar toda la app por ti. En lugar de ir haciendo clic por proyectos, specs, raíles y analítica, basta con que preguntes: *«¿cuántos trabajos salieron bien esta semana?»*, *«crea una spec para el inicio de sesión social en el proyecto de la API»*, *«lanza las tres specs de mayor prioridad y avísame cuando terminen»*. Lleva a cabo el trabajo llamando a las propias herramientas de Specrails —las mismas que expone el [servidor MCP](mcp-server)— mientras ves el panel actualizarse en directo detrás de él.
 
 > **No lo confundas con los agentes del pipeline.** La sección *Agentes* (Architect → Developer → Reviewer) trata de *cómo un raíl implementa una spec*. El **Agent Chat** es un único asistente que *maneja la propia app*. Cosas distintas, misma palabra.
 
@@ -13,6 +13,9 @@ Es **no modal a propósito**: el panel de detrás sigue vivo, así que cuando el
 ## Reutilizar texto seleccionado
 
 Selecciona texto de una conversación de misión para abrir su menú contextual.
+
+**Preguntar sobre esto** abre una conversación aparte sobre la selección, como una pregunta rápida de «por cierto». Escribe una pregunta, o pulsa Intro con el cuadro vacío para que te explique el texto en el contexto de esta misión. La respuesta usa la conversación previa de la misión y puedes hacer preguntas de seguimiento. No se guarda nada: la misión, su campo de escritura y su sesión del agente no se tocan, y al cerrar la ventana se descarta la conversación aparte. El pie indica el modelo que respondió.
+
 **Añadir a la misión** lo envía a esa misma misión, mediante su cola habitual si
 está ocupada, y conserva el borrador que tengas en el campo de escritura.
 
@@ -29,13 +32,30 @@ Usa las flechas para recorrer el menú y **Escape** para cerrarlo. Selecciona
 mensajes guardados: el texto que sigue llegando o espera en cola aún no está
 disponible.
 
+## Varias misiones lado a lado {#split-view}
+
+Haz clic derecho en una misión de la barra lateral (o pulsa **Shift+F10** sobre ella) y elige **Vista dividida**, **Abrir a la derecha** o **Abrir debajo**. La vista dividida la coloca junto a la misión en la que estás si caben las dos; si no, debajo.
+
+- **Redimensionar:** arrastra la línea entre dos misiones. Se ajusta al centro; con doble clic reparte ese espacio a partes iguales. Con la línea enfocada, las flechas la mueven (Shift para pasos mayores) e Inicio la centra.
+- **Menú de disposición** (el botón de columnas en la cabecera de cada misión): abre otra misión a la derecha o debajo, mueve la misión a la izquierda, derecha, arriba o abajo, intercámbiala con otra, maximízala, iguala todas las misiones o ciérrala. Las opciones que dejarían una misión demasiado pequeña (menos de unos 360 × 240 px) aparecen desactivadas.
+- **Atajos:** **⌥⌘]** / **⌥⌘[** misión siguiente o anterior, **⌘⇧↵** maximizar o restaurar, **⌥⌘=** igualar, **⌥⌘W** cerrar la misión en la que estás (en Windows/Linux, Ctrl+Alt en lugar de ⌥⌘ y Ctrl+Shift+Enter).
+- **Ventanas pequeñas:** cuando las misiones ya no caben, se apilan: una fila de pestañas arriba elige la que se ve y las demás siguen funcionando.
+
+La disposición y sus tamaños se recuerdan en esta ventana entre reinicios; las misiones archivadas o eliminadas se descartan. Cerrar el panel de una misión nunca la detiene ni la elimina.
+
+## Cuánto está lleno el contexto {#context-ring}
+
+Un pequeño anillo junto al cuadro de mensaje muestra cuánto de la ventana de contexto de la misión ha usado la sesión del proveedor, según lo informa el proveedor. Haz clic en él para ver los tokens usados, el tamaño de la ventana y el modelo. Cuando el proveedor no informa de la ventana, o acaba de compactar el contexto, el anillo queda vacío y dice qué se desconoce. Los proveedores compactan el contexto por su cuenta cuando se llena.
+
+**Empezar de cero con un resumen.** Desde el popover del anillo (el botón principal en cuanto el contexto está lleno al 75 %), Specrails escribe un resumen de la misión: objetivo, decisiones, estado actual y próximos pasos. Tu siguiente mensaje empieza entonces una sesión nueva del proveedor que solo conoce ese resumen. La conversación se queda en el historial, y una línea plegada **Sesión renovada · resumen** muestra lo que sabe la nueva sesión. Primero te pide confirmación, y no está disponible mientras hay un turno en curso ni mientras la misión está en Intent, que usa su propia sesión.
+
 ## Requisito previo: el servidor MCP
 
-El Agent Chat maneja la app a través del **servidor MCP de Specrails** integrado, así que tiene que estar activo. Si no lo está, el panel se abre con un banner de **Activar Specrails MCP** de un solo clic: púlsalo y ya está listo (sin reiniciar). Consulta [Controla Specrails desde cualquier IA](./5-mcp-server.md) para los detalles; no se instala nada, todo es local en tu máquina.
+El Agent Chat maneja la app a través del **servidor MCP de Specrails** integrado, así que tiene que estar activo. Si no lo está, el panel se abre con un banner de **Activar Specrails MCP** de un solo clic: púlsalo y ya está listo (sin reiniciar). Consulta [Controla Specrails desde cualquier IA](mcp-server) para los detalles; no se instala nada, todo es local en tu máquina.
 
 ## Elegir sobre qué trabaja
 
-La cabecera tiene un **selector de proyecto** (como el de Cursor). Elige un proyecto y todo lo que pidas queda acotado a él: *«lanza los de alta prioridad»* se resuelve contra ese proyecto. Déjalo en **Inicio** y el agente trabaja sobre todo tu conjunto: puede listar o crear proyectos y responder preguntas que abarquen todo. Si pides algo específico de un proyecto estando en Inicio, te preguntará cuál (o se ofrecerá a crear uno) en lugar de adivinar.
+La cabecera tiene un **selector de proyecto**. Elige un proyecto y todo lo que pidas queda acotado a él: *«lanza los de alta prioridad»* se resuelve contra ese proyecto. Déjalo en **Inicio** y el agente trabaja sobre todo tu conjunto: puede listar o crear proyectos y responder preguntas que abarquen todo. Si pides algo específico de un proyecto estando en Inicio, te preguntará cuál (o se ofrecerá a crear uno) en lugar de adivinar.
 
 Elegir un proyecto aquí **no** mueve tu panel: el objetivo del agente y lo que estás mirando son independientes.
 
@@ -72,7 +92,6 @@ Los bloques de código muestran su lenguaje y tienen su propio botón de **copia
 
 ## Detalles prácticos
 
-- **Súper specs desde una conversación.** Pide al agente *dar forma* a una spec contigo en vez de generarla de una sola vez: primero lee el código real, te entrevista brevemente y muestra el borrador en evolución como una tarjeta en vivo dentro de la conversación. Cuando dices que sí, crea la spec y — por defecto — la enriquece en segundo plano con una **Contract Layer** (rutas de archivo exactas, formas de datos, invariantes) para que los agentes que implementan no improvisen. Di «sin contract layer» para omitir el enriquecimiento.
 - **Haz clic en lo que menciona.** En una misión fijada a un proyecto, los números de spec (`#12`) y los ids de trabajo/ejecución en las respuestas del agente son chips clicables: una spec abre el modal de detalle del tablero y un id de trabajo abre la vista del trabajo en directo. Si la referencia ya no existe, verás un aviso discreto de «no encontrado».
 - **Una franja para tus ejecuciones.** Cuando el agente lanza trabajo, una única franja justo encima del cuadro de mensaje lo sigue: qué está haciendo la ejecución en palabras claras («Escribiendo la spec a partir de tus cambios»), cuántas ejecuciones han terminado, el tiempo y el gasto real hasta ahora (`—` hasta que el proveedor lo factura). Cuando una ejecución te necesita — crear la PR, reintentar, volver a Intent — la franja lo dice con un icono y palabras y te ofrece esa única acción; pulsa la franja para abrir la tarjeta completa de la ejecución justo encima (Esc la cierra). Con varias ejecuciones, la franja muestra primero la que te necesita y un pequeño selector («Rail 1 · Rail 2 · +1»). La conversación solo guarda lo que pasó — «Lanzado en Rail 1», «Rail 1 falló: …», «Entregado: PR #812» — y cada línea abre su ejecución. Las misiones que esperan tu decisión muestran un punto en la lista de misiones. Las acciones que inician una nueva ejecución de pago (**Relanzar**, **Recuperar y reintentar**) o que otras personas ven (Crear PR, Publicar) nunca se disparan desde la franja: abre la tarjeta con el foco en ese botón, así que confirmas allí.
 - **La franja desde el teclado.** **⌥R** (**Alt+R** en Windows/Linux) salta del cuadro de mensaje a la franja de la misión en la que estás; vuelve a pulsarlo para ver u ocultar los detalles de la ejecución, y **Esc** te devuelve a donde estabas. Fuera de un campo de texto, **⌥[** y **⌥]** cambian de ejecución. Con la franja enfocada, **P** pausa o reanuda un Intent y **H** lo pasa a un rail; estas letras no hacen nada desde ningún otro sitio. Pulsa **?** para ver la lista completa.
@@ -82,7 +101,7 @@ Los bloques de código muestran su lenguaje y tienen su propio botón de **copia
 - **Deshaz un mensaje en cola borrado.** Al borrar un mensaje en cola aparece **Deshacer** unos segundos; lo devuelve a la cola.
 - **Minimiza sin perder nada.** Haz clic en la ✕ para devolver el panel a la burbuja: la conversación sigue en marcha. Vuelve a abrirlo y aterrizas en el último mensaje; no hay que reescribir nada.
 - **Nueva conversación.** El botón **+** inicia un hilo limpio; el historial vive a nivel de app, por encima de cualquier proyecto concreto.
-- **Cambia de misión y archiva.** El selector junto al proyecto ordena las conversaciones de más reciente a más antigua, indica agentes trabajando y mensajes en cola, y ofrece búsqueda a partir de nueve misiones. **Archivar** conserva una misión terminada y su historial sin caducidad; el trabajo en vivo debe terminar primero. Las archivadas se abren en solo lectura. **Restaurar** permite enviar de nuevo. Solo una misión archivada ofrece **Eliminar**, con confirmación: pasa a **Eliminado recientemente** durante 30 días. **Deshacer** (o **⌘Z**) la devuelve a Archivadas.
+- **Cambia de misión y archiva.** El selector junto al proyecto ordena las conversaciones de más reciente a más antigua, indica agentes trabajando y mensajes en cola, y ofrece búsqueda cuando hay más de ocho misiones. **Archivar** conserva una misión terminada y su historial sin caducidad; el trabajo en vivo debe terminar primero. Las archivadas se abren en solo lectura. **Restaurar** permite enviar de nuevo. Solo una misión archivada ofrece **Eliminar**, con confirmación: pasa a **Eliminado recientemente** durante 30 días. **Deshacer** (o **⌘Z**) la devuelve a Archivadas.
 
 En la sidebar expandida del modo Misión, junto a **Proyectos**, el filtro ofrece **Activas** (no archivadas, por defecto), **Archivadas** y **Todas**. Se aplica a Favoritas, Sin asignar y cada proyecto, y recuerda la elección al recargar. Se combina con el filtro de misiones en vivo sin que uno reinicie el otro. Las archivadas se atenúan y llevan una marca en Todas.
 
@@ -100,12 +119,23 @@ En la sidebar expandida del modo Misión, junto a **Proyectos**, el filtro ofrec
 
 Algunos proveedores pueden repartir partes de una tarea entre **sub-agentes**: ayudantes que trabajan en paralelo y siguen después de que el agente responda. Los sub-agentes vienen **activados por defecto**; desactívalos por proyecto si quieres contener el coste, porque multiplican lo que cuesta una petición.
 
-- **Desactívalos por proyecto.** Abre **Configuración → Sub-agentes** del proyecto y desactiva **Permitir sub-agentes en este proyecto**. Cubre las misiones, la exploración y los refinamientos de ese proyecto; los pipelines de Implement nunca se ven afectados. Las misiones sin proyecto siguen **Ajustes de la app → Proveedores de IA → Permitir sub-agentes en misiones sin proyecto**.
+- **Desactívalos por proyecto.** Abre **Configuración → Sub-agentes** del proyecto y desactiva **Permitir sub-agentes en este proyecto**. Cubre las misiones, la exploración y los refinamientos de ese proyecto; los pipelines de Implement nunca se ven afectados. Las misiones sin proyecto siguen **Ajustes → Proveedores de IA → Permitir sub-agentes en misiones sin proyecto**.
 - **Elige quién los ejecuta.** En **Ejecutar sub-agentes con**, la opción por defecto **Igual que el agente de la misión** deja que el propio CLI de la misión los lance de forma nativa: es lo más rápido y comparten su caché de prompt. Elige en su lugar un proveedor, modelo y esfuerzo para combinar proveedores — por ejemplo, una misión en Codex con sub-agentes en Claude. Las misiones que ya usan ese proveedor siguen siendo nativas con ese modelo; con otro proveedor, Specrails lanza cada sub-agente por su cuenta, que arranca en frío y puede costar más, pero te da más control y muestra el coste real de cada uno. Specrails te pide confirmación antes del cambio, y esos sub-agentes llevan una etiqueta con su proveedor en la misión.
 - **Míralos trabajar.** Los agentes que lanza una respuesta aparecen como una línea compacta bajo esa respuesta. Se mantiene abierta mientras trabajan y, cuando terminan todos, se pliega en un resumen con el tiempo y los tokens totales. Despliega una fila para leer su resultado y lo que costó, o para seguir su actividad en directo. Cada lanzamiento se queda en su punto de la conversación, así que los siguientes nunca se mezclan con los anteriores. Detén un agente en marcha desde su fila, o todos desde la línea.
 - **El agente retoma solo.** Cuando terminan los agentes en segundo plano, el agente continúa y publica lo que encontraron, marcado como *Continuó tras los agentes en segundo plano*.
 - **Cambiar el ajuste es seguro.** Una misión con agentes en marcha aplica el cambio cuando terminan; te lo indica y ofrece **Detener agentes y aplicar ya**.
 - **Nada se relanza a tus espaldas.** Los agentes interrumpidos por un reinicio quedan marcados como interrumpidos; **Relanzar** solo redacta un mensaje pidiendo al agente que rehaga ese trabajo.
+
+## Conectores en las misiones {#connectors}
+
+Las misiones pueden usar los conectores y servidores MCP que ya configuraste en cada proveedor: tus **conectores de cuenta de claude.ai** (Google Drive, Gmail…) y los servidores de `~/.claude.json` cuando la misión usa Claude, los servidores de `~/.codex/config.toml` cuando usa Codex, y los de Gemini en Gemini. Abre **Ajustes → Proveedores de IA → Conectores en las misiones** para verlos, agrupados por proveedor.
+
+- **Todo empieza activado.** Un conector que añadas después también. Desactiva los que tus misiones no necesiten: cada uno puede sumar miles de tokens a cada petición.
+- **Tamaños.** **Medir tamaños** arranca una vez cada servidor MCP local y muestra cuántas herramientas tiene y cuántos tokens ocupan aproximadamente sus definiciones. Claude envía esas definiciones completas en cada petición; Codex solo las carga cuando el agente busca una herramienta, así que en Codex un conector casi no cuesta nada hasta que se usa.
+- **El MCP de Specrails nunca se carga dos veces.** Si la configuración de un proveedor también incluye el servidor de Specrails, aparece como siempre excluido: la misión ya tiene el suyo.
+- **Algunas filas no se pueden cambiar.** Un servidor desactivado en la configuración del propio proveedor sigue desactivado; uno que añadas con **Servidores MCP externos** sigue ese ajuste; Kimi carga sus servidores por su cuenta.
+- **Tus propios servidores MCP de Claude esperan a la búsqueda de herramientas.** Las misiones de Claude aún no cargan los servidores de `~/.claude.json`: sin carga de herramientas bajo demanda, un servidor grande (algunos tienen cientos de herramientas) llenaría el contexto. Se cargarán cuando Claude pueda buscar herramientas bajo demanda.
+- **Un cambio se aplica en el siguiente turno.** Ese turno reconstruye una vez la caché de prompts del proveedor, así que cuesta un poco más. **Actualizar** vuelve a leer la configuración de los proveedores.
 
 ## Algunas cosas que conviene saber
 

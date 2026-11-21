@@ -59,6 +59,28 @@
     "draft": "Rascunho",
     "onReview": "Em revisão"
   },
+  "runState": {
+    "queued": "Na fila",
+    "working": "Em execução",
+    "needs-input": "Precisa de resposta",
+    "review": "Pronto para revisão",
+    "paused": "Pausado",
+    "blocked": "Bloqueado",
+    "failed": "Falhou",
+    "done": "Concluído",
+    "stopped": "Parado",
+    "hint": {
+      "queued": "Aguardando para começar",
+      "working": "O trabalho está em andamento",
+      "needs-input": "Um agente aguarda a sua resposta",
+      "review": "Um resultado aguarda a sua decisão",
+      "paused": "Pausado: retome para continuar",
+      "blocked": "Não pode continuar até que algo externo mude",
+      "failed": "Terminou com um erro",
+      "done": "Terminou com sucesso",
+      "stopped": "Terminou sem concluir: cancelado, ignorado ou substituído"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implementação em andamento",
     "implementation_failed": "Implementação falhou",
@@ -259,7 +281,11 @@
       "specsBoard": "as specs e o backlog",
       "specTimeline": "a cronologia e a passagem de uma spec",
       "accessibility": "acessibilidade e personalização",
-      "prDecision": "as opções de entrega"
+      "prDecision": "as opções de entrega",
+      "attention": "Notificações",
+      "liveBoard": "o quadro ao vivo",
+      "serverRecovery": "Se o servidor local parar",
+      "retainedWorktrees": "os worktrees de execuções mantidos no disco"
     }
   },
   "forecast": {
@@ -294,8 +320,8 @@
       "startedRail": "Rail {{rail}}: run iniciado",
       "pausedBudget": "Run em pausa: foi atingido um limite de gastos",
       "pausedLimit": "Run em pausa: limite do fornecedor atingido",
-      "needsYou": "Um run precisa de si",
-      "needsYouRail": "Rail {{rail}}: um run precisa de si",
+      "needsYou": "Um run requer sua atenção",
+      "needsYouRail": "Rail {{rail}}: um run requer sua atenção",
       "failed": "O run falhou",
       "failedRail": "Rail {{rail}}: o run falhou",
       "finished": "Run concluído",
@@ -310,12 +336,50 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} concluída",
       "failedSpec": "Rail {{rail}}: #{{id}} falhou",
       "stoppedSpec": "Rail {{rail}}: #{{id}} parada",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} precisa de si",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} requer sua atenção",
       "reviewReadySpec": "Rail {{rail}}: revisão de #{{id}} pronta"
     }
   },
   "errors": {
     "technicalDetails": "Detalhes técnicos",
     "copyDetails": "Copiar detalhes"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "O planejador precisa de uma decisão",
+      "developer": "O desenvolvedor precisa que você decida",
+      "fixer": "O corretor precisa que você decida",
+      "reviewer": "O revisor precisa que você decida",
+      "install": "O Specrails precisa da sua permissão",
+      "run": "A execução aguarda sua resposta"
+    },
+    "approval": "A execução aguarda sua aprovação",
+    "recommended": "Recomendada",
+    "other": "Outra resposta…",
+    "otherLabel": "Sua resposta",
+    "otherPlaceholder": "Escreva sua resposta",
+    "answer": "Responder",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "rejectLabel": "Por que você está rejeitando?",
+    "rejectPlaceholder": "Seu motivo",
+    "back": "Voltar",
+    "sending": "Enviando…",
+    "consequence": {
+      "waits": "A execução espera, sem custo, até você responder.",
+      "mayEnd": "Se você disser que não é aqui, a execução termina.",
+      "endsRunOption": "Escolher “{{label}}” termina a execução.",
+      "reject": "Rejeitar termina a execução. Nada é arquivado nem mesclado."
+    },
+    "sent": "Resposta enviada: a execução continua.",
+    "approved": "Aprovado: a execução continua.",
+    "rejected": "Rejeitado: a execução termina.",
+    "failed": "Não foi possível enviar sua resposta",
+    "showMore": "Ver tudo",
+    "showLess": "Ver menos",
+    "notice": "Requer atenção",
+    "notHere": "Não fazer aqui",
+    "notHereMeaning": "Esta spec não pertence a este repositório; a execução termina sem alterações.",
+    "sentEnds": "Resposta enviada: a execução termina."
   }
 }

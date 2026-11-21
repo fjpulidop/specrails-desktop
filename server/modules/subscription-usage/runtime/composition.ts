@@ -2,8 +2,9 @@ import { getDetectionSnapshot } from '../../../provider-detection'
 import { createClaudeReader } from '../adapters/claude'
 import { createCodexReader } from '../adapters/codex'
 import { createUsageService } from './usage-service'
-export function createDesktopUsageService() {
+export function createDesktopUsageService(options: { onChange?: () => void } = {}) {
   return createUsageService({
+    onChange: options.onChange,
     installed: async id => {
       const provider = (await getDetectionSnapshot()).providers[id]
       return !!provider?.installed

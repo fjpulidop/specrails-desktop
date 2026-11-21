@@ -40,7 +40,7 @@ describe('AppUpdateSection', () => {
     expect(toast.success).toHaveBeenCalled()
   })
 
-  it('update available: surfaces the standard update card via toast.custom', async () => {
+  it('update available: shows the standard update card inline (Settings may be its own window)', async () => {
     mockCheck.mockResolvedValue({
       currentVersion: '2.18.2',
       version: '2.19.0',
@@ -49,7 +49,8 @@ describe('AppUpdateSection', () => {
     render(<AppUpdateSection />)
     fireEvent.click(screen.getByRole('button', { name: /Check for updates/i }))
     await waitFor(() => expect(screen.getByText('Update available: 2.19.0')).toBeInTheDocument())
-    expect(toast.custom).toHaveBeenCalled()
+    expect(screen.getByTestId('app-update-card')).toHaveTextContent('2.18.2 → 2.19.0')
+    expect(toast.custom).not.toHaveBeenCalled()
   })
 
   it('check failure: error toast, button re-enabled', async () => {

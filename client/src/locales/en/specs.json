@@ -17,8 +17,8 @@
   },
   "status": {
     "todo": "Todo",
-    "inProgress": "In Progress",
-    "onReview": "On Review",
+    "inProgress": "In progress",
+    "onReview": "On review",
     "onReviewHint": "Implemented — a draft PR is awaiting your review decision",
     "done": "Done",
     "cancelled": "Cancelled"
@@ -52,7 +52,7 @@
     "deleteSpec": "Delete spec #{{id}}",
     "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Depends on {{count}}",
-    "continueEditing": "Continue Editing",
+    "continueEditing": "Continue editing",
     "continueEditingTitle": "Continue editing this spec",
     "moveToRail": "Move to rail"
   },
@@ -117,7 +117,7 @@
       "default": "Default",
       "ticketId": "Spec #",
       "priority": "Priority",
-      "jiraKey": "Jira Ticket #"
+      "jiraKey": "Jira ticket #"
     }
   },
   "viewTier": {

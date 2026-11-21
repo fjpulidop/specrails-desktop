@@ -1,35 +1,30 @@
-import { projectSupportsProfiles } from './project-profile-support'
 import { shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
 import type { DbInstance } from './db'
-import { initDb } from './db'
+import { getProjectSettings, initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
-import { QueueManager } from './modules/execution/runtime/queue-manager'
-import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
-import { projectSpendSince, readDesktopCaps, readProjectCaps, type CapConfig } from './modules/execution/adapters/budget-storage'
-import { dailyBudgetResetsAt, effectiveRunCap, isCapExceeded, periodResetsAtIso, periodStartIso, type CapPeriod, type CapStatus } from './modules/execution'
-import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
+import type { QueueManager } from './modules/execution/runtime/queue-manager'
+import { readCapStatuses, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
+import { appWideSpendSince, readDesktopCaps, type CapConfig } from './modules/execution/adapters/budget-storage'
+import { dailyBudgetResetsAt, isCapExceeded, localDayStartIso, periodResetsAtIso, periodStartIso, type CapPeriod, type CapStatus } from './modules/execution'
+import type { ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
-import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
-import { ChatManager } from './modules/conversations/runtime/chat-manager'
-import { SetupManager } from './setup-manager'
-import { ProposalManager } from './modules/specs/runtime/proposal-manager'
-import { AgentRefineManager } from './modules/agents/runtime/agent-refine-manager'
-import { FileSummaryManager } from './modules/code/runtime/file-summary-manager'
-import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
-import { getAdapter } from './providers'
-import { pruneStaleRefineSessions } from './modules/agents/runtime/agent-refine-db'
-import { SpecLauncherManager } from './modules/specs/runtime/spec-launcher-manager'
+import type { ChatManager } from './modules/conversations/runtime/chat-manager'
+import type { SetupManager } from './setup-manager'
+import type { ProposalManager } from './modules/specs/runtime/proposal-manager'
+import type { AgentRefineManager } from './modules/agents/runtime/agent-refine-manager'
+import type { FileSummaryManager } from './modules/code/runtime/file-summary-manager'
+import type { SpecLauncherManager } from './modules/specs/runtime/spec-launcher-manager'
 import { WebhookManager } from './webhook-manager'
-import { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
+import type { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
-import { BrowserCaptureManager } from './modules/browser/runtime/browser-capture-manager'
+import type { BrowserCaptureManager } from './modules/browser/runtime/browser-capture-manager'
 import { SharedBrowserContextPool } from './modules/browser/runtime/browser-context-pool'
 import { removeExploreCwd } from './modules/conversations/runtime/explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
-import { killTransientChildren, purgeBackgroundProcessHistory, stopBackgroundProcessesForFlow } from './transient-children'
+import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
 import { dropBlobStatesForProject } from './modules/accounting/runtime/telemetry-receiver'
 import {
   mirrorProjectEntryWithPrevious,
@@ -40,61 +35,20 @@ import {
   restoreRegistryEntry,
   type ProjectEntry,
 } from './artifact-registry'
-import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
-import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
+import { resolveProjectTicketsPath } from './workspace-resolution'
+import { startProjectEnvWarmup, stopProjectEnvWarmup } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
-import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
-import { descriptionWithIntent, normalizeSpecIntent, renderIntentForAgents } from './modules/specs/domain/intent'
-import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
-import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
+import { readStore } from './modules/specs/runtime/ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
-import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
-import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
-import { createInternalApi, internalApiError } from './internal-api'
-import { readBlueprint } from './modules/builder/runtime/blueprint-render'
-import { defaultGitRunner } from './worktree-manager'
-import { createHostTaskDispatcher } from './modules/agent-runtime/runtime/host-task-dispatcher'
-import { createPrCiHandlers } from './modules/delivery/runtime/pr-ci/pr-ci-handlers'
-import { resolvePrCiTargets } from './modules/delivery/runtime/pr-ci/pr-ci-target'
-import { withRepoLock } from './repo-lock'
-import { isPrCiLoopEnabled } from './feature-flags'
-import { cancelDefinitionRun, resumeRetainedDefinitionRun } from './project-router-loop-runs'
-import { refreshPrCiOffer } from './modules/delivery/runtime/pr-ci/pr-ci-projection'
-import { createPrCiAdmissionRuntime } from './modules/delivery/runtime/pr-ci/pr-ci-admission-runtime'
-import { resolveIntegrationBranch } from './integration-branch'
-import { getProjectSettings } from './db'
+import type { MilestoneProgressBroadcaster } from './modules/builder/runtime/milestone-progress'
+import type { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
+import { createInternalApi } from './internal-api'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
-import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
-import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
-import { startMissionResourceRecording } from './project-router-mission-resources'
-import { healLegacyFlowReviews } from './modules/delivery/runtime/flow-review-legacy'
-import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
-import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
-import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolation'
-import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
-import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
-import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtime/rail-pr-ticket-effects'
-import { recoverLocalStashes } from './modules/delivery/runtime/rail-pr-decision'
-import { startPrMergeWatch } from './modules/delivery/runtime/pr-merge-watch'
-import { defaultExec } from './modules/delivery/runtime/pr-publisher'
-import {
-  getLoopTerminalRecovery,
-  getLoopRun,
-  readDefinitionRun,
-  readDefinitionSuccessor,
-  listActiveLoopRuns,
-  listPendingLoopTerminalRecoveries,
-  completeLoopTerminalRecovery,
-  reconcileOrphanLoopRuns,
-  type LoopRunRow,
-  type DefinitionCheckpoint,
-  type LoopTerminalRecoveryPayload,
-} from './modules/loops/runtime/loop-runs-store'
+import type { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
+import { listActiveLoopRuns, type LoopRunRow, type DefinitionCheckpoint } from './modules/loops/runtime/loop-runs-store'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
-import type { JobStatus, WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
-import { claimRailTickets, claimTicketOutcomeOwners, getRails, releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './modules/delivery/runtime/rails-store'
+import type { WsMessage } from './types'
 import {
   initDesktopDb,
   getDesktopDbPath,
@@ -106,38 +60,32 @@ import {
   updateProjectRepository as updateRepositoryInDesktopDb,
   removeProjectRepository as removeRepositoryFromDesktopDb,
   touchProject,
-  setProjectSetupSession,
-  clearProjectSetupSession,
-  clearAgentJob,
   getDesktopSetting,
   type ProjectRow,
   type CliProvider,
 } from './desktop-db'
-import { getConfig } from './config'
-import { createFlowService, type IntentService } from './modules/intent'
-import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/intent/adapters/sqlite'
-import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/intent/adapters/bindings'
-import { SpecTriageService } from './modules/specs/runtime/triage'
-import { startProjectTrashPurge } from './modules/specs/runtime/ticket-trash-service'
-import { attachmentManager } from './attachment-manager'
+import type { IntentService } from './modules/intent'
+import type { SpecTriageService } from './modules/specs/runtime/triage'
 import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
-import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
-import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { IntentHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
-import {
-  beginProjectProcessQuiescence,
-  openProjectProcessAdmission,
-} from './process-admission'
+import { beginProjectProcessQuiescence } from './process-admission'
 import { resolveSpecrailsHome } from './util/specrails-home'
+// Per-capability wiring for _loadProjectContext (each file owns one concern).
+import { createProjectBroadcast, createProjectBroadcastTaps } from './project-context-broadcast'
+import { createAutoContinuation } from './project-context-auto-continue'
+import { continueDefinitionRun } from './project-router-loop-runs'
+import { createProjectBudgetGates } from './project-context-budget'
+import { createProjectIntent } from './project-context-intent'
+import { createLoopRunFinishedHandler, recoverOrphanLoopRuns } from './project-context-loop-outcome'
+import { createProjectLoopRuntime, createRunClarificationsPublisher } from './project-context-loops'
+import { createProjectAuthoringManagers, createProjectBrowserCapture, createProjectFileSummaryManager, startProjectTicketWatcher } from './project-context-managers'
+import { createBlueprintWorkspaceResolver, createProjectMilestoneChains, createProjectMilestoneProgress } from './project-context-milestones'
+import { createProjectQueue, loadProjectCommands, readProjectZombieTimeout } from './project-context-queue'
+import { startProjectRecovery } from './project-context-recovery'
+import { attachProjectServices } from './project-context-services'
+import { createProjectTicketAccess } from './project-context-tickets'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-/** The two live queue states are the only non-terminal members of JobStatus.
- * Deriving terminality from that invariant avoids a second status list that can
- * silently fall behind the queue contract when a new terminal outcome is added. */
-function isTerminalJobStatus(status: JobStatus): boolean {
-  return status !== 'queued' && status !== 'running'
-}
 
 export interface ProjectContext {
   project: ProjectRow
@@ -160,6 +108,9 @@ export interface ProjectContext {
   // ── Loops (the Loops feature) ──────────────────────────────────────────────
   /** App-driven loop engine for this project (Loops mode rails). */
   loopRunManager: LoopRunManager
+  /** Loop runs that were active when this context loaded and that startup recovery has not
+   *  reconciled yet: no process here drives them, so they show as paused by the restart. */
+  restartPendingRunIds?: Set<string>
   /** Maps loopRunId → rail metadata for active rail-launched loop runs. */
   railLoopRuns: Map<string, {
     railIndex: number
@@ -226,33 +177,8 @@ export interface ProjectContext {
   prMergeWatch?: { stop(): void }
 }
 
-/** Rehydrate both authoritative PR-decision surfaces after startup recovery.
- * Recovery has already committed the row; broadcasts/cards are advisory and
- * may be retried by normal hydration if a surface is unavailable. */
-export function emitRecoveredPrDelivery(ctx: ProjectContext, deliveryId: string): void {
-  const row = getPrDelivery(ctx.db, deliveryId)
-  if (!row) return
-  const snapshot = toPrDeliverySnapshot(row)
-  try { ctx.broadcast(toRailPrStateMessage(ctx.project.id, snapshot)) } catch { /* durable row is authoritative */ }
-  if (!row.origin_conversation_id) return
-  try {
-    getAgentChatManager()?.updatePrDecisionCard(
-      row.origin_conversation_id,
-      toPrDecisionCardEnvelope(ctx.project.id, snapshot),
-    )
-  } catch { /* conversation hydration can retry */ }
-  // pr-ci-loop: existing draft/ready PRs get the optional CI offer too.
-  refreshPrCiOffer(ctx, deliveryId)
-}
-
-/** Migration/recovery or a crash after a terminal CAS can repair the ledger
- * without touching system envelopes persisted in agent conversations. Project
- * active AND terminal origin-linked rows so obsolete cards cannot stay pinned. */
-export function reprojectActivePrDeliveries(ctx: ProjectContext): number {
-  const rows = listOriginLinkedPrDeliveries(ctx.db)
-  for (const row of rows) emitRecoveredPrDelivery(ctx, row.id)
-  return rows.length
-}
+// PR-decision rehydration lives with startup recovery; re-exported for existing consumers.
+export { emitRecoveredPrDelivery, reprojectActivePrDeliveries } from './project-context-recovery'
 
 // ─── ProjectRegistry ──────────────────────────────────────────────────────────
 
@@ -294,6 +220,11 @@ export class ProjectRegistry {
   /** Bind the machine's billing lookup (subscription vs API) for Intent cost. */
   setProviderBilling(lookup: (provider: string) => Promise<{ billing: 'plan' | 'api' | 'unknown'; plan: string | null }>): void {
     this._providerBilling = lookup
+  }
+
+  /** The port this server instance listens on (may differ from the persisted `port` setting). */
+  get desktopPort(): number {
+    return this._desktopPort
   }
 
   get desktopDb(): DbInstance {
@@ -668,8 +599,7 @@ export class ProjectRegistry {
     if (repository.isPrimary) throw new RepositoryValidationError('The primary repository cannot be removed or relocated here', 'primary_repository_protected', 409)
     const context = this._contexts.get(projectId)
     if (!context) throw new RepositoryValidationError('Load this project before removing or relocating a repository', 'project_unavailable', 503)
-    const execution = resolveProjectExecution({ slug: project.slug, path: project.path })
-    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(project.path))
+    const store = readStore(resolveProjectTicketsPath({ slug: project.slug, path: project.path }))
     const ticketIds = Object.values(store.tickets).filter((ticket) => ticket.repositoryIds?.includes(repositoryId)).map((ticket) => ticket.id)
     const references = getRepositoryExecutionReferences(context.db, repositoryId)
     if (ticketIds.length || references.runIds.length || references.deliveryIds.length) {
@@ -735,6 +665,24 @@ export class ProjectRegistry {
     return getProject(this._desktopDb, id)
   }
 
+  /**
+   * Compose one project's runtime. Construction ORDER is part of the contract:
+   *  1. Process admission closes before anything can spawn; it reopens only at
+   *     the end of startup recovery (project-context-recovery.ts).
+   *  2. The bound broadcast exists first; its observer taps (milestones, spec
+   *     triage, Intent) are assigned as their owners are created.
+   *  3. JiraSyncManager and the audit writer precede QueueManager: terminal job
+   *     effects enqueue Jira transitions and record audit rows.
+   *  4. The ticket watcher starts after JiraSyncManager (late-bound write
+   *     notifier) and after the command catalog is loaded.
+   *  5. Active loop runs are captured BEFORE the loop engine is constructed;
+   *     their status transition waits until onLoopRunFinished exists so crash
+   *     recovery replays ticket, rail and Jira invariants.
+   *  6. The context object is assembled before services that need a complete
+   *     context (mission resources, triage, trash purge, merge watch, Intent),
+   *     and registered before env warmup and startup recovery start.
+   * Teardown (removeProject/shutdown) releases these in its own documented order.
+   */
   private _loadProjectContext(project: ProjectRow): ProjectContext {
     // Avoid double-loading
     const existing = this._contexts.get(project.id)
@@ -743,10 +691,115 @@ export class ProjectRegistry {
     // A context is visible synchronously, but no subprocess launch may enter
     // until durable loop callbacks and isolated worktrees have been reconciled.
     beginProjectProcessQuiescence(project.id)
+    const db = this._openProjectDb(project)
+    const desktopDb = this._desktopDb
 
-    let db: DbInstance
+    const taps = createProjectBroadcastTaps()
+    const boundBroadcast = createProjectBroadcast({ projectId: project.id, broadcast: (msg) => this._broadcast(msg), desktopDb, taps })
+    const zombieTimeoutMs = readProjectZombieTimeout(db)
+    const railJobs: ProjectContext['railJobs'] = new Map()
+    const tickets = createProjectTicketAccess(project)
+
+    // ── Integrations + audit (needed by the queue's terminal effects) ────────
+    // Jira sync (per-project, inert until a connection is configured).
+    const jiraSyncManager = new JiraSyncManager({ db, projectId: project.id, projectPath: project.path, broadcast: boundBroadcast })
+    // Agent actions audit (one batched writer per project connection). Retention
+    // runs shortly after startup and daily, reading the project setting each time.
+    const agentAudit = createProjectAgentAudit(db, {
+      label: project.slug,
+      retentionDays: () => getProjectSettings(db).agentAuditRetentionDays,
+    })
+
+    // ── Queue & execution ────────────────────────────────────────────────────
+    const queueManager = createProjectQueue({
+      project, db, broadcast: boundBroadcast, desktopDb, desktopPort: this._desktopPort, zombieTimeoutMs,
+      agentAudit, webhookManager: this._webhookManager, jiraSyncManager, railJobs,
+      desktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
+      capStatuses: () => this._capStatuses(db, project.id),
+      pauseAllQueuesForDesktopBudget: () => this._pauseAllQueuesForDesktopBudget(),
+    })
+
+    // ── Conversations, setup, spec authoring, code explorer ──────────────────
+    const authoring = createProjectAuthoringManagers({ project, db, broadcast: boundBroadcast, desktopDb, getContext: (pid) => this._contexts.get(pid) })
+    const fileSummaryManager = createProjectFileSummaryManager({ project, db, broadcast: boundBroadcast, desktopDb })
+    loadProjectCommands(queueManager, project)
+
+    // ── Specs watcher + browser capture ──────────────────────────────────────
+    const ticketWatcher = startProjectTicketWatcher({ project, broadcast: boundBroadcast, jiraSyncManager })
+    const browserCaptureManager = createProjectBrowserCapture({ project, db, broadcast: boundBroadcast, contextPool: this._browserContextPool })
+
+    // ── Loops engine, budgets, loop settlement ───────────────────────────────
+    const railLoopRuns: ProjectContext['railLoopRuns'] = new Map()
+    // Capture before runtime construction (order point 5 above).
+    let orphanLoopRuns: LoopRunRow[] = []
+    try { orphanLoopRuns = listActiveLoopRuns(db, project.id) } catch { /* non-fatal */ }
+    const budget = createProjectBudgetGates({
+      db, projectId: project.id, desktopDb,
+      desktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
+      desktopPeriodBudget: (period, at) => this._desktopPeriodSnapshot(period, at),
+      desktopCapConfig: () => this._desktopCapConfig(),
+    })
+    const publishRunClarifications = createRunClarificationsPublisher({ project, db, jiraSyncManager })
+    // The project context exists only after its managers; late-bound for callbacks.
+    let projectContext: ProjectContext | null = null
+    const loopRunManager = createProjectLoopRuntime({
+      project, db, broadcast: boundBroadcast, desktopDb, agentAudit,
+      dailyBudgetRejection: budget.dailyBudgetRejection, runCapDefault: budget.runCapDefault,
+      publishRunClarifications, getProjectContext: () => projectContext,
+    })
+    const onLoopRunFinished = createLoopRunFinishedHandler({
+      project, db, railLoopRuns, ticketStorePath: tickets.ticketStorePath, jiraSyncManager, publishRunClarifications, taps, broadcast: boundBroadcast,
+    })
+    const stuckRunDetector = new StuckRunDetector(project.id, { db }, boundBroadcast)
+    stuckRunDetector.start()
+
+    // ── Project builder milestones ───────────────────────────────────────────
+    // Milestone launch chain (premium-milestone-progress D3): chunks launch
+    // through the app's OWN rails launch route over loopback (the single
+    // authority for every guard) — never by re-implementing the handler.
+    const internalApi = createInternalApi({ port: this._desktopPort })
+    const blueprintWorkspace = createBlueprintWorkspaceResolver(project)
+    const milestoneDeps = { project, db, railJobs, railLoopRuns, ticketStorePath: tickets.ticketStorePath, blueprintWorkspace, broadcast: boundBroadcast }
+    const milestoneChains = createProjectMilestoneChains({ ...milestoneDeps, internalApi })
+    taps.milestoneChains = milestoneChains
+    const milestoneProgress = createProjectMilestoneProgress({ ...milestoneDeps, getChains: () => taps.milestoneChains })
+    taps.milestoneProgress = milestoneProgress
+
+    // ── Assemble the context, then services that need it ─────────────────────
+    const ctx: ProjectContext = {
+      project, db, queueManager, ...authoring, fileSummaryManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector,
+      broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec: tickets.getTicketSpec, desktopDb,
+      milestoneProgress, ...budget, agentAudit,
+    }
+    projectContext = ctx
+    ctx.restartPendingRunIds = new Set(orphanLoopRuns.map(run => run.id))
+    ctx.milestoneChains = milestoneChains
+    attachProjectServices(ctx, { db, ticketStorePath: tickets.ticketStorePath, taps })
+    // Intent mode: use cases bound to THIS project's connection; the mission host
+    // is app-global and late-bound (agent chat starts after the registry).
+    createProjectIntent({ ctx, db, desktopDb, internalApi, providerBilling: () => this._providerBilling, readFlowTicket: tickets.readFlowTicket, taps })
+
+    this._contexts.set(project.id, ctx)
+    // A failed run whose cause is known and fixable continues once by itself (Settings can turn it off).
+    taps.autoContinue = createAutoContinuation({
+      context: () => (this._contexts.get(project.id) === ctx ? ctx : null), desktopDb,
+      continueRun: (context, runId, remedy, options) => continueDefinitionRun(context, runId, remedy, options),
+    })
+    // Warm the project's login-shell env cache off the event loop so the first
+    // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
+    startProjectEnvWarmup(db)
+    startProjectRecovery({
+      ctx, project, db, broadcast: boundBroadcast, jiraSyncManager, orphanLoopRuns,
+      isCurrent: () => this._contexts.get(project.id) === ctx,
+      recoverOrphanLoopRuns: (definitionStates) => this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns, definitionStates),
+    })
+    return ctx
+  }
+
+  /** Open the per-project DB; a busy/locked database is the only retryable load failure. */
+  private _openProjectDb(project: ProjectRow): DbInstance {
     try {
-      db = initDb(project.db_path)
+      return initDb(project.db_path)
     } catch (err) {
       const code = (err as { code?: unknown } | null)?.code
       if (typeof code === 'string' && /^SQLITE_(BUSY|LOCKED)(_|$)/.test(code)) {
@@ -754,1166 +807,32 @@ export class ProjectRegistry {
       }
       throw err
     }
-
-    // Bind broadcast with projectId so all WS messages carry context.
-    // Also wire agent status: when a queued job reaches a terminal state,
-    // clear current_job_id on any agent that was assigned to it.
-    // Milestone progress tap (premium-milestone-progress): every project-scoped
-    // broadcast that can change a milestone's counts/rails/chain schedules ONE
-    // debounced `blueprint.milestone_progress` re-derivation. Assigned below,
-    // once the rail maps exist; null until then (startup messages are few).
-    let milestoneProgress: MilestoneProgressBroadcaster | null = null
-    let milestoneChains: MilestoneChainManager | null = null
-    let flowService: IntentService | null = null
-    let specTriage: SpecTriageService | null = null
-    const boundBroadcast = (msg: WsMessage): void => {
-      const enriched = { ...msg, projectId: project.id }
-      this._broadcast(enriched as WsMessage)
-      // Chain first: a delivery settle may launch the next chunk (async) and
-      // emit its own `milestone.chain_changed`; the progress tap then coalesces.
-      milestoneChains?.observe(msg)
-      milestoneProgress?.observe(msg)
-      // Spec triage: a created/edited spec schedules a debounced triage scan.
-      specTriage?.observe(msg)
-      // Intent settlement: an Intent session delivery that reached review settles its Intent.
-      if (msg.type === 'rail.pr_state' && flowService) {
-        const deliveryId = (msg as { prDeliveryId?: unknown }).prDeliveryId
-        if (typeof deliveryId === 'string') void flowService.observeDelivery(deliveryId).catch((err) => console.error('[flow] delivery settlement failed:', err))
-      }
-      if (msg.type === 'queue') {
-        for (const job of msg.jobs) {
-          if (isTerminalJobStatus(job.status)) {
-            clearAgentJob(this._desktopDb, job.id)
-          }
-        }
-      }
-    }
-
-    // Per-project zombie timeout (stored in queue_state)
-    let projectZombieTimeout: number | undefined
-    try {
-      const row = db.prepare(`SELECT value FROM queue_state WHERE key = 'config.zombie_timeout_ms'`).get() as { value: string } | undefined
-      if (row) {
-        const parsed = parseInt(row.value, 10)
-        if (!isNaN(parsed) && parsed > 0) projectZombieTimeout = parsed
-      }
-    } catch { /* queue_state table may not exist yet */ }
-
-    const webhookManager = this._webhookManager
-    const railJobs = new Map<string, { railIndex: number; mode: string; ticketIds: number[] }>()
-    const ticketStorePath = (): string => {
-      const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-      return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
-    }
-    // Jira sync (per-project, inert until a connection is configured). Constructed
-    // before QueueManager so the onJobFinished closure can reference it.
-    const jiraSyncManager = new JiraSyncManager({
-      db,
-      projectId: project.id,
-      projectPath: project.path,
-      broadcast: boundBroadcast,
-    })
-    // Agent actions audit (one batched writer per project connection). Retention
-    // runs shortly after startup and daily, reading the project setting each time.
-    const agentAudit = createProjectAgentAudit(db, {
-      label: project.slug,
-      retentionDays: () => getProjectSettings(db).agentAuditRetentionDays,
-    })
-    const queueManager = new QueueManager(boundBroadcast, db, undefined, project.path, {
-      zombieTimeoutMs: projectZombieTimeout,
-      agentAudit: agentAudit.recorder,
-      provider: project.provider ?? 'claude',
-      projectId: project.id,
-      projectSlug: project.slug,
-      desktopPort: this._desktopPort,
-      // Global Specrails Agents defaults — resolved at spawn time from
-      // desktop.sqlite so a Settings change applies to the next job without
-      // restarting (mirrors the pipelineTelemetryEnabled read-at-spawn rule).
-      agentDefaults: (provider) => resolveAgentDefaults(this._desktopDb, provider),
-      onJobAdmission: (projectDb, job) => {
-        const ticketIds = extractTicketIdsFromCommand(job.command)
-        claimTicketOutcomeOwners(projectDb, ticketIds, job.id)
-        const wanted = new Set(ticketIds)
-        for (const rail of getRails(projectDb)) {
-          const assigned = rail.ticketIds.filter((ticketId) => wanted.has(ticketId))
-          if (assigned.length > 0) claimRailTickets(projectDb, rail.railIndex, assigned, job.id)
-        }
-        // Distinguish current launches from genuinely pre-migration rows even
-        // when their current ticket owner later changes or becomes unreadable.
-        // This update shares the queue-admission transaction with the claims.
-        job.causalOwnership = true
-        const marked = projectDb.prepare(`
-          UPDATE queued_jobs SET causal_ownership = 1 WHERE id = ?
-        `).run(job.id)
-        if (marked.changes !== 1) {
-          throw new Error(`Failed to persist causal admission for job ${job.id}`)
-        }
-      },
-      getCostAlertThreshold: () => {
-        const val = getDesktopSetting(this._desktopDb, 'cost_alert_threshold_usd')
-        return val != null ? parseFloat(val) : null
-      },
-      getDesktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
-      getPeriodCapBreaches: () => this._capStatuses(db, project.id).filter((cap) => cap.exhausted && cap.period !== 'day'),
-      onBudgetExceeded: (event, data) => {
-        if (event === 'desktop_daily_budget_exceeded') {
-          this._pauseAllQueuesForDesktopBudget()
-        }
-        // Deliver the budget event to this project's subscribed webhooks — the
-        // WS broadcast alone never reached webhook subscribers, so a
-        // daily_budget_exceeded / desktop_daily_budget_exceeded subscription was
-        // dead. (Event names are in the webhook validEvents allow-list.)
-        try {
-          webhookManager.deliver(project.id, event as Parameters<typeof webhookManager.deliver>[1], data)
-        } catch { /* best-effort */ }
-      },
-      onJobFinished: (jobId, status, costUsd, opts) => {
-        // Recovery can deliver this callback without another queue snapshot.
-        // Clear the assignment here as the authoritative terminal effect; the
-        // bound queue broadcast above remains an idempotent live-path fallback.
-        if (isTerminalJobStatus(status)) {
-          clearAgentJob(this._desktopDb, jobId)
-        }
-        const jobRow = db.prepare('SELECT command, duration_ms, causal_ownership FROM jobs WHERE id = ?').get(jobId) as
-          | { command: string; duration_ms: number | null; causal_ownership: number }
-          | undefined
-        // Recovery callbacks carry their own immutable inputs. Job history is
-        // independently deletable/purgeable once a row is terminal; replaying
-        // from that row would otherwise checkpoint an empty callback and strand
-        // the ticket/rail state forever.
-        const recoveryCommand = opts?.recoveryReplay ? opts.recoveryCommand : undefined
-        const effectiveCommand = recoveryCommand ?? jobRow?.command ?? ''
-        const effectiveDurationMs = opts?.recoveryReplay
-          ? (opts.recoveryDurationMs ?? jobRow?.duration_ms ?? null)
-          : (jobRow?.duration_ms ?? null)
-        const ticketOutcomeStatus: JobOutcome = status === 'skipped'
-          ? 'canceled'
-          : status as JobOutcome
-        const affectsTickets = status === 'completed' || status === 'failed' ||
-          status === 'canceled' || status === 'zombie_terminated' || status === 'skipped'
-        const event = status === 'completed' ? 'job.completed' : status === 'canceled' ? 'job.canceled' : 'job.failed'
-        const criticalFailures: string[] = []
-        let outcomeStore: ReturnType<typeof readStore> | null = null
-        let changedTicketIds: number[] = []
-        let effectTicketIds: number[] = []
-        // Broadcast rail.job_completed if this job was launched by a rail
-        const railMeta = railJobs.get(jobId)
-        if (railMeta) {
-          railJobs.delete(jobId)
-        }
-
-        // Determine ticket IDs: from rail metadata, or parse from command as fallback
-        // (railJobs Map is in-memory and lost on server restart)
-        let completedTicketIds: number[] = railMeta?.ticketIds ?? []
-        if (completedTicketIds.length === 0 && opts?.recoveryReplay && opts.recoveryTicketIds) {
-          completedTicketIds = [...new Set(opts.recoveryTicketIds)]
-        }
-        if (completedTicketIds.length === 0 && effectiveCommand) {
-          const matches = effectiveCommand.match(/#(\d+)/g)
-          if (matches) completedTicketIds = matches.map((m) => parseInt(m.slice(1), 10))
-        }
-        const ticketOwners = new Map<number, string | null>()
-        let ownershipReadable = true
-        try {
-          for (const ticketId of completedTicketIds) {
-            ticketOwners.set(ticketId, ticketOutcomeOwner(db, ticketId))
-          }
-        } catch (err) {
-          ownershipReadable = false
-          criticalFailures.push(`ticket ownership: ${err instanceof Error ? err.message : String(err)}`)
-        }
-        const callbackCausalOwnership = opts?.recoveryReplay
-          ? opts.recoveryCausalOwnership === true
-          : jobRow?.causal_ownership === 1
-
-        // Apply the job outcome to its tickets. Success promotes todo/in_progress
-        // → done (→ Specs Done) — or → on_review under the ask-first PR-delivery
-        // methodology (below); failure/cancel/zombie reverts in_progress → todo
-        // (→ Specs) or flags an already-done spec for review. zombie_terminated is
-        // treated as a failure here (and is included in the _onJobExit callback
-        // guard) so a timed-out rail releases its specs instead of stranding them.
-        //
-        // Ask-first methodology (safe-pr-workflow, universal): QueueManager
-        // captures the PR-delivery flag ONCE at this job's spawn and threads it
-        // here as `opts.ticketCompletionStatus` — so a mid-flight env flip can't
-        // split one job's behavior. Under the flag a COMPLETED job parks its
-        // tickets at on_review (the human decides done via PR merge or a manual
-        // move), never done. Absent opts (legacy callers / never-spawned failure
-        // paths) ⇒ 'done', byte-identical to the pre-change promotion.
-        const completedStatus = opts?.ticketCompletionStatus ?? 'done'
-        if (
-          completedTicketIds.length > 0 &&
-          affectsTickets
-        ) {
-          try {
-            // Relocate-artifacts gate: write the job outcome to the workspace
-            // ticket store when relocated, else the repo-relative store (legacy).
-            const outcomeExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-            const ticketFile = outcomeExec.relocated
-              ? outcomeExec.ticketsPath
-              : resolveTicketStoragePath(project.path)
-            const now = new Date().toISOString()
-            const causallyOwnedTicketIds = completedTicketIds.filter((ticketId) => {
-              if (!ownershipReadable) return false
-              const owner = ticketOwners.get(ticketId) ?? null
-              return owner === jobId || (!callbackCausalOwnership && owner === null)
-            })
-            const store = mutateStore(ticketFile, (s) => {
-              changedTicketIds = applyJobOutcomeToTickets(s, causallyOwnedTicketIds, ticketOutcomeStatus, now, {
-                completedStatus,
-                effectId: jobId,
-                causalOwnerConfirmed: true,
-              })
-            })
-            outcomeStore = store
-            effectTicketIds = causallyOwnedTicketIds.filter((ticketId) => {
-              const marker = store.tickets[String(ticketId)]?.metadata.specrails_outcome
-              return marker?.owner_id === jobId && marker.applied_effect_id === jobId
-            })
-            for (const tid of changedTicketIds) {
-              const ticket = store.tickets[String(tid)]
-              if (!ticket) continue
-              try {
-                boundBroadcast({
-                  type: 'ticket_updated',
-                  ticket: ticket as unknown as import('./types').LocalTicket,
-                  projectId: project.id,
-                  timestamp: ticket.updated_at,
-                } as TicketUpdatedMessage)
-              } catch {
-                // The file mutation is authoritative; a startup client reloads it.
-              }
-            }
-          } catch (err) {
-            console.error('[project-registry] failed to apply job outcome to tickets:', err)
-            criticalFailures.push(`ticket outcome: ${err instanceof Error ? err.message : String(err)}`)
-          }
-        }
-
-        // Spec addenda settle (spec-addenda): the addenda this job claimed at
-        // spawn move to `applied` on completion or back to `open` otherwise.
-        // Keyed on the job id (the causal key), so a replay or a newer owner
-        // can never touch another run's addenda. Independent of the ticket
-        // status effect above: an already on_review spec still settles them.
-        if (completedTicketIds.length > 0 && affectsTickets) {
-          try {
-            const addendaExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-            const addendaFile = addendaExec.relocated ? addendaExec.ticketsPath : resolveTicketStoragePath(project.path)
-            const settled = settleSpecAddendaAt(addendaFile, completedTicketIds, jobId, ticketOutcomeStatus)
-            for (const tid of settled.changedTicketIds) {
-              const ticket = settled.store?.tickets[String(tid)]
-              if (!ticket) continue
-              try {
-                boundBroadcast({
-                  type: 'ticket_updated',
-                  ticket: ticket as unknown as import('./types').LocalTicket,
-                  projectId: project.id,
-                  timestamp: ticket.updated_at,
-                } as TicketUpdatedMessage)
-              } catch { /* the file mutation is authoritative */ }
-            }
-          } catch (err) {
-            console.error('[project-registry] failed to settle spec addenda:', err)
-          }
-        }
-
-        // Release the job's tickets from any rail that still holds them. The
-        // server `rails` table is the source of truth for mobile clients (the
-        // desktop strips its localStorage copy on rail.job_completed) — without
-        // this, a finished spec stays stranded on the rail forever. Runs on
-        // every terminal outcome, mirroring the desktop: success → spec is
-        // done; failure/cancel/zombie → spec returns to the board. Scans ALL
-        // rails (not just railMeta.railIndex) so it also heals after a server
-        // restart, when the in-memory railJobs map is lost.
-        if (
-          completedTicketIds.length > 0 &&
-          affectsTickets
-        ) {
-          try {
-            const releasableTicketIds = completedTicketIds.filter((ticketId) => {
-              if (!ownershipReadable) return false
-              const owner = ticketOwners.get(ticketId) ?? null
-              return owner === jobId || (!callbackCausalOwnership && owner === null)
-            })
-            const releasedRails = releaseRailTicketsOwnedBy(db, jobId, releasableTicketIds, {
-              railIndex: railMeta?.railIndex ?? null,
-              allowUnowned: !callbackCausalOwnership,
-            })
-            for (const released of releasedRails) {
-              const rail = released.rail
-              try {
-                boundBroadcast({
-                  type: 'rail.updated',
-                  projectId: project.id,
-                  railIndex: rail.railIndex,
-                  changed: 'tickets',
-                  ticketIds: rail.ticketIds,
-                  name: rail.name ?? null,
-                  mode: rail.mode,
-                  profileName: rail.profileName ?? null,
-                  aiEngine: rail.aiEngine ?? null,
-                } as RailUpdatedMessage)
-              } catch {
-                // Persisted rail state is authoritative; WS delivery is advisory.
-              }
-            }
-          } catch (err) {
-            console.error('[project-registry] failed to release rail tickets after job exit:', err)
-            criticalFailures.push(`rail release: ${err instanceof Error ? err.message : String(err)}`)
-          }
-        }
-
-        // QueueManager's recovery outbox checkpoints the callback only when it
-        // returns normally. Ticket-file and rail mutations are the two critical
-        // domain invariants, so surface either failure during a recovery replay.
-        // Live exits keep their long-standing best-effort behavior because they
-        // have no durable retry owner; they still continue to Jira/webhooks below.
-        // Both critical operations are idempotent, so partial replay is safe.
-        if (criticalFailures.length > 0 && opts?.recoveryReplay) {
-          throw new Error(`critical job outcome effects failed: ${criticalFailures.join('; ')}`)
-        }
-
-        // Jira is already backed by its own idempotent durable outbox. Keep it
-        // best-effort for this callback: a Jira configuration/network fault must
-        // never prevent the local recovery checkpoint.
-        if (
-          outcomeStore &&
-          effectTicketIds.length > 0 &&
-          affectsTickets
-        ) {
-          try {
-            if (status === 'completed' && completedStatus === 'on_review') {
-              // On a replay after the ticket mutation committed but a later rail
-              // mutation failed, changedTicketIds is empty. Derive the intended
-              // review set from the converged store so Jira still receives it.
-              // An Intent session spec reaches Jira only through its Intent settlement
-              // (create, then the review transition), never from here.
-              const reviewIds = effectTicketIds.filter(
-                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review' && !isFlowHeldTicket(outcomeStore?.tickets[String(tid)])
-              )
-              jiraSyncManager.onRailReview(reviewIds, jobId)
-            } else {
-              const needsReviewIds = effectTicketIds.filter(
-                (tid) => outcomeStore?.tickets[String(tid)]?.needs_review === true
-              )
-              jiraSyncManager.onJobOutcome({
-                ticketIds: effectTicketIds,
-                status: ticketOutcomeStatus,
-                    jobId,
-                    costUsd: costUsd ?? null,
-                    durationMs: effectiveDurationMs,
-                needsReviewIds,
-              })
-            }
-          } catch (err) {
-            console.error('[project-registry] jira onJobOutcome failed:', err)
-          }
-        }
-
-        // Webhook delivery is fire-and-forget and non-durable by design. A bad
-        // registration/desktop DB must not hold the local recovery outbox open.
-        if (status !== 'skipped') {
-          try {
-            webhookManager.deliver(project.id, event, {
-              jobId,
-              command: effectiveCommand,
-              status,
-              costUsd: costUsd ?? null,
-              durationMs: effectiveDurationMs,
-            })
-          } catch (err) {
-            console.error('[project-registry] webhook delivery scheduling failed:', err)
-          }
-        }
-
-        // Broadcast rail.job_completed if we know the rail index
-        if (railMeta) {
-          try {
-            boundBroadcast({
-              type: 'rail.job_completed',
-              projectId: project.id,
-              railIndex: railMeta.railIndex,
-              jobId,
-              status,
-              ticketIds: completedTicketIds,
-            })
-          } catch {
-            // Advisory only; local ticket/rail state already committed.
-          }
-        }
-      },
-    })
-    const chatManager = new ChatManager(boundBroadcast, db, project.path, project.name, project.provider ?? 'claude', project.id, project.slug, () => getProjectRepositories(project))
-    const setupManager = new SetupManager(
-      boundBroadcast,
-      (pid, sid) => setProjectSetupSession(this._desktopDb, pid, sid),
-      (pid) => clearProjectSetupSession(this._desktopDb, pid),
-      // LOW-2: resolve the per-project DB so phase-4 setup-chat AI turns record
-      // an `ai_invocations` row (surface='setup'). Returns null until the project
-      // context exists, in which case nothing is recorded (best-effort).
-      (pid) => this._contexts.get(pid)?.db ?? null,
-      // After a setup succeeded, run Core's rules inventory once in the
-      // background (gated on Core `rulesInventory`; idempotent; a failure is
-      // logged and shown in the project's rules panel). Never blocks setup.
-      (pid) => {
-        const target = this._contexts.get(pid)?.project
-        if (!target) return
-        void rulesInventoryRuns.runAfterSetup(
-          { id: target.id, slug: target.slug, path: target.path },
-          async () => (await corePhase3Capabilities()).rulesInventory,
-        )
-      },
-    )
-    const proposalManager = new ProposalManager(
-      boundBroadcast,
-      db,
-      project.path,
-      project.id,
-      project.provider ?? 'claude',
-      project.slug,
-    )
-    const agentRefineManager = new AgentRefineManager(boundBroadcast, db, project.path, project.id, project.provider ?? 'claude')
-    // Retention prune: drop stale/abandoned refine sessions on project load.
-    try { pruneStaleRefineSessions(db) } catch (err) {
-      console.error('[project-registry] prune refine sessions failed:', err)
-    }
-    const specLauncherManager = new SpecLauncherManager(
-      boundBroadcast,
-      project.path,
-      db,
-      project.id,
-      project.provider ?? 'claude',
-      project.slug,
-    )
-
-    // FileSummaryManager — code-explorer. The class is constructed for every
-    // project regardless of the feature flag; the router 404s when the flag
-    // is off, so no spawn can occur. Budget reader queries `ai_invocations`
-    // for the current calendar month.
-    const fileSummaryAdapter = getAdapter(project.provider ?? 'claude')
-    const fileSummaryGenerate = createFileSummaryGenerator({ adapter: fileSummaryAdapter, cwd: project.path })
-    const fileSummaryManager = new FileSummaryManager({
-      db,
-      broadcast: boundBroadcast,
-      generate: fileSummaryGenerate,
-      monthToDateSpend: (projectId: string) => {
-        const row = db.prepare(
-          `SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM ai_invocations
-           WHERE project_id = ? AND surface = 'file-summary'
-             AND started_at >= strftime('%Y-%m-01', 'now')`
-        ).get(projectId) as { total: number } | undefined
-        return row?.total ?? 0
-      },
-      monthlyBudgetUsd: () => {
-        const raw = getDesktopSetting(this._desktopDb, 'summary_monthly_budget_usd')
-        const n = parseFloat(raw ?? '5.00')
-        return isNaN(n) ? 5.0 : n
-      },
-      language: () => {
-        const raw = getDesktopSetting(this._desktopDb, 'summary_language')
-        return raw === 'es' ? 'es' : 'en'
-      },
-      providerId: () => fileSummaryAdapter.id,
-    })
-    // NOTE: the chokidar watcher is NOT attached here. It is only needed to mark
-    // already-generated summaries stale, which is irrelevant until the user opens
-    // the Code section. Attaching at startup for every project — even ones that
-    // never use Code Explorer (the client flag is OFF by default) — added a
-    // persistent recursive watcher per project, the source of the fd leak that
-    // broke terminals. The watcher is now attached lazily on the first
-    // code-explorer request (see code-explorer-router.ts).
-
-    // Load commands for this project. Relocate-artifacts: sr/specrails commands
-    // are materialized into the WORKSPACE when the project is relocated; the repo
-    // has none, so scanning project.path would find nothing. Resolve the gate so
-    // command discovery reads the same tree the rails load (legacy ⇒ repo).
-    try {
-      const cmdExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-      const commandsRoot = cmdExec.relocated && cmdExec.workspaceDir ? cmdExec.workspaceDir : project.path
-      const config = getConfig(project.path, db, project.name, commandsRoot)
-      queueManager.setCommands(config.commands)
-    } catch {
-      // Non-fatal: project may not have commands yet
-    }
-
-    const ticketWatcher = new TicketWatcher(project.path, project.id, boundBroadcast)
-    ticketWatcher.start()
-    // Suppress the file-watcher echo for the Jira sync's own writes (the every-60s
-    // poll would otherwise trigger a full-board refresh = flicker). Late-bound
-    // because the JiraSyncManager is constructed before the watcher.
-    jiraSyncManager.setLocalWriteNotifier((rev) => ticketWatcher.notifyDesktopWrite(rev))
-
-    // BrowserCaptureManager — "Add Spec from browser". Constructed for every
-    // project regardless of the feature flag; the routes + WS endpoint 404 when
-    // the flag is off, and the persistent Chromium context is launched lazily on
-    // first session create, so a project that never uses it pays nothing.
-    const browserCaptureManager = new BrowserCaptureManager({
-      projectId: project.id,
-      projectSlug: project.slug,
-      db,
-      broadcast: boundBroadcast,
-      // Share ONE persistent Chromium profile (global cookies/logins) across all
-      // projects instead of a per-project profile.
-      contextPool: this._browserContextPool,
-    })
-
-    // ── Loops engine (the Loops feature) ──────────────────────────────────────
-    const railLoopRuns = new Map<string, {
-      railIndex: number
-      ticketIds: number[]
-      requiresTerminalIntent?: boolean
-      originConversationId?: string
-    }>()
-    // Capture before runtime construction. The status transition is deliberately
-    // delayed until onLoopRunFinished exists so crash recovery replays ticket,
-    // rail and Jira invariants instead of bypassing them with raw SQL.
-    let orphanLoopRuns: LoopRunRow[] = []
-    try { orphanLoopRuns = listActiveLoopRuns(db, project.id) } catch { /* non-fatal */ }
-    // Loop executors resolve their base env LAZILY per step: a RELOCATED project
-    // injects core's env-first artifact indirection (tickets/backlog/profiles/
-    // state → the workspace) so an ISOLATED worktree run — whose cwd-relative
-    // `${ENV:-legacy}` defaults resolve inside the worktree, where only tracked
-    // files exist — still reads the real project state. SPECRAILS_REPO_DIR stays
-    // per-run (the worktree for isolated runs). Legacy projects keep process.env
-    // byte-identical except for the explicit per-project passthrough overlay.
-    // See resolveLoopBaseEnv.
-    // Same budget state the queue auto-pause enforces; bound to THIS project's
-    // connection (project budget) plus the app-wide snapshot.
-    const capOptions = { db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period: Exclude<CapPeriod, 'day'>, at: Date) => this._desktopPeriodSnapshot(period, at) }
-    const dailyBudgetRejection = createDailyBudgetGate(capOptions)
-    const dailyBudgetHeadroom = createDailyBudgetHeadroom(capOptions)
-    // Every configured cap with its spend (Budget panel, inbox, mid-run pause).
-    const budgetCaps = (at: Date = new Date()): CapStatus[] => readCapStatuses(capOptions, at)
-    // The per-run soft cap that applies to a new run: the tighter of the
-    // project's and the app-wide default (null = none).
-    const runCapDefault = (): number | null => effectiveRunCap(readProjectCaps(db).run, this._desktopCapConfig().run)
-    const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
-    // Architect clarifications (feedback-2026-10 task 3.2): after a Core
-    // invocation pauses or ends, post the run's clarifications record to the
-    // linked Jira issues when the project opted in. Core writes no record
-    // without `architectClarifications: 1`, so older Cores never post.
-    const publishRunClarifications = (runId: string, ticketIds: readonly number[]): void => {
-      if (ticketIds.length === 0 || !getProjectSettings(db).jiraPostClarifications || !jiraSyncManager.isActive()) return
-      try {
-        const runtimeDir = path.join(resolveProjectExecution(project).specrailsDir, 'pipeline', runId)
-        const record = readClarifications(runtimeDir, nodeRunRecordFs)
-        if (record) jiraSyncManager.onRunClarifications(runId, ticketIds, record)
-      } catch (err) {
-        console.error(`[jira-sync] clarifications for ${runId} failed:`, err)
-      }
-    }
-
-    // The project context exists only after its managers; late-bound for callbacks.
-    let projectContext: ProjectContext | null = null
-    const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
-      pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
-      // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
-      sourcePath: () => resolveProjectRepository(project).path,
-      workspacePaths: () => { const primary = resolveProjectRepository(project); return primary.workspacePaths ?? (primary.workspacePath ? [primary.workspacePath] : undefined) },
-      // `minimal` agent environment: the step's provider names ride along.
-      env: (providerAllowlist) => resolveLoopBaseEnv(
-        { slug: project.slug, path: project.path },
-        undefined,
-        resolveProjectAgentEnv(db, { providerAllowlist }),
-      ),
-      // One value-free run-log line when configured names are unresolved.
-      environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),
-      // Phase-3 project switches Core reads from its config (capability-gated in the bridge).
-      projectRuntime: () => ({ baselineOnTouch: getProjectSettings(db).baselineOnTouch }),
-      // Named rail profiles and global per-agent defaults ride the same
-      // SPECRAILS_PROFILE_PATH snapshot in both AI transports. An explicit null
-      // rail selection opts out; omitted selections keep Core's default rules.
-      profilePathFor: createLoopProfilePathResolver({
-        desktopDb: this._desktopDb,
-        profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
-        supportsProfiles: projectSupportsProfiles,
-      }),
-    }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
-      // Core machine interrupts (pr-ci-loop): one dispatcher per project, with the PR handlers bound to this project's records.
-      hostTasks: () => hostTaskDispatcher,
-      // Stop on a paused/recovered Core run: Core records it, Desktop settles it.
-      cancelRetained: runId => {
-        if (!projectContext) return
-        void cancelDefinitionRun(projectContext, runId).catch(error => console.error(`[loop-run] cancellation of ${runId} was rejected:`, error instanceof Error ? error.message : String(error)))
-      } })
-    const hostTaskDispatcher = createHostTaskDispatcher({ db, projectId: project.id, handlers: isPrCiLoopEnabled() ? createPrCiHandlers({
-      exec: defaultExec, git: defaultGitRunner,
-      resolveTargets: (runId) => resolvePrCiTargets(db, project.id, runId),
-      withRepositoryLock: (repoDir, fn) => withRepoLock(repoDir, fn),
-    }) : {} })
-
-    // The stored ticket as written (no launch-door additions): the Intent → Spec summary reads it.
-    const readFlowTicket = (ticketId: number) => {
-      try {
-        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-        return readStore(exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)).tickets[String(ticketId)]
-      } catch {
-        return undefined
-      }
-    }
-
-    const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
-      try {
-        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-        const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
-        const t = readStore(ticketFile).tickets[String(ticketId)]
-        if (!t) return undefined
-        // Expose every field a loop prompt can reference via `{{spec.*}}`.
-        return {
-          id: t.id,
-          title: t.title,
-          // The intent (intent-mode) leads and the non-goals (3.2) close the
-          // description every loop prompt and Core run sees.
-          description: descriptionWithIntent(descriptionWithNonGoals(t.description, t.nonGoals), t.intent),
-          status: t.status,
-          priority: t.priority,
-          labels: t.labels,
-          repositoryIds: t.repositoryIds,
-          jira_key: t.jira_key ?? null,
-          jira_url: t.jira_url ?? null,
-          openspecChangeName: typeof t.metadata?.openspecChangeName === 'string' ? t.metadata.openspecChangeName : undefined,
-          metadata: t.metadata,
-        }
-      } catch {
-        return undefined
-      }
-    }
-
-    // Releases a finished loop run's tickets + rail slots. The engine already
-    // emitted loop.run_completed; this mirrors onJobFinished's ticket/rail
-    // release (kept separate so the critical job path is untouched).
-    const onLoopRunFinished = (
-      runId: string,
-      outcome: string,
-      opts?: { ticketCompletionStatus?: 'done' | 'on_review'; stallReason?: string },
-    ): void => {
-      if (readDefinitionSuccessor(db, runId)) return
-      const intent = getLoopTerminalRecovery(db, runId)
-      let payload: LoopTerminalRecoveryPayload | null = null
-      if (intent) {
-        try {
-          const parsed = JSON.parse(intent.payload) as LoopTerminalRecoveryPayload
-          if (parsed?.runId !== runId || !Array.isArray(parsed.ticketIds)) {
-            throw new Error('loop terminal payload identity is invalid')
-          }
-          payload = parsed
-        } catch (err) {
-          console.error(`[loops] invalid terminal recovery payload for ${runId}:`, err)
-          return
-        }
-      }
-      const meta = railLoopRuns.get(runId)
-      if (!intent && meta?.requiresTerminalIntent) {
-        // Current launches atomically settle their run/job/outbox. If there is
-        // no outbox, the launch either never committed or failed before the
-        // engine acquired terminal authority. Do not release/revert tickets by
-        // falling through to the pre-outbox compatibility path.
-        if (!getLoopRun(db, runId)) railLoopRuns.delete(runId)
-        return
-      }
-      if (payload && payload.outcomeFinalized === false) {
-        const finalizedOutcome = outcome as LoopTerminalRecoveryPayload['outcome']
-        payload = {
-          ...payload,
-          outcome: finalizedOutcome,
-          jobStatus: finalizedOutcome === 'success'
-            ? 'completed'
-            : finalizedOutcome === 'stopped' || finalizedOutcome === 'blocked' || finalizedOutcome === 'stalled'
-              ? 'canceled'
-              : 'failed',
-          outcomeFinalized: true,
-        }
-        try {
-          // Monotonic decision commit precedes effect delivery. A rail/ticket
-          // failure may roll back its own transaction, but can never revert a
-          // verified isolated result to the conservative startup fallback.
-          db.prepare(`UPDATE loop_terminal_recovery SET payload = ? WHERE run_id = ?`)
-            .run(JSON.stringify(payload), runId)
-        } catch (err) {
-          console.error(`[loops] failed to persist final outcome for ${runId}:`, err)
-          return
-        }
-      }
-      const ticketIds = payload?.ticketIds ?? meta?.ticketIds ?? []
-      // Idempotent per record: a pause already posted is not posted again.
-      publishRunClarifications(runId, ticketIds)
-      const railIndex = payload?.railIndex ?? meta?.railIndex ?? null
-      const effectiveOutcome = payload?.outcome ?? outcome
-      const status: JobOutcome =
-        effectiveOutcome === 'success' ? 'completed'
-          : effectiveOutcome === 'stopped' || effectiveOutcome === 'blocked' || effectiveOutcome === 'stalled'
-            ? 'canceled'
-            : 'failed'
-      const completedStatus = payload?.ticketCompletionStatus
-        ?? opts?.ticketCompletionStatus
-        ?? (isRailPrDeliveryEnabled() ? 'on_review' : 'done')
-
-      try {
-        const deliver = db.transaction(() => {
-          let changedIds: number[] = []
-          let effectTicketIds: number[] = []
-          let store: ReturnType<typeof readStore> | null = null
-          const causallyOwnedTicketIds = ticketIds.filter((ticketId) => {
-            const owner = ticketOutcomeOwner(db, ticketId)
-            return owner === runId || (payload?.causalOwnership !== true && owner === null)
-          })
-          if (causallyOwnedTicketIds.length > 0) {
-            store = mutateStore(ticketStorePath(), (s) => {
-              changedIds = applyJobOutcomeToTickets(s, causallyOwnedTicketIds, status, new Date().toISOString(), {
-                completedStatus,
-                effectId: runId,
-                causalOwnerConfirmed: true,
-              })
-            })
-            effectTicketIds = causallyOwnedTicketIds.filter((ticketId) => {
-              const marker = store?.tickets[String(ticketId)]?.metadata.specrails_outcome
-              return marker?.owner_id === runId && marker.applied_effect_id === runId
-            })
-          }
-
-          // Spec addenda settle (spec-addenda): keyed on the run id, so only
-          // the addenda THIS run claimed move (applied on success, reopened
-          // otherwise). Runs for every ticket of the run, not only the causally
-          // owned ones — the run id is already the causal proof.
-          if (ticketIds.length > 0) {
-            const inherited = readDefinitionRun(db, runId)?.metadata.inheritedAddendaClaims ?? []
-            const inheritedResult = settleForkAddendaAt(ticketStorePath(), causallyOwnedTicketIds, runId, inherited, status)
-            if (inheritedResult.store) {
-              store = inheritedResult.store
-              for (const tid of inheritedResult.changedTicketIds) if (!changedIds.includes(tid)) changedIds.push(tid)
-            }
-            const settledAddenda = settleSpecAddendaAt(ticketStorePath(), ticketIds, runId, status)
-            if (settledAddenda.store) {
-              store = settledAddenda.store
-              for (const tid of settledAddenda.changedTicketIds) if (!changedIds.includes(tid)) changedIds.push(tid)
-            }
-          }
-
-          const released = releaseRailTicketsOwnedBy(db, runId, causallyOwnedTicketIds, {
-            railIndex,
-            allowUnowned: payload ? payload.causalOwnership !== true : true,
-          })
-
-          // Jira has its own idempotent outbox keyed by runId/ticketId. Only
-          // tickets whose causal marker belongs to this run may be enqueued.
-          if (store && effectTicketIds.length > 0) {
-            try {
-              if (status === 'completed' && completedStatus === 'on_review') {
-                // Intent specs: the Intent settlement creates the Jira issue first and
-                // then transitions it; an early review here would be a no-op at
-                // best and a double transition at worst.
-                const reviewIds = effectTicketIds.filter(
-                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review' && !isFlowHeldTicket(store?.tickets[String(ticketId)]),
-                )
-                jiraSyncManager.onRailReview(reviewIds, runId)
-              } else {
-                const needsReviewIds = effectTicketIds.filter(
-                  (ticketId) => store?.tickets[String(ticketId)]?.needs_review === true,
-                )
-                jiraSyncManager.onJobOutcome({
-                  ticketIds: effectTicketIds,
-                  status,
-                  jobId: runId,
-                  costUsd: null,
-                  durationMs: null,
-                  needsReviewIds,
-                })
-              }
-            } catch (err) {
-              console.error('[project-registry] jira loop onJobOutcome failed:', err)
-            }
-          }
-          if (intent) completeLoopTerminalRecovery(db, runId)
-          return { changedIds, store, released }
-        })
-        const delivered = deliver()
-        railLoopRuns.delete(runId)
-        // Intent hand-off without a PR delivery row: the completed run settles the
-        // Intent (with a delivery row, the `rail.pr_state` observer does).
-        if (status === 'completed' && flowService) {
-          for (const ticketId of ticketIds) {
-            const flowId = delivered.store?.tickets[String(ticketId)]?.metadata?.flow?.flowId
-            if (flowId) void flowService.onRailRunCompleted({ flowId, runId }).catch((err) => console.error('[flow] run settlement failed:', err))
-          }
-        }
-        // Milestone chain fallback hook: records the engine outcome (names the
-        // pause reason) and settles delivery-less chunks. Isolated chunks
-        // advance from the later `rail.pr_state` settle instead.
-        try { milestoneChains?.onRunSettled(runId, effectiveOutcome, opts?.stallReason) } catch (err) { console.error('[milestone-chain] onRunSettled failed:', err) }
-        for (const ticketId of delivered.changedIds) {
-          const ticket = delivered.store?.tickets[String(ticketId)]
-          if (!ticket) continue
-          try {
-            boundBroadcast({
-              type: 'ticket_updated',
-              ticket: ticket as unknown as TicketUpdatedMessage['ticket'],
-              projectId: project.id,
-              timestamp: ticket.updated_at,
-            } as TicketUpdatedMessage)
-          } catch { /* persisted file is authoritative */ }
-        }
-        for (const released of delivered.released) {
-          try {
-            boundBroadcast({
-              type: 'rail.updated',
-              projectId: project.id,
-              railIndex: released.rail.railIndex,
-              changed: 'tickets',
-              ticketIds: released.rail.ticketIds,
-              name: released.rail.name ?? null,
-              mode: released.rail.mode,
-              profileName: released.rail.profileName ?? null,
-              aiEngine: released.rail.aiEngine ?? null,
-            } as RailUpdatedMessage)
-          } catch { /* advisory */ }
-        }
-      } catch (err) {
-        // Durable intents remain pending. Ticket JSON may already contain the
-        // effect marker; replay is safe and cannot outrank a later owner.
-        console.error(`[loops] terminal effects failed for ${runId}:`, err)
-      }
-    }
-
-    const stuckRunDetector = new StuckRunDetector(project.id, { db }, boundBroadcast)
-    stuckRunDetector.start()
-
-    const blueprintWorkspace = (): string | null => resolveBlueprintWorkspace({ slug: project.slug, path: project.path })
-    // Milestone launch chain (premium-milestone-progress D3): chunks launch
-    // through the app's OWN rails launch route over loopback (the single
-    // authority for every guard) — never by re-implementing the handler.
-    const internalApi = createInternalApi({ port: this._desktopPort })
-    const railsBase = `/projects/${project.id}/rails`
-    milestoneChains = new MilestoneChainManager(db, project.id, {
-      createRail: async (name) => {
-        const r = await internalApi.call('POST', railsBase, { name })
-        const railIndex = (r.body as { rail?: { railIndex?: unknown } } | null)?.rail?.railIndex
-        return r.ok && typeof railIndex === 'number'
-          ? { ok: true, railIndex }
-          : { ok: false, status: r.status, ...internalApiError(r) }
-      },
-      assignTickets: async (railIndex, ticketIds) => {
-        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/tickets`, { ticketIds, mode: 'implement' })
-        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
-      },
-      launch: async (railIndex, body) => {
-        const r = await internalApi.call('POST', `${railsBase}/${railIndex}/launch`, body)
-        if (!r.ok) return { ok: false, status: r.status, ...internalApiError(r) }
-        const data = (r.body ?? {}) as { loopRunIds?: unknown; jobIds?: unknown; jobId?: unknown }
-        const ids = Array.isArray(data.loopRunIds) ? data.loopRunIds
-          : Array.isArray(data.jobIds) ? data.jobIds
-            : typeof data.jobId === 'string' ? [data.jobId] : []
-        return { ok: true, loopRunIds: ids.filter((v): v is string => typeof v === 'string') }
-      },
-      integrateDelivery: async (delivery) => {
-        const action = delivery.decision === 'no_changes' ? 'acknowledge-no-changes' : 'merge-local'
-        const r = await internalApi.call('POST', `${railsBase}/pr-decision`, { prDeliveryId: delivery.id, expectedDecision: delivery.decision, action })
-        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
-      },
-      activeDeliveryForRail: (railIndex) => {
-        const row = getActivePrDeliveryByRail(db, railIndex)
-        return row ? toPrDeliverySnapshot(row) : null
-      },
-      findRailByName: (name) => {
-        try {
-          const hit = getRails(db).find((r) => r.name === name)
-          return hit ? hit.railIndex : null
-        } catch { return null }
-      },
-      listRails: () => {
-        try { return getRails(db).map((r) => ({ railIndex: r.railIndex, name: r.name ?? null })) } catch { return [] }
-      },
-      railBusy: (railIndex) => [...railJobs.values(), ...railLoopRuns.values()].some((entry) => entry.railIndex === railIndex),
-      renameRail: async (railIndex, name) => {
-        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/name`, { name })
-        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
-      },
-      getDelivery: (id) => {
-        const row = getPrDelivery(db, id)
-        return row ? toPrDeliverySnapshot(row) : null
-      },
-      branchExists: async (branch) => {
-        const r = await defaultGitRunner.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], project.path)
-        return r.code === 0
-      },
-      readTickets: () => {
-        try {
-          return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [], prerequisites: Array.isArray(t.prerequisites) ? t.prerequisites : [], executionOrder: t.execution_order ?? null }))
-        } catch { return [] }
-      },
-      readBlueprint: () => { const ws = blueprintWorkspace(); return ws ? readBlueprint(ws) : null },
-      integrationBranch: async () => {
-        try {
-          return (await resolveIntegrationBranch(defaultGitRunner, { repoDir: project.path, projectSetting: getProjectSettings(db).integrationBranch })).branch
-        } catch { return null }
-      },
-      runState: (runId) => {
-        const run = getLoopRun(db, runId)
-        if (!run) return null
-        return { settled: run.status !== 'running' && run.status !== 'paused', outcome: run.final_outcome ?? null }
-      },
-      broadcast: boundBroadcast,
-    })
-    milestoneProgress = new MilestoneProgressBroadcaster({
-      projectId: project.id,
-      read: () => readMilestoneProgress({
-        db,
-        projectId: project.id,
-        workspaceDir: blueprintWorkspace,
-        ticketsPath: ticketStorePath,
-        railJobs,
-        railLoopRuns,
-        chains: () => milestoneChains?.listForProgress() ?? [],
-      }),
-      persistDone: (milestoneId) => markMilestoneDone(blueprintWorkspace(), milestoneId) !== null,
-      broadcast: boundBroadcast,
-    })
-
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, budgetCaps, runCapDefault, reviewWipGate, agentAudit }
-    projectContext = ctx
-    ctx.milestoneChains = milestoneChains
-    // Records each working mission's resource totals so the Resources popover keeps its history.
-    ctx.missionResourceRecorder = startMissionResourceRecording(ctx)
-    // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
-    // now so the existing backlog is only triaged on edit or on demand.
-    specTriage = new SpecTriageService({
-      project, db, ticketsPath: ticketStorePath, broadcast: boundBroadcast,
-      notifyDesktopWrite: (revision) => ticketWatcher.notifyDesktopWrite(revision),
-    })
-    specTriage.start()
-    ctx.specTriage = specTriage
-    // Recently deleted specs: purge past the 30-day window at startup and on a timer.
-    ctx.trashPurge = startProjectTrashPurge({
-      ticketStorePath,
-      db,
-      deleteAttachments: (ticketKey) => attachmentManager.deleteAll(project.slug, ticketKey),
-      forgetExploreConversation: (conversationId) => {
-        chatManager?.forgetSpecDraft(conversationId)
-        chatManager?.forgetExploreLifecycle(conversationId)
-      },
-    })
-    // A PR merged (or closed) on GitHub settles on its own, as "Verify PR" would.
-    ctx.prMergeWatch = startPrMergeWatch({
-      db,
-      project: { id: project.id, slug: project.slug, path: project.path },
-      broadcast: boundBroadcast,
-      jiraSyncManager: ctx.jiraSyncManager,
-    })
-    // Intent mode: use cases bound to THIS project's connection; the mission host
-    // is app-global and late-bound (agent chat starts after the registry).
-    const flowRepository = createSqliteFlowRepository(db)
-    const flowPorts = createFlowPorts({
-      ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
-      agentHost: () => getAgentChatManager(),
-      providerBilling: async (provider) => (await this._providerBilling?.(provider)) ?? { billing: 'unknown', plan: null },
-      // Dev servers the Intent agent started in the worktree stop with the Intent.
-      processes: {
-        async stop({ flowId }) {
-          const { unresolved } = await stopBackgroundProcessesForFlow(flowId, project.id)
-          if (unresolved.length) console.warn(`[flow] ${unresolved.length} background process(es) of Intent ${flowId} did not confirm exit`)
-        },
-      },
-    })
-    ctx.flow = createFlowService(flowPorts)
-    flowService = ctx.flow
-    ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
-      // Intent -> Spec: the bounded conversation summary Core's derive-change reads.
-      (session) => {
-        const ticket = session.ticketId !== null ? readFlowTicket(session.ticketId) : undefined
-        return flowConversationSummary(this._desktopDb, {
-          conversationId: session.conversationId,
-          idea: ticket?.description ?? null,
-          intent: renderIntentForAgents(normalizeSpecIntent(ticket?.intent)),
-          from: session.createdAt,
-          to: null,
-        })
-      })
-    this._contexts.set(project.id, ctx)
-    // Warm the project's login-shell env cache off the event loop so the first
-    // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
-    startProjectEnvWarmup(db)
-    const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => {
-      if (this._contexts.get(project.id) !== ctx) return
-      const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns, definitionStates)
-      if (loopRecoveryOk) {
-        // Decision tokens belong to the dead process. Clear them before any
-        // recovery projection while admission is still closed; otherwise every
-        // action on the card remains disabled and cannot trigger lease reclaim.
-        const orphanedDecisionLeases = clearOrphanedPrDeliveryOperations(db)
-        if (orphanedDecisionLeases > 0) {
-          console.log(`[safe-pr] cleared ${orphanedDecisionLeases} orphaned decision lease(s) for ${project.slug}`)
-        }
-        // Worktree/delivery recovery owns the same repo mutex as launch
-        // allocation. Admission opens only after it settles, so a request cannot
-        // reuse a ticket-keyed path while startup still inspects it.
-        void reconcileRailWorktrees(db, project.path)
-          .then(async (n) => {
-            if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
-            // Mission-origin CI repairs interrupted by the restart settle (or return to their offer) here.
-            await createPrCiAdmissionRuntime(ctx).replay().catch((error) => console.error(`[pr-ci] admission replay failed for ${project.slug}:`, error))
-            // Intent sessions never survive a restart; unfinished sagas complete
-            // or compensate before admission opens (never throws).
-            if (this._contexts.get(project.id) === ctx && ctx.flow) {
-              const flows = await ctx.flow.reconcile()
-              if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Intent session(s) for ${project.slug}`)
-              // Settlement effects survive restarts: deliveries that reached
-              // review while the app was down settle now; pending effects resume.
-              const settled = await ctx.flow.replaySettlement()
-              if (settled > 0) console.log(`[flow] resumed settlement of ${settled} Intent(s) for ${project.slug}`)
-              if (this._contexts.get(project.id) === ctx && !ctx.flowSettlement) ctx.flowSettlement = startFlowSettlementScheduler(ctx.flow)
-            }
-            if (this._contexts.get(project.id) === ctx) {
-              const effectDeps = {
-                db,
-                project: { id: project.id, slug: project.slug, path: project.path },
-                broadcast: boundBroadcast,
-                jiraSyncManager,
-              }
-              const ticketEffects = await replayRailPrTicketEffectsUntilSettled(effectDeps, {
-                isCurrent: () => this._contexts.get(project.id) === ctx,
-                onAttempt: (result) => {
-                  if (result.attempted > 0) {
-                    console.log(`[safe-pr] replayed ${result.completed}/${result.attempted} ticket effect(s) for ${project.slug}; ${result.pending} pending`)
-                    // A failed attempt persists cleanup_incomplete on the terminal
-                    // delivery; project it immediately while admission remains
-                    // closed so both cards explain the recovery state.
-                    for (const deliveryId of result.attemptedDeliveryIds) {
-                      emitRecoveredPrDelivery(ctx, deliveryId)
-                    }
-                  }
-                },
-              })
-              if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
-              // "Integrate locally" saved the person's uncommitted work as a
-              // stash and the app stopped before restoring it: re-apply now,
-              // before admission opens (never throws; conflicts keep the stash).
-              const restoredLocalChanges = await recoverLocalStashes({ ...effectDeps, git: defaultGitRunner, exec: defaultExec })
-              for (const deliveryId of restoredLocalChanges) emitRecoveredPrDelivery(ctx, deliveryId)
-              if (this._contexts.get(project.id) !== ctx) return
-              reprojectActivePrDeliveries(ctx)
-              openProjectProcessAdmission(project.id)
-              // pr-ci-loop: a run paused on a host task (CI wait, push) is not
-              // waiting for a person. Re-dispatch it now; the persisted dispatch
-              // replays a known result instead of repeating the effect.
-              for (const [runId, state] of definitionStates ?? []) {
-                if (state.status !== 'paused' || !state.pendingInterrupts?.some(item => (item as { kind?: unknown } | null)?.kind === 'host-task')) continue
-                void resumeRetainedDefinitionRun(ctx, runId, {}).then(outcome => {
-                  if (outcome.status >= 400) console.warn(`[host-task] ${project.slug}: run ${runId} was not re-dispatched (${outcome.status})`, outcome.body)
-                }).catch(error => console.error(`[host-task] ${project.slug}: re-dispatch of ${runId} failed:`, error))
-              }
-              // Intent -> Spec deliveries settled as a generic failure before the
-              // review outcome existed: persist the reclassification once (the
-              // retained ledger is read-only here) and refresh their cards.
-              void healLegacyFlowReviews({
-                db,
-                pipelineDir: path.join(resolveProjectExecution({ slug: project.slug, path: project.path }).specrailsDir, 'pipeline'),
-                probe: (runIds) => probeDefinitionRuns({ db, cwd: project.path, env: process.env }, runIds, true),
-                isDefinitionRun: (runId) => getLoopRun(db, runId)?.engine_version === 2,
-              }).then((ids) => {
-                if (this._contexts.get(project.id) !== ctx) return
-                for (const deliveryId of ids) emitRecoveredPrDelivery(ctx, deliveryId)
-              })
-            }
-          })
-          .catch((err) => {
-            console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
-          })
-      }
-    }
-    const definitionIds = orphanLoopRuns.filter(run => run.engine_version === 2).map(run => run.id)
-    if (definitionIds.length) {
-      void probeDefinitionRuns({ db, cwd: project.path, env: process.env }, definitionIds)
-        .then(probes => recoverAfterProbe(toDefinitionStates(probes)))
-        .catch(error => { console.error(`[loops] Core recovery inspection failed for ${project.slug}; admission remains closed:`, error) })
-    } else recoverAfterProbe()
-    return ctx
   }
 
   private _recoverOrphanLoopRuns(
     project: ProjectRow,
     db: DbInstance,
-    railLoopRuns: Map<string, {
-      railIndex: number
-      ticketIds: number[]
-      requiresTerminalIntent?: boolean
-      originConversationId?: string
-    }>,
+    railLoopRuns: ProjectContext['railLoopRuns'],
     onLoopRunFinished: (runId: string, outcome: string) => void,
     orphans: LoopRunRow[],
     definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>,
   ): boolean {
-    try {
-      const recoveredSteps = recoverOrphanLoopStepAccounting(db)
-      if (recoveredSteps > 0) {
-        console.log(`[loops] recovered ${recoveredSteps} interrupted step invocation(s) for ${project.slug}`)
-      }
-      const countByRail = new Map<number, number>()
-      for (const run of orphans) {
-        if (run.rail_index != null) countByRail.set(run.rail_index, (countByRail.get(run.rail_index) ?? 0) + 1)
-      }
-      const rails = getRails(db)
-      const legacyTicketIds = new Map<string, number[]>()
-      for (const run of orphans) {
-        if (run.rail_index == null) continue
-        let persistedIds: number[] = []
-        try {
-          const parsed = JSON.parse(run.ticket_ids_json ?? '[]') as unknown
-          if (Array.isArray(parsed)) {
-            persistedIds = parsed.filter((id): id is number => Number.isSafeInteger(id) && id > 0)
-          }
-        } catch { /* pre-migration malformed value → legacy fallback */ }
-        let ticketIds = persistedIds.length > 0
-          ? persistedIds
-          : (run.ticket_id == null ? [] : [run.ticket_id])
-        // Compatibility only for rows launched before migration 45. New rows
-        // persist the exact set and never use this ambiguous heuristic.
-        if (persistedIds.length === 0 && (countByRail.get(run.rail_index) ?? 0) === 1) {
-          const rail = rails.find((candidate) => candidate.railIndex === run.rail_index)
-          if (rail && rail.ticketIds.length > 0) ticketIds = [...rail.ticketIds]
-        }
-        legacyTicketIds.set(run.id, ticketIds)
-        railLoopRuns.set(run.id, { railIndex: run.rail_index, ticketIds })
-      }
-      reconcileOrphanLoopRuns(db, new Date().toISOString(), legacyTicketIds, definitionStates)
-      // Includes orphan intents created above AND normally-completed runs whose
-      // process died after the atomic settle but before its `.then` callback.
-      const pending = listPendingLoopTerminalRecoveries(db)
-      for (const row of pending) {
-        let terminalOutcome = 'failed'
-        try {
-          const payload = JSON.parse(row.payload) as LoopTerminalRecoveryPayload
-          terminalOutcome = payload.outcome
-          if (payload.outcomeFinalized === false) {
-            const durableRun = getLoopRun(db, row.run_id)
-            if (durableRun?.status === 'completed' && durableRun.final_outcome) {
-              terminalOutcome = durableRun.final_outcome
-            }
-          }
-        } catch { /* handler logs and retains malformed intent */ }
-        onLoopRunFinished(row.run_id, terminalOutcome)
-      }
-      if (orphans.length > 0) {
-        console.log(`[loops] reconciled ${orphans.length} orphan loop run(s) for ${project.slug}`)
-      }
-      return true
-    } catch (err) {
-      console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
-      return false
-    }
+    return recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphans, definitionStates)
   }
 
   /** App-wide daily budget state. The queue auto-pause and the rail/loop
-   *  admission gate read this same snapshot, so both doors agree. */
-  private _desktopDailyBudgetSnapshot(): { budget: number | null; totalSpend: number } {
+   *  admission gate read this same snapshot, so both doors agree. Same basis as
+   *  the project day cap and the weekly/monthly caps: every recorded cost since
+   *  the LOCAL day start, all projects plus every agent turn (missions, Intent,
+   *  Home and Blueprint chats). It used to read completed jobs since the UTC day. */
+  private _desktopDailyBudgetSnapshot(at: Date = new Date()): { budget: number | null; totalSpend: number } {
     const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
     const budget = val != null ? parseFloat(val) : null
-    let totalSpend = 0
-    for (const c of this.listContexts()) {
-      const row = c.db.prepare(
-        `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
-      ).get() as { total: number }
-      totalSpend += row.total
-    }
-    return { budget, totalSpend }
+    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, localDayStartIso(at)) }
+  }
+
+  private _spendProjects(): Array<{ db: DbInstance; projectId: string }> {
+    return this.listContexts().map((c) => ({ db: c.db, projectId: c.project.id }))
   }
 
   /** App-wide caps (all projects combined) as configured in desktop settings. */
@@ -1925,18 +844,14 @@ export class ProjectRegistry {
   private _desktopPeriodSnapshot(period: Exclude<CapPeriod, 'day'>, at: Date): { budget: number | null; totalSpend: number } {
     const budget = this._desktopCapConfig()[period]
     if (budget === null) return { budget: null, totalSpend: 0 }
-    const since = periodStartIso(period, at)
-    let totalSpend = 0
-    for (const c of this.listContexts()) {
-      try { totalSpend += projectSpendSince(c.db, c.project.id, since) } catch { /* an unreadable project adds nothing (fail-open) */ }
-    }
-    return { budget, totalSpend }
+    // Every project plus every agent turn (app-wide scope).
+    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, periodStartIso(period, at)) }
   }
 
   /** The app-wide caps with their spend (all projects combined), for the Budget panel. */
   desktopCapStatuses(at: Date = new Date()): CapStatus[] {
     const out: CapStatus[] = []
-    const day = this._desktopDailyBudgetSnapshot()
+    const day = this._desktopDailyBudgetSnapshot(at)
     const push = (period: CapPeriod, snapshot: { budget: number | null; totalSpend: number }, resetsAt: string): void => {
       if (snapshot.budget == null || !(snapshot.budget > 0)) return
       out.push({ scope: 'desktop', period, budgetUsd: snapshot.budget, spentUsd: snapshot.totalSpend, exhausted: isCapExceeded(snapshot.budget, snapshot.totalSpend), resetsAt })
@@ -1949,7 +864,7 @@ export class ProjectRegistry {
 
   /** Every cap of one project plus the app-wide ones, with spend. */
   private _capStatuses(db: DbInstance, projectId: string, at: Date = new Date()): CapStatus[] {
-    return readCapStatuses({ db, projectId, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period, when) => this._desktopPeriodSnapshot(period, when) }, at)
+    return readCapStatuses({ db, projectId, appLedgerDb: this._desktopDb, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period, when) => this._desktopPeriodSnapshot(period, when) }, at)
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

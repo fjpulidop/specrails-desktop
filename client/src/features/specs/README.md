@@ -30,7 +30,6 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/spec-draft.ts](lib/spec-draft.ts)
 - [lib/spec-intent.ts](lib/spec-intent.ts)
 - [lib/spec-sort.ts](lib/spec-sort.ts)
-- [lib/spec-status-filter.ts](lib/spec-status-filter.ts)
 - [lib/spec-triage.ts](lib/spec-triage.ts)
 - [lib/specs-view-tier.ts](lib/specs-view-tier.ts)
 - [lib/ticket-status-moves.ts](lib/ticket-status-moves.ts)

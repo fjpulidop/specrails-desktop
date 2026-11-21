@@ -9,6 +9,8 @@
  * Why a failed/blocked run stopped, as the recovery module presents it. Declared
  * structurally so the inbox vocabulary stays dependency-free.
  */
+import type { RunQuestion } from '../../shared/run-question'
+
 export interface InboxDiagnosis {
   kind: string
   confidence: 'high' | 'low'
@@ -55,6 +57,10 @@ export interface InboxItem {
   cap?: InboxCap
   /** Rail the work ran on, when the item addresses one (a delivery or a run); lets a remote surface retry it. */
   railIndex?: number
+  /** Where the run stands in its attempt chain, when it continued an earlier attempt ("attempt 3 of #14"). */
+  attempt?: { number: number; of: number }
+  /** A question item (a run paused on the person): the question card every surface renders. */
+  question?: RunQuestion
   /** A delivery item's decision state (`on_review`, `pr_failed`, ...): the optimistic-concurrency token of a PR decision. */
   decision?: string
 }

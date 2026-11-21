@@ -1,7 +1,9 @@
 import { createContext, startTransition, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FEATURE_AGENT_MODE } from '../lib/feature-flags'
+import { readStoredUiMode, writeStoredUiMode } from '../lib/ui-mode-storage'
 
-export type UiMode = 'kanban' | 'agent'
+export type { UiMode } from '../lib/ui-mode-storage'
+import type { UiMode } from '../lib/ui-mode-storage'
 
 interface UiModeContextValue {
   /** The mode whose surface is committed on screen. */
@@ -17,32 +19,10 @@ interface UiModeContextValue {
   toggleUiMode: () => void
 }
 
-const STORAGE_KEY = 'specrails-desktop:uiMode'
-
-function readStored(): UiMode {
-  // Flag OFF pins kanban so Kanban stays byte-identical.
-  if (!FEATURE_AGENT_MODE) return 'kanban'
-  try {
-    // Agent Mode is the DEFAULT; an explicit user pick (either mode, persisted
-    // on every switch) wins over it on the next launch.
-    return localStorage.getItem(STORAGE_KEY) === 'kanban' ? 'kanban' : 'agent'
-  } catch {
-    return 'agent'
-  }
-}
-
-function writeStored(m: UiMode): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, m)
-  } catch {
-    /* ignore */
-  }
-}
-
 const UiModeContext = createContext<UiModeContextValue | null>(null)
 
 export function UiModeProvider({ children, initialMode, persist = true }: { children: ReactNode; initialMode?: UiMode; persist?: boolean }) {
-  const [initial] = useState<UiMode>(() => initialMode ?? readStored())
+  const [initial] = useState<UiMode>(() => initialMode ?? readStoredUiMode())
   const [uiMode, setUiModeState] = useState<UiMode>(initial)
   const [requestedMode, setRequestedMode] = useState<UiMode>(initial)
   const requestedRef = useRef<UiMode>(initial)
@@ -56,7 +36,7 @@ export function UiModeProvider({ children, initialMode, persist = true }: { chil
     setRequestedMode(m)
     if (opts?.immediate) setUiModeState(m)
     else startTransition(() => setUiModeState(m))
-    if (persist) writeStored(m)
+    if (persist) writeStoredUiMode(m)
   }, [persist])
 
   const toggleUiMode = useCallback(() => {

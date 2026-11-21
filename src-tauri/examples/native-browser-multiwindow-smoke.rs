@@ -7,6 +7,9 @@
 #[path = "../src/loop_windows.rs"]
 mod loop_windows;
 #[allow(dead_code)]
+#[path = "../src/surface_windows.rs"]
+mod surface_windows;
+#[allow(dead_code)]
 #[path = "../src/mission_windows.rs"] mod mission_windows;
 #[cfg(target_os = "macos")] use block2::RcBlock;
 #[cfg(target_os = "macos")] use objc2::runtime::AnyObject;

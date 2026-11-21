@@ -91,11 +91,15 @@
     "reviewerScoreUnavailable": "No se generó puntuación del revisor.",
     "evidenceUnavailable": "sin evidencia",
     "hostCommandPassed": "El runtime ejecutó {{label}} por sí mismo: código de salida {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "El runtime ejecutó {{label}} por sí mismo, pero solo lee el contenido de archivos y no ejecuta el código: código de salida {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "El runtime ejecutó {{label}} por sí mismo y FALLÓ: código de salida {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Comprobación del revisor superada: {{name}}",
     "acceptanceCheckFailed": "Comprobación del revisor FALLIDA: {{name}}",
     "reviewerSummary": "Resumen del revisor IA:",
-    "reviewerFinding": "El revisor IA señaló:"
+    "reviewerFinding": "El revisor IA señaló:",
+    "earlierAttempts_one": "{{count}} ejecución anterior de esta comprobación",
+    "earlierAttempts_other": "{{count}} ejecuciones anteriores de esta comprobación",
+    "earlierAttempt": "Falló con código de salida {{exitCode}} ({{seconds}} s), antes de la corrección que la hizo pasar"
   },
   "watch": {
     "humanReviewRecommended": "El revisor IA puntuó esto {{overall}}/100 y recomienda que lo mire una persona.",
@@ -128,6 +132,11 @@
   "planned": {
     "title": "Enfoque previsto (según la spec)",
     "caveat": "Lo que proponía la petición, no un informe de lo que hizo la IA. Los hechos de arriba son lo que cambió de verdad."
+  },
+  "delivered": {
+    "title": "Qué cambió",
+    "caveat": "De la propuesta OpenSpec entregada: escrita por el agente y revisada por el revisor.",
+    "why": "Por qué"
   },
   "outcome": {
     "succeeded": "Implementado",

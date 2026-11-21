@@ -1,6 +1,6 @@
 # Il terminale integrato {#integrated-terminal}
 
-Specrails ha un vero terminale incorporato — il pannello che scorre verso l'alto dal fondo della finestra, proprio come quello di VS Code o Cursor. Esegue la tua shell reale, nella directory reale del tuo progetto, così puoi lanciare `git`, `npm`, i test o qualunque altra cosa senza uscire dall'app.
+Specrails ha un vero terminale incorporato — il pannello che scorre verso l'alto dal fondo della finestra. Esegue la tua shell reale, nella directory reale del tuo progetto, così puoi lanciare `git`, `npm`, i test o qualunque altra cosa senza uscire dall'app.
 
 ## Aprirlo e chiuderlo
 

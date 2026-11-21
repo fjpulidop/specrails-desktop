@@ -15,12 +15,13 @@ import { formatUsd } from '../../../analytics/lib/format'
 
 /** Wall-clock elapsed between the job start and `finishedAt` (ISO string or a
  *  `Date.now()` reading for the live ticker). `—` when either side is unknown. */
-export function formatWallClock(startedAt: string | null | undefined, finishedAt: string | number | null | undefined): string {
+export function formatWallClock(startedAt: string | null | undefined, finishedAt: string | number | null | undefined, heldMs = 0): string {
   const start = parseJobTimestamp(startedAt ?? null)
   const endMs = typeof finishedAt === 'number'
     ? finishedAt
     : (parseJobTimestamp(finishedAt ?? null)?.getTime() ?? Number.NaN)
-  const ms = endMs - (start?.getTime() ?? Number.NaN)
+  // Time the run spent held (waiting for an answer, a restart, a limit) is not work.
+  const ms = endMs - (start?.getTime() ?? Number.NaN) - (Number.isFinite(heldMs) && heldMs > 0 ? heldMs : 0)
   if (!Number.isFinite(ms) || ms < 0) return '—'
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`
@@ -219,38 +220,12 @@ export function formatPipelineTokens(p: PipelineTotals): string {
   return `${(p.nullTokenCount ?? 0) > 0 ? '≥' : ''}${formatTokens(total)}`
 }
 
-// ─── Details disclosure memory (per surface) ─────────────────────────────────
+// ─── Run detail preferences (per surface) ─────────────────────────────────
 
-export const JOB_RUN_DETAILS_KEY = 'specrails-desktop:job-run-details'
 export type JobRunSurface = 'page' | 'glass'
 export type RunDetailSurface = 'page' | 'modal'
 export type RunLogSection = 'graph' | 'detail'
 export const JOB_RUN_LOG_SECTION_KEY = 'specrails-desktop:job-run-log-section'
-
-export function loadJobRunDetailsOpen(surface: JobRunSurface | RunDetailSurface): boolean {
-  try {
-    const raw = localStorage.getItem(JOB_RUN_DETAILS_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    return parsed?.[surface === 'modal' ? 'glass' : surface] === true
-  } catch {
-    return false
-  }
-}
-
-export function saveJobRunDetailsOpen(surface: JobRunSurface | RunDetailSurface, open: boolean): void {
-  try {
-    const raw = localStorage.getItem(JOB_RUN_DETAILS_KEY)
-    let parsed: Record<string, unknown> = {}
-    if (raw) {
-      try { const p = JSON.parse(raw); if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p } catch { /* reset */ }
-    }
-    parsed[surface === 'modal' ? 'glass' : surface] = open
-    localStorage.setItem(JOB_RUN_DETAILS_KEY, JSON.stringify(parsed))
-  } catch {
-    /* storage unavailable — the session-local choice still applies */
-  }
-}
 
 export function loadJobRunLogSection(surface: RunDetailSurface): RunLogSection {
   try {

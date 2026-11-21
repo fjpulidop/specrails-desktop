@@ -1,18 +1,28 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../../../test-utils'
+import { render, screen, waitFor, within } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
-import AnalyticsPage from '../AnalyticsPage'
+import AnalyticsPage, { activeEngines } from '../AnalyticsPage'
 
 vi.mock('../../../../lib/api', () => ({
   getApiBase: () => '/api',
 }))
 
+const desktop = vi.hoisted(() => ({
+  projects: [] as Array<{ id: string; provider: string; providers?: string[] }>,
+  available: {} as Record<string, boolean>,
+}))
+
+vi.mock('../../../providers/hooks/useAvailableProviders', () => ({
+  useAvailableProviders: () => ({ available: desktop.available, availableIds: [], issues: {}, launchDescriptors: {}, labels: {}, loading: false }),
+}))
+
 vi.mock('../../../../hooks/useDesktop', () => ({
+  projectProviders: (p: { provider: string; providers?: string[] }) => (p.providers && p.providers.length > 0 ? p.providers : [p.provider]),
   useDesktop: () => ({
     activeProjectId: 'proj-1',
-    projects: [],
+    projects: desktop.projects,
     isLoading: false,
     setupProjectIds: new Set(),
     setActiveProjectId: vi.fn(),
@@ -42,6 +52,14 @@ vi.mock('../../components/LegacyWorkflowUsage', () => ({
 vi.mock('../../components/SpendingHero', () => ({
   SpendingHero: ({ data }: { data: unknown }) => (
     <div data-testid="hero">{data ? 'hero-loaded' : 'hero-loading'}</div>
+  ),
+}))
+vi.mock('../../components/SpendBreakdownCard', () => ({
+  // Expose onSelectSurface so the surface-level filter (reached from the card) is testable.
+  SpendBreakdownCard: ({ onSelectSurface }: { onSelectSurface?: (s: string) => void }) => (
+    <div data-testid="breakdown">
+      <button data-testid="breakdown-pick-mission" onClick={() => onSelectSurface?.('mission')}>mission</button>
+    </div>
   ),
 }))
 vi.mock('../../components/ProviderBreakdownCard', () => ({
@@ -115,11 +133,12 @@ function renderPage() {
 }
 
 describe('AnalyticsPage', () => {
-  beforeEach(() => { vi.clearAllMocks(); mockFetch() })
+  beforeEach(() => { vi.clearAllMocks(); mockFetch(); desktop.projects = []; desktop.available = {} })
 
   it('renders the seven dashboard blocks once data loads', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    expect(screen.getByTestId('breakdown')).toBeInTheDocument()
     expect(screen.getByTestId('timeline')).toBeInTheDocument()
     expect(screen.getByTestId('qvse')).toBeInTheDocument()
     expect(screen.getByTestId('models')).toBeInTheDocument()
@@ -127,6 +146,44 @@ describe('AnalyticsPage', () => {
     expect(screen.getByTestId('top')).toBeInTheDocument()
     expect(screen.getByTestId('table')).toBeInTheDocument()
     expect(screen.getByTestId('legacy-usage')).toHaveTextContent('proj-1')
+  })
+
+  const withProviders = (byProvider: Array<{ provider: string; count: number }>) => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/spending')) return Promise.resolve({ ok: true, json: async () => ({ ...emptySpending, byProvider: byProvider.map((p) => ({ ...p, costUsd: 0, estimatedCostUsd: 0 })) }) })
+      if (url.includes('/invocations')) return Promise.resolve({ ok: true, json: async () => emptyInvocations })
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+  }
+
+  it('offers the engine filter only for engines with activity in the period, never the internal runtime', async () => {
+    desktop.projects = [{ id: 'proj-1', provider: 'claude', providers: ['claude', 'codex', 'gemini'] }]
+    withProviders([{ provider: 'claude', count: 4 }, { provider: 'codex', count: 2 }, { provider: 'gemini', count: 0 }, { provider: 'agent-runtime', count: 9 }])
+    renderPage()
+    const select = await screen.findByTestId('analytics-provider-select')
+    expect(select).toBeInTheDocument()
+    expect(activeEngines([
+      { provider: 'claude', count: 4, costUsd: 0, estimatedCostUsd: 0 },
+      { provider: 'gemini', count: 0, costUsd: 0, estimatedCostUsd: 0 },
+      { provider: 'agent-runtime', count: 9, costUsd: 0, estimatedCostUsd: 0 },
+    ])).toEqual(['claude'])
+  })
+
+  it('hides the engine filter when fewer than two engines did work, even if more are configured', async () => {
+    desktop.projects = [{ id: 'proj-1', provider: 'claude', providers: ['claude', 'codex', 'gemini'] }]
+    withProviders([{ provider: 'claude', count: 4 }, { provider: 'codex', count: 0 }, { provider: 'agent-runtime', count: 3 }])
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    expect(screen.queryByTestId('analytics-provider-select')).not.toBeInTheDocument()
+  })
+
+  it('keeps the whole filter row on one header with the subtitle as a hint', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    const header = screen.getByTestId('analytics-header')
+    expect(within(header).getByTestId('analytics-category-chips')).toBeInTheDocument()
+    expect(within(header).getByTestId('export')).toBeInTheDocument()
+    expect(within(header).getByTestId('analytics-subtitle')).toHaveTextContent(/Where the spend goes/)
   })
 
   it('disables export when there are no invocations', async () => {
@@ -151,16 +208,80 @@ describe('AnalyticsPage', () => {
     expect(lastSpendingCall).toContain('period=7d')
   })
 
-  it('toggling a surface chip updates the URL filter', async () => {
+  it('reads top-down: how much → why → when → engines/models → limits → specs → calls → more', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    await waitFor(() => expect(screen.getByTestId('budget-card')).toBeInTheDocument())
+    const order = ['hero', 'breakdown', 'timeline', 'provider-breakdown', 'models', 'budget-card', 'top', 'table', 'analytics-more-breakdowns']
+    const nodes = order.map((id) => screen.getByTestId(id))
+    for (let i = 1; i < nodes.length; i++) {
+      expect(nodes[i - 1].compareDocumentPosition(nodes[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    // Secondary cards live in the collapsed "more breakdowns" section.
+    const more = screen.getByTestId('analytics-more-breakdowns')
+    expect(more).toContainElement(screen.getByTestId('qvse'))
+    expect(more).toContainElement(screen.getByTestId('scatter'))
+    expect(screen.queryByTestId('agent-missions-card')).not.toBeInTheDocument()
+  })
+
+  it('shows All + the five category chips instead of surface chips', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    const chips = screen.getByTestId('analytics-category-chips')
+    const labels = Array.from(chips.querySelectorAll('button')).map((b) => b.firstChild?.textContent)
+    expect(labels).toEqual(['All', 'Implementation', 'Missions', 'Specs', 'Code', 'Support'])
+    // The one-line why is exposed to assistive tech on each chip.
+    expect(screen.getByRole('button', { name: /Missions/ })).toHaveAccessibleDescription('Talking to the agent and Intent mode')
+    expect(screen.queryByRole('button', { name: 'Jobs' })).not.toBeInTheDocument()
+  })
+
+  it('toggling a category chip sends the category filter and persists it in the URL', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <output data-testid="loc">{location.search}</output>
+    }
+    const user = userEvent.setup()
+    render(<><AnalyticsPage /><LocationProbe /></>)
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    await user.click(screen.getByRole('button', { name: /Missions/ }))
+    await waitFor(() => {
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as string)
+      expect(calls.filter((u) => u.includes('/spending')).at(-1)).toContain('category=missions')
+      expect(calls.filter((u) => u.includes('/invocations')).at(-1)).toContain('category=missions')
+    })
+    expect(screen.getByTestId('loc').textContent).toContain('category=missions')
+    expect(screen.getByRole('button', { name: /Missions/ })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(screen.getByTestId('analytics-category-chips')).getByRole('button', { name: 'All' }))
+    await waitFor(() => {
+      const last = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
+      expect(last).not.toContain('category=')
+    })
+  })
+
+  it('reaches the surface filter from the breakdown card and clears it from the header chip', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
-    await user.click(screen.getByRole('button', { name: 'Jobs' }))
+    await user.click(screen.getByTestId('breakdown-pick-mission'))
     await waitFor(() => {
-      const lastSpendingCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
-        .map((c) => c[0] as string)
-        .filter((u) => u.includes('/spending')).at(-1)
-      expect(lastSpendingCall).toContain('surface=job')
+      const last = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
+      expect(last).toContain('surface=mission')
+    })
+    expect(screen.getByTestId('analytics-surface-chip')).toHaveTextContent('Missions')
+    await user.click(screen.getByTestId('analytics-surface-chip'))
+    await waitFor(() => expect(screen.queryByTestId('analytics-surface-chip')).not.toBeInTheDocument())
+  })
+
+  it('honours ?surface= and ?category= from the URL', async () => {
+    render(<AnalyticsPage />, { route: '/analytics?surface=intent&category=missions,bogus' })
+    await waitFor(() => {
+      const last = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
+      expect(last).toContain('surface=intent')
+      expect(last).toContain('category=missions')
+      expect(last).not.toContain('bogus')
     })
   })
 

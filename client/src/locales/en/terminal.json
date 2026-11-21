@@ -41,7 +41,7 @@
   },
   "contextMenu": {
     "paste": "Paste",
-    "selectAll": "Select All",
+    "selectAll": "Select all",
     "clear": "Clear",
     "search": "Search…",
     "saveScrollback": "Save scrollback to file…",

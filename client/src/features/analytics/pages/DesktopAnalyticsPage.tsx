@@ -14,6 +14,7 @@ import { CostValue } from '../components/CostValue'
 import { formatUsd } from '../lib/format'
 import { DialogBody, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Skeleton } from '../../../components/ui/skeleton'
+import { useCategoryColors } from '../lib/category-colors'
 
 // Server now splits authoritative (claude, provider-billed) vs estimated
 // (codex/gemini rate-card) cost. These fields are populated by
@@ -226,6 +227,68 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
   )
 }
 
+/** The app-level row (agent turns of no loaded project) has a translated name. */
+function rowName(p: EstimatedProjectStats, appLabel: string): string {
+  return p.kind === 'app' ? appLabel : p.projectName
+}
+
+// ─── Category split ───────────────────────────────────────────────────────────
+
+type CategoryRow = NonNullable<DesktopAnalyticsResponse['byCategory']>[number]
+
+// Estimated part: the category colour, hatched (same convention as the project page).
+const HATCH = 'repeating-linear-gradient(135deg, transparent 0 2px, var(--color-card) 2px 4px)'
+
+/**
+ * The window's spend in the five categories of the project page (implementation,
+ * missions, specs, code, support), across every project plus Home & Blueprint,
+ * as one stacked bar and a legend. Hidden when the server sends no split.
+ */
+function DesktopCategorySplit({ categories, total }: { categories: CategoryRow[]; total: number }) {
+  const { t } = useTranslation('analytics')
+  const colors = useCategoryColors()
+  const active = categories.filter((c) => c.count > 0)
+  if (active.length === 0) return null
+  const priced = active.filter((c) => c.costUsd > 0)
+  return (
+    <div className="rounded-lg border border-border/40 bg-card/50 p-4" data-testid="desktop-category-split">
+      <h3 className="text-strong mb-3">{t('breakdown.title')}</h3>
+      {total > 0 && priced.length > 0 && (
+        <div className="flex h-2 w-full overflow-hidden rounded-full bg-border/30 mb-3" aria-hidden>
+          {priced.map((c) => {
+            const estimatedPct = c.costUsd > 0 ? Math.min(100, (c.estimatedCostUsd / c.costUsd) * 100) : 0
+            return (
+              <span key={c.category} className="flex h-full" style={{ width: `${(c.costUsd / total) * 100}%` }} data-testid={`desktop-category-bar-${c.category}`}>
+                <span className="h-full" style={{ width: `${100 - estimatedPct}%`, background: colors[c.category] }} />
+                {estimatedPct > 0 && <span className="h-full" style={{ width: `${estimatedPct}%`, background: colors[c.category], backgroundImage: HATCH }} />}
+              </span>
+            )
+          })}
+        </div>
+      )}
+      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5">
+        {active.map((c) => {
+          const allUnpriced = c.unpricedCount === c.count
+          const share = total > 0 && !allUnpriced ? (c.costUsd / total) * 100 : null
+          return (
+            <li key={c.category} className="flex items-center gap-2 text-xs" data-testid={`desktop-category-${c.category}`} title={t(`categories.${c.category}.why`)}>
+              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: colors[c.category] }} />
+              <span className="min-w-0 flex-1 truncate font-medium">{t(`categories.${c.category}.label`)}</span>
+              <span className="text-muted-foreground num">{t('breakdown.invocations', { count: c.count })}</span>
+              <span className="num text-foreground w-16 text-right">
+                {allUnpriced ? t('desktop.costUnavailableShort') : <CostValue usd={c.costUsd} estimated={c.estimatedCostUsd > 0} />}
+              </span>
+              <span className="w-9 text-right text-muted-foreground num">
+                {share === null ? '—' : `${share < 1 && share > 0 ? '<1' : share.toFixed(0)}%`}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 // ─── Project Breakdown Table ──────────────────────────────────────────────────
 
 function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
@@ -254,15 +317,20 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
             ?? Math.max(0, p.totalJobs - unpricedRuns)
           const costUnavailable = unpricedRuns > 0 && pricedRuns === 0
           const costPartiallyUnavailable = unpricedRuns > 0 && pricedRuns > 0
+          const isApp = p.kind === 'app'
+          const name = rowName(p, t('desktop.homeAndBlueprint'))
+          const turns = p.agentTurns ?? 0
           return (
-          <div key={p.projectId} className="space-y-1" data-estimated={isEstimated ? 'true' : undefined}>
+          <div key={p.projectId} className="space-y-1" data-estimated={isEstimated ? 'true' : undefined} data-testid={isApp ? 'desktop-app-ledger-row' : undefined}>
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium truncate max-w-[160px] flex items-center gap-1" title={p.projectName}>
-                {p.projectName}
+              <span className="font-medium truncate max-w-[160px] flex items-center gap-1" title={isApp ? t('desktop.homeAndBlueprintHint') : name}>
+                {name}
+                {isApp && <span className="sr-only"> ({t('desktop.homeAndBlueprintHint')})</span>}
               </span>
               <div className="flex items-center gap-4 text-muted-foreground">
-                <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
-                <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>
+                {!isApp && <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>}
+                {!isApp && <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>}
+                {(isApp || turns > 0) && <span>{t('desktop.agentTurns', { count: turns })}</span>}
                 <span
                   className="num text-foreground"
                   title={costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined}
@@ -296,7 +364,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
   const { t } = useTranslation('analytics')
   const theme = useActiveTheme()
   if (projects.length === 0) return null
-  const data = projects.map((p) => ({ name: p.projectName.slice(0, 12), costUsd: p.totalCostUsd }))
+  const data = projects.map((p) => ({ name: rowName(p, t('desktop.homeAndBlueprint')).slice(0, 12), costUsd: p.totalCostUsd }))
   const hasKnownCost = projects.some((p) => p.totalCostUsd > 0)
   const hasUnavailableCost = projects.some((p) => (p.unpricedRuns ?? 0) > 0)
 
@@ -457,6 +525,8 @@ export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: 
               <DesktopCostTimeline data={data.costTimeline} />
               <ProjectCostBar projects={data.projectBreakdown} />
             </div>
+
+            {data.byCategory && <DesktopCategorySplit categories={data.byCategory} total={data.kpi.totalCostUsd} />}
 
             <ProjectBreakdown projects={data.projectBreakdown} />
           </div>

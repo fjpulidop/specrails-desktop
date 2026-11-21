@@ -19,12 +19,12 @@ const empty = {
   project: { deliveries: 0, toDecision: stats(null, null), toMerge: stats(null, null) },
   byLoop: [],
 }
-const response = (value: unknown, ok = true) => ({ ok, json: async () => value } as Response)
+const response = (value: unknown, ok = true) => new Response(JSON.stringify(value), { status: ok ? 200 : 500 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('DecisionTimesCard', () => {
   it('renders median/p90 tiles and the per-loop table, showing unknown instead of zero', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(payload)); vi.stubGlobal('fetch', fetch)
+    const fetch = vi.fn().mockImplementation(async () => response(payload)); vi.stubGlobal('fetch', fetch)
     render(<DecisionTimesCard projectId="p1" period="30d" />)
     const decision = await screen.findByTestId('decision-times-to-decision')
     expect(within(decision).getByText('decisionTimes.units.hours {"value":"2.0"}')).toBeInTheDocument()
@@ -37,7 +37,7 @@ describe('DecisionTimesCard', () => {
   })
 
   it('shows an empty state with no data and passes custom ranges', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(empty)); vi.stubGlobal('fetch', fetch)
+    const fetch = vi.fn().mockImplementation(async () => response(empty)); vi.stubGlobal('fetch', fetch)
     render(<DecisionTimesCard projectId="p1" period="custom" from="2026-10-01" to="2026-10-07" />)
     expect(await screen.findByTestId('decision-times-empty')).toBeInTheDocument()
     expect(screen.queryByTestId('decision-times-to-decision')).not.toBeInTheDocument()

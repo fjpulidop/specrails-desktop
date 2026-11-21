@@ -346,7 +346,7 @@ describe('PluginsPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
 
-    expect(await screen.findByText('Headroom Token Savings')).toBeInTheDocument()
+    expect(await screen.findByText('Headroom token savings')).toBeInTheDocument()
     expect(screen.getByText('Input + output')).toBeInTheDocument()
     expect(screen.getByText('Codex')).toBeInTheDocument()
     expect(screen.getAllByText('Totals').length).toBeGreaterThan(0)
@@ -388,7 +388,7 @@ describe('PluginsPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
 
-    expect(await screen.findByText('Headroom Token Savings')).toBeInTheDocument()
+    expect(await screen.findByText('Headroom token savings')).toBeInTheDocument()
     expect(screen.getByText('Input active')).toBeInTheDocument()
     expect(screen.getAllByText('Totals').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Input').length).toBeGreaterThan(0)

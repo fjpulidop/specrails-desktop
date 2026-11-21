@@ -15,12 +15,14 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [source-architecture.md](source-architecture.md) | Persistence boundaries, queue collaborators and unused-source audit |
 | [api-reference.md](api-reference.md) | REST endpoint catalogue under `/api/*` and `/api/projects/:projectId/*` |
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
+| [git-invocations.md](git-invocations.md) | Read-only git without optional locks (`GIT_OPTIONAL_LOCKS=0`), live/stale `index.lock` handling, fair per-file diff budgets for prompts |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
+| [server-recovery-and-diagnostics.md](server-recovery-and-diagnostics.md) | Desktop relaunch of the local server (circuit breaker, same port/token), crash markers, event-loop stall probe and the local "Report a problem" ZIP with its redaction |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |
 | [mission-read-only-policy.md](mission-read-only-policy.md) | Read-only mission agents: per-provider native boundary that keeps MCP tools callable, Core session policy, kill switch, limitations and live evidence |
 | [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |
 | [companion-inbox-decisions.md](companion-inbox-decisions.md) | Paired companion as a decision remote for the Needs-you inbox: the four safe actions, their MCP permission tiers, what stays desktop-only (and why Discard is excluded), the `inbox.changed` nudge |
-| [flow-mode.md](intent-mode.md) | Intent mode server side: lifecycle and sagas, worktree hand-off to a rail, Intent turns with interrupt delivery, capability gating, routes and events |
+| [intent-mode.md](intent-mode.md) | Intent mode server side: lifecycle and sagas, worktree hand-off to a rail, Intent turns with interrupt delivery, capability gating, routes and events |
 | [spec-triage.md](spec-triage.md) | Spec triage: hashed deterministic inputs, the one cheap structured-output call, triggers, rail preselection and the recommended/chosen loop recorded per delivery |
 | [existing-project-anchoring.md](existing-project-anchoring.md) | Existing-project anchoring (feedback-2026-10 phase 3 + rules inventory): ticket non-goals, architect clarifications on Jira, requirements demonstrated, baseline on touch, project rules; every surface gated on its Core capability |
 | [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |
@@ -29,17 +31,21 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [adding-a-provider.md](adding-a-provider.md) | How to add a new AI CLI: one adapter file plus one entry in the registry |
 | [profiles.md](profiles.md) | Agent profiles quick start: open the Agents section, pick a profile per rail at launch, author custom agents in Agent Studio. For the true file-format and snapshotting internals, read `server/modules/agents/runtime/profile-manager.ts` and the profile-manager section of `CLAUDE.md` |
 | [safe-pr-review-flow.md](safe-pr-review-flow.md) | The ask-first PR delivery: the `rail_pr_deliveries` row, decision state machine, the two synced decision surfaces (rail row + agent-chat card), the `on_review` ticket status and its Jira mapping |
+| [agent-policy-and-continuity.md](agent-policy-and-continuity.md) | The in-turn Claude `PreToolUse` policy hook (deny list shared with `git-guardrails.ts`, fail-open policy, installation in owned directories, how denials reach the audit and transcripts) and restart continuity (turn markers, resume offers, update deferral, `--resume` id validation) |
 | [agent-actions-audit.md](agent-actions-audit.md) | The per-project `agent_actions` log: producers (provider streams, Core events, missions, MCP wrapper, provenance), redaction, batched non-blocking writer, JSONL/CSV export, review-packet summary and retention |
 | [interactive-jobs.md](interactive-jobs.md) | Interactive-by-default jobs: the persistent-stdin session model, `finalize` vs `auto` settle modes, loop-step turn routing, accounting reconciliation, kill-switch matrix |
+| [run-questions.md](run-questions.md) | The one question card every surface renders for a run that needs the person: shape, Core `questionOptions`, answers by option id / free text / rejection, instant cross-surface update |
 | [loop-step-log-explorer.md](loop-step-log-explorer.md) | The step-grouped log surface for loop runs: the `loop_graph` / `loop_step` / `loop_step_end` event contract and seq guarantees, grouping + status model (interrupted rule, legacy fallback), follow mode, perf notes |
+| [mcp-response-envelope.md](mcp-response-envelope.md) | MCP tool result contract: the `{ ok, summary, data, next }` envelope as text and `structuredContent`, stable error codes, destructive confirmation/dry run, hidden action aliases and per-action validation, server-side pagination, the board/spend/resources tools, MCP resources with subscriptions, prompts, and the `specrails_status` glance (sources, mood, etag) |
 | [gemini-mcp-registration.md](gemini-mcp-registration.md) | How MCP servers actually reach gemini-cli (`.gemini/settings.json` + trust env, FQN tool prefix) and the deferred `.mcp.json` gap on non-agent-chat surfaces |
 | [../../DESIGN.md](../../DESIGN.md) | The design system record (Signal box at night): colour, type, radius, elevation, motion and component tokens derived from the shipped code; `visual-design-audit.md` stays the conventions log |
 | [modal-standard.md](modal-standard.md) | The client modal standard: Radix primitive, five sizes, sticky header/body/footer anatomy, button order, named z-index layers (`client/src/lib/layers.ts`), one scrim and entrance animation, workspace-only resizing, 12px type floor |
+| [native-window-surfaces.md](native-window-surfaces.md) | Modal surfaces as native OS windows in the desktop app (Settings, Job detail): `<Surface>`/`useNativeSurface`, URL params, result and close events, per-window capabilities, geometry, preference mirroring, web fallback, remaining dialogs |
 | [browser-capture-performance.md](browser-capture-performance.md) | Embedded-browser fluidity: the CDP screencast → WS → canvas pipeline, the latency levers (non-blocking navigation, input coalescing, latest-frame-wins drawing, frame conflation), tuning knobs, and the OAuth popup design |
 
 **See also:** the app registers Claude Code, Codex CLI, Gemini CLI, and Kimi
-Code as first-class engines. See [`../kimi.md`](../kimi.md),
-[`../codex.md`](../codex.md), and [`../gemini.md`](../gemini.md). First-class
+Code as first-class engines. See [`../codex.md`](../codex.md) and the
+[provider adapters](../../server/providers/) for each capability matrix. First-class
 status is capability-aware: Kimi pure-output transforms fail closed.
 
 ## Contributing

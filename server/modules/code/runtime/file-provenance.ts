@@ -1,8 +1,8 @@
-import { execFileSync, execSync } from 'child_process'
 import { createHash } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import type { DbInstance } from '../../../db'
+import { runBounded } from '../../../util/bounded-exec'
 import type { WsMessage, FileProvenanceUpdatedMessage } from '../../../types'
 import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from '../../../project-repository-provenance'
 
@@ -28,18 +28,22 @@ export interface ProvenanceRow {
 
 const MAX_PATCH_BYTES = 512 * 1024
 
-// These git calls run synchronously on the main event loop (pre-spawn snapshot
-// and post-exit diff). Bound every one: a timeout so a stuck index.lock /
-// filesystem stall / credential prompt can't freeze the whole app, a maxBuffer
-// cap, and an env that disables any interactive prompt. The existing try/catch
-// in each function degrades a timeout to empty provenance. Mirrors metrics.ts.
+// Provenance git calls run at job start (pre-spawn snapshot) and finish
+// (post-exit diff) — hot runtime paths. They are ASYNC child processes
+// (`runBounded`): `git stash create --include-untracked` and the per-file
+// patches scale with repository size and used to freeze HTTP, WebSocket and
+// queue work for the whole capture. Every call stays bounded: a timeout (the
+// whole process tree is killed) so a stuck index.lock / filesystem stall /
+// credential prompt can't wedge a capture, a stdout cap, and an env that
+// disables any interactive prompt. The try/catch in each function degrades a
+// timeout to empty provenance, exactly as before.
 const GIT_TIMEOUT_MS = 15_000
 const GIT_MAX_BUFFER = 16 * 1024 * 1024
-// Bound on how many per-file patches we collect after a job. Each is a synchronous
-// git spawn on the event loop, so a job touching hundreds of files would otherwise
-// block the whole app. Provenance ROWS are recorded for every path regardless; only
-// the on-demand diff patches beyond this cap are skipped (the UI shows "diff
-// unavailable" for them). Mirrors the existing large-job warn threshold (50).
+// Bound on how many per-file patches we collect after a job. Each is a git
+// spawn; a job touching hundreds of files would otherwise run hundreds of
+// sequential children. Provenance ROWS are recorded for every path regardless;
+// only the on-demand diff patches beyond this cap are skipped (the UI shows
+// "diff unavailable" for them). Mirrors the existing large-job warn threshold (50).
 const MAX_PATCH_FILES = 50
 // Exported: project-git.ts (the Agent-Mode git bar), the code explorer and the
 // git diagnostics run the same cwd-scoped git calls and need the identical
@@ -86,99 +90,114 @@ export interface WorkingTreeSnapshot {
   headSha: string
 }
 
+/** Outcome of one bounded git child, normalised to the `execSync` contract the
+ *  provenance capture was written against: `ok` only for a clean zero exit
+ *  whose stdout fit in `maxBuffer` (an overflow is a failure, like ENOBUFS). */
+interface GitRun {
+  ok: boolean
+  stdout: string
+  /** Error text in the shape the sync calls surfaced (`Command failed: …` +
+   *  stderr, or the spawn error) — used to classify a missing git binary. */
+  message: string
+}
+
+async function runGit(cwd: string, args: string[], maxBuffer = GIT_MAX_BUFFER): Promise<GitRun> {
+  const res = await runBounded('git', args, { cwd, env: gitExecEnv(), timeoutMs: GIT_TIMEOUT_MS, maxBuffer })
+  if (res.error) return { ok: false, stdout: res.stdout, message: res.error.message }
+  const ok = !res.timedOut && res.code === 0 && !res.stdoutTruncated
+  const message = ok ? '' : `Command failed: git ${args.join(' ')}\n${res.stderr}`
+  return { ok, stdout: res.stdout, message }
+}
+
+// One provenance capture per worktree at a time. A finishing job's diff and
+// the next job's pre-spawn snapshot on the same checkout are queued in call
+// order, so the successor can never spawn (and mutate the tree) before its
+// predecessor's diff has read it, and two captures never contend for the same
+// index.lock. Keyed by resolved path; entries drop as soon as a chain drains,
+// so the map holds no project data beyond in-flight work.
+const captureChains = new Map<string, Promise<void>>()
+
+/** Serialise `fn` behind every capture already queued for `cwd`. The slot is
+ *  claimed synchronously, at call time — callers rely on that for ordering. */
+export function withWorktreeCapture<T>(cwd: string, fn: () => Promise<T>): Promise<T> {
+  const key = path.resolve(cwd)
+  const previous = captureChains.get(key) ?? Promise.resolve()
+  const run = previous.then(fn)
+  const tail = run.then(() => undefined, () => undefined)
+  captureChains.set(key, tail)
+  void tail.then(() => { if (captureChains.get(key) === tail) captureChains.delete(key) })
+  return run
+}
+
+/** Number of worktrees with a capture queued or running (diagnostics/tests). */
+export function pendingWorktreeCaptures(): number {
+  return captureChains.size
+}
+
 /** Resolve the current HEAD commit SHA. Best-effort: '' on any git failure
  *  (no repo, unborn HEAD, no git, timeout). */
-export function resolveHeadSha(cwd: string): string {
-  try {
-    const out = execSync('git rev-parse HEAD', {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: GIT_MAX_BUFFER,
-      env: gitExecEnv(),
-    })
-    return out.trim()
-  } catch {
-    return ''
-  }
+export async function resolveHeadSha(cwd: string): Promise<string> {
+  const res = await runGit(cwd, ['rev-parse', 'HEAD'])
+  return res.ok ? res.stdout.trim() : ''
 }
 
 /** List untracked, non-ignored paths in the working tree. Best-effort: any git
  *  failure (no git, no repo, timeout) degrades to []. */
-export function listUntracked(cwd: string): string[] {
-  try {
-    const out = execSync('git ls-files --others --exclude-standard -z', {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: GIT_MAX_BUFFER,
-      env: gitExecEnv(),
-    })
-    return out.split('\0').filter((p) => p.length > 0)
-  } catch {
-    return []
-  }
+export async function listUntracked(cwd: string): Promise<string[]> {
+  const res = await runGit(cwd, ['ls-files', '--others', '--exclude-standard', '-z'])
+  return res.ok ? res.stdout.split('\0').filter((p) => p.length > 0) : []
 }
 
-export function snapshotWorkingTree(cwd: string): WorkingTreeSnapshot {
-  let ref = ''
-  try {
-    const out = execSync('git stash create --include-untracked', {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: GIT_MAX_BUFFER,
-      env: gitExecEnv(),
-    })
-    ref = out.trim()
-  } catch (err) {
-    const msg = (err as { message?: string }).message ?? ''
-    if (/ENOENT|not found|command not found/i.test(msg)) {
-      throw err
+/**
+ * Pre-job snapshot: `git stash create --include-untracked`, the untracked set
+ * and the HEAD SHA, in that order. Await it BEFORE the job can touch the tree.
+ * Rejects only when git itself is missing (callers log and run without
+ * provenance); every other git failure degrades to an empty ref.
+ */
+export function snapshotWorkingTree(cwd: string): Promise<WorkingTreeSnapshot> {
+  return withWorktreeCapture(cwd, async () => {
+    const stash = await runGit(cwd, ['stash', 'create', '--include-untracked'])
+    let ref = ''
+    if (stash.ok) {
+      ref = stash.stdout.trim()
+    } else if (/ENOENT|not found|command not found/i.test(stash.message)) {
+      throw new Error(stash.message)
     }
-    ref = ''
-  }
-  // Capture the untracked set NOW so the post-job diff can tell rail-created
-  // files apart from files that were already untracked before the job ran. Also
-  // freeze the HEAD SHA so a job that commits from a clean tree is still diffed
-  // against its true starting point (not the post-commit HEAD).
-  return { ref, untracked: listUntracked(cwd), headSha: resolveHeadSha(cwd) }
+    // Capture the untracked set NOW so the post-job diff can tell rail-created
+    // files apart from files that were already untracked before the job ran. Also
+    // freeze the HEAD SHA so a job that commits from a clean tree is still diffed
+    // against its true starting point (not the post-commit HEAD).
+    const untracked = await listUntracked(cwd)
+    const headSha = await resolveHeadSha(cwd)
+    return { ref, untracked, headSha }
+  })
 }
 
-export function diffAgainstSnapshot(
-  cwd: string,
-  snapshotRef: string,
-  untrackedBefore?: string[],
-  baseSha?: string,
-): DiffEntry[] {
-  const hasSnap = snapshotRef && snapshotRef.length > 0
-  // When there is no stash ref (clean tree at snapshot time), prefer the frozen
-  // pre-job HEAD SHA over the literal 'HEAD'. A job that commits its output
-  // advances HEAD, so `git diff HEAD` at exit would report nothing — the frozen
-  // base recovers the real created/modified/deleted set.
-  const ref = hasSnap ? snapshotRef : (baseSha && baseSha.length > 0 ? baseSha : 'HEAD')
-  let out = ''
-  try {
-    // --find-renames so rename detection is deterministic regardless of the
-    // user's global `diff.renames` config (matches collectDiffPatches).
-    out = execSync(`git diff --name-status --find-renames -z ${ref} --`, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: GIT_MAX_BUFFER,
-      env: gitExecEnv(),
-    })
-  } catch {
-    out = ''
-  }
+/** Result of the post-job capture: the touched paths and their patches. */
+export interface CapturedProvenance {
+  diff: DiffEntry[]
+  patches: Map<string, StoredPatch>
+}
 
+/**
+ * Post-job capture: diff the tree against the pre-job snapshot, then collect
+ * the per-file patches — one serialised unit per worktree (see
+ * withWorktreeCapture). Call it synchronously at settle, before anything that
+ * may start the next job, so the slot is claimed ahead of the successor's
+ * snapshot. Never rejects (a git failure yields empty provenance).
+ */
+export function captureProvenance(cwd: string, snapshot: WorkingTreeSnapshot): Promise<CapturedProvenance> {
+  return withWorktreeCapture(cwd, async () => {
+    const diff = await diffAgainstSnapshot(cwd, snapshot.ref, snapshot.untracked, snapshot.headSha)
+    const patches = await collectDiffPatches(cwd, snapshot.ref, diff, snapshot.headSha)
+    return { diff, patches }
+  }).catch(() => ({ diff: [], patches: new Map<string, StoredPatch>() }))
+}
+
+/** Parse `git diff --name-status --find-renames -z` output. */
+function parseNameStatus(out: string): { entries: DiffEntry[]; seen: Set<string> } {
   const entries: DiffEntry[] = []
   const seen = new Set<string>()
-
   if (out) {
     const tokens = out.split('\0').filter((t) => t.length > 0)
     let i = 0
@@ -225,6 +244,25 @@ export function diffAgainstSnapshot(
       i += 2
     }
   }
+  return { entries, seen }
+}
+
+export async function diffAgainstSnapshot(
+  cwd: string,
+  snapshotRef: string,
+  untrackedBefore?: string[],
+  baseSha?: string,
+): Promise<DiffEntry[]> {
+  const hasSnap = snapshotRef && snapshotRef.length > 0
+  // When there is no stash ref (clean tree at snapshot time), prefer the frozen
+  // pre-job HEAD SHA over the literal 'HEAD'. A job that commits its output
+  // advances HEAD, so `git diff HEAD` at exit would report nothing — the frozen
+  // base recovers the real created/modified/deleted set.
+  const ref = hasSnap ? snapshotRef : (baseSha && baseSha.length > 0 ? baseSha : 'HEAD')
+  // --find-renames so rename detection is deterministic regardless of the
+  // user's global `diff.renames` config (matches collectDiffPatches).
+  const res = await runGit(cwd, ['diff', '--name-status', '--find-renames', '-z', ref, '--'])
+  const { entries, seen } = parseNameStatus(res.ok ? res.stdout : '')
 
   // `git diff <ref>` only reports TRACKED-file deltas — it never lists untracked
   // files. New files a rail creates are untracked, so without this pass they are
@@ -232,7 +270,7 @@ export function diffAgainstSnapshot(
   // Always surface currently-untracked paths, minus those already untracked at
   // snapshot time (which the rail did not create), as 'A' (created).
   const before = new Set(untrackedBefore ?? [])
-  for (const p of listUntracked(cwd)) {
+  for (const p of await listUntracked(cwd)) {
     if (!seen.has(p) && !before.has(p)) {
       entries.push({ path: p, status: 'A' })
       seen.add(p)
@@ -285,15 +323,15 @@ function truncatePatch(patch: string): StoredPatch {
   }
 }
 
-function addedFilePatch(cwd: string, relPath: string): string {
+async function addedFilePatch(cwd: string, relPath: string): Promise<string> {
   const abs = path.resolve(cwd, relPath)
   const root = cwd.endsWith(path.sep) ? cwd : `${cwd}${path.sep}`
   if (abs !== cwd && !abs.startsWith(root)) return ''
   let content = ''
   try {
-    const stat = fs.statSync(abs)
+    const stat = await fs.promises.stat(abs)
     if (!stat.isFile() || stat.size > MAX_PATCH_BYTES) return ''
-    content = fs.readFileSync(abs, 'utf8')
+    content = await fs.promises.readFile(abs, 'utf8')
   } catch {
     return ''
   }
@@ -315,7 +353,7 @@ function addedFilePatch(cwd: string, relPath: string): string {
   ].join('\n')
 }
 
-export function collectDiffPatches(cwd: string, snapshotRef: string, diff: DiffEntry[], baseSha?: string): Map<string, StoredPatch> {
+export async function collectDiffPatches(cwd: string, snapshotRef: string, diff: DiffEntry[], baseSha?: string): Promise<Map<string, StoredPatch>> {
   const patches = new Map<string, StoredPatch>()
   if (diff.length === 0) return patches
 
@@ -325,9 +363,10 @@ export function collectDiffPatches(cwd: string, snapshotRef: string, diff: DiffE
   const ref = snapshotRef && snapshotRef.length > 0
     ? snapshotRef
     : (baseSha && baseSha.length > 0 ? baseSha : 'HEAD')
-  // Cap the number of per-file git spawns: each runs synchronously on the event
-  // loop. Beyond the cap, provenance rows are still recorded (by the caller) but
-  // patches are skipped — the UI renders "diff unavailable" for them.
+  // Cap the number of per-file git spawns. Beyond the cap, provenance rows are
+  // still recorded (by the caller) but patches are skipped — the UI renders
+  // "diff unavailable" for them. Sequential on purpose: one capture per
+  // worktree never fans out into dozens of concurrent git children.
   const capped = diff.slice(0, MAX_PATCH_FILES)
   for (const entry of capped) {
     // For a rename, scope the diff to BOTH paths so git can pair them and emit a
@@ -335,20 +374,15 @@ export function collectDiffPatches(cwd: string, snapshotRef: string, diff: DiffE
     const pathspec = entry.status === 'R' && entry.renamedFrom !== undefined
       ? [entry.renamedFrom, entry.path]
       : [entry.path]
-    let patch = ''
-    try {
-      patch = execFileSync('git', ['diff', '--no-ext-diff', '--find-renames', '--unified=80', ref, '--', ...pathspec], {
-        cwd,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        maxBuffer: MAX_PATCH_BYTES + 64 * 1024,
-        timeout: GIT_TIMEOUT_MS,
-        env: gitExecEnv(),
-      })
-    } catch (err) {
-      patch = ((err as { stdout?: string }).stdout ?? '').toString()
-    }
-    if (!patch && entry.status === 'A') patch = addedFilePatch(cwd, entry.path)
+    // A failed or oversized diff keeps whatever stdout arrived (the sync
+    // version read `err.stdout`); truncatePatch caps an oversized one.
+    const res = await runGit(
+      cwd,
+      ['diff', '--no-ext-diff', '--find-renames', '--unified=80', ref, '--', ...pathspec],
+      MAX_PATCH_BYTES + 64 * 1024,
+    )
+    let patch = res.stdout
+    if (!patch && entry.status === 'A') patch = await addedFilePatch(cwd, entry.path)
     if (patch) patches.set(entry.path, truncatePatch(patch))
   }
   return patches

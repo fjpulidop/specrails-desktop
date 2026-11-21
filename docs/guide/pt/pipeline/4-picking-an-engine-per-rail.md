@@ -1,40 +1,19 @@
-# Escolher um motor por rail {#provider-capabilities}
+<!-- guide-revision: mission-first-v1 -->
 
-## Quando o seletor aparece
+# Escolher um fornecedor e as suas capacidades {#provider-capabilities}
 
-O **seletor de motor** vive no cabeçalho do rail, mesmo ao lado do controlo de modo. Só aparece quando o projeto tem **mais do que um** fornecedor instalado.
+As definições de execução pertencem ao fornecedor escolhido. Um nome de modelo conhecido não implica que todos os fornecedores suportem os mesmos controlos de raciocínio, de saída estruturada ou de aprovação.
 
-> **Projetos com um só fornecedor comportam-se exatamente da mesma forma.** Se um projeto tem só um motor, não aparece nenhum seletor e nada muda na escolha de fornecedor — corre simplesmente nesse motor. O seletor existe puramente para projetos com vários fornecedores.
+## Verifique primeiro a disponibilidade
 
-Quando aparece, a sua escolha é **por rail e por lançamento** — rails diferentes podem correr motores diferentes, e a sua escolha é lembrada por projeto (assumindo por default o motor primário do projeto).
+Autentique a CLI do fornecedor e confirme o seu estado no Specrails. Escolha entre os modelos e os valores de esforço oferecidos pelos controlos desse fornecedor. Uma CLI instalada pode mesmo assim falhar porque a sua sessão, a sua quota ou o serviço remoto não estão disponíveis.
 
-## Como escolher um motor
+O Claude e o Codex têm adaptadores diferentes. As combinações não suportadas devem falhar antes de um loop começar; por exemplo, não se pode assumir que um passo que exige uma resposta estruturada sem ferramentas funciona com todos os fornecedores.
 
-O motor selecionado corre todas as fases do pipeline desse rail. Se a CLI do motor escolhido não estiver instalada, o lançamento falha de imediato — nada é criado. Instale a CLI em falta e tente de novo.
+## Use o nível de controlo certo
 
-## Em que cada motor é bom
+A escolha de fornecedor/modelo de um rail controla a sua execução. O loop Freestyle da galeria corre em todos os fornecedores CLI e motores locais; só o Claude acrescenta o chat interativo dentro do job. Os perfis de papéis e o encaminhamento por agente dependem do fornecedor e do workflow do Core que o Desktop instalou no projeto; inspecione a configuração efetiva em vez de assumir que um perfil altera todas as chamadas.
 
-Os quatro correm o pipeline standard **Implement**:
+Ao comparar execuções, mantenha a mesma spec, a mesma revisão do repositório e os mesmos critérios de verificação. Trate separadamente o custo reportado, o estimado e o indisponível. Consulte [os perfis](../agents/profiles-and-the-balanced-default) e [a utilização](../insights/analytics-and-cost-tracking).
 
-| Motor | Recorra a ele quando… | Notas |
-|--------|--------------------|-------|
-| **Claude** | Precisa de custo nativo, interação persistente ou tool policy rigorosa. | Perfis, Freestyle e transformações estruturadas. |
-| **Codex** | Prefere o Codex CLI da OpenAI ou quer comparar implementações entre fornecedores. | `codex` ≥ 0.128.0. Sem reporte de custo nativo — a app preenche o custo a partir da sua tabela de preços. Os perfis não se aplicam. O Freestyle funciona, sem chat interativo. |
-
-## Um fluxo de trabalho prático
-
-Os projetos com vários fornecedores brilham quando quer **comparar** ou **afinar custos**:
-
-- **Comparar implementações.** Ponha a mesma spec em dois rails, defina um com Claude e outro com Codex, lance ambos (entre projetos, ou um a seguir ao outro na fila do mesmo projeto) e depois use o botão **Comparar** na página Jobs para comparar os resultados.
-- **Defina um default sensato.** Defina o motor que mais usa como primário do projeto para que os rails assumam-no por default, e só mude por rail quando uma spec específica pedir outro.
-
-## Coisas a ter em conta
-
-- **A escolha de fornecedor é imutável depois de criar o projeto** (v1). Escolhe os fornecedores instalados ao adicionar o projeto; não há um toggle nas Definições para acrescentar ou remover um mais tarde.
-- **O botão "Abrir CLI de IA" do terminal** também oferece um seletor de fornecedor em projetos com vários fornecedores, caso prefira conduzir uma CLI à mão.
-
-## Para onde ir a seguir
-
-- [Usar o Codex](../integrations/using-codex) — instalar e iniciar sessão.
-- [Rails e jobs](rails-and-jobs) — a fila e o fluxo de lançamento.
-- [Acompanhar o custo](../analytics/tracking-cost) — repartição de custo por motor.
+Num lançamento a partir de uma missão, os passos do loop herdam o fornecedor, o modelo e o esforço da missão, a menos que um agente os substitua explicitamente no editor de loops. As definições gerais gerem as ligações aos fornecedores; o antigo bloco de predefinições do fornecedor e o seletor de Papéis já não são oferecidos.

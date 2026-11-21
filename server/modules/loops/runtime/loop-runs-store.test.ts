@@ -101,6 +101,42 @@ describe('loop-runs-store', () => {
     expect(resumed.final_outcome).toBeNull()
   })
 
+  it('sums the time a run was held into held_ms at each resume, from its last recorded event', () => {
+    create('r-held')
+    createJob(db, { id: 'r-held', command: 'loop:x', started_at: '2026-06-24T10:00:00.000Z' })
+    const event = (seq: number, at: string) => {
+      appendEvent(db, 'r-held', seq, { event_type: 'log', source: 'stderr', payload: '{}' })
+      db.prepare('UPDATE events SET timestamp = ? WHERE job_id = ? AND seq = ?').run(at, 'r-held', seq)
+    }
+    event(0, '2026-06-24 10:05:00')
+    pauseLoopRun(db, 'r-held')
+    expect(resumeLoopRun(db, 'r-held', new Date('2026-06-24T11:05:00.000Z'))!.held_ms).toBe(3_600_000)
+    // Not paused: a second resume adds nothing.
+    expect(resumeLoopRun(db, 'r-held', new Date('2026-06-24T12:00:00.000Z'))!.held_ms).toBe(3_600_000)
+    event(1, '2026-06-24T11:10:00.000Z')
+    pauseLoopRun(db, 'r-held')
+    expect(resumeLoopRun(db, 'r-held', new Date('2026-06-24T11:12:30.000Z'))!.held_ms).toBe(3_750_000)
+  })
+
+  it('leaves held_ms at zero for a run without events', () => {
+    create('r-empty')
+    pauseLoopRun(db, 'r-empty')
+    expect(resumeLoopRun(db, 'r-empty')!.held_ms).toBe(0)
+  })
+
+  it('puts a delivery waiting for workflow recovery back to building when its run resumes', async () => {
+    const { createPrDelivery, getPrDelivery } = await import('../../delivery/runtime/rail-pr-store')
+    create('r-fork')
+    pauseLoopRun(db, 'r-fork')
+    createPrDelivery(db, { id: 'd1', railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    createPrDelivery(db, { id: 'd2', railIndex: 1, loopId: 'factory:implement', railKey: '1-factory:implement', ticketIds: [2], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-old","r-fork"]', status_code = 'restart_pending', status_detail = 'Fork created; resume the linked run to continue.' WHERE id = 'd1'`).run()
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-other"]', status_code = 'restart_pending' WHERE id = 'd2'`).run()
+    resumeLoopRun(db, 'r-fork')
+    expect(getPrDelivery(db, 'd1')).toMatchObject({ status_code: 'implementation_running', status_detail: null })
+    expect(getPrDelivery(db, 'd2')).toMatchObject({ status_code: 'restart_pending' })
+  })
+
   it('lists runs most-recent first', () => {
     create('r1', { startedAt: '2026-06-24T10:00:00.000Z' })
     create('r2', { startedAt: '2026-06-24T11:00:00.000Z' })

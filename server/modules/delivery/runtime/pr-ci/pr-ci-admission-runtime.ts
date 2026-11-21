@@ -2,6 +2,7 @@ import path from 'node:path'
 import type { ProjectContext } from '../../../../project-registry'
 import { isLoopsEnabled } from '../../../../feature-flags'
 import { newId } from '../../../../ids'
+import { getProjectSettings } from '../../../../db'
 import { withRepoLock } from '../../../../repo-lock'
 import { assertProcessAdmission, ProcessAdmissionClosedError } from '../../../../process-admission'
 import { getAdapter } from '../../../../providers'
@@ -63,6 +64,7 @@ export function createPrCiAdmissionRuntime(c: ProjectContext): PrCiAdmissionRunt
         return head
       },
       overlay: resolveOverlaySources({ slug: c.project.slug, baseRepo: admission.repository_path, provider }, target.primary ? undefined : () => resolveProjectExecution(c.project)),
+      copyEnvFiles: getProjectSettings(c.db).worktreeEnvFiles,
       onDegraded: warnings => console.warn(`[pr-ci] worktree for ${admission.id} degraded: ${warnings.join('; ')}`),
     })
     return { worktreePath: prepared.worktreePath }

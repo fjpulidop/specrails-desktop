@@ -42,8 +42,8 @@
  *
  * Six first-class themes selectable via `<html data-theme="...">`:
  *   - dracula        (legacy palette; the base `@theme` block below carries these values)
- *   - aurora-light   (premium light, Linear-ish frío profesional)
- *   - obsidian-dark  (premium dark, Tokyo-Night-ish negro-azulado)
+ *   - aurora-light   (daylight drafting table: paper and ink, elevation by shadow)
+ *   - obsidian-dark  (graphite pro: neutral near-black, one muted violet accent)
  *   - code-rain      (phosphor terminal — green-tinted near-black)
  *   - specrails      (brand near-black; the runtime default, see DEFAULT_THEME)
  *   - galaxy         (deep-space near-black)
@@ -794,6 +794,12 @@ select {
 .specrails-toaster,
 [data-sonner-toaster] {
   z-index: 2147483647 !important;
+}
+
+/* An open Radix modal sets pointer-events: none on <body>; toasts stay
+   clickable over it (`lib/toasts-over-modals.ts`). */
+[data-sonner-toast] {
+  pointer-events: auto !important;
 }
 
 [data-sonner-toast][data-styled='true'] {

@@ -1,20 +1,20 @@
 import { act, fireEvent, render, screen, waitFor } from '../../../../test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { MissionSelectionMenu, readMissionSelection } from '../MissionSelectionMenu'
-import { branchAgentConversation } from '../../lib/agent-api'
+import { askAboutSelection, branchAgentConversation } from '../../lib/agent-api'
 import { ApiResponseError } from '../../../../lib/api-response'
 import { toast } from 'sonner'
 import { __clearComposerDrafts, captureComposerDraft, writeComposerDraft } from '../../lib/agent-composer-drafts'
 
 const state = vi.hoisted(() => ({
   providersReady: true,
-  active: { id: 'source', archivedAt: null as string | null },
+  active: { id: 'source', archivedAt: null as string | null, provider: 'claude', model: 'opus' as string | null },
   send: vi.fn(), refreshConversations: vi.fn(), open: vi.fn(), toggle: vi.fn(),
 }))
 vi.mock('../../context/AgentChatContext', () => ({ useAgentChat: () => state }))
 vi.mock('../../context/MissionSplitViewsContext', () => ({ useMissionSplitViews: () => ({ open: state.open }) }))
 vi.mock('../../../../context/UiModeContext', () => ({ useUiMode: () => ({ uiMode: 'agent', toggleUiMode: state.toggle }) }))
-vi.mock('../../lib/agent-api', () => ({ branchAgentConversation: vi.fn() }))
+vi.mock('../../lib/agent-api', () => ({ branchAgentConversation: vi.fn(), askAboutSelection: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 beforeEach(() => {
@@ -22,7 +22,7 @@ beforeEach(() => {
   state.providersReady = true
   __clearComposerDrafts()
   window.getSelection()?.removeAllRanges()
-  state.active = { id: 'source', archivedAt: null }
+  state.active = { id: 'source', archivedAt: null, provider: 'claude', model: 'opus' }
   state.send = vi.fn(async () => ({ accepted: true, conversationId: 'source' }))
   state.refreshConversations.mockResolvedValue(undefined)
   vi.mocked(branchAgentConversation).mockResolvedValue({ id: 'new-mission' } as Awaited<ReturnType<typeof branchAgentConversation>>)
@@ -59,7 +59,7 @@ it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] shows
   const sourceSend = state.send
   let settle!: (result: { accepted: boolean }) => void
   sourceSend.mockImplementation(() => new Promise(resolve => { settle = resolve }))
-  state.active = { id: 'other', archivedAt: null }
+  state.active = { id: 'other', archivedAt: null, provider: 'claude', model: 'opus' }
   state.send = vi.fn()
   rerender(<Transcript />)
   const add = screen.getByRole('menuitem', { name: 'Add to mission' })
@@ -105,9 +105,11 @@ it('[spec:mission-text-reuse/selection-menu-supports-pointer-and-keyboard-operat
   transcript.focus()
   select(screen.getByText('Selected message').firstChild!)
   fireEvent.keyDown(transcript, { key: 'F10', shiftKey: true })
-  const start = screen.getByRole('menuitem', { name: 'Start a separate mission' })
-  await waitFor(() => expect(start).toHaveFocus())
-  fireEvent.keyDown(start, { key: 'ArrowDown' })
+  const ask = screen.getByRole('menuitem', { name: 'Ask about this' })
+  await waitFor(() => expect(ask).toHaveFocus())
+  fireEvent.keyDown(ask, { key: 'ArrowDown' })
+  expect(screen.getByRole('menuitem', { name: 'Start a separate mission' })).toHaveFocus()
+  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
   expect(screen.getByRole('menuitem', { name: 'Add to mission' })).toHaveFocus()
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -173,4 +175,22 @@ it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] disab
   fireEvent.click(add)
   expect(state.send).not.toHaveBeenCalled()
   expect(screen.getByRole('menuitem', { name: 'Start a separate mission' })).toBeEnabled()
+})
+
+it('[spec:mission-ask-about-this] "Ask about this" opens the side-question modal with the selection and never sends to the mission', async () => {
+  vi.mocked(askAboutSelection).mockResolvedValue({ answer: 'It means **this**.', provider: 'claude', model: 'opus' })
+  render(<Transcript />)
+  open()
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Ask about this' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Ask about this' })
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  expect(dialog).toHaveTextContent('Selected message')
+  const input = screen.getByRole('textbox', { name: 'Question about the selected text' })
+  await waitFor(() => expect(input).toHaveFocus())
+  fireEvent.change(input, { target: { value: 'What is it?' } })
+  fireEvent.keyDown(input, { key: 'Enter' })
+  await screen.findByText('this')
+  expect(askAboutSelection).toHaveBeenCalledExactlyOnceWith('source', expect.objectContaining({ selection: 'Selected message', throughMessageId: 'last', question: 'What is it?', thread: [] }), expect.any(AbortSignal))
+  expect(state.send).not.toHaveBeenCalled()
+  expect(branchAgentConversation).not.toHaveBeenCalled()
 })

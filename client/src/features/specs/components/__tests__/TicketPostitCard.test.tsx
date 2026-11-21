@@ -119,7 +119,7 @@ describe('TicketPostitCard', () => {
   })
 
   describe('on_review variant', () => {
-    it('renders an On Review badge and hides the priority badge', () => {
+    it('renders an On review badge and hides the priority badge', () => {
       render(
         wrap(
           <TicketPostitCard
@@ -131,7 +131,7 @@ describe('TicketPostitCard', () => {
         ),
       )
       expect(screen.getByTestId('on-review-badge-postit-42')).toBeInTheDocument()
-      expect(screen.getByText('On Review')).toBeInTheDocument()
+      expect(screen.getByText('On review')).toBeInTheDocument()
       expect(screen.queryByText(/high/i)).not.toBeInTheDocument()
     })
 

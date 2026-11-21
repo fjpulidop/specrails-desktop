@@ -1,4 +1,5 @@
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
+import { projectMonogram } from '../lib/project-monogram'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { isMacKeyboard } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
@@ -8,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
+import { FolderOpen, Plus, BarChart3, BookOpen, Columns3, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
@@ -24,6 +25,7 @@ import { useAgentChat } from '../features/missions/context/AgentChatContext'
 import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
 import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
 import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
+import { RunStateDot } from './ui/run-state/run-state-dot'
 import { motion } from 'motion/react'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
@@ -83,9 +85,6 @@ function openCommandPalette(): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }))
 }
 
-/** A collapsed-rail project tile: the initials of its first two words
- *  ("specrails-desktop" → "SD"), or its first two letters/digits for a single
- *  word, so neighbouring projects stay distinguishable at 44px. */
 /**
  * Attention badge on a collapsed rail icon: pinned to the tile's top-right
  * corner, with a background-coloured cut-out so it reads as a badge instead
@@ -93,12 +92,7 @@ function openCommandPalette(): void {
  */
 const COLLAPSED_BADGE = 'pointer-events-none absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-background p-[2px] leading-none'
 
-export function projectMonogram(name: string): string {
-  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
-  const chars = (words[0] ?? '').match(/[\p{L}\p{N}]/gu) ?? []
-  return chars.slice(0, 2).join('').toUpperCase() || '?'
-}
+export { projectMonogram }
 
 /** Mission state rolled up over a group of conversations (a project, Home,
  *  Favorites) so a closed or collapsed group still shows what waits inside. */
@@ -284,8 +278,8 @@ function ConversationRow({
           className={cn(
             'w-3.5 h-3.5 flex-shrink-0',
             active && 'text-accent-primary',
-            // Secondary live cue alongside the title shimmer.
-            streaming && !unread && 'text-accent-primary motion-safe:animate-pulse',
+            // Secondary live cue alongside the title shimmer: the running tone (its lamp sits at the row's end).
+            streaming && !unread && 'text-accent-info',
             unread && 'conversation-unread-glow',
           )}
         />
@@ -308,6 +302,7 @@ function ConversationRow({
             {conversation.archivedAt && chat.archiveScope === 'all' && <span className="text-caption text-muted-foreground">{t('nav:missionArchive.archived')}</span>}
             {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
             <span className="flex-1" aria-hidden />
+            {streaming && <RunStateDot state="working" data-testid="conversation-live-dot" />}
             {modeMark && <MissionModeRowMark badge={modeMark} />}
             {attention && <MissionAttentionMark kind={attentionKind} />}
             {unread && <span className="sr-only">{t('unread')}</span>}
@@ -379,6 +374,8 @@ interface ArcSidebarProps {
   onOpenLoops: () => void
   onOpenPlugins: () => void
   onOpenAnalytics: () => void
+  /** The live board (every run of every project); absent where there is none. */
+  onOpenLiveBoard?: () => void
   onOpenDocs: () => void
   onOpenCompanion?: () => void
   onOpenSettings: () => void
@@ -517,7 +514,8 @@ function ProjectItem({
       aria-hidden
       className={cn(
         'flex-shrink-0 w-4 h-4',
-        (isActive || liveCue) && 'text-accent-primary',
+        // Live work inside a closed tree takes the running tone; otherwise the selection's.
+        liveCue ? 'text-accent-info' : isActive && 'text-accent-primary',
       )}
     />
   ) : (
@@ -527,7 +525,7 @@ function ProjectItem({
       className={cn(
         'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-caption font-semibold leading-none',
         isActive ? 'text-foreground' : 'bg-muted text-foreground',
-        liveCue && 'text-accent-primary',
+        liveCue && 'text-accent-info',
       )}
       style={isActive ? { background: 'color-mix(in srgb, var(--color-accent-primary) 15%, transparent)' } as CSSProperties : undefined}
     >
@@ -609,13 +607,11 @@ function ProjectItem({
         {assembleStatus === 'assembling' && (
           <span
             role="status"
-            className={cn(
-              'flex-shrink-0 h-1.5 w-1.5 rounded-full bg-accent-info motion-safe:animate-pulse',
-              !expanded && 'absolute bottom-1 right-1',
-            )}
+            className={cn('inline-flex flex-shrink-0', !expanded && 'absolute bottom-1 right-1')}
             title={t('projects.assembling')}
             data-testid="assemble-indicator"
           >
+            <RunStateDot state="working" />
             <span className="sr-only">{t('projects.assembling')}</span>
           </span>
         )}
@@ -753,13 +749,13 @@ function GroupHeader({
         {expanded
           ? (
               <>
-                {icon(cn('h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0', rollup.isLive && !treeVisible && 'text-accent-primary'))}
+                {icon(cn('h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0', rollup.isLive && !treeVisible && 'text-accent-info'))}
                 <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
                   {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                 </span>
               </>
             )
-          : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-primary'))}
+          : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-info'))}
         {!expanded && rollup.needsAttention && (
           <span className={COLLAPSED_BADGE}>
             <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />
@@ -778,6 +774,7 @@ export function ArcSidebar({
   onOpenLoops,
   onOpenPlugins,
   onOpenAnalytics,
+  onOpenLiveBoard,
   onOpenDocs,
   onOpenSettings,
   onOpenCompanion,
@@ -793,7 +790,7 @@ export function ArcSidebar({
   // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
   const onSettingsRoute = location.pathname.startsWith('/settings')
   const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
-  const { effectiveLeftMode, setLeftMode } = useSidebarPin()
+  const { effectiveLeftMode, setLeftMode, narrow, leftFlyoutOpen, setLeftFlyoutOpen } = useSidebarPin()
   const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
@@ -1010,7 +1007,9 @@ export function ArcSidebar({
   // ref — 300px expanded, 0px when hidden.
   const [dragging, setDragging] = useState(false)
   const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
-  const expanded = docked || (unpinned && hover.hovered)
+  // Narrow window: the title bar button (or ⌘B) opens the sidebar as an overlay.
+  const flyout = narrow && leftFlyoutOpen && !docked
+  const expanded = docked || (unpinned && hover.hovered) || flyout
   // The in-flow wrapper only reserves the expanded width when pinned open; a
   // hover-expanded unpinned panel overlays the content instead of reflowing it.
   // The hover-intent hook keeps the panel open during a drag.
@@ -1021,8 +1020,9 @@ export function ArcSidebar({
   // Esc closes the hover/flyout overlay of a collapsed or unpinned sidebar and
   // returns focus to the active project's row (focus first: the focus handler
   // re-opens the overlay, the explicit close right after wins).
-  const closeFlyout = hover.setHovered
-  const overlayOpen = unpinned && hover.hovered
+  const setHovered = hover.setHovered
+  const closeFlyout = useCallback((open: boolean) => { setHovered(open); if (!open) setLeftFlyoutOpen(false) }, [setHovered, setLeftFlyoutOpen])
+  const overlayOpen = (unpinned && hover.hovered) || flyout
   useEffect(() => {
     if (!overlayOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -1036,6 +1036,17 @@ export function ArcSidebar({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [overlayOpen, activeProjectId, closeFlyout])
+  // A button-opened overlay closes on a click outside it (the toggle handles itself).
+  useEffect(() => {
+    if (!flyout) return
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null
+      if (!target || resize.wrapperRef.current?.contains(target) || target.closest('[data-sidebar-toggle="left"], [data-sidebar-flyout]')) return
+      setLeftFlyoutOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [flyout, setLeftFlyoutOpen])
   const overlaying = expanded && !docked
 
   /** Collapsed rail: a group header opens the sidebar (pinned) on that group. */
@@ -1048,6 +1059,7 @@ export function ArcSidebar({
   }
 
   const navItems = [
+    ...(onOpenLiveBoard ? [{ label: t('arcSidebar.liveBoard'), icon: Columns3, action: onOpenLiveBoard }] : []),
     { label: t('arcSidebar.analytics'), icon: BarChart3, action: onOpenAnalytics },
     { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
     ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),

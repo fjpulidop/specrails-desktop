@@ -22,6 +22,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 ## Feature dependencies
 
+- [inbox](../inbox/README.md)
 - [missions](../missions/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)

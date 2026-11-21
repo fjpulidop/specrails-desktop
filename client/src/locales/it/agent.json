@@ -346,7 +346,7 @@
       "building": "Implementazione in un worktree isolato…",
       "buildingInPlace": "Implementazione nella cartella del progetto…",
       "buildingExistingPr": "Applicazione delle modifiche su una PR esistente…",
-      "paused": "Serve una decisione umana",
+      "paused": "In pausa",
       "on_review": "Implementazione pronta per la revisione",
       "pr_draft": "PR in bozza creata",
       "pr_draft_degraded": "Consegna della PR incompleta",
@@ -428,8 +428,6 @@
     "retryPushNote": "L’implementazione è riuscita e le modifiche sono al sicuro in locale. Riprova solo il push.",
     "cleanupIncomplete_one": "Pulizia incompleta ({{count}} avviso)",
     "cleanupIncomplete_other": "Pulizia incompleta ({{count}} avvisi)",
-    "safetyArchiveTitle": "Archivio di sicurezza ({{count}})",
-    "safetyArchiveHint": "I file temporanei dell’area di lavoro sono stati conservati fuori dalla PR per precauzione. Puoi controllarli o rimuoverli manualmente.",
     "confirm": {
       "recoverAndRetryTitle": "Creare il commit e inviare il risultato preservato?",
       "recoverAndRetryBody": "Specrails userà esclusivamente il worktree isolato o il branch registrato compatibile con il fast-forward per {{branch}}. Se necessario, creerà un commit con i file consegnabili e invierà quel commit esatto solo se la PR è ancora aperta sui branch di origine e destinazione previsti. La cartella principale del progetto e le sue modifiche senza commit non verranno toccate.",
@@ -442,7 +440,7 @@
       "mergeLocalTitle": "Integrare localmente?",
       "mergeLocalBody": "I branch consegnati saranno uniti a {{base}} localmente. Le modifiche esistenti vengono preservate; quelle sovrapposte potrebbero richiedere una risoluzione prima dell’integrazione.",
       "freshDiscardTitle": "Eliminare questa consegna?",
-      "freshDiscardBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di SpecRails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog. Le risorse locali rimosse non possono essere recuperate.",
+      "freshDiscardBody": "La PR verrà chiusa senza eliminare il branch remoto. Verranno rimossi solo i branch locali e i worktree di proprietà di Specrails che si trovano ancora sul commit registrato; qualsiasi elemento modificato sarà conservato con un avviso. Le spec torneranno nel backlog. Le risorse locali rimosse non possono essere recuperate.",
       "implementationFailedDiscardTitle": "Scartare questa consegna non riuscita?",
       "implementationFailedDiscardBody": "La scheda verrà chiusa e le spec torneranno nel backlog. Il lavoro locale e i branch saranno conservati per l’ispezione. Potranno essere rimosse solo le risorse la cui pulizia è dimostrata sicura.",
       "dismissTitle": "Chiudere questo follow-up?",
@@ -544,7 +542,11 @@
       "failing_pr": "{{pr}}: check falliti: {{checks}}"
     },
     "ciBuildingHint": "Attende i check, corregge gli errori del codice e fa push sulla stessa PR. Gli errori non dovuti al codice vengono segnalati, non ritentati.",
-    "runStoppedNote": "Hai interrotto questa esecuzione prima che consegnasse qualcosa. Rilanciala quando vuoi continuare."
+    "runStoppedNote": "Hai fermato questa esecuzione prima della consegna. Continua la riprende da dove si è fermata, nello stesso worktree.",
+    "runStoppedNoteNoContinue": "Hai fermato questa esecuzione prima della consegna. Il suo lavoro resta nel suo worktree.",
+    "continue": "Continua",
+    "startOver": "Ricomincia da capo",
+    "startOverHint": "Una nuova esecuzione dalla base; il lavoro di questo tentativo resta nel vecchio worktree."
   },
   "specDraft": {
     "heading": "Bozza della spec",
@@ -815,7 +817,8 @@
       "feature_unavailable": "Intent non è disponibile",
       "daily_budget_exceeded": "Budget giornaliero raggiunto: non è stato avviato nulla.",
       "review_wip_limit_reached": "Limite di revisione raggiunto: non è stato avviato nulla.",
-      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare una copia isolata del progetto."
+      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare una copia isolata del progetto.",
+      "launch_preflight_blocked": "Correggi il controllo fallito prima di avviare."
     },
     "stub": {
       "launched": "Lanciato → Rail {{rail}}",
@@ -934,7 +937,26 @@
     "add": "Aggiungi conversazione in vista divisa",
     "close": "Chiudi vista divisa",
     "loadFailed": "Impossibile caricare questa conversazione.",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "openRight": "Apri a destra",
+    "openBelow": "Apri sotto",
+    "layoutMenu": "Dividi e disponi i riquadri",
+    "splitRight": "Dividi a destra",
+    "splitDown": "Dividi in basso",
+    "moveLeft": "Sposta a sinistra",
+    "moveRight": "Sposta a destra",
+    "moveUp": "Sposta in alto",
+    "moveDown": "Sposta in basso",
+    "swap": "Scambia con",
+    "maximize": "Massimizza riquadro",
+    "restore": "Ripristina layout",
+    "equalize": "Uniforma riquadri",
+    "closePane": "Chiudi riquadro",
+    "noMissions": "Nessun'altra missione da aprire",
+    "noRoom": "Spazio insufficiente per questo layout",
+    "stacks": "Impilato",
+    "resize": "Ridimensiona {{first}} e {{second}}",
+    "panes": "Missioni aperte"
   },
   "runtimeSelector": {
     "label": "Modello e impegno",
@@ -1389,7 +1411,7 @@
     "paused": "In pausa. Ti aspetta",
     "pausedReason": "In pausa: {{reason}}",
     "decision": {
-      "approval": "In attesa della tua approvazione",
+      "approval": "Richiede attenzione",
       "changes": "Il revisore ha chiesto modifiche",
       "on_review": "Pronto per la tua revisione",
       "pr_draft": "PR in bozza pronta da pubblicare",
@@ -1434,7 +1456,7 @@
     "announce": {
       "settled": "{{run}} è terminato",
       "shown": "Stai visualizzando {{run}}: {{state}}",
-      "needsYou": "{{run}} ha bisogno di te"
+      "needsYou": "{{run}} richiede la tua attenzione"
     },
     "event": {
       "launched": "Avviato su {{run}}",
@@ -1452,7 +1474,7 @@
       "discarded": "{{run}} è stato scartato",
       "changes": "{{run}}: il revisore ha chiesto modifiche"
     },
-    "needsYou": "ti aspetta",
+    "needsYou": "richiede attenzione",
     "opensCard": "Apre la scheda dell’esecuzione per confermare lì",
     "open": {
       "decision": "Apri la decisione",
@@ -1537,11 +1559,7 @@
     "greeting": "Cosa deve andare in consegna dopo in {{project}}?",
     "greetingNoProject": "Cosa deve andare in consegna dopo?",
     "statusTodo_one": "{{count}} da fare",
-    "statusTodo_other": "{{count}} da fare",
-    "statusReview_one": "{{count}} in attesa di revisione",
-    "statusReview_other": "{{count}} in attesa di revisione",
-    "statusRunning_one": "{{count}} in corso",
-    "statusRunning_other": "{{count}} in corso"
+    "statusTodo_other": "{{count}} da fare"
   },
   "prCi": {
     "title": "Monitora e correggi la CI della PR {{pr}}",
@@ -1568,7 +1586,7 @@
     "startFailed": "Impossibile avviare il loop di CI.",
     "dismissFailed": "Impossibile salvare la scelta. Riprova.",
     "startedToast": "Monitoraggio della CI avviato sul binario {{index}}",
-    "fixCi": "Correggi CI / Conflitti",
+    "fixCi": "Correggi CI / conflitti",
     "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
     "step": {
       "checks": "In attesa della CI",
@@ -1586,7 +1604,7 @@
     "noCiMany": "Le PR {{pr}} non hanno check di CI",
     "needsAttentionMany": "Le PR {{pr}} sono inviate; la loro CI non è ancora verde",
     "dismissedMany": "Monitoraggio della CI delle PR {{pr}} non avviato.",
-    "retry": "Correggi di nuovo CI / Conflitti",
+    "retry": "Correggi di nuovo CI / conflitti",
     "openLog": "Apri il log"
   },
   "missionResources": {
@@ -1620,5 +1638,68 @@
     "history": "Cronologia",
     "peakValue": "Picco {{value}}",
     "historyHint": "Un punto ogni 3 s mentre la missione lavorava. Passa il mouse su una linea per vedere ora e valore."
+  },
+  "contextUsage": {
+    "open": "Contesto usato: {{percent}}%",
+    "title": "Contesto",
+    "description": "Quanto è pieno il contesto della sessione del provider di questa missione, secondo il provider.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Modello",
+    "sourceResponse": "Misurato dall'ultima risposta",
+    "sourceSessionFile": "Letto dalla sessione {{provider}}",
+    "compacted": "Il provider ha compattato il contesto durante l'ultimo turno.",
+    "highNote": "Il provider compatta il contesto automaticamente quando si riempie. Anche avviare una nuova sessione con un riepilogo può aiutare.",
+    "openUnknown": "Contesto: quota della finestra sconosciuta",
+    "tokensUsedOnly": "{{used}} token usati",
+    "windowUnknown": "Il provider non ha indicato la finestra di contesto, quindi la quota usata è sconosciuta.",
+    "usageUnknown": "L’uso del contesto è sconosciuto subito dopo che il provider lo ha compattato."
+  },
+  "sessionRenew": {
+    "action": "Ricomincia con un riepilogo",
+    "hint": "Scrive un riepilogo di questa missione; il tuo prossimo messaggio avvia una nuova sessione che conosce solo quel riepilogo.",
+    "confirmBody": "Specrails scriverà un riepilogo di questa missione (obiettivo, decisioni, stato attuale, prossimi passi). Il tuo prossimo messaggio avvierà una nuova sessione del provider che conosce solo quel riepilogo. La conversazione resta nella cronologia.",
+    "confirm": "Ricomincia",
+    "cancel": "Annulla",
+    "running": "Scrittura del riepilogo…",
+    "retry": "Riprova",
+    "blockedBusy": "Disponibile al termine del turno corrente.",
+    "blockedMode": "Non disponibile in questa modalità: usa una sessione propria.",
+    "marker": "Sessione rinnovata · riepilogo",
+    "markerDetail": "Cosa sa la nuova sessione",
+    "showSummary": "Mostra il riepilogo",
+    "hideSummary": "Nascondi il riepilogo",
+    "basedOn": "Basato sull’intera conversazione",
+    "basedOnPartial": "Basato sugli ultimi {{included}} di {{total}} messaggi",
+    "errors": {
+      "MISSION_BUSY": "Attendi la fine del turno corrente e riprova.",
+      "MISSION_IN_INTENT": "Questa missione è in Intent, che usa una sessione propria. Esci da Intent per avviare una nuova sessione.",
+      "MISSION_ARCHIVED": "Ripristina questa missione archiviata prima di avviare una nuova sessione.",
+      "NOTHING_TO_SUMMARIZE": "Non c’è ancora una conversazione da riepilogare.",
+      "RENEWAL_CANCELLED": "La nuova sessione è stata annullata.",
+      "generic": "Impossibile scrivere il riepilogo.",
+      "SHUTTING_DOWN": "Specrails si è riavviato durante la scrittura del riepilogo. Non è cambiato nulla; riprova."
+    }
+  },
+  "ask": {
+    "menu": "Chiedi su questo",
+    "title": "Chiedi su questo",
+    "description": "Una conversazione a parte sul testo selezionato, con il contesto precedente di questa missione. La missione non cambia.",
+    "selection": "Testo selezionato",
+    "showAll": "Mostra tutto",
+    "showLess": "Mostra meno",
+    "thread": "Conversazione a parte",
+    "running": "Sto pensando…",
+    "failed": "Impossibile ottenere una risposta. Riprova.",
+    "retry": "Riprova",
+    "inputLabel": "Domanda sul testo selezionato",
+    "placeholder": "Chiedi qualcosa o premi Invio per una spiegazione · non salvato",
+    "placeholderFollowUp": "Fai un'altra domanda · non salvato",
+    "send": "Chiedi",
+    "footer": "Risposta di {{model}} · chiudendo la conversazione viene scartata",
+    "footerPending": "Usa {{model}} · chiudendo la conversazione viene scartata",
+    "answer": "Risposta",
+    "defaultQuestion": "Spiega cosa significa in questo contesto.",
+    "providerDefault": "modello predefinito di {{provider}}"
   }
 }

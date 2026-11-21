@@ -112,8 +112,10 @@ const PROVIDER_REASONING_EFFORTS: Record<string, readonly ProviderReasoningEffor
 const CODEX_BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
   // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
+  'gpt-6.2-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6.1-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6.1-terra': CODEX_BASE_EFFORTS,
+  'gpt-6.2-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-sol': CODEX_BASE_EFFORTS,
   // Most efficient tier: efforts up to `max`, no `ultra`.
@@ -191,7 +193,7 @@ export function providerSupportsProfiles(provider: string | null | undefined): b
 }
 
 /**
- * The provider accepts model aliases configured outside SpecRails. The server
+ * The provider accepts model aliases configured outside Specrails. The server
  * remains authoritative and validates the exact alias before spawning a CLI.
  */
 export function providerSupportsCustomModelAliases(

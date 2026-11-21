@@ -16,6 +16,7 @@
 // lock, process admission and CAS, full lifecycle evidence), so an open PR —
 // even one someone pushed to — is never touched by the watch.
 
+import { logRejection } from '../../../util/log-rejection'
 import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
 import type { JiraSyncManager } from '../../../jira/jira-sync-manager'
@@ -195,7 +196,7 @@ export function startPrMergeWatch(deps: PrMergeWatchDeps): { stop(): void; tick(
     running = pollPrMerges(deps, state).finally(() => { running = null })
     return running
   }
-  const run = (): void => { void tick() }
+  const run = (): void => { void tick().catch(logRejection('PR merge watch tick')) }
   const first = setTimeout(run, FIRST_TICK_MS)
   const timer = setInterval(run, deps.intervalMs ?? PR_MERGE_WATCH_INTERVAL_MS)
   first.unref?.()

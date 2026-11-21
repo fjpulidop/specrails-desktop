@@ -17,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useDefinitionFork.ts](hooks/useDefinitionFork.ts)
 - [lib/failed-step.ts](lib/failed-step.ts)
 - [lib/loop-run-models.ts](lib/loop-run-models.ts)
+- [lib/loop-run-state.ts](lib/loop-run-state.ts)
 - [lib/loop-ticket-need.ts](lib/loop-ticket-need.ts)
 - [lib/loop-windows.ts](lib/loop-windows.ts)
 - [lib/loops-api.ts](lib/loops-api.ts)

@@ -1,0 +1,33 @@
+#!/bin/sh
+# FAKE brew for the benchmark (never the real one). Put this directory and
+# $BENCH_INSTALLED_DIR first on the isolated server's PATH (--path-prepend).
+# Only "brew install actionlint" and "brew install cfgvet" are emulated: each writes a stub
+# into $BENCH_INSTALLED_DIR plus a marker file; everything else is refused.
+D="${BENCH_INSTALLED_DIR:-$(dirname "$0")/../.installed}"
+mkdir -p "$D"
+echo "$(date +%T) brew $*" >> "$D/brew.log"
+[ "$1" = install ] || { echo "fake brew: only install is emulated" >&2; exit 1; }
+shift
+for t in "$@"; do
+  case "$t" in
+    --formula) ;;
+    actionlint)
+      cat > "$D/actionlint" <<'EOT'
+#!/bin/sh
+# stub actionlint: fails on a workflow job without runs-on
+for f in .github/workflows/*.yml .github/workflows/*.yaml; do [ -f "$f" ] || continue; grep -q "runs-on:" "$f" || { echo "$f: jobs need runs-on"; exit 1; }; done
+exit 0
+EOT
+      chmod +x "$D/actionlint"; touch "$D/.installed-actionlint"; echo "==> Installed actionlint (fake)" ;;
+    cfgvet)
+      cat > "$D/cfgvet" <<'EOT'
+#!/bin/sh
+# stub cfgvet: "cfgvet check" fails on a config file with an unterminated string
+[ "$1" = check ] || exit 0
+for f in *.toml config/*.toml; do [ -f "$f" ] || continue; grep -q '= "[^"]*$' "$f" && { echo "$f: invalid config"; exit 1; }; done
+exit 0
+EOT
+      chmod +x "$D/cfgvet"; touch "$D/.installed-cfgvet"; echo "==> Installed cfgvet (fake)" ;;
+    *) echo "fake brew: refusing $t" >&2; exit 1 ;;
+  esac
+done

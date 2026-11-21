@@ -738,7 +738,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
         billingRetried.add(session.id)
         const timer = setTimeout(() => {
           const current = ports.repository.get(session.id)
-          if (current?.state === 'delivered') void announceDelivered(current, summarizeSettlement(ports.effects.list(current.id)))
+          if (current?.state === 'delivered') void announceDelivered(current, summarizeSettlement(ports.effects.list(current.id))).catch((error: unknown) => console.error('[intent] delivered summary failed:', error))
         }, retryMs)
         ;(timer as { unref?: () => void }).unref?.()
       }

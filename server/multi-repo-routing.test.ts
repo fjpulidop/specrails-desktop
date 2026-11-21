@@ -168,6 +168,42 @@ describe('group review packets', () => {
     expect(byChild.status).toBe(200); expect(byChild.body.snapshot.id).toBe('group')
   })
 
+  it('shows the repositories\' verification and review for "all repositories" instead of "nothing reported"', async () => {
+    // mr-api + mr-web: one run verified both, yet the group row records no evidence of its own.
+    const { childIds } = group()
+    const unit = { ticketId: 1, runId: 'run-0', reviewerStepId: 'reviewer', sentinel: 'absent', sentinelDetail: null, verifyTail: null,
+      confidence: { changeName: null, overall: 90, aspects: { security: 85 }, flags: [], raw: null },
+      runtime: { commands: [{ label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 377, required: true, hostRun: true, outputTail: 'pass 5' }], checks: [], findings: [], review: { approved: true, score: 90, aspects: { security: 85 }, issues: [], summary: 'Approved.' } } }
+    const evidence = (harvestedAt: string) => JSON.stringify({ schemaVersion: 1, harvest: 'ok', harvestedAt, units: [unit] })
+    db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(evidence('2026-11-19T12:20:44.000Z'), childIds[0])
+    db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(evidence('2026-11-19T12:20:43.000Z'), childIds[1])
+    const response = await request(app).get('/rails/pr-deliveries/group/packet')
+    expect(response.status).toBe(200)
+    const codes = response.body.packet.proof.map((item: { code: string }) => item.code)
+    expect(response.body.packet.evidenceUnavailable).toBe(false)
+    expect(codes).toContain('proof.hostCommandPassed')
+    expect(codes).toContain('proof.reviewerScore')
+    expect(codes).not.toContain('proof.noVerificationReported')
+    expect(codes).not.toContain('proof.reviewerScoreUnavailable')
+    // The run's one verdict is counted once, not once per repository.
+    expect(codes.filter((code: string) => code === 'proof.reviewerScore')).toHaveLength(1)
+  })
+
+  it('proves each repository with its own command and names the repository in the group view', async () => {
+    // mr-api + mr-web both ran `npm test`: the packet showed one ambiguous "npm test", in either repository's view.
+    const { childIds } = group()
+    const command = (repositoryId: string, tail: string) => ({ label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 400, required: true, hostRun: true, outputTail: tail, repositoryId })
+    const unit = { ticketId: 1, runId: 'run-0', reviewerStepId: 'reviewer', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null,
+      runtime: { commands: [command(PRIMARY, '> app test'), command(API, '> api test')], checks: [], findings: [], review: null } }
+    const evidence = JSON.stringify({ schemaVersion: 1, harvest: 'ok', harvestedAt: '2026-11-19T12:20:44.000Z', units: [unit] })
+    for (const id of childIds) db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(evidence, id)
+    const proved = async (query: Record<string, string>) => ((await request(app).get('/rails/pr-deliveries/group/packet').query(query)).body.packet.proof as Array<{ code: string; values?: { label?: string }; rawExcerpt?: string }>)
+      .filter((item) => item.code === 'proof.hostCommandPassed').map((item) => [item.values?.label, item.rawExcerpt])
+    expect(await proved({})).toEqual([['npm test (App)', '> app test'], ['npm test (API)', '> api test']])
+    expect(await proved({ repositoryId: API })).toEqual([['npm test', '> api test']])
+    expect(await proved({ repositoryId: PRIMARY })).toEqual([['npm test', '> app test']])
+  })
+
   it('rejects foreign selection and a child whose source path no longer matches its immutable manifest', async () => {
     const { childIds } = group()
     expect((await request(app).get('/rails/pr-deliveries/group/packet').query({ repositoryId: 'foreign' })).status).toBe(404)

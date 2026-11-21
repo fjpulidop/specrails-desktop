@@ -1,11 +1,11 @@
 {
   "title": "Pendências",
-  "subtitle_one": "{{count}} item aguarda você",
-  "subtitle_other": "{{count}} itens aguardam você",
-  "subtitleEmpty": "Nada aguarda você",
+  "subtitle_one": "{{count}} pendência",
+  "subtitle_other": "{{count}} pendências",
+  "subtitleEmpty": "Tudo em dia",
   "loading": "Verificando seus projetos…",
   "empty": {
-    "title": "Nada precisa de você",
+    "title": "Nenhuma pendência",
     "description": "Revisões, perguntas e falhas de todos os projetos aparecem aqui assim que acontecem."
   },
   "error": {
@@ -15,13 +15,13 @@
   },
   "kinds": {
     "review": "Revisão pronta",
-    "question": "Aguardando sua resposta",
+    "question": "Aguarda sua resposta",
     "failed": "Falhou",
     "blocked": "Bloqueado",
     "budget": "Pausado por orçamento",
     "jira": "Falha na sincronização com o Jira",
     "failedNoCause": "Parou antes da entrega",
-    "capReached": "Limite de orçamento atingido"
+    "capReached": "Trabalho em pausa"
   },
   "actions": {
     "open": "Abrir",
@@ -34,15 +34,11 @@
   "working": "Processando…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Adiar",
-    "hour": "1 hora",
-    "tomorrow": "Até amanhã",
-    "cancel": "Cancelar"
+    "hour": "Adiar 1 hora",
+    "tomorrow": "Adiar até amanhã"
   },
-  "snoozeItem": "Adiar {{title}}",
-  "snoozeFor": "Adiar {{title}} por",
   "done": "Concluído",
-  "doneItem": "Marcar {{title}} como concluído",
+  "more": "Mais ações para {{title}}",
   "age": {
     "now": "agora",
     "ago": "há {{age}}"
@@ -63,7 +59,10 @@
     "snoozed": "Adiado até {{when}}",
     "undo": "Desfazer",
     "stillOverBudget_week": "Ainda acima do orçamento semanal",
-    "stillOverBudget_month": "Ainda acima do orçamento mensal"
+    "stillOverBudget_month": "Ainda acima do orçamento mensal",
+    "muted": "Notificações de {{project}} silenciadas",
+    "unmuted": "Notificações de {{project}} reativadas",
+    "muteFailed": "Não foi possível alterar as notificações do projeto"
   },
   "cap": {
     "title": {
@@ -80,5 +79,13 @@
     },
     "detail": "{{spent}} de {{budget}} gastos"
   },
-  "stale": "Não foi possível atualizar; a última lista continua visível."
+  "stale": "Não foi possível atualizar; a última lista continua visível.",
+  "unseen": "Novo",
+  "markRead": "Marcar como lido",
+  "markUnread": "Marcar como não lido",
+  "mute": {
+    "mute": "Silenciar as notificações de {{project}}",
+    "unmute": "Reativar as notificações de {{project}}"
+  },
+  "attempt": "tentativa {{number}}"
 }

@@ -24,18 +24,12 @@ export function analyticsTools(): McpToolSpec[] {
       name: 'specrails_analytics',
       title: 'Analytics & Spending',
       description:
-        'Per-project cost analytics over billable AI-CLI invocations (jobs, quick-spec, explore-spec, ai-edit, smash, file-summary, loop). ' +
-        'All read-only except set_budget. Actions: ' +
-        'spending (full dashboard: cost summary with prev-period delta, by-surface/model/mode/provider breakdowns, daily timeline, cost-vs-turns scatter, top tickets), ' +
-        'invocations (paginated raw invocation table), ' +
-        'ticket_summary (per-ticket cost aggregate across all surfaces), ' +
-        'export (download summary/raw analytics as CSV or JSON — file download, returns a note + headers), ' +
-        'budget_get (daily budget, per-job threshold, cost-today, utilization %), ' +
-        'budget_set (write — set/clear daily budget cap + per-job cost threshold; a too-low budget pauses the job queue), ' +
-        'decision_times (time to decision and time to merge per delivery: median/p90 ms per project and per loop, from when the delivery became reviewable; counts measured/pending/unknown — unknown is never zero; honours period/from/to only), ' +
-        'loop_economics (per loop over the period: delivered (reached on_review or beyond) / merged / discarded counts, discardRate, cost per delivery split authoritative vs estimated with unpriced deliveries excluded, decision times, review/fixer rounds per delivery from loop_step events, escapedDefects from tickets linked with metadata.regressionOf; requirementsDemonstrated {demonstrated,total,deliveries} sums the spec traces of delivered deliveries (Core specTrace) and is null when none carries one; triageAccuracy is null until its producer exists; hasData=false loops have no data — unknown is never zero; honours period/from/to only). ' +
-        'Prefer spending over invocations/export-raw for token economy. ' +
-        'Filters: period(7d|30d|90d|all|custom), from/to (ISO, required for custom), surface[], model[], modelProvider[] (index-aligned to model), provider[], status(success|failed|aborted), minCostUsd, ticketId, tzOffsetMinutes(±840 — pass the user local offset so "today" lines up), sortBy.',
+        'Per-project cost analytics over billable AI invocations (jobs, quick-spec, explore-spec, ai-edit, smash, file-summary, loop). Read-only except budget_set. For a quick "what did we spend" use specrails_spend. ' +
+        'Actions: spending (dashboard: summary with previous-period delta, breakdowns, daily timeline, top tickets), invocations (paged raw rows), ticket_summary, export (CSV/JSON inline; prefer spending), ' +
+        'budget_get, budget_set (write — per-project daily/weekly/monthly/run caps and job alert threshold; a low budget pauses the queue), ' +
+        'decision_times (median/p90 time to decision and to merge per project and loop; unknown is never zero), ' +
+        'loop_economics (per loop: delivered/merged/discarded, cost per delivery, rounds, escapedDefects from metadata.regressionOf; null means no data). ' +
+        'Filters: period, from/to, surface[], model[] + modelProvider[], provider[], status, minCostUsd, ticketId, tzOffsetMinutes, sortBy.',
       hintTier: 'read',
       tier: (a) => (a.action === 'budget_set' ? 'write' : 'read'),
       inputSchema: {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { SmashStage } from '../../context/SmashTrackerContext'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 
 /**
  * Status pill stack rendered while a SMASH spawn is in flight against a
@@ -62,7 +62,8 @@ export function SmashStatusPills({ stage, minDisplayMs = MIN_DISPLAY_MS }: Smash
       aria-live="polite"
       data-testid="smash-status-pills"
     >
-      <LiveDot dotClassName="bg-accent-highlight" size="sm" aria-hidden />
+      {/* Splitting is work in progress: the working lamp (the pill keeps its own accent). */}
+      <RunStateDot state="working" size="sm" />
       <div className="flex items-center gap-1.5">
         {(['analyzing', 'identifying', 'ordering'] as SmashStage[]).map((s) => {
           const reached = STAGE_ORDER[s] <= idx

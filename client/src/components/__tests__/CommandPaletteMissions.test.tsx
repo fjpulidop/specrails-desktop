@@ -101,12 +101,17 @@ describe('CommandPalette — missions', () => {
     await openPalette(user)
 
     expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
+    // With three missions they all lead under "Jump back in" (and are not listed again under Missions).
     const headings = groupHeadings()
-    expect(headings.indexOf('Missions')).toBeGreaterThanOrEqual(0)
-    expect(headings.indexOf('Missions')).toBeLessThan(headings.indexOf('Projects'))
+    expect(headings[0]).toBe('Jump back in')
+    expect(headings.indexOf('Jump back in')).toBeLessThan(headings.indexOf('Projects'))
+    expect(headings).not.toContain('Missions')
     expect(screen.getByText('Tetris rewrite')).toBeInTheDocument()
     expect(screen.getByText('Revisar la misión de deploy')).toBeInTheDocument()
-    expect(screen.getByTestId('palette-mission-live-c-tetris')).toBeInTheDocument()
+    // A live mission is the working lamp (info), not the primary tone.
+    const live = screen.getByTestId('palette-jump-mission-c-tetris')
+    expect(live).toHaveAttribute('data-run-state', 'working')
+    expect(live.querySelector('.bg-accent-info')).toBeInTheDocument()
     expect(searchMissions).not.toHaveBeenCalled()
   })
 
@@ -117,10 +122,10 @@ describe('CommandPalette — missions', () => {
     await openPalette(user)
 
     expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
-    // Nothing typed: recents and missions lead and the switcher trails, so Enter on open never switches project.
+    // Nothing typed: "Jump back in" leads and the switcher trails, so Enter on open never switches project.
     const empty = groupHeadings()
-    expect(empty.indexOf('Missions')).toBeGreaterThanOrEqual(0)
-    expect(empty.indexOf('Projects')).toBeGreaterThan(empty.indexOf('Missions'))
+    expect(empty.indexOf('Jump back in')).toBe(0)
+    expect(empty.indexOf('Projects')).toBeGreaterThan(empty.indexOf('Jump back in'))
     // With a query the board's own order applies: projects first.
     await user.type(screen.getByRole('combobox'), 'e')
     const headings = groupHeadings()

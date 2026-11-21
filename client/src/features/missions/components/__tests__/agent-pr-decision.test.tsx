@@ -174,6 +174,16 @@ beforeEach(() => {
 })
 
 // ── AgentPrDecisionCard: state matrix ─────────────────────────────────────────
+function inspectFetch(archive: string, fileCount = 1) {
+  const original = global.fetch
+  global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/worktrees/quarantines/inspect')
+    ? new Response(JSON.stringify({ items: [{ projectId: 'p1', path: archive, status: 'present', quarantine: {
+      path: archive, worktreeName: 'ticket-1', createdAt: 0, fileCount, bytes: 9, files: [{ path: 'CLAUDE.md', kind: 'file', bytes: 9 }], truncated: false,
+    } }] }), { status: 200 })
+    : original(input)) as unknown as typeof fetch
+  return () => { global.fetch = original }
+}
+
 describe('AgentPrDecisionCard states', () => {
   it('names the loop that ran (chip) and titles Intent → Spec outcomes after it; other loops keep their titles', () => {
     const flowReview = { reason: 'review' as const, summary: null, issues: ['Tag the tests'], issuesOmitted: 0, score: 58, failingChecks: [] }
@@ -263,6 +273,9 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
     const note = screen.getByTestId('agent-pr-ci-status')
     expect(note).toHaveAttribute('data-state', 'red')
+    // CI not green: blocked (warning triangle), never the failed glyph.
+    expect(note).toHaveAttribute('data-run-state', 'blocked')
+    expect(note).toHaveClass('text-accent-warning')
     expect(note.textContent).toContain('flaky: test X keeps failing')
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
     expect(screen.queryByText(/Implementation failed/i)).toBeNull()
@@ -270,6 +283,22 @@ describe('AgentPrDecisionCard states', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', loopId: 'factory:pr-ci', statusCode: 'ci_green', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
     expect(screen.getByText('PR ready — CI is green')).toBeInTheDocument()
     expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'green')
+    expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-run-state', 'done')
+  })
+
+  it('pending CI is the working lamp, never a spinner', async () => {
+    const original = global.fetch
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
+      ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'pending', total: 4, pending: 2, failing: [] }] }), { status: 200 })
+      : new Response('{}', { status: 200 })) as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+      const note = await screen.findByTestId('agent-pr-ci-status')
+      expect(note).toHaveAttribute('data-run-state', 'working')
+      expect(note).toHaveClass('text-accent-info')
+      expect(note.querySelector('.animate-spin')).toBeNull()
+      expect(note.querySelector('.bg-accent-info')).toBeInTheDocument()
+    } finally { global.fetch = original }
   })
 
   it('a ready PR whose CI is red says so, read live from GitHub without any CI loop', async () => {
@@ -286,7 +315,7 @@ describe('AgentPrDecisionCard states', () => {
     } finally { global.fetch = original }
   })
 
-  it('a ready PR with merge conflicts says so even after a green CI loop, and leads with Fix CI / Conflicts', async () => {
+  it('a ready PR with merge conflicts says so even after a green CI loop, and leads with Fix CI / conflicts', async () => {
     const original = global.fetch
     global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
       ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'conflict', total: 3, pending: 0, failing: [] }] }), { status: 200 })
@@ -307,7 +336,7 @@ describe('AgentPrDecisionCard states', () => {
   it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_failed', loopId: 'factory:pr-ci', statusCode: 'recovery_unavailable', deliveryOutcome: 'blocked', implementationOutcome: 'succeeded',
       statusDetail: 'The preserved branch diverges from the live PR head.', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x', runIds: ['r1'] })} />)
-    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI / Conflicts again')
+    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI / conflicts again')
     expect(screen.queryByTestId('agent-pr-retry-delivery')).toBeNull()
   })
 
@@ -317,6 +346,19 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByTestId('agent-pr-run-stopped')).toBeInTheDocument()
     expect(screen.queryByText(/implementation failed/i)).toBeNull()
     expect(screen.queryByTestId('mission-run-diagnosis')).toBeNull()
+  })
+
+  it('a stopped run continues where it stopped; starting over from the base waits in the menu', async () => {
+    const original = global.fetch
+    const fetchMock = vi.fn(async () => httpRes(201, { loopRunId: 'fork-1', mode: 'fork', fromStep: 'developer', resumed: true }))
+    global.fetch = fetchMock as unknown as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', statusCode: 'run_stopped', implementationOutcome: 'failed', runIds: ['r1'] })} />)
+      expect(screen.getByTestId('agent-pr-run-stopped')).toHaveTextContent('Continue picks it up where it stopped, in the same worktree.')
+      expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
+      fireEvent.click(screen.getByTestId('mission-run-continue'))
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/remedy$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
+    } finally { global.fetch = original }
   })
 
   it('pr_draft with a PR: Publish + Discard + #number link, no Create PR', () => {
@@ -346,6 +388,12 @@ describe('AgentPrDecisionCard states', () => {
   it('pr_ready: Verify PR + Discard + link', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created' })} />)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()
+    // Ready to decide on an open PR: the PR glyph in the review tone, never the merge glyph.
+    const glyph = screen.getByTestId('agent-pr-decision-glyph')
+    expect(glyph).toHaveAttribute('data-run-state', 'review')
+    expect(glyph).toHaveClass('text-accent-review')
+    expect(glyph.querySelector('.lucide-git-merge')).toBeNull()
+    expect(glyph.querySelector('.lucide-git-pull-request')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
     expect(getAction('Discard')).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveTextContent('#12')
@@ -525,17 +573,19 @@ describe('AgentPrDecisionCard states', () => {
     expect(queryAction('Checkout')).not.toBeInTheDocument()
   })
 
-  it('discloses durable safety archives separately from cleanup warnings', () => {
-    render(<AgentPrDecisionCard envelope={env({
-      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
-      safetyArchives: ['/worktrees/ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md'],
-      cleanupWarnings: [],
-    })} />)
-
-    const archives = screen.getByTestId('agent-pr-safety-archives')
-    expect(archives).toHaveTextContent('Safety archive (1)')
-    expect(archives).toHaveTextContent('ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md')
-    expect(screen.queryByTestId('agent-pr-cleanup-warning')).toBeNull()
+  it('discloses really kept files separately from cleanup warnings', async () => {
+    const archive = '/worktrees/run/ticket-4.specrails-overlay-quarantine-a1B2c3'
+    const restore = inspectFetch(archive)
+    try {
+      render(<AgentPrDecisionCard envelope={env({
+        decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
+        safetyArchives: [archive],
+        cleanupWarnings: [],
+      })} />)
+      const archives = await screen.findByTestId('agent-pr-safety-archives')
+      expect(archives).toHaveTextContent("1 file was kept that didn't go into the PR")
+      expect(screen.queryByTestId('agent-pr-cleanup-warning')).toBeNull()
+    } finally { restore() }
   })
 
   it('keeps a terminal Dismiss cleanup warning and recovery path visible in Agent history', () => {
@@ -1047,7 +1097,7 @@ describe('AgentPrDecisionCard actions', () => {
     const dialog = screen.getByTestId('agent-pr-discard-confirm')
     expect(dialog).toHaveTextContent('Discard this delivery?')
     expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
-    expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
+    expect(dialog).toHaveTextContent('Specrails-owned local branches and worktrees that are still at their recorded commit')
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
     expect(dialog).toHaveTextContent('specs will return to the backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')

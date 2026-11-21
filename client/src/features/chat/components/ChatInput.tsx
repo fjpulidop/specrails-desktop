@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { cn } from '../../../lib/utils'
 import {
@@ -17,14 +18,16 @@ const CLAUDE_MODEL_OPTIONS = [
 ]
 
 const CODEX_MODEL_OPTIONS = [
-  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6.2-sol', label: 'GPT-6.2 Sol' },
   { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' },
-  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+  { value: 'gpt-6.2-astra', label: 'GPT-6.2 Astra' },
   { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
   { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
 ]
 
 const GEMINI_MODEL_OPTIONS = [
@@ -119,22 +122,24 @@ export function ChatInput({
                   onCommit={onModelChange}
                 />
               ) : (
-                <select
-                  value={model}
-                  disabled={hasMessages}
-                  className={cn(
-                    'rounded bg-transparent text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'border border-border/20 px-1.5 py-0.5',
-                    hasMessages && 'opacity-50 pointer-events-none'
-                  )}
-                  onChange={(e) => onModelChange(e.target.value)}
-                >
-                  {MODEL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-background">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={model} disabled={hasMessages} onValueChange={onModelChange}>
+                  <SelectTrigger
+                    size="sm"
+                    className={cn(
+                      'border-border/20 bg-transparent text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      hasMessages && 'opacity-50 pointer-events-none'
+                    )}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </span>
           </TooltipTrigger>
