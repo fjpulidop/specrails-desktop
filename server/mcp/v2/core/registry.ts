@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
 import { z, type ZodRawShape } from 'zod'
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
 import type { ProjectRow } from '../../../desktop-db'
@@ -13,10 +13,11 @@ import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTie
 import { shortHash } from './canonical'
 import { bindingArgs, confirmationLedger, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
 import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
-import { V2ToolError, V2_OUTPUT_SCHEMA, failure, success, toCallToolResult, type TextMode, type V2Envelope } from './envelope'
+import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
 import { resolveLang, translator, type Lang, type Translate } from './lang'
 import { requireProjectRow, resolveTarget, type RefKind, type Target } from './refs'
 import { guardSize, viewCap } from './size-guard'
+import { present } from './text'
 import { resolveView, type View } from './views'
 
 /**
@@ -115,10 +116,35 @@ export function createCatalog(tools: readonly V2ToolDef[]): V2Catalog {
 
 // ── Wire schema ─────────────────────────────────────────────────────────────
 
-const present = (value: unknown) => value !== undefined && value !== null && !(typeof value === 'string' && !value.trim())
-
 function fieldValue(args: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce<unknown>((value, key) => (value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined), args)
+}
+
+/**
+ * v1 argument names that keep working on a v2 action of the same tool name
+ * (`specrails_runs(get, jobId)`, `specrails_specs(search, q)`). Each alias maps
+ * to the v2 field only when the tool declares that field, does not declare the
+ * alias itself and the v2 field is absent; the alias is then removed, so the
+ * required check, the handler and the confirmation binding see one shape.
+ * The first present alias of a target wins (order below).
+ */
+export const V1_ARG_ALIASES: ReadonlyArray<readonly [alias: string, field: string]> = [
+  ['projectId', 'project'],
+  ['q', 'query'],
+  ['id', 'ref'], ['jobId', 'ref'], ['itemId', 'ref'], ['runId', 'ref'],
+]
+
+export function normalizeV1Args(def: Pick<V2ToolDef, 'fields'>, args: Record<string, unknown>): Record<string, unknown> {
+  let out = args
+  for (const [alias, field] of V1_ARG_ALIASES) {
+    if (alias in def.fields || !(field in def.fields) || !present(out[alias])) continue
+    if (out === args) out = { ...args }
+    const value = out[alias]
+    delete out[alias]
+    if (present(out[field])) continue
+    out[field] = typeof value === 'number' ? String(value) : value
+  }
+  return out
 }
 
 /** `Needs: get, pause: ref; launch: target; answer: answer|optionId` — one line, grouped by signature. */
@@ -184,7 +210,35 @@ export interface V2CallContext extends McpToolContext {
     /** Builds a DecisionState with this call's language, the catalog's policies and the spend threshold. */
     state(input: DecisionStateInput): DecisionState
     confirmAboveUsd: number
+    /**
+     * Runs another catalog call (an offer's `call`) through its registered
+     * callback: the target's own tier, required fields, confirmation protocol,
+     * size guard and legacy delegate apply, with this call's capability.
+     */
+    dispatch(call: { tool: string; args: Record<string, unknown> }): Promise<V2Envelope>
+    /** `notifications/progress` for the call's `_meta.progressToken`; a no-op when the client sent none. */
+    progress(progress: number, total?: number, message?: string): void
   }
+}
+
+/** The SDK's request extra, as far as v2 uses it. */
+export type V2HandlerExtra = ToolHandlerExtra & {
+  _meta?: { progressToken?: string | number } & Record<string, unknown>
+  sendNotification?: (notification: ServerNotification) => Promise<void>
+}
+
+export type V2Callback = (args: Record<string, unknown>, extra?: V2HandlerExtra) => Promise<CallToolResult>
+
+/** A v1 envelope (legacy delegate result) read as a v2 one; v2 envelopes pass through. */
+export function envelopeOfResult(reply: CallToolResult): V2Envelope {
+  const value = (reply.structuredContent ?? {}) as Record<string, unknown>
+  if (value.v === 2) return value as unknown as V2Envelope
+  const summary = typeof value.summary === 'string' ? value.summary : ''
+  if (value.ok === false || reply.isError) {
+    const error = (value.error && typeof value.error === 'object' ? value.error : { code: 'internal', message: summary || 'The call failed.', retryable: false }) as V2Failure['error']
+    return { v: 2, ok: false, summary, error, ...(Array.isArray(value.warnings) ? { warnings: value.warnings as string[] } : {}) }
+  }
+  return { v: 2, ok: true, summary, data: 'data' in value ? value.data : null, ...(Array.isArray(value.warnings) ? { warnings: value.warnings as string[] } : {}) }
 }
 
 /** A v1 tool of the same name, still serving its own actions (phase 0–3 compatibility). */
@@ -205,6 +259,8 @@ export interface RegisterOptions {
   legacy?: LegacyDelegate
   /** v1 equivalent of a v2 action, named in `not_implemented` errors while the action is a stub. */
   legacyEquivalent?: (tool: string, action: string) => string | null
+  /** Resolves `ctx.v2.dispatch` (registerV2Surface: every registered v2 callback). */
+  dispatch?: (call: { tool: string; args: Record<string, unknown> }, extra?: V2HandlerExtra) => Promise<CallToolResult>
 }
 
 const actionOf = (args: Record<string, unknown>) => typeof args.action === 'string' ? args.action : ''
@@ -244,11 +300,11 @@ const STALE_REASON: Record<VerifyFailure, { code: 'stale' | 'confirmation_requir
 }
 
 /** The call handler of one v2 tool (exported for tests; `registerV2Tool` wires it to a server). */
-export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<CallToolResult> {
+export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): V2Callback {
   const ledger = options.ledger ?? confirmationLedger
   const textMode = options.textMode ?? 'json'
   return async (rawArgs, extra) => {
-    const args = rawArgs ?? {}
+    let args = rawArgs ?? {}
     const action = actionOf(args)
     const label = `${def.name}(${action})`
     const session = (ctx.sessionState ?? { activeProjectId: null }) as V2SessionState
@@ -265,11 +321,13 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     const spec = def.actions[action]
     // A v1 action on a colliding tool name (or a v2 action still stubbed) keeps its v1 behavior.
     if (options.legacy?.actions.has(action) && (!spec || !spec.handler)) {
-      const legacyResult = await options.legacy.call(args, extra)
+      const legacyResult = await options.legacy.call(rawArgs ?? {}, extra)
       const hint = options.legacy.hint(action)
       return hint ? withDeprecation(legacyResult, t('core.summary.deprecated', { target: hint })) : legacyResult
     }
     if (!spec) return fail(new V2ToolError('invalid_input', t('core.error.unknown_action', { action, actions: Object.keys(def.actions).join(', ') })))
+    // From here on the v2 handler serves the call: v1 argument names become v2 ones.
+    args = normalizeV1Args(def, args)
 
     const callCtx = {
       ...ctx,
@@ -286,6 +344,16 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
       project: (a) => requireProjectRow(rows(), scope(a), t),
       target: (a, defaultKind, kinds) => resolveTarget(rows(), { ...scope(a), ref: a.ref, defaultKind, kinds, label }, t),
       state: (input) => buildDecisionState(input, { translate: t, policyFor: options.catalog.policyFor, confirmAboveUsd }),
+      dispatch: async (call) => {
+        if (!options.dispatch) throw new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`)
+        return envelopeOfResult(await options.dispatch(call, extra))
+      },
+      progress: (progress, total, message) => {
+        const token = extra?._meta?.progressToken
+        if (token === undefined || !extra?.sendNotification) return
+        extra.sendNotification({ method: 'notifications/progress', params: { progressToken: token, progress, ...(total !== undefined ? { total } : {}), ...(message ? { message } : {}) } })
+          .catch(() => { /* notifications never fail the tool */ })
+      },
     }
 
     const tier = resolveTier(spec.tier, args)
@@ -354,7 +422,8 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         const value = await spec.handler(callCtx, args)
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))
-        return reply(guardSize(envelope, { capTokens: spec.maxTokens ?? viewCap(callCtx.v2.view) }))
+        const base = isV2Result(value) ? value.pageBase : undefined
+        return reply(guardSize(envelope, { capTokens: spec.maxTokens ?? viewCap(callCtx.v2.view), ...(base ? { baseOffset: base.offset, basePath: base.path, cursorKey: base.key } : {}) }))
       } catch (err) {
         return fail(err)
       }
@@ -373,7 +442,9 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
   }
 }
 
-export function registerV2Tool(server: McpServer, ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): void {
+/** Registers one v2 tool and returns its callback (registerV2Surface dispatches through it). */
+export function registerV2Tool(server: McpServer, ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): V2Callback {
+  const callback = v2ToolCallback(ctx, def, options)
   const hidden = options.legacy ? [...options.legacy.actions].filter((action) => !(action in def.actions)) : []
   server.registerTool(def.name, {
     title: def.title,
@@ -382,5 +453,6 @@ export function registerV2Tool(server: McpServer, ctx: McpToolContext, def: V2To
     outputSchema: V2_OUTPUT_SCHEMA,
     annotations: annotationsFor(def),
     ...(def.alwaysLoad ? { _meta: { [ALWAYS_LOAD_META_KEY]: true } } : {}),
-  }, v2ToolCallback(ctx, def, options))
+  }, callback)
+  return callback
 }

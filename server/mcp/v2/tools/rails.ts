@@ -97,7 +97,7 @@ export const railsTool = defineTool({
     ...WRITE_FIELDS,
     rail: z.union([z.number().int().min(0).max(999), z.string()]).describe('Index or rail ref'),
     name: z.string(),
-    config: F.object().describe('specIds mode loop engine profile model effort targetPr'),
+    config: F.object().describe('specIds mode engine profile name'),
   },
   actions: {
     list: {
@@ -110,7 +110,7 @@ export const railsTool = defineTool({
         const wip = rec(snapshot.reviewWip)
         return result({ items: page.items, ...(Object.keys(wip).length ? { reviewWip: { limit: wip.limit ?? null, pending: arr(wip.pending).length, reached: wip.reached === true } } : {}) }, {
           summary: ctx.v2.t('rails.summary.list', { count: items.length, free: count('free'), busy: count('busy'), waiting: count('pending_decision') }),
-          page: page.page,
+          page: page.page, pageBase: page.base,
         })
       },
     },

@@ -53,7 +53,7 @@ export function decodeCursor(cursor: unknown, expectKey?: string): CursorState |
  * In-memory page of an already-loaded list (small lists only; large stores use
  * their own keyset cursor in `inner`). Returns the slice and the page section.
  */
-export function pageOf<T>(items: readonly T[], options: { cursor?: unknown; limit?: unknown; key?: string; defaultLimit?: number; maxLimit?: number } = {}): { items: T[]; page: { cursor: string | null; total: number; truncated: boolean } } {
+export function pageOf<T>(items: readonly T[], options: { cursor?: unknown; limit?: unknown; key?: string; defaultLimit?: number; maxLimit?: number } = {}): { items: T[]; page: { cursor: string | null; total: number; truncated: boolean }; base: { offset: number; key?: string } } {
   const state = decodeCursor(options.cursor, options.key)
   const max = options.maxLimit ?? 100
   const requested = typeof options.limit === 'number' && Number.isInteger(options.limit) && options.limit > 0 ? options.limit : options.defaultLimit ?? 25
@@ -65,5 +65,7 @@ export function pageOf<T>(items: readonly T[], options: { cursor?: unknown; limi
   return {
     items: slice,
     page: { cursor: more ? encodeCursor({ offset: end, path: DEFAULT_PATH, ...(options.key ? { key: options.key } : {}) }) : null, total: items.length, truncated: more },
+    // Pass as `result(..., { pageBase: base })` so a size-guard cut resumes at an absolute offset.
+    base: { offset, ...(options.key ? { key: options.key } : {}) },
   }
 }

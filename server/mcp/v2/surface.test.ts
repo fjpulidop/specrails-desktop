@@ -86,26 +86,29 @@ describe('McpServerManager with and without v2', () => {
     const select = await c.callTool({ name: 'specrails_select_project', arguments: { projectId: 'p1' } }) as { structuredContent: Record<string, unknown> }
     expect(select.structuredContent).toMatchObject({ ok: true, warnings: ['deprecated: use specrails_projects(select)'] })
 
-    // v1 `specrails_projects(list)` runs its v1 handler through the v2 tool of the same name.
-    const projects = await c.callTool({ name: 'specrails_projects', arguments: { action: 'list' } }) as { structuredContent: Record<string, any> }
-    expect(projects.structuredContent).toMatchObject({ ok: true, warnings: ['deprecated: use specrails_projects(list)'] })
-    expect(JSON.stringify(projects.structuredContent.data)).toContain('shop-api')
+    // A v1 action v2 does not define (`specrails_specs(board)`) runs its v1 handler through the v2 tool of the same name.
+    const board = await c.callTool({ name: 'specrails_specs', arguments: { action: 'board', projectId: 'p1' } }) as { structuredContent: Record<string, any> }
+    // (The harness loads no project database, so the v1 handler answers its own v1 error.)
+    expect(board.structuredContent).toMatchObject({ warnings: ['deprecated: use specrails_overview(project)'] })
+    expect(board.structuredContent.v).toBeUndefined()
+    expect(board.structuredContent.error?.code).not.toBe('invalid_input')
 
     // A v2 action that is still a stub names the v1 call that serves it today.
-    const overview = await call(c, 'specrails_overview', { action: 'app' })
-    expect(overview.envelope.error).toMatchObject({ code: 'not_implemented', message: expect.stringContaining('specrails_status') })
+    const triage = await call(c, 'specrails_system', { action: 'triage' })
+    expect(triage.envelope.error).toMatchObject({ code: 'not_implemented', message: expect.stringContaining('specrails_support(triage)') })
   })
 })
 
 describe('in-app sessions under v2', () => {
   it('list the first-party mission tool next to the 15 v2 tools', async () => {
     const harness = createHarness()
-    const count = registerV2Surface(harness.server, harness.ctx, buildToolSpecs(), { inApp: true })
+    const { toolCount: count, dispose } = registerV2Surface(harness.server, harness.ctx, buildToolSpecs(), { inApp: true })
     const client = await harness.connect()
     const names = (await client.listTools()).tools.map((tool) => tool.name)
     expect(new Set(names)).toEqual(new Set([...V2_NAMES, 'specrails_mission']))
     expect(names).toHaveLength(16)
     expect(count).toBe(16)
+    dispose()
     await client.close()
   })
 })

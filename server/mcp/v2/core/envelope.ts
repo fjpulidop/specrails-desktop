@@ -72,13 +72,28 @@ const RESULT = Symbol.for('specrails.mcp.v2.result')
 
 export type ResultMeta = Partial<Pick<V2Success, 'summary' | 'refs' | 'state' | 'page' | 'warnings' | 'untrusted'>>
 
+/**
+ * Where the page of a store- or offset-paged list starts, so a size-guard cut
+ * yields an absolute cursor (`offset + kept`, stamped with the query key) that
+ * the tool's own `decodeCursor(cursor, key)` resumes from. Not part of the envelope.
+ */
+export interface PageBase {
+  /** Offset of the first returned item in the full list. */
+  offset: number
+  /** Query key the tool's cursors carry. */
+  key?: string
+  /** Pointer (relative to `data`) of the paged array; default `/items`. */
+  path?: string
+}
+
 export interface V2Result<D = unknown> extends ResultMeta {
   [RESULT]: true
   data: D
+  pageBase?: PageBase
 }
 
 /** What a v2 handler returns: data plus its own summary/refs/state/page. Plain data also works. */
-export function result<D>(data: D, meta: ResultMeta = {}): V2Result<D> {
+export function result<D>(data: D, meta: ResultMeta & { pageBase?: PageBase } = {}): V2Result<D> {
   return { ...meta, data, [RESULT]: true }
 }
 

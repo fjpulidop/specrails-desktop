@@ -32,3 +32,12 @@ const HIDDEN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F‪-‮⁦-�
 export function neutralize(text: string): string {
   return text.replace(HIDDEN, '')
 }
+
+/**
+ * Third-party text with the same invisible characters made visible as `⟦U+XXXX⟧`
+ * instead of removed: diffs and file contents, where a reviewer must see them
+ * (trojan-source).
+ */
+export function reveal(text: string): string {
+  return text.replace(HIDDEN, (ch) => `⟦U+${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}⟧`)
+}

@@ -40,6 +40,13 @@ export function optionsOf(args: Record<string, unknown>): Record<string, unknown
 /** Control fields the framework consumes; never part of a confirmation binding or forwarded to routes. */
 export const CONTROL_FIELDS = ['confirm', 'dryRun', 'lang', 'view', 'fields', 'cursor', 'limit'] as const
 
+/**
+ * Keys inside `options` that steer how the server waits or pages, never what
+ * the action does: excluded from the confirmation binding, so a resend with a
+ * different `options.waitMs` still matches its token.
+ */
+export const CONTROL_OPTIONS = ['waitMs'] as const
+
 /** Shared field definitions. Tools spread the ones they take into their shape. */
 export const F = {
   project: z.string().describe('Project id, slug, name or path'),

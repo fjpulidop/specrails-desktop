@@ -1,5 +1,5 @@
 import type { JobStatus } from '../../../types'
-import type { RunHold } from '../../../modules/loops/runtime/loop-run-hold'
+import { RUN_HOLD_KINDS, type RunHold, type RunHoldKind } from '../../../modules/loops/runtime/loop-run-hold'
 import type { PrDecision } from '../../../modules/delivery'
 
 /**
@@ -67,6 +67,16 @@ export function statusFromJob(status: JobStatus | string, hold?: Pick<RunHold, '
   }
 }
 
+/**
+ * A run as the event journal records it: the job status plus a hold word,
+ * which may be a `RunHoldKind` or the journal-only `stuck` (the stall
+ * watchdog's `job.stuck`: still running, nobody can act from the run) → `blocked`.
+ */
+export function statusFromRunHold(status: JobStatus | string, hold: string | null | undefined): CanonicalStatus {
+  if (hold === 'stuck') return 'blocked'
+  return statusFromJob(status, hold && (RUN_HOLD_KINDS as readonly string[]).includes(hold) ? { kind: hold as RunHoldKind } : null)
+}
+
 /** A PR delivery decision (delivery/domain/state.ts). */
 export function statusFromDelivery(decision: PrDecision | string): CanonicalStatus {
   switch (decision) {
@@ -118,7 +128,7 @@ const WORDS: Record<string, CanonicalStatus> = {
   paused: 'paused', stalled: 'paused', interrupted: 'paused', budget_paused: 'paused',
   needs_input: 'needs_you', 'needs-input': 'needs_you', awaiting_input: 'needs_you', question: 'needs_you',
   review: 'ready_for_review', on_review: 'ready_for_review',
-  blocked: 'blocked', error: 'failed', failed: 'failed', failure: 'failed',
+  blocked: 'blocked', stuck: 'blocked', error: 'failed', failed: 'failed', failure: 'failed',
   done: 'succeeded', completed: 'succeeded', complete: 'succeeded', succeeded: 'succeeded', success: 'succeeded', passed: 'succeeded',
   canceled: 'cancelled', cancelled: 'cancelled', aborted: 'cancelled', stopped: 'cancelled', skipped: 'cancelled', closed: 'cancelled',
   delivered: 'delivered', merged: 'integrated', integrated: 'integrated', discarded: 'discarded', superseded: 'discarded',

@@ -38,8 +38,11 @@ The flag is read per session, so new sessions pick up a change without a restart
   token in v2) accepts either value at runtime.
 
   **Rule for WPs:** when you implement a v2 action whose name collides with a v1 action of the same tool, the v2
-  handler wins. Keep the v1 argument names working (for example accept `projectId` as `project`, `jobId` as a bare
-  `ref`), or say in your PR that the v1 shape is dropped.
+  handler wins. The registry keeps the common v1 argument names working before the `required` check
+  (`normalizeV1Args`): `projectId` → `project`, `q` → `query`, and `id` / `jobId` / `itemId` / `runId` → a bare
+  `ref` (numbers become strings). An alias maps only when the tool declares the v2 field and not the alias, and only
+  when the v2 field is absent; the alias is then removed, so handlers and confirmation bindings see one shape. Any
+  other v1 name is the WP's to accept, or to drop and say so in its PR.
 - **The deprecation table** is `V1_TO_V2` in `server/mcp/tools/actions.ts` (the alias bridge). `v2/aliases.test.ts`
   proves every v1 action maps to an existing v2 call and snapshots the table. A v2 action that is still a stub
   answers `not_implemented` and names the v1 call that serves it today (`v1EquivalentOf`).
@@ -89,7 +92,7 @@ value. Each one is checked by the budget test.
 | `specrails_blueprint` | WP6 | | sessions, start, send, repair, abort, get, commit, milestones, milestone_generate, milestone_commit, chain_launch/get/resume/auto_advance/cancel, settings_get/set |
 | `specrails_rails` | WP3 | | list, create, remove, rename, configure, prepare_worktrees, release_worktrees, overlaps, forecast |
 | `specrails_runs` | WP3 | yes | list, get, launch, launch_all, pause, resume, stop, cancel, answer, approve, reject, limit, remedy, fork, steer, diagnose, recovery_inspect/read/diff/patch/check, settle, dismiss, queue, delete_history |
-| `specrails_deliveries` | WP4 | yes | list, get, decide (16 decisions, `DECISION_POLICY`) |
+| `specrails_deliveries` | WP4 | yes | list, get, decide (17 decisions, `DECISION_POLICY`) |
 | `specrails_missions` | WP7 | | lifecycle, queue_*, attachments, subagents, card_decide, limit_continue, intent_*, chat_* |
 | `specrails_insights` | WP8 | | spend, analytics, export, usage, quota, capacity, preflight, forecast, what_if, budget_get/set, resources |
 | `specrails_settings` | WP9 | | get, set (by `section`), env_scan, env_status, webhook_test |
@@ -129,6 +132,18 @@ Rules:
   `specrails_system(help)`. Field descriptions are at most 8 words.
 - Handlers return plain data or `result(data, meta)`. Throw `V2ToolError(code, message, extra)`. v1 errors
   (`McpToolError`, `McpApiError`) map automatically.
+- Shared helpers live in core; do not copy them into a tool: `present`, `asRecord`, `clip`, `clipDeep`
+  (`core/text.ts`), `neutralize` and `reveal` (`core/untrusted.ts`; `reveal` shows invisible characters as
+  `⟦U+XXXX⟧` in diffs and file contents instead of removing them).
+
+### Tiers decided at integration
+
+| Action | Tier, class | Why |
+|---|---|---|
+| `deliveries(decide approve)` | destructive, irreversible | WP4: accepting a delivery cannot be taken back |
+| `deliveries(decide refresh_on_base)` | ai-spawn, costly | WP4: the resolver and verification run an agent |
+| `runs(recovery_check)` | destructive, irreversible | It executes the project's own commands in the run's worktree (v1's check was destructive too); its preview names the check and binds to the run's state version |
+| `inbox(act)` | read | The dispatched offer applies its own tier and confirmation |
 
 ### Handler context (`ctx.v2`)
 
@@ -142,6 +157,8 @@ Rules:
 | `target(args, kind, kinds?)` | entity from `ref` (a full ref wins) or a bare id; `{ kind, id, project, ref }` |
 | `state(input)` | `DecisionState` with this call's language, the catalog's policies and the spend threshold |
 | `confirmAboveUsd` | "Ask before spending" threshold |
+| `dispatch(call)` | runs another catalog call (an offer's `call`) through its registered callback, legacy delegate included, with this call's capability; returns the target's v2 envelope (a v1 result is read as v2). `inbox(act)` uses it |
+| `progress(progress, total?, message?)` | `notifications/progress` for the request's `_meta.progressToken`; a no-op without one (`wait(until)` reports elapsed ms) |
 
 The v1 context (`registry`, `desktopDb`, `apiCall` through `ctx`, `requestProjectId`, `firstPartyAgent`, `signal`)
 stays available. `sessionState` adds `sessionKey` (confirmations bind to it) and `lang`.
@@ -174,6 +191,11 @@ stays available. `sessionState` adds `sessionKey` (confirmations bind to it) and
   resort replaces `data` with `{ omitted: true }`. `summary`, `refs` and `state` always survive.
 - **List convention:** `data.items` plus `page` from `pageOf` (in-memory) or the store's keyset cursor wrapped as
   `inner` (`encodeCursor`).
+  - Pass where the page starts as `result(data, { page, pageBase: { offset, key } })` (`pageOf` returns it as
+    `base`). When the guard cuts `/items` it then writes an absolute cursor (`offset + kept`) stamped with your
+    query key, which your own `decodeCursor(args.cursor, key)` resumes from. Without it a cut restarts at the page's
+    first item. A list filtered after the store read (`runs(list)`) cannot give an absolute offset and keeps its
+    pages small instead.
   - A tool that accepts `cursor` decodes it with `decodeCursor(args.cursor, key)`. A guard cursor carries `offset`,
     and `path` when it cut an array other than `/items`.
   - Keep pages small (default 25, max 100) so the guard rarely fires.
@@ -189,6 +211,19 @@ stays available. `sessionState` adds `sessionKey` (confirmations bind to it) and
 - **Precedence:** a ref's own project beats an explicit `project`, which beats the mission pin, which beats the
   `projects(select)` session default. A ref and an explicit `project` that disagree is `invalid_input`.
 - Return refs for everything an answer mentions (`refs`), never bare ids alone.
+- **Keys of `refs`:** the kind for the one entity of that kind (`run`, `spec`, `project`, `item`, `subject`); several of
+  one kind use `<kind>.<id>` (`spec.12`, `run.8f3c`), at most 10. Arrays of refs belong in `data`.
+- **Which id each kind carries:**
+
+  | Ref | Id |
+  |---|---|
+  | `run:<slug>/<id>` | the job id; a loop run's id is its job id (one id space: jobs, loop runs, runtime runs) |
+  | `spec:<slug>/<id>` | the ticket id (`target.specIds` takes refs or numbers) |
+  | `rail:<slug>/<index>` | the 0-based rail index |
+  | `project:<slug>` | the slug (ids and names resolve too) |
+  | `mission:<conversationId>` | the agent conversation id |
+  | `blueprint:<commitId>` | the blueprint commit id |
+  | `inbox:<itemId>` | the inbox item id (`<projectId>:<kind>:<subjectId>`) |
 
 ## Decision state (`core/decision-state.ts`, `core/decision-sources.ts`, `core/status-map.ts`)
 
@@ -201,7 +236,8 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
 - **`status`** is the v2 vocabulary of 13 values: `queued`, `running`, `paused`, `waiting`, `needs_you`, `blocked`,
   `failed`, `succeeded`, `cancelled`, `ready_for_review`, `delivered`, `integrated` and `discarded`.
   - `appState` and `label` give the app's own nine run states and their words (DESIGN.md "Status vocabulary").
-  - Map domain values with `statusFromJob` (with its hold), `statusFromDelivery`, `statusFromChain`,
+  - Map domain values with `statusFromJob` (with its hold), `statusFromRunHold` (a job status plus a journal hold
+    word: a `RunHoldKind`, or the stall watchdog's `stuck` → `blocked`), `statusFromDelivery`, `statusFromChain`,
     `statusFromSpec` or `statusFromWord`. Never hand-map in a tool.
 - **Offers come only from domain rules,** through the pure source projectors:
 
@@ -244,8 +280,9 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
   - A token for other arguments or another session returns `confirmation_required` with `reason: mismatch`.
   - `dryRun: true` always returns the preview, plus a token when one would be needed.
 - **Token:** `ct1.<exp>.<nonce>.<version>.<hmac>`. The HMAC-SHA256 covers the MCP session, tool, canonical arguments
-  (control fields `confirm`, `dryRun`, `lang`, `view`, `fields`, `cursor` and `limit` excluded), version and expiry,
-  with a per-process secret and a 10-minute TTL.
+  (control fields `confirm`, `dryRun`, `lang`, `view`, `fields`, `cursor` and `limit` excluded, and the control
+  options in `CONTROL_OPTIONS`, today `options.waitMs`), version and expiry, with a per-process secret and a 10-minute
+  TTL. The arguments are bound after v1 normalization, so `jobId: x` and `ref: x` confirm each other.
 - In-app (first-party) turns skip the token. Their permission ladder and cards govern them, unchanged.
 
 ## Language (`core/lang.ts`, `v2/i18n/**`)
@@ -299,19 +336,20 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
 
   The test prints the per-tool numbers. When you add to a tool, run it and keep the catalog below budget.
 
-At WP0 the catalog measures **6,004** tokens in the Codex shape (5,869 in the Claude shape). Per tool:
+After phase 1 (WP0–WP5 integrated) the catalog measures **5,981** tokens in the Codex shape (5,846 in the Claude
+shape; 6,004 / 5,869 at WP0). Per tool:
 
 | Tool | Tokens |
 |---|---|
 | `specrails_overview` | 180 |
 | `specrails_inbox` | 355 |
 | `specrails_wait` | 211 |
-| `specrails_projects` | 370 |
-| `specrails_specs` | 553 |
+| `specrails_projects` | 348 |
+| `specrails_specs` | 560 |
 | `specrails_blueprint` | 454 |
-| `specrails_rails` | 372 |
+| `specrails_rails` | 360 |
 | `specrails_runs` | 608 |
-| `specrails_deliveries` | 419 |
+| `specrails_deliveries` | 423 |
 | `specrails_missions` | 643 |
 | `specrails_insights` | 268 |
 | `specrails_settings` | 299 |
@@ -319,7 +357,25 @@ At WP0 the catalog measures **6,004** tokens in the Codex shape (5,869 in the Cl
 | `specrails_integrations` | 506 |
 | `specrails_system` | 336 |
 
-That leaves about 500 tokens of headroom for the whole programme.
+That leaves about 520 tokens of headroom for phases 2–4.
+
+## Notifications
+
+`registerV2Surface` returns `{ toolCount, dispose }` and wires `registerWaitNotifications` (wait.ts): every journal row
+that needs the person becomes a `notifications/message` (level `notice`), and every row sends
+`notifications/resources/updated` for the resources it changed (`resourceUrisOfEvent`: a run → `specrails://status`
+and `specrails://jobs/<id>`, a mission → `specrails://missions/<id>`) through the session's own subscriptions.
+`McpServerManager` creates one subscription set per session (`registerResourceSubscriptions`, shared with the v1 bus
+events) and disposes both on session close.
+
+## Open after phase 1
+
+| Item | Note |
+|---|---|
+| `projects(clone)` longer than a client's 60 s call timeout | Still synchronous (up to 5 min). A 202 + `wait` needs a clone row in the event journal and a ref before the project exists; deferred |
+| A "large reversible" confirmation class (bulk trash) | Not added; `specs(delete)` and `bulk_update` stay `write` (trash is reversible), `purge` is always confirmed |
+| A cross-project run read model | `runs(list)` without a project uses `/recent-jobs` (50, no holds) |
+| Inbox items for mission cards and paused chains | WP6/WP7 |
 
 ## Not in WP0 (owned elsewhere)
 

@@ -27,6 +27,7 @@
   "preview.resume": "Continues {{title}}.",
   "preview.cancel": "Cancels {{title}}; its unfinished work stops for good.",
   "preview.delete": "Deletes the history of {{what}}.",
+  "preview.check": "Runs the {{kind}} check of {{title}} in its worktree: it executes the project's own commands.",
   "preview.fork": "Starts a new attempt of {{title}} from step {{step}}.",
   "error.not_held": "{{label}}: the run is not waiting for that (it is {{status}}).",
   "error.no_option": "Option \"{{option}}\" is not one the question offered: {{options}}.",

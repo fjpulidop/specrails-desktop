@@ -19,6 +19,7 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `core/status-map.ts`, `core/decision-state.ts`, `core/decision-sources.ts` | status vocabulary, `DecisionState`, offers from domain rules |
 | `core/confirm.ts` | confirmTokens (HMAC, single use, stale detection) and the spend threshold |
 | `core/lang.ts`, `i18n/**` | language resolution and message catalogs |
+| `core/text.ts` | shared value helpers (`present`, `asRecord`, `clip`, `clipDeep`) |
 | `core/untrusted.ts` | untrusted-content pointers |
 | `tools/*.ts` | one file per tool, owned by its work package |
 | `legacy.ts` | v1 tools as hidden aliases while v2 is served |

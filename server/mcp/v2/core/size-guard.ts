@@ -36,8 +36,10 @@ export function approxTokens(text: string): number {
 
 export interface GuardOptions {
   capTokens: number
-  /** Offset of the first item of the primary array in the full list (absolute cursors for in-memory pages). */
+  /** Offset of the first item of the paged array in the full list (absolute cursors; `result(..., { pageBase })`). */
   baseOffset?: number
+  /** Pointer of the paged array `baseOffset` applies to (default `/items`); another cut array resumes at 0. */
+  basePath?: string
   /** Query key stamped on the cursor (see cursor.ts). */
   cursorKey?: string
 }
@@ -133,7 +135,7 @@ function cut(envelope: V2Success, options: GuardOptions): V2Success {
   if (primary) {
     out.page = {
       ...(out.page ?? {}),
-      cursor: encodeCursor({ offset: (options.baseOffset ?? 0) + primary.kept, path: primary.pointer, ...(options.cursorKey ? { key: options.cursorKey } : {}) }),
+      cursor: encodeCursor({ offset: (primary.pointer === (options.basePath ?? '/items') ? options.baseOffset ?? 0 : 0) + primary.kept, path: primary.pointer, ...(options.cursorKey ? { key: options.cursorKey } : {}) }),
       truncated: true,
     }
   } else if (out.page) out.page = { ...out.page, truncated: true }

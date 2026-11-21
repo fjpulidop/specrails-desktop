@@ -723,7 +723,10 @@ export const runsTool = defineTool({
         const state = runState(ctx, run)
         const data = { ...runSummary(run), ...await detailOf(ctx, run, args, fields) }
         const refs: Record<string, Ref> = { run: run.target.ref }
-        ;(data.specs as Ref[]).forEach((ref, index) => { refs[index ? `spec${index + 1}` : 'spec'] = ref })
+        // One spec: `spec`; several: `spec.<id>` (docs/internals/mcp-v2.md, refs).
+        const specs = data.specs as Ref[]
+        if (specs.length === 1) refs.spec = specs[0]
+        else for (const ref of specs.slice(0, 10)) refs[`spec.${parseRef(ref)?.id ?? ref}`] = ref
         if (typeof data.rail === 'string') refs.rail = data.rail
         return result(data, { summary: summaryOf(ctx, String(data.title), state), refs, state, untrusted: RUN_UNTRUSTED })
       },
@@ -1014,7 +1017,13 @@ export const runsTool = defineTool({
       handler: (ctx, args) => recovery(ctx, { ...args, options: { ...rec(optionsOf(args).patch) } }, 'patch', ['repositoryId', 'path', 'expectedHash', 'oldText', 'newText', 'operationId', 'reason', 'acknowledgeInterrupted']),
     },
     recovery_check: {
-      tier: 'write', required: ['ref'], doc: 'options: kind openspec|verification, checkId, operationId (uuid), reason, changedPrecondition',
+      // Runs the project's own commands in the run's worktree: confirmed like v1 (destructive).
+      tier: 'destructive', confirm: 'irreversible', required: ['ref'], doc: 'options: kind openspec|verification, checkId, operationId (uuid), reason, changedPrecondition',
+      preview: async (ctx, args) => {
+        const run = await loadRun(ctx, runTarget(ctx, args))
+        const options = optionsOf(args)
+        return { effect: ctx.v2.t('runs.preview.check', { kind: String(options.kind ?? 'verification'), title: titleOf(run.job) }), refs: [run.target.ref], version: runState(ctx, run).version }
+      },
       handler: (ctx, args) => recovery(ctx, args, 'check', ['kind', 'checkId', 'operationId', 'reason', 'changedPrecondition', 'acknowledgeInterrupted']),
     },
     settle: {

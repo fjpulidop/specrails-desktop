@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1914 source/build files. Nearby tests are linked where names
+Includes 1915 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1712,6 +1712,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [registry.ts](../../server/mcp/v2/core/registry.ts) · [test](../../server/mcp/v2/core/registry.test.ts)
 - [size-guard.ts](../../server/mcp/v2/core/size-guard.ts) · [test](../../server/mcp/v2/core/size-guard.test.ts)
 - [status-map.ts](../../server/mcp/v2/core/status-map.ts) · [test](../../server/mcp/v2/core/status-map.test.ts)
+- [text.ts](../../server/mcp/v2/core/text.ts)
 - [untrusted.ts](../../server/mcp/v2/core/untrusted.ts)
 - [views.ts](../../server/mcp/v2/core/views.ts) · [test](../../server/mcp/v2/core/views.test.ts)
 

@@ -10,10 +10,9 @@ import { translator, type Translate } from '../core/lang'
 import { defineTool, type V2CallContext } from '../core/registry'
 import { formatRef, parseRef, resolveProjectSelector, type RefKind } from '../core/refs'
 import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
-import { statusFromChain, statusFromDelivery, statusFromJob, statusFromSpec, statusFromWord, type CanonicalStatus } from '../core/status-map'
+import { statusFromChain, statusFromDelivery, statusFromRunHold, statusFromSpec, statusFromWord, type CanonicalStatus } from '../core/status-map'
 import { neutralize, untrusted } from '../core/untrusted'
 import { F } from '../core/views'
-import type { RunHoldKind } from '../../../modules/loops/runtime/loop-run-hold'
 
 /**
  * WP1. `specrails_wait`: one blocking call instead of polling, backed by the
@@ -80,8 +79,7 @@ const RUN_HOLDS = new Set<string>(['restart', 'interrupted', 'provider_limit', '
 export function canonicalOf(event: Pick<JournalEvent, 'refKind' | 'status' | 'hold' | 'attention'>): CanonicalStatus {
   switch (event.refKind) {
     case 'run':
-      if (event.hold === 'stuck') return 'blocked'
-      return statusFromJob(event.status, event.hold && RUN_HOLDS.has(event.hold) ? { kind: event.hold as RunHoldKind } : null)
+      return statusFromRunHold(event.status, event.hold)
     case 'delivery': return statusFromDelivery(event.status)
     case 'chain': return statusFromChain(event.status)
     case 'spec': return event.status === 'deleted' ? 'discarded' : statusFromSpec(event.status)
@@ -334,11 +332,10 @@ async function untilHandler(ctx: V2CallContext, args: Record<string, unknown>) {
 
   // 2. Block on the journal.
   const afterSeq = since ?? journal.bounds().head
-  const progress = (ctx.v2 as { progress?: (elapsedMs: number, totalMs: number) => void }).progress
   const outcome = await journal.waitFor({
     afterSeq, filter, limit, timeoutMs,
     signal: ctx.signal,
-    ...(progress ? { onProgress: (elapsed: number) => progress(elapsed, timeoutMs) } : {}),
+    onProgress: (elapsed: number) => ctx.v2.progress(elapsed, timeoutMs),
     ...(ctx.onMissionInput ? { interrupt: (wake: () => void) => ctx.onMissionInput!(wake) } : {}),
   })
   const { items, lastSeq, cut } = collapse(outcome.events, slugs, t, WAKE_ITEMS_BUDGET)
@@ -421,17 +418,31 @@ export const waitTool = defineTool({
 
 // ── MCP-native notifications (optional; clients that never listen lose nothing) ──
 
+/** The MCP resource URIs (resources.ts) a journal row changes. */
+export function resourceUrisOfEvent(event: Pick<JournalEvent, 'refKind' | 'refId'>): string[] {
+  switch (event.refKind) {
+    case 'run': return ['specrails://status', `specrails://jobs/${event.refId}`]
+    case 'mission': return [`specrails://missions/${event.refId}`]
+    case 'delivery':
+    case 'chain': return ['specrails://status']
+    default: return []
+  }
+}
+
 /**
  * Sends `notifications/message` (level `notice`) for every journal row that
  * needs the person, so clients that show server logs surface it without a
- * call. Must be registered before `connect`. Returns the disposer (session
- * close). Not wired by WP0 yet (see the WP1 report).
+ * call, and `notifications/resources/updated` through the session's own
+ * resource subscriptions (`resources.notify`, shared with the v1 handler).
+ * Must be registered before `connect`. Returns the disposer (session close);
+ * registerV2Surface wires it.
  */
-export function registerWaitNotifications(server: McpServer, ctx: McpToolContext, options: { translate?: Translate } = {}): () => void {
+export function registerWaitNotifications(server: McpServer, ctx: McpToolContext, options: { translate?: Translate; resources?: { notify(uri: string): void } } = {}): () => void {
   server.server.registerCapabilities({ logging: {} })
   const journal = journalOf(ctx)
   const t: Translate = options.translate ?? translator('en')
   return journal.onAppend((events) => {
+    if (options.resources) for (const event of events) for (const uri of resourceUrisOfEvent(event)) options.resources.notify(uri)
     const needing = events.filter((event) => event.attention !== null)
     if (!needing.length) return
     let slugs: Map<string, string>

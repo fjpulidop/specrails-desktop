@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool, type V2CallContext } from '../core/registry'
 import { WRITE_FIELDS, optionsOf } from '../core/views'
+import { asRecord } from '../core/text'
 import { result, V2ToolError } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
 import { pageOf } from '../core/cursor'
@@ -19,7 +20,7 @@ import { getProjectRepositories, type ProjectRepository } from '../../../project
  */
 
 type Row = Record<string, unknown>
-const record = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
+const record = asRecord
 const str = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim() : null
 const strings = (value: unknown): string[] | undefined => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && !!item.trim()) : undefined
 
@@ -174,7 +175,7 @@ export const projectsTool = defineTool({
         const queryText = query ? ` matching "${query}"` : ''
         return result({ items, total: matching.length }, {
           summary: matching.length ? t('projects.summary.list', { count: matching.length, query: queryText, default: current ? current.slug : t('projects.summary.none') }) : t('projects.summary.list_empty', { query: queryText }),
-          page: page.page,
+          page: page.page, pageBase: page.base,
           ...(current ? { refs: { default: projectRef(current) } } : {}),
         })
       },

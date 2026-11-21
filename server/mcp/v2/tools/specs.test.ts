@@ -172,7 +172,7 @@ describe('specrails_specs get', () => {
     expect(envelope.data).toMatchObject({ ref: ref(id), status: 'todo', criteria: 2 })
     expect(envelope.state.status).toBe('queued')
     expect(envelope.state.recommended).toBe('launch')
-    expect(envelope.state.offers.find((o: { id: string }) => o.id === 'launch').call).toEqual({ tool: 'specrails_runs', args: { action: 'launch', project: 'shop-api', target: { specIds: [id] } } })
+    expect(envelope.state.offers.find((o: { id: string }) => o.id === 'launch').call).toEqual({ tool: 'specrails_runs', args: { action: 'launch', project: 'shop-api', target: { specIds: [ref(id)] } } })
     expect(envelope.untrusted.some((p: string) => matchesPointer(p, '/data/excerpt'))).toBe(true)
     expect(tokens(envelope)).toBeLessThan(1_500)
   })
@@ -192,9 +192,11 @@ describe('specrails_specs get', () => {
   it('fails clearly for a missing spec, a bad ref and the v1 id shape', async () => {
     expect((await specs({ action: 'get', ref: ref(999) })).envelope.error.code).toBe('not_found')
     expect((await specs({ action: 'get', ref: 'spec:shop-api/abc' })).envelope.error.code).toBe('invalid_input')
-    const v1 = await specs({ action: 'get', id: 1 })
-    expect(v1.envelope.error.code).toBe('invalid_input')
-    expect(v1.envelope.error.message).toMatch(/ref/)
+    // The v1 `id` shape keeps working as a bare ref (core v1 argument normalization).
+    const [id] = await seed(1)
+    const v1 = await specs({ action: 'get', id })
+    expect(v1.envelope.ok).toBe(true)
+    expect(v1.envelope.data.ref).toBe(ref(id))
   })
 })
 

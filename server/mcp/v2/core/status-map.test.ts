@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RUN_HOLD_KINDS } from '../../../modules/loops/runtime/loop-run-hold'
-import { CANONICAL_STATUSES, appState, isSettled, statusFromChain, statusFromDelivery, statusFromHold, statusFromJob, statusFromSpec, statusFromWord } from './status-map'
+import { CANONICAL_STATUSES, appState, isSettled, statusFromChain, statusFromDelivery, statusFromHold, statusFromJob, statusFromRunHold, statusFromSpec, statusFromWord } from './status-map'
 import { t } from './lang'
 
 describe('status vocabulary', () => {
@@ -22,6 +22,10 @@ describe('status vocabulary', () => {
     expect(statusFromJob('completed')).toBe('succeeded')
     expect(statusFromJob('zombie_terminated')).toBe('failed')
     expect(statusFromJob('skipped')).toBe('cancelled')
+    expect(statusFromRunHold('running', 'stuck')).toBe('blocked')
+    expect(statusFromRunHold('running', 'approval')).toBe('needs_you')
+    expect(statusFromRunHold('running', 'unknown-hold')).toBe('running')
+    expect(statusFromWord('stuck')).toBe('blocked')
     for (const kind of RUN_HOLD_KINDS) expect(CANONICAL_STATUSES).toContain(statusFromHold({ kind }))
   })
 

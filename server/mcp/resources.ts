@@ -152,12 +152,16 @@ export function resourceUrisFor(msg: WsMessage): string[] {
   return uris
 }
 
+/** The session's subscriptions: call to dispose; `notify(uri)` sends a debounced update when `uri` is subscribed. */
+export type ResourceSubscriptions = (() => void) & { notify(uri: string): void }
+
 /**
  * Accepts `resources/subscribe` / `unsubscribe` for this MCP session and turns
  * matching app events into debounced `notifications/resources/updated`.
- * Returns the disposer (called when the session closes).
+ * Returns the disposer (called when the session closes); its `notify` lets
+ * other sources of change (the v2 event journal) share the same subscriptions.
  */
-export function registerResourceSubscriptions(server: McpServer, ctx: McpToolContext, options: { debounceMs?: number } = {}): () => void {
+export function registerResourceSubscriptions(server: McpServer, ctx: McpToolContext, options: { debounceMs?: number } = {}): ResourceSubscriptions {
   const debounceMs = options.debounceMs ?? RESOURCE_DEBOUNCE_MS
   const subscribed = new Set<string>()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -172,23 +176,27 @@ export function registerResourceSubscriptions(server: McpServer, ctx: McpToolCon
     if (timer) { clearTimeout(timer); timers.delete(request.params.uri) }
     return {}
   })
+  let disposed = false
+  const notify = (uri: string) => {
+    if (disposed || !subscribed.has(uri) || timers.has(uri)) return
+    const timer = setTimeout(() => {
+      timers.delete(uri)
+      if (!subscribed.has(uri)) return
+      server.server.sendResourceUpdated({ uri }).catch(() => { /* the session may have closed */ })
+    }, debounceMs)
+    timer.unref?.()
+    timers.set(uri, timer)
+  }
   const stop = ctx.eventBus.onMessage((msg) => {
     if (!subscribed.size) return
-    for (const uri of resourceUrisFor(msg)) {
-      if (!subscribed.has(uri) || timers.has(uri)) continue
-      const timer = setTimeout(() => {
-        timers.delete(uri)
-        if (!subscribed.has(uri)) return
-        server.server.sendResourceUpdated({ uri }).catch(() => { /* the session may have closed */ })
-      }, debounceMs)
-      timer.unref?.()
-      timers.set(uri, timer)
-    }
+    for (const uri of resourceUrisFor(msg)) notify(uri)
   })
-  return () => {
+  const dispose = () => {
+    disposed = true
     stop()
     for (const timer of timers.values()) clearTimeout(timer)
     timers.clear()
     subscribed.clear()
   }
+  return Object.assign(dispose, { notify })
 }

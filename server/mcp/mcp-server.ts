@@ -146,8 +146,11 @@ export class McpServerManager {
     )
     const context = { ...this._ctx, sessionState: v2 ? { activeProjectId: null, sessionKey: randomUUID() } : { activeProjectId: null } }
     const specs = buildToolSpecs()
+    // One subscription set per session, shared by the v1 bus and the v2 journal.
+    const subscriptions = registerResourceSubscriptions(server, context)
+    let disposeV2 = () => {}
     if (v2) {
-      registerV2Surface(server, context, specs, { inApp: options.inApp === true, textMode: textModeFor(options.protocolVersion) })
+      disposeV2 = registerV2Surface(server, context, specs, { inApp: options.inApp === true, textMode: textModeFor(options.protocolVersion), resources: subscriptions }).dispose
     } else {
       for (const spec of specs) {
         registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
@@ -155,7 +158,7 @@ export class McpServerManager {
     }
     registerResources(server, context, specs)
     registerPrompts(server)
-    const dispose = registerResourceSubscriptions(server, context)
+    const dispose = () => { disposeV2(); subscriptions() }
     return { server, dispose }
   }
 

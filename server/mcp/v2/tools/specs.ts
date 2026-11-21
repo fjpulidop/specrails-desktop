@@ -3,6 +3,7 @@ import path from 'path'
 import { z } from 'zod'
 import { defineTool, type V2CallContext, type PreviewInput } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
+import { asRecord, clip } from '../core/text'
 import { V2ToolError, result, type ResultMeta } from '../core/envelope'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import { formatRef, parseRef, type Ref } from '../core/refs'
@@ -29,7 +30,6 @@ import type { WsMessage } from '../../../types'
  */
 
 type Row = Record<string, unknown>
-const asRecord = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
 const asArray = (value: unknown): unknown[] => Array.isArray(value) ? value : []
 
 const AI_CREATE_MODES = new Set(['request'])
@@ -110,7 +110,6 @@ async function readTicket(ctx: V2CallContext, row: ProjectRow, id: number): Prom
 }
 
 const textOf = (value: unknown) => typeof value === 'string' ? value : ''
-const clip = (text: string, max: number) => text.length > max ? `${text.slice(0, max - 1)}…` : text
 const minute = (iso: unknown) => typeof iso === 'string' ? iso.replace(/:\d\d(\.\d+)?Z$/, 'Z') : iso
 
 /** The description without the generated Contract Layer (shown on demand in detail). */
@@ -196,7 +195,7 @@ export function projectSpecState(row: ProjectRow, ticket: Row, facts: { children
   const offers: OfferDraft[] = []
   let recommended: string | null = null
   const self = (action: string, extra: Row = {}) => ({ tool: 'specrails_specs', args: { action, ref, ...extra } })
-  const launch: OfferDraft = { id: 'launch', labelKey: open ? 'specs.offer.launch_addenda' : 'specs.offer.launch', labelParams: { count: open }, call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: [id] } } } }
+  const launch: OfferDraft = { id: 'launch', labelKey: open ? 'specs.offer.launch_addenda' : 'specs.offer.launch', labelParams: { count: open }, call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: [ref] } } } }
   switch (status) {
     case 'draft':
       offers.push({ id: 'promote', labelKey: 'specs.offer.promote', call: self('update', { patch: { status: 'todo', ...(ticket.priority ? {} : { priority: 'medium' }) } }) })
@@ -458,6 +457,7 @@ async function listSpecs(ctx: V2CallContext, args: Row): Promise<unknown> {
   return result({ items, ...(countText ? { statusCounts: counts } : {}) }, {
     summary,
     page: { cursor: more ? encodeCursor({ offset: end, path: '/items', key }) : null, total: matched, truncated: more },
+    pageBase: { offset, key },
     ...(response.cursorStale === true ? { warnings: [ctx.v2.t('specs.warning.cursor_stale')] } : {}),
     untrusted: untrusted('/data/items/*/title', '/data/items/*/summary'),
   })
@@ -858,6 +858,7 @@ async function trashList(ctx: V2CallContext, args: Row): Promise<unknown> {
   })
   const page = pageOf(entries, { cursor: args.cursor, limit: args.limit, key: `trash:${row.id}` })
   return result({ items: page.items, retentionDays: response.retentionDays }, {
+    pageBase: page.base,
     summary: ctx.v2.t(entries.length ? 'specs.summary.trash' : 'specs.summary.trash_empty', { count: entries.length, days: response.retentionDays as number }),
     page: page.page,
     untrusted: untrusted('/data/items/*/title'),

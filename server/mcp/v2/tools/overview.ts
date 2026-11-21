@@ -1,5 +1,6 @@
 import { defineTool, type V2CallContext } from '../core/registry'
 import { F, resolveFields } from '../core/views'
+import { asRecord } from '../core/text'
 import { result } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
 import { untrusted } from '../core/untrusted'
@@ -61,7 +62,7 @@ interface Board {
   lanes: Lane[]
   totals: { needsYou: number; inProgress: number; doneToday: number; costTodayUsd: number | null; costTodayEstimated: boolean }
 }
-const record = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
+const record = asRecord
 
 const SOURCE_TIMEOUT_MS = 8_000
 /** Items per list in the summary view and in detail. */

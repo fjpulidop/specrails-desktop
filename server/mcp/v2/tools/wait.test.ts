@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../../auth', () => ({ loadOrGenerateToken: () => 'v2-wait-test-token-no-filesystem-access' }))
-import { LoggingMessageNotificationSchema } from '@modelcontextprotocol/sdk/types.js'
+import { LoggingMessageNotificationSchema, ResourceUpdatedNotificationSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { initDb } from '../../../db'
 import { createJob } from '../../../db/jobs'
@@ -9,20 +9,22 @@ import { buildToolSpecs } from '../../tools/catalog'
 import { createHarness, call, type Harness } from '../__fixtures__/harness'
 import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { registerV2Surface, v2Catalog } from '../index'
-import { canonicalOf, nextOf, registerWaitNotifications, WAIT_MAX_MS } from './wait'
+import { registerResourceSubscriptions } from '../../resources'
+import { canonicalOf, nextOf, resourceUrisOfEvent, WAIT_MAX_MS } from './wait'
 
 const harnesses: Harness[] = []
 afterEach(() => { for (const h of harnesses.splice(0)) stopEventJournal(h.db) })
 
-async function setup(options: { notifications?: boolean } = {}): Promise<{ h: Harness; client: Client; publish: (msg: Record<string, unknown>) => void }> {
+async function setup(options: { resources?: boolean } = {}): Promise<{ h: Harness; client: Client; publish: (msg: Record<string, unknown>) => void }> {
   const h = createHarness({ projects: [
     { id: 'p1', slug: 'shop-api', name: 'Shop API', path: '/tmp/v2-shop-api' },
     { id: 'p2', slug: 'web', name: 'Web', path: '/tmp/v2-web' },
   ] })
   harnesses.push(h)
   startEventJournal(h.db, h.ctx.eventBus) // what server/index.ts does at boot
-  registerV2Surface(h.server, h.ctx, buildToolSpecs(), { inApp: false })
-  if (options.notifications) registerWaitNotifications(h.server, h.ctx)
+  // registerV2Surface wires the journal notifications (as McpServerManager does, with the session's subscriptions).
+  const resources = options.resources ? registerResourceSubscriptions(h.server, h.ctx, { debounceMs: 10 }) : undefined
+  registerV2Surface(h.server, h.ctx, buildToolSpecs(), { inApp: false, ...(resources ? { resources } : {}) })
   const client = await h.connect()
   return { h, client, publish: (msg) => h.ctx.eventBus.publish(msg as never) }
 }
@@ -254,12 +256,31 @@ describe('wake-up wording and offers', () => {
 
 describe('notifications', () => {
   it('sends a notice for rows that need the person', async () => {
-    const { client, publish } = await setup({ notifications: true })
+    const { client, publish } = await setup()
     const notices: unknown[] = []
     client.setNotificationHandler(LoggingMessageNotificationSchema, (notification) => { notices.push(notification.params) })
     publish(started('n1'))
     publish(asked('n1'))
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(notices).toEqual([expect.objectContaining({ level: 'notice', logger: 'specrails', data: expect.objectContaining({ ref: 'run:shop-api/n1', needs: 'question', status: 'needs_you' }) })])
+  })
+
+  it('sends resources/updated for subscribed resources a journal row changes (the v1 subscriptions)', async () => {
+    const { client, publish } = await setup({ resources: true })
+    const updated: string[] = []
+    client.setNotificationHandler(ResourceUpdatedNotificationSchema, (notification) => { updated.push(notification.params.uri) })
+    // A loop-run pause carries no jobId, so only the journal knows it changed specrails://jobs/<run>.
+    await client.subscribeResource({ uri: 'specrails://jobs/L1' })
+    publish(asked('L1'))
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(updated).toEqual(['specrails://jobs/L1'])
+    expect(resourceUrisOfEvent({ refKind: 'run', refId: 'r1' })).toEqual(['specrails://status', 'specrails://jobs/r1'])
+    expect(resourceUrisOfEvent({ refKind: 'mission', refId: 'c1' })).toEqual(['specrails://missions/c1'])
+    expect(resourceUrisOfEvent({ refKind: 'spec', refId: '7' })).toEqual([])
+  })
+
+  it('maps the stall watchdog hold through the status map', () => {
+    expect(canonicalOf({ refKind: 'run', status: 'running', hold: 'stuck', attention: 'blocked' })).toBe('blocked')
+    expect(canonicalOf({ refKind: 'run', status: 'running', hold: 'question', attention: 'question' })).toBe('needs_you')
   })
 })

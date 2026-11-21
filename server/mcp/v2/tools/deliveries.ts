@@ -15,7 +15,8 @@ import { V2ToolError, result } from '../core/envelope'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { statusFromDelivery } from '../core/status-map'
-import { neutralize, untrusted } from '../core/untrusted'
+import { clip, clipDeep, present } from '../core/text'
+import { neutralize, reveal, untrusted } from '../core/untrusted'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
 import { projectDeliveryState, type DeliveryStateFacts, type MergePreviewSummary } from '../projectors/delivery-state'
 
@@ -76,28 +77,7 @@ const FILES_DEFAULT = 50
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
-const present = (value: unknown) => value !== undefined && value !== null && !(typeof value === 'string' && !value.trim())
 const str = (value: unknown): string | null => typeof value === 'string' && value ? value : null
-
-function clip(text: string | null | undefined, max: number): string | null {
-  if (typeof text !== 'string') return null
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text
-}
-
-/** Bounded copy of untrusted structured content: long strings cut, long arrays cut. */
-function clipDeep(value: unknown, maxString = 600, maxItems = 20, depth = 0): unknown {
-  if (typeof value === 'string') return clip(value, maxString)
-  if (Array.isArray(value)) return value.slice(0, maxItems).map((item) => clipDeep(item, maxString, maxItems, depth + 1))
-  if (value && typeof value === 'object' && depth < 6) {
-    return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => [k, clipDeep(v, maxString, maxItems, depth + 1)]))
-  }
-  return value
-}
-
-// Invisible characters that can hide code (trojan-source) are shown, not stripped: a reviewer must see them.
-// eslint-disable-next-line no-control-regex
-const HIDDEN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F‪-‮⁦-⁩]/g
-const reveal = (text: string) => text.replace(HIDDEN, (ch) => `⟦U+${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}⟧`)
 
 const projectBase = (project: ProjectRow) => `/projects/${encodeURIComponent(project.id)}`
 
@@ -287,7 +267,7 @@ async function listDeliveries(ctx: V2CallContext, args: Record<string, unknown>)
   }
   candidates.sort((a, b) => rank(a.row) - rank(b.row) || (b.row.updated_at ?? '').localeCompare(a.row.updated_at ?? ''))
   const pending = candidates.filter((c) => OPEN.has(c.row.decision)).length
-  const { items, page } = pageOf(candidates, { cursor: args.cursor, limit: args.limit, key: filter.key, defaultLimit: 25 })
+  const { items, page, base } = pageOf(candidates, { cursor: args.cursor, limit: args.limit, key: filter.key, defaultLimit: 25 })
 
   // One merge-preview read and one accept probe per project on the page.
   const previews = new Map<string, Map<string, MergePreviewRow>>()
@@ -318,7 +298,7 @@ async function listDeliveries(ctx: V2CallContext, args: Record<string, unknown>)
   }
   return result({ items: out }, {
     summary: candidates.length ? ctx.v2.t('deliveries.summary.list', { count: candidates.length, pending }) : ctx.v2.t('deliveries.summary.list_empty'),
-    page,
+    page, pageBase: base,
     untrusted: untrusted('/data/items/*/title'),
   })
 }

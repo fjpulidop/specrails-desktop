@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { createHash } from 'crypto'
-import { defineTool, v2ToolCallback, type V2CallContext } from '../core/registry'
+import { defineTool, type V2CallContext } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf } from '../core/views'
+import { asRecord } from '../core/text'
 import { result, V2ToolError, type V2Envelope } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
 import { pageOf } from '../core/cursor'
@@ -10,7 +11,6 @@ import { projectDelivery, projectFailure, projectRunHold, type Projected } from 
 import type { DecisionState, DecisionStateInput, OfferCall, OfferDraft } from '../core/decision-state'
 import { statusFromHold, type CanonicalStatus } from '../core/status-map'
 import { apiCall, McpApiError } from '../../tools/types'
-import { v1EquivalentOf } from '../../tools/actions'
 import type { InboxItem, InboxKind, InboxSnapshot } from '../../../modules/inbox'
 import { RUN_HOLD_KINDS, type RunHold, type RunHoldKind } from '../../../modules/loops/runtime/loop-run-hold'
 import { readLimitPause } from '../../../modules/loops/runtime/loop-limit-pauses'
@@ -32,7 +32,7 @@ import type { DbInstance } from '../../../db'
  */
 
 type Row = Record<string, unknown>
-const record = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
+const record = asRecord
 
 const INBOX = 'specrails_inbox'
 const RUNS = 'specrails_runs'
@@ -360,19 +360,13 @@ export function snoozeUntil(value: unknown, now: Date = new Date()): string | nu
 const PASSTHROUGH = ['answer', 'optionId', 'confirm', 'dryRun', 'lang', 'view'] as const
 
 /**
- * Re-dispatch an offer's call through the v2 catalog: the target tool's own
- * tier, required fields and confirmation protocol apply (a token it issues is
- * bound to the target call, so resending `act` with `confirm` verifies it).
+ * Re-dispatch an offer's call through the registered v2 callbacks
+ * (`ctx.v2.dispatch`): the target tool's own tier, required fields,
+ * confirmation protocol and legacy delegate apply (a token it issues is bound
+ * to the target call, so resending `act` with `confirm` verifies it).
  */
-export async function dispatchOffer(ctx: V2CallContext, call: OfferCall): Promise<V2Envelope> {
-  // Imported lazily: the catalog imports every tool, this one included.
-  const { v2Catalog } = await import('../index')
-  const catalog = v2Catalog()
-  const def = catalog.byName.get(call.tool)
-  if (!def) throw new V2ToolError('invalid_input', `Unknown tool ${call.tool}.`)
-  const callback = v2ToolCallback(ctx, def, { catalog, legacyEquivalent: v1EquivalentOf })
-  const reply = await callback(call.args, ctx.signal ? { signal: ctx.signal } : undefined)
-  return reply.structuredContent as unknown as V2Envelope
+export function dispatchOffer(ctx: V2CallContext, call: OfferCall): Promise<V2Envelope> {
+  return ctx.v2.dispatch(call)
 }
 
 function relay(envelope: V2Envelope) {
@@ -435,7 +429,7 @@ export const inboxTool = defineTool({
           : all.length === 1 ? t('inbox.summary.list_one', { title: first.title, project: first.projectName })
             : t('inbox.summary.list', { count: all.length, kinds: Object.entries(byKind).map(([kind, count]) => t(`inbox.kinds.${kind}`, { count })).join(', '), title: first.title, project: first.projectName })
         return result({ items, total: all.length, byKind, ...(hidden.length && options.includeDismissed !== true ? { dismissed: hidden.length } : {}) }, {
-          summary, page: page.page,
+          summary, page: page.page, pageBase: page.base,
           untrusted: untrusted(...(detail ? ITEM_UNTRUSTED : LEAN_UNTRUSTED).map((field) => `/data/items/*/${field}`)),
         })
       },

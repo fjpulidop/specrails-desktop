@@ -5,7 +5,7 @@ import request from 'supertest'
 import { initDesktopDb, setDesktopSetting } from '../desktop-db'
 import type { DbInstance } from '../db'
 import { createDevice, hashToken, setAllowedProjects, _resetAclColumnCacheForTests } from './mobile-devices'
-import { createMobileRouter } from './mobile-router'
+import { createMobileRouter, MOBILE_ALLOWLIST } from './mobile-router'
 import { applyInboxDismissals, companionTargetsFor, dismissalHides, dismissInboxItem, readInboxDismissals, restoreInboxItem, INBOX_DISMISSALS_KEY, MAX_INBOX_DISMISSALS } from './mobile-inbox'
 import type { InboxItem } from '../modules/inbox'
 
@@ -107,6 +107,10 @@ describe('companion inbox decisions', () => {
   })
 
   describe('POST/DELETE /v1/inbox/dismissals', () => {
+    it('is on the companion allow-list', () => {
+      expect(MOBILE_ALLOWLIST).toEqual(expect.arrayContaining([{ method: 'POST', path: '/v1/inbox/dismissals' }, { method: 'DELETE', path: '/v1/inbox/dismissals/:itemId' }]))
+    })
+
     it('snoozes or marks done at the version seen, and brings an item back', async () => {
       const done = await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p1:question:r1', version: 'v' })
       expect(done.status).toBe(200)

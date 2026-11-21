@@ -358,6 +358,12 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     const patch = await runs({ action: 'recovery_patch', ref: RUN, options: { patch: { path: 'a', oldText: 'x', newText: 'y', expectedHash: 'h', operationId: 'u', reason: 'r' } } })
     expect(patch.envelope.data.echo).toMatchObject({ action: 'patch', oldText: 'x', newText: 'y' })
     expect((await runs({ action: 'recovery_read', ref: RUN })).envelope.error.code).toBe('invalid_input')
+    // recovery_check executes the project's own commands: it is confirmed like v1's destructive check.
+    const check = await runs({ action: 'recovery_check', ref: RUN, options: { kind: 'verification', checkId: 'c1' } })
+    expect(check.envelope.error).toMatchObject({ code: 'confirmation_required', preview: { class: 'irreversible', refs: [RUN], effect: expect.stringContaining("executes the project's own commands") } })
+    expect(posts().some((entry) => (entry.body as { action?: string } | undefined)?.action === 'check')).toBe(false)
+    const checked = await act({ tool: 'specrails_runs', args: { action: 'recovery_check', ref: RUN, options: { kind: 'verification', checkId: 'c1' } } })
+    expect(checked.envelope.data.echo).toMatchObject({ action: 'check', kind: 'verification', checkId: 'c1' })
   })
 
   it('reads and drives the queue, deletes history only after confirmation', async () => {

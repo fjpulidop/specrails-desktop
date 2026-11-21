@@ -4,7 +4,7 @@ import type { DbInstance } from '../../../db'
 import { canonicalJson } from './canonical'
 import type { ConfirmClass } from './decision-state'
 import type { Ref } from './refs'
-import { CONTROL_FIELDS } from './views'
+import { CONTROL_FIELDS, CONTROL_OPTIONS } from './views'
 
 /**
  * Bound confirmation (design §6). A confirmable call without `confirm` gets
@@ -62,10 +62,16 @@ export interface Binding {
 export type VerifyFailure = 'malformed' | 'mismatch' | 'expired' | 'replayed' | 'stale'
 export type VerifyResult = { ok: true } | { ok: false; reason: VerifyFailure }
 
-/** Arguments a token binds: everything except the framework's control fields. */
+/** Arguments a token binds: everything except the framework's control fields and control options (`options.waitMs`). */
 export function bindingArgs(args: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(args)) if (!(CONTROL_FIELDS as readonly string[]).includes(key)) out[key] = value
+  const options = out.options
+  if (options && typeof options === 'object' && !Array.isArray(options)) {
+    const kept = Object.fromEntries(Object.entries(options).filter(([key]) => !(CONTROL_OPTIONS as readonly string[]).includes(key)))
+    if (Object.keys(kept).length) out.options = kept
+    else delete out.options
+  }
   return out
 }
 
