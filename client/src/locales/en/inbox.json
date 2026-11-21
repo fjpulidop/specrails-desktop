@@ -1,11 +1,11 @@
 {
   "title": "Needs you",
-  "subtitle_one": "{{count}} item is waiting for you",
-  "subtitle_other": "{{count}} items are waiting for you",
-  "subtitleEmpty": "Nothing is waiting for you",
+  "subtitle_one": "{{count}} pending item",
+  "subtitle_other": "{{count}} pending items",
+  "subtitleEmpty": "You are all caught up",
   "loading": "Checking your projects…",
   "empty": {
-    "title": "Nothing needs you",
+    "title": "Nothing pending",
     "description": "Reviews, questions and failures from every project show up here as they happen."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Review ready",
-    "question": "Needs you",
+    "question": "Awaiting your response",
     "failed": "Failed",
     "blocked": "Blocked",
     "budget": "Paused: spend limit reached",
@@ -44,9 +44,9 @@
     "ago": "{{age}} ago"
   },
   "button": {
-    "withCount_one": "Inbox, {{count}} item needs you",
-    "withCount_other": "Inbox, {{count}} items need you",
-    "empty": "Inbox, nothing needs you",
+    "withCount_one": "Inbox, {{count}} pending item",
+    "withCount_other": "Inbox, {{count}} pending items",
+    "empty": "Inbox, nothing pending",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {

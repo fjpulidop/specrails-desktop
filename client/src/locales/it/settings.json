@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Notifiche",
-    "description": "Ciò che ti aspetta: una notifica di sistema quando sei via, un avviso quando sei altrove nell'app, niente quando è già sullo schermo.",
+    "description": "Ciò che richiede la tua attenzione: una notifica di sistema quando sei via, un avviso quando sei altrove nell'app, niente quando è già sullo schermo.",
     "enable": "Avvisami",
     "enableHint": "Disattiva per fermare tutte le notifiche e gli avvisi qui sotto.",
     "categoriesLegend": "Avvisami per",

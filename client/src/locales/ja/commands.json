@@ -547,8 +547,33 @@
     "attention": {
       "open": "開く",
       "openInbox": "受信トレイを開く",
-      "away_one": "{{count}} 件があなたを待っています",
-      "away_other": "{{count}} 件があなたを待っています",
+      "actions": {
+        "answer": "回答",
+        "review": "確認",
+        "view": "表示",
+        "open": "開く"
+      },
+      "single": {
+        "question": "{{subject}} があなたの回答を待っています",
+        "approval": "{{subject}} の承認が必要です",
+        "review": "{{subject}} のレビュー準備ができました",
+        "stopped": "{{subject}} が停止しました",
+        "stuck": "{{subject}}：実行が進んでいません",
+        "paused": "{{subject}} は上限により一時停止中です",
+        "done": "{{subject}} が完了しました",
+        "generic": "{{subject}} の対応が必要です"
+      },
+      "pending_one": "未対応の項目が {{count}} 件あります",
+      "pending_other": "未対応の項目が {{count}} 件あります",
+      "breakdown": "未対応：{{list}}",
+      "group": {
+        "question_one": "質問 {{count}} 件",
+        "question_other": "質問 {{count}} 件",
+        "approval_one": "承認 {{count}} 件",
+        "approval_other": "承認 {{count}} 件",
+        "review_one": "レビュー {{count}} 件",
+        "review_other": "レビュー {{count}} 件"
+      },
       "missionReplied": "{{title}} が返信しました",
       "untitledMission": "あなたのミッション"
     }

@@ -1,11 +1,11 @@
 {
   "title": "Pendientes",
-  "subtitle_one": "{{count}} elemento te espera",
-  "subtitle_other": "{{count}} elementos te esperan",
-  "subtitleEmpty": "Nada te espera",
+  "subtitle_one": "{{count}} aviso pendiente",
+  "subtitle_other": "{{count}} avisos pendientes",
+  "subtitleEmpty": "Estás al día",
   "loading": "Revisando tus proyectos…",
   "empty": {
-    "title": "Nada te necesita",
+    "title": "No tienes nada pendiente",
     "description": "Las revisiones, preguntas y fallos de todos los proyectos aparecen aquí en cuanto ocurren."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Revisión lista",
-    "question": "Te necesita",
+    "question": "Espera tu respuesta",
     "failed": "Falló",
     "blocked": "Bloqueado",
     "budget": "Pausado por un límite",

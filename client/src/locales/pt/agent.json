@@ -1456,7 +1456,7 @@
     "announce": {
       "settled": "{{run}} terminou",
       "shown": "Mostrando {{run}}: {{state}}",
-      "needsYou": "{{run}} precisa de você"
+      "needsYou": "{{run}} requer sua atenção"
     },
     "event": {
       "launched": "Iniciado em {{run}}",
@@ -1474,7 +1474,7 @@
       "discarded": "{{run}} foi descartado",
       "changes": "{{run}}: o revisor pediu alterações"
     },
-    "needsYou": "precisa de você",
+    "needsYou": "requer sua atenção",
     "opensCard": "Abre o cartão da execução para você confirmar lá",
     "open": {
       "decision": "Abrir a decisão",

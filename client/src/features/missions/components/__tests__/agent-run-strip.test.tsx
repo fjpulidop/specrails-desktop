@@ -587,8 +587,8 @@ describe('several live runs', () => {
       return button!
     })
     expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d1')
-    expect(within(marked).getByTestId('mission-run-strip-needs-you')).toHaveTextContent('needs you')
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Rail 3 needs you'))
+    expect(within(marked).getByTestId('mission-run-strip-needs-you')).toHaveTextContent('needs your attention')
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Rail 3 needs your attention'))
     // Showing it clears the mark.
     fireEvent.click(marked)
     expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d3')

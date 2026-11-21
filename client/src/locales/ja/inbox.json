@@ -1,11 +1,11 @@
 {
   "title": "対応待ち",
-  "subtitle_one": "{{count}} 件があなたを待っています",
-  "subtitle_other": "{{count}} 件があなたを待っています",
-  "subtitleEmpty": "待っている項目はありません",
+  "subtitle_one": "未対応の項目が {{count}} 件あります",
+  "subtitle_other": "未対応の項目が {{count}} 件あります",
+  "subtitleEmpty": "すべて対応済みです",
   "loading": "プロジェクトを確認しています…",
   "empty": {
-    "title": "対応が必要な項目はありません",
+    "title": "未対応の項目はありません",
     "description": "すべてのプロジェクトのレビュー、質問、失敗が発生するとここに表示されます。"
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "レビュー準備完了",
-    "question": "あなたの対応が必要",
+    "question": "回答待ち",
     "failed": "失敗",
     "blocked": "ブロック中",
     "budget": "予算で一時停止",

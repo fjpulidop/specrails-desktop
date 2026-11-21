@@ -31,22 +31,26 @@ describe('useAttentionReturn (back from away)', () => {
   it('counts only what is not on screen', async () => {
     const focus = async () => ({ appFocused: true, label: 'main' })
     const elsewhere = vi.fn()
-    renderHook(() => useAttentionReturn(centerWith([{ key: 'seen', isOnScreen: () => true }, { key: 'other', open: elsewhere, isOnScreen: () => false }]), focus))
+    renderHook(() => useAttentionReturn(centerWith([
+      { key: 'seen', isOnScreen: () => true, copy: { kind: 'question', project: 'Alpha', subject: 'Seen' } },
+      { key: 'other', open: elsewhere, isOnScreen: () => false, copy: { kind: 'review', project: 'Tetrisex', subject: '#12' } },
+    ]), focus))
     await focusBack()
     const [title, options] = toastFn.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
-    expect(title).toBe('1 thing needs you')
+    expect(title).toBe('Tetrisex · #12 is ready for review')
+    expect(options.action.label).toBe('Review')
     options.action.onClick()
     expect(elsewhere).toHaveBeenCalledOnce()
   })
 
-  it('one thing: the toast opens it directly', async () => {
+  it('one thing: the toast names it, offers its own action and opens it directly', async () => {
     const open = vi.fn()
-    renderHook(() => useAttentionReturn(centerWith([{ key: 'a', open }])))
+    renderHook(() => useAttentionReturn(centerWith([{ key: 'a', open, copy: { kind: 'question', project: 'Generala Dorada', subject: '#6' } }])))
     await focusBack()
     expect(toastFn).toHaveBeenCalledOnce()
     const [title, options] = toastFn.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
-    expect(title).toBe('1 thing needs you')
-    expect(options.action.label).toBe('Open')
+    expect(title).toBe('Generala Dorada · #6 is waiting for your answer')
+    expect(options.action.label).toBe('Answer')
     options.action.onClick()
     expect(open).toHaveBeenCalledOnce()
   })
@@ -57,11 +61,25 @@ describe('useAttentionReturn (back from away)', () => {
     renderHook(() => useAttentionReturn(centerWith([{ key: 'a', open: vi.fn() }, { key: 'b' }, { key: 'c' }])))
     await focusBack()
     const [title, options] = toastFn.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
-    expect(title).toBe('3 things need you')
+    expect(title).toBe('3 pending items')
     expect(options.action.label).toBe('Open inbox')
     options.action.onClick()
     window.removeEventListener(OPEN_INBOX_EVENT, opened)
     expect(opened).toHaveBeenCalledOnce()
+  })
+
+  it('one thing without wording falls back to its own title', async () => {
+    renderHook(() => useAttentionReturn(centerWith([{ key: 'a', open: vi.fn(), title: 'Run seems stuck' }])))
+    await focusBack()
+    const [title, options] = toastFn.mock.calls[0] as [string, { action: { label: string } }]
+    expect(title).toBe('Run seems stuck')
+    expect(options.action.label).toBe('Open')
+  })
+
+  it('several questions and reviews are summarized by kind', async () => {
+    renderHook(() => useAttentionReturn(centerWith([{ key: 'a', copy: { kind: 'question' } }, { key: 'b', copy: { kind: 'question' } }, { key: 'c', copy: { kind: 'review' } }])))
+    await focusBack()
+    expect(toastFn.mock.calls[0][0]).toBe('2 questions and 1 review pending')
   })
 
   it('a single entry without a place still offers the inbox', async () => {

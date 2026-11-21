@@ -1,11 +1,11 @@
 {
   "title": "Offen",
-  "subtitle_one": "{{count}} Eintrag wartet auf dich",
-  "subtitle_other": "{{count}} Einträge warten auf dich",
-  "subtitleEmpty": "Nichts wartet auf dich",
+  "subtitle_one": "{{count}} offener Punkt",
+  "subtitle_other": "{{count}} offene Punkte",
+  "subtitleEmpty": "Alles erledigt",
   "loading": "Projekte werden geprüft …",
   "empty": {
-    "title": "Nichts braucht dich",
+    "title": "Nichts offen",
     "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Review bereit",
-    "question": "Braucht dich",
+    "question": "Wartet auf deine Antwort",
     "failed": "Fehlgeschlagen",
     "blocked": "Blockiert",
     "budget": "Wegen Budget pausiert",

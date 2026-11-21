@@ -1,11 +1,11 @@
 {
   "title": "Da gestire",
-  "subtitle_one": "{{count}} elemento ti aspetta",
-  "subtitle_other": "{{count}} elementi ti aspettano",
-  "subtitleEmpty": "Niente ti aspetta",
+  "subtitle_one": "{{count}} elemento in sospeso",
+  "subtitle_other": "{{count}} elementi in sospeso",
+  "subtitleEmpty": "Sei in pari",
   "loading": "Controllo dei tuoi progetti…",
   "empty": {
-    "title": "Nulla richiede il tuo intervento",
+    "title": "Nulla in sospeso",
     "description": "Revisioni, domande e errori di tutti i progetti compaiono qui appena accadono."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Revisione pronta",
-    "question": "Ti aspetta",
+    "question": "Attende la tua risposta",
     "failed": "Fallito",
     "blocked": "Bloccato",
     "budget": "In pausa per budget",

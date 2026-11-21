@@ -47,7 +47,7 @@ Nell'app desktop alcune schermate si aprono come vere finestre invece che come p
 
 Specrails ti avvisa quando qualcosa ti aspetta: una domanda o la risposta di una missione, una revisione pronta da decidere, un'esecuzione fallita, bloccata o ferma, un limite di spesa e un job terminato. Il modo dipende da dove sei:
 
-- **Fuori dall'app** — una notifica di sistema con il progetto e la causa. Nell'app desktop non si può cliccare, quindi al tuo ritorno un avviso riassume (**3 cose ti aspettano**) e apre l'elemento, o **Da gestire** se sono più di uno. Gli avvisi che arrivano mentre **Riprendi da dove avevi lasciato** o il tour della piattaforma sono aperti aspettano che tu li chiuda, e poi arrivano tutti insieme.
+- **Fuori dall'app** — una notifica di sistema con il progetto e la causa. Nell'app desktop non si può cliccare, quindi al tuo ritorno un avviso riassume (**3 elementi in sospeso**) e apre l'elemento, o **Da gestire** se sono più di uno. Gli avvisi che arrivano mentre **Riprendi da dove avevi lasciato** o il tour della piattaforma sono aperti aspettano che tu li chiuda, e poi arrivano tutti insieme.
 - **Altrove nell'app** — un piccolo avviso con **Apri**.
 - **Lo stai già guardando** — niente. Una missione che stai seguendo non segnala le proprie risposte; un'esecuzione bloccata è l'eccezione e avvisa sempre.
 

@@ -6,8 +6,8 @@
   "loading": "Reading your projects…",
   "openInWindow": "Open in window",
   "summary": {
-    "needsYou_one": "{{count}} needs you",
-    "needsYou_other": "{{count}} need you",
+    "needsYou_one": "{{count}} pending",
+    "needsYou_other": "{{count}} pending",
     "inProgress_one": "{{count}} in progress",
     "inProgress_other": "{{count}} in progress",
     "today": "today {{cost}}",

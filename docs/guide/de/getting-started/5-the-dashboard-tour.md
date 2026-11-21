@@ -47,7 +47,7 @@ In der Desktop-App öffnen sich manche Bildschirme als echte Fenster statt als P
 
 Specrails sagt dir Bescheid, wenn etwas auf dich wartet: eine Frage oder die Antwort einer Mission, ein Review, das eine Entscheidung braucht, ein Lauf, der fehlgeschlagen, blockiert oder stehen geblieben ist, ein Ausgabenlimit und ein fertiger Job. Wie, hängt davon ab, wo du bist:
 
-- **Nicht in der App** — eine Systembenachrichtigung mit Projekt und Ursache. In der Desktop-App lässt sie sich nicht anklicken; wenn du zurückkommst, fasst ein Hinweis alles zusammen (**3 Sachen warten auf dich**) und öffnet den Eintrag, bei mehreren den Posteingang **Offen**. Hinweise, die eintreffen, während **Dort weitermachen, wo du aufgehört hast** oder die Plattform-Tour offen ist, warten, bis du sie schließt, und kommen dann gesammelt als einer.
+- **Nicht in der App** — eine Systembenachrichtigung mit Projekt und Ursache. In der Desktop-App lässt sie sich nicht anklicken; wenn du zurückkommst, fasst ein Hinweis alles zusammen (**3 offene Punkte**) und öffnet den Eintrag, bei mehreren den Posteingang **Offen**. Hinweise, die eintreffen, während **Dort weitermachen, wo du aufgehört hast** oder die Plattform-Tour offen ist, warten, bis du sie schließt, und kommen dann gesammelt als einer.
 - **Woanders in der App** — ein kleiner Hinweis mit **Öffnen**.
 - **Du siehst es schon** — nichts. Eine Mission, die du gerade ansiehst, meldet ihre eigenen Antworten nicht; ein hängender Lauf ist die Ausnahme und meldet sich immer.
 

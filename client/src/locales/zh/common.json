@@ -321,7 +321,7 @@
       "pausedBudget": "运行已暂停:已达支出上限",
       "pausedLimit": "运行已暂停:已达提供商限额",
       "needsYou": "有运行需要你处理",
-      "needsYouRail": "Rail {{rail}}:有运行需要你处理",
+      "needsYouRail": "Rail {{rail}}：有运行需要你处理",
       "failed": "运行失败",
       "failedRail": "Rail {{rail}}:运行失败",
       "finished": "运行已完成",
@@ -336,7 +336,7 @@
       "finishedSpec": "Rail {{rail}}:#{{id}} 已完成",
       "failedSpec": "Rail {{rail}}:#{{id}} 失败",
       "stoppedSpec": "Rail {{rail}}:#{{id}} 已停止",
-      "needsYouSpec": "Rail {{rail}}:#{{id}} 需要你处理",
+      "needsYouSpec": "Rail {{rail}}：#{{id}} 需要你处理",
       "reviewReadySpec": "Rail {{rail}}:#{{id}} 的审阅已就绪"
     }
   },

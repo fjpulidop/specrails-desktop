@@ -75,11 +75,13 @@ export function useMissionReplyNotifications({ pathname, center = appAttention }
       const missionTitle = mission?.title?.trim() || i18n.t('commands:notifications.attention.untitledMission')
       const snippet = replySnippet(typeof msg.fullText === 'string' ? msg.fullText : undefined)
       const occurrence = typeof msg.messageId === 'string' ? msg.messageId : typeof msg.timestamp === 'string' ? msg.timestamp : String(Date.now())
+      const title = i18n.t('commands:notifications.attention.missionReplied', { title: missionTitle })
       void center.dispatch({
         key: `mission:${conversationId}:${occurrence}`,
         category: 'question',
         projectId,
-        title: i18n.t('commands:notifications.attention.missionReplied', { title: missionTitle }),
+        title,
+        copy: { kind: 'reply', project: projectName, message: title },
         body: [projectName, snippet].filter((part): part is string => !!part).join(' · '),
         isOnScreen: (focus) => !!screenRef.current && missionOnScreen(conversationId, screenRef.current, focus),
         open: () => {

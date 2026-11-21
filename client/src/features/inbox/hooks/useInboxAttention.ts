@@ -9,6 +9,7 @@ import { useEffect, useRef, type MutableRefObject } from 'react'
 import i18n from '../../../lib/i18n'
 import { appAttention } from '../../../lib/attention/app-attention'
 import type { AttentionCenter, AttentionEvent } from '../../../lib/attention/attention-center'
+import type { AttentionCopy, AttentionCopyKind } from '../../../lib/attention/attention-copy'
 import { isMissionOnScreen } from '../../../lib/attention/mission-screen'
 import { isMainFocused } from '../../../lib/attention/window-focus'
 import { INBOX_PARAM, JOB_PARAM, REVIEW_PARAM } from '../../../lib/places'
@@ -22,6 +23,18 @@ export function inboxAttentionText(item: InboxItem): { title: string; body: stri
   const text = inboxItemText(item, i18n.t.bind(i18n), i18n.language)
   const parts = [item.projectName, text.title, text.detail].filter((part): part is string => !!part)
   return { title: text.kindLabel, body: parts.join(' · ') }
+}
+
+/** What the item is, for the return toast: its kind, project and title ("Alpha · Add login is ready for review"). */
+export function inboxAttentionCopy(item: InboxItem): AttentionCopy {
+  const kind: AttentionCopyKind = item.kind === 'question' ? (item.question?.kind === 'approval' ? 'approval' : 'question')
+    : item.kind === 'review' ? 'review'
+    : item.kind === 'failed' ? 'stopped'
+    : item.kind === 'budget' || item.action === 'raise-cap' ? 'paused'
+    : item.kind === 'blocked' ? (item.diagnosis?.kind === 'provider_limit' || item.detail === 'held:paused' || item.detail?.startsWith('held:paused:') ? 'paused' : 'stopped')
+    : 'generic'
+  // A reached cap is about the project's spending, not one spec.
+  return { kind, project: item.projectName, subject: item.cap ? null : item.title }
 }
 
 /** Is the item's own place (or the inbox) what the main window shows right now? */
@@ -55,7 +68,7 @@ export function useInboxAttention({ status, snapshot, visible, locationRef, uiMo
   useEffect(() => {
     if (status !== 'ready') return
     // An item answered or dismissed since (often in the mission's own window) is no longer
-    // waiting: it must not come back in the "N things need you" return toast.
+    // waiting: it must not come back in the return toast.
     const stillVisible = new Set(visible.map((item) => `inbox:${inboxItemKey(item)}`))
     for (const key of pending.current) if (!stillVisible.has(key)) center.forget(key)
     pending.current = stillVisible
@@ -77,6 +90,7 @@ export function useInboxAttention({ status, snapshot, visible, locationRef, uiMo
         isOnScreen: (focus) => (isMainFocused(focus) && inboxItemOnScreen(item, locationRef.current, uiModeRef.current))
           || (!!item.conversationId && isMissionOnScreen(item.conversationId, focus)),
         open: () => openRef.current(item),
+        copy: inboxAttentionCopy(item),
       }
       void center.dispatch(event)
     }

@@ -108,7 +108,7 @@ describe('live board (by status)', () => {
     await screen.findByText('Records top-5')
     const columns = screen.getAllByTestId('live-column').map((el) => [el.dataset.column, within(el).queryAllByTestId('live-card').length])
     expect(columns).toEqual([['needs', 1], ['working', 2], ['done', 1]])
-    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('1 needs you')
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('1 pending')
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 in progress')
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('today $4.82')
     // A question shows its text; a running run its step; a job its steps.
@@ -135,7 +135,7 @@ describe('live board (by status)', () => {
       const paused = within(column).queryAllByTestId('live-card').filter((el) => el.dataset.runState === 'paused').length
       expect(within(column).getByTestId('live-column-count')).toHaveTextContent(String(column.dataset.column === 'working' ? shown - paused : shown))
     }
-    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 need you')
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 pending')
     // The header and the In progress heading agree: running and paused are counted apart.
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('2 in progress')
     expect(screen.getByTestId('live-board-summary')).toHaveTextContent('1 paused')
@@ -154,7 +154,7 @@ describe('live board (by status)', () => {
     await screen.findByText('Records top-5')
     const ask = cardEl('p1:loop-run:r-ask')
     expect(ask.textContent?.match(/Per device or synced\?/g)).toHaveLength(1)
-    expect(within(ask).getByTestId('live-card-phrase')).toHaveTextContent('Needs you')
+    expect(within(ask).getByTestId('live-card-phrase')).toHaveTextContent('Awaiting your response')
     // The question itself is the card, answerable right on the board.
     expect(within(ask).getByTestId('run-question-card')).toHaveTextContent('The planner needs a decision')
     expect(within(cardEl('p2:job:j1')).getByTestId('live-card-meta')).toHaveTextContent('Beta · Job')
@@ -220,7 +220,7 @@ describe('live board (by status)', () => {
     mount()
     await screen.findByText('Next pieces preview')
     expect(screen.queryByText('Records top-5')).not.toBeInTheDocument()
-    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('0 need you')
+    expect(screen.getByTestId('live-board-summary')).toHaveTextContent('0 pending')
   })
 
   it('shows the empty state and the error state with retry', async () => {

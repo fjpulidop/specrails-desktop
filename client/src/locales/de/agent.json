@@ -1456,7 +1456,7 @@
     "announce": {
       "settled": "{{run}} ist abgeschlossen",
       "shown": "{{run}} wird angezeigt: {{state}}",
-      "needsYou": "{{run}} braucht dich"
+      "needsYou": "{{run}} erfordert deine Aufmerksamkeit"
     },
     "event": {
       "launched": "Auf {{run}} gestartet",
@@ -1474,7 +1474,7 @@
       "discarded": "{{run}} wurde verworfen",
       "changes": "{{run}}: Der Reviewer hat Änderungen angefordert"
     },
-    "needsYou": "braucht dich",
+    "needsYou": "erfordert Aufmerksamkeit",
     "opensCard": "Öffnet die Karte des Laufs, damit du dort bestätigen kannst",
     "open": {
       "decision": "Entscheidung öffnen",

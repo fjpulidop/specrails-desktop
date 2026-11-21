@@ -547,8 +547,33 @@
     "attention": {
       "open": "Öffnen",
       "openInbox": "Posteingang öffnen",
-      "away_one": "{{count}} Sache wartet auf dich",
-      "away_other": "{{count}} Sachen warten auf dich",
+      "actions": {
+        "answer": "Antworten",
+        "review": "Prüfen",
+        "view": "Ansehen",
+        "open": "Öffnen"
+      },
+      "single": {
+        "question": "{{subject}} wartet auf deine Antwort",
+        "approval": "{{subject}} braucht deine Freigabe",
+        "review": "{{subject}} ist bereit zur Prüfung",
+        "stopped": "{{subject}} wurde angehalten",
+        "stuck": "{{subject}}: Ein Run kommt nicht voran",
+        "paused": "{{subject}} ist wegen eines Limits pausiert",
+        "done": "{{subject}} ist fertig",
+        "generic": "{{subject}} erfordert deine Aufmerksamkeit"
+      },
+      "pending_one": "{{count}} offener Punkt",
+      "pending_other": "{{count}} offene Punkte",
+      "breakdown": "{{list}} offen",
+      "group": {
+        "question_one": "{{count}} Frage",
+        "question_other": "{{count}} Fragen",
+        "approval_one": "{{count}} Freigabe",
+        "approval_other": "{{count}} Freigaben",
+        "review_one": "{{count}} Review",
+        "review_other": "{{count}} Reviews"
+      },
       "missionReplied": "{{title}} hat geantwortet",
       "untitledMission": "Deine Mission"
     }

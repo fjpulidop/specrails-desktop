@@ -1,11 +1,11 @@
 {
   "title": "Pendências",
-  "subtitle_one": "{{count}} item aguarda você",
-  "subtitle_other": "{{count}} itens aguardam você",
-  "subtitleEmpty": "Nada aguarda você",
+  "subtitle_one": "{{count}} pendência",
+  "subtitle_other": "{{count}} pendências",
+  "subtitleEmpty": "Tudo em dia",
   "loading": "Verificando seus projetos…",
   "empty": {
-    "title": "Nada precisa de você",
+    "title": "Nenhuma pendência",
     "description": "Revisões, perguntas e falhas de todos os projetos aparecem aqui assim que acontecem."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Revisão pronta",
-    "question": "Precisa de você",
+    "question": "Aguarda sua resposta",
     "failed": "Falhou",
     "blocked": "Bloqueado",
     "budget": "Pausado por orçamento",

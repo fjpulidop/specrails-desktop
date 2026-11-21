@@ -321,7 +321,7 @@
       "pausedBudget": "実行を一時停止:支出の上限に達しました",
       "pausedLimit": "実行を一時停止:プロバイダーの上限に達しました",
       "needsYou": "対応が必要な実行があります",
-      "needsYouRail": "レール {{rail}}:対応が必要な実行があります",
+      "needsYouRail": "レール {{rail}}：対応が必要な実行があります",
       "failed": "実行が失敗しました",
       "failedRail": "レール {{rail}}:実行が失敗しました",
       "finished": "実行が完了しました",
@@ -336,7 +336,7 @@
       "finishedSpec": "レール {{rail}}:#{{id}} が完了しました",
       "failedSpec": "レール {{rail}}:#{{id}} が失敗しました",
       "stoppedSpec": "レール {{rail}}:#{{id}} を停止しました",
-      "needsYouSpec": "レール {{rail}}:#{{id}} は対応が必要です",
+      "needsYouSpec": "レール {{rail}}：#{{id}} の対応が必要です",
       "reviewReadySpec": "レール {{rail}}:#{{id}} のレビューの準備ができました"
     }
   },

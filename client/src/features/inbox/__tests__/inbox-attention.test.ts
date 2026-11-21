@@ -6,7 +6,7 @@ import {
   ANNOUNCED_KEY, SEEN_KEY, attentionCategoryOf, inboxItemKey, isUnseen, markSeen, markUnseen, planAnnouncements, readAnnounced,
   readSeenMarks, unseenCount, writeSeenMarks, type InboxItem,
 } from '../lib/inbox-model'
-import { inboxAttentionText, inboxItemOnScreen, useInboxAttention } from '../hooks/useInboxAttention'
+import { inboxAttentionCopy, inboxAttentionText, inboxItemOnScreen, useInboxAttention } from '../hooks/useInboxAttention'
 import type { AttentionCenter, AttentionEvent } from '../../../lib/attention/attention-center'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -103,6 +103,20 @@ describe('inbox item text and place', () => {
     expect(text.body.length).toBeGreaterThan('Alpha · Implement · '.length)
   })
 
+  it('words the return toast by what the item is: kind, project and title', () => {
+    expect(inboxAttentionCopy(mk())).toEqual({ kind: 'review', project: 'Alpha', subject: 'Add login' })
+    expect(inboxAttentionCopy(mk({ kind: 'question' })).kind).toBe('question')
+    expect(inboxAttentionCopy(mk({ kind: 'question', question: { kind: 'approval' } as never })).kind).toBe('approval')
+    expect(inboxAttentionCopy(mk({ kind: 'failed' })).kind).toBe('stopped')
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:restart:implement' })).kind).toBe('stopped')
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:paused' })).kind).toBe('paused')
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', diagnosis: { kind: 'provider_limit' } as never })).kind).toBe('paused')
+    expect(inboxAttentionCopy(mk({ kind: 'jira' })).kind).toBe('generic')
+    // A reached cap is about the project's spending, not one spec.
+    const cap = { scope: 'project', period: 'day', budgetUsd: 5, spentUsd: 5.1, resetsAt: '' } as const
+    expect(inboxAttentionCopy(mk({ kind: 'budget', action: 'raise-cap', cap }))).toEqual({ kind: 'paused', project: 'Alpha', subject: null })
+  })
+
   it('on screen when the inbox is open or the item\'s own place is shown', () => {
     const item = mk()
     expect(inboxItemOnScreen(item, { pathname: '/', search: '?inbox=1' }, 'agent')).toBe(true)
@@ -138,7 +152,7 @@ describe('useInboxAttention', () => {
     rerender(props([first, second]))
     rerender(props([first, second]))
     expect(events).toHaveLength(1)
-    expect(events[0]).toMatchObject({ category: 'question', projectId: 'p2', subjectKey: 'question:run:r9', title: 'Needs you', body: 'Beta · Implement · #4' })
+    expect(events[0]).toMatchObject({ category: 'question', projectId: 'p2', subjectKey: 'question:run:r9', title: 'Awaiting your response', body: 'Beta · Implement · #4', copy: { kind: 'question', project: 'Beta', subject: 'Implement · #4' } })
     events[0].open?.()
     expect(open).toHaveBeenCalledWith(second)
     expect(JSON.parse(localStorage.getItem(ANNOUNCED_KEY)!)).toHaveProperty([inboxItemKey(second)])

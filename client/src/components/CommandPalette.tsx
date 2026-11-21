@@ -705,7 +705,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     </Command.Group>
   )
 
-  const inboxRowLabel = t('notifications.attention.away', { count: inboxCount })
+  const inboxRowLabel = t('notifications.attention.pending', { count: inboxCount })
   const jumpGroup = (jumpRows.length > 0 || showInboxRow) && (
     <Command.Group key="jumpBackIn" heading={t('palette.groups.jumpBackIn')} data-testid="palette-group-jump-back-in">
       {showInboxRow && (

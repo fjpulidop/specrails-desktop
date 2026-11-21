@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Notificações",
-    "description": "O que precisa de você: uma notificação do sistema quando você está fora, um aviso quando está em outra parte do app e nada quando já está na tela.",
+    "description": "O que requer sua atenção: uma notificação do sistema quando você está fora, um aviso quando está em outra parte do app e nada quando já está na tela.",
     "enable": "Me avisar",
     "enableHint": "Desative para parar todas as notificações e avisos abaixo.",
     "categoriesLegend": "Me avisar sobre",

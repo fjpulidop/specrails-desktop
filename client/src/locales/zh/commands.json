@@ -547,8 +547,33 @@
     "attention": {
       "open": "打开",
       "openInbox": "打开收件箱",
-      "away_one": "有 {{count}} 项在等你",
-      "away_other": "有 {{count}} 项在等你",
+      "actions": {
+        "answer": "回答",
+        "review": "评审",
+        "view": "查看",
+        "open": "打开"
+      },
+      "single": {
+        "question": "{{subject}} 正在等待你的回答",
+        "approval": "{{subject}} 需要你的批准",
+        "review": "{{subject}} 已可评审",
+        "stopped": "{{subject}} 已停止",
+        "stuck": "{{subject}}：运行没有进展",
+        "paused": "{{subject}} 因达到限额已暂停",
+        "done": "{{subject}} 已完成",
+        "generic": "{{subject}} 需要你处理"
+      },
+      "pending_one": "{{count}} 项待处理",
+      "pending_other": "{{count}} 项待处理",
+      "breakdown": "待处理：{{list}}",
+      "group": {
+        "question_one": "{{count}} 个问题",
+        "question_other": "{{count}} 个问题",
+        "approval_one": "{{count}} 项批准",
+        "approval_other": "{{count}} 项批准",
+        "review_one": "{{count}} 项评审",
+        "review_other": "{{count}} 项评审"
+      },
       "missionReplied": "{{title}} 已回复",
       "untitledMission": "你的任务"
     }
