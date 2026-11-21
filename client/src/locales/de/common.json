@@ -201,6 +201,7 @@
     "stillExceeded": "Das Tagesbudget ist weiterhin ausgeschöpft.",
     "exceededRun": "Limit pro Lauf erreicht ({{spent}} von {{budget}}). Der Lauf ist pausiert.",
     "pausedRun": "Am Limit pro Lauf pausiert ({{spent}} von {{budget}}). Ohne Limit fortsetzen oder es erhöhen.",
+    "pausedRunNext": "Vor {{step}} pausiert: Der Schritt kostet meist etwa {{next}}, vom Limit pro Lauf ({{budget}}) sind noch {{left}} übrig ({{spent}} ausgegeben). Einmal ausführen, ohne Limit fortsetzen oder es erhöhen.",
     "actionRun": "Ohne das Limit fortsetzen oder es erhöhen und dann fortsetzen.",
     "exceededProject_week": "Wochenbudget des Projekts erreicht ({{spent}} von {{budget}}). Es wurde nichts gestartet.",
     "exceededProject_month": "Monatsbudget des Projekts erreicht ({{spent}} von {{budget}}). Es wurde nichts gestartet.",
@@ -220,6 +221,7 @@
       "title": "Lauf an seinem Limit pausiert",
       "raise": "Limit erhöhen und fortsetzen",
       "continue": "Ohne Limit fortsetzen",
+      "once": "Nur diesen Schritt ausführen",
       "raiseTo": "Limit erhöhen auf (USD)",
       "mustExceed": "Muss über den bereits ausgegebenen {{spent}} liegen"
     },

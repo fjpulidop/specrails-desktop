@@ -201,6 +201,7 @@
     "stillExceeded": "Le budget quotidien est toujours épuisé.",
     "exceededRun": "Plafond par exécution atteint ({{spent}} sur {{budget}}). L’exécution est en pause.",
     "pausedRun": "En pause au plafond par exécution ({{spent}} sur {{budget}}). Continuez sans lui ou relevez-le.",
+    "pausedRunNext": "En pause avant {{step}} : cette étape coûte en général environ {{next}}, et il reste {{left}} du plafond de {{budget}} par exécution ({{spent}} dépensés). Exécutez-la une fois, continuez sans plafond ou relevez-le.",
     "actionRun": "Continuez sans le plafond, ou relevez-le, puis reprenez.",
     "exceededProject_week": "Budget hebdomadaire du projet atteint ({{spent}} sur {{budget}}). Rien n’a été lancé.",
     "exceededProject_month": "Budget mensuel du projet atteint ({{spent}} sur {{budget}}). Rien n’a été lancé.",
@@ -220,6 +221,7 @@
       "title": "Exécution en pause à son plafond",
       "raise": "Relever le plafond et continuer",
       "continue": "Continuer sans plafond",
+      "once": "Exécuter cette étape une fois",
       "raiseTo": "Relever le plafond à (USD)",
       "mustExceed": "Doit dépasser les {{spent}} déjà dépensés"
     },

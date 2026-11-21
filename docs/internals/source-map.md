@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1863 source/build files. Nearby tests are linked where names
+Includes 1864 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -2244,6 +2244,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-run-manager.ts](../../server/modules/loops/runtime/loop-run-manager.ts) · [test](../../server/modules/loops/runtime/loop-run-manager.test.ts)
 - [loop-run-pauses.ts](../../server/modules/loops/runtime/loop-run-pauses.ts)
 - [loop-run-settlement.ts](../../server/modules/loops/runtime/loop-run-settlement.ts)
+- [loop-run-turn-estimates.ts](../../server/modules/loops/runtime/loop-run-turn-estimates.ts) · [test](../../server/modules/loops/runtime/loop-run-turn-estimates.test.ts)
 - [loop-run-vars.ts](../../server/modules/loops/runtime/loop-run-vars.ts)
 - [loop-runs-store.ts](../../server/modules/loops/runtime/loop-runs-store.ts) · [test](../../server/modules/loops/runtime/loop-runs-store.test.ts)
 - [loop-shell-invocation.ts](../../server/modules/loops/runtime/loop-shell-invocation.ts)

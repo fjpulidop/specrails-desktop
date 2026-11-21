@@ -41,4 +41,14 @@ describe('daily limit copy (rail-loop-budget-guard)', () => {
     expect(dailyBudgetExceededMessage(t, run)).toContain('Per-run limit reached')
     expect(dailyBudgetActionMessage(t, run)).toBe('Continue without the limit, or raise it, then resume.')
   })
+
+  it('names the step a per-run limit paused before, what it usually costs and what is left', () => {
+    const body = { scope: 'project', period: 'run', budgetUsd: 0.4, spentUsd: 0.28, resetsAt: null, nextStep: { nodePath: 'developer', label: 'Developer', usd: 0.45, basis: 'history', samples: 6 }, remainingUsd: 0.12 }
+    const info = readDailyBudgetInfo(body)!
+    expect(info).toMatchObject({ nextStep: { label: 'Developer', usd: 0.45 }, remainingUsd: 0.12 })
+    expect(dailyBudgetPausedMessage(t, info)).toBe('Paused before Developer: it usually costs about $0.45, and $0.12 of the $0.40 per-run limit is left ($0.28 spent). Run it once, continue without the limit or raise it.')
+    // Only the per-run limit carries a step; a malformed one is ignored.
+    expect(readDailyBudgetInfo({ ...body, period: 'week' })).not.toHaveProperty('nextStep')
+    expect(readDailyBudgetInfo({ ...body, nextStep: { label: 'Developer' } })).not.toHaveProperty('nextStep')
+  })
 })

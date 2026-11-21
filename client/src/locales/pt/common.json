@@ -201,6 +201,7 @@
     "stillExceeded": "O orçamento diário continua esgotado.",
     "exceededRun": "Limite por execução atingido ({{spent}} de {{budget}}). A execução está em pausa.",
     "pausedRun": "Em pausa no limite por execução ({{spent}} de {{budget}}). Continue sem ele ou aumente-o.",
+    "pausedRunNext": "Em pausa antes de {{step}}: costuma custar cerca de {{next}} e restam {{left}} do limite de {{budget}} por execução ({{spent}} gastos). Execute-o uma vez, continue sem limite ou aumente-o.",
     "actionRun": "Continue sem o limite, ou aumente-o, e retome.",
     "exceededProject_week": "Orçamento semanal do projeto atingido ({{spent}} de {{budget}}). Nada foi iniciado.",
     "exceededProject_month": "Orçamento mensal do projeto atingido ({{spent}} de {{budget}}). Nada foi iniciado.",
@@ -220,6 +221,7 @@
       "title": "Execução em pausa no seu limite",
       "raise": "Aumentar o limite e continuar",
       "continue": "Continuar sem limite",
+      "once": "Executar só esta etapa",
       "raiseTo": "Aumentar o limite para (USD)",
       "mustExceed": "Deve ser maior que os {{spent}} já gastos"
     },

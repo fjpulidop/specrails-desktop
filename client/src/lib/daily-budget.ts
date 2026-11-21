@@ -18,6 +18,9 @@ export interface DailyBudgetInfo {
   budgetUsd: number
   spentUsd: number
   resetsAt: string | null
+  /** Per-run cap enforced before a step: the step and what it usually costs (an estimate), and what is left. */
+  nextStep?: { label: string; usd: number }
+  remainingUsd?: number
 }
 
 function finite(value: unknown): number | null {
@@ -33,7 +36,11 @@ export function readDailyBudgetInfo(raw: unknown): DailyBudgetInfo | null {
   const spentUsd = finite(body.spentUsd)
   if (!scope || budgetUsd === null || spentUsd === null) return null
   const period: BudgetPeriod = body.period === 'week' || body.period === 'month' || body.period === 'run' ? body.period : 'day'
-  return { scope, period, budgetUsd, spentUsd, resetsAt: typeof body.resetsAt === 'string' ? body.resetsAt : null }
+  const next = body.nextStep && typeof body.nextStep === 'object' ? body.nextStep as Record<string, unknown> : null
+  const nextUsd = finite(next?.usd), remainingUsd = finite(body.remainingUsd)
+  const nextStep = next && typeof next.label === 'string' && next.label && nextUsd !== null ? { label: next.label, usd: nextUsd } : null
+  return { scope, period, budgetUsd, spentUsd, resetsAt: typeof body.resetsAt === 'string' ? body.resetsAt : null,
+    ...(period === 'run' && nextStep && remainingUsd !== null ? { nextStep, remainingUsd } : {}) }
 }
 
 /** The 409 `daily_budget_exceeded` body of a launch/resume, else null. */
@@ -79,6 +86,9 @@ export function dailyBudgetStillExceededMessage(t: TFunction, info: DailyBudgetI
 
 /** Status line for a run paused between steps on a budget or its per-run cap. */
 export function dailyBudgetPausedMessage(t: TFunction, info: DailyBudgetInfo): string {
+  if (info.period === 'run' && info.nextStep && info.remainingUsd !== undefined) {
+    return t('common:budget.pausedRunNext', { ...values(info), step: info.nextStep.label, next: formatUsd(info.nextStep.usd), left: formatUsd(info.remainingUsd) })
+  }
   if (info.period === 'run') return t('common:budget.pausedRun', values(info))
   return t(info.scope === 'project' ? 'common:budget.pausedProject' : 'common:budget.pausedDesktop', { ...values(info), ...periodContext(info) })
 }
