@@ -1,0 +1,111 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'v2-surface-test-token-no-filesystem-access' }))
+import express from 'express'
+import http from 'http'
+import type { AddressInfo } from 'net'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { addProject, getProject, initDesktopDb, listProjects, setDesktopSetting } from '../../desktop-db'
+import type { DbInstance } from '../../db'
+import type { ProjectRegistry } from '../../project-registry'
+import { McpServerManager } from '../mcp-server'
+import { buildToolSpecs } from '../tools/catalog'
+import { createHarness, call } from './__fixtures__/harness'
+import { MCP_V2_KEY, isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './index'
+
+// The `mcp_v2` flag: off (default) serves exactly the v1 catalog; on serves the
+// 15 v2 tools, the instructions, and every v1 tool as a hidden alias.
+
+const V1_NAMES = buildToolSpecs().map((spec) => spec.name)
+const V2_NAMES = v2Catalog().tools.map((tool) => tool.name)
+
+describe('mcp_v2 flag', () => {
+  it('is off by default; the setting or SPECRAILS_MCP_V2 turns it on, the env var wins', () => {
+    const db = initDesktopDb(':memory:')
+    expect(isMcpV2Enabled(db, {})).toBe(false)
+    setDesktopSetting(db, MCP_V2_KEY, 'true')
+    expect(isMcpV2Enabled(db, {})).toBe(true)
+    expect(isMcpV2Enabled(db, { SPECRAILS_MCP_V2: 'false' })).toBe(false)
+    expect(isMcpV2Enabled(initDesktopDb(':memory:'), { SPECRAILS_MCP_V2: 'true' })).toBe(true)
+  })
+})
+
+describe('McpServerManager with and without v2', () => {
+  let db: DbInstance
+  let manager: McpServerManager
+  let server: http.Server
+  let url: URL
+  let client: Client | null = null
+
+  beforeEach(async () => {
+    vi.stubEnv('SPECRAILS_MCP_V2', '')
+    db = initDesktopDb(':memory:')
+    addProject(db, { id: 'p1', slug: 'shop-api', name: 'Shop API', path: '/tmp/v2-surface-shop' })
+    const registry = { desktopDb: db, listContexts: () => [], listProjects: () => listProjects(db), getProjectRow: (id: string) => getProject(db, id), getContext: () => undefined } as unknown as ProjectRegistry
+    manager = new McpServerManager({ registry, broadcast: () => {}, desktopPort: 4200 })
+    const app = express()
+    app.use('/api/mcp', express.json({ limit: '4mb' }), (req, res) => { void manager.handleHttp(req, res) })
+    server = http.createServer(app)
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    url = new URL(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/mcp`)
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await client?.close()
+    client = null
+    await manager.stop()
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+  })
+
+  const connect = async () => {
+    client = new Client({ name: 'v2-surface', version: '1' })
+    await client.connect(new StreamableHTTPClientTransport(url))
+    return client
+  }
+
+  it('flag off: the v1 catalog exactly, no instructions', async () => {
+    const c = await connect()
+    expect((await c.listTools()).tools.map((tool) => tool.name)).toEqual(V1_NAMES)
+    expect(c.getInstructions()).toBeUndefined()
+    expect(manager.status().toolCount).toBe(V1_NAMES.length)
+    const status = (await c.callTool({ name: 'specrails_guide', arguments: {} })) as { structuredContent?: Record<string, unknown> }
+    expect(status.structuredContent?.warnings).toBeUndefined()
+  })
+
+  it('flag on: 15 v2 tools and the instructions; v1 tools stay callable, hidden and deprecated', async () => {
+    setDesktopSetting(db, MCP_V2_KEY, 'true')
+    const c = await connect()
+    expect((await c.listTools()).tools.map((tool) => tool.name)).toEqual(V2_NAMES)
+    expect(c.getInstructions()).toBe(V2_INSTRUCTIONS)
+    expect(manager.status().toolCount).toBe(15)
+
+    const guide = await c.callTool({ name: 'specrails_guide', arguments: {} }) as { structuredContent: Record<string, unknown> }
+    expect(guide.structuredContent).toMatchObject({ ok: true, warnings: ['deprecated: use specrails_system(help)'] })
+
+    const select = await c.callTool({ name: 'specrails_select_project', arguments: { projectId: 'p1' } }) as { structuredContent: Record<string, unknown> }
+    expect(select.structuredContent).toMatchObject({ ok: true, warnings: ['deprecated: use specrails_projects(select)'] })
+
+    // v1 `specrails_projects(list)` runs its v1 handler through the v2 tool of the same name.
+    const projects = await c.callTool({ name: 'specrails_projects', arguments: { action: 'list' } }) as { structuredContent: Record<string, any> }
+    expect(projects.structuredContent).toMatchObject({ ok: true, warnings: ['deprecated: use specrails_projects(list)'] })
+    expect(JSON.stringify(projects.structuredContent.data)).toContain('shop-api')
+
+    // A v2 action that is still a stub names the v1 call that serves it today.
+    const overview = await call(c, 'specrails_overview', { action: 'app' })
+    expect(overview.envelope.error).toMatchObject({ code: 'not_implemented', message: expect.stringContaining('specrails_status') })
+  })
+})
+
+describe('in-app sessions under v2', () => {
+  it('list the first-party mission tool next to the 15 v2 tools', async () => {
+    const harness = createHarness()
+    const count = registerV2Surface(harness.server, harness.ctx, buildToolSpecs(), { inApp: true })
+    const client = await harness.connect()
+    const names = (await client.listTools()).tools.map((tool) => tool.name)
+    expect(new Set(names)).toEqual(new Set([...V2_NAMES, 'specrails_mission']))
+    expect(names).toHaveLength(16)
+    expect(count).toBe(16)
+    await client.close()
+  })
+})

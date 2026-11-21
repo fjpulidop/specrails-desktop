@@ -1,0 +1,28 @@
+# MCP v2 (`server/mcp/v2`)
+
+The second MCP surface: 15 resource-style tools, envelope v2, decision-ready
+state, bound confirmations, localized text and response budgets. Served only
+while the `mcp_v2` flag is on (`SPECRAILS_MCP_V2=true` or
+`desktop_settings.mcp_v2='true'`); otherwise the v1 catalog in `../tools` is
+served unchanged.
+
+Contracts, file ownership per work package, helper APIs, test patterns and
+budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
+
+| Path | Role |
+|---|---|
+| `index.ts` | `registerV2Surface`, `v2Catalog`, flag and instructions exports |
+| `core/registry.ts` | `defineTool`, the per-call pipeline (admission, tiers, fields, language, confirmation, envelope, size guard) |
+| `core/envelope.ts` | envelope v2, `result()`, `V2ToolError`, minified rendering |
+| `core/views.ts`, `core/cursor.ts`, `core/size-guard.ts` | common fields, views, cursors, response caps |
+| `core/refs.ts` | global refs and fuzzy project resolution |
+| `core/status-map.ts`, `core/decision-state.ts`, `core/decision-sources.ts` | status vocabulary, `DecisionState`, offers from domain rules |
+| `core/confirm.ts` | confirmTokens (HMAC, single use, stale detection) and the spend threshold |
+| `core/lang.ts`, `i18n/**` | language resolution and message catalogs |
+| `core/untrusted.ts` | untrusted-content pointers |
+| `tools/*.ts` | one file per tool, owned by its work package |
+| `legacy.ts` | v1 tools as hidden aliases while v2 is served |
+| `__fixtures__/harness.ts` | shared test harness |
+
+Tests: `npx vitest run server/mcp/v2` (the budget test needs the `js-tiktoken`
+dev dependency).

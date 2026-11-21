@@ -1,0 +1,73 @@
+import { z } from 'zod'
+import { defineTool, type V2ActionDef } from '../core/registry'
+import { F, WRITE_FIELDS } from '../core/views'
+
+const read: V2ActionDef = { tier: 'read', required: ['ref'] }
+const write: V2ActionDef = { tier: 'write', required: ['ref'] }
+const spend: V2ActionDef = { tier: 'ai-spawn', confirm: 'costly', required: ['ref'] }
+
+/** WP7. Missions (agent conversations), Intent sessions and legacy Explore chats. */
+export const missionsTool = defineTool({
+  name: 'specrails_missions',
+  title: 'Missions',
+  description: 'Missions (agent conversations): create, send, ask, queue, attachments, subagents, cards; intent_* sessions; chat_* legacy Explore chats.',
+  owner: 'WP7',
+  fields: {
+    ...WRITE_FIELDS,
+    fields: F.fields(['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent']),
+    message: z.string(),
+    query: z.string(),
+    title: z.string(),
+    provider: z.string(),
+    model: z.string(),
+    effort: z.string(),
+    cardId: z.string().describe('card_decide'),
+    decision: z.string().describe('card_decide: the card option'),
+    filter: F.filter.describe('list: project, archived, pinned'),
+  },
+  actions: {
+    list: { tier: 'read' },
+    search: { tier: 'read', required: ['query'] },
+    get: read,
+    create: { tier: 'write' },
+    send: { ...spend, required: ['ref', 'message'] },
+    ask: { ...spend, required: ['ref', 'message'] },
+    abort: write,
+    update: write,
+    archive: write,
+    unarchive: write,
+    delete: { tier: 'write', required: ['ref'], doc: 'Moves to trash (restore undoes it).' },
+    restore: write,
+    trash: { tier: 'read' },
+    branch: { tier: 'write', required: ['ref'] },
+    renew: write,
+    queue_edit: { tier: 'write', required: ['ref', 'options.queueId', 'message'] },
+    queue_steer: { tier: 'write', required: ['ref', 'options.queueId'] },
+    queue_remove: { tier: 'write', required: ['ref', 'options.queueId'] },
+    attach: { tier: 'write', required: ['ref', 'options.file'] },
+    attachments: read,
+    detach: { tier: 'destructive', confirm: 'irreversible', required: ['ref', 'options.attachmentId'] },
+    subagents: read,
+    subagents_stop: write,
+    card_decide: { tier: 'write', required: ['ref', 'cardId', 'decision'] },
+    limit_continue: spend,
+    intent_start: { tier: 'ai-spawn', confirm: 'costly' },
+    intent_get: read,
+    intent_pause: write,
+    intent_resume: spend,
+    intent_hand_off: spend,
+    intent_return: write,
+    intent_relaunch: spend,
+    intent_discard: { tier: 'destructive', confirm: 'irreversible', required: ['ref'] },
+    intent_close: write,
+    intent_diff: read,
+    intent_cost: read,
+    chat_list: { tier: 'read' },
+    chat_get: read,
+    chat_create: { tier: 'write' },
+    chat_update: write,
+    chat_send: { ...spend, required: ['ref', 'message'] },
+    chat_abort: write,
+    chat_delete: { tier: 'destructive', confirm: 'irreversible', required: ['ref'] },
+  },
+})

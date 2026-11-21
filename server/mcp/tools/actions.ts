@@ -146,3 +146,203 @@ export function validateActionArgs(tool: string, fields: Record<string, ActionFi
     next: [{ tool: 'specrails_describe', args: { name: tool }, why: 'Every action with the arguments it takes.' }],
   })
 }
+
+// ── v1 → v2 alias bridge ─────────────────────────────────────────────────────
+//
+// Where each v1 tool action lives in the v2 catalog (server/mcp/v2). While the
+// `mcp_v2` flag serves v2, the v1 tools stay callable as hidden aliases and
+// every aliased result carries `warnings: ["deprecated: use <tool>(<action>)"]`
+// built from this table; a v2 action that is still a stub names its v1
+// equivalent (reverse lookup). Kept here, next to the v1 alias machinery, and
+// free of v2 imports; server/mcp/v2/aliases.test.ts proves every target exists.
+
+export interface V2Target {
+  tool: string
+  action: string
+}
+
+interface V1Mapping {
+  /** Target of every action not listed in `actions` (and of an action-less tool). */
+  tool: string
+  action?: string
+  actions?: Record<string, string | V2Target>
+}
+
+const same = (...names: string[]) => Object.fromEntries(names.map((name) => [name, name]))
+const prefixed = (prefix: string, ...names: string[]) => Object.fromEntries(names.map((name) => [name, `${prefix}${name}`]))
+
+const SPEC_WRITES: Record<string, string> = {
+  ...same('create', 'update', 'delete', 'restore', 'ai_edit', 'smash', 'smash_undo'),
+  commit_draft: 'create', from_prompt: 'create', generate: 'create', save_draft: 'create', cancel_ai_edit: 'ai_edit',
+  contract_refine: 'refine', delete_epic_children: 'bulk_update',
+  add_addendum: 'addendum_add', update_addendum: 'addendum_update', dismiss_addendum: 'addendum_dismiss',
+  reopen_addendum: 'addendum_reopen', delete_addendum: 'addendum_delete',
+}
+
+/** First-party tools that are not deprecated (served unchanged to in-app sessions). */
+export const V1_UNALIASED_TOOLS: ReadonlySet<string> = new Set(['specrails_mission'])
+
+export const V1_TO_V2: Record<string, V1Mapping> = {
+  specrails_status: { tool: 'specrails_overview', action: 'app' },
+  specrails_board: { tool: 'specrails_overview', action: 'project' },
+  specrails_context: { tool: 'specrails_overview', action: 'context' },
+  specrails_spend: { tool: 'specrails_insights', action: 'spend' },
+  specrails_resources: { tool: 'specrails_insights', action: 'resources' },
+  specrails_watch: { tool: 'specrails_wait', action: 'until' },
+  specrails_guide: { tool: 'specrails_system', action: 'help' },
+  specrails_search: { tool: 'specrails_system', action: 'help' },
+  specrails_describe: { tool: 'specrails_system', action: 'help' },
+  specrails_select_project: { tool: 'specrails_projects', action: 'select' },
+  specrails_projects: { tool: 'specrails_projects', actions: { ...same('list', 'get', 'repositories', 'repository_add', 'repository_update', 'repository_remove', 'unregister'), resolve: 'get' } },
+  specrails_inbox: { tool: 'specrails_inbox', actions: { ...same('list', 'open', 'answer'), question: 'open', resume: { tool: 'specrails_runs', action: 'resume' }, retry: { tool: 'specrails_runs', action: 'remedy' } } },
+  specrails_missions: { tool: 'specrails_missions', actions: { ...same('list', 'get', 'send', 'ask', 'abort'), active: 'list' } },
+  specrails_settings: {
+    tool: 'specrails_settings',
+    actions: {
+      ...same('get', 'set'),
+      'runtime_providers.list': { tool: 'specrails_providers', action: 'runtime_list' },
+      'runtime_providers.test': { tool: 'specrails_providers', action: 'runtime_test' },
+      'runtime_providers.save': { tool: 'specrails_providers', action: 'runtime_save' },
+    },
+  },
+  specrails_specs: {
+    tool: 'specrails_specs',
+    actions: {
+      ...same('list', 'get', 'search'), board: { tool: 'specrails_overview', action: 'project' },
+      list_addenda: 'get', spending_summary: 'get', files_touched: 'get', list_attachments: 'get', get_attachment: 'get',
+      // v1 hidden aliases of specrails_specs_write.
+      ...SPEC_WRITES,
+    },
+  },
+  specrails_specs_write: { tool: 'specrails_specs', actions: SPEC_WRITES },
+  specrails_rails: {
+    tool: 'specrails_rails',
+    actions: {
+      list: 'list', create_rail: 'create', set_tickets: 'configure', set_profile: 'configure', set_engine: 'configure', set_name: 'rename',
+      pr_candidates: { tool: 'specrails_deliveries', action: 'list' }, review_packet: { tool: 'specrails_deliveries', action: 'get' },
+      ci_fix: { tool: 'specrails_deliveries', action: 'decide' },
+      launch: { tool: 'specrails_runs', action: 'launch' }, launch_all: { tool: 'specrails_runs', action: 'launch_all' }, stop: { tool: 'specrails_runs', action: 'stop' },
+    },
+  },
+  specrails_jobs: {
+    tool: 'specrails_runs',
+    actions: {
+      ...same('list', 'get', 'cancel'), logs: 'get', diagnose_failure: 'diagnose', queue: 'queue', spawn: 'launch', interactive_turn: 'steer',
+      finalize: 'settle', pause: 'queue', resume: 'queue', reorder: 'queue', priority: 'queue', purge: 'delete_history',
+      compare: 'get', diagnostic: 'get', run_state: 'get', pipeline: 'get', activity: 'get', phase_breakdown: 'get', audit: 'get',
+      stats: { tool: 'specrails_insights', action: 'analytics' }, metrics: { tool: 'specrails_insights', action: 'analytics' },
+      export: { tool: 'specrails_insights', action: 'export' }, default_spec_model: { tool: 'specrails_settings', action: 'get' },
+      // v1 hidden aliases of specrails_runs and specrails_background.
+      runtime_runs: 'list', runtime_diagnose: 'diagnose', runtime_evidence: 'get', runtime_steer: 'steer', runtime_resume: 'resume',
+      runtime_recover: 'resume', runtime_approve: 'approve', runtime_settle: 'settle', runtime_dismiss: 'dismiss', runtime_cancel: 'cancel',
+      ...Object.fromEntries(['background_start', 'background_list', 'background_logs', 'background_kill'].map((name) => [name, { tool: 'specrails_system', action: 'background' }])),
+    },
+  },
+  specrails_runs: { tool: 'specrails_runs', actions: { ...same('diagnose', 'steer', 'resume', 'settle', 'dismiss', 'cancel'), state: 'get', evidence: 'get' } },
+  specrails_background: { tool: 'specrails_system', action: 'background' },
+  specrails_recovery: {
+    tool: 'specrails_runs',
+    actions: { inspect: 'recovery_inspect', list_files: 'recovery_inspect', history: 'recovery_inspect', read_file: 'recovery_read', diff: 'recovery_diff', patch: 'recovery_patch', check: 'recovery_check' },
+  },
+  specrails_chat: {
+    tool: 'specrails_missions',
+    actions: {
+      list_conversations: 'chat_list', get: 'chat_get', messages: 'chat_get', create: 'chat_create', update: 'chat_update', minimize: 'chat_update',
+      restore: 'chat_update', send: 'chat_send', abort: 'chat_abort', delete: 'chat_delete', spec_draft: { tool: 'specrails_specs', action: 'create' },
+    },
+  },
+  specrails_agents: {
+    tool: 'specrails_providers',
+    actions: {
+      list: 'profiles_list', get: 'profiles_get', resolve: 'profiles_get', create: 'profiles_create', update: 'profiles_update', migrate: 'profiles_update',
+      delete: 'profiles_delete', duplicate: 'profiles_duplicate', rename: 'profiles_rename',
+      analytics: { tool: 'specrails_insights', action: 'analytics' }, core_version: { tool: 'specrails_system', action: 'updates' },
+      catalog_list: 'catalog_list', catalog_get: 'catalog_get', versions: 'catalog_get', create_custom: 'catalog_create', update_custom: 'catalog_update',
+      delete_custom: 'catalog_delete', generate: 'catalog_generate', test: 'catalog_test',
+      refine_start: 'catalog_refine', refine_turn: 'catalog_refine', refine_list: 'catalog_refine', refine_get: 'catalog_refine',
+      refine_patch: 'catalog_refine', refine_cancel: 'catalog_refine', refine_apply: 'catalog_refine',
+    },
+  },
+  specrails_plugins: { tool: 'specrails_integrations', actions: prefixed('plugins_', 'list', 'preview', 'install', 'uninstall', 'activate', 'deactivate', 'update', 'health') },
+  specrails_jira: {
+    tool: 'specrails_integrations',
+    actions: {
+      ...prefixed('jira_', 'connection', 'test', 'connect', 'disconnect', 'sync', 'outbox', 'create_spec', 'links'),
+      discover_projects: 'jira_discover', discover_statuses: 'jira_discover', statuses: 'jira_discover', update_connection: 'jira_connect',
+      resume: 'jira_sync', retry_outbox: 'jira_retry', spec_details: 'jira_links', discard_spec: { tool: 'specrails_specs', action: 'delete' },
+    },
+  },
+  specrails_loops: {
+    tool: 'specrails_integrations',
+    actions: {
+      list: 'loops_list', get: 'loops_get', preview: 'loops_get', templates: 'loops_templates', factory: 'loops_templates', commands: 'loops_templates',
+      constants_list: 'loops_constants', constant_create: 'loops_constants', constant_update: 'loops_constants', constant_delete: 'loops_constants',
+      import: 'loops_import', create: 'loops_save', from_template: 'loops_save', fork: 'loops_save', update: 'loops_save', duplicate: 'loops_save',
+      restore_builtin: 'loops_save', publish: 'loops_publish', unpublish: 'loops_publish', delete: 'loops_delete',
+      run: { tool: 'specrails_runs', action: 'launch' }, run_get: { tool: 'specrails_runs', action: 'get' },
+    },
+  },
+  specrails_code: {
+    tool: 'specrails_integrations',
+    actions: { ...prefixed('code_', 'tree', 'find', 'search', 'summary', 'provenance', 'diff'), read_file: 'code_read', regenerate_summary: 'code_summary' },
+  },
+  specrails_setup: {
+    tool: 'specrails_projects',
+    actions: {
+      prerequisites: 'prerequisites', add_project: 'add', install_config: 'provision', install: 'provision', checkpoints: 'install_status',
+      abort: 'abort_install', integration_contract: 'get', available_providers: { tool: 'specrails_providers', action: 'list' },
+    },
+  },
+  specrails_analytics: {
+    tool: 'specrails_insights',
+    actions: {
+      spending: 'spend', invocations: 'analytics', ticket_summary: 'analytics', decision_times: 'analytics', loop_economics: 'analytics',
+      ...same('export', 'budget_get', 'budget_set'),
+    },
+  },
+  specrails_git: {
+    tool: 'specrails_integrations',
+    actions: {
+      info: 'git_info', remote: 'git_info', branch: 'git_info', pull_request: 'git_pr', status: 'git_status', log: 'git_log', diff: 'git_diff',
+      gh_repo: 'git_gh', gh_auth: 'git_gh', gh_pr_list: 'git_gh', gh_pr_view: 'git_gh',
+    },
+  },
+  specrails_env: {
+    tool: 'specrails_settings',
+    actions: { get: 'get', set: 'set', auto_configure: 'set', status: 'env_status', recheck: 'env_status', scan: 'env_scan' },
+  },
+  specrails_support: {
+    tool: 'specrails_system',
+    actions: { triage: 'triage', core_update_status: 'updates', core_update_check: 'updates', core_update_apply: 'updates', api_meta: 'health' },
+  },
+}
+
+/** The v2 call a v1 tool action moved to; null for an unknown pair or an unaliased first-party tool. */
+export function v2Equivalent(tool: string, action: string | null): V2Target | null {
+  const mapping = V1_TO_V2[tool]
+  if (!mapping) return null
+  const target = action ? mapping.actions?.[action] : undefined
+  if (typeof target === 'string') return { tool: mapping.tool, action: target }
+  if (target) return target
+  if (mapping.action) return { tool: mapping.tool, action: mapping.action }
+  return null
+}
+
+/** `specrails_runs(get)`: the v2 call to use instead of a v1 one. */
+export function deprecationTarget(tool: string, action: string | null): string | null {
+  const target = v2Equivalent(tool, action)
+  return target ? `${target.tool}(${target.action})` : null
+}
+
+/** A v1 call (`specrails_jobs(list)`) that serves what a stubbed v2 action will. */
+export function v1EquivalentOf(tool: string, action: string): string | null {
+  for (const [v1, mapping] of Object.entries(V1_TO_V2)) {
+    if (V1_UNALIASED_TOOLS.has(v1)) continue
+    for (const [v1Action, target] of Object.entries(mapping.actions ?? {})) {
+      const resolved = typeof target === 'string' ? { tool: mapping.tool, action: target } : target
+      if (resolved.tool === tool && resolved.action === action) return `${v1}(${v1Action})`
+    }
+    if (!mapping.actions && mapping.tool === tool && mapping.action === action) return v1
+  }
+  return null
+}

@@ -1,0 +1,32 @@
+{
+  "//": "Server keys whose text is the app's own (client/src/locales/<lang>/<ns>.json). The sync test keeps <lang>/core.json equal to them in all 8 languages; regenerate with UPDATE_MCP_I18N=1.",
+  "core": {
+    "status.queued": "common:runState.queued",
+    "status.running": "common:runState.working",
+    "status.paused": "common:runState.paused",
+    "status.needs_you": "common:runState.needs-input",
+    "status.blocked": "common:runState.blocked",
+    "status.failed": "common:runState.failed",
+    "status.succeeded": "common:runState.done",
+    "status.cancelled": "common:status.canceled",
+    "status.ready_for_review": "common:runState.review",
+    "appState.queued": "common:runState.queued",
+    "appState.working": "common:runState.working",
+    "appState.needs-input": "common:runState.needs-input",
+    "appState.review": "common:runState.review",
+    "appState.paused": "common:runState.paused",
+    "appState.blocked": "common:runState.blocked",
+    "appState.failed": "common:runState.failed",
+    "appState.done": "common:runState.done",
+    "appState.stopped": "common:runState.stopped",
+    "appState.hint.queued": "common:runState.hint.queued",
+    "appState.hint.working": "common:runState.hint.working",
+    "appState.hint.needs-input": "common:runState.hint.needs-input",
+    "appState.hint.review": "common:runState.hint.review",
+    "appState.hint.paused": "common:runState.hint.paused",
+    "appState.hint.blocked": "common:runState.hint.blocked",
+    "appState.hint.failed": "common:runState.hint.failed",
+    "appState.hint.done": "common:runState.hint.done",
+    "appState.hint.stopped": "common:runState.hint.stopped"
+  }
+}

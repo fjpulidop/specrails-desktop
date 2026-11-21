@@ -408,7 +408,11 @@ export const DEFERRED_IN_APP_TOOLS: ReadonlySet<string> = new Set(['specrails_ji
 /** Claude Code `_meta` key that exempts a tool from tool search deferral. */
 export const ALWAYS_LOAD_META_KEY = 'anthropic/alwaysLoad'
 
-export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec: McpToolSpec, options: { alwaysLoad?: boolean } = {}): void {
+export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec: McpToolSpec, options: {
+  alwaysLoad?: boolean
+  /** Decorates the call handler (the v2 surface adds deprecation warnings to hidden v1 aliases). */
+  wrapCallback?: (callback: ReturnType<typeof tieredToolCallback>) => ReturnType<typeof tieredToolCallback>
+} = {}): void {
   // An action facade may read, write, launch AI and delete data through ONE
   // protocol tool. Advertising the common read action as readOnlyHint:true
   // misleads clients that use annotations when approving mutations.
@@ -431,7 +435,18 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       // Specrails); external clients keep their own tool search behavior.
       ...(options.alwaysLoad && !DEFERRED_IN_APP_TOOLS.has(spec.name) ? { _meta: { [ALWAYS_LOAD_META_KEY]: true } } : {}),
     },
-    async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
+    options.wrapCallback ? options.wrapCallback(tieredToolCallback(ctx, spec)) : tieredToolCallback(ctx, spec),
+  )
+}
+
+/**
+ * The call handler `registerTieredTool` registers: admission (capability,
+ * tier, confirmation), dispatch and envelope shaping. Exported so the v2
+ * surface can keep serving a v1 tool as a hidden alias with the exact same
+ * behavior (server/mcp/v2/legacy.ts).
+ */
+export function tieredToolCallback(ctx: McpToolContext, spec: McpToolSpec): (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<CallToolResult> {
+  return async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
       const action = actionOf(args ?? {})
       const fail = (message: string, code: 'unauthorized' | 'provider_unavailable' = 'unauthorized') =>
         errorResult(new McpToolError(code, message), spec.name, action)
@@ -522,6 +537,5 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       callCtx.acknowledgeAgentInputsRead = undefined
       callCtx.onMissionInput = undefined
       return operation()
-    },
-  )
+  }
 }

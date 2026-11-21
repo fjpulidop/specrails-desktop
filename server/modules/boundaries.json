@@ -1121,6 +1121,7 @@
     "publicEntries": [
       "adapters/decisions/metadata.ts",
       "adapters/retained-worktrees-http.ts",
+      "index.ts",
       "runtime/definition-fork.ts",
       "runtime/delivery-base-refresh.ts",
       "runtime/delivery-changes.ts",

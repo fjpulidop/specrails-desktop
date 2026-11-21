@@ -14,6 +14,8 @@ import { registerTieredTool, type McpToolContext } from './tools/types'
 import { registerResources, registerResourceSubscriptions } from './resources'
 import { registerPrompts } from './prompts'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
+import { isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './v2'
+import { textModeFor } from './v2/core/envelope'
 
 export interface McpServerManagerDeps {
   registry: ProjectRegistry
@@ -125,20 +127,31 @@ export class McpServerManager {
       enabled: this.isEnabledSetting(),
       running: this.isEnabledSetting(),
       activeSessions: this._sessions.size,
-      toolCount: this._toolCount,
+      // Advertised to an external client: the v2 catalog while `mcp_v2` is on.
+      toolCount: isMcpV2Enabled(this._ctx.desktopDb) ? v2Catalog().tools.length : this._toolCount,
     }
   }
 
-  /** Build a fresh McpServer with the full tool, resource and prompt catalog registered. */
-  private buildServer(options: { inApp?: boolean } = {}): { server: McpServer; dispose: () => void } {
+  /**
+   * Build a fresh McpServer with the full tool, resource and prompt catalog
+   * registered. With `mcp_v2` on (off by default until the cut-over) it serves
+   * the v2 catalog, the v1 tools as hidden aliases and the server instructions;
+   * otherwise exactly the v1 catalog.
+   */
+  private buildServer(options: { inApp?: boolean; protocolVersion?: string } = {}): { server: McpServer; dispose: () => void } {
+    const v2 = isMcpV2Enabled(this._ctx.desktopDb)
     const server = new McpServer(
       { name: 'specrails-desktop', version: this._version },
-      { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} } },
+      { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} }, ...(v2 ? { instructions: V2_INSTRUCTIONS } : {}) },
     )
-    const context = { ...this._ctx, sessionState: { activeProjectId: null } }
+    const context = { ...this._ctx, sessionState: v2 ? { activeProjectId: null, sessionKey: randomUUID() } : { activeProjectId: null } }
     const specs = buildToolSpecs()
-    for (const spec of specs) {
-      registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
+    if (v2) {
+      registerV2Surface(server, context, specs, { inApp: options.inApp === true, textMode: textModeFor(options.protocolVersion) })
+    } else {
+      for (const spec of specs) {
+        registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
+      }
     }
     registerResources(server, context, specs)
     registerPrompts(server)
@@ -193,7 +206,8 @@ export class McpServerManager {
             return
           }
           // A verified in-app agent capability: the session is a Specrails turn.
-          const { server, dispose } = this.buildServer({ inApp: capability !== null && capability !== undefined })
+          const protocolVersion = (req.body as { params?: { protocolVersion?: unknown } }).params?.protocolVersion
+          const { server, dispose } = this.buildServer({ inApp: capability !== null && capability !== undefined, protocolVersion: typeof protocolVersion === 'string' ? protocolVersion : undefined })
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sid: string) => {
