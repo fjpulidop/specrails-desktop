@@ -1,4 +1,5 @@
 import { AutoContinueSection } from '../components/AutoContinueSection'
+import { DailyResetResumeSetting } from '../components/DailyResetResumeSetting'
 import { MachineInstallsSection } from '../components/MachineInstallsSection'
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
 import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
@@ -520,6 +521,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                   </div>
                   <p className="text-caption text-muted-foreground">{t('budgetMoved')}</p>
                 </div>
+                <DailyResetResumeSetting />
                 <div className="space-y-1.5 border-t border-border pt-3">
                   <label htmlFor="settings-cost-alert" className="text-label">{t('budget.perJobLabel')}</label>
                   <p className="text-xs text-muted-foreground">{t('desktop.perJobHelper')}</p>

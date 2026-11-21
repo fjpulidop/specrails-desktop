@@ -509,6 +509,8 @@ export interface LoopRunManagerOptions {
   dailyBudget?: () => LoopBudgetBreach | null
   /** provider-quota: a run paused on a usage limit resumes by itself at the reset (default true). */
   autoResumeOnLimit?: () => boolean
+  /** A run held on the DAILY budget resumes by itself when the day resets (default true; app setting). */
+  resumeOnDailyReset?: () => boolean
   /** Default per-run soft cap (USD) a new run starts with; null/absent = none. */
   runCapDefault?: () => number | null
   /** Agent actions audit sink bound to this project (observing only). */

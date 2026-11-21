@@ -2852,6 +2852,7 @@
       "runtime/definition-cancellation.ts",
       "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-budget-pauses.ts",
+      "runtime/loop-budget-reset-resume.ts",
       "runtime/loop-budget-resume.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
@@ -2902,6 +2903,12 @@
       ],
       "runtime/loop-budget-pauses.ts": [
         "../../../db"
+      ],
+      "runtime/loop-budget-reset-resume.ts": [
+        "../../../db",
+        "../../../types",
+        "./loop-budget-pauses",
+        "./loop-run-launch"
       ],
       "runtime/loop-budget-resume.ts": [
         "../../../db",
@@ -3251,6 +3258,8 @@
         "../../../db",
         "../../../shared/run-question",
         "../../provider-quota/runtime/quota-reports",
+        "./loop-budget-pauses",
+        "./loop-budget-reset-resume",
         "./loop-definition-run",
         "./loop-limit-pauses",
         "./loop-run-context",

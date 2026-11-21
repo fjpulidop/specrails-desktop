@@ -45,7 +45,14 @@
     "alertSet": "Alerta configurada para trabajos de más de {{amount}}",
     "saveThresholdFailed": "No se pudo guardar el umbral",
     "dailyCurrent": "Ahora mismo: {{amount}} al día",
-    "dailyNone": "Sin límite diario"
+    "dailyNone": "Sin límite diario",
+    "resumeOnDailyReset": {
+      "label": "Reanudar las ejecuciones retenidas por el presupuesto diario cuando se reinicie el día",
+      "helper": "Al reiniciarse el día, una ejecución que solo retenía el presupuesto diario continúa por sí misma en cuanto haya capacidad. Una ejecución que pausaste, o una que su propio tope de gasto sigue reteniendo, te sigue esperando.",
+      "enabled": "Las ejecuciones retenidas por el presupuesto diario se reanudarán al reiniciarse el día",
+      "disabled": "Las ejecuciones retenidas por el presupuesto diario te esperarán",
+      "saveFailed": "No se pudo guardar el ajuste"
+    }
   },
   "desktop": {
     "nav": {

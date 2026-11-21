@@ -268,6 +268,10 @@
           "label": "每日预算与成本提醒",
           "keywords": "预算, 每日, 成本, 花费, 限额, 提醒, 金额, budget"
         },
+        "resumeOnDailyReset": {
+          "label": "每日重置时恢复运行",
+          "keywords": "预算, 每日, 重置, 午夜, 恢复, 暂停, 运行, 自动"
+        },
         "notifications": {
           "label": "系统通知",
           "keywords": "通知, 提醒, 声音, notifications"

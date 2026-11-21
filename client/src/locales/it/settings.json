@@ -45,7 +45,14 @@
     "alertSet": "Avviso impostato per i job oltre {{amount}}",
     "saveThresholdFailed": "Salvataggio della soglia non riuscito",
     "dailyCurrent": "Attualmente {{amount}} al giorno",
-    "dailyNone": "Nessun limite giornaliero"
+    "dailyNone": "Nessun limite giornaliero",
+    "resumeOnDailyReset": {
+      "label": "Riprendi le esecuzioni bloccate dal budget giornaliero quando il giorno si azzera",
+      "helper": "All'azzeramento giornaliero, un'esecuzione bloccata solo dal budget giornaliero riprende da sola appena c'è capacità. Un'esecuzione che hai messo in pausa, o che il suo limite di spesa blocca ancora, continua ad aspettarti.",
+      "enabled": "Le esecuzioni bloccate dal budget giornaliero riprenderanno quando il giorno si azzera",
+      "disabled": "Le esecuzioni bloccate dal budget giornaliero ti aspetteranno",
+      "saveFailed": "Impossibile salvare l'impostazione"
+    }
   },
   "desktop": {
     "nav": {

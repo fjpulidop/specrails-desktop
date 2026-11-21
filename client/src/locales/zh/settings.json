@@ -45,7 +45,14 @@
     "alertSet": "已设置任务超过 {{amount}} 时告警",
     "saveThresholdFailed": "保存阈值失败",
     "dailyCurrent": "当前每日 {{amount}}",
-    "dailyNone": "未设置每日上限"
+    "dailyNone": "未设置每日上限",
+    "resumeOnDailyReset": {
+      "label": "每日重置时恢复因每日预算而暂停的运行",
+      "helper": "每日重置时，仅因每日预算而暂停的运行会在有空闲容量时自动继续。你暂停的运行，或仍受其自身花费上限限制的运行，会继续等待你。",
+      "enabled": "因每日预算暂停的运行将在每日重置时恢复",
+      "disabled": "因每日预算暂停的运行将等待你",
+      "saveFailed": "无法保存设置"
+    }
   },
   "desktop": {
     "nav": {

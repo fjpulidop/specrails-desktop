@@ -5,6 +5,9 @@ import { getLoopRun } from './loop-runs-store'
 import { runDefinitionLoop, type DefinitionRuntimeResult } from './loop-definition-run'
 import type { LoopGraph } from './loop-graph'
 import type { WsMessage } from '../../../types'
+import { bindResumeClock } from '../../provider-quota/runtime/quota-reports'
+import { readBudgetHold } from './loop-budget-pauses'
+import { BUDGET_RESET_RESUME_EVENT } from './loop-budget-reset-resume'
 
 // rail-loop-budget-guard: the daily budget is checked BETWEEN AI steps; an
 // exhausted budget parks the run as a resumable `budget_paused` pause.
@@ -428,5 +431,84 @@ describe('a resumed Core run', () => {
     expect(m.sendInteractiveTurn('q-run', 'Answer', { interruptId: 'q1' })).toBe(true)
     expect((await running).outcome).toBe('success')
     expect(seenOnResume).toEqual({ revision: 3, eventCursor: 2, status: 'running', pendingInterrupts: [] })
+  })
+})
+
+describe('LoopRunManager: a run held on the daily budget resumes when the day resets', () => {
+  const scheduled: Array<{ at: number; fire: () => void; cancelled: boolean }> = []
+  beforeEach(() => {
+    scheduled.length = 0
+    bindResumeClock({
+      schedule(at, fire) { const entry = { at, fire, cancelled: false }; scheduled.push(entry); return { cancel() { entry.cancelled = true } } },
+      pending: () => scheduled.filter((entry) => !entry.cancelled).length,
+      dispose() {},
+    })
+  })
+  afterEach(() => bindResumeClock(null))
+  const live = () => scheduled.filter((entry) => !entry.cancelled)
+  const fireReset = () => { for (const entry of live()) entry.fire() }
+
+  it('schedules the resume at the budget\'s own reset and continues by itself (log line + run event)', async () => {
+    let current: LoopBudgetBreach | null = breach()
+    const ex = executors()
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => current })
+    const running = m.run(request('reset-run'))
+    await waitFor(() => m.budgetPause('reset-run') !== null, 'budget pause')
+    expect(live().map((entry) => entry.at)).toEqual([Date.parse('2026-10-22T00:00:00.000Z')])
+    expect(readBudgetHold(db, 'reset-run')).toEqual({ scope: 'project', resetsAt: '2026-10-22T00:00:00.000Z' })
+    expect(getJobEvents(db, 'reset-run').some((e) => e.payload.includes('It resumes automatically when the day resets'))).toBe(true)
+    current = null // the new day: nothing spent yet
+    fireReset()
+    expect((await running).outcome).toBe('success')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(2)
+    const events = getJobEvents(db, 'reset-run')
+    expect(events.some((e) => e.event_type === 'log' && e.payload.includes('The day reset — the daily budget allows the next step again'))).toBe(true)
+    expect(events.find((e) => e.event_type === BUDGET_RESET_RESUME_EVENT)?.payload).toBe(JSON.stringify({ scope: 'project', resetsAt: '2026-10-22T00:00:00.000Z' }))
+    expect(readBudgetHold(db, 'reset-run')).toBeNull()
+  })
+
+  it('does nothing with the setting off: the run waits for the person', async () => {
+    let current: LoopBudgetBreach | null = breach()
+    const ex = executors()
+    const m = new LoopRunManager(db, () => {}, ex, () => 1000, { dailyBudget: () => current, resumeOnDailyReset: () => false })
+    const running = m.run(request('reset-off'))
+    await waitFor(() => m.budgetPause('reset-off') !== null, 'budget pause')
+    expect(getJobEvents(db, 'reset-off').some((e) => e.payload.includes('resumes automatically'))).toBe(false)
+    current = null
+    fireReset()
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(m.budgetPause('reset-off')).not.toBeNull()
+    expect(ex.runAiStep).toHaveBeenCalledTimes(1)
+    m.cancel('reset-off')
+    expect((await running).outcome).toBe('stopped')
+    expect(readBudgetHold(db, 'reset-off')).toBeNull()
+  })
+
+  it('stays held when its own per-run cap still blocks it after the reset, and is never scheduled again', async () => {
+    const runCap: LoopBudgetBreach = { ...breach(), period: 'run', resetsAt: null, detail: 'This run spent $4.00 of its $3.00 cap.' }
+    let current: LoopBudgetBreach | null = breach()
+    const ex = executors()
+    const m = new LoopRunManager(db, () => {}, ex, () => 1000, { dailyBudget: () => current })
+    const running = m.run(request('reset-cap'))
+    await waitFor(() => m.budgetPause('reset-cap') !== null, 'budget pause')
+    current = runCap
+    fireReset()
+    await waitFor(() => m.budgetPause('reset-cap')?.period === 'run', 'held on the run cap')
+    expect(getJobEvents(db, 'reset-cap').some((e) => e.payload.includes('The day reset, but the run stays held: This run spent $4.00'))).toBe(true)
+    expect(live()).toEqual([])
+    expect(readBudgetHold(db, 'reset-cap')).toEqual({ scope: 'project', period: 'run', resetsAt: null })
+    expect(ex.runAiStep).toHaveBeenCalledTimes(1)
+    m.cancel('reset-cap')
+    await running
+  })
+
+  it('never schedules a resume for a weekly or monthly cap', async () => {
+    const weekly: LoopBudgetBreach = { ...breach(), period: 'week', resetsAt: '2026-10-26T00:00:00.000Z' }
+    const m = new LoopRunManager(db, () => {}, executors(), () => 1000, { dailyBudget: () => weekly })
+    const running = m.run(request('weekly'))
+    await waitFor(() => m.budgetPause('weekly') !== null, 'budget pause')
+    expect(live()).toEqual([])
+    m.cancel('weekly')
+    await running
   })
 })

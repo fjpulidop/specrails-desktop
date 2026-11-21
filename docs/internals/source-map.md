@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1859 source/build files. Nearby tests are linked where names
+Includes 1863 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -597,6 +597,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useCompareUrlSync.ts](../../client/src/features/jobs/hooks/useCompareUrlSync.ts)
 - [useLogTicketActions.ts](../../client/src/features/jobs/hooks/useLogTicketActions.ts)
 - [usePipeline.ts](../../client/src/features/jobs/hooks/usePipeline.ts) · [test](../../client/src/features/jobs/hooks/__tests__/usePipeline.test.ts)
+- [useRunPause.ts](../../client/src/features/jobs/hooks/useRunPause.ts)
 - [useRunVitals.ts](../../client/src/features/jobs/hooks/useRunVitals.ts)
 
 ## client/src/features/jobs/lib
@@ -1023,6 +1024,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
 - [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
 - [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
+- [DailyResetResumeSetting.tsx](../../client/src/features/settings/components/DailyResetResumeSetting.tsx) · [test](../../client/src/features/settings/components/__tests__/DailyResetResumeSetting.test.tsx)
 - [EditorSection.tsx](../../client/src/features/settings/components/EditorSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EditorSection.test.tsx)
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
 - [EnvFilesSection.tsx](../../client/src/features/settings/components/EnvFilesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EnvFilesSection.test.tsx)
@@ -1323,6 +1325,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
 - [startup-queue.ts](../../client/src/lib/startup-queue.ts) · [test](../../client/src/lib/__tests__/startup-queue.test.ts)
+- [surface-shell-requests.ts](../../client/src/lib/surface-shell-requests.ts) · [test](../../client/src/lib/surface-shell-requests.test.ts)
 - [surface-toasts.ts](../../client/src/lib/surface-toasts.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
@@ -2200,6 +2203,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-agents.ts](../../server/modules/loops/runtime/loop-agents.ts) · [test](../../server/modules/loops/runtime/loop-agents.test.ts)
 - [loop-ai-step-signals.ts](../../server/modules/loops/runtime/loop-ai-step-signals.ts)
 - [loop-budget-pauses.ts](../../server/modules/loops/runtime/loop-budget-pauses.ts)
+- [loop-budget-reset-resume.ts](../../server/modules/loops/runtime/loop-budget-reset-resume.ts)
 - [loop-budget-resume.ts](../../server/modules/loops/runtime/loop-budget-resume.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-compat.ts](../../server/modules/loops/runtime/loop-compat.ts) · [test](../../server/modules/loops/runtime/loop-compat.test.ts)
