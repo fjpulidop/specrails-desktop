@@ -1,1 +1,19 @@
-{}
+{
+  "item": "{{ref}} is {{label}}",
+  "summary.fired_one": "{{item}}.",
+  "summary.fired": "{{count}} changes; first: {{item}}.",
+  "summary.timeout": "Nothing changed in {{seconds}} s. Call specrails_wait again with the cursor; this is not a failure.",
+  "summary.interrupted": "The person sent a new message; the wait ended early.",
+  "summary.events": "{{count}} events.",
+  "summary.no_events": "No events.",
+  "reason.stuck": "The current step stopped producing activity.",
+  "reason.review": "It waits for your review.",
+  "reason.failed": "It failed; diagnose it or choose a remedy.",
+  "reason.budget": "A spend cap was reached; raise it or wait for the reset.",
+  "reason.blocked": "It is blocked until you act.",
+  "warning.cursor_reset": "The cursor belongs to another journal; waiting from now on.",
+  "warning.gap": "Older events were removed by retention; the page starts at the oldest kept event.",
+  "error.too_many_refs": "Wait for at most {{max}} refs at once.",
+  "error.kind": "A wait cannot follow {{kind}} refs. Supported: {{kinds}}.",
+  "notice": "{{ref}} needs you. Call specrails_wait(until) or open it."
+}
