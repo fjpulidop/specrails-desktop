@@ -125,4 +125,61 @@ describe('capacity admission of loop runs', () => {
     expect(lines('r3')).toContain('■ Stopped before it started; nothing ran.')
     expect(next.runDefinition).toHaveBeenCalledTimes(1)
   })
+
+  // Soak 2: a run held 100 min on a question kept its project's only slot, so the project's other
+  // rail waited the whole time although nothing ran. A hold gives the slot back; its end takes one again.
+  it('a run held on a question gives its slot back, and queues for one again when answered', async () => {
+    const { admission, finish } = setup()
+    let r1Calls = 0
+    const question = { id: 'q1', nodePath: 'ask', kind: 'question' as const }
+    const runDefinition = vi.fn((input: { runId: string }) => {
+      if (input.runId === 'r1' && r1Calls++ === 0) return Promise.resolve<DefinitionRuntimeResult>({ text: '', runtimeStatus: 'paused', pendingInterrupts: [question] })
+      return new Promise<DefinitionRuntimeResult>((resolve) => { finish.push(() => resolve(complete)) })
+    })
+    const held = new LoopRunManager(db, () => {}, { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() } as unknown as LoopExecutors, undefined, { admission: () => admission })
+    const first = held.run(request('r1'))
+    await until(() => held.isPaused('r1'))
+    // Held: r1 holds no slot, so r2 (same project, one slot) starts at once.
+    expect(admission.snapshot().active.map((run: { runId: string }) => run.runId)).toEqual([])
+    const second = held.run(request('r2'))
+    await until(() => runDefinition.mock.calls.length === 2)
+    expect(held.queuedFor('r2')).toBeNull()
+    // Answered while r2 works: r1 waits for a slot, with the queued hold, log line and card.
+    expect(held.sendInteractiveTurn('r1', 'A', { interruptId: 'q1' })).toBe(true)
+    await until(() => held.queuedFor('r1') !== null)
+    expect(readRunHold(db, 'r1', runHoldSources({ loopRunManager: held }))).toMatchObject({ kind: 'queued', waitingFor: 'run_slots' })
+    expect(lines('r1').some((line) => line.startsWith('⏳ Queued (1 in line)'))).toBe(true)
+    expect(runDefinition).toHaveBeenCalledTimes(2)
+    finish.shift()!()
+    expect((await second).outcome).toBe('success')
+    // The slot frees: r1 continues (Core resumes with the answer) and settles; nothing is held after.
+    await until(() => runDefinition.mock.calls.length === 3)
+    expect(lines('r1').some((line) => /^▶ Continues after waiting \d+ s for capacity\.$/.test(line))).toBe(true)
+    finish.shift()!()
+    expect((await first).outcome).toBe('success')
+    expect(admission.snapshot().active).toEqual([])
+  })
+
+  it('a held run stopped while it queues for its slot again settles stopped and Core never continues', async () => {
+    const { admission, finish } = setup()
+    let r1Calls = 0
+    const runDefinition = vi.fn((input: { runId: string }) => {
+      if (input.runId === 'r1' && r1Calls++ === 0) return Promise.resolve<DefinitionRuntimeResult>({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })
+      return new Promise<DefinitionRuntimeResult>((resolve) => { finish.push(() => resolve(complete)) })
+    })
+    const held = new LoopRunManager(db, () => {}, { runDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() } as unknown as LoopExecutors, undefined, { admission: () => admission })
+    const first = held.run(request('r1'))
+    await until(() => held.isPaused('r1'))
+    const second = held.run(request('r2'))
+    await until(() => runDefinition.mock.calls.length === 2)
+    expect(held.sendInteractiveTurn('r1', 'yes', { interruptId: 'q1' })).toBe(true)
+    await until(() => held.queuedFor('r1') !== null)
+    held.cancel('r1')
+    expect((await first).outcome).toBe('stopped')
+    expect(lines('r1')).toContain('■ Stopped while it waited for capacity to continue.')
+    finish.shift()!()
+    await second
+    expect(runDefinition).toHaveBeenCalledTimes(2)
+    expect(admission.snapshot().active).toEqual([])
+  })
 })

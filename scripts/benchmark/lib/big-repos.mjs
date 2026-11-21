@@ -145,3 +145,31 @@ export function bigSpec({ count = MODULES.length, offset = 0, extra = [] } = {})
     'Out of scope: renaming or removing any existing export, adding dependencies.',
   ].join('\n')
 }
+
+/**
+ * A very long spec for multi-hour runs: every module row becomes `perModule` numbered
+ * requirements (the feature, edge-case tests, a runnable example with its test, a doc
+ * page), so 40 rows × 4 plan about 160 tasks. Each item is small and checkable.
+ */
+export function epicSpec({ count = MODULES.length, offset = 0, perModule = 4, extra = [] } = {}) {
+  const rows = MODULES.slice(offset, offset + count)
+  const items = []
+  for (const [stem, , req] of rows) {
+    items.push(req)
+    if (perModule >= 2) items.push(`\`test/unit/${stem}.edge.test.js\`: at least four edge-case tests (boundaries, wrong types, empty input) for the \`src/${stem}.js\` function(s) added above.`)
+    if (perModule >= 3) items.push(`\`examples/${stem}.mjs\`: a runnable example importing the new \`src/${stem}.js\` function(s) and printing one result; \`test/unit/${stem}.example.test.js\` runs it with \`node\` (child_process) and asserts exit code 0.`)
+    if (perModule >= 4) items.push(`\`docs/${stem}.md\`: the signatures, every error case and one example of the new \`src/${stem}.js\` function(s); link it from README.md under "## Modules".`)
+  }
+  return [
+    `Extend the library with ${items.length} small, independent requirements (${rows.length} modules). Unit tests live in \`test/unit/\` and cover the normal case and every error case named here; add a line per module in CHANGELOG.md under "Unreleased". Follow CONTRIBUTING.md (JSDoc on every exported function; the lint runs in \`npm test\`).`,
+    '',
+    ...[...items, ...extra].map((req, i) => `${i + 1}. ${req}`),
+    '',
+    'Out of scope: renaming or removing any existing export, adding dependencies.',
+  ].join('\n')
+}
+
+/** A unit-test file that only waits `seconds` (every `npm run test:unit` takes that long, like a heavy real suite). */
+export function slowUnit(seconds) {
+  return NT + `test('unit warm-up (slow on purpose: ${seconds} s)', async () => { await new Promise(r => setTimeout(r, ${seconds * 1000})); assert.ok(true) })\n`
+}

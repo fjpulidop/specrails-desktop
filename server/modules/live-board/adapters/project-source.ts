@@ -40,6 +40,23 @@ interface LoopRunRow {
   finished_at: string | null
   runtime_status_json: string | null
   cost_estimated: number | null
+  /** The run's latest `provider_switched` event payload (a switch at a usage limit), if any. */
+  switched_json?: string | null
+}
+
+/**
+ * The engine a run works on now: a switch at a usage limit (Core routeOverrides) moves the
+ * roles that ran on the limited provider for the rest of the run, but the row keeps the
+ * launch's provider/model. Without this a run moved from Codex to Claude haiku still showed
+ * Codex and its model on its card for hours. Pure.
+ */
+export function effectiveRunEngine(row: Pick<LoopRunRow, 'provider' | 'model' | 'switched_json'>): { provider: string | null; model: string | null } {
+  if (!row.switched_json) return { provider: row.provider, model: row.model }
+  try {
+    const moved = JSON.parse(row.switched_json) as { provider?: unknown; model?: unknown; roles?: unknown }
+    if (typeof moved.provider !== 'string' || (Array.isArray(moved.roles) && moved.roles.length === 0)) return { provider: row.provider, model: row.model }
+    return { provider: moved.provider, model: typeof moved.model === 'string' ? moved.model : null }
+  } catch { return { provider: row.provider, model: row.model } }
 }
 
 interface DeliveryRow {
@@ -237,7 +254,8 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
       const loopRuns = guard(projectId, 'loop runs', [] as LoopRunRow[], () => {
         const rows = db.prepare(`
           SELECT r.id, r.loop_name, r.rail_index, r.ticket_ids_json, r.provider, r.model, r.status, r.final_outcome, r.restart_reason,
-                 r.total_cost_usd, r.started_at, r.finished_at, r.runtime_status_json, j.total_cost_usd_estimated AS cost_estimated
+                 r.total_cost_usd, r.started_at, r.finished_at, r.runtime_status_json, j.total_cost_usd_estimated AS cost_estimated,
+                 (SELECT e.payload FROM events e WHERE e.job_id = r.id AND e.event_type = 'provider_switched' ORDER BY e.id DESC LIMIT 1) AS switched_json
           FROM loop_runs r LEFT JOIN jobs j ON j.id = r.id
           WHERE r.project_id = ? AND (r.status IN ('running','paused')
             OR (julianday(r.finished_at) >= julianday(?) AND julianday(r.finished_at) < julianday(?)))
@@ -251,13 +269,15 @@ export function createProjectLiveBoardSource(handle: LiveBoardProjectHandle): Pr
         for (const ids of chunks(missing)) {
           rows.push(...db.prepare(`
             SELECT r.id, r.loop_name, r.rail_index, r.ticket_ids_json, r.provider, r.model, r.status, r.final_outcome, r.restart_reason,
-                   r.total_cost_usd, r.started_at, r.finished_at, r.runtime_status_json, j.total_cost_usd_estimated AS cost_estimated
+                   r.total_cost_usd, r.started_at, r.finished_at, r.runtime_status_json, j.total_cost_usd_estimated AS cost_estimated,
+                 (SELECT e.payload FROM events e WHERE e.job_id = r.id AND e.event_type = 'provider_switched' ORDER BY e.id DESC LIMIT 1) AS switched_json
             FROM loop_runs r LEFT JOIN jobs j ON j.id = r.id
             WHERE r.project_id = ? AND r.id IN (${marks(ids.length)})
           `).all(projectId, ...ids) as LoopRunRow[])
         }
         return rows
       })
+      for (const row of loopRuns) Object.assign(row, effectiveRunEngine(row))
       // Booting: a run the restart cut off still says running until recovery reconciles it.
       for (const row of loopRuns) if (row.status === 'running' && handle.restartPending?.has(row.id)) { row.status = 'paused'; row.restart_reason = 'restart' }
       const runById = new Map(loopRuns.map((row) => [row.id, row]))

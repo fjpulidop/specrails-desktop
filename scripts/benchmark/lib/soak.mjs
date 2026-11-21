@@ -44,10 +44,14 @@ export function descendants(rows, rootPid) {
  * CLIs, zombies in the tree, and orphans (re-parented to launchd/init) whose command
  * names one of `markers` (the isolated home, the work dir, the Core under test). Pure.
  */
+/** Core processes under the server (Core runs from the shared runtime-package cache, …/runtime-packages/<digest>/dist/agent-runtime/cli.js). Pure. */
+export function coreRows(rows, rootPid) {
+  return descendants(rows, rootPid).filter(r => /specrails-core|runtime-packages\/[^/]+\/dist\/agent-runtime\/cli\.js/.test(r.command))
+}
+
 export function processCounters(rows, rootPid, markers = []) {
   const tree = descendants(rows, rootPid)
-  // Core runs from the shared runtime-package cache (…/runtime-packages/<digest>/dist/agent-runtime/cli.js).
-  const core = tree.filter(r => /specrails-core|runtime-packages\/[^/]+\/dist\/agent-runtime\/cli\.js/.test(r.command))
+  const core = coreRows(rows, rootPid)
   // The harness itself (detached, so re-parented to launchd) names the home too: never an orphan.
   const orphans = rows.filter(r => r.ppid === 1 && r.pid !== process.pid && !/scripts\/benchmark\/index\.mjs/.test(r.command) && markers.some(m => m && r.command.includes(m)))
   return {
@@ -63,7 +67,7 @@ export function processCounters(rows, rootPid, markers = []) {
 
 /** Bytes of files under `dir` whose name matches `re` (recursive, symlinks not followed). */
 export function sizeOf(dir, re = /.*/, { maxEntries = 200_000 } = {}) {
-  let bytes = 0, files = 0, seen = 0
+  let bytes = 0, files = 0, seen = 0, max = 0
   const stack = [dir]
   while (stack.length && seen < maxEntries) {
     const d = stack.pop()
@@ -74,10 +78,10 @@ export function sizeOf(dir, re = /.*/, { maxEntries = 200_000 } = {}) {
       const p = path.join(d, e.name)
       if (e.isDirectory()) { if (e.name !== '.git' || re.source === '.*') stack.push(p); continue }
       if (!e.isFile() || !re.test(e.name)) continue
-      try { bytes += fs.statSync(p).size; files++ } catch { /* gone */ }
+      try { const size = fs.statSync(p).size; bytes += size; files++; max = Math.max(max, size) } catch { /* gone */ }
     }
   }
-  return { bytes, files }
+  return { bytes, files, max }
 }
 
 const mb = bytes => Math.round(bytes / 1024 / 1024 * 10) / 10
@@ -187,6 +191,8 @@ export function createSoakSampler({ api, rootPid, home, workDir, inspectPort, ou
           const dbs = sizeOf(root, /\.(sqlite|db)$/)
           const wals = sizeOf(root, /-wal$/)
           const logs = sizeOf(root, /\.(log|jsonl|ndjson)$/)
+          // Core definition-run histories (schema 3 references unchanged large columns): total, count, largest.
+          const runDbs = sizeOf(home, /^run\.sqlite(-wal)?$/)
           let eventRows = 0
           const projects = path.join(root, 'projects')
           for (const slug of fs.existsSync(projects) ? fs.readdirSync(projects) : []) {
@@ -195,7 +201,7 @@ export function createSoakSampler({ api, rootPid, home, workDir, inspectPort, ou
             const out = await run('sqlite3', ['-readonly', db, 'select count(*) from events'])
             const n = Number(String(out).trim()); if (Number.isFinite(n)) eventRows += n
           }
-          disk = { dbMb: mb(dbs.bytes), walMb: mb(wals.bytes), logsMb: mb(logs.bytes), eventRows, homeMb: await duMb(home), workMb: await duMb(path.join(workDir, 'repos')) }
+          disk = { coreRunDbMb: mb(runDbs.bytes), coreRunDbs: runDbs.files, coreRunDbMaxMb: mb(runDbs.max), dbMb: mb(dbs.bytes), walMb: mb(wals.bytes), logsMb: mb(logs.bytes), eventRows, homeMb: await duMb(home), workMb: await duMb(path.join(workDir, 'repos')) }
           for (const [key, dir] of Object.entries(extraDirs)) disk[key] = await duMb(typeof dir === 'function' ? dir() : dir)
         } catch (error) { log(`soak disk sample: ${error.message}`) }
       }

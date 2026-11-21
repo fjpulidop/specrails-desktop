@@ -14,19 +14,48 @@ import { renderSoak, summarizeSoak } from './soak-report.mjs'
 import { renderReport } from './report.mjs'
 import { readRunTimings } from './timings.mjs'
 import { listenerPid, ownedListener } from './server.mjs'
+import { parsePsStat, coreRows } from './soak.mjs'
+import { execFileSync } from 'node:child_process'
+
+/** Working directory of a process (lsof), or ''. */
+function cwdOf(pid) {
+  try { return execFileSync('lsof', ['-a', '-d', 'cwd', '-Fn', '-p', String(pid)], { encoding: 'utf8' }).split('\n').find(l => l.startsWith('n'))?.slice(1) ?? '' } catch { return '' }
+}
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
-const CHAOS = new Set(['restart', 'kill', 'sigstop', 'fake-limit'])
+const CHAOS = new Set(['restart', 'kill', 'sigstop', 'sigstop-core', 'fake-limit', 'api'])
 
-/** Validate the scenario file's `chaos` list: [{ atMin, do, seconds?, match?, resetInMin? }]. Pure. */
-export function normalizeChaos(list = []) {
+/** Minutes from `t0` to the next local `HH:MM` (today, or tomorrow when it has passed). Pure. */
+export function minutesUntilClock(clock, t0 = Date.now()) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(clock ?? ''))
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return NaN
+  const at = new Date(t0); at.setHours(Number(m[1]), Number(m[2]), 0, 0)
+  if (at.getTime() < t0) at.setDate(at.getDate() + 1)
+  return (at.getTime() - t0) / 60_000
+}
+
+/** Replace `{project:<scenario>}` / `{run:<scenario>}` in an API path from the driver's id registry. Pure. */
+export function resolveIds(text, ids = {}) {
+  return String(text).replace(/\{(project|run):([a-z0-9-]+)\}/g, (all, kind, name) => {
+    const hit = ids[name]
+    if (!hit) throw new Error(`no ${kind} id for scenario ${name} yet`)
+    return kind === 'project' ? hit.projectId : hit.runId
+  })
+}
+
+/**
+ * Validate the scenario file's `chaos` list: [{ atMin | atClock, do, seconds?, match?, resetInMin?, method?, path?, body? }].
+ * `atClock` ("HH:MM", local) is turned into minutes after `t0` (e.g. a budget change just before midnight). Pure.
+ */
+export function normalizeChaos(list = [], t0 = Date.now()) {
   if (!Array.isArray(list)) throw new Error('"chaos" must be a list')
   return list.map((c, i) => {
-    const atMin = Number(c?.atMin)
+    const atMin = c?.atClock !== undefined ? minutesUntilClock(c.atClock, t0) : Number(c?.atMin)
     if (!Number.isFinite(atMin) || atMin < 0 || !CHAOS.has(c?.do)) throw new Error(`chaos[${i}] needs atMin >= 0 and do (${[...CHAOS].join(' | ')})`)
-    if (c.do === 'sigstop' && !(Number(c.seconds) > 0 && Number(c.seconds) <= 1800)) throw new Error(`chaos[${i}].seconds must be 1..1800`)
+    if ((c.do === 'sigstop' || c.do === 'sigstop-core') && !(Number(c.seconds) > 0 && Number(c.seconds) <= 1800)) throw new Error(`chaos[${i}].seconds must be 1..1800`)
+    if (c.do === 'api' && (!/^(GET|POST|PUT|PATCH|DELETE)$/.test(c.method ?? '') || typeof c.path !== 'string' || !c.path.startsWith('/'))) throw new Error(`chaos[${i}] api needs method and an /api-relative path`)
     if (c.do === 'fake-limit' && (!c.match || !(Number(c.resetInMin) > 0))) throw new Error(`chaos[${i}] fake-limit needs match and resetInMin`)
-    return { atMin, do: c.do, seconds: Number(c.seconds ?? 0), match: c.match ?? null, resetInMin: Number(c.resetInMin ?? 0), fired: false }
+    return { atMin, do: c.do, seconds: Number(c.seconds ?? 0), match: c.match ?? null, resetInMin: Number(c.resetInMin ?? 0), method: c.method ?? null, path: c.path ?? null, body: c.body ?? null, label: c.label ?? null, fired: false }
   }).sort((a, b) => a.atMin - b.atMin)
 }
 
@@ -40,7 +69,7 @@ export async function soakMain({ opts, chosen, rawFile, target, api, workDir, lo
   const durationMs = opts.durationMin * 60_000
   const launchUntil = t0 + (opts.launchUntilMin ?? opts.durationMin) * 60_000
   const deadline = t0 + durationMs
-  const chaos = normalizeChaos(rawFile.chaos ?? [])
+  const chaos = normalizeChaos(rawFile.chaos ?? [], t0)
   const reportFile = path.resolve(opts.report ?? path.join(workDir, 'soak.md'))
   const samplesFile = reportFile.replace(/\.md$/, '.samples.jsonl')
   const session = { mode: 'soak', startedAt: new Date(t0).toISOString(), target, options: opts, results: [], quota: [], latency: [], skipped: [], stopReason: null, chaos: [], waits: [], inFlight: [] }
@@ -86,6 +115,23 @@ export async function soakMain({ opts, chosen, rawFile, target, api, workDir, lo
         process.kill(pid, 'SIGCONT')
         const h0 = performance.now(); await fetch(`${api.base}/api/health`, { signal: AbortSignal.timeout(120_000) }).catch(() => null)
         result = `stopped ${c.seconds}s; health answered ${Math.round(performance.now() - h0)} ms after SIGCONT`
+      } else if (c.do === 'sigstop-core') {
+        // A Core child of the server (a laptop that froze one process, or a debugger): the one
+        // whose command names `match`, else the largest. The server must notice nothing wrong.
+        const pid = ownedListener(target.port, target.home)
+        const rows = parsePsStat(execFileSync('ps', ['-A', '-o', 'pid=,ppid=,stat=,rss=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }))
+        const core = coreRows(rows, pid)
+        const victim = (c.match ? core.find(r => r.command.includes(c.match) || cwdOf(r.pid).includes(c.match)) : null) ?? core.sort((a, b) => b.rssKb - a.rssKb)[0]
+        if (!victim) throw new Error('no Core child to stop')
+        process.kill(victim.pid, 'SIGSTOP'); log(`chaos: SIGSTOP Core child ${victim.pid} (${cwdOf(victim.pid)}) for ${c.seconds}s`)
+        await sleep(c.seconds * 1000)
+        try { process.kill(victim.pid, 'SIGCONT') } catch { /* gone */ }
+        const h0 = performance.now(); await fetch(`${api.base}/api/health`, { signal: AbortSignal.timeout(120_000) }).catch(() => null)
+        result = `Core child ${victim.pid} in ${cwdOf(victim.pid) || '?'} stopped ${c.seconds}s; health ${Math.round(performance.now() - h0)} ms after SIGCONT`
+      } else if (c.do === 'api') {
+        const p = resolveIds(c.path, cache?.ids)
+        const res = await api.call(c.method, p, c.body ?? (c.method === 'GET' ? undefined : {}))
+        result = `${c.label ? c.label + ': ' : ''}${c.method} ${p} → ${res.status} ${JSON.stringify(res.data).slice(0, 300)}`
       } else if (c.do === 'fake-limit') {
         const words = resetWords(new Date(), c.resetInMin)
         fs.mkdirSync(path.dirname(opts.limitSimFile), { recursive: true })

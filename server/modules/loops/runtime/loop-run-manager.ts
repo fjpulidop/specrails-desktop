@@ -675,6 +675,9 @@ export class LoopRunManager {
     const admitted = definitionEngine ? await this._admit(ctx) : { release: () => {} }
     if (admitted === 'disposed') return neverAfterDispose()
     if (admitted === 'stopped') return settleLoopRun(ctx)
+    // The slot held now: a hold gives it back and its end takes one again (see _capacitySlot).
+    const slot = { release: admitted.release }
+    if (definitionEngine) ctx.capacity = this._capacitySlot(ctx, slot)
     try {
       try {
         if (definitionEngine) await runDefinitionEngine(ctx)
@@ -688,7 +691,7 @@ export class LoopRunManager {
 
       if (this._disposed) return neverAfterDispose()
       return await settleLoopRun(ctx)
-    } finally { admitted.release() }
+    } finally { slot.release() }
   }
 
   /**
@@ -697,7 +700,7 @@ export class LoopRunManager {
    * and it starts by itself. Stopped while queued, it settles as stopped having
    * run nothing. Without an admission queue it starts at once.
    */
-  private async _admit(ctx: LoopRunContext): Promise<{ release: () => void } | 'stopped' | 'disposed'> {
+  private async _admit(ctx: LoopRunContext, again?: { provider?: string }): Promise<{ release: () => void } | 'stopped' | 'disposed'> {
     const { req, runId, state } = ctx
     if (this._stopBeforeStart.has(runId)) {
       state.outcome = 'stopped'
@@ -711,7 +714,7 @@ export class LoopRunManager {
     this._admissionWaits.set(runId, aborter)
     let waitedSince: number | null = null
     try {
-      const release = await admission.acquire({ runId, projectId: req.projectId, provider: admittedProvider(ctx, this.db) }, {
+      const release = await admission.acquire({ runId, projectId: req.projectId, provider: again?.provider ?? admittedProvider(ctx, this.db) }, {
         signal: aborter.signal,
         onWait: (waitingFor, position) => {
           waitedSince ??= this.now()
@@ -720,16 +723,46 @@ export class LoopRunManager {
         },
       })
       if (waitedSince !== null) {
-        ctx.events.logLine(`▶ Started after waiting ${Math.round((this.now() - waitedSince) / 1000)} s for capacity.`)
+        ctx.events.logLine(`▶ ${again ? 'Continues' : 'Started'} after waiting ${Math.round((this.now() - waitedSince) / 1000)} s for capacity.`)
         this._emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: ctx.exactTicketIds })
       }
       return { release }
     } catch {
       if (this._disposed) return 'disposed'
       state.outcome = 'stopped'
-      ctx.events.logLine('■ Stopped while it waited for capacity; nothing ran.')
+      ctx.events.logLine(again ? '■ Stopped while it waited for capacity to continue.' : '■ Stopped while it waited for capacity; nothing ran.')
       return 'stopped'
     } finally { this._admissionWaits.delete(runId) }
+  }
+
+  /**
+   * A held run gives its capacity slot back. Parked on a person (question, approval),
+   * its budget or a provider usage limit, it does no work: Core has returned and
+   * nothing runs until the hold ends, which can take hours. Keeping the slot blocked
+   * the project's other rails and the machine's queue behind a run waiting for
+   * someone. When the hold ends it takes a slot again, queued like a launch (same
+   * log line, card and cancel), before Core continues. `slot.release` always
+   * releases what is held now, so settlement frees the right one.
+   */
+  private _capacitySlot(ctx: LoopRunContext, slot: { release: () => void }): NonNullable<LoopRunContext['capacity']> {
+    let held = true
+    return {
+      yieldSlot: () => {
+        if (!held) return
+        held = false
+        const release = slot.release
+        slot.release = () => {}
+        release()
+      },
+      reclaim: async (provider?: string) => {
+        if (held) return 'admitted'
+        const again = await this._admit(ctx, { provider })
+        if (again === 'stopped' || again === 'disposed') return again
+        held = true
+        slot.release = again.release
+        return 'admitted'
+      },
+    }
   }
 }
 

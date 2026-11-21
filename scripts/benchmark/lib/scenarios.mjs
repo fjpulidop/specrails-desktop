@@ -79,9 +79,33 @@ export function normalizeScenarios(raw) {
       provider, model: s.model ?? (provider === defaults.provider ? defaults.model : undefined),
       approvalBeforeArchive: s.approvalBeforeArchive === true, answers, actions, expect, timeoutMinutes,
       runCapUsd: s.runCapUsd ?? defaults.runCapUsd, notes: s.notes ?? '', rail: railOf(s, at), startAtMin: startAtOf(s, at),
+      providers: providersOf(s, provider), onLimit: onLimitOf(s, at),
     }
   })
   return { defaults, scenarios }
+}
+
+/** Providers the scenario's project is registered with (the launch provider first; a switch target must be one). */
+function providersOf(s, provider) {
+  const list = Array.isArray(s.providers) ? s.providers : [provider]
+  for (const p of list) if (!PROVIDERS.has(p)) throw new ScenarioError(`${s.name}: unknown provider "${p}" in providers`)
+  return [provider, ...list.filter(p => p !== provider)]
+}
+
+/**
+ * What the driver does when the run is held on a provider usage limit:
+ * `{ switchTo: { provider, model }, afterSeconds }` answers the limit card with
+ * "continue on another provider" (POST /loop-runs/:id/limit), or `{ wait: true }`
+ * (default) leaves it to the automatic resume at the reset.
+ */
+function onLimitOf(s, at) {
+  if (s.onLimit === undefined) return null
+  const o = s.onLimit
+  if (!o || typeof o !== 'object') throw new ScenarioError(`${at}.onLimit must be an object`)
+  if (o.switchTo !== undefined && (!PROVIDERS.has(o.switchTo?.provider) || o.switchTo.provider === s.provider)) throw new ScenarioError(`${at}.onLimit.switchTo.provider must be another known provider`)
+  const afterSeconds = Number(o.afterSeconds ?? 0)
+  if (!Number.isFinite(afterSeconds) || afterSeconds < 0) throw new ScenarioError(`${at}.onLimit.afterSeconds must be a non-negative number`)
+  return { switchTo: o.switchTo ? { provider: o.switchTo.provider, ...(o.switchTo.model ? { model: String(o.switchTo.model) } : {}) } : null, afterSeconds }
 }
 
 /** Soak mode: minutes after the soak starts before this scenario may launch (default 0). */
