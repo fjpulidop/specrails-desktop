@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1911 source/build files. Nearby tests are linked where names
+Includes 1912 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1718,6 +1718,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [catalog.ts](../../server/mcp/v2/i18n/catalog.ts)
 
+## server/mcp/v2/projectors
+
+- [run-state.ts](../../server/mcp/v2/projectors/run-state.ts) · [test](../../server/mcp/v2/projectors/run-state.test.ts)
+
 ## server/mcp/v2/tools
 
 - [blueprint.ts](../../server/mcp/v2/tools/blueprint.ts)
@@ -1730,8 +1734,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [overview.ts](../../server/mcp/v2/tools/overview.ts) · [test](../../server/mcp/v2/tools/overview.test.ts)
 - [projects.ts](../../server/mcp/v2/tools/projects.ts) · [test](../../server/mcp/v2/tools/projects.test.ts)
 - [providers.ts](../../server/mcp/v2/tools/providers.ts)
-- [rails.ts](../../server/mcp/v2/tools/rails.ts)
-- [runs.ts](../../server/mcp/v2/tools/runs.ts)
+- [rails.ts](../../server/mcp/v2/tools/rails.ts) · [test](../../server/mcp/v2/tools/rails.test.ts)
+- [runs.ts](../../server/mcp/v2/tools/runs.ts) · [test](../../server/mcp/v2/tools/runs.test.ts)
 - [settings.ts](../../server/mcp/v2/tools/settings.ts)
 - [specs.ts](../../server/mcp/v2/tools/specs.ts)
 - [system.ts](../../server/mcp/v2/tools/system.ts)

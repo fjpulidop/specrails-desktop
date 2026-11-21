@@ -23,9 +23,10 @@ import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { getActivePrDeliveryByRail, getPrDelivery, type RailPrDeliveryRow } from './rail-pr-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { listRepositoryDeliveries, refreshRepositoryDeliveryGroup } from './multi-repo-execution'
-import type { RailJobStoppedMessage, LoopRunStoppedMessage } from '../../../types'
+import type { RailJobStoppedMessage, LoopRunStoppedMessage, RailRemovedMessage } from '../../../types'
 import { cancelRuntimeContinuation } from '../../agent-runtime/runtime/agent-runtime-controls-router'
-import { projectContextOf, requireRailIndexParam, emitPrDeliveryUpdate, engineSupportRejection } from './rails-http-shared'
+import { projectContextOf, requireRailIndexParam, emitPrDeliveryUpdate, engineSupportRejection, broadcastRailUpdated, storedRailMode } from './rails-http-shared'
+import { getRails, getRail, setRailTickets, createRail, deleteRail, railExists, railCount, MAX_RAILS, type RailState } from './rails-store'
 import { resolveRelaunchSource, parseRailLaunchRequest } from './rail-launch-request'
 import { admitRailLaunch, resolveRailLaunchScope, relaunchRepositoryBases, resolveBaseDeliveries, checkRailLaunchCapacity, launchLoopSource, selectBuiltinLaunchLoop, selectLibraryLaunchLoop, resolveRailLaunchEngine, type RailLaunchDoor, type LaunchLoopSelection } from './rail-launch-admission'
 import { resolveRailLoopGraph, planRailLoopRun, resolvePrContinuation } from './rail-launch-loop-plan'
@@ -152,6 +153,79 @@ export function registerRailLaunchRoutes(router: Router): void {
     }
   }
   router.post(['/:railIndex/launch', '/:railIndex/relaunch'], launchRail)
+
+  // POST /rails/launch-specs { specIds, railIndex?, ...launch options } — assign
+  // and launch in one call (MCP v2 `specrails_runs(launch)`, scripts). Picks the
+  // requested rail, else an idle rail already holding exactly these specs, else
+  // an idle empty rail, else a new rail; moves the specs off other idle rails;
+  // then enters the ordinary launch door. A refused launch restores every rail
+  // it touched (a rail it created is removed), so a failure leaves the board as
+  // it was. The response is the launch response plus `railIndex`.
+  router.post('/launch-specs', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const { specIds, railIndex: requested, ...launchBody } = (req.body ?? {}) as Record<string, unknown>
+    if (!Array.isArray(specIds) || specIds.length === 0 || specIds.length > 50 || specIds.some((id) => !Number.isSafeInteger(id) || (id as number) <= 0)) {
+      res.status(400).json({ error: 'invalid_spec_ids', detail: 'specIds must be 1-50 positive spec ids' }); return
+    }
+    const ids = [...new Set(specIds as number[])]
+    const busy = (index: number) => [...c.railJobs.values()].some((meta) => meta.railIndex === index)
+      || [...c.railLoopRuns.values()].some((meta) => meta.railIndex === index)
+      || !!getActivePrDeliveryByRail(c.db, index)
+    const rails = getRails(c.db)
+    let railIndex: number
+    let created = false
+    if (requested !== undefined && requested !== null) {
+      if (typeof requested !== 'number' || !Number.isSafeInteger(requested) || requested < 0 || !railExists(c.db, requested)) { res.status(404).json({ error: 'rail_not_found' }); return }
+      if (busy(requested)) { res.status(409).json({ error: 'rail_busy', detail: 'The rail has a run or a delivery waiting for a decision.' }); return }
+      railIndex = requested
+    } else {
+      const same = rails.find((rail) => !busy(rail.railIndex) && rail.ticketIds.length === ids.length && ids.every((id) => rail.ticketIds.includes(id)))
+      const empty = same ?? rails.find((rail) => !busy(rail.railIndex) && rail.ticketIds.length === 0)
+      if (empty) railIndex = empty.railIndex
+      else {
+        if (railCount(c.db) >= MAX_RAILS) { res.status(409).json({ error: 'no_free_rail', maxRails: MAX_RAILS, detail: 'Every rail is busy or holds other specs.' }); return }
+        railIndex = createRail(c.db, null).railIndex
+        created = true
+        broadcastRailUpdated(c, railIndex, 'name')
+      }
+    }
+    // Every rail this call changes, with what it held before (for the rollback).
+    const touched = new Map<number, RailState>()
+    const assign = (index: number, ticketIds: number[]) => {
+      const current = getRail(c.db, index)
+      if (!touched.has(index)) touched.set(index, current)
+      setRailTickets(c.db, index, ticketIds, String(storedRailMode(current.mode)), current.profileName ?? null, undefined)
+      broadcastRailUpdated(c, index, 'tickets')
+    }
+    for (const rail of rails) {
+      if (rail.railIndex === railIndex || busy(rail.railIndex) || !rail.ticketIds.some((id) => ids.includes(id))) continue
+      assign(rail.railIndex, rail.ticketIds.filter((id) => !ids.includes(id)))
+    }
+    assign(railIndex, ids)
+
+    req.params.railIndex = String(railIndex)
+    req.body = launchBody
+    const json = res.json.bind(res)
+    res.json = ((payload: unknown) => json(payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? { ...(payload as Record<string, unknown>), railIndex, ...(created ? { railCreated: true } : {}) }
+      : payload)) as Response['json']
+    await launchRail(req, res)
+    if (res.statusCode < 400) return
+    try {
+      if (created && !busy(railIndex)) {
+        deleteRail(c.db, railIndex)
+        touched.delete(railIndex)
+        c.broadcast({ type: 'rail.removed', projectId: c.project.id, railIndex } as RailRemovedMessage)
+      }
+      for (const [index, before] of touched) {
+        if (busy(index)) continue
+        setRailTickets(c.db, index, before.ticketIds, String(storedRailMode(before.mode)), before.profileName ?? null, undefined)
+        broadcastRailUpdated(c, index, 'tickets')
+      }
+    } catch (err) {
+      console.warn(`[rails-router] launch-specs rollback failed: ${(err as Error).message}`)
+    }
+  })
 
   // PR CI loop (pr-ci-loop): "Watch and fix the PR's CI" on an attached PR. The
   // launch reuses the ordinary continuation admission (a new generation on the
