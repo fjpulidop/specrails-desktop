@@ -32,17 +32,26 @@ export function openAppSettings(section: AppSettingsSection, settingId?: string)
  * the modal.
  */
 export const OPEN_PROJECT_SETTINGS_EVENT = 'specrails:open-project-settings'
+/** `/settings?setting=<id>`: land on one block (same value as `SETTING_PARAM`, settings/lib/setting-anchor). */
+export const PROJECT_SETTINGS_SETTING_PARAM = 'setting'
+/** `/settings?section=<id>`: land on one section (a `PROJECT_SETTINGS_SECTIONS` id). */
+export const PROJECT_SETTINGS_SECTION_PARAM = 'section'
 
 export interface OpenProjectSettingsDetail {
   /** A `PROJECT_SETTINGS_SECTIONS` id. */
   section: string
   /** A `data-setting-id` to scroll to and focus (⌘K `/`, see settings-registry). */
   settingId?: string
+  /**
+   * The project whose settings to open, when it may differ from the active one
+   * (a Job detail window forwards its run's project). The shell selects it first.
+   */
+  projectId?: string
 }
 
-export function openProjectSettings(section: string, settingId?: string): void {
+export function openProjectSettings(section: string, settingId?: string, projectId?: string): void {
   try {
-    window.dispatchEvent(new CustomEvent<OpenProjectSettingsDetail>(OPEN_PROJECT_SETTINGS_EVENT, { detail: { section, ...(settingId ? { settingId } : {}) } }))
+    window.dispatchEvent(new CustomEvent<OpenProjectSettingsDetail>(OPEN_PROJECT_SETTINGS_EVENT, { detail: { section, ...(settingId ? { settingId } : {}), ...(projectId ? { projectId } : {}) } }))
   } catch {
     // non-DOM environment — nothing to open
   }

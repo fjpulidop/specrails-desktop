@@ -5,6 +5,7 @@ import { render as baseRender, screen, fireEvent, act, within } from '../../test
 import { useSidebarPin } from '../../context/SidebarPinContext'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
+import { openProjectSettings } from '../../lib/app-settings-events'
 
 function PinControls() {
   const { cycleLeftMode } = useSidebarPin()
@@ -63,6 +64,28 @@ beforeEach(() => {
 })
 
 describe('ArcSidebar', () => {
+  it('opens project settings at the requested section (a run\'s "Configure")', () => {
+    function SearchProbe() { const location = useLocation(); return <div data-testid="route">{location.pathname + location.search}</div> }
+    render(<><ArcSidebar {...defaultProps} /><SearchProbe /></>)
+    act(() => { openProjectSettings('agentRuntime') })
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?section=agentRuntime')
+    act(() => { openProjectSettings('budget', 'projectBudget', 'proj-1') })
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?setting=projectBudget')
+    expect(mockSetActiveProjectId).not.toHaveBeenCalled()
+  })
+
+  it('switches to the run\'s project first when a Job detail window asks for another project\'s settings', () => {
+    function SearchProbe() { const location = useLocation(); return <div data-testid="route">{location.pathname + location.search}</div> }
+    render(<><ArcSidebar {...defaultProps} /><SearchProbe /></>)
+    act(() => { openProjectSettings('agentRuntime', undefined, 'proj-2') })
+    expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-2')
+    // The route waits for the switch to commit (route memory would overwrite it).
+    expect(screen.getByTestId('route')).not.toHaveTextContent('/settings')
+    act(() => { openProjectSettings('agentRuntime', undefined, 'proj-unknown') })
+    expect(mockSetActiveProjectId).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?section=agentRuntime')
+  })
+
   it('is a labelled landmark with labelled navigation lists', () => {
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getByRole('complementary', { name: 'Projects and missions' })).toBeInTheDocument()

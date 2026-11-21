@@ -148,6 +148,24 @@ describe('SettingsPage', () => {
     })
   })
 
+  it('lands on the section named by ?section= (a run\'s "Configure", forwarded from a Job detail window)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    const scrollIntoView = vi.fn()
+    const original = HTMLElement.prototype.scrollIntoView
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    try {
+      render(<SettingsPage />, { route: '/settings?section=agentRuntime' })
+      const nav = await screen.findByRole('navigation', { name: 'Project settings sections' })
+      await waitFor(() => {
+        const current = nav.querySelector('[aria-current="true"]')
+        expect(current?.textContent).toBe('Verification commands')
+      })
+      expect(scrollIntoView.mock.contexts.some((el) => (el as HTMLElement).id === 'settings-section-agentRuntime')).toBe(true)
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original
+    }
+  })
+
   it('offers a section index that scrolls to the section and marks it current', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
     const user = userEvent.setup()
