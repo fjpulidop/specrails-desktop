@@ -145,6 +145,7 @@ function HeldRailStatus({ rail, now, onOpenRail, onResumeRun }: Pick<MilestoneRa
       <span className="flex min-w-0 shrink items-center gap-1 text-caption" title={title} data-testid="milestone-rail-held" data-hold={key}>
         <RunStateDot state={RAIL_HOLD_RUN_STATE[hold.kind]} />
         <span className={cn('truncate', runStateLook(RAIL_HOLD_RUN_STATE[hold.kind]).text)}>{t(`milestoneProgress.rail.held.${key}`)}</span>
+        <span className="sr-only">{title}</span>
       </span>
       {action === 'resume' && rail.runId && onResumeRun && (
         <button
@@ -203,8 +204,9 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail, onResumeRun 
           {name}
         </button>
         {rail.engine && (
-          <span className="truncate text-caption text-muted-foreground" data-testid="milestone-rail-engine" title={t('milestoneProgress.rail.engine', { engine: engineLabel(t, rail.engine) })}>
-            {engineLabel(t, rail.engine)}
+          <span className="truncate text-caption text-muted-foreground" data-testid="milestone-rail-engine">
+            <span className="sr-only">{t('milestoneProgress.rail.engine', { engine: engineLabel(t, rail.engine) })}</span>
+            <span aria-hidden>{engineLabel(t, rail.engine)}</span>
           </span>
         )}
       </span>
@@ -541,6 +543,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
         <p className={cn('mt-0.5 truncate', next.changed ? 'text-foreground' : 'text-muted-foreground')} data-testid="milestone-chain-next-engine" data-source={next.source} data-changed={next.changed}
           title={t(`milestoneProgress.chain.engineSource.${next.source}`)}>
           {t(next.changed ? 'milestoneProgress.chain.nextEngineChanged' : 'milestoneProgress.chain.nextEngine', { engine: engineLabel(t, next.engine) })}
+          <span className="sr-only"> ({t(`milestoneProgress.chain.engineSource.${next.source}`)})</span>
         </p>
       )}
       {pausedSpecDelivered && (
