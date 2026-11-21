@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { McpToolContext, McpToolSpec } from './types'
-import { getAgentChatManager } from '../../modules/missions/runtime/agent-chat-registry'
+import type { McpToolContext, McpToolSpec } from '../../tools/types'
+import { getAgentChatManager } from '../../../modules/missions/runtime/agent-chat-registry'
 
 export function missionTools(): McpToolSpec[] {
   return [{

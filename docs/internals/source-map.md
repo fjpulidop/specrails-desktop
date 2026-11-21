@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1905 source/build files. Nearby tests are linked where names
+Includes 1906 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1671,7 +1671,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [jobs.ts](../../server/mcp/tools/jobs.ts)
 - [loops.ts](../../server/mcp/tools/loops.ts)
 - [meta.ts](../../server/mcp/tools/meta.ts)
-- [mission.ts](../../server/mcp/tools/mission.ts) · [test](../../server/mcp/tools/mission.test.ts)
 - [missions.ts](../../server/mcp/tools/missions.ts) · [test](../../server/mcp/tools/missions.test.ts)
 - [plugins.ts](../../server/mcp/tools/plugins.ts) · [test](../../server/mcp/tools/plugins.test.ts)
 - [projects.ts](../../server/mcp/tools/projects.ts)
@@ -1718,6 +1717,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [catalog.ts](../../server/mcp/v2/i18n/catalog.ts)
 
+## server/mcp/v2/projectors
+
+- [mission-state.ts](../../server/mcp/v2/projectors/mission-state.ts)
+
 ## server/mcp/v2/tools
 
 - [blueprint.ts](../../server/mcp/v2/tools/blueprint.ts)
@@ -1726,7 +1729,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [index.ts](../../server/mcp/v2/tools/index.ts)
 - [insights.ts](../../server/mcp/v2/tools/insights.ts)
 - [integrations.ts](../../server/mcp/v2/tools/integrations.ts)
-- [missions.ts](../../server/mcp/v2/tools/missions.ts)
+- [mission.ts](../../server/mcp/v2/tools/mission.ts) · [test](../../server/mcp/v2/tools/mission.test.ts)
+- [missions.ts](../../server/mcp/v2/tools/missions.ts) · [test](../../server/mcp/v2/tools/missions.test.ts)
 - [overview.ts](../../server/mcp/v2/tools/overview.ts)
 - [projects.ts](../../server/mcp/v2/tools/projects.ts)
 - [providers.ts](../../server/mcp/v2/tools/providers.ts)

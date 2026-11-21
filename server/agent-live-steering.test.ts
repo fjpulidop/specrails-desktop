@@ -40,7 +40,7 @@ import { decorateAgentInputMessages, enqueueAgentInput, getAgentInput, listPendi
 import { AGENT_CAPABILITY_HEADER } from './modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest } from './mcp/agent-capability'
 import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './mcp/tools/types'
-import { missionTools } from './mcp/tools/mission'
+import { missionTools } from './mcp/v2/tools/mission'
 import type { DbInstance } from './db'
 import type { AdapterEvent } from './providers/types'
 import type { InvocationResult, RunInvocationHooks } from './modules/execution/runtime/spawn-lifecycle'
