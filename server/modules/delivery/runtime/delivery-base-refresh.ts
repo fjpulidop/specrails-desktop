@@ -34,6 +34,8 @@ export const BASE_REFRESH_REQUEST_PREFIX = 'base-refresh-'
 /** The node a refreshed run re-verifies from: the final verification of the Implement recipe. */
 export const BASE_REFRESH_FORK_NODE = 'verify-archive'
 
+/** Resolver turns per refresh: the second sees only the files the first left conflicted. */
+export const RESOLVER_ROUNDS = 2
 const SHA = /^[0-9a-f]{40,64}$/i
 const CONFLICT_MARKER = /^(?:<{7}|>{7})(?: |$)|^={7}$/m
 
@@ -90,7 +92,8 @@ export function buildBaseRefreshResolverPrompt(input: ResolverInput, mergeSafe: 
     '',
     mergeSafe,
     '',
-    'Resolve every conflict so BOTH sides keep working: the base\'s integrated work and this branch\'s change. Never drop either side\'s behaviour, and change nothing outside the conflicted hunks. Remove every conflict marker.',
+    'Both sides are intended: the base side is work the person already integrated, and this branch\'s side is the change described above. Resolve every conflict by combining them, so the base\'s behaviour stays and this change applies on top of it (for example, when both rewrite the same expression, write the expression that does both). Never drop either side\'s behaviour, and change nothing outside the conflicted hunks. Remove every conflict marker.',
+    'Leave a hunk unresolved only when the two intents truly contradict each other (no code can do both); then say which hunk and why.',
     'Do not run git merge, git commit, git add, git checkout, git switch, git reset, git rebase, git stash or git push: the host completes the merge and verifies it.',
   ].join('\n')
 }
@@ -140,16 +143,21 @@ export async function mergeBaseIntoDelivery(deps: BaseRefreshDeps, input: BaseRe
       await restore()
       return { ok: false, reason: 'git_failed', detail: `merging \`${input.baseBranch}\`: ${first(merged)}` }
     }
-    try {
-      await deps.resolve({ worktreePath: cwd, branch: input.branch, baseBranch: input.baseBranch, conflictPaths: conflicts, specs: input.specs })
-    } catch (error) {
-      await restore()
-      return { ok: false, reason: 'resolver_failed', detail: error instanceof Error ? error.message : String(error), conflicts }
-    }
-    const left = conflicts.filter((file) => {
+    const remaining = (files: readonly string[]): string[] => files.filter((file) => {
       const absolute = path.join(cwd, file)
       try { return existsSync(absolute) && CONFLICT_MARKER.test(readFileSync(absolute, 'utf8')) } catch { return true }
     })
+    // A second round gets only the files whose markers the first one left (a cheap model sometimes stops early).
+    let left = conflicts
+    for (let round = 0; round < RESOLVER_ROUNDS && left.length; round++) {
+      try {
+        await deps.resolve({ worktreePath: cwd, branch: input.branch, baseBranch: input.baseBranch, conflictPaths: left, specs: input.specs })
+      } catch (error) {
+        await restore()
+        return { ok: false, reason: 'resolver_failed', detail: error instanceof Error ? error.message : String(error), conflicts }
+      }
+      left = remaining(left)
+    }
     if (left.length) {
       await restore()
       return { ok: false, reason: 'conflict_unresolved', detail: `conflict markers remain in ${left.join(', ')}`, conflicts }

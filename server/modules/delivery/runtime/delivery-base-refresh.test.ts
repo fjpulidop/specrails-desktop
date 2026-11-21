@@ -65,9 +65,22 @@ describe('mergeBaseIntoDelivery', () => {
     expect(prompt).toContain('Do not run git merge, git commit')
   })
 
+  it('gives the resolver a second round on the files its first round left conflicted', async () => {
+    const delivery = commit(worktree, 'cart.js', 'line1\nline2 totals\nline3\n', 'feat: totals')
+    commit(repo, 'cart.js', 'line1\nline2 discounts\nline3\n', 'feat: discounts')
+    const rounds: string[][] = []
+    const result = await mergeBaseIntoDelivery({ git: defaultGitRunner, resolve: async (request) => {
+      rounds.push([...request.conflictPaths])
+      if (rounds.length === 2) writeFileSync(path.join(worktree, 'cart.js'), 'line1\nline2 discounts totals\nline3\n')
+    } }, input(delivery))
+    expect(rounds).toEqual([['cart.js'], ['cart.js']])
+    expect(result).toMatchObject({ ok: true, conflicts: ['cart.js'] })
+  })
+
   it('restores the delivery exactly when the resolver leaves markers, edits other files or fails', async () => {
     const delivery = commit(worktree, 'cart.js', 'line1\nline2 totals\nline3\n', 'feat: totals')
     commit(repo, 'cart.js', 'line1\nline2 discounts\nline3\n', 'feat: discounts')
+    // Two resolver rounds, the second on the files the first left: both doing nothing still restores.
     const attempts: Array<[(r: ResolverInput) => Promise<void>, string]> = [
       [async () => {}, 'conflict_unresolved'],
       [async () => { writeFileSync(path.join(worktree, 'cart.js'), 'ok\n'); writeFileSync(path.join(worktree, 'stray.js'), 'x\n') }, 'conflict_unresolved'],
