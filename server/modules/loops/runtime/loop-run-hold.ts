@@ -13,6 +13,7 @@
 import type { DbInstance } from '../../../db'
 import { readRetainedBudgetPause } from './loop-budget-pauses'
 import { readLimitPause } from './loop-limit-pauses'
+import { readUserPause } from './loop-user-pauses'
 import type { LoopLimitPause } from './loop-run-contract'
 
 export const RUN_HOLD_KINDS = ['restart', 'interrupted', 'provider_limit', 'budget', 'question', 'approval', 'paused', 'queued'] as const
@@ -30,12 +31,16 @@ export interface RunHold {
   waitingFor?: string
   /** `queued`: 1 = next to start. */
   position?: number
+  /** `paused`: the person paused it (Pause); only their Resume continues it. */
+  byYou?: true
 }
 
 /** What the live manager knows about a run it holds parked in this process. */
 export interface LiveRunPause {
   budget: boolean
   limit: LoopLimitPause | null
+  /** Parked on the person's Pause. */
+  userPause?: boolean
   pending: Array<{ kind?: unknown }>
 }
 
@@ -49,6 +54,8 @@ export interface RunHoldFacts {
   retainedLimit: LoopLimitPause | null
   /** The run was parked at its budget when a restart retained it (`queue_state`). */
   retainedBudget?: boolean
+  /** The person paused the run (or asked to) and no resume answered it yet (`queue_state`). */
+  retainedUserPause?: boolean
   /** The manager's parked pause in this process; null when nothing is parked. */
   live: LiveRunPause | null
   /** The run was active when this process started and startup recovery has not reconciled it yet. */
@@ -95,11 +102,14 @@ export function deriveRunHold(facts: RunHoldFacts): RunHold | null {
   if (facts.live) {
     if (facts.live.limit) return at('provider_limit', facts.live.limit.pausedAt, { resumeAt: facts.live.limit.resumeAt })
     if (facts.live.budget) return at('budget')
+    if (facts.live.userPause) return at('paused', facts.lastActivityAt, { byYou: true })
     return at(interruptHold(interruptKinds(facts.live.pending)) ?? 'question')
   }
   if (facts.loopStatus === 'paused') {
     if (facts.retainedLimit) return at('provider_limit', facts.retainedLimit.pausedAt, { resumeAt: facts.retainedLimit.resumeAt })
     if (facts.restartReason === 'budget_paused' || facts.retainedBudget) return at('budget')
+    // The person's Pause outlives a restart (also one asked while the step was finishing).
+    if (facts.restartReason === 'user_paused' || facts.retainedUserPause) return at('paused', facts.lastActivityAt, { byYou: true })
     const asked = interruptHold(interruptKinds(facts.checkpoint?.pendingInterrupts))
     if (asked) return at(asked)
     if (facts.restartReason === 'restart') return at('restart')
@@ -129,11 +139,11 @@ export interface RunHoldSources {
 }
 
 /** What the project's live loop engine and startup recovery know about held runs. */
-export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }>; queuedFor?(id: string): RunHoldFacts['queued'] }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
+export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): boolean; budgetPause?(id: string): unknown; userPause?(id: string): boolean; limitPause?(id: string): LiveRunPause['limit']; pendingInterrupts?(id: string): Array<{ kind?: unknown }>; queuedFor?(id: string): RunHoldFacts['queued'] }; restartPendingRunIds?: ReadonlySet<string> }): RunHoldSources {
   const manager = c.loopRunManager
   return {
     livePause: (runId) => manager?.isPaused?.(runId)
-      ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, pending: manager.pendingInterrupts?.(runId) ?? [] }
+      ? { budget: !!manager.budgetPause?.(runId), limit: manager.limitPause?.(runId) ?? null, userPause: !!manager.userPause?.(runId), pending: manager.pendingInterrupts?.(runId) ?? [] }
       : null,
     restartPending: c.restartPendingRunIds,
     queued: (runId) => manager?.queuedFor?.(runId) ?? null,
@@ -166,6 +176,7 @@ export function readRunHolds(db: DbInstance, jobIds: readonly string[], sources:
         loopStatus: row.status, restartReason: row.restart_reason, checkpoint,
         retainedLimit: row.status === 'paused' && !live ? readLimitPause(db, row.id) : null,
         retainedBudget: row.status === 'paused' && !live ? readRetainedBudgetPause(db, row.id) : false,
+        retainedUserPause: row.status === 'paused' && !live ? !!readUserPause(db, row.id) : false,
         live, restartPending: sources.restartPending?.has(row.id) ?? false, lastActivityAt: isoTimestamp(row.last_event_at),
         queued: (() => { try { return sources.queued?.(row.id) ?? null } catch { return null } })(),
       })

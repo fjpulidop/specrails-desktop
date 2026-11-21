@@ -8,7 +8,8 @@ import { createDefinitionEventProjection } from './loop-definition-events'
 import { probeDefinitionRun } from './loop-definition-recovery'
 import { carriesHumanDecision, runDefinitionLoop } from './loop-definition-run'
 import { definitionRunNeverReachedCore, getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
-import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
+import { awaitBudget, awaitHumanDecision, awaitProviderLimit, awaitUserPause, MAX_LIMIT_PAUSES } from './loop-run-pauses'
+import { USER_PAUSE_REASON } from './loop-user-pauses'
 import { parseCoreFailure } from '../../recovery/domain'
 import { classifyProviderLimit } from '../../../provider-limit'
 import { resolveResetText } from '../../provider-quota/domain'
@@ -78,10 +79,29 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
       }
     })
   }
+  // The person's Pause needs the run's retained Core to support the cooperative pause:
+  // asked once per invocation chain, as soon as the run has a Core context.
+  let pauseSupportProbed = false
+  const probePauseSupport = (): void => {
+    if (pauseSupportProbed) return
+    const contextPath = readDefinitionRun(db, runId)?.metadata.contextPath
+    if (!contextPath) return
+    pauseSupportProbed = true
+    if (!executors.pauseDefinition) { host.notePauseSupport(runId, false); return }
+    if (!executors.supportsPause) { host.notePauseSupport(runId, true); return }
+    void executors.supportsPause({ runId, contextPath }).then(supported => host.notePauseSupport(runId, supported), () => host.notePauseSupport(runId, false))
+  }
+  // The person paused the run while Desktop, not Core, held it (a host task, a budget
+  // pause, an answer): Core's next resume would consume the request, so it parks here.
+  const pendingUserPause = async (): Promise<'continue' | 'stop'> => {
+    const requestId = host.userPauseRequest(runId)
+    return requestId && !host.isCancelled(runId) && !host.isDisposed() ? awaitUserPause(ctx, requestId) : 'continue'
+  }
   // The step Core was running last: an unrequested stop names it.
   let lastStep: string | null = null
   // A provider turn starting is where the next turn's budget is checked ahead.
   const observeTurns = (event: Record<string, unknown>): void => {
+    probePauseSupport()
     const workflow = event.type === 'workflow-event' ? event.event as { type?: unknown; nodePath?: unknown } | undefined : undefined
     if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string') lastStep = workflow.nodePath
     if (event.type === 'runtime-graph' && Array.isArray(event.nodes)) {
@@ -227,17 +247,22 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     // Desktop owns is the re-invocation after a human decision.
     beforeContinuation: async () => {
       const breach = host.budgetBreach(runId)
-      return breach ? awaitBudget(ctx, breach) : 'continue'
+      if (breach && await awaitBudget(ctx, breach) === 'stop') return 'stop'
+      return pendingUserPause()
     },
     // Core exited 2 on the budget pause requested above. A budget raised
     // meanwhile resumes at once; otherwise the run waits like any budget pause.
     awaitProviderLimit: awaitLimit,
+    // Core exited 2 on the person's Pause (reason `requested`): the run waits for their Resume.
     awaitHostPause: async pause => {
+      if (pause.reason === USER_PAUSE_REASON) return awaitUserPause(ctx, host.userPauseRequest(runId) ?? pause.requestId)
       if (pause.reason !== 'budget') throw new Error(`Core paused (${pause.reason}) without an addressable interrupt`)
       const breach = host.budgetBreach(runId)
-      if (breach) return awaitBudget(ctx, breach)
-      logLine(`\n▶ The budget allows the next step — resuming the workflow.`)
-      return 'continue'
+      if (breach) {
+        if (await awaitBudget(ctx, breach) === 'stop') return 'stop'
+      } else logLine(`\n▶ The budget allows the next step — resuming the workflow.`)
+      // Core consumed every pause request with the budget's: a Pause asked meanwhile still holds the run.
+      return pendingUserPause()
     },
   })
   state.definitionCompletion = result.completion

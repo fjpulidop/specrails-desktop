@@ -144,8 +144,9 @@ mutable run state and the `NodeStep` routing result).
 | `loop-run-events.ts` | Seq allocator, `loop_step` / `loop_step_end` / log / raw-frame emission |
 | `loop-run-ledger.ts` | Stage `loop_step_recovery` before a spawn; record the settled step and totals |
 | `loop-step-accounting.ts` | `ai_invocations` rows and orphan step recovery (startup, teardown, settle) |
-| `loop-run-pauses.ts` | Human-decision, `budget_paused` and `limit_paused` pauses |
+| `loop-run-pauses.ts` | Human-decision, `budget_paused`, `limit_paused` and `user_paused` pauses |
 | `loop-limit-pauses.ts` | Durable `limit_paused` record (`queue_state` `limit_pause:<runId>`: provider, `resumeAt`, automatic resume) that survives a restart |
+| `loop-user-pauses.ts` | The person's Pause of a Core definition run: durable record (`queue_state` `user_pause:<runId>`) written when Pause is asked, stamped when Core parks at the next step boundary (`runtime pause`, reason `requested`, unique request ids), cleared by any resume or the settlement. While it exists the run holds as `paused` by you (`hold.byYou`), gives its capacity slot back, survives a restart as paused and never resumes by itself (startup recovery skips it); Resume continues the same attempt in place. `LoopRunManager.requestUserPause` / `resumeUserPause` / `userPauseControl` |
 | `loop-budget-pauses.ts` | Durable record (`queue_state` `budget_pause:<runId>`) that a restart retained a run parked at its budget, so the run stays held by the budget instead of a generic restart Resume; cleared when a resume moves the run on |
 | `loop-budget-resume.ts` | Per-run cap gate for resuming such a retained run (`{ runCap: 'ignore' }` / `{ runCapUsd: n }`, 409 while the cap stands), same answers as a resident budget pause |
 | `loop-legacy-traversal.ts` | Engine-1 traversal: between-step guards and node dispatch |

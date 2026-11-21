@@ -51,6 +51,7 @@ import { bindRunCap, initialEventSeq, normalizeLoopRunRequest, persistLoopRunLau
 import { runDefinitionEngine } from './loop-definition-execution'
 import { runLegacyTraversal } from './loop-legacy-traversal'
 import { saveLimitPause } from './loop-limit-pauses'
+import { clearUserPause, saveUserPause, USER_PAUSE_REASON, userPauseRequestId } from './loop-user-pauses'
 import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
 import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
@@ -66,6 +67,7 @@ import type {
   RunCapChoice,
   BudgetResumeResult,
   LoopLimitPause,
+  UserPauseRequestResult,
 } from './loop-run-contract'
 
 export type {
@@ -110,6 +112,12 @@ export class LoopRunManager {
   private readonly _admissionWaits = new Map<string, AbortController>()
   /** Never-started runs (stopped by a restart while queued) the person stopped: they settle without starting. */
   private readonly _stopBeforeStart = new Set<string>()
+  /** The person's pending Pause per run (Core request id): the run is still working toward its next step boundary. */
+  private readonly _userPauseRequests = new Map<string, string>()
+  /** Whether each resident run's retained Core supports the cooperative pause (probed once it has a Core context). */
+  private readonly _pauseSupport = new Map<string, boolean>()
+  /** Makes every Pause request id unique in this process (Date.now() in the id keeps it unique across restarts). */
+  private _userPauseSequence = 0
 
   constructor(
     private readonly db: DbInstance,
@@ -228,6 +236,78 @@ export class LoopRunManager {
     return { status: 'resumed' }
   }
 
+  /**
+   * The person's Pause of a RUNNING Core definition run: Core finishes the step in
+   * progress and parks at the next step boundary (no step is interrupted), the run
+   * holds as `paused` by you, gives its capacity slot back and waits for Resume.
+   * `pausing`: the request is recorded and the run is still finishing its step.
+   * The request is durable (a restart meanwhile keeps the run paused).
+   */
+  async requestUserPause(runId: string): Promise<UserPauseRequestResult> {
+    if (!this._definitionTasks.has(runId) || this._cancelled.has(runId) || this._disposed) return { status: 'not_running' }
+    if (this._pausedHumanDecisions.get(runId)?.userPause) return { status: 'paused' }
+    if (this._pausedHumanDecisions.has(runId) || this._admissionWaits.has(runId)) return { status: 'held' }
+    const pending = this._userPauseRequests.get(runId)
+    if (pending) return { status: 'pausing', requestId: pending }
+    const contextPath = readDefinitionRun(this.db, runId)?.metadata.contextPath
+    if (!this.executors.pauseDefinition || this._pauseSupport.get(runId) === false) return { status: 'unsupported' }
+    if (!contextPath) return { status: 'not_ready' }
+    const requestId = userPauseRequestId(runId, ++this._userPauseSequence, this.now())
+    this._userPauseRequests.set(runId, requestId)
+    try { saveUserPause(this.db, runId, { requestId, requestedAt: new Date(this.now()).toISOString() }) } catch { /* the in-memory request still applies */ }
+    this._emit({ type: 'loop.pause_requested', projectId: this.projectIdOf(runId), loopRunId: runId, requestId } as unknown as WsMessage)
+    try {
+      const result = await this.executors.pauseDefinition({ runId, contextPath, requestId, reason: USER_PAUSE_REASON })
+      // Core has nothing left to run: the run settles on its own, there is nothing to pause.
+      if (result.outcome === 'terminal') { this._dropUserPauseRequest(runId); return { status: 'not_running' } }
+      // `not-running`/`paused`: Desktop holds the run between Core invocations (a host task): it parks at that boundary.
+      return { status: 'pausing', requestId }
+    } catch (error) {
+      this._dropUserPauseRequest(runId)
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.startsWith('engine_unsupported')) { this._pauseSupport.set(runId, false); return { status: 'unsupported' } }
+      throw error
+    }
+  }
+
+  private _dropUserPauseRequest(runId: string): void {
+    if (!this._userPauseRequests.delete(runId)) return
+    try { if (!this._pausedHumanDecisions.get(runId)?.userPause) clearUserPause(this.db, runId) } catch { /* settlement clears it */ }
+    this._emit({ type: 'loop.pause_request_ended', projectId: this.projectIdOf(runId), loopRunId: runId } as unknown as WsMessage)
+  }
+
+  /** True while the run is parked on the person's Pause. */
+  userPause(runId: string): boolean {
+    return !!this._pausedHumanDecisions.get(runId)?.userPause
+  }
+
+  /** True while the person's Pause is requested and the run still finishes its step. */
+  isUserPauseRequested(runId: string): boolean {
+    return this._userPauseRequests.has(runId)
+  }
+
+  /** Resume a run parked on the person's Pause, in place (the same attempt). False when it is not. */
+  resumeUserPause(runId: string): boolean {
+    const paused = this._pausedHumanDecisions.get(runId)
+    if (!paused?.userPause) return false
+    this._pausedHumanDecisions.delete(runId)
+    paused.resolve({ action: 'resume', text: '' })
+    return true
+  }
+
+  /**
+   * The pause control a surface offers for a resident run: `pause` while it works and
+   * its Core can pause, `pausing` until Core parks it, `resume` while it is paused by
+   * the person; null otherwise (legacy engine, held on something else, settling).
+   */
+  userPauseControl(runId: string): 'pause' | 'pausing' | 'resume' | null {
+    if (!this._definitionTasks.has(runId) || this._cancelled.has(runId)) return null
+    if (this._pausedHumanDecisions.get(runId)?.userPause) return 'resume'
+    if (this._userPauseRequests.has(runId)) return 'pausing'
+    if (this._pausedHumanDecisions.has(runId) || this._admissionWaits.has(runId)) return null
+    return this.executors.pauseDefinition && this._pauseSupport.get(runId) === true ? 'pause' : null
+  }
+
   /** WebSocket delivery is advisory. A disconnected/misbehaving listener must
    * never change launch, accounting, traversal, or terminal outcomes. */
   private _emit(msg: WsMessage): void {
@@ -291,6 +371,7 @@ export class LoopRunManager {
 
   private cancelResident(runId: string, graceful: boolean): void {
     this._cancelled.add(runId)
+    this._userPauseRequests.delete(runId)
     // Queued for capacity: nothing runs yet, so stopping it only ends the wait.
     this._admissionWaits.get(runId)?.abort()
     try { this.options.hostTasks?.()?.cancel(runId) } catch { /* host work is advisory to cancellation */ }
@@ -354,6 +435,8 @@ export class LoopRunManager {
     if (this.definitionForkOwnsRun(jobId)) return false
     const paused = this._pausedHumanDecisions.get(jobId)
     if (paused?.budget) return this.resumeBudgetPause(jobId).status === 'resumed'
+    // A message is not a Resume: the person's own Pause holds until they resume it.
+    if (paused?.userPause) return false
     if (paused) {
       if (paused.pending?.length) {
         const selected = control?.interruptId ? paused.pending.find(item => item.id === control.interruptId) : paused.pending.length === 1 ? paused.pending[0] : undefined
@@ -481,7 +564,7 @@ export class LoopRunManager {
     const runId = req.runId ?? newId()
     if (this._definitionTasks.has(runId)) return Promise.reject(new Error('runtime_run_active: Workflow is already running'))
     try { this.claimDefinition({ ...req, runId }) } catch (error) { return Promise.reject(error) }
-    const task = this._run({...req,runId}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
+    const task = this._run({...req,runId}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId); this._endUserPauseState(runId) })
     this._definitionTasks.set(runId,task)
     return task
   }
@@ -504,6 +587,8 @@ export class LoopRunManager {
     if (this._disposed) throw new Error('runtime_shutting_down: LoopRunManager is shut down')
     const active = this._definitionTasks.get(runId)
     if (active) {
+      // An explicit resume of a run the person paused continues it in place.
+      if (this.resumeUserPause(runId)) return active
       const interruptId = input.interruptId ?? input.approve?.[0]
       if (!this.isPaused(runId)) throw new Error('runtime_run_active: Select a pending question or approval')
       const request = readDefinitionRun(this.db, runId)?.request
@@ -525,9 +610,18 @@ export class LoopRunManager {
     const request = frozen.request
     this._emit({ type: 'loop.run_resumed', projectId: request.projectId, loopRunId: runId, railIndex: request.railIndex ?? null,
       ticketIds: request.spec?.ticketIds ?? (request.ticketId == null ? [] : [request.ticketId]) })
-    const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
+    const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId); this._endUserPauseState(runId) })
     this._definitionTasks.set(runId,task)
     return task
+  }
+
+  /** The run's execution here ended: a settled run drops its Pause record; one left
+   *  for startup recovery (shutdown) keeps it, so it stays paused after the restart. */
+  private _endUserPauseState(runId: string): void {
+    this._userPauseRequests.delete(runId)
+    this._pauseSupport.delete(runId)
+    if (this._disposed) return
+    try { if (getLoopRun(this.db, runId)?.status === 'completed') clearUserPause(this.db, runId) } catch { /* a stale record of a settled run is never read */ }
   }
 
   /** The narrow view of this manager a run executes against. */
@@ -559,6 +653,9 @@ export class LoopRunManager {
       claimDefinition: (req) => this.claimDefinition(req),
       releaseDefinition: (runId) => this.releaseDefinition(runId),
       cancelResident: (runId, graceful) => this.cancelResident(runId, graceful),
+      userPauseRequest: (runId) => this._userPauseRequests.get(runId) ?? null,
+      endUserPauseRequest: (runId) => { this._userPauseRequests.delete(runId) },
+      notePauseSupport: (runId, supported) => { if (this._definitionTasks.has(runId)) this._pauseSupport.set(runId, supported) },
       runInteractiveAiStep: (input) => runInteractiveAiStep({
         db: this.db,
         broadcast: this.broadcast,

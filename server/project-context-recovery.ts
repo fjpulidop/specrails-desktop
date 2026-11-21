@@ -28,6 +28,7 @@ import { getAgentChatManager } from './modules/missions/runtime/agent-chat-regis
 import { openProjectProcessAdmission } from './process-admission'
 import type { ProjectContext } from './project-registry'
 import { limitResumeOptions, resumeRetainedDefinitionRun } from './project-router-loop-runs'
+import { readUserPause } from './modules/loops/runtime/loop-user-pauses'
 import { clearLimitPause, listLimitPauses, readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { scheduleLimitResume } from './modules/provider-quota/runtime/quota-reports'
 import type { WsMessage } from './types'
@@ -148,6 +149,8 @@ export function startProjectRecovery(deps: {
             // replays a known result instead of repeating the effect.
             for (const [runId, state] of definitionStates ?? []) {
               if (state.status !== 'paused' || !state.pendingInterrupts?.some(item => (item as { kind?: unknown } | null)?.kind === 'host-task')) continue
+              // The person paused it: nothing resumes it but their Resume.
+              if (readUserPause(db, runId)) continue
               void resumeRetainedDefinitionRun(ctx, runId, {}).then(outcome => {
                 if (outcome.status >= 400) console.warn(`[host-task] ${project.slug}: run ${runId} was not re-dispatched (${outcome.status})`, outcome.body)
               }).catch(error => console.error(`[host-task] ${project.slug}: re-dispatch of ${runId} failed:`, error))
@@ -193,7 +196,7 @@ function scheduleRetainedLimitResumes(ctx: ProjectContext, db: DbInstance, isCur
   for (const { runId, pause } of listLimitPauses(db)) {
     const run = getLoopRun(db, runId)
     if (!run || run.status !== 'paused' || run.engine_version !== 2) { clearLimitPause(db, runId); continue }
-    if (!pause.autoResume || !pause.resumeAt) continue
+    if (!pause.autoResume || !pause.resumeAt || readUserPause(db, runId)) continue
     scheduleLimitResume(pause.resumeAt, () => {
       const current = readLimitPause(db, runId)
       if (!isCurrent() || !current?.autoResume || getLoopRun(db, runId)?.status !== 'paused') return

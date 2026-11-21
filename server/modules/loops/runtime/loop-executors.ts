@@ -12,7 +12,7 @@ import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-
 import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
-import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost, retainedRuntimeSupportsRouteOverrides } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost, retainedRuntimeSupportsPause, retainedRuntimeSupportsRouteOverrides } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { lstat, readFile, readlink } from 'node:fs/promises'
@@ -293,6 +293,9 @@ export function createLoopExecutors(
     },
     async supportsRouteOverrides({ runId, contextPath }) {
       try { return await retainedRuntimeSupportsRouteOverrides({ runId, contextPath, ...frozenHost(contextPath, resolveEnv(), runId) }) } catch { return false }
+    },
+    async supportsPause({ runId, contextPath }) {
+      try { return await retainedRuntimeSupportsPause({ runId, contextPath, ...frozenHost(contextPath, resolveEnv(), runId) }) } catch { return false }
     },
     async pauseDefinition({ runId, contextPath, requestId, reason }) {
       const host = frozenHost(contextPath, resolveEnv(), runId)

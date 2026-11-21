@@ -168,6 +168,8 @@ export interface LoopExecutors {
    *  current step finishes, then Core exits 2 with `state.pause`. Rejects with
    *  `engine_unsupported` when the retained Core lacks `pauseRuns`. */
   pauseDefinition?(input: { runId: string; contextPath: string; requestId: string; reason: string }): Promise<{ outcome: string }>
+  /** True when the run's retained Core supports the cooperative pause (`pauseRuns`); the person's Pause needs it. */
+  supportsPause?(input: { runId: string; contextPath: string }): Promise<boolean>
   /** True when the run's retained Core can move roles to another provider on resume (`routeOverrides`). */
   supportsRouteOverrides?(input: { runId: string; contextPath: string }): Promise<boolean>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
@@ -410,6 +412,26 @@ export const BUDGET_PAUSED = 'budget_paused' as const
  *  at `resumeAt` (unless the person cancels that), now, or on another provider. */
 export const LIMIT_PAUSED = 'limit_paused' as const
 
+/** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
+ *  run the person paused (Pause): it parked at a step boundary, gave its capacity
+ *  slot back and never resumes by itself. Resume continues the same attempt. */
+export const USER_PAUSED = 'user_paused' as const
+
+/** The answer to the person's Pause (`LoopRunManager.requestUserPause`). */
+export type UserPauseRequestResult =
+  /** Recorded: the run finishes its step and parks at the next step boundary. */
+  | { status: 'pausing'; requestId: string }
+  /** Already paused by the person. */
+  | { status: 'paused' }
+  /** Held on something else (a question, an approval, the budget, a usage limit, capacity). */
+  | { status: 'held' }
+  /** Not running in this process (settled, stopping, a legacy run, retained over a restart). */
+  | { status: 'not_running' }
+  /** The run's retained Core cannot pause mid-run (Stop still works). */
+  | { status: 'unsupported' }
+  /** Core has not prepared the run yet: nothing to pause at. */
+  | { status: 'not_ready' }
+
 /** What a `limit_paused` run waits for. Persisted (queue_state) so a restart keeps `resumeAt`. */
 export interface LoopLimitPause {
   providerId: string
@@ -476,6 +498,8 @@ export interface PausedRun {
   budget?: LoopBudgetBreach
   /** Present when the pause is `limit_paused` (provider usage limit). */
   limit?: LoopLimitPause
+  /** True when the person paused the run (`user_paused`). */
+  userPause?: true
   resolve: (decision: PausedHumanDecision) => void
 }
 

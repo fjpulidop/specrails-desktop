@@ -1042,7 +1042,7 @@ export interface LoopRunPausedMessage {
   ticketIds: number[]
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
-  pauseKind?: 'budget_paused' | 'limit_paused'
+  pauseKind?: 'budget_paused' | 'limit_paused' | 'user_paused'
   budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
   /** `limit_paused`: the provider refused on its usage limit; resumes at `resumeAt` when `autoResume`. */
   limit?: { providerId: string; resumeAt: string | null; autoResume: boolean; message: string; pausedAt: string; switchable: boolean }

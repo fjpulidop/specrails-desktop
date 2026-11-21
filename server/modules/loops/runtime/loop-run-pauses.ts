@@ -9,8 +9,9 @@ import { markJobInteractive } from '../../../db'
 import { pauseLoopRun, resumeLoopRun } from './loop-runs-store'
 import { truncate } from './loop-run-vars'
 import { runCounters, type LoopRunContext } from './loop-run-context'
-import { BUDGET_PAUSED, LIMIT_PAUSED, type LoopBudgetBreach, type LoopLimitPause, type PausedHumanDecision } from './loop-run-contract'
+import { BUDGET_PAUSED, LIMIT_PAUSED, USER_PAUSED, type LoopBudgetBreach, type LoopLimitPause, type PausedHumanDecision } from './loop-run-contract'
 import { clearLimitPause, saveLimitPause } from './loop-limit-pauses'
+import { clearUserPause, markUserPaused } from './loop-user-pauses'
 import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
 import { runQuestionFrom } from '../../../shared/run-question'
@@ -169,6 +170,50 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
     if (slot === 'disposed') return new Promise(() => { /* startup recovery owns settlement */ })
     return slot === 'stopped' ? 'stop' : 'continue'
   }
+}
+
+/**
+ * The person paused the run (Pause): Core finished the step it was on and parked at
+ * the next step boundary. The run parks as `paused` (restart_reason `user_paused`) on
+ * the same in-process pause as a question or the budget, gives its capacity slot back
+ * and waits for the person: it never resumes by itself. Resume continues the same
+ * attempt from the next step (a budget spent meanwhile parks it on the budget first);
+ * Stop settles it stopped. The pause does not consume the run's wall-clock deadline.
+ */
+export async function awaitUserPause(ctx: LoopRunContext, requestId: string): Promise<'continue' | 'stop'> {
+  const { host, req, runId, state, exactTicketIds } = ctx
+  const { logLine } = ctx.events
+  const reason = 'Paused by you'
+  const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
+    host.parkPause(runId, { reason, userPause: true, resolve })
+  })
+  host.endUserPauseRequest(runId)
+  const pausedAtMs = host.now()
+  const pausedAt = new Date(pausedAtMs).toISOString()
+  logLine(`\n■ Paused by you (${USER_PAUSED}) — the step in progress finished; nothing runs until you resume. Resume continues this same run from its next step.`, 'stderr')
+  try { markUserPaused(host.db, runId, requestId, pausedAt) } catch { /* the in-memory pause still holds; a restart keeps the run paused anyway */ }
+  pauseLoopRun(host.db, runId, runCounters(state), USER_PAUSED)
+  host.emit({ type: 'loop.run_paused', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, reason, ticketIds: exactTicketIds, pauseKind: USER_PAUSED })
+  host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: pausedAt })
+  ctx.capacity?.yieldSlot()
+  const decision = await decisionPromise
+  if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement; the record keeps it paused */ })
+  if (decision.action === 'stop' || host.isCancelled(runId)) {
+    logLine(`\n■ Loop stop requested while paused.`, 'stderr')
+    return 'stop'
+  }
+  if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
+  try { clearUserPause(host.db, runId) } catch { /* a stale record is cleared by the run's settlement */ }
+  resumeLoopRun(host.db, runId, new Date(host.now()))
+  logLine(`\n▶ Resumed by you — the run continues from its next step.`)
+  host.emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: exactTicketIds })
+  host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: new Date(host.now()).toISOString() })
+  // A budget spent while it was paused holds it there before Core continues (awaitBudget takes the slot again).
+  const breach = host.budgetBreach(runId)
+  if (breach) return awaitBudget(ctx, breach)
+  const slot = await reclaimSlot(ctx)
+  if (slot === 'disposed') return new Promise(() => { /* startup recovery owns settlement */ })
+  return slot === 'stopped' ? 'stop' : 'continue'
 }
 
 /** At most this many limit pauses per run: a provider that keeps refusing after its reset is a failure, not a wait. */
