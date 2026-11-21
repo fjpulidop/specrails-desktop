@@ -18,11 +18,12 @@ import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplet
 import { normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
 import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
 import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
-import { signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
+import { isRuntimeContinuationActive, signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import { continuationGuidance, parseStoredDiagnosis, readStoredOptions, resolutionGuidance, type ResolutionChoice } from './modules/recovery'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
-import { appendEvent, updateProjectSettings } from './db'
+import { appendEvent, getJob, updateProjectSettings } from './db'
+import { readRunHolds, runHoldSources, runPauseControl } from './modules/loops/runtime/loop-run-hold'
 import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { clearRetainedBudgetPause, readRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
 import { clearUserPause } from './modules/loops/runtime/loop-user-pauses'
@@ -170,6 +171,17 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(202).json({ loopRunId: runId, provider: body.provider, model }); return
     }
     res.status(400).json({ error: 'invalid_limit_action' })
+  })
+
+  // Light read of the person's Pause control for one run (the rail's Stop/Play toggle):
+  // the same value GET /jobs/:id reports as `pauseControl`, without the log.
+  router.get('/:projectId/loop-runs/:id/pause-control', (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), job = getJob(c.db, runId)
+    if (!job) { res.status(404).json({ error: 'Job not found' }); return }
+    if (job.status !== 'running') { res.json({ loopRunId: runId, pauseControl: null }); return }
+    const hold = isRuntimeContinuationActive(c, runId) ? null : (() => { try { return readRunHolds(c.db, [runId], runHoldSources(c)).get(runId) ?? null } catch { return null } })()
+    res.json({ loopRunId: runId, pauseControl: runPauseControl(c, runId, hold) })
   })
 
   // The person's Pause of a running Core definition run: Core finishes the step in progress and

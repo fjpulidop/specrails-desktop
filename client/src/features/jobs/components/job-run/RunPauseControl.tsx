@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Pause, Play } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '../../../../components/ui/button'
-import { notifyError } from '../../../../lib/notify-error'
-import { pauseControlOf, pauseRun, resumePausedRun } from '../../lib/pause-run'
+import { pauseControlOf } from '../../lib/pause-run'
+import { useLiveRunPauseControl, useRunPauseActions } from '../../hooks/useRunPause'
 
 interface RunPauseControlProps {
   job: { id: string; status?: string; pauseControl?: unknown }
@@ -24,38 +22,8 @@ interface RunPauseControlProps {
  */
 export function RunPauseControl({ job, projectId, onChanged }: RunPauseControlProps) {
   const { t } = useTranslation('jobs')
-  const control = pauseControlOf(job)
-  const [requested, setRequested] = useState(false)
-  const [busy, setBusy] = useState(false)
-  // The row moved on (paused, resumed, settled): the local "Pausing…" gives way to it.
-  useEffect(() => { if (control !== 'pause') setRequested(false) }, [control])
-  if (!control) return null
-  const shown = requested && control === 'pause' ? 'pausing' : control
-
-  async function pause() {
-    setBusy(true)
-    try {
-      const outcome = await pauseRun({ projectId, jobId: job.id })
-      if (outcome.ok) {
-        setRequested(true)
-        toast.info(t('modal.toast.pauseRequested'), { description: t('modal.toast.pauseRequestedDescription') })
-        onChanged?.()
-      } else {
-        notifyError(t('modal.toast.pauseFailed'), { detail: outcome.code === 'pause_unsupported' ? t('modal.toast.pauseUnsupported') : outcome.error, retry: outcome.code === 'pause_unsupported' ? undefined : () => void pause() })
-      }
-    } finally { setBusy(false) }
-  }
-
-  async function resume() {
-    setBusy(true)
-    try {
-      const outcome = await resumePausedRun({ projectId, jobId: job.id })
-      if (outcome.ok) {
-        toast.success(t('modal.toast.resumed'), { description: t('modal.toast.resumedDescription') })
-        onChanged?.()
-      } else notifyError(t('modal.toast.resumeFailed'), { detail: outcome.error, retry: () => void resume() })
-    } finally { setBusy(false) }
-  }
+  const { shown, busy, pause, resume } = useRunPauseActions({ jobId: job.id, projectId, control: pauseControlOf(job), onChanged })
+  if (!shown) return null
 
   if (shown === 'resume') {
     return (
@@ -71,6 +39,41 @@ export function RunPauseControl({ job, projectId, onChanged }: RunPauseControlPr
       title={pausing ? t('modal.pausingTooltip') : t('modal.pauseRunTooltip')} data-testid={pausing ? 'run-pausing' : 'run-pause'}>
       {busy || pausing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden /> : <Pause className="w-3.5 h-3.5 mr-1.5 fill-current" aria-hidden />}
       {pausing ? t('modal.pausing') : t('modal.pauseRun')}
+    </Button>
+  )
+}
+
+/**
+ * The same Pause / Pausing… / Paused by you + Resume for a surface that knows only
+ * the run's id (the rail's Stop/Play toggle): it reads the control itself and
+ * keeps it live. Compact (icon buttons sized like the rail toggle). Renders
+ * nothing for runs that cannot pause.
+ */
+export function RunPauseIconControl({ jobId, projectId }: { jobId: string | null | undefined; projectId?: string | null }) {
+  const { t } = useTranslation('jobs')
+  const { control, refresh } = useLiveRunPauseControl(jobId, projectId)
+  const { shown, busy, pause, resume } = useRunPauseActions({ jobId: jobId ?? '', projectId, control, onChanged: refresh })
+  if (!jobId || !shown) return null
+
+  if (shown === 'resume') {
+    return (
+      <span className="inline-flex items-center gap-1" data-testid="rail-paused-by-you">
+        <span className="text-caption font-medium text-accent-warning" title={t('held.tooltip.pausedByYou')}>{t('held.label.pausedByYou')}</span>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-full text-accent-success hover:text-accent-success hover:bg-accent-success/10"
+          disabled={busy} onClick={() => void resume()} title={t('modal.resumeRun')} aria-label={t('modal.resumeRun')} data-testid="rail-resume">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> : <Play className="w-3.5 h-3.5 fill-current" aria-hidden />}
+        </Button>
+      </span>
+    )
+  }
+  const pausing = shown === 'pausing'
+  const label = pausing ? t('modal.pausing') : t('modal.pauseRun')
+  return (
+    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+      disabled={busy || pausing} aria-busy={pausing} onClick={() => void pause()}
+      title={pausing ? `${label} ${t('modal.pausingTooltip')}` : `${label}. ${t('modal.pauseRunTooltip')}`} aria-label={label}
+      data-testid={pausing ? 'rail-pausing' : 'rail-pause'}>
+      {busy || pausing ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> : <Pause className="w-3.5 h-3.5 fill-current" aria-hidden />}
     </Button>
   )
 }

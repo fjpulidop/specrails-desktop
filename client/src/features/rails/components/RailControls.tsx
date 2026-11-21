@@ -2,6 +2,7 @@ import { Play, Square, AlertTriangle, ScrollText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
+import { RunPauseIconControl } from '../../jobs/components/job-run/RunPauseControl'
 
 export type RailMode = 'implement' | 'loop'
 export type RailStatus = 'idle' | 'running' | 'failed'
@@ -19,9 +20,11 @@ interface RailControlsProps {
   /** When set, Play is disabled and this sentence explains why (e.g. the
    *  project's review WIP limit is reached). Stop is never blocked. */
   launchBlockedReason?: string | null
+  /** The rail's project (Pause/Resume calls); null → the active project. */
+  projectId?: string | null
 }
 
-export function RailControls({ status, activeJobId, ticketCount, onToggle, launchBlockedReason }: RailControlsProps) {
+export function RailControls({ status, activeJobId, ticketCount, onToggle, launchBlockedReason, projectId }: RailControlsProps) {
   const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const blocked = status !== 'running' && Boolean(launchBlockedReason)
@@ -45,6 +48,10 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
       {/* The rail's Loop picker (factory + custom loops) lives in RailRow and
           replaces the old mode segmented control — the chosen Loop derives the
           legacy `mode`. RailControls keeps Log / Play. */}
+
+      {/* Pause / Pausing… / Paused by you + Resume of the running Core definition
+          run, when its Core can pause (the same control as the run window). */}
+      {status === 'running' && activeJobId && <RunPauseIconControl jobId={activeJobId} projectId={projectId} />}
 
       {/* Play / Stop / Failed toggle. A disabled button shows no tooltip in
           every webview, so a blocked Play carries its reason on a wrapper. */}

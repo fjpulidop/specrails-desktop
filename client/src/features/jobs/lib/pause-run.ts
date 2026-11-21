@@ -53,3 +53,21 @@ export function pauseRun(options: { projectId?: string | null; jobId: string }):
 export function resumePausedRun(options: { projectId?: string | null; jobId: string }): Promise<PauseRunOutcome> {
   return post(options.projectId, options.jobId, 'resume')
 }
+
+const CONTROLS: readonly PauseControl[] = ['pause', 'pausing', 'resume']
+
+/**
+ * `GET /loop-runs/:id/pause-control`: the run's control without its job row (the
+ * rail). Never throws; any failure reads as "no control" (Stop stays available).
+ */
+export async function readPauseControl(options: { projectId?: string | null; jobId: string }): Promise<PauseControl | null> {
+  try {
+    const base = options.projectId ? `${API_ORIGIN}/api/projects/${options.projectId}` : getApiBase()
+    const res = await fetch(`${base}/loop-runs/${encodeURIComponent(options.jobId)}/pause-control`)
+    if (!res.ok) return null
+    const body = await res.json() as { pauseControl?: unknown }
+    return CONTROLS.includes(body.pauseControl as PauseControl) ? body.pauseControl as PauseControl : null
+  } catch {
+    return null
+  }
+}

@@ -674,7 +674,12 @@ export class LoopRunManager {
       cancelResident: (runId, graceful) => this.cancelResident(runId, graceful),
       userPauseRequest: (runId) => this._userPauseRequests.get(runId) ?? null,
       endUserPauseRequest: (runId) => { this._userPauseRequests.delete(runId) },
-      notePauseSupport: (runId, supported) => { if (this._definitionTasks.has(runId)) this._pauseSupport.set(runId, supported) },
+      // Surfaces offering Pause (the run window, the rail toggle) re-read their control when Core answers.
+      notePauseSupport: (runId, supported) => {
+        if (!this._definitionTasks.has(runId)) return
+        this._pauseSupport.set(runId, supported)
+        this._emit({ type: 'loop.pause_support', projectId: this.projectIdOf(runId), loopRunId: runId, supported } as unknown as WsMessage)
+      },
       runInteractiveAiStep: (input) => runInteractiveAiStep({
         db: this.db,
         broadcast: this.broadcast,

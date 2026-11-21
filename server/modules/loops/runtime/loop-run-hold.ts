@@ -150,6 +150,18 @@ export function runHoldSources(c: { loopRunManager?: { isPaused?(id: string): bo
   }
 }
 
+/** The person's Pause control for a running job: Pause / Pausing… / Resume (null: Stop is the only control). */
+export type RunPauseControl = 'pause' | 'pausing' | 'resume'
+
+/**
+ * Pause control of a job whose row is running. The live engine knows best (a
+ * resident run that can pause, a requested pause, a pause by you); a run held by
+ * you over a restart (no resident task) still offers Resume through its hold.
+ */
+export function runPauseControl(c: { loopRunManager?: { userPauseControl?(id: string): RunPauseControl | null } }, jobId: string, hold: RunHold | null | undefined): RunPauseControl | null {
+  try { return c.loopRunManager?.userPauseControl?.(jobId) ?? (hold?.kind === 'paused' && hold.byYou ? 'resume' : null) } catch { return null }
+}
+
 interface HoldRow { id: string; status: string; restart_reason: string | null; runtime_status_json: string | null; last_event_at: string | null }
 
 /**

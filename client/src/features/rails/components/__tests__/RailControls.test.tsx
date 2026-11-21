@@ -1,7 +1,28 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, waitFor, act } from '../../../../test-utils'
 import { RailControls } from '../RailControls'
+
+const wsHandlers = new Map<string, (msg: unknown) => void>()
+vi.mock('../../../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: (id: string, fn: (msg: unknown) => void) => { wsHandlers.set(id, fn) },
+    unregisterHandler: (id: string) => { wsHandlers.delete(id) },
+  }),
+}))
+vi.mock('../../../../lib/api', () => ({ getApiBase: () => '/api/projects/p1' }))
+vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }))
+
+/** The server's pause control for job-1, and the Pause/Resume calls the rail makes. */
+let serverControl: string | null = null
+const calls: string[] = []
+function stubPauseServer() {
+  global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    calls.push(`${init?.method ?? 'GET'} ${url}`)
+    if (url.endsWith('/pause-control')) return { ok: true, json: async () => ({ loopRunId: 'job-1', pauseControl: serverControl }) }
+    return { ok: true, json: async () => ({}) }
+  }) as unknown as typeof fetch
+}
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -20,6 +41,45 @@ const defaultProps = {
 describe('RailControls', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    serverControl = null
+    calls.length = 0
+    stubPauseServer()
+  })
+
+  it('offers Pause next to Stop for a running run whose Core can pause, then Pausing…, then Paused by you + Resume', async () => {
+    serverControl = 'pause'
+    render(<RailControls {...defaultProps} status="running" activeJobId="job-1" projectId="p2" />)
+    const pause = await screen.findByTestId('rail-pause')
+    expect(pause).toHaveAccessibleName('Pause')
+    expect(screen.getByTitle('Stop')).toBeInTheDocument()
+    expect(calls.some((call) => call.startsWith('GET ') && call.endsWith('/api/projects/p2/loop-runs/job-1/pause-control'))).toBe(true)
+    await act(async () => { fireEvent.click(pause) })
+    expect(calls.some((call) => call.startsWith('POST ') && call.endsWith('/api/projects/p2/loop-runs/job-1/pause'))).toBe(true)
+    // Accepted: Pausing… until Core parks the run at the next step boundary.
+    expect(await screen.findByTestId('rail-pausing')).toBeDisabled()
+    serverControl = 'resume'
+    act(() => { for (const handler of wsHandlers.values()) handler({ type: 'loop.run_paused', loopRunId: 'job-1', pauseKind: 'user_paused' }) })
+    expect(await screen.findByTestId('rail-paused-by-you')).toHaveTextContent('Paused by you')
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-resume')) })
+    expect(calls.some((call) => call.startsWith('POST ') && call.endsWith('/loop-runs/job-1/resume'))).toBe(true)
+  })
+
+  it('shows no Pause for a run that cannot pause (legacy engine, older Core, held on something else), nor while idle', async () => {
+    serverControl = null
+    const { rerender } = render(<RailControls {...defaultProps} status="running" activeJobId="job-1" />)
+    await waitFor(() => expect(calls.some((call) => call.endsWith('/pause-control'))).toBe(true))
+    expect(screen.queryByTestId('rail-pause')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Stop')).toBeInTheDocument()
+    // Core answered that it can pause: the rail re-reads its control.
+    serverControl = 'pause'
+    act(() => { for (const handler of wsHandlers.values()) handler({ type: 'loop.pause_support', loopRunId: 'job-1', supported: true }) })
+    expect(await screen.findByTestId('rail-pause')).toBeInTheDocument()
+    // Another run's frames are not this rail's.
+    calls.length = 0
+    act(() => { for (const handler of wsHandlers.values()) handler({ type: 'loop.pause_support', loopRunId: 'job-2', supported: true }) })
+    expect(calls).toEqual([])
+    rerender(<RailControls {...defaultProps} status="idle" />)
+    expect(screen.queryByTestId('rail-pause')).not.toBeInTheDocument()
   })
 
   it('renders the play button (mode selection moved to the rail Loop picker)', () => {

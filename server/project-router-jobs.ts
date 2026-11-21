@@ -62,7 +62,7 @@ import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
 import { readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
-import { readRunHolds, runHoldSources } from './modules/loops/runtime/loop-run-hold'
+import { readRunHolds, runHoldSources, runPauseControl } from './modules/loops/runtime/loop-run-hold'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
@@ -732,7 +732,7 @@ interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? '
 const continuationActive = isRuntimeContinuationActive(c, jobId)
 const hold = job.status === 'running' && !continuationActive ? (() => { try { return readRunHolds(db, [jobId], runHoldSources(c)).get(jobId) ?? null } catch { return null } })() : null
 // The person's Pause / Resume of a Core definition run (null: Stop is the only control).
-const pauseControl = job.status === 'running' ? (() => { try { return c.loopRunManager?.userPauseControl?.(jobId) ?? (hold?.kind === 'paused' && hold.byYou ? 'resume' : null) } catch { return null } })() : null
+const pauseControl = job.status === 'running' ? runPauseControl(c, jobId, hold) : null
 const annotated = { ...job, ...(continuationActive ? { status: 'running', finished_at: null } : {}), ...(hold ? { hold } : {}), ...(pauseControl ? { pauseControl } : {}), ...(loopRun?.held_ms ? { heldMs: loopRun.held_ms } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused: loopPaused || !!hold, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), ...(hold?.kind === 'paused' && hold.byYou ? { loopPauseKind: 'user_paused' } : {}), pendingInterrupts, question, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
   })

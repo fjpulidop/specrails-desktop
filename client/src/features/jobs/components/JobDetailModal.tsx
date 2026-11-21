@@ -256,7 +256,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
       (msg.type === 'job.finalized' && msg.jobId === jobId)
       || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
       || (msg.type === 'job.interactive' && msg.jobId === jobId)
-      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended') && msg.loopRunId === jobId)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended' || msg.type === 'loop.pause_support') && msg.loopRunId === jobId)
     ) {
       // The interactive session settled — refetch the authoritative row so the
       // header flips to the terminal status and the composer unmounts.
