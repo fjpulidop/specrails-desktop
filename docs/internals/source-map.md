@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1871 source/build files. Nearby tests are linked where names
+Includes 1905 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1690,6 +1690,52 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [watch.ts](../../server/mcp/tools/watch.ts) · [test](../../server/mcp/tools/watch.test.ts)
 - [wire-briefs.ts](../../server/mcp/tools/wire-briefs.ts)
 - [wire-schema.ts](../../server/mcp/tools/wire-schema.ts) · [test](../../server/mcp/tools/wire-schema.test.ts)
+
+## server/mcp/v2
+
+- [flag.ts](../../server/mcp/v2/flag.ts)
+- [index.ts](../../server/mcp/v2/index.ts)
+- [instructions.ts](../../server/mcp/v2/instructions.ts)
+- [legacy.ts](../../server/mcp/v2/legacy.ts)
+
+## server/mcp/v2/core
+
+- [canonical.ts](../../server/mcp/v2/core/canonical.ts)
+- [confirm.ts](../../server/mcp/v2/core/confirm.ts) · [test](../../server/mcp/v2/core/confirm.test.ts)
+- [cursor.ts](../../server/mcp/v2/core/cursor.ts) · [test](../../server/mcp/v2/core/cursor.test.ts)
+- [decision-sources.ts](../../server/mcp/v2/core/decision-sources.ts) · [test](../../server/mcp/v2/core/decision-sources.test.ts)
+- [decision-state.ts](../../server/mcp/v2/core/decision-state.ts) · [test](../../server/mcp/v2/core/decision-state.test.ts)
+- [envelope.ts](../../server/mcp/v2/core/envelope.ts) · [test](../../server/mcp/v2/core/envelope.test.ts)
+- [lang.ts](../../server/mcp/v2/core/lang.ts) · [test](../../server/mcp/v2/core/lang.test.ts)
+- [refs.ts](../../server/mcp/v2/core/refs.ts) · [test](../../server/mcp/v2/core/refs.test.ts)
+- [registry.ts](../../server/mcp/v2/core/registry.ts) · [test](../../server/mcp/v2/core/registry.test.ts)
+- [size-guard.ts](../../server/mcp/v2/core/size-guard.ts) · [test](../../server/mcp/v2/core/size-guard.test.ts)
+- [status-map.ts](../../server/mcp/v2/core/status-map.ts) · [test](../../server/mcp/v2/core/status-map.test.ts)
+- [untrusted.ts](../../server/mcp/v2/core/untrusted.ts)
+- [views.ts](../../server/mcp/v2/core/views.ts) · [test](../../server/mcp/v2/core/views.test.ts)
+
+## server/mcp/v2/i18n
+
+- [catalog.ts](../../server/mcp/v2/i18n/catalog.ts)
+
+## server/mcp/v2/tools
+
+- [blueprint.ts](../../server/mcp/v2/tools/blueprint.ts)
+- [deliveries.ts](../../server/mcp/v2/tools/deliveries.ts)
+- [inbox.ts](../../server/mcp/v2/tools/inbox.ts)
+- [index.ts](../../server/mcp/v2/tools/index.ts)
+- [insights.ts](../../server/mcp/v2/tools/insights.ts)
+- [integrations.ts](../../server/mcp/v2/tools/integrations.ts)
+- [missions.ts](../../server/mcp/v2/tools/missions.ts)
+- [overview.ts](../../server/mcp/v2/tools/overview.ts)
+- [projects.ts](../../server/mcp/v2/tools/projects.ts)
+- [providers.ts](../../server/mcp/v2/tools/providers.ts)
+- [rails.ts](../../server/mcp/v2/tools/rails.ts)
+- [runs.ts](../../server/mcp/v2/tools/runs.ts)
+- [settings.ts](../../server/mcp/v2/tools/settings.ts)
+- [specs.ts](../../server/mcp/v2/tools/specs.ts)
+- [system.ts](../../server/mcp/v2/tools/system.ts)
+- [wait.ts](../../server/mcp/v2/tools/wait.ts)
 
 ## server/mobile
 
