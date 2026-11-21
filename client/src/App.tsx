@@ -87,6 +87,7 @@ import { useStartupQueue } from './hooks/useStartupQueue'
 import { decideTour, startupQueue } from './lib/startup-queue'
 import { useMissionReplyNotifications } from './features/missions/hooks/useMissionReplyNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
+import { useDesktopUpdateRemote } from './hooks/useDesktopUpdateRemote'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
@@ -956,6 +957,7 @@ function ThemedToaster() {
 
 function MainDesktopUpdateNotifier() {
   useDesktopUpdateNotifier()
+  useDesktopUpdateRemote()
   return null
 }
 

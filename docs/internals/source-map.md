@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1905 source/build files. Nearby tests are linked where names
+Includes 1907 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1250,6 +1250,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useAttentionReturn.ts](../../client/src/hooks/useAttentionReturn.ts) · [test](../../client/src/hooks/__tests__/useAttentionReturn.test.ts)
 - [useDesktop.tsx](../../client/src/hooks/useDesktop.tsx) · [test](../../client/src/hooks/__tests__/useDesktop.test.tsx)
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
+- [useDesktopUpdateRemote.ts](../../client/src/hooks/useDesktopUpdateRemote.ts) · [test](../../client/src/hooks/__tests__/useDesktopUpdateRemote.test.ts)
 - [useElementWidth.ts](../../client/src/hooks/useElementWidth.ts)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
 - [useLaunchBudgetGuard.tsx](../../client/src/hooks/useLaunchBudgetGuard.tsx)
@@ -1469,6 +1470,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [desktop-router-providers.ts](../../server/desktop-router-providers.ts)
 - [desktop-router-runtime-providers.ts](../../server/desktop-router-runtime-providers.ts)
 - [desktop-router-settings.ts](../../server/desktop-router-settings.ts)
+- [desktop-router-updates.ts](../../server/desktop-router-updates.ts) · [test](../../server/desktop-router-updates.test.ts)
 - [desktop-router-url-validation.ts](../../server/desktop-router-url-validation.ts)
 - [desktop-router-webhooks.ts](../../server/desktop-router-webhooks.ts)
 - [desktop-router.ts](../../server/desktop-router.ts) · [test](../../server/desktop-router.test.ts)
@@ -1725,7 +1727,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [inbox.ts](../../server/mcp/v2/tools/inbox.ts)
 - [index.ts](../../server/mcp/v2/tools/index.ts)
 - [insights.ts](../../server/mcp/v2/tools/insights.ts)
-- [integrations.ts](../../server/mcp/v2/tools/integrations.ts)
+- [integrations.ts](../../server/mcp/v2/tools/integrations.ts) · [test](../../server/mcp/v2/tools/integrations.test.ts)
 - [missions.ts](../../server/mcp/v2/tools/missions.ts)
 - [overview.ts](../../server/mcp/v2/tools/overview.ts)
 - [projects.ts](../../server/mcp/v2/tools/projects.ts)
@@ -1734,7 +1736,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [runs.ts](../../server/mcp/v2/tools/runs.ts)
 - [settings.ts](../../server/mcp/v2/tools/settings.ts)
 - [specs.ts](../../server/mcp/v2/tools/specs.ts)
-- [system.ts](../../server/mcp/v2/tools/system.ts)
+- [system.ts](../../server/mcp/v2/tools/system.ts) · [test](../../server/mcp/v2/tools/system.test.ts)
 - [wait.ts](../../server/mcp/v2/tools/wait.ts)
 
 ## server/mobile

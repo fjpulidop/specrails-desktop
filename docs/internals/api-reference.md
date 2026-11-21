@@ -116,6 +116,10 @@ Example — register a project that uses both Claude and Gemini:
 | `GET` | `/core-update/status` | Core update status without network access. Includes `channel`, `resolvedDistTag` (`latest`/`stable`/`null`) and `channelFallback` (`true` when `stable` was requested but Core has no `stable` dist-tag, so `latest` was used). A version cached for another channel is never offered |
 | `POST` | `/core-update/check` | Resolve the channel's npm dist-tag (`stable` → `stable`, falling back to `latest` only on a 404 for the tag) and return the refreshed status |
 | `POST` | `/core-update/update` | Install the checked version (or `{ version }`). `202`; progress over the `core_update.progress` WebSocket event |
+| `GET` | `/desktop-updates/status` | Desktop app update state for clients without the window (MCP): `currentVersion`, `channel`, `latest`, `available`, `checkedAt`, `checkError` and `window` (`connected` when the app window reported in the last 6 min, plus its install `phase`/`progress`/`error`) |
+| `POST` | `/desktop-updates/check` | Read the channel's updater manifest (the URL `check_app_update` uses) and return the status |
+| `POST` | `/desktop-updates/apply` | `{ version?, restart?: when_idle\|now\|never }`. Relays the install to the open window as the `desktop.update_command` WebSocket event; the window runs the app's own download, verify and restart (`useDesktopUpdateRemote`). `202`; `409` `no_update` / `version_changed` / `no_window` / `in_progress` |
+| `POST` | `/desktop-updates/report` | The window's presence and install phase (`idle`, `checking`, `downloading`, `installing`, `ready`, `waiting`, `restarting`, `error`) |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
 ### Settings, budget, theme
