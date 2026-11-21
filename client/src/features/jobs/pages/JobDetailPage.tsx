@@ -39,6 +39,7 @@ import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 import { notifyError } from '../../../lib/notify-error'
 import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
+import { RunPauseControl } from '../components/job-run/RunPauseControl'
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
@@ -250,7 +251,7 @@ export default function JobDetailPage() {
       (msg.type === 'job.finalized' && msg.jobId === id)
       || (msg.type === 'runtime.continuation' && msg.jobId === id)
       || (msg.type === 'job.interactive' && msg.jobId === id)
-      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === id)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended') && msg.loopRunId === id)
     ) {
       // The interactive session settled (turn totals live in the composer,
       // which owns the job.turn_* stream) — refetch the authoritative row.
@@ -623,6 +624,7 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
+            {isRunning && <RunPauseControl job={job} projectId={null} />}
             {isRunning && (
               <Tooltip>
                 <TooltipTrigger asChild>

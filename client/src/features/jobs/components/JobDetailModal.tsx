@@ -15,6 +15,7 @@ import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
+import { RunPauseControl } from './job-run/RunPauseControl'
 import { Button } from '../../../components/ui/button'
 import { SegmentedControl } from '../../../components/ui/segmented-control'
 import {
@@ -255,7 +256,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
       (msg.type === 'job.finalized' && msg.jobId === jobId)
       || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
       || (msg.type === 'job.interactive' && msg.jobId === jobId)
-      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === jobId)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended') && msg.loopRunId === jobId)
     ) {
       // The interactive session settled — refetch the authoritative row so the
       // header flips to the terminal status and the composer unmounts.
@@ -506,7 +507,9 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                     </>}
                   />
                 )}
-                actions={isRunning ? (
+                actions={isRunning ? (<>
+                  {/* Pause is the primary control while the run's Core can pause; Stop stays beside it. */}
+                  <RunPauseControl job={job} projectId={projectId ?? null} onChanged={refetchJob} />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -523,7 +526,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                         ? t('common:actions.discard')
                         : t('common:actions.cancel')}
                   </Button>
-                ) : null}
+                </>) : null}
               />
             )}
 

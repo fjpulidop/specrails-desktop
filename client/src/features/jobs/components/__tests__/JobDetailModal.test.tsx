@@ -934,6 +934,9 @@ describe('JobDetailModal', () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }))
 
       await waitFor(() => expect(screen.getByText('Stop this run?')).toBeInTheDocument())
+      // Honest: it closes, and Continue later forks a new attempt that keeps the work.
+      expect(screen.getByText('It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.')).toBeInTheDocument()
+      expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: /^stop run$/i }))
 
       await waitFor(() => {
@@ -944,10 +947,58 @@ describe('JobDetailModal', () => {
           expect.objectContaining({ method: 'POST' })
         )
         expect(toast.success).toHaveBeenCalledWith(
-          'Stop signal sent',
-          expect.objectContaining({ description: expect.stringContaining('step boundary') })
+          'Stopping the run',
+          expect.objectContaining({ description: expect.stringContaining('new attempt that keeps the work') })
         )
       })
+    })
+
+    // The person's Pause: the primary control of a running Core run, Stop beside it.
+    function pauseFetch(job: Record<string, unknown>) {
+      return vi.fn(async (url: string) => {
+        if (url.endsWith('/pause')) return { ok: true, json: async () => ({ loopRunId: 'job-running', pausing: true }) }
+        if (url.endsWith('/resume')) return { ok: true, json: async () => ({ loopRunId: 'job-running', resumed: true }) }
+        return { ok: true, json: async () => ({ job, events: [], phaseDefinitions: [], runs: [] }) }
+      })
+    }
+
+    it('a running Core run offers Pause beside Stop; Pause asks Core and shows Pausing… until it parks', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'pause' }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      const pause = await screen.findByRole('button', { name: /^pause$/i })
+      expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument()
+      fireEvent.click(pause)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/loop-runs/job-running/pause', expect.objectContaining({ method: 'POST' })))
+      expect(await screen.findByRole('button', { name: /pausing…/i })).toBeDisabled()
+      expect(toast.info).toHaveBeenCalledWith('Pausing the run', expect.objectContaining({ description: expect.stringContaining('same run') }))
+    })
+
+    it('says Pausing… while the server reports the pause pending', async () => {
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'pausing' }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      expect(await screen.findByTestId('run-pausing')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument()
+    })
+
+    it('a run paused by you reads "Paused by you" and resumes in place with Resume', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'resume', hold: { kind: 'paused', byYou: true, step: null, since: '2026-11-21T10:00:00.000Z' } }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      const resume = await screen.findByTestId('run-resume')
+      expect(screen.getAllByText('Paused by you').length).toBeGreaterThan(0)
+      // Ending it is "Cancel run" of a paused run, not Stop of a live one.
+      expect(screen.getByRole('button', { name: /^cancel run$/i })).toBeInTheDocument()
+      fireEvent.click(resume)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/loop-runs/job-running/resume', expect.objectContaining({ method: 'POST' })))
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Run resumed', expect.anything()))
+    })
+
+    it('a run that cannot pause (legacy engine, older Core) keeps Stop only', async () => {
+      global.fetch = pauseFetch(mockLoopJob) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await screen.findByRole('button', { name: /^stop$/i })
+      expect(screen.queryByRole('button', { name: /^pause$/i })).not.toBeInTheDocument()
     })
 
     it('cancels against the EXPLICIT projectId (mission mode, cross-project pin)', async () => {

@@ -184,7 +184,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     <>
       {/* A run that is working right now never offers Continue (the runtime poll can lag the resume). */}
       {/* A run paused on a provider limit has its own card (resume time, Resume now, Don't resume by itself): one Continue, there. */}
-      {run.canResume && !answerable && !isRunning && hold?.kind !== 'provider_limit' && (
+      {/* A run the person paused resumes through the surface's own Resume (RunPauseControl): one control, not two. */}
+      {run.canResume && !answerable && !isRunning && hold?.kind !== 'provider_limit' && job.pauseControl !== 'resume' && (
         run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy} onRecover={attempts => void runtime.act(run, 'recover', attempts)} /> :
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>
           {run.recoverableSteps.length ? tRuntime('runs.recover') : run.pendingApproval ? tRuntime('runs.approve') : tRuntime('runs.resume')}

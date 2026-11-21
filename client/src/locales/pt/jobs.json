@@ -167,18 +167,30 @@
     "cancelJob": "Cancelar job",
     "stopRun": "Parar execução",
     "stopRunConfirmTitle": "Parar esta execução?",
-    "stopRunConfirmDescription": "A execução do loop será interrompida no próximo limite de etapa. Esta ação não pode ser desfeita.",
+    "stopRunConfirmDescription": "Ela para na próxima etapa e é encerrada. Você poderá continuá-la depois em uma nova tentativa que mantém o trabalho.",
     "toast": {
       "cancelSignalSent": "Sinal de cancelamento enviado",
       "cancelSignalSentDescription": "O job vai parar no próximo ponto seguro",
-      "stopSignalSent": "Sinal de parada enviado",
-      "stopSignalSentDescription": "A execução será interrompida no próximo limite de etapa",
+      "stopSignalSent": "Parando a execução",
+      "stopSignalSentDescription": "Ela para na próxima etapa e é encerrada. Você poderá continuá-la depois em uma nova tentativa que mantém o trabalho.",
       "cancelFailed": "Falha ao cancelar",
-      "networkError": "Erro de rede"
+      "networkError": "Erro de rede",
+      "pauseRequested": "Pausando a execução",
+      "pauseRequestedDescription": "Ela pausa após a etapa atual. Retomar continua esta mesma execução.",
+      "pauseFailed": "Não foi possível pausar a execução",
+      "pauseUnsupported": "O motor desta execução não consegue pausar no meio. Pare-a: você poderá continuá-la depois.",
+      "resumed": "Execução retomada",
+      "resumedDescription": "Ela continua de onde pausou.",
+      "resumeFailed": "Não foi possível retomar a execução"
     },
     "title": "Tarefa {{kind}} · #{{id}}",
     "titleLoop": "Execução de loop · #{{id}}",
-    "titleGeneric": "Tarefa · #{{id}}"
+    "titleGeneric": "Tarefa · #{{id}}",
+    "pauseRun": "Pausar",
+    "pausing": "Pausando…",
+    "resumeRun": "Retomar",
+    "pauseRunTooltip": "Pausar após a etapa atual. Nada se perde: Retomar continua esta mesma execução.",
+    "pausingTooltip": "Concluindo a etapa atual; depois a execução pausa."
   },
   "comparison": {
     "title": "Comparação de jobs",
@@ -402,7 +414,8 @@
       "question": "Precisa de você",
       "approval": "Precisa de você",
       "paused": "Pausado",
-      "queued": "Na fila"
+      "queued": "Na fila",
+      "pausedByYou": "Pausada por você"
     },
     "tooltip": {
       "restart": "O app reiniciou enquanto esta execução trabalhava. Nada é executado até você continuá-la.",
@@ -412,7 +425,8 @@
       "question": "A execução fez uma pergunta e aguarda sua resposta.",
       "approval": "A execução aguarda sua aprovação para seguir.",
       "paused": "Nada é executado até você continuá-la.",
-      "queued": "Lançado, aguardando capacidade. Começa sozinho quando houver espaço."
+      "queued": "Lançado, aguardando capacidade. Começa sozinho quando houver espaço.",
+      "pausedByYou": "Você pausou esta execução. Ela não ocupa nenhuma vaga de execução, e nada é executado até você retomá-la."
     },
     "reason": {
       "restart": "O app reiniciou durante a etapa {{step}}.",
@@ -424,7 +438,8 @@
       "question": "Aguardando sua resposta.",
       "approval": "Aguardando sua aprovação.",
       "paused": "Nada é executado até você continuá-la.",
-      "queued": "Aguardando capacidade antes de começar."
+      "queued": "Aguardando capacidade antes de começar.",
+      "pausedByYou": "Pausada por você. Nada é executado até você retomá-la."
     },
     "stoppedTime": "Tempo de trabalho até parar",
     "cancelRun": "Cancelar execução",

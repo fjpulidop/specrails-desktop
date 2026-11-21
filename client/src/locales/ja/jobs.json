@@ -167,18 +167,30 @@
     "cancelJob": "ジョブをキャンセル",
     "stopRun": "実行を停止",
     "stopRunConfirmTitle": "この実行を停止しますか？",
-    "stopRunConfirmDescription": "ループ実行は次のステップ境界で停止します。この操作は取り消せません。",
+    "stopRunConfirmDescription": "次のステップで停止して終了します。作業を保ったまま、後で新しい試行として続行できます。",
     "toast": {
       "cancelSignalSent": "キャンセルシグナルを送信しました",
       "cancelSignalSentDescription": "ジョブは次の安全なポイントで停止します",
-      "stopSignalSent": "停止シグナルを送信しました",
-      "stopSignalSentDescription": "実行は次のステップ境界で停止します",
+      "stopSignalSent": "実行を停止しています",
+      "stopSignalSentDescription": "次のステップで停止して終了します。作業を保ったまま、後で新しい試行として続行できます。",
       "cancelFailed": "キャンセルに失敗しました",
-      "networkError": "ネットワークエラー"
+      "networkError": "ネットワークエラー",
+      "pauseRequested": "実行を一時停止しています",
+      "pauseRequestedDescription": "現在のステップの後で一時停止します。再開するとこの同じ実行が続きます。",
+      "pauseFailed": "実行を一時停止できませんでした",
+      "pauseUnsupported": "この実行のエンジンは途中で一時停止できません。代わりに停止してください。後で続行できます。",
+      "resumed": "実行を再開しました",
+      "resumedDescription": "一時停止したところから続きます。",
+      "resumeFailed": "実行を再開できませんでした"
     },
     "title": "{{kind}} ジョブ · #{{id}}",
     "titleLoop": "ループ実行 · #{{id}}",
-    "titleGeneric": "ジョブ · #{{id}}"
+    "titleGeneric": "ジョブ · #{{id}}",
+    "pauseRun": "一時停止",
+    "pausing": "一時停止中…",
+    "resumeRun": "再開",
+    "pauseRunTooltip": "現在のステップの後で一時停止します。何も失われません。再開するとこの同じ実行が続きます。",
+    "pausingTooltip": "現在のステップを終えてから一時停止します。"
   },
   "comparison": {
     "title": "ジョブ比較",
@@ -402,7 +414,8 @@
       "question": "あなたの対応が必要",
       "approval": "あなたの対応が必要",
       "paused": "一時停止",
-      "queued": "待機中"
+      "queued": "待機中",
+      "pausedByYou": "あなたが一時停止"
     },
     "tooltip": {
       "restart": "この実行の作業中にアプリが再起動しました。続行するまで何も実行されません。",
@@ -412,7 +425,8 @@
       "question": "実行から質問があり、回答を待っています。",
       "approval": "続行するには承認が必要です。",
       "paused": "続行するまで何も実行されません。",
-      "queued": "起動済みで、空きを待っています。空きができると自動で開始します。"
+      "queued": "起動済みで、空きを待っています。空きができると自動で開始します。",
+      "pausedByYou": "あなたがこの実行を一時停止しました。実行枠を使わず、再開するまで何も実行されません。"
     },
     "reason": {
       "restart": "{{step}}ステップの途中でアプリが再起動しました。",
@@ -424,7 +438,8 @@
       "question": "回答を待っています。",
       "approval": "承認を待っています。",
       "paused": "続行するまで何も実行されません。",
-      "queued": "開始前に空きを待っています。"
+      "queued": "開始前に空きを待っています。",
+      "pausedByYou": "あなたが一時停止しました。再開するまで何も実行されません。"
     },
     "stoppedTime": "停止までの作業時間",
     "cancelRun": "実行をキャンセル",

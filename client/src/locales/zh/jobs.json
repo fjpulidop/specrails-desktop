@@ -167,18 +167,30 @@
     "cancelJob": "取消任务",
     "stopRun": "停止运行",
     "stopRunConfirmTitle": "停止此运行？",
-    "stopRunConfirmDescription": "循环运行将在下一个步骤边界停止。此操作无法撤销。",
+    "stopRunConfirmDescription": "它会在下一步停止并关闭。你之后可以在一次保留工作的新尝试中继续。",
     "toast": {
       "cancelSignalSent": "已发送取消信号",
       "cancelSignalSentDescription": "任务将在下一个安全点停止",
-      "stopSignalSent": "已发送停止信号",
-      "stopSignalSentDescription": "运行将在下一个步骤边界停止",
+      "stopSignalSent": "正在停止运行",
+      "stopSignalSentDescription": "它会在下一步停止并关闭。你之后可以在一次保留工作的新尝试中继续。",
       "cancelFailed": "取消失败",
-      "networkError": "网络错误"
+      "networkError": "网络错误",
+      "pauseRequested": "正在暂停运行",
+      "pauseRequestedDescription": "它会在当前步骤之后暂停。恢复会继续这同一次运行。",
+      "pauseFailed": "无法暂停运行",
+      "pauseUnsupported": "此运行的引擎无法中途暂停。请改为停止它：之后你仍可以继续。",
+      "resumed": "运行已恢复",
+      "resumedDescription": "它从暂停处继续。",
+      "resumeFailed": "无法恢复运行"
     },
     "title": "{{kind}} 任务 · #{{id}}",
     "titleLoop": "循环运行 · #{{id}}",
-    "titleGeneric": "任务 · #{{id}}"
+    "titleGeneric": "任务 · #{{id}}",
+    "pauseRun": "暂停",
+    "pausing": "正在暂停…",
+    "resumeRun": "恢复",
+    "pauseRunTooltip": "在当前步骤之后暂停。不会丢失任何内容：恢复会继续这同一次运行。",
+    "pausingTooltip": "正在完成当前步骤，然后运行将暂停。"
   },
   "comparison": {
     "title": "任务对比",
@@ -402,7 +414,8 @@
       "question": "需要你处理",
       "approval": "需要你处理",
       "paused": "已暂停",
-      "queued": "排队中"
+      "queued": "排队中",
+      "pausedByYou": "已由你暂停"
     },
     "tooltip": {
       "restart": "此运行工作时应用重启了。在你继续之前不会运行任何内容。",
@@ -412,7 +425,8 @@
       "question": "运行向你提了一个问题，正在等待你的回答。",
       "approval": "运行正在等待你的批准才能继续。",
       "paused": "在你继续之前不会运行任何内容。",
-      "queued": "已启动，正在等待容量。有空位时会自动开始。"
+      "queued": "已启动，正在等待容量。有空位时会自动开始。",
+      "pausedByYou": "你暂停了此运行。它不占用运行名额，在你恢复之前不会运行任何内容。"
     },
     "reason": {
       "restart": "应用在 {{step}} 步骤期间重启了。",
@@ -424,7 +438,8 @@
       "question": "正在等待你的回答。",
       "approval": "正在等待你的批准。",
       "paused": "在你继续之前不会运行任何内容。",
-      "queued": "开始前正在等待容量。"
+      "queued": "开始前正在等待容量。",
+      "pausedByYou": "已由你暂停。在你恢复之前不会运行任何内容。"
     },
     "stoppedTime": "停止前的工作时长",
     "cancelRun": "取消运行",

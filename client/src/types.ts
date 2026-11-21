@@ -53,6 +53,8 @@ export interface JobHold {
   waitingFor?: string
   /** `queued`: 1 = next to start. */
   position?: number
+  /** `paused`: the person paused it (Pause); only their Resume continues it. */
+  byYou?: boolean
 }
 
 export interface JobSummary {
@@ -106,6 +108,8 @@ export interface JobSummary {
    * with `jobHoldOf`; every surface shows the job through it, never the raw row.
    */
   hold?: JobHold | null
+  /** The person's Pause / Resume of a running Core definition run (server `userPauseControl`); absent: Stop is the only control. */
+  pauseControl?: 'pause' | 'pausing' | 'resume'
   /** Loop runs: time spent held (question, approval, restart, limit, budget) before the last resume. */
   heldMs?: number
   /** True when a loop run is paused awaiting a human decision. GET /jobs/:id only. */
