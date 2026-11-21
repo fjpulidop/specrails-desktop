@@ -11,6 +11,8 @@ import { truncate } from './loop-run-vars'
 import { runCounters, type LoopRunContext } from './loop-run-context'
 import { BUDGET_PAUSED, LIMIT_PAUSED, USER_PAUSED, type LoopBudgetBreach, type LoopLimitPause, type PausedHumanDecision } from './loop-run-contract'
 import { clearLimitPause, saveLimitPause } from './loop-limit-pauses'
+import { clearBudgetHold, isDailyBudgetHold, saveBudgetHold } from './loop-budget-pauses'
+import { BUDGET_RESET_RESUME_EVENT } from './loop-budget-reset-resume'
 import { clearUserPause, markUserPaused, USER_PAUSE_EVENT, USER_RESUME_LINE } from './loop-user-pauses'
 import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
@@ -115,7 +117,17 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
     const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
       host.parkPause(runId, { reason, budget: current, resolve })
     })
-    logLine(`\n■ Loop paused (${BUDGET_PAUSED}) — ${current.detail} Raise the budget, then resume: the run continues from the next step.`, 'stderr')
+    // Held on the DAILY budget: when the day resets the run resumes by itself (the
+    // setting is read when it fires). Never on a weekly/monthly cap or its own cap.
+    const resetsAtDayEnd = isDailyBudgetHold(current) && current.resetsAt ? current.resetsAt : null
+    let dayReset = false
+    const timer = resetsAtDayEnd ? scheduleLimitResume(resetsAtDayEnd, () => {
+      if (host.options.resumeOnDailyReset?.() === false || host.isCancelled(runId)) return
+      dayReset = true
+      if (!host.resolvePause(runId, { action: 'resume', text: '' })) dayReset = false
+    }) : null
+    try { saveBudgetHold(host.db, runId, current) } catch { /* the in-memory pause still holds; a restart then keeps it held without the automatic resume */ }
+    logLine(`\n■ Loop paused (${BUDGET_PAUSED}) — ${current.detail} Raise the budget, then resume: the run continues from the next step.${resetsAtDayEnd && host.options.resumeOnDailyReset?.() !== false ? ` It resumes automatically when the day resets (${resetsAtDayEnd}).` : ''}`, 'stderr')
     const pausedAtMs = host.now()
     pauseLoopRun(host.db, runId, runCounters(state), BUDGET_PAUSED)
     host.emit({
@@ -126,7 +138,8 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
       reason,
       ticketIds: exactTicketIds,
       pauseKind: BUDGET_PAUSED,
-      budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt },
+      budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt,
+        ...(current.nextStep ? { nextStep: { ...current.nextStep }, remainingUsd: current.remainingUsd } : {}) },
     })
     host.emit({
       type: 'job.interactive',
@@ -139,17 +152,29 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
     })
     ctx.capacity?.yieldSlot()
     const decision = await decisionPromise
-    if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement */ })
+    timer?.cancel()
+    if (host.isDisposed()) return new Promise(() => { /* startup recovery owns settlement; the hold record survives it */ })
     if (decision.action === 'stop' || host.isCancelled(runId)) {
+      try { clearBudgetHold(host.db, runId) } catch { /* stale holds are ignored once the run settles */ }
       logLine(`\n■ Loop stop requested while paused on the daily budget.`, 'stderr')
       return 'stop'
     }
     if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
     const still = host.budgetBreach(runId)
-    if (still) { current = still; continue }
+    if (still) {
+      // The day reset, but another cap still holds it (its own per-run cap, a weekly or monthly
+      // cap, or a budget already spent again): it stays held and says why.
+      if (dayReset) logLine(`\n■ The day reset, but the run stays held: ${still.detail}`, 'stderr')
+      current = still
+      continue
+    }
+    try { clearBudgetHold(host.db, runId) } catch { /* stale holds are ignored once the run moves on */ }
     resumeLoopRun(host.db, runId, new Date(host.now()))
     const resumedAt = new Date(host.now()).toISOString()
-    logLine(`\n▶ Loop resumed — the daily budget allows the next step.`)
+    if (dayReset) {
+      logLine(`\n▶ The day reset — the daily budget allows the next step again, so the run resumed by itself. It continues once there is capacity.`)
+      ctx.events.emitRunEvent(BUDGET_RESET_RESUME_EVENT, { scope: current.scope, resetsAt: current.resetsAt })
+    } else logLine(`\n▶ Loop resumed — the daily budget allows the next step.`)
     host.emit({
       type: 'loop.run_resumed',
       projectId: req.projectId,

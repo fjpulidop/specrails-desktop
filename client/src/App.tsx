@@ -16,11 +16,12 @@ import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
-import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, openBudgetPanel, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
 import { useShowSurfaceToasts, useTrackSurfaceToasts } from './lib/surface-toasts'
+import { listenSurfaceShellRequests } from './lib/surface-shell-requests'
 import { SurfaceDocsHost } from './features/docs/components/SurfaceDocsHost'
 import { useToastsUsableOverModals } from './lib/toasts-over-modals'
 // The shell is static; its content chunk starts loading as soon as the route is known.
@@ -771,9 +772,8 @@ function DesktopApp() {
         params={{ section: settingsSection, settingId: settingsSettingId, onboarding: '1' }}
         onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }}
         onResult={(result) => {
-          if (!isAppSettingsSurfaceResult(result)) return
-          if (result.action === 'openOnboarding') setOnboardingOpen(true)
-          else openBudgetPanel()
+          // Shell requests ("Open budget") arrive through useSurfaceShellRequests.
+          if (isAppSettingsSurfaceResult(result)) setOnboardingOpen(true)
         }}
       >
         {settingsMounted && (
@@ -1006,11 +1006,22 @@ function useSurfaceStorageReplay() {
   }, [])
 }
 
+/** "Configure", "Open budget"… clicked in a surface window this window opened run here. */
+function useSurfaceShellRequests() {
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    let disposed = false
+    void listenSurfaceShellRequests().then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
+}
+
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
   const surface = surfaceWindowRoute()
   useSuppressNativeContextMenu()
   useSurfaceStorageReplay()
+  useSurfaceShellRequests()
   useShowSurfaceToasts()
   if (surface) {
     preloadSurfaceWindowContent(surface.id)

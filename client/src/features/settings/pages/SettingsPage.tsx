@@ -8,6 +8,7 @@ import { PROJECT_SETTINGS_SECTIONS, ProjectSettingsPane } from '../components/pr
 import { SETTING_PARAM, focusSettingAnchor } from '../lib/setting-anchor'
 import { ProjectTelemetrySection } from '../components/ProjectSettingsSections'
 import { notifyError } from '../../../lib/notify-error'
+import { PROJECT_SETTINGS_SECTION_PARAM } from '../../../lib/app-settings-events'
 import { cn } from '../../../lib/utils'
 
 /** The nearest ancestor that scrolls vertically, or null when the document does. */
@@ -160,6 +161,15 @@ export default function SettingsPage() {
     spyLockedUntil.current = Date.now() + 700
     sectionEls.current.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [])
+
+  // `/settings?section=<id>` (openProjectSettings from a run's "Configure", a Job
+  // detail window) lands on that section once the page has rendered it.
+  const requestedSection = new URLSearchParams(location.search).get(PROJECT_SETTINGS_SECTION_PARAM)
+  useEffect(() => {
+    if (isLoading || !requestedSection || !sections.some((section) => section.id === requestedSection)) return
+    const frame = requestAnimationFrame(() => goToSection(requestedSection))
+    return () => cancelAnimationFrame(frame)
+  }, [isLoading, requestedSection, sections, goToSection, location.key])
 
   if (isLoading) {
     return (

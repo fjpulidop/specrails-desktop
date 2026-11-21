@@ -231,6 +231,7 @@
     "publicEntries": [
       "components/JobDetailModal.tsx",
       "components/LogViewer.tsx",
+      "components/job-run/RunPauseControl.tsx",
       "components/job-run/useRuntimeRuns.ts",
       "hooks/useAssembleProgress.ts",
       "hooks/useCompareUrlSync.ts",
@@ -444,6 +445,7 @@
       "agents",
       "browser",
       "delivery",
+      "jobs",
       "loops",
       "missions",
       "projects",

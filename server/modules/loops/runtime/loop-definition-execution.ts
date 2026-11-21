@@ -27,6 +27,8 @@ import type { LoopRunContext } from './loop-run-context'
 import { acceptedRouteOverrides, currentRoleRoutes, type DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 import { rolesOnProvider, routeOverrideRequest, switchedLine } from './loop-provider-switch'
 import type { ProviderSwitchTarget } from './loop-run-contract'
+import { AI_NODE_KINDS, invalidateNodeCostHistory } from './loop-run-turn-estimates'
+import type { RunCapProjection } from './loop-run-context'
 
 /** The run's record for a Core process stopped by a signal Specrails did not send (recovery EXTERNAL_STOP). */
 export function unrequestedStopText(errorText: string | undefined, step: string | null): string {
@@ -34,8 +36,6 @@ export function unrequestedStopText(errorText: string | undefined, step: string 
   return `The run's Core process received ${signal}, a stop Specrails did not request: something outside the app (a script, a terminal or the system) ended it${step ? ` during the ${step} step` : ''}. The work so far is kept; Continue resumes from that step.`
 }
 
-/** Node kinds whose step is a provider turn (the runtime graph names each node's kind). */
-const AI_NODE_KINDS: ReadonlySet<string> = new Set(['role-turn', 'prompt', 'implementation', 'implementation-step', 'derive-change', 'agent'])
 
 export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   const aiNodes = new Set<string>()
@@ -52,11 +52,13 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   // Core's cooperative pause takes effect at the next node it admits, and a request is a
   // short Core process: after a turn ends, the next turn can be admitted before it lands
   // (one gpt-6-astra run went $4.89 against a $2.00 cap). While a turn runs, a request is
-  // armed when this turn and the next one, at the run's largest turn cost, would pass the
-  // per-run cap; the pause then stops the run before the next turn, which is checked again.
-  const requestBudgetPause = (turnsAhead = 1): void => {
+  // armed when this turn and the next AI step, at their expected costs (see
+  // loop-run-turn-estimates), could pass the per-run cap; the pause then stops the run
+  // before the next step, which is checked again with what this one really cost.
+  const requestBudgetPause = (projection: RunCapProjection = {}): void => {
     if (budgetPauseRequested || budgetPauseUnsupported || !executors.pauseDefinition || host.isCancelled(runId) || host.isDisposed()) return
-    const breach = host.budgetBreach(runId, { turnsAhead })
+    const breach = host.budgetBreach(runId, projection)
+    const turnsAhead = projection.inFlight ? 2 : 1
     const contextPath = breach ? readDefinitionRun(db, runId)?.metadata.contextPath : undefined
     if (!breach || !contextPath) return
     budgetPauseRequested = true
@@ -64,7 +66,8 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     // pause whose request id it already consumed (a resumed run then ran past its cap to delivery).
     const requestId = `desktop-budget-pause:${runId}:${++budgetPauseEpisode}:${Date.now().toString(36)}`
     if (turnsAhead > 1 && breach.period === 'run') {
-      logLine(`\n■ Per-run cap: this turn and the next could take the run past its $${breach.budgetUsd.toFixed(2)} cap. The workflow pauses after this turn, and the next turn starts only if the cap allows it.`, 'stderr')
+      const next = breach.nextStep ? ` and the next step (${breach.nextStep.label}, about $${breach.nextStep.usd.toFixed(2)})` : ' and the next'
+      logLine(`\n■ Per-run cap: this turn${next} could take the run past its $${breach.budgetUsd.toFixed(2)} cap. The workflow pauses after this turn, and the next turn starts only if the cap allows it.`, 'stderr')
     } else {
       logLine(`\n■ ${breach.period === 'run' ? 'Per-run cap reached mid-run' : 'Daily budget reached mid-run'} — ${breach.detail} Pausing the workflow after its current step.`, 'stderr')
     }
@@ -106,14 +109,19 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
     if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string') lastStep = workflow.nodePath
     if (event.type === 'runtime-graph' && Array.isArray(event.nodes)) {
       for (const node of event.nodes as Array<{ path?: unknown; kind?: unknown }>) if (typeof node?.path === 'string' && AI_NODE_KINDS.has(String(node.kind))) aiNodes.add(node.path)
-    } else if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string' && aiNodes.has(workflow.nodePath)) requestBudgetPause(2)
+    } else if (workflow?.type === 'step_started' && typeof workflow.nodePath === 'string' && aiNodes.has(workflow.nodePath)) {
+      // A "run this step once" answer is used up by this step; the cap applies to the next one.
+      host.noteAiStepStarted(runId)
+      requestBudgetPause({ inFlight: workflow.nodePath })
+    }
   }
   const projectEvent = createDefinitionEventProjection({ db, runId, projectId: req.projectId, ticketIds: exactTicketIds, nextSequence: takeSeq,
     broadcast: event => host.emit({ type: 'event', jobId: runId, event_type: event.eventType, source: 'stdout', payload: event.payload, seq: event.seq, timestamp: event.timestamp }),
     onProgress: (count, usage) => {
       state.stepNum = count; state.totalCost = usage.cost; state.totalTokens = usage.tokensIn + usage.tokensOut; state.totalDuration = usage.duration; state.costUncertain = usage.costUnknown; state.usageTelemetryAvailable = usage.present
       // Only new recorded spend can cross the budget: check on a cost change.
-      if (state.totalCost > budgetCheckedCost) { budgetCheckedCost = state.totalCost; requestBudgetPause() }
+      // The project's step history now includes this turn: another run's next estimate reads it afresh.
+      if (state.totalCost > budgetCheckedCost) { budgetCheckedCost = state.totalCost; invalidateNodeCostHistory(db); requestBudgetPause() }
     },
   })
   // provider-quota: Core failed on a usage limit. Pause until the reset (or a
@@ -192,6 +200,12 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
   // A run that never reached Core (it waited, queued for capacity, when the app
   // stopped) has no Core context to resume: its continuation starts it afresh.
   const coreStarted = !definitionRunNeverReachedCore(db, runId)
+  // The workflow's first AI step is checked against the per-run cap before Core starts it:
+  // a turn already started cannot be stopped, and nothing earlier in the run predicts it.
+  if (!continuation || !coreStarted) {
+    const breach = host.budgetBreach(runId, { beforeStart: true })
+    if (breach?.period === 'run' && await awaitBudget(ctx, breach) === 'stop') { state.outcome = 'stopped'; return }
+  }
   const result = await runDefinitionLoop(req, runId, { continuation: continuation && coreStarted ? continuation : undefined, contextPath: () => readDefinitionRun(db, runId)?.metadata.contextPath,
     onPrepared: metadata => { saveDefinitionRun(db, runId, metadata) },
     invoke: input => {

@@ -36,9 +36,24 @@ and contexts do not cross windows. A surface therefore crosses the boundary as:
    crash) the host emits `{ kind: 'closed', requestId }` to the opener and
    focuses the opener window.
 
-Callbacks become results. Settings' "Replay tour" and "Open budget" used to
-call opener callbacks. In a window they report `{ action: 'openOnboarding' }`
-or `{ action: 'openBudget' }`, then close. `App.tsx` handles them.
+Callbacks become results. Settings' "Replay tour" used to call an opener
+callback. In a window it reports `{ action: 'openOnboarding' }`, then closes.
+`App.tsx` handles it.
+
+**Shell requests.** `openAppSettings`, `openProjectSettings` and
+`openBudgetPanel` ([`lib/app-settings-events.ts`](../../client/src/lib/app-settings-events.ts))
+ask the app shell through window events, and a surface window has no shell.
+Every surface window forwards them
+([`lib/surface-shell-requests.ts`](../../client/src/lib/surface-shell-requests.ts)):
+it reports `{ action: 'shell', request }` and closes (the live board stays
+open; the host brings its opener forward), so the opener, focused by the host
+on close, shows the place in front. A project-settings request carries the
+surface's `projectId` (Job detail's "Configure" opens the run's project, at
+the requested `?section=`; the shell switches project first when it differs).
+The opener listens app-wide (`listenSurfaceShellRequests` in `AppRoutes`), not
+per `<Surface>`: a window whose opener component unmounted still reaches it.
+The result is validated (known kinds, app-settings sections, ≤ 256-char
+fields) and replayed as the same local window event.
 
 ## Opening a surface
 

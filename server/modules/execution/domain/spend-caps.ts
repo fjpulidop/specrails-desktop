@@ -8,7 +8,7 @@
  * 00:00 local, the month on the 1st 00:00 local (DST-safe: built from calendar
  * fields, not from fixed 24 h offsets).
  */
-import type { DailyBudgetRejection, DailyBudgetScope } from './daily-budget'
+import type { DailyBudgetRejection, DailyBudgetScope, NextStepEstimate } from './daily-budget'
 
 export type CapPeriod = 'day' | 'week' | 'month'
 export const CAP_PERIODS: readonly CapPeriod[] = ['day', 'week', 'month']
@@ -106,16 +106,46 @@ export function capRejection(status: CapStatus): DailyBudgetRejection {
   }
 }
 
-/** What a run's turns cost so far: the largest (the next turn's expected cost) and the latest. */
-export interface RunTurnCosts { largestUsd: number | null; lastUsd: number | null }
+/**
+ * What a run's turns cost so far: the largest and the latest. A Core workflow run whose graph
+ * is known also says what its next AI step is expected to cost (`next`; null when no AI step
+ * follows) and, while a step runs, what that step is expected to cost (`inFlight`). Without
+ * them (legacy traversal, a graph Core did not describe) the next turn is expected to cost as
+ * much as the largest turn so far.
+ */
+export interface RunTurnCosts {
+  largestUsd: number | null
+  lastUsd: number | null
+  next?: NextStepEstimate | null
+  inFlight?: NextStepEstimate | null
+}
 
 /** Dollars as the person reads them; a sub-cent spend (small models) keeps a third decimal so "$0.036 of $0.04" stays true. */
 const usd = (value: number): string => `$${value.toFixed(Math.abs(value * 100 - Math.round(value * 100)) > 1e-6 && Math.abs(value) < 10 ? 3 : 2)}`
 
+/** Why the estimate is what it is, in the person's words. */
+function basisText(next: NextStepEstimate): string {
+  if (next.basis === 'run') return 'its largest turn earlier in this run'
+  if (next.basis === 'history') return `the median of its last ${next.samples === 1 ? 'turn' : `${next.samples} turns`} in this project`
+  return 'a rate-card estimate of a typical turn of its kind on its model'
+}
+
+/**
+ * What the run is expected to spend before the cap is checked again: the step running now
+ * (when asked, `turnsAhead > 1`) and the next AI step. Node-aware when the run knows its
+ * graph; otherwise `turnsAhead` turns at the largest turn so far. Null: nothing to project.
+ */
+export function runCapAheadUsd(turns: RunTurnCosts, turnsAhead = 1): number | null {
+  if (turns.next !== undefined) {
+    const ahead = (turnsAhead > 1 ? turns.inFlight?.usd ?? 0 : 0) + (turns.next?.usd ?? 0)
+    return ahead > 0 ? ahead : null
+  }
+  return turns.largestUsd !== null && turns.largestUsd > 0 ? turnsAhead * turns.largestUsd : null
+}
+
 /**
  * The per-run soft cap, reached by one run's provider-reported cost, or about to be:
- * the run's next turn is expected to cost as much as its largest turn so far, and a
- * turn whose expected cost would take the run past the cap is not started.
+ * the next AI step is expected to cost more than the cap has left, so it is not started.
  */
 export function runCapRejection(capUsd: number, runCostUsd: number, turns: RunTurnCosts = { largestUsd: null, lastUsd: null }): DailyBudgetRejection {
   const base = { error: 'daily_budget_exceeded' as const, scope: 'project' as const, period: 'run' as const, budgetUsd: capUsd, spentUsd: runCostUsd, resetsAt: null }
@@ -126,12 +156,20 @@ export function runCapRejection(capUsd: number, runCostUsd: number, turns: RunTu
       action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
   }
   // Exact, not rounded to cents: $0.0356 has not reached a $0.04 cap; it is paused before a turn that would cross it.
-  if (runCostUsd >= capUsd - 1e-9 || turns.largestUsd === null) {
+  const ahead = runCapAheadUsd(turns)
+  if (runCostUsd >= capUsd - 1e-9 || ahead === null) {
     return { ...base, detail: `This run's cost ${usd(runCostUsd)} has reached the per-run cap of ${usd(capUsd)}.`, action: 'Continue without the cap, or raise the per-run cap, and the run resumes from the next step.' }
   }
-  const projected = runCostUsd + turns.largestUsd
-  return { ...base, nextTurnUsd: turns.largestUsd,
-    detail: `This run has spent ${usd(runCostUsd)} of its ${usd(capUsd)} per-run cap, and its next turn is expected to cost about ${usd(turns.largestUsd)} (its largest turn so far), which would take it to ${usd(projected)}.`,
+  const projected = runCostUsd + ahead
+  const next = turns.next
+  if (next) {
+    const remaining = fromCents(Math.max(0, toCents(capUsd) - toCents(runCostUsd)))
+    return { ...base, nextTurnUsd: next.usd, nextStep: { ...next }, remainingUsd: remaining,
+      detail: `The next step (${next.label}) usually costs about ${usd(next.usd)} (${basisText(next)}), and ${usd(remaining)} of this run's ${usd(capUsd)} per-run cap is left (${usd(runCostUsd)} spent), so it has not started.`,
+      action: `Run this step once, continue without the cap, or raise the per-run cap to at least ${usd(projected)}, and the run resumes from the next step.` }
+  }
+  return { ...base, nextTurnUsd: ahead,
+    detail: `This run has spent ${usd(runCostUsd)} of its ${usd(capUsd)} per-run cap, and its next turn is expected to cost about ${usd(ahead)} (its largest turn so far), which would take it to ${usd(projected)}.`,
     action: `Continue without the cap, or raise the per-run cap to at least ${usd(projected)}, and the run resumes from the next step.` }
 }
 
@@ -140,14 +178,14 @@ export const isRunCapCrossed = (capUsd: number | null | undefined, runCostUsd: n
   capUsd != null && capUsd > 0 && toCents(runCostUsd) >= toCents(capUsd)
 
 /**
- * Must the run stop before its next turn? Its cost crossed the cap, or `turnsAhead`
- * more turns at its largest turn's cost would take it past the cap. Without a turn
- * cost yet nothing is projected (the first turn always runs).
+ * Must the run stop before its next turn? Its cost crossed the cap, or what it is expected
+ * to spend ahead (`aheadUsd`, see `runCapAheadUsd`) would take it past the cap. Nothing to
+ * project (no turn cost and no estimate yet) never stops it.
  */
-export function isRunCapReached(capUsd: number | null | undefined, runCostUsd: number, largestTurnUsd: number | null, turnsAhead = 1): boolean {
+export function isRunCapReached(capUsd: number | null | undefined, runCostUsd: number, aheadUsd: number | null): boolean {
   if (isRunCapCrossed(capUsd, runCostUsd)) return true
-  if (capUsd == null || capUsd <= 0 || largestTurnUsd === null || largestTurnUsd <= 0) return false
-  return toCents(runCostUsd) + turnsAhead * toCents(largestTurnUsd) > toCents(capUsd)
+  if (capUsd == null || capUsd <= 0 || aheadUsd === null || aheadUsd <= 0) return false
+  return toCents(runCostUsd) + toCents(aheadUsd) > toCents(capUsd)
 }
 
 /** The tighter (smaller) of the per-run caps that apply; 0/null mean "none". */

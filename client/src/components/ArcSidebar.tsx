@@ -3,7 +3,7 @@ import { projectMonogram } from '../lib/project-monogram'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { isMacKeyboard } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
-import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
+import { OPEN_PROJECT_SETTINGS_EVENT, PROJECT_SETTINGS_SECTION_PARAM, PROJECT_SETTINGS_SETTING_PARAM, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -862,17 +862,38 @@ export function ArcSidebar({
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
   // Project settings (hover gear on a project folder, ⌘K "Open project settings ▸ …") are the /settings route.
-  const openProjectSettingsRoute = useCallback((settingId?: string) => {
-    navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
+  const openProjectSettingsRoute = useCallback((settingId?: string, section?: string) => {
+    const params = new URLSearchParams()
+    if (settingId) params.set(PROJECT_SETTINGS_SETTING_PARAM, settingId)
+    else if (section) params.set(PROJECT_SETTINGS_SECTION_PARAM, section)
+    const search = params.toString()
+    navigate(search ? `/settings?${search}` : '/settings')
   }, [navigate])
+  // A request for ANOTHER project's settings (a Job detail window forwards its
+  // run's project) switches project first; the route opens once the switch has
+  // committed, after route memory restored the incoming project's surface.
+  const pendingProjectSettings = useRef<OpenProjectSettingsDetail | null>(null)
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
-      openProjectSettingsRoute(detail?.settingId)
+      const target = detail?.projectId
+      if (target && target !== activeProjectId && projects.some((project) => project.id === target)) {
+        pendingProjectSettings.current = detail
+        setActiveProjectId(target)
+        return
+      }
+      openProjectSettingsRoute(detail?.settingId, detail?.section)
     }
     window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
-  }, [openProjectSettingsRoute])
+  }, [openProjectSettingsRoute, activeProjectId, projects, setActiveProjectId])
+  useEffect(() => {
+    const pending = pendingProjectSettings.current
+    if (!pending || pending.projectId !== activeProjectId) return
+    pendingProjectSettings.current = null
+    const frame = requestAnimationFrame(() => openProjectSettingsRoute(pending.settingId, pending.section))
+    return () => cancelAnimationFrame(frame)
+  }, [activeProjectId, openProjectSettingsRoute])
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return

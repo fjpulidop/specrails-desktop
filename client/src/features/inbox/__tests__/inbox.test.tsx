@@ -338,9 +338,32 @@ describe('Primary actions call the real handlers', () => {
     expect(dialog).toHaveTextContent('Paused at the per-run limit ($5.20 of $5.00)')
     expect(h.toast.error).not.toHaveBeenCalled()
     expect(screen.getByTestId('run-cap-amount')).toHaveValue(10.2)
+    // Paused at the cap itself (no step estimate): running one more step is not offered.
+    expect(screen.queryByTestId('run-cap-once')).toBeNull()
     fireEvent.click(screen.getByTestId('run-cap-ignore'))
     await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Run resumed'))
     expect(bodies).toEqual([{}, { runCap: 'ignore' }])
+  })
+
+  it('a run paused before a step it expects to overrun names the step and can run just that step once', async () => {
+    const bodies: unknown[] = []
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(input)
+      if (u.endsWith('/api/inbox')) return { ok: true, status: 200, json: async () => ({ items, projects: [], generatedAt: '' }) }
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      bodies.push(body)
+      if (body.runCap === 'once') return { ok: true, status: 202, json: async () => ({ resumed: true }) }
+      return { ok: false, status: 409, json: async () => ({ error: 'daily_budget_exceeded', scope: 'project', period: 'run', budgetUsd: 0.4, spentUsd: 0.28, resetsAt: null,
+        nextStep: { nodePath: 'developer', label: 'Developer', usd: 0.45, basis: 'history', samples: 6 }, remainingUsd: 0.12 }) }
+    })
+    mount('/?inbox=1')
+    const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
+    fireEvent.click(within(row).getByTestId('inbox-primary'))
+    const dialog = await screen.findByTestId('run-cap-dialog')
+    expect(dialog).toHaveTextContent('Paused before Developer: it usually costs about $0.45, and $0.12 of the $0.40 per-run limit is left ($0.28 spent).')
+    fireEvent.click(screen.getByTestId('run-cap-once'))
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Run resumed'))
+    expect(bodies).toEqual([{}, { runCap: 'once' }])
   })
 
   it('Raise sends the new cap, and only when it ends above what the run spent', async () => {

@@ -1775,7 +1775,7 @@ exports[`LoopRunManager characterization: full run traces > budget pause between
     },
     {
       "line": "
-■ Loop paused (budget_paused) — Spent $12.00 of $10.00. Raise the budget, then resume: the run continues from the next step.",
+■ Loop paused (budget_paused) — Spent $12.00 of $10.00. Raise the budget, then resume: the run continues from the next step. It resumes automatically when the day resets (2026-10-22T00:00:00.000Z).",
       "processId": "trace-budget",
       "source": "stderr",
       "timestamp": "1970-01-01T00:00:01.000Z",
@@ -2028,7 +2028,7 @@ exports[`LoopRunManager characterization: full run traces > budget pause between
     {
       "payload": {
         "line": "
-■ Loop paused (budget_paused) — Spent $12.00 of $10.00. Raise the budget, then resume: the run continues from the next step.",
+■ Loop paused (budget_paused) — Spent $12.00 of $10.00. Raise the budget, then resume: the run continues from the next step. It resumes automatically when the day resets (2026-10-22T00:00:00.000Z).",
       },
       "seq": 5,
       "source": "stderr",

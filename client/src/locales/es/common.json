@@ -201,6 +201,7 @@
     "stillExceeded": "El límite diario sigue agotado.",
     "exceededRun": "Límite por ejecución alcanzado ({{spent}} de {{budget}}). La ejecución está en pausa.",
     "pausedRun": "En pausa en el límite por ejecución ({{spent}} de {{budget}}). Continúa sin él o súbelo.",
+    "pausedRunNext": "En pausa antes de {{step}}: suele costar ~{{next}} y quedan {{left}} del límite de {{budget}} por ejecución ({{spent}} gastado). Ejecútalo una vez, continúa sin límite o súbelo.",
     "actionRun": "Continúa sin el límite, o súbelo, y reanuda.",
     "exceededProject_week": "Límite semanal del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
     "exceededProject_month": "Límite mensual del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
@@ -220,6 +221,7 @@
       "title": "Ejecución en pausa en su límite",
       "raise": "Subir el límite y continuar",
       "continue": "Continuar sin límite",
+      "once": "Ejecutar solo este paso",
       "raiseTo": "Subir el límite a (USD)",
       "mustExceed": "Debe superar los {{spent}} ya gastados"
     },

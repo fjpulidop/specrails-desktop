@@ -401,6 +401,11 @@ export interface LoopBudgetBreach {
   resetsAt: string | null
   detail: string
   action: string
+  /** Per-run cap: how far the run went past it; the next step's expected cost; what was left. */
+  overshootUsd?: number
+  nextTurnUsd?: number
+  nextStep?: import('../../execution').NextStepEstimate
+  remainingUsd?: number
 }
 
 /** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
@@ -464,8 +469,8 @@ export interface LoopProviderSwitch {
   remember(routes: Record<string, { provider: string; model: string; effort?: string }>): void
 }
 
-/** How a resume answers a per-run soft cap: continue without it, or with a higher one. */
-export type RunCapChoice = { ignore: true } | { raiseTo: number }
+/** The person's answer to a per-run cap: waive it for this run, raise it, or run only the next step past it. */
+export type RunCapChoice = { ignore: true } | { raiseTo: number } | { once: true }
 
 export type BudgetResumeResult =
   | { status: 'resumed' }
@@ -509,6 +514,8 @@ export interface LoopRunManagerOptions {
   dailyBudget?: () => LoopBudgetBreach | null
   /** provider-quota: a run paused on a usage limit resumes by itself at the reset (default true). */
   autoResumeOnLimit?: () => boolean
+  /** A run held on the DAILY budget resumes by itself when the day resets (default true; app setting). */
+  resumeOnDailyReset?: () => boolean
   /** Default per-run soft cap (USD) a new run starts with; null/absent = none. */
   runCapDefault?: () => number | null
   /** Agent actions audit sink bound to this project (observing only). */

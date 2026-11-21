@@ -268,6 +268,10 @@
           "label": "Budget quotidien et alertes de coût",
           "keywords": "budget, quotidien, coût, dépenses, limite, alerte, argent"
         },
+        "resumeOnDailyReset": {
+          "label": "Reprendre les exécutions à la réinitialisation quotidienne",
+          "keywords": "budget, quotidien, réinitialisation, minuit, reprendre, exécutions, bloquées, automatiquement"
+        },
         "notifications": {
           "label": "Notifications du système",
           "keywords": "notifications, alertes, son, notifications de bureau"

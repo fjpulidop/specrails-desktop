@@ -45,7 +45,14 @@
     "alertSet": "Alerta definido para jobs acima de {{amount}}",
     "saveThresholdFailed": "Falha ao guardar o limiar",
     "dailyCurrent": "Atualmente {{amount}} por dia",
-    "dailyNone": "Sem limite diário"
+    "dailyNone": "Sem limite diário",
+    "resumeOnDailyReset": {
+      "label": "Retomar as execuções retidas pelo limite diário quando o dia reiniciar",
+      "helper": "Quando o dia reinicia, uma execução retida apenas pelo limite diário continua sozinha assim que houver capacidade. Uma execução que você pausou, ou que o próprio limite por execução ainda retém, continua esperando por você.",
+      "enabled": "As execuções retidas pelo limite diário serão retomadas quando o dia reiniciar",
+      "disabled": "As execuções retidas pelo limite diário vão esperar por você",
+      "saveFailed": "Não foi possível salvar a configuração"
+    }
   },
   "desktop": {
     "nav": {

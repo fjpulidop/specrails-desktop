@@ -268,6 +268,10 @@
           "label": "Daily limit and cost alerts",
           "keywords": "budget, daily, cost, spend, limit, alert, usd, money"
         },
+        "resumeOnDailyReset": {
+          "label": "Resume runs at the daily reset",
+          "keywords": "budget, daily, reset, midnight, resume, held, runs, automatically"
+        },
         "notifications": {
           "label": "OS notifications",
           "keywords": "notifications, alerts, sound, desktop notifications"

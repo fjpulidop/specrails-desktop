@@ -26,7 +26,7 @@ import { appendEvent, type DbInstance } from '../../../db'
 import type { InteractiveJobSession } from '../../execution/runtime/interactive-job-session'
 import type { WsMessage } from '../../../types'
 import { getAdapter, requireToolPolicy } from '../../../providers'
-import { isRunCapReached, runCapRejection, type RunTurnCosts } from '../../execution'
+import { isRunCapReached, runCapAheadUsd, runCapRejection, type RunTurnCosts } from '../../execution'
 import { newId } from '../../../ids'
 import { isDefinitionGraph } from './loop-graph'
 import {
@@ -54,7 +54,7 @@ import { saveLimitPause } from './loop-limit-pauses'
 import { clearUserPause, readUserPause, saveUserPause, USER_PAUSE_EVENT, USER_PAUSE_REASON, USER_RESUME_LINE, userPauseRequestId } from './loop-user-pauses'
 import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
-import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
+import type { LoopRunContext, LoopRunHost, LoopRunState, RunCapProjection } from './loop-run-context'
 import type { LoopRunAdmission } from './loop-run-contract'
 import { QUEUED_LOG_PREFIX } from './loop-runs-store'
 import type {
@@ -132,29 +132,31 @@ export class LoopRunManager {
   ) {}
 
   /** Live per-run soft cap state of the runs this manager is executing. */
-  private readonly _runCaps = new Map<string, { capUsd: number | null; cost: () => number; turns?: () => RunTurnCosts }>()
+  private readonly _runCaps = new Map<string, { capUsd: number | null; cost: () => number; turns?: (options?: RunCapProjection) => RunTurnCosts; once?: boolean }>()
 
   /** Best-effort budget read: an unreadable budget never stops a run. */
   private _dailyBudgetBreach(): LoopBudgetBreach | null {
     try { return this.options.dailyBudget?.() ?? null } catch { return null }
   }
 
-  /** The per-run soft cap, when this run's provider-reported cost has reached it, or its
-   *  next turn (at the cost of its largest turn so far) would take it past it. `turnsAhead`
-   *  looks further: 2 asks, while a turn runs, whether the turn after it could start. */
-  private _runCapBreach(runId: string, turnsAhead = 1): LoopBudgetBreach | null {
+  /** The per-run soft cap, when this run's provider-reported cost has reached it, or its next
+   *  AI step's expected cost (see `readRunTurnCosts`) would take it past it. A "run this step
+   *  once" answer waives it until the next AI step starts. */
+  private _runCapBreach(runId: string, projection: RunCapProjection = {}): LoopBudgetBreach | null {
     const state = this._runCaps.get(runId)
-    if (!state) return null
+    // No cap (none set, or waived): nothing to project, and no history to read.
+    if (!state || state.once || state.capUsd == null || state.capUsd <= 0) return null
     let turns: RunTurnCosts = { largestUsd: null, lastUsd: null }
-    try { turns = state.turns?.() ?? turns } catch { /* an unreadable history projects nothing */ }
+    try { turns = state.turns?.(projection) ?? turns } catch { /* an unreadable history projects nothing */ }
     const cost = state.cost()
-    if (!isRunCapReached(state.capUsd, cost, turns.largestUsd, turnsAhead)) return null
-    return runCapRejection(state.capUsd as number, cost, turns)
+    const turnsAhead = projection.turnsAhead ?? (projection.inFlight ? 2 : 1)
+    if (!isRunCapReached(state.capUsd, cost, runCapAheadUsd(turns, turnsAhead))) return null
+    return runCapRejection(state.capUsd as number, cost, turnsAhead > 1 ? turns : { ...turns, inFlight: null })
   }
 
   /** Daily/weekly/monthly cap first (refuses outright), then the run's soft cap. */
-  private _budgetBreach(runId: string, turnsAhead = 1): LoopBudgetBreach | null {
-    return this._dailyBudgetBreach() ?? this._runCapBreach(runId, turnsAhead)
+  private _budgetBreach(runId: string, projection: RunCapProjection = {}): LoopBudgetBreach | null {
+    return this._dailyBudgetBreach() ?? this._runCapBreach(runId, projection)
   }
 
   /** The budget a run is paused on (`budget_paused`), else null. */
@@ -222,8 +224,10 @@ export class LoopRunManager {
     if (!paused?.budget) return { status: 'not_budget_paused' }
     // The person's answer to a per-run soft cap: waive it for this run, or move it up.
     const state = this._runCaps.get(runId)
-    if (state && choice) {
-      state.capUsd = 'ignore' in choice ? null : choice.raiseTo
+    // "Run this step once": the next AI step starts although its estimate does not fit; the cap stands after it.
+    if (state && choice && 'once' in choice) state.once = true
+    else if (state && choice) {
+      state.capUsd = 'raiseTo' in choice ? choice.raiseTo : null
       try { writeLoopRunCap(this.db, runId, state.capUsd ?? 0) } catch { /* the in-memory choice still applies */ }
     }
     const rejection = this._budgetBreach(runId)
@@ -666,7 +670,8 @@ export class LoopRunManager {
         paused.resolve(decision)
         return true
       },
-      budgetBreach: (runId, options) => this._budgetBreach(runId, options?.turnsAhead ?? 1),
+      budgetBreach: (runId, options) => this._budgetBreach(runId, options),
+      noteAiStepStarted: (runId) => { const state = this._runCaps.get(runId); if (state) state.once = false },
       trackRunCap: (runId, cap) => { this._runCaps.set(runId, cap) },
       untrackRunCap: (runId) => { this._runCaps.delete(runId) },
       claimDefinition: (req) => this.claimDefinition(req),
@@ -674,7 +679,12 @@ export class LoopRunManager {
       cancelResident: (runId, graceful) => this.cancelResident(runId, graceful),
       userPauseRequest: (runId) => this._userPauseRequests.get(runId) ?? null,
       endUserPauseRequest: (runId) => { this._userPauseRequests.delete(runId) },
-      notePauseSupport: (runId, supported) => { if (this._definitionTasks.has(runId)) this._pauseSupport.set(runId, supported) },
+      // Surfaces offering Pause (the run window, the rail toggle) re-read their control when Core answers.
+      notePauseSupport: (runId, supported) => {
+        if (!this._definitionTasks.has(runId)) return
+        this._pauseSupport.set(runId, supported)
+        this._emit({ type: 'loop.pause_support', projectId: this.projectIdOf(runId), loopRunId: runId, supported } as unknown as WsMessage)
+      },
       runInteractiveAiStep: (input) => runInteractiveAiStep({
         db: this.db,
         broadcast: this.broadcast,

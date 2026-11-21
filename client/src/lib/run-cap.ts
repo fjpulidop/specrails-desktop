@@ -1,7 +1,7 @@
 import type { DailyBudgetInfo } from './daily-budget'
 
-/** How a resume answers a run paused at its per-run soft cap. */
-export type RunCapChoice = { runCap: 'ignore' } | { runCapUsd: number }
+/** How a resume answers a run paused at its per-run soft cap: waive it, run only the next step past it, or raise it. */
+export type RunCapChoice = { runCap: 'ignore' } | { runCap: 'once' } | { runCapUsd: number }
 
 const toCents = (usd: number): number => Math.round(usd * 100)
 

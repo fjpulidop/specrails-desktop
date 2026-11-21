@@ -11,6 +11,7 @@ import path from 'path'
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
 import type { ProjectRow } from './desktop-db'
+import { getResumeOnDailyReset } from './desktop-db'
 import { isPrCiLoopEnabled } from './feature-flags'
 import type { JiraSyncManager } from './jira/jira-sync-manager'
 import { createLoopProfilePathResolver } from './modules/agents/runtime/agent-defaults'
@@ -111,7 +112,7 @@ export function createProjectLoopRuntime(deps: {
       profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
       supportsProfiles: projectSupportsProfiles,
     }),
-  }), undefined, { dailyBudget: deps.dailyBudgetRejection, runCapDefault: deps.runCapDefault, agentAudit: deps.agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
+  }), undefined, { dailyBudget: deps.dailyBudgetRejection, resumeOnDailyReset: () => getResumeOnDailyReset(deps.desktopDb), runCapDefault: deps.runCapDefault, agentAudit: deps.agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
     // Core machine interrupts (pr-ci-loop): one dispatcher per project, with the PR handlers bound to this project's records.
     hostTasks: () => hostTaskDispatcher,
     // Machine-wide installs a run asks for: approvals live in the app database (machine-wide, like the tool).

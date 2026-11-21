@@ -45,7 +45,14 @@
     "alertSet": "Alert set for jobs over {{amount}}",
     "saveThresholdFailed": "Failed to save threshold",
     "dailyCurrent": "Currently {{amount}} a day",
-    "dailyNone": "No daily limit set"
+    "dailyNone": "No daily limit set",
+    "resumeOnDailyReset": {
+      "label": "Resume runs held by the daily limit when the day resets",
+      "helper": "At the daily reset, a run that only the daily limit held continues by itself, once there is capacity. A run you paused, or one its own per-run limit still holds, keeps waiting for you.",
+      "enabled": "Runs held by the daily limit will resume when the day resets",
+      "disabled": "Runs held by the daily limit will wait for you",
+      "saveFailed": "Could not save the setting"
+    }
   },
   "desktop": {
     "nav": {

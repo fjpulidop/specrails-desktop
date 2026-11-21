@@ -28,6 +28,9 @@ import type {
 
 /** What a run may touch of its manager: resident per-run registries, the
  *  budget gate and the definition execution claim. */
+/** What the per-run cap projects ahead (see `LoopRunHost.budgetBreach`). */
+export interface RunCapProjection { turnsAhead?: number; inFlight?: string; beforeStart?: boolean }
+
 export interface LoopRunHost {
   readonly db: DbInstance
   readonly executors: LoopExecutors
@@ -45,10 +48,17 @@ export interface LoopRunHost {
   parkPause(runId: string, pause: PausedRun): void
   /** Resolve the run's parked pause if it is still parked (a scheduled limit resume). */
   resolvePause(runId: string, decision: PausedHumanDecision): boolean
-  /** `turnsAhead` (default 1): how many more turns at the run's largest turn cost the per-run cap must allow. */
-  budgetBreach(runId: string, options?: { turnsAhead?: number }): LoopBudgetBreach | null
-  trackRunCap(runId: string, cap: { capUsd: number | null; cost: () => number; turns?: () => import('../../execution').RunTurnCosts }): void
+  /**
+   * The budget or per-run cap that stops the run before its next step, else null. The per-run cap
+   * projects the next AI step's expected cost; `inFlight` names the AI step running now, whose
+   * expected cost is added (`turnsAhead` 2 asks the same without a graph: two turns at the
+   * largest so far); `beforeStart` projects the workflow's first AI step before Core starts.
+   */
+  budgetBreach(runId: string, options?: RunCapProjection): LoopBudgetBreach | null
+  trackRunCap(runId: string, cap: { capUsd: number | null; cost: () => number; turns?: (options?: RunCapProjection) => import('../../execution').RunTurnCosts }): void
   untrackRunCap(runId: string): void
+  /** An AI step started: a "run this step once" answer to the per-run cap is used up. */
+  noteAiStepStarted(runId: string): void
   claimDefinition(req: LoopRunRequest & { runId: string }): void
   releaseDefinition(runId: string): void
   cancelResident(runId: string, graceful: boolean): void

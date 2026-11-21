@@ -98,6 +98,7 @@ export async function runLegacyTraversal(ctx: LoopRunContext): Promise<'disposed
     if ((node.type === 'ai-step' || node.type === 'decider') && state.stepNum > 0) {
       const breach = host.budgetBreach(runId)
       if (breach && (await awaitBudget(ctx, breach)) === 'stop') { state.outcome = 'stopped'; return }
+      host.noteAiStepStarted(runId)
     }
     // Control nodes route synchronously: no await between them and the next step.
     const routed = executeNode(ctx, frameFor(ctx, node), { byId, firstStepId })

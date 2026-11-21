@@ -45,7 +45,14 @@
     "alertSet": "Alarm für Jobs über {{amount}} gesetzt",
     "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden",
     "dailyCurrent": "Aktuell {{amount}} pro Tag",
-    "dailyNone": "Kein Tageslimit gesetzt"
+    "dailyNone": "Kein Tageslimit gesetzt",
+    "resumeOnDailyReset": {
+      "label": "Vom Tageslimit angehaltene Läufe fortsetzen, wenn der Tag zurückgesetzt wird",
+      "helper": "Beim täglichen Zurücksetzen läuft ein Lauf, den nur das Tageslimit angehalten hat, von selbst weiter, sobald Kapazität frei ist. Ein Lauf, den du pausiert hast oder den sein eigenes Limit pro Lauf noch anhält, wartet weiter auf dich.",
+      "enabled": "Vom Tageslimit angehaltene Läufe werden beim Zurücksetzen des Tages fortgesetzt",
+      "disabled": "Vom Tageslimit angehaltene Läufe warten auf dich",
+      "saveFailed": "Die Einstellung konnte nicht gespeichert werden"
+    }
   },
   "desktop": {
     "nav": {

@@ -201,6 +201,7 @@
     "stillExceeded": "The daily limit is still reached.",
     "exceededRun": "Per-run limit reached ({{spent}} of {{budget}}). The run is paused.",
     "pausedRun": "Paused at the per-run limit ({{spent}} of {{budget}}). Continue without it or raise it.",
+    "pausedRunNext": "Paused before {{step}}: it usually costs about {{next}}, and {{left}} of the {{budget}} per-run limit is left ({{spent}} spent). Run it once, continue without the limit or raise it.",
     "actionRun": "Continue without the limit, or raise it, then resume.",
     "exceededProject_week": "Project weekly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
     "exceededProject_month": "Project monthly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
@@ -220,6 +221,7 @@
       "title": "Run paused at its limit",
       "raise": "Raise limit and continue",
       "continue": "Continue without limit",
+      "once": "Run this step once",
       "raiseTo": "Raise the limit to (USD)",
       "mustExceed": "Must be above the {{spent}} already spent"
     },

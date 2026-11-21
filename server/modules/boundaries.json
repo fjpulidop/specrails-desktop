@@ -2861,6 +2861,7 @@
       "runtime/definition-cancellation.ts",
       "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-budget-pauses.ts",
+      "runtime/loop-budget-reset-resume.ts",
       "runtime/loop-budget-resume.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
@@ -2912,9 +2913,16 @@
       "runtime/loop-budget-pauses.ts": [
         "../../../db"
       ],
+      "runtime/loop-budget-reset-resume.ts": [
+        "../../../db",
+        "../../../types",
+        "./loop-budget-pauses",
+        "./loop-run-launch"
+      ],
       "runtime/loop-budget-resume.ts": [
         "../../../db",
         "../../execution",
+        "./loop-run-contract",
         "./loop-run-launch",
         "./loop-runs-store"
       ],
@@ -2959,6 +2967,7 @@
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-pauses",
+        "./loop-run-turn-estimates",
         "./loop-runs-store",
         "./loop-user-pauses"
       ],
@@ -3183,6 +3192,7 @@
         "../../agent-runtime/runtime/host-task-dispatcher",
         "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
+        "../../execution",
         "../../execution/runtime/interactive-job-session",
         "../../machine-installs",
         "./loop-decider",
@@ -3210,12 +3220,15 @@
       "runtime/loop-run-launch.ts": [
         "../../../db",
         "../../../providers/types",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../agent-runtime/runtime/agent-runtime-settings",
         "../../delivery/runtime/rails-store",
+        "../../execution",
         "./legacy-launch-telemetry",
         "./loop-graph",
         "./loop-run-context",
         "./loop-run-contract",
+        "./loop-run-turn-estimates",
         "./loop-runs-store",
         "./loop-step-idle"
       ],
@@ -3260,6 +3273,8 @@
         "../../../db",
         "../../../shared/run-question",
         "../../provider-quota/runtime/quota-reports",
+        "./loop-budget-pauses",
+        "./loop-budget-reset-resume",
         "./loop-definition-run",
         "./loop-limit-pauses",
         "./loop-run-context",
@@ -3277,6 +3292,12 @@
         "./loop-run-contract",
         "./loop-runs-store",
         "./loop-step-accounting"
+      ],
+      "runtime/loop-run-turn-estimates.ts": [
+        "../../../db",
+        "../../accounting/runtime/pricing",
+        "../../execution",
+        "./loop-graph"
       ],
       "runtime/loop-run-vars.ts": [
         "./loop-run-contract",

@@ -44,6 +44,7 @@ export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('retainedWorktrees', 'storage'),
   app('safetyArchives', 'storage'),
   app('budgetAlerts', 'advanced'),
+  app('resumeOnDailyReset', 'advanced'),
   app('notifications', 'notifications'),
   app('webhooks', 'webhooks'),
   app('updateChannel', 'updates'),

@@ -31,6 +31,26 @@ export interface DailyBudgetRejection {
   overshootUsd?: number
   /** Per-run cap only: the next turn's expected cost, when the cap was enforced before that turn. */
   nextTurnUsd?: number
+  /** Per-run cap only: the step the run is paused before and what it is expected to cost (and why). */
+  nextStep?: NextStepEstimate
+  /** Per-run cap only: what is left of the cap when it was enforced before the next step. */
+  remainingUsd?: number
+}
+
+/**
+ * What the next AI step is expected to cost: its own earlier turns in this run, else the
+ * median of its turns in the project's recent runs on the same provider and model, else a
+ * rate-card estimate of a typical turn of its kind. Always an ESTIMATE.
+ */
+export interface NextStepEstimate {
+  /** The workflow node (`developer`). */
+  nodePath: string
+  /** What the person reads (`Developer`). */
+  label: string
+  usd: number
+  basis: 'run' | 'history' | 'default'
+  /** How many turns the estimate stands on (0 for a default). */
+  samples: number
 }
 
 /** Local calendar-day start as a UTC ISO instant (comparable to `started_at`). */

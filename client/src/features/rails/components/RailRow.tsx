@@ -613,6 +613,7 @@ export function RailRow({
             onModeChange={onModeChange}
             onToggle={guardedToggle}
             launchBlockedReason={launchBlockedReason}
+            projectId={activeProjectId}
           />
           {forecastEl}
         </div>
@@ -772,7 +773,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={guardedToggle} launchBlockedReason={launchBlockedReason} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={guardedToggle} launchBlockedReason={launchBlockedReason} projectId={activeProjectId} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button

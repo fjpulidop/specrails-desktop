@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDesktopDb } from './desktop-db'
-import { initDb, type DbInstance } from './db'
+import { createJob, initDb, type DbInstance } from './db'
 import { createLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
 import { readRetainedBudgetPause, saveRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
@@ -609,6 +609,22 @@ describe('loop runs — the person\'s Pause', () => {
     app.use('/api/projects', router)
     return { app, db }
   }
+
+  it('reads the pause control of one run (the rail toggle), the same value Job detail reports', async () => {
+    const userPauseControl = vi.fn().mockReturnValue('pause')
+    const { app, db } = pauseApp({ userPauseControl })
+    createJob(db, { id: 'r1', command: 'loop:implement', started_at: '2026-11-21T08:00:00Z', owner: 'loop' })
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body).toEqual({ loopRunId: 'r1', pauseControl: 'pause' })
+    userPauseControl.mockReturnValue('pausing')
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body.pauseControl).toBe('pausing')
+    // No resident task (held over a restart): a pause by you still offers Resume through its hold.
+    userPauseControl.mockReturnValue(null)
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='user_paused' WHERE id='r1'").run()
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body.pauseControl).toBe('resume')
+    db.prepare("UPDATE jobs SET status='completed' WHERE id='r1'").run()
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body).toEqual({ loopRunId: 'r1', pauseControl: null })
+    expect((await request(app).get('/api/projects/p1/loop-runs/nope/pause-control')).status).toBe(404)
+  })
 
   it('requests a pause at the next step boundary and answers 202 pausing', async () => {
     const requestUserPause = vi.fn().mockResolvedValue({ status: 'pausing', requestId: 'desktop-user-pause:r1:1:abc' })

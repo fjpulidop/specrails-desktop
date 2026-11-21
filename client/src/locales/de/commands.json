@@ -268,6 +268,10 @@
           "label": "Tagesbudget und Kostenwarnungen",
           "keywords": "budget, täglich, kosten, ausgaben, limit, warnung, geld"
         },
+        "resumeOnDailyReset": {
+          "label": "Läufe beim Tagesreset fortsetzen",
+          "keywords": "Budget, Tagesbudget, Zurücksetzen, Mitternacht, fortsetzen, angehaltene, Läufe, automatisch"
+        },
         "notifications": {
           "label": "System-Benachrichtigungen",
           "keywords": "benachrichtigungen, hinweise, ton, notifications"

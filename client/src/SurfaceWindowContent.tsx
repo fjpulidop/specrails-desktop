@@ -3,7 +3,8 @@ import { SurfaceWindowFrame } from './components/ui/dialog'
 import { useDesktop } from './hooks/useDesktop'
 import { MissionExtensionsProvider } from './features/missions/context/MissionExtensionsContext'
 import { FLOW_MISSION_EXTENSIONS } from './features/intent/components/IntentMissionsBridge'
-import { APP_SETTINGS_SECTIONS, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection } from './lib/app-settings-events'
+import { APP_SETTINGS_SECTIONS, type AppSettingsSection } from './lib/app-settings-events'
+import { forwardSurfaceShellRequests } from './lib/surface-shell-requests'
 import {
   closeCurrentSurfaceWindow,
   mirrorSurfaceStorageWrites,
@@ -30,12 +31,15 @@ export function preloadSurfaceWindowContent(id: NativeSurfaceId): void {
   void load().catch(() => {})
 }
 
-/** Results a surface window reports to its opener (`onResult` of `<Surface>`). */
-export type AppSettingsSurfaceResult = { action: 'openOnboarding' } | { action: 'openBudget' }
+/**
+ * Results Settings reports to its opener (`onResult` of `<Surface>`). Shell
+ * requests ("Open budget", another settings place) travel as
+ * `{ action: 'shell' }` results instead (lib/surface-shell-requests).
+ */
+export type AppSettingsSurfaceResult = { action: 'openOnboarding' }
 
 export function isAppSettingsSurfaceResult(value: unknown): value is AppSettingsSurfaceResult {
-  const action = (value as { action?: unknown } | null)?.action
-  return action === 'openOnboarding' || action === 'openBudget'
+  return (value as { action?: unknown } | null)?.action === 'openOnboarding'
 }
 
 /**
@@ -43,7 +47,7 @@ export function isAppSettingsSurfaceResult(value: unknown): value is AppSettings
  * the opener before the window (and its IPC channel) goes away, and hands the
  * toasts still on screen to the opener so the last outcome is not lost.
  */
-function useSurfaceWindowLifecycle(id: NativeSurfaceId) {
+function useSurfaceWindowLifecycle(id: NativeSurfaceId, projectId?: string) {
   const pending = useRef<Promise<unknown>>(Promise.resolve())
   useEffect(() => mirrorSurfaceStorageWrites(), [])
   useEffect(() => {
@@ -52,10 +56,19 @@ function useSurfaceWindowLifecycle(id: NativeSurfaceId) {
     void trackSurfaceGeometry(id).then(unlisten => { if (disposed) unlisten(); else stop = unlisten })
     return () => { disposed = true; stop?.() }
   }, [id])
-  return useMemo(() => ({
+  const surface = useMemo(() => ({
     report(result: unknown) { pending.current = reportSurfaceResult(result).catch(() => {}) },
     close() { setTimeout(() => { void pending.current.then(() => handOffSurfaceToasts()).then(() => closeCurrentSurfaceWindow()) }, 0) },
   }), [])
+  // This window has no app shell: "Open budget", "Configure" (project settings)
+  // and settings links run in the opener. Forward them, then close, so the
+  // opener (focused by the host on close) shows the place in front. The live
+  // board stays open on its screen (the host brings the opener forward).
+  useEffect(() => forwardSurfaceShellRequests((result) => {
+    surface.report(result)
+    if (id !== 'live-board') surface.close()
+  }, { projectId }), [surface, projectId, id])
+  return surface
 }
 
 /** Selects the surface's project in this window only (isolated DesktopProvider). */
@@ -71,12 +84,6 @@ function useSurfaceProject(projectId: string | undefined): boolean {
 function AppSettingsWindow({ params }: { params: SurfaceParams }) {
   const surface = useSurfaceWindowLifecycle('app-settings')
   const section = (APP_SETTINGS_SECTIONS as readonly string[]).includes(params.section ?? '') ? params.section as AppSettingsSection : 'appearance'
-  // "Open budget" navigates the main window: forward it and close.
-  useEffect(() => {
-    const onOpenBudget = () => { surface.report({ action: 'openBudget' }); surface.close() }
-    globalThis.addEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
-    return () => globalThis.removeEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
-  }, [surface])
   return (
     <SettingsDialog
       open
@@ -89,7 +96,7 @@ function AppSettingsWindow({ params }: { params: SurfaceParams }) {
 }
 
 function JobDetailWindow({ params }: { params: SurfaceParams }) {
-  const surface = useSurfaceWindowLifecycle('job-detail')
+  const surface = useSurfaceWindowLifecycle('job-detail', params.projectId)
   const ready = useSurfaceProject(params.projectId)
   if (!params.jobId || !ready) return null
   return <JobDetailModal jobId={params.jobId} projectId={params.projectId} onClose={surface.close} />

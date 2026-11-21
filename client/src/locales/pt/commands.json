@@ -268,6 +268,10 @@
           "label": "Orçamento diário e alertas de custo",
           "keywords": "orçamento, diário, custo, gasto, limite, alerta, dinheiro, budget"
         },
+        "resumeOnDailyReset": {
+          "label": "Retomar execuções quando o dia reiniciar",
+          "keywords": "orçamento, diário, reinício, meia-noite, retomar, execuções, retidas, automaticamente"
+        },
         "notifications": {
           "label": "Notificações do sistema",
           "keywords": "notificações, avisos, som, notifications"

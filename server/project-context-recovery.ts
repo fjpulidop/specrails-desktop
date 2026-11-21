@@ -31,6 +31,10 @@ import { limitResumeOptions, resumeRetainedDefinitionRun } from './project-route
 import { readUserPause } from './modules/loops/runtime/loop-user-pauses'
 import { clearLimitPause, listLimitPauses, readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { scheduleLimitResume } from './modules/provider-quota/runtime/quota-reports'
+import { clearBudgetHold, listDailyBudgetHolds, readBudgetHold, readRetainedBudgetPause, saveBudgetHold } from './modules/loops/runtime/loop-budget-pauses'
+import { planRetainedDailyReset, RETAINED_RESET_RESUME_LINE, writeRetainedResetHistory } from './modules/loops/runtime/loop-budget-reset-resume'
+import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-resume'
+import { getResumeOnDailyReset } from './desktop-db'
 import type { WsMessage } from './types'
 import { logRejection } from './util/log-rejection'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -158,6 +162,8 @@ export function startProjectRecovery(deps: {
             // provider-quota: runs that were paused on a usage limit keep their
             // persisted resumeAt; resume them at the reset (wake-aware clock).
             scheduleRetainedLimitResumes(ctx, db, isCurrent, project.slug)
+            // Runs held on the daily budget over a restart resume when the day resets (now, when it already has).
+            scheduleRetainedDailyBudgetResumes(ctx, db, isCurrent, project.slug)
             // Intent -> Spec deliveries settled as a generic failure before the
             // review outcome existed: persist the reclassification once (the
             // retained ledger is read-only here) and refresh their cards.
@@ -208,4 +214,59 @@ function scheduleRetainedLimitResumes(ctx: ProjectContext, db: DbInstance, isCur
       }).catch(error => console.error(`[provider-quota] ${slug}: resume of ${runId} failed:`, error))
     })
   }
+}
+
+/**
+ * After a restart, a Core workflow run held on the DAILY budget is retained paused
+ * (reason `restart`) with its `budget_pause` record and its `budget_hold` (which cap,
+ * when it resets). When the day resets (already, for a run held over midnight while
+ * the app was closed) and "Resume runs held by the daily budget when the day resets"
+ * is on, it resumes through the person's Resume path: every cap is checked again
+ * (its per-run cap first) and capacity admission applies. A run the person paused,
+ * or one another cap still holds, keeps waiting for the person.
+ */
+export function scheduleRetainedDailyBudgetResumes(ctx: ProjectContext, db: DbInstance, isCurrent: () => boolean, slug: string): void {
+  for (const { runId, detail } of listDailyBudgetHolds(db)) {
+    const run = getLoopRun(db, runId)
+    if (!run || run.status !== 'paused' || run.engine_version !== 2) { clearBudgetHold(db, runId); continue }
+    scheduleDailyReset(ctx, db, isCurrent, slug, runId, detail.resetsAt)
+  }
+}
+
+function scheduleDailyReset(ctx: ProjectContext, db: DbInstance, isCurrent: () => boolean, slug: string, runId: string, resetsAt: string): void {
+  scheduleLimitResume(resetsAt, () => {
+    if (!isCurrent()) return
+    const run = getLoopRun(db, runId)
+    // A run that became resident again (the person resumed it) owns its own schedule.
+    if (ctx.loopRunManager.budgetPause?.(runId)) return
+    const hold = readBudgetHold(db, runId)
+    const plan = planRetainedDailyReset({
+      enabled: getResumeOnDailyReset(ctx.desktopDb),
+      runPaused: run?.status === 'paused',
+      retainedBudgetHold: readRetainedBudgetPause(db, runId),
+      userPaused: !!readUserPause(db, runId),
+      hold,
+      runCapRejection: (() => { try { return retainedRunCapRejection(db, runId, {}) } catch { return null } })(),
+      budgetRejection: ctx.dailyBudgetRejection?.() ?? null,
+    })
+    if (plan.action === 'skip') {
+      if (plan.reason === 'not_held') clearBudgetHold(db, runId)
+      return
+    }
+    if (plan.action === 'hold') {
+      // Spent again already (the new day's budget): wait for the next reset. Any other cap
+      // (its own per-run cap, a weekly or monthly cap) holds it until the person answers.
+      try { saveBudgetHold(db, runId, { scope: plan.rejection.scope, ...(plan.rejection.period ? { period: plan.rejection.period } : {}), resetsAt: plan.rejection.resetsAt }) } catch { /* the schedule below still applies */ }
+      writeRetainedResetHistory(db, ctx.broadcast, runId, `\n■ The day reset, but the run stays held: ${plan.rejection.detail}`)
+      console.log(`[budget] ${slug}: run ${runId} stays held after the daily reset (${plan.rejection.period ?? 'daily'} cap)`)
+      if (plan.nextResetAt) scheduleDailyReset(ctx, db, isCurrent, slug, runId, plan.nextResetAt)
+      return
+    }
+    writeRetainedResetHistory(db, ctx.broadcast, runId, RETAINED_RESET_RESUME_LINE, { scope: hold!.scope, resetsAt: hold!.resetsAt })
+    console.log(`[budget] ${slug}: run ${runId} resumes by itself — the day reset and the daily budget allows the next step`)
+    void resumeRetainedDefinitionRun(ctx, runId, {}, limitResumeOptions(run)).then(outcome => {
+      if (outcome.status >= 400) console.warn(`[budget] ${slug}: run ${runId} did not resume after the daily reset (${outcome.status})`, outcome.body)
+      else { try { clearBudgetHold(db, runId) } catch { /* advisory once the run moved on */ } }
+    }).catch(error => console.error(`[budget] ${slug}: resume of ${runId} after the daily reset failed:`, error))
+  })
 }

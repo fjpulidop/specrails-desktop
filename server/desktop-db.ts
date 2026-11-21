@@ -1015,6 +1015,12 @@ export function getAutoContinueRuns(db: DbInstance): boolean {
   return getDesktopSetting(db, AUTO_CONTINUE_RUNS_KEY) !== 'false'
 }
 
+/** A run held on the DAILY budget resumes by itself when the day resets (default on). */
+export const RESUME_ON_DAILY_RESET_KEY = 'resume_runs_on_daily_reset'
+export function getResumeOnDailyReset(db: DbInstance): boolean {
+  return getDesktopSetting(db, RESUME_ON_DAILY_RESET_KEY) !== 'false'
+}
+
 /** App-global "Allow sub-agents" for missions without a project (default on; only an explicit opt-out disables it). */
 export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
 

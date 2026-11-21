@@ -268,6 +268,10 @@
           "label": "Budget giornaliero e avvisi di costo",
           "keywords": "budget, giornaliero, costo, spesa, limite, avviso, denaro"
         },
+        "resumeOnDailyReset": {
+          "label": "Riprendi le esecuzioni all'azzeramento giornaliero",
+          "keywords": "budget, giornaliero, azzeramento, mezzanotte, riprendi, esecuzioni, bloccate, automaticamente"
+        },
         "notifications": {
           "label": "Notifiche di sistema",
           "keywords": "notifiche, avvisi, suono, notifications"
