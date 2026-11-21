@@ -135,9 +135,11 @@ interface DocsDialogProps {
   onClose: () => void
   /** Land on this page/section (a "Learn more" hint or a cheatsheet result). `nonce` re-fires the same target. */
   target?: (DocsTarget & { nonce: number }) | null
+  /** Offer Help ▸ Replay tour (the platform tour runs in the main window only; a surface window hides it). */
+  showReplayTour?: boolean
 }
 
-function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
+function DocsDialogImpl({ open, onClose, target = null, showReplayTour = true }: DocsDialogProps) {
   const { t, i18n } = useTranslation('integrations')
   const { t: tOnboarding } = useTranslation('onboarding')
   const lang = i18n.language || 'en'
@@ -236,7 +238,7 @@ function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
           icon={<BookOpen />}
           actions={
             // Help ▸ Replay tour: the platform tour is re-opened from here (and ⌘K), not from the Welcome screen.
-            <Button variant="ghost" size="sm" className="gap-1.5" data-testid="docs-replay-tour" onClick={() => { onClose(); replayTour() }}>
+            showReplayTour && <Button variant="ghost" size="sm" className="gap-1.5" data-testid="docs-replay-tour" onClick={() => { onClose(); replayTour() }}>
               <GraduationCap className="size-3.5" aria-hidden />
               {tOnboarding('help.replayTour')}
             </Button>

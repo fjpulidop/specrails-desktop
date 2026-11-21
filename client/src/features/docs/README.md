@@ -35,5 +35,6 @@ Headings can declare an explicit anchor, `## Title {#anchor}` (identical in ever
 renders it as the id `doc-<anchor>` and hides the suffix; the server strips it from page titles.
 `DocsDialog` takes a `target` (`lib/docs-events.ts` `DocsTarget` plus a `nonce`), selects that page and
 scrolls to the anchor, or to a heading by its text for search results. The target is not part of the
-place (`?overlay=docs` is): `App.tsx` drops it on close. See "Contextual help" in
+place (`?overlay=docs` is): `App.tsx` drops it on close. A native surface window (Settings, a run, the
+live board) has no shell: `SurfaceDocsHost` opens the dialog inside that window instead. See "Contextual help" in
 [`features/README.md`](../README.md#contextual-help-learn-more).

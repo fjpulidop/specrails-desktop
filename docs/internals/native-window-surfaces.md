@@ -189,6 +189,19 @@ surface window has already closed, the click does nothing. Toasts with no text
 In every window, toasts stay bottom-right and stay clickable over an open
 modal ([modal standard](modal-standard.md), layers).
 
+## The guide ("Learn more")
+
+`openDocs()` ([`lib/docs-events.ts`](../../client/src/lib/docs-events.ts)) asks the
+app shell for the guide through a window event. A surface window has no app
+shell, so it mounts `SurfaceDocsHost`
+([`features/docs`](../../client/src/features/docs/components/SurfaceDocsHost.tsx)):
+every `HelpHint` / `openDocs()` call inside a surface opens the same Docs dialog,
+at the same section, as an in-window modal over the surface (surfaces never
+nest windows, and the surface floats above its opener, where the guide would be
+hidden). Replay tour is hidden there: the tour runs in the main window. In the
+browser and the modal fallback the shell's listener (`App.tsx`) handles it as
+before.
+
 ## Permissions (least privilege)
 
 `capabilities/default.json` stays bound to the `main` webview only

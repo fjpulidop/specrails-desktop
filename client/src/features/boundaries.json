@@ -179,6 +179,7 @@
   "docs": {
     "publicEntries": [
       "components/DocsDialog.tsx",
+      "components/SurfaceDocsHost.tsx",
       "pages/DocsPage.tsx"
     ],
     "dependencies": []

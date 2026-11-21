@@ -21,6 +21,7 @@ import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
 import { useForwardSurfaceToasts, useShowSurfaceToasts } from './lib/surface-toasts'
+import { SurfaceDocsHost } from './features/docs/components/SurfaceDocsHost'
 import { useToastsUsableOverModals } from './lib/toasts-over-modals'
 // The shell is static; its content chunk starts loading as soon as the route is known.
 import { isAppSettingsSurfaceResult, preloadSurfaceWindowContent, SurfaceWindowContent } from './SurfaceWindowContent'
@@ -980,6 +981,8 @@ function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof s
             <SurfaceWindowContent id={route.id} params={route.params} />
             {/* No toaster here: this window's toasts show in its opener. */}
             <SurfaceToastForwarder />
+            {/* "Learn more" opens the guide here: this window has no app shell to ask. */}
+            <SurfaceDocsHost />
           </div>
         </TooltipProvider>
       </UiModeProvider></DesktopProvider>
