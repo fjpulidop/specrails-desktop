@@ -47,10 +47,10 @@
     "dailyCurrent": "Actuellement {{amount}} par jour",
     "dailyNone": "Aucun plafond quotidien",
     "resumeOnDailyReset": {
-      "label": "Reprendre les exécutions bloquées par le budget quotidien quand la journée se réinitialise",
-      "helper": "À la réinitialisation quotidienne, une exécution bloquée uniquement par le budget quotidien reprend d'elle-même dès qu'il y a de la capacité. Une exécution que vous avez mise en pause, ou que son propre plafond de dépense bloque encore, continue de vous attendre.",
-      "enabled": "Les exécutions bloquées par le budget quotidien reprendront à la réinitialisation de la journée",
-      "disabled": "Les exécutions bloquées par le budget quotidien vous attendront",
+      "label": "Reprendre les exécutions bloquées par le plafond quotidien quand la journée se réinitialise",
+      "helper": "À la réinitialisation quotidienne, une exécution bloquée uniquement par le plafond quotidien reprend d'elle-même dès qu'il y a de la capacité. Une exécution que vous avez mise en pause, ou que son propre plafond par exécution bloque encore, continue de vous attendre.",
+      "enabled": "Les exécutions bloquées par le plafond quotidien reprendront à la réinitialisation de la journée",
+      "disabled": "Les exécutions bloquées par le plafond quotidien vous attendront",
       "saveFailed": "Impossible d'enregistrer le réglage"
     }
   },

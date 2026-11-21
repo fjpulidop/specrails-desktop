@@ -58,9 +58,9 @@ export function RunPauseIconControl({ jobId, projectId }: { jobId: string | null
   if (shown === 'resume') {
     return (
       <span className="inline-flex items-center gap-1" data-testid="rail-paused-by-you">
-        <span className="text-caption font-medium text-accent-warning" title={t('held.tooltip.pausedByYou')}>{t('held.label.pausedByYou')}</span>
+        <span className="text-caption font-medium text-accent-warning">{t('held.label.pausedByYou')}</span>
         <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-full text-accent-success hover:text-accent-success hover:bg-accent-success/10"
-          disabled={busy} onClick={() => void resume()} title={t('modal.resumeRun')} aria-label={t('modal.resumeRun')} data-testid="rail-resume">
+          disabled={busy} onClick={() => void resume()} title={`${t('modal.resumeRun')}. ${t('held.tooltip.pausedByYou')}`} aria-label={t('modal.resumeRun')} data-testid="rail-resume">
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> : <Play className="w-3.5 h-3.5 fill-current" aria-hidden />}
         </Button>
       </span>

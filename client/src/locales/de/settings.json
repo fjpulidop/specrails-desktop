@@ -47,10 +47,10 @@
     "dailyCurrent": "Aktuell {{amount}} pro Tag",
     "dailyNone": "Kein Tageslimit gesetzt",
     "resumeOnDailyReset": {
-      "label": "Vom Tagesbudget angehaltene Läufe fortsetzen, wenn der Tag zurückgesetzt wird",
-      "helper": "Beim täglichen Zurücksetzen läuft ein Lauf, den nur das Tagesbudget angehalten hat, von selbst weiter, sobald Kapazität frei ist. Ein Lauf, den du pausiert hast oder den sein eigenes Ausgabenlimit noch anhält, wartet weiter auf dich.",
-      "enabled": "Vom Tagesbudget angehaltene Läufe werden beim Zurücksetzen des Tages fortgesetzt",
-      "disabled": "Vom Tagesbudget angehaltene Läufe warten auf dich",
+      "label": "Vom Tageslimit angehaltene Läufe fortsetzen, wenn der Tag zurückgesetzt wird",
+      "helper": "Beim täglichen Zurücksetzen läuft ein Lauf, den nur das Tageslimit angehalten hat, von selbst weiter, sobald Kapazität frei ist. Ein Lauf, den du pausiert hast oder den sein eigenes Limit pro Lauf noch anhält, wartet weiter auf dich.",
+      "enabled": "Vom Tageslimit angehaltene Läufe werden beim Zurücksetzen des Tages fortgesetzt",
+      "disabled": "Vom Tageslimit angehaltene Läufe warten auf dich",
       "saveFailed": "Die Einstellung konnte nicht gespeichert werden"
     }
   },

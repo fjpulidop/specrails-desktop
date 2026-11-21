@@ -47,10 +47,10 @@
     "dailyCurrent": "Attualmente {{amount}} al giorno",
     "dailyNone": "Nessun limite giornaliero",
     "resumeOnDailyReset": {
-      "label": "Riprendi le esecuzioni bloccate dal budget giornaliero quando il giorno si azzera",
-      "helper": "All'azzeramento giornaliero, un'esecuzione bloccata solo dal budget giornaliero riprende da sola appena c'è capacità. Un'esecuzione che hai messo in pausa, o che il suo limite di spesa blocca ancora, continua ad aspettarti.",
-      "enabled": "Le esecuzioni bloccate dal budget giornaliero riprenderanno quando il giorno si azzera",
-      "disabled": "Le esecuzioni bloccate dal budget giornaliero ti aspetteranno",
+      "label": "Riprendi le esecuzioni bloccate dal limite giornaliero quando il giorno si azzera",
+      "helper": "All'azzeramento giornaliero, un'esecuzione bloccata solo dal limite giornaliero riprende da sola appena c'è capacità. Un'esecuzione che hai messo in pausa, o che il suo limite per esecuzione blocca ancora, continua ad aspettarti.",
+      "enabled": "Le esecuzioni bloccate dal limite giornaliero riprenderanno quando il giorno si azzera",
+      "disabled": "Le esecuzioni bloccate dal limite giornaliero ti aspetteranno",
       "saveFailed": "Impossibile salvare l'impostazione"
     }
   },
