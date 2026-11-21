@@ -3,7 +3,7 @@ import { initDb } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import {
   capRejection, dailyBudgetRejection, effectiveRunCap, firstExhaustedCap, isRunCapCrossed, isRunCapReached, localDayKey, periodEnd, periodStart,
-  projectMonthEnd, runCapRejection, tightestCap, type CapStatus,
+  projectMonthEnd, runCapAheadUsd, runCapRejection, tightestCap, type CapStatus,
 } from '..'
 import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses } from '../runtime/daily-budget-gate'
 import { readSpendOverview } from '../runtime/budget-overview'
@@ -80,7 +80,7 @@ describe('per-run soft cap', () => {
     expect(isRunCapReached(2, 1.96, 1.96)).toBe(true)
     expect(isRunCapReached(2, 0.5, 0.5)).toBe(false)
     expect(isRunCapReached(2, 1, 1)).toBe(false) // exactly at the cap still fits
-    expect(isRunCapReached(2, 0.8, 0.8, 2)).toBe(true) // this turn and the next
+    expect(isRunCapReached(2, 0.8, runCapAheadUsd({ largestUsd: 0.8, lastUsd: 0.8 }, 2))).toBe(true) // this turn and the next
     expect(isRunCapReached(2, 0.1, null)).toBe(false) // no turn yet: nothing projected
     expect(isRunCapReached(null, 10, 10)).toBe(false)
     expect(isRunCapReached(2, 2, null)).toBe(true)
@@ -94,6 +94,26 @@ describe('per-run soft cap', () => {
     expect(runCapRejection(2, 2, { largestUsd: 1, lastUsd: 1 })).toMatchObject({ detail: "This run's cost $2.00 has reached the per-run cap of $2.00." })
     // A small model's sub-cent spend is shown as it is, not rounded up to the cap (live haiku run: $0.0356 of $0.04).
     expect(runCapRejection(0.04, 0.03561898, { largestUsd: 0.02, lastUsd: 0.02 }).detail).toBe('This run has spent $0.036 of its $0.04 per-run cap, and its next turn is expected to cost about $0.02 (its largest turn so far), which would take it to $0.056.')
+  })
+  // The soak runs: a $0.40 cap reached $0.52 / $0.61 because the first heavy step (a $0.49
+  // Developer) had no earlier turn of the run to predict it.
+  const developer = { nodePath: 'developer', label: 'Developer', usd: 0.45, basis: 'history' as const, samples: 6 }
+  it('projects the next AI step by its own estimate, not the largest turn so far', () => {
+    const turns = { largestUsd: 0.05, lastUsd: 0.05, next: developer, inFlight: null }
+    expect(runCapAheadUsd(turns)).toBe(0.45)
+    expect(isRunCapReached(0.4, 0.05, runCapAheadUsd(turns))).toBe(true)
+    // While a step runs, its own estimate counts too.
+    expect(runCapAheadUsd({ ...turns, inFlight: { ...developer, nodePath: 'architect', label: 'Architect', usd: 0.1 } }, 2)).toBeCloseTo(0.55, 9)
+    // No AI step follows: nothing ahead, whatever the largest turn was.
+    expect(runCapAheadUsd({ largestUsd: 0.3, lastUsd: 0.3, next: null })).toBeNull()
+    expect(isRunCapReached(0.4, 0.3, runCapAheadUsd({ largestUsd: 0.3, lastUsd: 0.3, next: null }))).toBe(false)
+  })
+  it('says which step it paused before, what it usually costs and what is left', () => {
+    expect(runCapRejection(0.4, 0.28, { largestUsd: 0.28, lastUsd: 0.28, next: { ...developer, usd: 0.45 } })).toMatchObject({
+      nextTurnUsd: 0.45, remainingUsd: 0.12, nextStep: { nodePath: 'developer', label: 'Developer', basis: 'history', samples: 6 },
+      detail: "The next step (Developer) usually costs about $0.45 (the median of its last 6 turns in this project), and $0.12 of this run's $0.40 per-run cap is left ($0.28 spent), so it has not started.",
+      action: 'Run this step once, continue without the cap, or raise the per-run cap to at least $0.73, and the run resumes from the next step.' })
+    expect(runCapRejection(0.4, 0, { largestUsd: null, lastUsd: null, next: { ...developer, basis: 'default', samples: 0 } }).detail).toContain('(a rate-card estimate of a typical turn of its kind on its model)')
   })
 })
 

@@ -11,8 +11,12 @@ import type { ProviderAdapter } from '../../../providers/types'
 import { recordLegacyLaunch } from './legacy-launch-telemetry'
 import { assertLoopFailureRecovery, assertLoopShellRepositoryScope } from './loop-graph'
 import { resolveLoopStepIdleTimeoutMs } from './loop-step-idle'
-import { createLoopRun, readLoopRunCap, resumeLoopRun, saveDefinitionRun, writeLoopRunCap } from './loop-runs-store'
-import type { LoopRunContext, LoopRunLimits } from './loop-run-context'
+import { createLoopRun, getLoopRun, readDefinitionRun, readLoopRunCap, resumeLoopRun, saveDefinitionRun, writeLoopRunCap } from './loop-runs-store'
+import type { LoopRunContext, LoopRunLimits, RunCapProjection } from './loop-run-context'
+import { currentRoleRoutes } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
+import type { RunTurnCosts } from '../../execution'
+import { estimateNextStep, estimateNodeTurn, readNodeCostHistory, readRunNodeTurns, readRunTurnGraph, runTurnGraphStored, turnGraphFromLoop } from './loop-run-turn-estimates'
+import type { LoopGraph } from './loop-graph'
 import type { LoopGraphEventPayload, LoopRunRequest } from './loop-run-contract'
 
 /** Deep-clone everything a run reads later so the caller (or a backlog/loop
@@ -171,12 +175,38 @@ export function writeRunHeader(ctx: LoopRunContext, adapter: ProviderAdapter): v
 /** Per-run soft cap ("pause and ask at $X"): this launch's override, else what
  *  the run was already given (a restart keeps the person's choice), else the
  *  project/app default. The cost read is the run's provider-reported total. */
-/** The run's turns by cost: one physical provider call each (a multi-ticket call is split per ticket and summed back). */
-export function readRunTurnCosts(db: LoopRunContext['host']['db'], runId: string): { largestUsd: number | null; lastUsd: number | null } {
+/** Where the run's default route is (a role without its own route runs there). */
+export interface RunRouteDefaults { provider: string | null; model: string | null; graph?: LoopGraph }
+
+/**
+ * The run's turns by cost (one physical provider call each; a multi-ticket call is split per
+ * ticket and summed back), and, for a Core workflow run whose graph is known, what its next
+ * AI step is expected to cost (see `loop-run-turn-estimates`): after the AI step running now
+ * (`inFlight`), else after its latest AI turn, else (`beforeStart`, or no turn yet) its first.
+ * A run without a described graph (legacy traversal, an older Core) projects its largest turn.
+ */
+export function readRunTurnCosts(db: LoopRunContext['host']['db'], runId: string, projection: RunCapProjection = {}, defaults?: RunRouteDefaults): RunTurnCosts {
   const rows = db.prepare(`SELECT SUM(total_cost_usd) AS cost, MAX(finished_at) AS at FROM ai_invocations
     WHERE loop_run_id = ? AND total_cost_usd IS NOT NULL GROUP BY COALESCE(surface_ref_id, id) ORDER BY at DESC`).all(runId) as Array<{ cost: number; at: string | null }>
-  if (!rows.length) return { largestUsd: null, lastUsd: null }
-  return { largestUsd: Math.max(...rows.map(row => row.cost)), lastUsd: rows[0]!.cost }
+  const base: RunTurnCosts = rows.length ? { largestUsd: Math.max(...rows.map(row => row.cost)), lastUsd: rows[0]!.cost } : { largestUsd: null, lastUsd: null }
+  // Before Core describes the graph, only a launch that has not started may read it from the loop definition.
+  const graph = readRunTurnGraph(db, runId) ?? (projection.beforeStart && !runTurnGraphStored(db, runId) ? turnGraphFromLoop(defaults?.graph) : null)
+  if (!graph) return base
+  const turns = readRunNodeTurns(db, runId)
+  const run = defaults ?? (() => { const row = getLoopRun(db, runId); return { provider: row?.provider ?? null, model: row?.model ?? null } })()
+  let routes: Record<string, { provider: string; model?: string }> = {}
+  try { const contextPath = readDefinitionRun(db, runId)?.metadata.contextPath; if (contextPath) routes = currentRoleRoutes(contextPath) } catch { routes = {} }
+  const input = {
+    graph, turns, history: readNodeCostHistory(db),
+    route: (nodePath: string) => {
+      const route = routes[nodePath]
+      if (route) return { provider: route.provider, model: route.model ?? null }
+      const latest = [...turns].reverse().find(turn => turn.nodePath === nodePath)
+      return latest ? { provider: latest.provider, model: latest.model } : { provider: run.provider ?? '', model: run.model }
+    },
+  }
+  const from = projection.inFlight ?? (projection.beforeStart ? null : turns.at(-1)?.nodePath ?? null)
+  return { ...base, next: estimateNextStep(input, from), inFlight: projection.inFlight ? estimateNodeTurn(input, projection.inFlight) : null }
 }
 
 export function bindRunCap(ctx: LoopRunContext): void {
@@ -192,5 +222,5 @@ export function bindRunCap(ctx: LoopRunContext): void {
     else cap = host.options.runCapDefault?.() ?? null
     if (override !== undefined || stored === undefined) writeLoopRunCap(host.db, runId, cap ?? 0)
   } catch { cap = null }
-  host.trackRunCap(runId, { capUsd: cap, cost: () => state.totalCost, turns: () => readRunTurnCosts(host.db, runId) })
+  host.trackRunCap(runId, { capUsd: cap, cost: () => state.totalCost, turns: (projection) => readRunTurnCosts(host.db, runId, projection, { provider: req.provider ?? null, model: req.model ?? null, graph: req.graph }) })
 }

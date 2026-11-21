@@ -2913,6 +2913,7 @@
       "runtime/loop-budget-resume.ts": [
         "../../../db",
         "../../execution",
+        "./loop-run-contract",
         "./loop-run-launch",
         "./loop-runs-store"
       ],
@@ -2957,6 +2958,7 @@
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-pauses",
+        "./loop-run-turn-estimates",
         "./loop-runs-store",
         "./loop-user-pauses"
       ],
@@ -3181,6 +3183,7 @@
         "../../agent-runtime/runtime/host-task-dispatcher",
         "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
+        "../../execution",
         "../../execution/runtime/interactive-job-session",
         "../../machine-installs",
         "./loop-decider",
@@ -3208,12 +3211,15 @@
       "runtime/loop-run-launch.ts": [
         "../../../db",
         "../../../providers/types",
+        "../../agent-runtime/runtime/agent-runtime-route-overrides",
         "../../agent-runtime/runtime/agent-runtime-settings",
         "../../delivery/runtime/rails-store",
+        "../../execution",
         "./legacy-launch-telemetry",
         "./loop-graph",
         "./loop-run-context",
         "./loop-run-contract",
+        "./loop-run-turn-estimates",
         "./loop-runs-store",
         "./loop-step-idle"
       ],
@@ -3277,6 +3283,12 @@
         "./loop-run-contract",
         "./loop-runs-store",
         "./loop-step-accounting"
+      ],
+      "runtime/loop-run-turn-estimates.ts": [
+        "../../../db",
+        "../../accounting/runtime/pricing",
+        "../../execution",
+        "./loop-graph"
       ],
       "runtime/loop-run-vars.ts": [
         "./loop-run-contract",

@@ -138,7 +138,8 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
       reason,
       ticketIds: exactTicketIds,
       pauseKind: BUDGET_PAUSED,
-      budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt },
+      budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt,
+        ...(current.nextStep ? { nextStep: { ...current.nextStep }, remainingUsd: current.remainingUsd } : {}) },
     })
     host.emit({
       type: 'job.interactive',
