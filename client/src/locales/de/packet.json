@@ -225,7 +225,8 @@
       "invariantsTouched": "Berührte Invarianten",
       "untested": "Ungetestete Pfade",
       "humanChecks": "Manuelle Prüfungen",
-      "divergences": "Abweichungen von der Spec"
+      "divergences": "Abweichungen von der Spec",
+      "reviewNotes": "Hinweise des Reviewers, nicht umgesetzt"
     },
     "userVisible": "Für Nutzer sichtbar",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} Einträge entsprachen nicht dem erwarteten Format und wurden übersprungen.",
     "topRisk": "Größtes Risiko",
     "moreRisks_one": "+{{count}} weiteres",
-    "moreRisks_other": "+{{count}} weitere"
+    "moreRisks_other": "+{{count}} weitere",
+    "reviewNotesCaveat": "Befunde, die der Reviewer als nicht für diesen Lauf markiert hat. Keine Korrekturrunde hat sie bearbeitet.",
+    "noteKind": {
+      "advice": "Ratschlag",
+      "out-of-scope": "Außerhalb des Umfangs",
+      "host-only-check": "Manuelle Prüfung",
+      "regenerated-lockfile": "Neu erzeugte Lockdatei",
+      "frozen-artifact": "Eingefrorenes Artefakt",
+      "withdrawn-criterion": "Von dir zurückgezogen",
+      "other": "Hinweis"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} Aktion",

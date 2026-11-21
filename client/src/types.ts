@@ -707,6 +707,8 @@ export interface PacketWhatToLookAt {
   untested: Array<{ ticketId: number; path: string; why: string | null }>
   humanChecks: Array<{ ticketId: number; text: string }>
   divergences: Array<{ ticketId: number; capability: string; requirement: string; observed: string }>
+  /** Reviewer findings Core's review triage kept out of the run (advice, out of scope, ...); absent from older servers. */
+  reviewNotes?: Array<{ ticketId: number; kind: string; issue: string; reason: string | null }>
   diagnostics: Array<{ ticketId: number; message: string }>
   droppedEntries: number
 }

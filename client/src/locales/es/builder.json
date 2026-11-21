@@ -373,7 +373,13 @@
       },
       "moreOptions": "Más opciones",
       "pausedSpecDelivered": "{{paused}} ya está entregada",
-      "nextStep": "Siguiente: {{step}}"
+      "nextStep": "Siguiente: {{step}}",
+      "integrationDetails": {
+        "conflict": "entra en conflicto con la base actualizada",
+        "conflict_unresolved": "entra en conflicto con la base actualizada y la actualización automática no pudo resolverlo",
+        "conflict_refresh_limit": "sigue en conflicto con la base tras dos actualizaciones automáticas",
+        "merge_failed": "Git no pudo fusionarla"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

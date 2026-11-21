@@ -14,6 +14,7 @@ import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
 import { definitionRunNeverReachedCore, getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
+import { refreshDeliveryOnBase } from './project-delivery-base-refresh'
 import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
 import { normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
 import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
@@ -208,6 +209,20 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(202).json({ loopRunId: runId, cancellationRequested: true })
     } catch (error) {
       res.status(409).json({ error: 'runtime_cancel_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
+  // Bring the updated base into a conflicted local delivery and verify it again (the milestone
+  // chain calls this before it pauses on an integration conflict; see project-delivery-base-refresh).
+  router.post('/:projectId/pr-deliveries/:id/refresh-on-base', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req)
+    try {
+      assertProcessAdmission(c.project.id)
+      const outcome = await refreshDeliveryOnBase(c, String(req.params.id))
+      res.status(outcome.status).json(outcome.body)
+    } catch (error) {
+      res.status(409).json({ ok: false, error: 'refresh_rejected', detail: error instanceof Error ? error.message : String(error) })
     }
   })
 

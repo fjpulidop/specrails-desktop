@@ -759,6 +759,32 @@ rewound to the previous chunk's branch, else the integration branch) and broadca
 `discardStackedNote` in the discard confirm when the delivery is such a head
 (`useStackedHeadDeliveryIds`).
 
+## Base refresh of a conflicted delivery
+
+When a milestone chain integrates a delivery and `merge-local` refuses with a Git conflict (the
+integration branch moved since the delivery was built), the chain first calls
+`POST /api/projects/:id/pr-deliveries/:deliveryId/refresh-on-base`
+(`server/project-delivery-base-refresh.ts`, git in `modules/delivery/runtime/delivery-base-refresh.ts`):
+
+1. Only an `on_review` single-repository delivery with one settled run, still on its feature branch at
+   the verified delivery commit in its retained worktree. A pull request keeps its own CI loop; the
+   integration branch, the delivery's base and `main`/`master` are never moved. At most
+   `BASE_REFRESH_LIMIT` (2) refreshes per delivery lineage (fork requests `base-refresh-*`).
+2. The base is merged into the delivery on a detached HEAD with a merge commit (never a rebase, never
+   a force). Real conflicts go to an agent step (the machine's primary provider, `MERGE_SAFE`
+   contract, the spec titles and descriptions as context, recorded as a `job` invocation); the host
+   refuses the resolution when a conflict marker remains, a path is still unmerged or another file
+   changed, and puts the worktree back exactly. The feature branch then fast-forwards to the merge
+   (`update-ref` guarded by its old value).
+3. The run forks from its final verification (`verify-archive`) in the same worktree: the host
+   verifies the merged candidate and settles the same delivery again. If the fork cannot start, the
+   branch is put back on the delivery commit.
+
+The chain follows the fork as its current run: a pass returns the delivery to review and the chain
+integrates it again (now a clean merge); a failed verification pauses as a failed spec. A refresh
+that cannot run pauses `integration_failed:conflict_unresolved` / `conflict_refresh_limit` /
+`conflict`, and the reconcile offers stay *Run #k again on the updated base* and *Integrate #k*.
+
 ## Ticket lifecycle — `on_review`
 
 New status in `TicketStatus` / `VALID_STATUSES` (`server/modules/specs/runtime/ticket-store.ts`), between

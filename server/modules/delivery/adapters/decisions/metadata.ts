@@ -71,8 +71,13 @@ export function resolveTicketFile(deps: PrDecisionDeps): string {
  *  into the chain's integration branch, never into its feature base. */
 export function mergeLocalTargetBranch(deps: PrDecisionDeps, row: RailPrDeliveryRow): string {
   if (deps.repositoryChildOf) return deps.repositoryIntegrationBranch ?? row.base_branch
+  return deliveryIntegrationTarget(deps.db, row)
+}
+
+/** The branch a single-repository delivery integrates into: its chain's integration branch, else its base. */
+export function deliveryIntegrationTarget(db: PrDecisionDeps['db'], row: Pick<RailPrDeliveryRow, 'id' | 'base_branch'>): string {
   try {
-    for (const chain of listChainsTouchingDelivery(deps.db, row.id)) {
+    for (const chain of listChainsTouchingDelivery(db, row.id)) {
       if (chain.integration_branch) return chain.integration_branch
     }
   } catch { /* fall through */ }

@@ -75,6 +75,17 @@ export const RAIL_LIMIT_REACHED = 'rail_limit_reached'
 
 export type ChainIoFailure = { ok: false; status: number; error: string; detail?: string }
 
+/** A local integration Git refused because the delivery conflicts with the base. */
+export function isIntegrationConflict(failure: ChainIoFailure): boolean {
+  return failure.error === 'merge_failed' && /\bCONFLICT\b/.test(failure.detail ?? '')
+}
+/** Why a conflicted integration paused after the automatic base refresh could not run (the pause detail). */
+const CONFLICT_REASON: Record<string, string> = {
+  refresh_conflict_unresolved: 'conflict_unresolved',
+  refresh_resolver_failed: 'conflict_unresolved',
+  refresh_limit_reached: 'conflict_refresh_limit',
+}
+
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
   assignTickets(railIndex: number, ticketIds: number[]): Promise<{ ok: true } | ChainIoFailure>
@@ -98,6 +109,9 @@ export interface MilestoneChainIO {
   integrationBranch(): Promise<string | null>
   /** Integrate this verified delivery through the normal guarded decision path. */
   integrateDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true } | ChainIoFailure>
+  /** Bring the updated base into a delivery whose integration conflicted and verify it again
+   *  (a run of its own on the delivery's worktree). Absent ⇒ a conflict pauses at once. */
+  refreshDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true; runId: string } | ChainIoFailure>
   /** Resume a failed run from the step that stopped it (re-running only the
    *  interrupted steps), on its own worktree and delivery. Absent ⇒ a failed
    *  chunk can only be relaunched from the start. */
@@ -620,11 +634,32 @@ export class MilestoneChainManager {
       if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
       const settled = this.io.getDelivery(snap.id)
       if (settled?.decision === 'merged' || settled?.decision === 'completed') this.completeIntegrated(current)
+      else if (!result.ok && isIntegrationConflict(result) && this.io.refreshDelivery) await this.refreshConflicted(current, snap)
       else this.pause(current, 'integration_failed:' + (result.ok ? 'not_confirmed' : result.error))
     } catch {
       const current = getChain(this.db, chainId)
       if (current && isActiveChainStatus(current.status) && current.current_delivery_id === snap.id) this.pause(current, 'integration_failed:unavailable')
     } finally { this.integrating.delete(chainId) }
+  }
+
+  /**
+   * The delivery conflicts with the base integrated since it was built: before pausing, bring the
+   * base into it (an agent step resolves real conflicts) and verify it again. The chain follows that
+   * run like any chunk: its settle back to review integrates again, a failure pauses with the
+   * failed-spec options. Only a refresh that cannot run pauses here, with its reason.
+   */
+  private async refreshConflicted(row: MilestoneChainRow, snap: PrDeliverySnapshot): Promise<void> {
+    let refreshed: { ok: true; runId: string } | ChainIoFailure
+    try { refreshed = await this.io.refreshDelivery!(snap) } catch (error) {
+      refreshed = { ok: false, status: 409, error: 'refresh_rejected', detail: error instanceof Error ? error.message : String(error) }
+    }
+    const current = getChain(this.db, row.id)
+    if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
+    if (!refreshed.ok) { this.pause(current, `integration_failed:${CONFLICT_REASON[refreshed.error] ?? 'conflict'}`); return }
+    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [refreshed.runId], pauseReason: null }, this.now())) {
+      const fresh = getChain(this.db, current.id)
+      if (fresh) this.emit(fresh)
+    }
   }
 
   /** The delivery-settle chokepoint: a `rail.pr_state` for the in-flight chunk. */

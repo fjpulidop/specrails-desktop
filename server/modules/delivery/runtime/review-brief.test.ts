@@ -98,6 +98,14 @@ describe('reviewBriefFromReviewerOutput', () => {
     expect(reviewBriefFromReviewerOutput({ approved: true, score: 80, brief: FULL_BRIEF })).toMatchObject({ source: 'definition', approved: true, score: 80 })
     expect(reviewBriefFromReviewerOutput({ briefDiagnostic: 'dropped' })).toMatchObject({ brief: null, diagnostic: 'dropped' })
   })
+  it('keeps Core review triage notes, even on a review without a brief, and merges them into the packet section', () => {
+    const notes = [{ kind: 'advice', issue: 'Consider naming the value.', reason: 'marked as advice' }, { kind: 'out-of-scope', issue: 'Add a flag later.' }, { kind: 'advice' }, 'junk']
+    const record = reviewBriefFromReviewerOutput({ approved: true, score: 88, issues: [] }, 'definition', notes)
+    expect(record).toMatchObject({ brief: null, notes: [{ kind: 'advice', issue: 'Consider naming the value.', reason: 'marked as advice' }, { kind: 'out-of-scope', issue: 'Add a flag later.', reason: null }] })
+    expect(reviewBriefFromReviewerOutput({ approved: true, score: 88 }, 'definition', [])).toBeNull()
+    expect(buildWhatToLookAt([{ ticketId: 4, reviewBrief: record }])).toMatchObject({ reviewNotes: [{ ticketId: 4, kind: 'advice' }, { ticketId: 4, kind: 'out-of-scope' }], humanChecks: [] })
+    expect(buildWhatToLookAt([{ ticketId: 4, reviewBrief: reviewBriefFromReviewerOutput({ approved: true, brief: {} }) }])).toBeNull()
+  })
 })
 
 describe('summaries', () => {

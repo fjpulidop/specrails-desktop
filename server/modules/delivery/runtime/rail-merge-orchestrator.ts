@@ -79,7 +79,7 @@ export interface MergeStepRecording {
  * kill/timeout). A hard-failed step (spawn error / non-zero exit / timeout) is
  * recorded `status='failed'` so it never enters the success-only avg-cost.
  */
-function recordMergeStep(
+export function recordMergeStep(
   rec: MergeStepRecording,
   stepName: string,
   res: AiStepResult,

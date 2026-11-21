@@ -200,6 +200,11 @@ describe('useMilestoneNotifications', () => {
     expect(localizeChainPauseReason('weird_reason')).toBe('weird_reason')
     expect(localizeChainPauseReason(null)).toBe('')
   })
+
+  it('says why a conflicted integration paused after the automatic base refresh', () => {
+    expect(localizeChainPauseReason('integration_failed:conflict_unresolved')).toBe('spec integration failed (it conflicts with the updated base and the automatic update could not resolve it)')
+    expect(localizeChainPauseReason('integration_failed:merge_local_blocked')).toBe('spec integration failed (merge_local_blocked)')
+  })
 })
 
 describe('milestone notification context', () => {

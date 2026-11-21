@@ -225,7 +225,8 @@
       "invariantsTouched": "Invariantes afetados",
       "untested": "Caminhos sem teste",
       "humanChecks": "Verificações humanas",
-      "divergences": "Divergências da spec"
+      "divergences": "Divergências da spec",
+      "reviewNotes": "Notas do revisor, não aplicadas"
     },
     "userVisible": "Visível para usuários",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} entradas do resumo não seguiam o formato esperado e foram ignoradas.",
     "topRisk": "Principal risco",
     "moreRisks_one": "+{{count}} outro",
-    "moreRisks_other": "+{{count}} outros"
+    "moreRisks_other": "+{{count}} outros",
+    "reviewNotesCaveat": "Constatações que o revisor marcou como fora desta execução. Nenhuma rodada de correção atuou sobre elas.",
+    "noteKind": {
+      "advice": "Conselho",
+      "out-of-scope": "Fora do escopo",
+      "host-only-check": "Verificação manual",
+      "regenerated-lockfile": "Lockfile regenerado",
+      "frozen-artifact": "Artefato congelado",
+      "withdrawn-criterion": "Retirado por você",
+      "other": "Nota"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} ação",

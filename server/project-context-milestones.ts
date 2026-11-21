@@ -67,6 +67,11 @@ export function createProjectMilestoneChains(deps: {
       const r = await internalApi.call('POST', `${railsBase}/pr-decision`, { prDeliveryId: delivery.id, expectedDecision: delivery.decision, action })
       return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
     },
+    refreshDelivery: async (delivery) => {
+      const r = await internalApi.call('POST', `/projects/${project.id}/pr-deliveries/${encodeURIComponent(delivery.id)}/refresh-on-base`, {})
+      const runId = (r.body as { loopRunId?: unknown } | null)?.loopRunId
+      return r.ok && typeof runId === 'string' ? { ok: true, runId } : { ok: false, status: r.status, ...internalApiError(r) }
+    },
     activeDeliveryForRail: (railIndex) => {
       const row = getActivePrDeliveryByRail(db, railIndex)
       return row ? toPrDeliverySnapshot(row) : null

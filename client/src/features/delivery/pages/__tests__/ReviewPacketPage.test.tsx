@@ -883,6 +883,21 @@ describe('ReviewPacketPage — what to look at (reviewer risk brief)', () => {
     expect(screen.getByTestId('brief-dropped')).toHaveTextContent('2 brief entries')
   })
 
+  it('lists the reviewer findings no correction round acted on, labelled by kind, after the human checks', async () => {
+    respond({ packet: packet({ whatToLookAt: { ...brief, risks: [], reviewNotes: [
+      { ticketId: 1, kind: 'advice', issue: 'Consider naming the export value.', reason: 'the reviewer marked it as advice' },
+      { ticketId: 1, kind: 'out-of-scope', issue: 'Add a CLI flag in a follow-up.', reason: null },
+      { ticketId: 1, kind: 'future-kind', issue: 'Something newer Core reports.', reason: null },
+    ] } }) })
+    renderPage()
+    const notes = await screen.findByTestId('brief-review-notes')
+    expect(notes).toHaveTextContent('Reviewer notes, not acted on')
+    expect(screen.getAllByTestId('brief-review-note').map((item) => item.textContent)).toEqual([
+      'AdviceConsider naming the export value.', 'Out of scopeAdd a CLI flag in a follow-up.', 'NoteSomething newer Core reports.',
+    ])
+    expect(screen.getByTestId('brief-human-checks').compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('is hidden entirely without a brief', async () => {
     respond({ packet: packet({ whatToLookAt: null }) })
     renderPage()

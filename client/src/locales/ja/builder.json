@@ -373,7 +373,13 @@
       },
       "moreOptions": "その他のオプション",
       "pausedSpecDelivered": "{{paused}} はすでに納品済みです",
-      "nextStep": "次: {{step}}"
+      "nextStep": "次: {{step}}",
+      "integrationDetails": {
+        "conflict": "更新されたベースと競合しています",
+        "conflict_unresolved": "更新されたベースと競合し、自動更新では解決できませんでした",
+        "conflict_refresh_limit": "2回の自動更新後もベースと競合しています",
+        "merge_failed": "Git がマージできませんでした"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",
