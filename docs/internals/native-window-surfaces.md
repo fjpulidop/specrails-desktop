@@ -150,11 +150,19 @@ Surface windows already have `dialog:allow-ask`/`allow-confirm`.
 - **Opener-driven close.** If the opener sets `open` back to false, the hook
   closes the window. If the opener unmounts, the window stays open as an
   independent window.
-- **Geometry.** The window saves its logical size and position to
+- **Geometry.** The window saves its logical size (not its position) to
   `localStorage['specrails.surface.<id>.geometry']` (debounced, not while
-  maximized). The next open passes it to the host. The host clamps the size to
-  the surface minimum and ignores a position that no longer lands on a
-  connected monitor (it centers instead).
+  maximized, minimized or fullscreen). The next open passes it to the host,
+  which clamps it to the surface minimum. Every new window opens centered on
+  the window that opened it, both axes (`center_on_opener` /
+  `centered_frame` in `surface_windows.rs`): computed from the opener's
+  current frame, kept inside the opener monitor's work area (a window larger
+  than the work area shrinks to it, never below its minimum; one that would
+  spill over an edge slides in). The math runs in the desktop's uniform space:
+  points on macOS, physical pixels on Windows/X11, so secondary displays and
+  mixed scale factors place correctly. A minimized opener centers it on its
+  monitor's work area; if the host cannot position windows (Wayland) it stays
+  screen-centered. A reused window (single instance) keeps its place.
 - **Single instance.** One Settings window app-wide (reopening focuses it).
   One window per job for Job detail (`(surface, params)` key). A reused window
   keeps its original request id, and the host returns it, so a new opener

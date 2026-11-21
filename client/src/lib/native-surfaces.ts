@@ -38,7 +38,12 @@ export interface OpenedSurfaceWindow {
   reused: boolean
 }
 
-export interface SurfaceGeometry { x?: number; y?: number; width?: number; height?: number }
+/**
+ * A surface's remembered logical size. Position is never remembered: every new
+ * window is centered on the window that opened it (the host computes that from
+ * the opener's current frame and monitor, `surface_windows.rs`).
+ */
+export interface SurfaceGeometry { width?: number; height?: number }
 
 function isNativeSurfaceId(value: string | null): value is NativeSurfaceId {
   return value !== null && (NATIVE_SURFACE_IDS as readonly string[]).includes(value)
@@ -93,7 +98,8 @@ export function loadSurfaceGeometry(id: NativeSurfaceId): SurfaceGeometry | null
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>
     const geometry: SurfaceGeometry = {}
-    for (const key of ['x', 'y', 'width', 'height'] as const) {
+    // Older builds also stored x/y; they are ignored (a new window centers on its opener).
+    for (const key of ['width', 'height'] as const) {
       const value = parsed[key]
       if (typeof value === 'number' && Number.isFinite(value)) geometry[key] = value
     }
@@ -175,7 +181,7 @@ export async function closeCurrentSurfaceWindow(): Promise<void> {
   await getCurrentWindow().close()
 }
 
-/** Persist this window's logical size and position for the next open. */
+/** Persist this window's logical size for the next open (its position is recomputed on every open). */
 export async function trackSurfaceGeometry(id: NativeSurfaceId): Promise<() => void> {
   if (!isTauri()) return () => {}
   const { getCurrentWindow } = await import('@tauri-apps/api/window')
@@ -186,17 +192,16 @@ export async function trackSurfaceGeometry(id: NativeSurfaceId): Promise<() => v
     timer = setTimeout(() => {
       void (async () => {
         try {
-          if (await current.isMaximized() || await current.isMinimized()) return
+          if (await current.isMaximized() || await current.isMinimized() || await current.isFullscreen()) return
           const scale = await current.scaleFactor()
           const size = (await current.innerSize()).toLogical(scale)
-          const position = (await current.outerPosition()).toLogical(scale)
-          saveSurfaceGeometry(id, { x: Math.round(position.x), y: Math.round(position.y), width: Math.round(size.width), height: Math.round(size.height) })
+          saveSurfaceGeometry(id, { width: Math.round(size.width), height: Math.round(size.height) })
         } catch { /* window closing */ }
       })()
     }, 250)
   }
-  const unlisteners = await Promise.all([current.onResized(save), current.onMoved(save)])
-  return () => { clearTimeout(timer); unlisteners.forEach(unlisten => unlisten()) }
+  const unlisten = await current.onResized(save)
+  return () => { clearTimeout(timer); unlisten() }
 }
 
 // ─── Preference mirroring ────────────────────────────────────────────────────

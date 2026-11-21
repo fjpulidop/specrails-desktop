@@ -49,8 +49,10 @@ struct SurfaceEvent<'a> { kind: &'a str, surface: &'a str, request_id: &'a str, 
 #[serde(rename_all = "camelCase")]
 pub struct Opened { window_label: String, request_id: String, reused: bool }
 
+/// A remembered logical size. A position sent by an older client is ignored:
+/// new windows are centered on their opener (`center_on_opener`).
 #[derive(serde::Deserialize, Default, Clone, Copy)]
-pub struct Geometry { x: Option<f64>, y: Option<f64>, width: Option<f64>, height: Option<f64> }
+pub struct Geometry { width: Option<f64>, height: Option<f64> }
 
 fn registry() -> &'static Mutex<HashMap<String, Entry>> {
     static WINDOWS: OnceLock<Mutex<HashMap<String, Entry>>> = OnceLock::new();
@@ -100,14 +102,69 @@ fn focus(window: &tauri::WebviewWindow) -> Result<(), String> {
     window.show().and_then(|_| window.unminimize()).and_then(|_| window.set_focus()).map_err(|err| err.to_string())
 }
 
-/// Saved geometry is used only while it still lands on a connected monitor.
-fn on_screen(app: &tauri::AppHandle, x: f64, y: f64, width: f64) -> bool {
-    app.available_monitors().map(|monitors| monitors.iter().any(|monitor| {
-        let scale = monitor.scale_factor();
-        let (mx, my) = (monitor.position().x as f64 / scale, monitor.position().y as f64 / scale);
-        let (mw, mh) = (monitor.size().width as f64 / scale, monitor.size().height as f64 / scale);
-        x + width > mx + 40.0 && x < mx + mw - 40.0 && y >= my - 10.0 && y < my + mh - 40.0
-    })).unwrap_or(false)
+/// A rectangle in the desktop's uniform coordinate space (see `DESKTOP_IS_LOGICAL`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Frame { x: f64, y: f64, width: f64, height: f64 }
+
+/// The unit in which every monitor shares one coordinate space: points on macOS
+/// (AppKit's global space; tao's physical values are per-window-scaled there),
+/// physical pixels elsewhere (Windows per-monitor DPI virtual screen, X11).
+const DESKTOP_IS_LOGICAL: bool = cfg!(target_os = "macos");
+
+fn desktop_frame(x: f64, y: f64, width: f64, height: f64, scale: f64) -> Frame {
+    let unit = if DESKTOP_IS_LOGICAL && scale > 0.0 { scale } else { 1.0 };
+    Frame { x: x / unit, y: y / unit, width: width / unit, height: height / unit }
+}
+
+/// Where a new surface window goes: centered on its opener's frame (`anchor`),
+/// both axes, then kept inside the opener monitor's work area. A window larger
+/// than the work area shrinks to it (never below its minimum) and is pinned to
+/// the work area's top-left; a frame that would spill over an edge slides in.
+fn centered_frame(anchor: Frame, size: (f64, f64), min: (f64, f64), work: Frame) -> Frame {
+    let fit = |want: f64, min: f64, room: f64| want.min(room).max(min.min(want));
+    let (width, height) = (fit(size.0, min.0, work.width), fit(size.1, min.1, work.height));
+    let place = |center: f64, len: f64, start: f64, room: f64| {
+        let origin = center - len / 2.0;
+        if len >= room { start } else { origin.clamp(start, start + room - len) }
+    };
+    Frame {
+        x: place(anchor.x + anchor.width / 2.0, width, work.x, work.width),
+        y: place(anchor.y + anchor.height / 2.0, height, work.y, work.height),
+        width,
+        height,
+    }
+}
+
+/// Centers a freshly built (still hidden) surface window on its opener. The
+/// opener's monitor bounds it; a minimized opener (no meaningful frame) centers
+/// it on that monitor's work area instead, a fullscreen one on the monitor. On
+/// any failure (e.g. Wayland, which forbids positioning) the builder's
+/// `center()` stands.
+fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow, inner: (f64, f64), min_inner: (f64, f64)) -> Option<()> {
+    let monitor = parent.current_monitor().ok().flatten().or_else(|| parent.primary_monitor().ok().flatten())?;
+    let scale = monitor.scale_factor();
+    let area = monitor.work_area();
+    let work = desktop_frame(area.position.x as f64, area.position.y as f64, area.size.width as f64, area.size.height as f64, scale);
+    let anchor = if parent.is_minimized().unwrap_or(false) { work } else {
+        let (position, size, parent_scale) = (parent.outer_position().ok()?, parent.outer_size().ok()?, parent.scale_factor().ok()?);
+        desktop_frame(position.x as f64, position.y as f64, size.width as f64, size.height as f64, parent_scale)
+    };
+    // Title bar / borders around the content (zero for macOS's overlay title bar), in logical units.
+    let (outer, content, own_scale) = (window.outer_size().ok()?, window.inner_size().ok()?, window.scale_factor().ok()?);
+    let deco = ((outer.width.saturating_sub(content.width)) as f64 / own_scale, (outer.height.saturating_sub(content.height)) as f64 / own_scale);
+    // Logical → desktop units at the monitor the window lands on.
+    let unit = if DESKTOP_IS_LOGICAL { 1.0 } else { scale };
+    let want = ((inner.0 + deco.0) * unit, (inner.1 + deco.1) * unit);
+    let frame = centered_frame(anchor, want, ((min_inner.0 + deco.0) * unit, (min_inner.1 + deco.1) * unit), work);
+    if frame.width + 0.5 < want.0 || frame.height + 0.5 < want.1 {
+        let _ = window.set_size(tauri::LogicalSize::new(frame.width / unit - deco.0, frame.height / unit - deco.1));
+    }
+    let placed = if DESKTOP_IS_LOGICAL {
+        window.set_position(tauri::LogicalPosition::new(frame.x, frame.y))
+    } else {
+        window.set_position(tauri::PhysicalPosition::new(frame.x.round() as i32, frame.y.round() as i32))
+    };
+    placed.ok()
 }
 
 #[tauri::command]
@@ -163,10 +220,8 @@ pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: Str
         .visible(false)
         .on_navigation(move |url| allowed_navigation(&nav_origin, url, surface_id))
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
-    builder = match (geometry.x, geometry.y) {
-        (Some(x), Some(y)) if x.is_finite() && y.is_finite() && on_screen(&app, x, y, width) => builder.position(x, y),
-        _ => builder.center(),
-    };
+    // Screen-centered until `center_on_opener` moves it (before it is ever shown).
+    builder = builder.center();
     // Native window controls only (the page renders no close button of its own).
     // macOS: traffic lights at their standard place over our header; the header
     // puts its title row on their line (`surfaceHeaderInset` in dialog.tsx).
@@ -176,7 +231,10 @@ pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: Str
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(true);
     let builder = match background { Some([r, g, b]) => builder.background_color(tauri::window::Color(r, g, b, 255)), None => builder };
-    builder.build().map_err(|err| err.to_string())?;
+    let window = builder.build().map_err(|err| err.to_string())?;
+    // Every new surface window opens centered on the window that opened it
+    // (its remembered size kept), never at a remembered or screen position.
+    let _ = center_on_opener(&parent, &window, (width, height), (spec.min_width, spec.min_height));
     entries.insert(label.clone(), Entry { key, surface: spec.id, owner, request_id: request_id.clone() });
     let (fallback_app, fallback_label) = (app.clone(), label.clone());
     tauri::async_runtime::spawn(async move {
@@ -235,6 +293,47 @@ pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const fn frame(x: f64, y: f64, width: f64, height: f64) -> Frame { Frame { x, y, width, height } }
+    const WORK: Frame = frame(0.0, 25.0, 1920.0, 1055.0);
+
+    #[test]
+    fn a_new_surface_centers_on_its_opener_not_the_screen() {
+        // Opener in the top-left quarter of the screen.
+        let placed = centered_frame(frame(100.0, 100.0, 1200.0, 800.0), (600.0, 400.0), (300.0, 200.0), WORK);
+        assert_eq!(placed, frame(400.0, 300.0, 600.0, 400.0));
+        // Both axes: the window's center is the opener's center.
+        assert_eq!(placed.x + placed.width / 2.0, 700.0);
+        assert_eq!(placed.y + placed.height / 2.0, 500.0);
+    }
+
+    #[test]
+    fn a_surface_larger_than_its_opener_still_centers_and_stays_in_the_work_area() {
+        // Bigger than the opener: centered on it all the same.
+        assert_eq!(centered_frame(frame(600.0, 300.0, 700.0, 500.0), (1100.0, 760.0), (720.0, 520.0), WORK), frame(400.0, 170.0, 1100.0, 760.0));
+        // Opener against the right/bottom edges: slides in rather than spilling off.
+        assert_eq!(centered_frame(frame(1500.0, 800.0, 400.0, 250.0), (1100.0, 760.0), (720.0, 520.0), WORK), frame(820.0, 320.0, 1100.0, 760.0));
+        // Opener partly off the left/top: pinned to the work area (below the menu bar).
+        assert_eq!(centered_frame(frame(-500.0, -200.0, 600.0, 400.0), (1100.0, 760.0), (720.0, 520.0), WORK), frame(0.0, 25.0, 1100.0, 760.0));
+    }
+
+    #[test]
+    fn a_surface_larger_than_the_work_area_shrinks_to_it_but_not_below_its_minimum() {
+        let small = frame(0.0, 0.0, 1280.0, 720.0);
+        assert_eq!(centered_frame(frame(0.0, 0.0, 1280.0, 720.0), (1400.0, 880.0), (760.0, 480.0), small), frame(0.0, 0.0, 1280.0, 720.0));
+        let tiny = frame(0.0, 0.0, 640.0, 400.0);
+        assert_eq!(centered_frame(frame(0.0, 0.0, 640.0, 400.0), (1100.0, 760.0), (720.0, 520.0), tiny), frame(0.0, 0.0, 720.0, 520.0));
+    }
+
+    #[test]
+    fn secondary_monitors_and_scale_factors_use_one_desktop_space() {
+        // A secondary display left of the primary (negative origin): centering happens there.
+        let left = frame(-2560.0, 0.0, 2560.0, 1415.0);
+        assert_eq!(centered_frame(frame(-2000.0, 200.0, 1400.0, 900.0), (1000.0, 600.0), (720.0, 480.0), left), frame(-1800.0, 350.0, 1000.0, 600.0));
+        // Physical values divide by their own scale only where the desktop is logical (macOS).
+        let converted = desktop_frame(2880.0, 100.0, 2400.0, 1600.0, 2.0);
+        if DESKTOP_IS_LOGICAL { assert_eq!(converted, frame(1440.0, 50.0, 1200.0, 800.0)); }
+        else { assert_eq!(converted, frame(2880.0, 100.0, 2400.0, 1600.0)); }
+    }
     #[test]
     fn surface_navigation_stays_on_its_own_surface() {
         for url in ["http://localhost:4201/", "tauri://localhost/"] {

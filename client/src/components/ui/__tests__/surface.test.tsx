@@ -8,6 +8,7 @@ import {
   NATIVE_SURFACES_PREF_KEY,
   loadSurfaceGeometry,
   nativeSurfaceEnabled,
+  openSurfaceWindow,
   saveSurfaceGeometry,
   surfaceWindowRoute,
   type SurfaceWindowEvent,
@@ -179,10 +180,24 @@ describe('native surface transport', () => {
   })
 
   it('round-trips geometry and ignores corrupt values', () => {
-    saveSurfaceGeometry('job-detail', { x: 10, y: 20, width: 900, height: 700 })
-    expect(loadSurfaceGeometry('job-detail')).toEqual({ x: 10, y: 20, width: 900, height: 700 })
+    saveSurfaceGeometry('job-detail', { width: 900, height: 700 })
+    expect(loadSurfaceGeometry('job-detail')).toEqual({ width: 900, height: 700 })
     localStorage.setItem('specrails.surface.job-detail.geometry', '{bad')
     expect(loadSurfaceGeometry('job-detail')).toBeNull()
+  })
+
+  it('remembers only the size: a stored position (older builds) is ignored, so a new window centers on its opener', async () => {
+    localStorage.setItem('specrails.surface.app-settings.geometry', JSON.stringify({ x: 4000, y: -900, width: 1000, height: 700 }))
+    expect(loadSurfaceGeometry('app-settings')).toEqual({ width: 1000, height: 700 })
+    localStorage.setItem('specrails.surface.app-settings.geometry', JSON.stringify({ x: 10, y: 20 }))
+    expect(loadSurfaceGeometry('app-settings')).toBeNull()
+    invoke.mockResolvedValueOnce({ windowLabel: 'w', requestId: 'r', reused: false })
+    saveSurfaceGeometry('app-settings', { width: 1000, height: 700 })
+    await openSurfaceWindow('app-settings', {}, 'req-1')
+    const [command, args] = invoke.mock.calls.at(-1) as [string, { geometry: unknown }]
+    expect(command).toBe('surface_window_open')
+    expect(args.geometry).toEqual({ width: 1000, height: 700 })
+    localStorage.removeItem('specrails.surface.app-settings.geometry')
   })
 })
 
