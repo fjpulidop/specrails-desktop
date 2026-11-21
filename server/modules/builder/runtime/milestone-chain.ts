@@ -664,7 +664,11 @@ export class MilestoneChainManager {
     const current = getChain(this.db, row.id)
     if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
     if (!refreshed.ok) { this.pause(current, `integration_failed:${CONFLICT_REASON[refreshed.error] ?? 'conflict'}`); return }
-    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [refreshed.runId], pauseReason: null }, this.now())) {
+    // The re-verification is the same rail's run: its launch record carries it (with the engine
+    // the rail was launched on), so following, adopting or resuming it keeps that engine.
+    const runId = refreshed.runId
+    const launched = parseLaunched(current).map((l) => l.deliveryId === snap.id && !l.runIds.includes(runId) ? { ...l, runIds: [...l.runIds, runId] } : l)
+    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [runId], pauseReason: null, launched }, this.now())) {
       const fresh = getChain(this.db, current.id)
       if (fresh) this.emit(fresh)
     }

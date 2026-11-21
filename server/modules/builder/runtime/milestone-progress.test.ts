@@ -256,6 +256,26 @@ describe('deriveMilestoneProgress — rails', () => {
     expect(m1.rails.map((r) => [r.railIndex, r.engine])).toEqual([[7, claude], [5, codex], [9, claude]])
   })
 
+  it('a rail held during its conflict refresh reads held, on the engine it was launched on', () => {
+    const claude = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    const budget: RunHold = { kind: 'budget', step: 'verify', since: '2026-09-04T11:07:26.000Z' }
+    // The chain refreshed the conflicted delivery d7 on its base: the re-verification fork-1 joined rail 7's launch record.
+    const chain: MilestoneChainSnapshot = {
+      id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, nextChunk: 1, totalChunks: 2, retryChunk: null,
+      currentRailIndex: 7, headBranch: null, autoAdvance: true, createdAt: 'x', updatedAt: 'x',
+      launched: [{ chunk: 1, railIndex: 7, ticketIds: [1], runIds: ['r1', 'fork-1'], deliveryId: 'd7', engine: claude }],
+    }
+    const [m1] = deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), chains: [chain], tickets: [ticket(1, 'in_progress'), ticket(2, 'todo')],
+      deliveries: [delivery({ id: 'd7', railIndex: 7, ticketIds: [1], decision: 'building' })],
+      // Its row only knows provider/model; the launch record keeps the effort.
+      activeRuns: [{ runId: 'fork-1', railIndex: 7, ticketIds: [1], startedAt: null, hold: budget, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } }],
+    })
+    expect(m1.rails).toHaveLength(1)
+    expect(m1.rails[0]).toMatchObject({ railIndex: 7, active: true, runId: 'fork-1', hold: budget, engine: claude, chunkIndex: 1 })
+    expect(m1.state).toBe('running')
+  })
+
   it('a rail carrying no milestone ticket is not listed', () => {
     const [m1] = deriveMilestoneProgress({
       ...base, blueprint: blueprint(), tickets: [ticket(1, 'todo')],

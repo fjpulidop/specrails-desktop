@@ -905,6 +905,32 @@ describe('incremental integration before the next spec', () => {
     expect(integrate).toHaveBeenCalledTimes(2)
     expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
   })
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the base-refresh re-verification stays on the rail\'s launch engine; only the next rail takes the new usual one', async () => {
+    const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn<NonNullable<MilestoneChainIO['integrateDelivery']>>()
+      .mockResolvedValueOnce(conflict)
+      .mockImplementationOnce(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } })
+    f.io.refreshDelivery = vi.fn(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'building' }); return { ok: true as const, runId: 'fork-1' } })
+    const res = await mgr.start(1, { engine: CLAUDE })
+    const chainId = res.ok ? res.chainId! : ''
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    // The re-verification run joins the rail's launch record, engine and all.
+    const [first] = parseLaunched(getChain(db, chainId)!)
+    expect(first.runIds).toContain('fork-1')
+    expect(first.engine).toEqual(CLAUDE)
+    // Following (adopting) that run again never drops the engine it was launched on.
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    const adopt = (mgr as unknown as { adopt(row: unknown, chunks: number[][], action: unknown): { ok: boolean } }).adopt.bind(mgr)
+    expect(adopt(getChain(db, chainId)!, [[1], [2]], { kind: 'adopt_run', ticketId: 1, runId: 'fork-1', deliveryId: 'd-3', railIndex: 3 }).ok).toBe(true)
+    expect(parseLaunched(getChain(db, chainId)!)[0]).toMatchObject({ runIds: ['fork-1'], engine: CLAUDE })
+    // Re-verified and integrated: the NEXT rail resolves the usual configuration as usual.
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
+    expect(f.launches[1].body).toMatchObject({ aiEngine: 'codex', model: 'gpt-6.2-sol' })
+    expect(parseLaunched(getChain(db, chainId)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+  })
   it('pauses with the conflict options when the automatic refresh cannot resolve it', async () => {
     const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
     const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }

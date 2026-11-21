@@ -269,6 +269,22 @@ describe('ProjectRegistry', () => {
       })
     })
 
+    it('wires every background-loaded project for the chain replay that waits for the warm-up', async () => {
+      for (const id of ['a', 'b', 'c']) addProject(desktopDb, { id, slug: `s-${id}`, name: id, path: `/path/${id}` })
+      const warm = registry.startWarmup()
+      // The listen-time chain replay iterates listContexts() after whenWarm(): nothing may be missing then.
+      expect(registry.listContexts()).toHaveLength(0)
+      await registry.whenWarm()
+      await warm
+      const contexts = registry.listContexts()
+      expect(contexts.map((ctx) => ctx.project.id).sort()).toEqual(['a', 'b', 'c'])
+      for (const ctx of contexts) {
+        expect(typeof ctx.milestoneChains?.recoverOnStartup).toBe('function')
+        // Rail holds read the project's own restart-pending set (cleared by its own recovery).
+        expect(ctx.restartPendingRunIds).toBeInstanceOf(Set)
+      }
+    })
+
     it('skips a project removed before the warm-up reached it', async () => {
       addProject(desktopDb, { id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
       addProject(desktopDb, { id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
