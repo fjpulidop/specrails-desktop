@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from '../db'
+import { getDesktopSetting, setDesktopSetting } from '../desktop-db'
 import { isTierEnabled, type McpTier } from '../mcp/mcp-tiers'
 import type { InboxItem } from '../modules/inbox'
 import { getAllowedProjects } from './mobile-devices'
@@ -88,12 +89,121 @@ export function companionView(db: DbInstance, item: InboxItem): CompanionItemVie
   }
 }
 
+const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+
+// ── Server-side Snooze / Done ───────────────────────────────────────────────
+//
+// The desktop inbox keeps Snooze / Done per viewer (localStorage). Remote
+// surfaces (the paired phone, MCP clients) have no such storage, so they share
+// one app-wide record here (`desktop_settings` key `inbox_dismissals`): Done
+// hides an item while its `version` is unchanged (a new state re-arms it), a
+// snooze hides it until `until`. Pure state over the inbox's own ids and
+// versions; the read-model itself never changes.
+
+export const INBOX_DISMISSALS_KEY = 'inbox_dismissals'
+/** Upper bound of stored dismissals (oldest dropped first). */
+export const MAX_INBOX_DISMISSALS = 500
+const MAX_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
+
+export interface InboxDismissal {
+  /** `done`: hidden while the version is unchanged; `snooze`: hidden until `until`. */
+  kind: 'done' | 'snooze'
+  version: string
+  until: string | null
+  at: string
+}
+
+export type InboxDismissals = Record<string, InboxDismissal>
+
+const ITEM_ID = /^[A-Za-z0-9_-]{1,64}:[a-z]{1,16}:[A-Za-z0-9:._-]{1,160}$/
+
+export function isInboxItemId(value: unknown): value is string {
+  return typeof value === 'string' && ITEM_ID.test(value)
+}
+
+/** The stored dismissals; a missing or corrupt record reads as none. */
+export function readInboxDismissals(db: DbInstance): InboxDismissals {
+  try {
+    const raw = getDesktopSetting(db, INBOX_DISMISSALS_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : {}
+    const out: InboxDismissals = {}
+    for (const [id, value] of Object.entries(record(parsed))) {
+      const entry = record(value)
+      if (!isInboxItemId(id) || (entry.kind !== 'done' && entry.kind !== 'snooze') || typeof entry.version !== 'string' || typeof entry.at !== 'string') continue
+      out[id] = { kind: entry.kind, version: entry.version, until: typeof entry.until === 'string' ? entry.until : null, at: entry.at }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function writeInboxDismissals(db: DbInstance, dismissals: InboxDismissals): void {
+  const entries = Object.entries(dismissals).sort(([, a], [, b]) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, MAX_INBOX_DISMISSALS)
+  setDesktopSetting(db, INBOX_DISMISSALS_KEY, JSON.stringify(Object.fromEntries(entries)))
+}
+
+/** Whether a stored dismissal still hides an item at `version`, now. */
+export function dismissalHides(dismissal: InboxDismissal | undefined, version: string, now: Date = new Date()): boolean {
+  if (!dismissal) return false
+  if (dismissal.kind === 'done') return dismissal.version === version
+  const until = dismissal.until ? Date.parse(dismissal.until) : Number.NaN
+  return Number.isFinite(until) && until > now.getTime()
+}
+
+/** Store Done (or a snooze until an instant, at most 30 days ahead) for one item at its current version. */
+export function dismissInboxItem(db: DbInstance, input: { itemId: string; version: string; until?: string | null }, now: Date = new Date()): InboxDismissal {
+  if (!isInboxItemId(input.itemId)) throw new RangeError('Invalid inbox item id')
+  let until: string | null = null
+  if (input.until !== undefined && input.until !== null) {
+    const at = Date.parse(input.until)
+    if (!Number.isFinite(at) || at <= now.getTime()) throw new RangeError('until must be a future time')
+    until = new Date(Math.min(at, now.getTime() + MAX_SNOOZE_MS)).toISOString()
+  }
+  const dismissal: InboxDismissal = { kind: until ? 'snooze' : 'done', version: String(input.version).slice(0, 400), until, at: now.toISOString() }
+  writeInboxDismissals(db, { ...readInboxDismissals(db), [input.itemId]: dismissal })
+  return dismissal
+}
+
+/** Bring a dismissed item back. True when something was removed. */
+export function restoreInboxItem(db: DbInstance, itemId: string): boolean {
+  const current = readInboxDismissals(db)
+  if (!current[itemId]) return false
+  delete current[itemId]
+  writeInboxDismissals(db, current)
+  return true
+}
+
+/**
+ * Split items into visible and hidden. Dismissals of items that are gone, or
+ * that no longer hide anything (a lapsed snooze, a Done whose version moved),
+ * are pruned when `prune` is set, so the record never grows without bound.
+ */
+export function applyInboxDismissals<T extends Pick<InboxItem, 'id' | 'version'>>(db: DbInstance, items: readonly T[], options: { now?: Date; prune?: boolean } = {}): { visible: T[]; hidden: Array<T & { dismissed: InboxDismissal }> } {
+  const now = options.now ?? new Date()
+  const dismissals = readInboxDismissals(db)
+  const visible: T[] = []
+  const hidden: Array<T & { dismissed: InboxDismissal }> = []
+  for (const item of items) {
+    const dismissal = dismissals[item.id]
+    if (dismissalHides(dismissal, item.version, now)) hidden.push({ ...item, dismissed: dismissal! })
+    else visible.push(item)
+  }
+  if (options.prune) {
+    const live = new Set(hidden.map((item) => item.id))
+    const kept = Object.fromEntries(Object.entries(dismissals).filter(([id]) => live.has(id)))
+    if (Object.keys(kept).length !== Object.keys(dismissals).length) {
+      try { writeInboxDismissals(db, kept) } catch { /* pruning is best-effort */ }
+    }
+  }
+  return { visible, hidden }
+}
+
 const PID = /^[A-Za-z0-9_-]{1,64}$/
 const RUN_ID = /^[A-Za-z0-9-]{1,128}$/
 const SOURCE_ID = /^(?:run:)?[A-Za-z0-9-]{1,128}$/
 const MAX_ANSWER = 20_000
 const MAX_RUN_CAP_USD = 10_000
-const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 const pick = (value: unknown, keys: string[]) => Object.fromEntries(Object.entries(record(value)).filter(([key]) => keys.includes(key)))
 
 export function createMobileInboxRouter({ db, upstream }: { db: DbInstance; upstream: MobileUpstream }): Router {
@@ -127,14 +237,37 @@ export function createMobileInboxRouter({ db, upstream }: { db: DbInstance; upst
       if (result.status !== 200) { res.status(result.status).json(redact(result.json)); return }
       const snapshot = record(result.json)
       const visible = (projectId: unknown): boolean => typeof projectId === 'string' && (allowed === null || allowed.has(projectId))
-      const items = (Array.isArray(snapshot.items) ? snapshot.items : [])
-        .filter((item) => visible(record(item).projectId))
-        .map((item) => ({ ...(item as InboxItem), companion: companionView(db, item as InboxItem) }))
+      const granted = (Array.isArray(snapshot.items) ? snapshot.items : []).filter((item) => visible(record(item).projectId)) as InboxItem[]
+      // Snooze / Done shared with the other remote surfaces; `?all=1` lists the hidden ones too, marked.
+      const { visible: shown, hidden } = applyInboxDismissals(db, granted)
+      const items = [...shown, ...(req.query.all === '1' ? hidden : [])]
+        .map((item) => ({ ...item, companion: companionView(db, item) }))
       const projects = (Array.isArray(snapshot.projects) ? snapshot.projects : []).filter((p) => visible(record(p).projectId))
       res.json(redact({ items, projects, generatedAt: snapshot.generatedAt }))
     } catch {
       res.status(502).json({ error: 'Desktop is unreachable. Retry when connected.' })
     }
+  })
+
+  // Snooze (`until`) or Done (no `until`) one item at the version the device saw; DELETE brings it back.
+  router.post('/inbox/dismissals', (req: Request, res: Response) => {
+    const body = record(req.body), itemId = seg(body.itemId), version = seg(body.version)
+    const allowed = getAllowedProjects(db, (req as MobileAuthedRequest).mobileDevice!.id)
+    if (!isInboxItemId(itemId) || !version || version.length > 400 || (body.until !== undefined && typeof body.until !== 'string')) { res.status(400).json({ error: 'Invalid parameter' }); return }
+    if (allowed !== null && !allowed.has(itemId.split(':')[0])) { res.status(404).json({ error: 'Not found' }); return }
+    try {
+      res.json({ ok: true, itemId, dismissed: dismissInboxItem(db, { itemId, version, until: body.until as string | undefined }) })
+    } catch (err) {
+      res.status(400).json({ error: err instanceof RangeError ? err.message : 'Invalid parameter' })
+    }
+  })
+
+  router.delete('/inbox/dismissals/:itemId', (req: Request, res: Response) => {
+    const itemId = seg(req.params.itemId)
+    const allowed = getAllowedProjects(db, (req as MobileAuthedRequest).mobileDevice!.id)
+    if (!isInboxItemId(itemId)) { res.status(400).json({ error: 'Invalid parameter' }); return }
+    if (allowed !== null && !allowed.has(itemId.split(':')[0])) { res.status(404).json({ error: 'Not found' }); return }
+    res.json({ ok: true, itemId, restored: restoreInboxItem(db, itemId) })
   })
 
   // The question a paused run is waiting on (the Answer sheet shows it verbatim).
