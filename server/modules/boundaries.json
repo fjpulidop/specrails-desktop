@@ -1144,6 +1144,7 @@
       "runtime/pr-merge-watch.ts",
       "runtime/pr-naming.ts",
       "runtime/pr-publisher.ts",
+      "runtime/rail-delivery-revision.ts",
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
       "runtime/rail-launch-preflight.ts",
