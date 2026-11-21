@@ -27,6 +27,12 @@ import { renderReport } from './lib/report.mjs'
 import { parseArgs } from './lib/args.mjs'
 import { soakMain } from './lib/soak-main.mjs'
 
+// lsof, ps, vm_stat and POSIX signals: the harness drives a macOS or Linux server only.
+if (process.platform === 'win32') {
+  console.error('The Implement benchmark harness runs on macOS and Linux only.')
+  process.exit(2)
+}
+
 /** Per-run time attribution of every run of a result (an automatic continuation adds a run). */
 function timingsOf(home, result) {
   try { return result.runIds?.length ? result.runIds.map((id, i) => readRunTimings(home, id, i === 0 ? result.launchedAt : null)).filter(Boolean) : null } catch (error) { result.notes.push(`timings: ${error.message}`); return null }

@@ -7,6 +7,8 @@ server mid-run. It samples `/api/health` and `/api/live-board` latency, guards t
 through the app's own `/api/subscription-usage`, and writes a Markdown and JSON report.
 
 It is a developer tool. It lives in `scripts/`, so it is not part of the npm package or the app bundle.
+It runs on macOS and Linux only (it uses `lsof`, `ps`, `vm_stat` and POSIX signals) and refuses to
+start on Windows; its own tests run on those platforms only.
 
 ```sh
 npm run benchmark -- \
