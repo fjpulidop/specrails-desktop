@@ -27,6 +27,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [agents](../agents/README.md)
 - [browser](../browser/README.md)
 - [delivery](../delivery/README.md)
+- [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
 - [missions](../missions/README.md)
 - [projects](../projects/README.md)

@@ -12,6 +12,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/JobDetailModal.tsx](components/JobDetailModal.tsx)
 - [components/LogViewer.tsx](components/LogViewer.tsx)
+- [components/job-run/RunPauseControl.tsx](components/job-run/RunPauseControl.tsx)
 - [components/job-run/useRuntimeRuns.ts](components/job-run/useRuntimeRuns.ts)
 - [hooks/useAssembleProgress.ts](hooks/useAssembleProgress.ts)
 - [hooks/useCompareUrlSync.ts](hooks/useCompareUrlSync.ts)
