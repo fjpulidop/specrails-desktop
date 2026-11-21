@@ -56,6 +56,9 @@ export function notifyError(title: string, opts: NotifyErrorOptions = {}): strin
     ? { label: i18n.t('common:actions.retry'), onClick: retry }
     : action
   const options = {
+    // An id replaces a toast already on screen, and sonner merges the new options over the old
+    // ones: clear what this error does not set, or it keeps the old toast's text and buttons.
+    ...(id !== undefined ? { description: undefined, action: undefined, cancel: undefined, duration: undefined } : {}),
     ...(shown !== undefined ? { description: shown } : {}),
     ...(recovery ? { action: recovery } : {}),
     ...(hidden ? { cancel: { label: i18n.t('common:errors.copyDetails'), onClick: () => copyRaw(hidden) } } : {}),
