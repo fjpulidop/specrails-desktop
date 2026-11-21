@@ -6,11 +6,12 @@
  * toast or nothing.
  *
  * Notifications sent while the person was away are remembered: when the main
- * window regains focus the return toast ("N things need you") offers a way
+ * window regains focus the return toast ("3 pending items", or one item by name) offers a way
  * back, since a native notification in the desktop app cannot be clicked
  * through.
  */
 import { decideAttention, type AttentionCategory, type AttentionDecision, type AttentionPrefs } from './attention-policy'
+import type { AttentionCopy } from './attention-copy'
 import type { NativeNotification } from './native-notify'
 import type { WindowFocus } from './window-focus'
 
@@ -31,11 +32,16 @@ export interface AttentionEvent {
   open?: () => void
   /** Replaces the default in-app toast when the decision is `toast`. */
   inAppToast?: () => void
+  /** What the item is, for the return toast and the toast's action ("… is waiting for your answer" → "Answer"). */
+  copy?: AttentionCopy
 }
 
 export interface AwayEntry {
   key: string
   open?: () => void
+  /** The event's wording (see {@link AttentionEvent.copy}); `title` is its fallback. */
+  copy?: AttentionCopy
+  title?: string
   /** The event's own on-screen check: on return, an item already in front of the person is not announced again. */
   isOnScreen?: (focus: WindowFocus) => boolean
 }
@@ -54,14 +60,14 @@ export interface AttentionCenterDeps {
   /**
    * Coalescing of OS notifications: those sent within `burstMs` of the first
    * one are held, and more than `burstLimit` of them become one summary
-   * (`summary(count, lines)`, one line per held notification: its body,
-   * which names the project and the item), so a batch of new items never floods the
+   * (`summary(count, lines, copies)`, one line per held notification: its body,
+   * which names the project and the item; `copies` their wording), so a batch of new items never floods the
    * notification centre. Defaults: 600 ms, 2. Without `summary` every
    * notification is sent at once.
    */
   burstMs?: number
   burstLimit?: number
-  summary?: (count: number, lines: string[]) => NativeNotification
+  summary?: (count: number, lines: string[], copies: Array<AttentionCopy | undefined>) => NativeNotification
 }
 
 export const SUBJECT_WINDOW_MS = 10 * 60_000
@@ -87,7 +93,7 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
   let away: AwayEntry[] = []
   const burstMs = deps.burstMs ?? 600
   const burstLimit = deps.burstLimit ?? 2
-  let burst: Array<{ notification: NativeNotification; resolve: (shown: boolean) => void }> = []
+  let burst: Array<{ notification: NativeNotification; copy?: AttentionCopy; resolve: (shown: boolean) => void }> = []
   let burstTimer: ReturnType<typeof setTimeout> | null = null
 
   const flushBurst = async (): Promise<void> => {
@@ -98,13 +104,13 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
       for (const entry of batch) entry.resolve(await deps.notify(entry.notification).catch(() => false))
       return
     }
-    const summary = deps.summary(batch.length, batch.map((entry) => entry.notification.body || entry.notification.title))
+    const summary = deps.summary(batch.length, batch.map((entry) => entry.notification.body || entry.notification.title), batch.map((entry) => entry.copy))
     const shown = await deps.notify({ ...summary, sound: batch.some((entry) => entry.notification.sound) }).catch(() => false)
     for (const entry of batch) entry.resolve(shown)
   }
 
-  const notifyCoalesced = (notification: NativeNotification): Promise<boolean> => !deps.summary ? deps.notify(notification) : new Promise((resolve) => {
-    burst.push({ notification, resolve })
+  const notifyCoalesced = (notification: NativeNotification, copy?: AttentionCopy): Promise<boolean> => !deps.summary ? deps.notify(notification) : new Promise((resolve) => {
+    burst.push({ notification, copy, resolve })
     if (!burstTimer) burstTimer = setTimeout(() => { void flushBurst() }, burstMs)
   })
 
@@ -146,10 +152,10 @@ export function createAttentionCenter(deps: AttentionCenterDeps): AttentionCente
         tag: event.key,
         sound: prefs.sound,
         onClick: open ? () => { center.forget(event.key); open() } : undefined,
-      })
+      }, event.copy)
       // Away: remembered for the return toast even when the system refused the
       // notification (permission denied), so the person still hears about it.
-      if (!focus.appFocused) away = [...away.filter((entry) => entry.key !== event.key), { key: event.key, open, isOnScreen: event.isOnScreen }]
+      if (!focus.appFocused) away = [...away.filter((entry) => entry.key !== event.key), { key: event.key, open, isOnScreen: event.isOnScreen, copy: event.copy, title: event.title }]
       else if (!shown) showToast(event)
       return decision
     },

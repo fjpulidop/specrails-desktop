@@ -47,7 +47,7 @@ En la app de escritorio, algunas pantallas se abren como ventanas reales en luga
 
 Specrails te avisa cuando algo te necesita: una pregunta o una respuesta de una misión, una revisión lista para decidir, una ejecución que falló, se bloqueó o dejó de avanzar, un límite de gasto y un trabajo terminado. Cómo te avisa depende de dónde estés:
 
-- **Fuera de la app**: una notificación del sistema con el proyecto y la causa. En la app de escritorio no se puede pulsar, así que al volver un aviso lo resume (**3 cosas te necesitan**) y abre el elemento, o la bandeja **Pendientes** si son varios. Los avisos que llegan mientras **Retoma donde lo dejaste** o el tour de la plataforma están abiertos esperan a que lo cierres y luego llegan como uno solo.
+- **Fuera de la app**: una notificación del sistema con el proyecto y la causa. En la app de escritorio no se puede pulsar, así que al volver un aviso lo resume y te ofrece el camino de vuelta: un solo elemento aparece con su nombre y su acción (**Alpha · #6 espera tu respuesta** → **Responder**); varios se cuentan (**3 avisos pendientes**, o **2 preguntas y 1 revisión pendientes**) y abren la bandeja **Pendientes**. Los avisos que llegan mientras **Retoma donde lo dejaste** o el tour de la plataforma están abiertos esperan a que lo cierres y luego llegan como uno solo.
 - **En otra parte de la app**: un aviso pequeño con **Abrir**.
 - **Ya lo estás viendo**: nada. Una misión que estás mirando no avisa de sus propias respuestas; una ejecución atascada es la excepción y siempre avisa.
 

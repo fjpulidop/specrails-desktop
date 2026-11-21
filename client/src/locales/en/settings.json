@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Notifications",
-    "description": "What needs you: a system notification when you're away, a toast when you're elsewhere in the app, nothing when it's already on screen.",
+    "description": "Items that need your attention: a system notification when you're away, a toast when you're elsewhere in the app, nothing when it's already on screen.",
     "enable": "Notify me",
     "enableHint": "Turn off to stop every notification and toast below.",
     "categoriesLegend": "Tell me about",

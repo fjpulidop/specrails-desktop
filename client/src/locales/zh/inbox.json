@@ -1,8 +1,8 @@
 {
   "title": "待处理",
-  "subtitle_one": "有 {{count}} 项在等你",
-  "subtitle_other": "有 {{count}} 项在等你",
-  "subtitleEmpty": "没有等你处理的事项",
+  "subtitle_one": "{{count}} 项待处理",
+  "subtitle_other": "{{count}} 项待处理",
+  "subtitleEmpty": "全部处理完毕",
   "loading": "正在检查你的项目…",
   "empty": {
     "title": "暂无待处理事项",
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "评审就绪",
-    "question": "需要你处理",
+    "question": "等待你的回答",
     "failed": "失败",
     "blocked": "已阻塞",
     "budget": "因预算暂停",

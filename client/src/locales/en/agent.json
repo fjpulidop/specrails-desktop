@@ -1456,7 +1456,7 @@
     "announce": {
       "settled": "{{run}} finished",
       "shown": "Showing {{run}}: {{state}}",
-      "needsYou": "{{run}} needs you"
+      "needsYou": "{{run}} needs your attention"
     },
     "event": {
       "launched": "Launched on {{run}}",
@@ -1474,7 +1474,7 @@
       "discarded": "{{run}} was discarded",
       "changes": "{{run}}: the reviewer requested changes"
     },
-    "needsYou": "needs you",
+    "needsYou": "needs your attention",
     "opensCard": "Opens the run's card so you can confirm there",
     "open": {
       "decision": "Open the decision",

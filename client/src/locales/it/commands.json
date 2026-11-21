@@ -547,8 +547,33 @@
     "attention": {
       "open": "Apri",
       "openInbox": "Apri la posta in arrivo",
-      "away_one": "{{count}} cosa ti aspetta",
-      "away_other": "{{count}} cose ti aspettano",
+      "actions": {
+        "answer": "Rispondi",
+        "review": "Rivedi",
+        "view": "Vedi",
+        "open": "Apri"
+      },
+      "single": {
+        "question": "{{subject}} attende la tua risposta",
+        "approval": "{{subject}} richiede la tua approvazione",
+        "review": "{{subject}} è pronto per la revisione",
+        "stopped": "{{subject}} si è fermato",
+        "stuck": "{{subject}}: un run non avanza",
+        "paused": "{{subject}} è in pausa per un limite",
+        "done": "{{subject}} è terminato",
+        "generic": "{{subject}} richiede la tua attenzione"
+      },
+      "pending_one": "{{count}} elemento in sospeso",
+      "pending_other": "{{count}} elementi in sospeso",
+      "breakdown": "{{list}} in sospeso",
+      "group": {
+        "question_one": "{{count}} domanda",
+        "question_other": "{{count}} domande",
+        "approval_one": "{{count}} approvazione",
+        "approval_other": "{{count}} approvazioni",
+        "review_one": "{{count}} revisione",
+        "review_other": "{{count}} revisioni"
+      },
       "missionReplied": "{{title}} ha risposto",
       "untitledMission": "La tua missione"
     }

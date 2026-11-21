@@ -47,7 +47,7 @@ In the desktop app, some screens open as real windows instead of panels inside t
 
 Specrails tells you when something needs you: a question or a mission reply, a review ready to decide, a run that failed, got blocked or stopped moving, a spending limit, and a finished job. How depends on where you are:
 
-- **Away from the app** — a system notification, naming the project and the cause. In the desktop app it cannot be clicked through, so when you come back a toast sums it up (**3 things need you**) and opens the item, or the inbox when there are several. Toasts that arrive while **Pick up where you left off** or the product tour is open wait until you close it, and then arrive as one.
+- **Away from the app** — a system notification, naming the project and the cause. In the desktop app it cannot be clicked through, so when you come back a toast sums it up and offers the way back: one item is named with its own action (**Alpha · #6 is waiting for your answer** → **Answer**), several are counted (**3 pending items**, or **2 questions and 1 review pending**) and open the inbox. Toasts that arrive while **Pick up where you left off** or the product tour is open wait until you close it, and then arrive as one.
 - **In the app, somewhere else** — a small toast with **Open**.
 - **Already looking at it** — nothing. A mission you are watching never notifies its own replies; a stuck run is the exception and always alerts.
 

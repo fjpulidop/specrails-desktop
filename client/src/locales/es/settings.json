@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Notificaciones",
-    "description": "Lo que te necesita: una notificación del sistema cuando no estás, un aviso cuando estás en otra parte de la app y nada cuando ya lo tienes en pantalla.",
+    "description": "Lo que requiere tu atención: una notificación del sistema cuando no estás, un aviso cuando estás en otra parte de la app y nada cuando ya lo tienes en pantalla.",
     "enable": "Avisarme",
     "enableHint": "Desactívalo para detener todas las notificaciones y avisos de abajo.",
     "categoriesLegend": "Avisarme de",

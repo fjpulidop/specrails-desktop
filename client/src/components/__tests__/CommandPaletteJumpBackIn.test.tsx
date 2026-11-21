@@ -140,7 +140,7 @@ describe('CommandPalette: Jump back in', () => {
       'palette-jump-mission-m-decision', 'palette-jump-mission-m-old', 'palette-jump-job-j-old',
     ])
     const [inboxRow, job, recent, other, decision] = jumpRows()
-    expect(inboxRow).toHaveTextContent('2 things need you')
+    expect(inboxRow).toHaveTextContent('2 pending items')
     expect(inboxRow).toHaveTextContent('Open inbox')
     // The inbox row has no chord: ⌘1 is the first recent.
     expect(inboxRow).not.toHaveAttribute('aria-keyshortcuts')
@@ -301,7 +301,7 @@ describe('CommandPalette: Jump back in', () => {
 
     expect(jumpIds()).toEqual(before)
     expect(screen.getByTestId('palette-jump-mission-m-decision')).toHaveAttribute('data-run-state', 'failed')
-    expect(screen.getByTestId('palette-jump-inbox')).toHaveTextContent('3 things need you')
+    expect(screen.getByTestId('palette-jump-inbox')).toHaveTextContent('3 pending items')
 
     await user.keyboard('{Escape}')
     await waitFor(() => expect(paletteOpen()).toBe(false))

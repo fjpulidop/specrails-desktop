@@ -132,8 +132,12 @@ export function useOsNotifications({
     }
   }, [])
 
+  function projectNameOf(projectId: string | null): string {
+    return projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
+  }
+
   function withProject(projectId: string | null, body: string): string {
-    const projectName = projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
+    const projectName = projectNameOf(projectId)
     return projectName ? `[${projectName}] ${body}` : body
   }
 
@@ -149,6 +153,7 @@ export function useOsNotifications({
       body: withProject(projectId, job.command ? job.command.slice(0, 80) : i18n.t('commands:notifications.unknownCommand')),
       isOnScreen: jobOnScreen(job.id),
       open: () => openJob(projectId, job.id),
+      copy: { kind: completed ? 'done' : 'stopped', project: projectNameOf(projectId), subject: job.command ?? null },
     })
   }
 
@@ -173,6 +178,7 @@ export function useOsNotifications({
       // project's blocked runs wait with their Resume / Open action.
       open: requestOpenInbox,
       inAppToast: showError,
+      copy: { kind: 'paused', project: projectNameOf(projectId) },
     })
     if (decision === 'notify') showError()
   }
@@ -214,6 +220,7 @@ export function useOsNotifications({
       body,
       persistent: true,
       open: () => openJob(projectId, jobId),
+      copy: { kind: 'stuck', project: projectNameOf(projectId) },
     })
   }
 

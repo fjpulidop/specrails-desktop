@@ -29,12 +29,14 @@ export function ProviderQuotaBridge({ center = appAttention }: { center?: Attent
         const { quota } = escalation
         const refused = escalation.level === 'rejected'
         const time = quota.rejectedUntil ? formatResetTime(quota.rejectedUntil, i18n.language) : null
+        const title = refused ? i18n.t('providerQuota:attention.rejectedTitle', { provider }) : i18n.t('providerQuota:attention.warningTitle', { provider, percent: Math.round(quota.usedPercent ?? 0) })
         void center.dispatch({
           key: escalation.key,
           subjectKey: `budget:quota:${escalation.providerId}`,
           category: 'budget',
           projectId: null,
-          title: refused ? i18n.t('providerQuota:attention.rejectedTitle', { provider }) : i18n.t('providerQuota:attention.warningTitle', { provider, percent: Math.round(quota.usedPercent ?? 0) }),
+          title,
+          copy: { kind: 'generic', message: title },
           body: refused
             ? time ? i18n.t('providerQuota:attention.rejectedBody', { provider, time }) : i18n.t('providerQuota:attention.rejectedBodyNoReset', { provider })
             : i18n.t('providerQuota:attention.warningBody', { provider, percent: Math.round(quota.usedPercent ?? 0), window: windowLabel(quota.windowId) }),

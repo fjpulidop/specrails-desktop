@@ -547,8 +547,33 @@
     "attention": {
       "open": "Open",
       "openInbox": "Open inbox",
-      "away_one": "{{count}} thing needs you",
-      "away_other": "{{count}} things need you",
+      "actions": {
+        "answer": "Answer",
+        "review": "Review",
+        "view": "View",
+        "open": "Open"
+      },
+      "single": {
+        "question": "{{subject}} is waiting for your answer",
+        "approval": "{{subject}} needs your approval",
+        "review": "{{subject}} is ready for review",
+        "stopped": "{{subject}} has stopped",
+        "stuck": "{{subject}}: a run has stalled",
+        "paused": "{{subject}} is paused by a limit",
+        "done": "{{subject}} has finished",
+        "generic": "{{subject}} needs your attention"
+      },
+      "pending_one": "{{count}} pending item",
+      "pending_other": "{{count}} pending items",
+      "breakdown": "{{list}} pending",
+      "group": {
+        "question_one": "{{count}} question",
+        "question_other": "{{count}} questions",
+        "approval_one": "{{count}} approval",
+        "approval_other": "{{count}} approvals",
+        "review_one": "{{count}} review",
+        "review_other": "{{count}} reviews"
+      },
       "missionReplied": "{{title}} replied",
       "untitledMission": "Your mission"
     }

@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Notifications",
-    "description": "Ce qui vous attend : une notification système quand vous êtes ailleurs, un toast quand vous êtes ailleurs dans l'app, rien quand c'est déjà à l'écran.",
+    "description": "Ce qui requiert votre attention : une notification système quand vous êtes absent, un toast quand vous êtes ailleurs dans l'app, rien quand c'est déjà à l'écran.",
     "enable": "M'avertir",
     "enableHint": "Désactivez pour arrêter toutes les notifications et tous les toasts ci-dessous.",
     "categoriesLegend": "M'avertir pour",

@@ -320,8 +320,8 @@
       "startedRail": "Rail {{rail}}: Run gestartet",
       "pausedBudget": "Run pausiert: eine Ausgabengrenze wurde erreicht",
       "pausedLimit": "Run pausiert: Limit des Anbieters erreicht",
-      "needsYou": "Ein Run braucht dich",
-      "needsYouRail": "Rail {{rail}}: Ein Run braucht dich",
+      "needsYou": "Ein Run erfordert deine Aufmerksamkeit",
+      "needsYouRail": "Rail {{rail}}: Ein Run erfordert deine Aufmerksamkeit",
       "failed": "Run fehlgeschlagen",
       "failedRail": "Rail {{rail}}: Run fehlgeschlagen",
       "finished": "Run abgeschlossen",
@@ -336,7 +336,7 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} abgeschlossen",
       "failedSpec": "Rail {{rail}}: #{{id}} fehlgeschlagen",
       "stoppedSpec": "Rail {{rail}}: #{{id}} gestoppt",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} braucht dich",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} erfordert deine Aufmerksamkeit",
       "reviewReadySpec": "Rail {{rail}}: Review für #{{id}} bereit"
     }
   },

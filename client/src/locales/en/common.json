@@ -320,8 +320,8 @@
       "startedRail": "Rail {{rail}}: run started",
       "pausedBudget": "Run paused: a spend limit was reached",
       "pausedLimit": "Run paused: the provider limit was reached",
-      "needsYou": "A run needs you",
-      "needsYouRail": "Rail {{rail}}: a run needs you",
+      "needsYou": "A run needs your attention",
+      "needsYouRail": "Rail {{rail}}: a run needs your attention",
       "failed": "Run failed",
       "failedRail": "Rail {{rail}}: run failed",
       "finished": "Run finished",
@@ -336,7 +336,7 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} finished",
       "failedSpec": "Rail {{rail}}: #{{id}} failed",
       "stoppedSpec": "Rail {{rail}}: #{{id}} stopped",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} needs you",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} needs your attention",
       "reviewReadySpec": "Rail {{rail}}: #{{id}} review ready"
     }
   },

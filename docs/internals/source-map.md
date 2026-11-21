@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1844 source/build files. Nearby tests are linked where names
+Includes 1845 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1334,6 +1334,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [app-attention.ts](../../client/src/lib/attention/app-attention.ts)
 - [attention-center.ts](../../client/src/lib/attention/attention-center.ts) · [test](../../client/src/lib/attention/__tests__/attention-center.test.ts)
+- [attention-copy.ts](../../client/src/lib/attention/attention-copy.ts) · [test](../../client/src/lib/attention/__tests__/attention-copy.test.ts)
 - [attention-policy.ts](../../client/src/lib/attention/attention-policy.ts) · [test](../../client/src/lib/attention/__tests__/attention-policy.test.ts)
 - [attention-prefs-store.ts](../../client/src/lib/attention/attention-prefs-store.ts) · [test](../../client/src/lib/attention/__tests__/attention-prefs-store.test.ts)
 - [dock-badge.ts](../../client/src/lib/attention/dock-badge.ts) · [test](../../client/src/lib/attention/__tests__/dock-badge.test.ts)

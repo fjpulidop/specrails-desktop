@@ -6,8 +6,8 @@
   "loading": "Leyendo tus proyectos…",
   "openInWindow": "Abrir en ventana",
   "summary": {
-    "needsYou_one": "{{count}} te necesita",
-    "needsYou_other": "{{count}} te necesitan",
+    "needsYou_one": "{{count}} pendiente",
+    "needsYou_other": "{{count}} pendientes",
     "inProgress_one": "{{count}} en curso",
     "inProgress_other": "{{count}} en curso",
     "today": "hoy {{cost}}",

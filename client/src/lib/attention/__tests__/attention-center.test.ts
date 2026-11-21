@@ -21,6 +21,16 @@ function setup(over: { prefs?: Partial<AttentionPrefs>; focus?: WindowFocus; sho
   return { center: createAttentionCenter(deps), deps, state, advance: (ms: number) => { now += ms } }
 }
 
+function setupDeps(): AttentionCenterDeps {
+  return {
+    prefs: async () => structuredClone(DEFAULT_ATTENTION_PREFS),
+    focus: async () => ({ appFocused: false, label: null }),
+    notify: async () => true,
+    toast: vi.fn(),
+    burstMs: 0,
+  }
+}
+
 const event = (over: Partial<AttentionEvent> = {}): AttentionEvent => ({
   key: 'inbox:a', category: 'review', projectId: 'p1', title: 'Review ready', body: 'Alpha · Add login', ...over,
 })
@@ -35,6 +45,15 @@ describe('attention center', () => {
     expect(center.takeAway().map((entry) => entry.key)).toEqual(['inbox:a', 'inbox:b', 'inbox:c'])
   })
 
+  it('a burst summary and the away entries carry each event\'s wording', async () => {
+    const summary = vi.fn((count: number) => ({ title: `${count} things`, body: '', tag: 'attention:summary' }))
+    const copy = { kind: 'review' as const, project: 'Alpha', subject: 'Add login' }
+    const center = createAttentionCenter({ ...setupDeps(), summary })
+    await Promise.all(['a', 'b', 'c'].map((key) => center.dispatch(event({ key: `inbox:${key}`, copy: key === 'b' ? undefined : copy }))))
+    expect(summary).toHaveBeenCalledWith(3, expect.any(Array), [copy, undefined, copy])
+    expect(center.takeAway().map((entry) => entry.copy)).toEqual([copy, undefined, copy])
+  })
+
   it('keeps two notifications of one burst separate', async () => {
     const { center, deps } = setup()
     await Promise.all(['a', 'b'].map((key) => center.dispatch(event({ key: `inbox:${key}` }))))
@@ -47,7 +66,7 @@ describe('attention center', () => {
     expect(await center.dispatch(event({ open }))).toBe('notify')
     expect(deps.notify).toHaveBeenCalledWith(expect.objectContaining({ title: 'Review ready', body: 'Alpha · Add login', tag: 'inbox:a', sound: true }))
     const away = center.takeAway()
-    expect(away).toEqual([{ key: 'inbox:a', open }])
+    expect(away).toEqual([{ key: 'inbox:a', open, title: 'Review ready' }])
     expect(center.takeAway()).toEqual([])
   })
 

@@ -546,9 +546,34 @@
     "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución está en pausa; reanúdala cuando se restablezca el límite o continúala ahora con otro proveedor.",
     "attention": {
       "open": "Abrir",
-      "openInbox": "Abrir bandeja",
-      "away_one": "{{count}} cosa te necesita",
-      "away_other": "{{count}} cosas te necesitan",
+      "openInbox": "Ver bandeja",
+      "actions": {
+        "answer": "Responder",
+        "review": "Revisar",
+        "view": "Ver",
+        "open": "Abrir"
+      },
+      "single": {
+        "question": "{{subject}} espera tu respuesta",
+        "approval": "{{subject}} necesita tu aprobación",
+        "review": "{{subject}} está listo para revisar",
+        "stopped": "{{subject}} se ha detenido",
+        "stuck": "{{subject}}: una ejecución no avanza",
+        "paused": "{{subject}} está en pausa por un límite",
+        "done": "{{subject}} ha terminado",
+        "generic": "{{subject}} requiere tu atención"
+      },
+      "pending_one": "{{count}} aviso pendiente",
+      "pending_other": "{{count}} avisos pendientes",
+      "breakdown": "{{list}} pendientes",
+      "group": {
+        "question_one": "{{count}} pregunta",
+        "question_other": "{{count}} preguntas",
+        "approval_one": "{{count}} aprobación",
+        "approval_other": "{{count}} aprobaciones",
+        "review_one": "{{count}} revisión",
+        "review_other": "{{count}} revisiones"
+      },
       "missionReplied": "{{title}} respondió",
       "untitledMission": "Tu misión"
     }

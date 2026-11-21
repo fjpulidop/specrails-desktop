@@ -86,7 +86,7 @@ describe('Inbox badge and button', () => {
   it('shows the count of items needing you and names it for assistive tech', async () => {
     mount()
     await waitFor(() => expect(screen.getByTestId('inbox-badge')).toHaveTextContent('4'))
-    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, 4 items need you')
+    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, 4 pending items')
   })
 
   it('declares its chord for assistive tech and shows it in the tooltip (Ctrl+Alt+I off macOS)', async () => {
@@ -101,7 +101,7 @@ describe('Inbox badge and button', () => {
     mount()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(screen.queryByTestId('inbox-badge')).toBeNull()
-    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, nothing needs you')
+    expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, nothing pending')
   })
 
   it('renders nothing without a provider (secondary windows)', () => {
@@ -120,7 +120,7 @@ describe('Inbox panel', () => {
     expect(groups.map((g) => g.getAttribute('data-project-id'))).toEqual(['p1', 'p2'])
     expect(within(groups[0]).getAllByTestId('inbox-row')).toHaveLength(2)
     expect(within(groups[1]).getAllByTestId('inbox-row')).toHaveLength(2)
-    expect(within(dialog).getAllByText('Needs you').length).toBeGreaterThan(1)
+    expect(within(dialog).getAllByText('Awaiting your response').length).toBeGreaterThan(0)
   })
 
   it('says why a blocked run stopped, in the diagnosis\' plain words', async () => {
@@ -198,7 +198,7 @@ describe('Inbox panel', () => {
   it('shows a calm empty state', async () => {
     items = []
     mount('/?inbox=1')
-    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent('Nothing needs you')
+    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent('Nothing pending')
   })
 
   it('shows an error state with Try again when the read-model is unreachable and there is nothing cached', async () => {

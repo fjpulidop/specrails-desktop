@@ -47,7 +47,7 @@ Na app de desktop, alguns ecrãs abrem como janelas reais em vez de painéis den
 
 O Specrails avisa quando algo precisa de você: uma pergunta ou a resposta de uma missão, uma revisão pronta para decidir, uma execução que falhou, foi bloqueada ou parou de avançar, um limite de gasto e um job concluído. A forma depende de onde você está:
 
-- **Fora do app** — uma notificação do sistema com o projeto e a causa. No app para desktop ela não pode ser clicada; quando você volta, um aviso resume (**3 coisas precisam de você**) e abre o item, ou **Pendências** quando são vários. Os avisos que chegam enquanto **Continue de onde parou** ou o tour da plataforma estão abertos esperam até você fechá-los e depois chegam como um só.
+- **Fora do app** — uma notificação do sistema com o projeto e a causa. No app para desktop ela não pode ser clicada; quando você volta, um aviso resume (**3 pendências**) e abre o item, ou **Pendências** quando são vários. Os avisos que chegam enquanto **Continue de onde parou** ou o tour da plataforma estão abertos esperam até você fechá-los e depois chegam como um só.
 - **Em outra parte do app** — um pequeno aviso com **Abrir**.
 - **Já está vendo** — nada. Uma missão que você está acompanhando não avisa das próprias respostas; uma execução travada é a exceção e sempre avisa.
 

@@ -1456,7 +1456,7 @@
     "announce": {
       "settled": "{{run}} が終了しました",
       "shown": "{{run}} を表示中：{{state}}",
-      "needsYou": "{{run}} があなたの対応を待っています"
+      "needsYou": "{{run}} の対応が必要です"
     },
     "event": {
       "launched": "{{run}} で起動しました",
@@ -1474,7 +1474,7 @@
       "discarded": "{{run}} は破棄されました",
       "changes": "{{run}}：レビュアーが変更を求めています"
     },
-    "needsYou": "対応待ち",
+    "needsYou": "対応が必要",
     "opensCard": "実行のカードを開き、そこで確認できます",
     "open": {
       "decision": "判断を開く",

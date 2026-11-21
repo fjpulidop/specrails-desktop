@@ -567,7 +567,7 @@
   },
   "attention": {
     "heading": "Benachrichtigungen",
-    "description": "Was auf dich wartet: eine Systembenachrichtigung, wenn du weg bist, ein Hinweis, wenn du woanders in der App bist, und nichts, wenn es schon auf dem Bildschirm ist.",
+    "description": "Was deine Aufmerksamkeit erfordert: eine Systembenachrichtigung, wenn du weg bist, ein Hinweis, wenn du woanders in der App bist, und nichts, wenn es schon auf dem Bildschirm ist.",
     "enable": "Benachrichtige mich",
     "enableHint": "Ausschalten stoppt alle Benachrichtigungen und Hinweise unten.",
     "categoriesLegend": "Benachrichtige mich bei",

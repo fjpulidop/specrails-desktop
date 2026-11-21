@@ -1,11 +1,11 @@
 {
   "title": "À traiter",
-  "subtitle_one": "{{count}} élément vous attend",
-  "subtitle_other": "{{count}} éléments vous attendent",
-  "subtitleEmpty": "Rien ne vous attend",
+  "subtitle_one": "{{count}} élément en attente",
+  "subtitle_other": "{{count}} éléments en attente",
+  "subtitleEmpty": "Vous êtes à jour",
   "loading": "Vérification de vos projets…",
   "empty": {
-    "title": "Rien n'a besoin de vous",
+    "title": "Rien en attente",
     "description": "Les revues, questions et échecs de tous les projets apparaissent ici dès qu'ils surviennent."
   },
   "error": {
@@ -15,7 +15,7 @@
   },
   "kinds": {
     "review": "Revue prête",
-    "question": "Vous attend",
+    "question": "Attend votre réponse",
     "failed": "Échec",
     "blocked": "Bloqué",
     "budget": "En pause (budget)",

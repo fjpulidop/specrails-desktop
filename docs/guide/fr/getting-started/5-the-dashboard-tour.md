@@ -47,7 +47,7 @@ Dans l'application de bureau, certains écrans s'ouvrent dans de vraies fenêtre
 
 Specrails vous prévient quand quelque chose vous attend : une question ou la réponse d'une mission, une revue prête à décider, une exécution qui a échoué, s'est bloquée ou n'avance plus, une limite de dépense et un job terminé. La manière dépend de l'endroit où vous êtes :
 
-- **Hors de l'app** — une notification système qui nomme le projet et la cause. Dans l'app de bureau, on ne peut pas cliquer dessus : à votre retour, un toast résume (**3 éléments vous attendent**) et ouvre l'élément, ou la boîte **À traiter** s'il y en a plusieurs. Les toasts qui arrivent pendant que **Reprendre là où vous vous étiez arrêté** ou la visite de la plateforme est ouvert attendent que vous le fermiez, puis arrivent en un seul.
+- **Hors de l'app** — une notification système qui nomme le projet et la cause. Dans l'app de bureau, on ne peut pas cliquer dessus : à votre retour, un toast résume (**3 éléments en attente**) et ouvre l'élément, ou la boîte **À traiter** s'il y en a plusieurs. Les toasts qui arrivent pendant que **Reprendre là où vous vous étiez arrêté** ou la visite de la plateforme est ouvert attendent que vous le fermiez, puis arrivent en un seul.
 - **Ailleurs dans l'app** — un petit toast avec **Ouvrir**.
 - **Vous le regardez déjà** — rien. Une mission que vous suivez ne signale pas ses propres réponses ; une exécution bloquée fait exception et alerte toujours.
 
