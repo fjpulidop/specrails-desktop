@@ -397,6 +397,11 @@ A verification node ending with outcome `fail` is displayed as failed even when
 the workflow operation itself completed. Core retains the failed-check diagnostics
 and stops three repeated failures on an unchanged candidate instead of spending
 further fixer turns on that same state.
+Before it reports, the recipe's developer checks its own tests the way the reviewer
+will (`DEVELOPER_SELF_REVIEW`): every delta-spec scenario and every example, input or
+error case tasks.md names has a test, then the configured checks run again. Most first
+reviews that rejected a candidate named such a gap, and each one cost a fixer, verify and
+review round.
 The configurable Implement recipe stops after any correction that leaves the
 candidate unchanged, including a rejected review whose host checks passed.
 Changed corrections must pass host verification and review again. A scoped counter
