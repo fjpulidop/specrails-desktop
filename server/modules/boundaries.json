@@ -2146,6 +2146,7 @@
         "./rail-launch-run",
         "./rail-pr-store",
         "./rails-http-shared",
+        "./rails-store",
         "express"
       ],
       "runtime/rails-merge-preview-http.ts": [
