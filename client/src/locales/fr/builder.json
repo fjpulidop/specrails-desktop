@@ -314,7 +314,8 @@
       "resume": "Reprendre",
       "answer": "Répondre",
       "resumed": "Exécution reprise",
-      "resumeFailed": "Impossible de reprendre l’exécution"
+      "resumeFailed": "Impossible de reprendre l’exécution",
+      "engine": "S’exécute avec {{engine}}"
     },
     "chain": {
       "title": "Chaîne séquentielle",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} interrompu",
         "queued": "Le rail {{k}} attend de la capacité"
       },
-      "answerRun": "Répondre dans l’exécution du rail {{k}}"
+      "answerRun": "Répondre dans l’exécution du rail {{k}}",
+      "nextEngine": "Rail suivant : {{engine}}",
+      "nextEngineChanged": "Le rail suivant utilisera la nouvelle configuration : {{engine}}",
+      "engineSource": {
+        "milestone": "La configuration propre à ce jalon",
+        "usual": "Votre configuration habituelle, modifiée pendant la chaîne",
+        "launch": "La configuration choisie au lancement"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

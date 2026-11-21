@@ -314,7 +314,8 @@
       "resume": "Fortsetzen",
       "answer": "Antworten",
       "resumed": "Lauf fortgesetzt",
-      "resumeFailed": "Der Lauf konnte nicht fortgesetzt werden"
+      "resumeFailed": "Der Lauf konnte nicht fortgesetzt werden",
+      "engine": "Läuft mit {{engine}}"
     },
     "chain": {
       "title": "Sequenzielle Kette",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} unterbrochen",
         "queued": "Rail {{k}} wartet auf Kapazität"
       },
-      "answerRun": "Im Lauf von Rail {{k}} antworten"
+      "answerRun": "Im Lauf von Rail {{k}} antworten",
+      "nextEngine": "Nächste Rail: {{engine}}",
+      "nextEngineChanged": "Die nächste Rail nutzt die neue Konfiguration: {{engine}}",
+      "engineSource": {
+        "milestone": "Die eigene Konfiguration dieses Meilensteins",
+        "usual": "Deine übliche Konfiguration, geändert während die Kette läuft",
+        "launch": "Die beim Start gewählte Konfiguration"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

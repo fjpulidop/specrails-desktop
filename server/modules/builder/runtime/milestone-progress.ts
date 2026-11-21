@@ -29,6 +29,7 @@ import { getRails } from '../../delivery/runtime/rails-store'
 import { getLoopRun, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
 import { readRunHolds, type RunHold, type RunHoldSources } from '../../loops/runtime/loop-run-hold'
 import type { ChainPlan } from './milestone-chain-reconcile'
+import type { MilestoneEngine, ResolvedMilestoneEngine } from './milestone-engine-preference'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { workspacePathFor } from '../../../workspace-manager'
 
@@ -67,6 +68,8 @@ export interface MilestoneRail {
   delivery: PrDeliverySnapshot | null
   /** 1-based chunk ordinal when the rail was launched by a milestone chain. */
   chunkIndex: number | null
+  /** The engine the rail's run uses (its chain launch record, else the live run's row); null when unknown. */
+  engine: MilestoneEngine | null
 }
 
 /** `awaiting_approval` = a wave checkpoint: the last chunk delivered fine and
@@ -80,6 +83,8 @@ export interface MilestoneChainLaunched {
   ticketIds: number[]
   runIds: string[]
   deliveryId: string | null
+  /** The engine this rail was launched on (null/absent: the rail's defaults, or a launch before engines were recorded). */
+  engine?: MilestoneEngine | null
 }
 
 /** Chain snapshot as surfaced to clients (the store row's public projection). */
@@ -106,6 +111,11 @@ export interface MilestoneChainSnapshot {
    *  on a projection made without the chain manager (e.g. the discard hook);
    *  the manager re-emits with it. */
   plan?: ChainPlan | null
+  /** The engine the chain's NEXT rail launches on, resolved now (the
+   *  milestone's own configuration, the usual one saved since the chain
+   *  started, else the Launch choice); null = the rails' defaults. Absent on a
+   *  projection made without the chain manager. */
+  nextEngine?: ResolvedMilestoneEngine | null
 }
 
 export interface MilestoneProgress {
@@ -138,6 +148,8 @@ export interface ProgressActiveRun {
   startedAt: string | null
   /** The run's hold (loop-run-hold); null/absent while it works. */
   hold?: RunHold | null
+  /** The run's provider/model from its row (effort unknown ⇒ null). */
+  engine?: MilestoneEngine | null
 }
 
 /** Every live rail of the milestone is held by the person's own Pause. */
@@ -203,7 +215,14 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
 
     const chain = input.chains.find((c) => c.milestoneN === n) ?? null
     const chunkByRail = new Map<number, number>()
-    for (const l of chain?.launched ?? []) chunkByRail.set(l.railIndex, l.chunk)
+    const engineByRail = new Map<number, MilestoneEngine>()
+    const engineByRun = new Map<string, MilestoneEngine>()
+    for (const l of chain?.launched ?? []) {
+      chunkByRail.set(l.railIndex, l.chunk)
+      if (l.engine) engineByRail.set(l.railIndex, l.engine)
+      else engineByRail.delete(l.railIndex)
+      for (const id of l.runIds) if (l.engine) engineByRun.set(id, l.engine)
+    }
 
     const rails = new Map<number, MilestoneRail>()
     for (const run of input.activeRuns) {
@@ -219,6 +238,7 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         startedAt: run.startedAt,
         delivery: null,
         chunkIndex: chunkByRail.get(run.railIndex) ?? null,
+        engine: engineByRun.get(run.runId) ?? run.engine ?? null,
       })
     }
     for (const d of deliveries) {
@@ -240,6 +260,7 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         startedAt: d.createdAt,
         delivery: d,
         chunkIndex: chunkByRail.get(d.railIndex) ?? null,
+        engine: engineByRail.get(d.railIndex) ?? null,
       })
     }
     const railList = [...rails.values()].sort((a, b) => {
@@ -317,6 +338,10 @@ function parseTicketIds(raw: string | undefined): number[] {
   }
 }
 
+function runEngine(row: { provider?: string | null; model?: string | null } | undefined): MilestoneEngine | null {
+  return row?.provider && row.model ? { provider: row.provider, model: row.model, reasoningEffort: null } : null
+}
+
 /** Read every durable source and derive; null when the project has no blueprint. */
 export function readMilestoneProgress(src: MilestoneProgressSource): MilestoneProgressSnapshot | null {
   const workspace = src.workspaceDir()
@@ -343,8 +368,13 @@ export function readMilestoneProgress(src: MilestoneProgressSource): MilestonePr
   for (const [runId, meta] of src.railLoopRuns?.entries() ?? []) {
     seenRuns.add(runId)
     let startedAt: string | null = null
-    try { startedAt = getLoopRun(src.db, runId)?.started_at ?? null } catch { /* fall through */ }
-    activeRuns.push({ runId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt })
+    let engine: MilestoneEngine | null = null
+    try {
+      const row = getLoopRun(src.db, runId)
+      startedAt = row?.started_at ?? null
+      engine = runEngine(row)
+    } catch { /* fall through */ }
+    activeRuns.push({ runId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt, engine })
   }
   try {
     for (const run of listActiveLoopRuns(src.db, src.projectId)) {
@@ -356,6 +386,7 @@ export function readMilestoneProgress(src: MilestoneProgressSource): MilestonePr
         railIndex: run.rail_index,
         ticketIds: ids.length > 0 ? ids : run.ticket_id != null ? [run.ticket_id] : [],
         startedAt: run.started_at ?? null,
+        engine: runEngine(run),
       })
     }
   } catch { /* DB unavailable ⇒ in-memory maps only */ }

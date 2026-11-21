@@ -11,10 +11,13 @@ import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
 import { runStateLook, type RunState } from '../../../../components/ui/run-state/run-state'
 import { useNow } from '../../../../hooks/useNow'
+import { modelLabel } from '../../../../lib/model-label'
+import type { TFunction } from 'i18next'
 import {
   chainAtCheckpoint,
   chainHeldRail,
   chainIsLive,
+  chainNextEngine,
   chainOfferParams,
   chainPauseReason,
   deliveredCount,
@@ -29,6 +32,7 @@ import {
   type ChainOfferKind,
   type MilestoneChainSnapshot,
   type MilestoneCounts,
+  type MilestoneEngine,
   type MilestoneProgress,
   type MilestoneRail,
   type MilestoneState,
@@ -100,6 +104,16 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
       className="px-1.5 py-px"
     />
   )
+}
+
+/** "Codex · GPT-6.2 Sol" (· effort when one is set). */
+export function engineLabel(t: TFunction, engine: MilestoneEngine): string {
+  const model = modelLabel(engine.model).text || engine.model
+  return [
+    t(`agent:provider.${engine.provider}`, { defaultValue: engine.provider }),
+    model,
+    engine.reasoningEffort ? t(`agent:effort.${engine.reasoningEffort}`, { defaultValue: engine.reasoningEffort }) : null,
+  ].filter(Boolean).join(' · ')
 }
 
 export interface MilestoneRailRowProps {
@@ -179,14 +193,21 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail, onResumeRun 
           {rail.chunkIndex}
         <span className="sr-only"> ({t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })})</span></span>
       )}
-      <button
-        type="button"
-        onClick={() => onOpenRail?.(rail)}
-        className="min-w-0 flex-1 truncate text-left text-caption font-medium hover:underline"
-        title={t('milestoneProgress.rail.open')}
-      >
-        {name}
-      </button>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <button
+          type="button"
+          onClick={() => onOpenRail?.(rail)}
+          className="min-w-0 truncate text-left text-caption font-medium hover:underline"
+          title={t('milestoneProgress.rail.open')}
+        >
+          {name}
+        </button>
+        {rail.engine && (
+          <span className="truncate text-caption text-muted-foreground" data-testid="milestone-rail-engine" title={t('milestoneProgress.rail.engine', { engine: engineLabel(t, rail.engine) })}>
+            {engineLabel(t, rail.engine)}
+          </span>
+        )}
+      </span>
       {rail.active && rail.hold ? (
         <HeldRailStatus rail={rail} now={now} onOpenRail={onOpenRail} onResumeRun={onResumeRun} />
       ) : rail.active ? (
@@ -357,6 +378,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
   // question, a limit…): it adopts the run and waits (reconcile), so the row
   // says why and offers the run's next step while the chain is still running.
   const held = chainHeldRail(chain, rails)
+  const next = chainNextEngine(chain)
   const paused = chain.status === 'paused'
   const checkpoint = chainAtCheckpoint(chain)
   const reason = chainPauseReason(chain.pauseReason)
@@ -515,6 +537,12 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
           <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
+      {next && (
+        <p className={cn('mt-0.5 truncate', next.changed ? 'text-foreground' : 'text-muted-foreground')} data-testid="milestone-chain-next-engine" data-source={next.source} data-changed={next.changed}
+          title={t(`milestoneProgress.chain.engineSource.${next.source}`)}>
+          {t(next.changed ? 'milestoneProgress.chain.nextEngineChanged' : 'milestoneProgress.chain.nextEngine', { engine: engineLabel(t, next.engine) })}
+        </p>
+      )}
       {pausedSpecDelivered && (
         <p className="mt-0.5 text-muted-foreground" data-testid="milestone-chain-paused-delivered">
           {t('milestoneProgress.chain.pausedSpecDelivered', { paused: `#${chain.plan!.pausedTicketId}` })}

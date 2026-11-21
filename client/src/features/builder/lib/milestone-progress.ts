@@ -55,6 +55,8 @@ export interface MilestoneRail {
   active: boolean
   /** The live run's hold; null while it works (or no run is live). */
   hold: RailHold | null
+  /** The engine the rail's run uses (provider · model · effort); null when unknown. */
+  engine: MilestoneEngine | null
   runId: string | null
   startedAt: string | null
   delivery: MilestoneDelivery | null
@@ -65,12 +67,25 @@ export interface MilestoneRail {
  *  the chain waits for the user's go (auto-advance off). */
 export type MilestoneChainStatus = 'running' | 'waiting' | 'paused' | 'awaiting_approval' | 'completed' | 'cancelled'
 
+/** Provider · model · effort a rail runs on (null effort: the provider's default). */
+export interface MilestoneEngine {
+  provider: string
+  model: string
+  reasoningEffort: string | null
+}
+
+/** Where the next rail's engine comes from: the milestone's own configuration,
+ *  the usual one saved since the chain started, or the Launch choice. */
+export type MilestoneEngineSource = 'milestone' | 'usual' | 'launch'
+
 export interface MilestoneChainLaunched {
   chunk: number
   railIndex: number
   ticketIds: number[]
   runIds: string[]
   deliveryId: string | null
+  /** The engine the rail was launched on; null when not recorded. */
+  engine: MilestoneEngine | null
 }
 
 export interface MilestoneChainSnapshot {
@@ -95,6 +110,8 @@ export interface MilestoneChainSnapshot {
   /** The server's reconciliation (tickets, deliveries and runs, manual ones
    *  included): the recommended next step first. Null when not provided. */
   plan: ChainPlanView | null
+  /** The engine the chain's next rail launches on, resolved now; null = the rails' defaults. */
+  nextEngine: (MilestoneEngine & { source: MilestoneEngineSource }) | null
 }
 
 /** One step the chain can take next (mirrors the server's ChainOffer). */
@@ -248,6 +265,17 @@ function coerceDelivery(raw: unknown): MilestoneDelivery | null {
   }
 }
 
+export function coerceEngine(raw: unknown): MilestoneEngine | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.provider !== 'string' || !o.provider || typeof o.model !== 'string' || !o.model) return null
+  return { provider: o.provider, model: o.model, reasoningEffort: typeof o.reasoningEffort === 'string' ? o.reasoningEffort : null }
+}
+
+export function sameEngine(a: MilestoneEngine | null | undefined, b: MilestoneEngine | null | undefined): boolean {
+  return !!a && !!b && a.provider === b.provider && a.model === b.model && (a.reasoningEffort ?? null) === (b.reasoningEffort ?? null)
+}
+
 const HOLD_KINDS: ReadonlySet<string> = new Set(['restart', 'interrupted', 'provider_limit', 'budget', 'question', 'approval', 'paused', 'queued'])
 
 export function coerceRailHold(raw: unknown): RailHold | null {
@@ -274,6 +302,7 @@ function coerceRail(raw: unknown): MilestoneRail | null {
     ticketIds: nums(o.ticketIds),
     active: o.active === true,
     hold: o.active === true ? coerceRailHold(o.hold) : null,
+    engine: coerceEngine(o.engine),
     runId: str(o.runId),
     startedAt: str(o.startedAt),
     delivery: coerceDelivery(o.delivery),
@@ -292,7 +321,7 @@ export function coerceChain(raw: unknown): MilestoneChainSnapshot | null {
         if (!l || typeof l !== 'object') return []
         const e = l as Record<string, unknown>
         if (typeof e.chunk !== 'number' || typeof e.railIndex !== 'number') return []
-        return [{ chunk: e.chunk, railIndex: e.railIndex, ticketIds: nums(e.ticketIds), runIds: strs(e.runIds), deliveryId: str(e.deliveryId) }]
+        return [{ chunk: e.chunk, railIndex: e.railIndex, ticketIds: nums(e.ticketIds), runIds: strs(e.runIds), deliveryId: str(e.deliveryId), engine: coerceEngine(e.engine) }]
       })
     : []
   return {
@@ -311,7 +340,30 @@ export function coerceChain(raw: unknown): MilestoneChainSnapshot | null {
     createdAt: typeof o.createdAt === 'string' && Number.isFinite(Date.parse(o.createdAt)) ? o.createdAt : null,
     updatedAt: str(o.updatedAt) ?? '',
     plan: coerceChainPlan(o.plan),
+    nextEngine: (() => {
+      const engine = coerceEngine(o.nextEngine)
+      if (!engine) return null
+      const source = (o.nextEngine as { source?: unknown }).source
+      return { ...engine, source: source === 'milestone' || source === 'usual' ? source : 'launch' }
+    })(),
   }
+}
+
+/**
+ * The chain's next-rail engine line: shown while a rail is still to launch.
+ * `changed` = it differs from the engine the last launched rail used (the
+ * person changed the configuration while the chain is live).
+ */
+export function chainNextEngine(chain: MilestoneChainSnapshot | null): { engine: MilestoneEngine; source: MilestoneEngineSource; changed: boolean } | null {
+  if (!chain?.nextEngine) return null
+  if (!['running', 'waiting', 'paused', 'awaiting_approval'].includes(chain.status)) return null
+  // A spec not launched yet, or a retry that launches a new rail.
+  const pending = chain.launched.length < chain.totalChunks || chain.plan?.action?.kind === 'launch'
+  if (!pending) return null
+  const { source, ...engine } = chain.nextEngine
+  const sorted = [...chain.launched].sort((a, b) => a.chunk - b.chunk)
+  const last = sorted[sorted.length - 1]?.engine ?? null
+  return { engine, source, changed: last !== null && !sameEngine(last, engine) }
 }
 
 export function coerceMilestoneProgress(raw: unknown): MilestoneProgress[] {

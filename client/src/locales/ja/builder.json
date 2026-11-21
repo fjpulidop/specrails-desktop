@@ -314,7 +314,8 @@
       "resume": "再開",
       "answer": "回答",
       "resumed": "実行を再開しました",
-      "resumeFailed": "実行を再開できませんでした"
+      "resumeFailed": "実行を再開できませんでした",
+      "engine": "{{engine}} で実行"
     },
     "chain": {
       "title": "順次チェーン",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} 中断",
         "queued": "Rail {{k}} は空き待ち"
       },
-      "answerRun": "Rail {{k}} の実行で回答"
+      "answerRun": "Rail {{k}} の実行で回答",
+      "nextEngine": "次の Rail：{{engine}}",
+      "nextEngineChanged": "次の Rail は新しい設定を使います：{{engine}}",
+      "engineSource": {
+        "milestone": "このマイルストーン専用の設定",
+        "usual": "チェーン実行中に変更した通常の設定",
+        "launch": "起動時に選んだ設定"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

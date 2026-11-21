@@ -237,6 +237,25 @@ describe('deriveMilestoneProgress — rails', () => {
     }
   })
 
+  it('each rail names its engine: the chain\'s launch record, else the live run\'s row', () => {
+    const claude = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+    const codex = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
+    const chain: MilestoneChainSnapshot = {
+      id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, nextChunk: 2, totalChunks: 3, retryChunk: null,
+      currentRailIndex: 5, headBranch: null, autoAdvance: true, createdAt: 'x', updatedAt: 'x',
+      launched: [{ chunk: 1, railIndex: 7, ticketIds: [1], runIds: ['r1'], deliveryId: 'd7', engine: claude }, { chunk: 2, railIndex: 5, ticketIds: [2], runIds: ['r2'], deliveryId: null, engine: codex }],
+    }
+    const [m1] = deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), chains: [chain], tickets: [ticket(1, 'on_review'), ticket(2, 'in_progress'), ticket(3, 'in_progress')],
+      deliveries: [delivery({ id: 'd7', railIndex: 7, ticketIds: [1], decision: 'on_review' })],
+      activeRuns: [
+        { runId: 'r2', railIndex: 5, ticketIds: [2], startedAt: null, engine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null } },
+        { runId: 'manual', railIndex: 9, ticketIds: [3], startedAt: null, engine: claude },
+      ],
+    })
+    expect(m1.rails.map((r) => [r.railIndex, r.engine])).toEqual([[7, claude], [5, codex], [9, claude]])
+  })
+
   it('a rail carrying no milestone ticket is not listed', () => {
     const [m1] = deriveMilestoneProgress({
       ...base, blueprint: blueprint(), tickets: [ticket(1, 'todo')],

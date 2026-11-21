@@ -12,11 +12,11 @@ function progress(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
   }
 }
 function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
-  return { railIndex: 3, name: 'M1 · 1', ticketIds: [1, 2, 3], active: false, hold: null, runId: null, startedAt: null, chunkIndex: 1, delivery: null, ...over }
+  return { railIndex: 3, name: 'M1 · 1', ticketIds: [1, 2, 3], active: false, hold: null, engine: null, runId: null, startedAt: null, chunkIndex: 1, delivery: null, ...over }
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', plan: null, ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', retryChunk: null, launched: [], createdAt: null, updatedAt: 'x', plan: null, nextEngine: null, ...over }
 }
 
 describe('MilestoneProgressBar', () => {
@@ -365,5 +365,28 @@ describe('held rails — a live run that is not working (the reported "Running �
     render(<MilestoneCard progress={progress({ chain: chain({ nextChunk: 3 }), rails: [held(null as never, { chunkIndex: 3 })] })} />)
     expect(screen.queryByTestId('milestone-chain-held')).not.toBeInTheDocument()
     expect(screen.getByTestId('milestone-chain-row')).not.toHaveAttribute('data-held')
+  })
+})
+
+describe('engines on the chain and rail rows', () => {
+  const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+  const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+  const launched = (chunk: number, engine: typeof CLAUDE | null) => ({ chunk, railIndex: chunk + 2, ticketIds: [chunk + 4], runIds: [`r${chunk}`], deliveryId: null, engine })
+
+  it('a rail row names the engine its run uses', () => {
+    render(<MilestoneRailRow rail={rail({ engine: CODEX })} now={0} />)
+    expect(screen.getByTestId('milestone-rail-engine')).toHaveTextContent('Codex · GPT-6.2 Sol')
+  })
+
+  it('the chain row shows the next rail\'s engine before it launches, and says when the configuration changed', () => {
+    const { rerender } = render(<MilestoneChainRow chain={chain({ nextChunk: 3, totalChunks: 5, launched: [launched(1, CLAUDE), launched(2, CLAUDE)], nextEngine: { ...CLAUDE, source: 'launch' } })} />)
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveTextContent('Next rail: Claude · Claude Sonnet')
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveAttribute('data-changed', 'false')
+    rerender(<MilestoneChainRow chain={chain({ nextChunk: 3, totalChunks: 5, launched: [launched(1, CLAUDE), launched(2, CLAUDE)], nextEngine: { ...CODEX, source: 'usual' } })} />)
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveTextContent('The next rail uses the new configuration: Codex · GPT-6.2 Sol')
+    expect(screen.getByTestId('milestone-chain-next-engine')).toHaveAttribute('data-source', 'usual')
+    // Every spec launched and nothing to relaunch: no next-rail line.
+    rerender(<MilestoneChainRow chain={chain({ nextChunk: 2, totalChunks: 2, launched: [launched(1, CLAUDE), launched(2, CODEX)], nextEngine: { ...CODEX, source: 'usual' } })} />)
+    expect(screen.queryByTestId('milestone-chain-next-engine')).not.toBeInTheDocument()
   })
 })

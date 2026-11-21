@@ -314,7 +314,8 @@
       "resume": "恢复",
       "answer": "回答",
       "resumed": "运行已恢复",
-      "resumeFailed": "无法恢复运行"
+      "resumeFailed": "无法恢复运行",
+      "engine": "运行于 {{engine}}"
     },
     "chain": {
       "title": "顺序链",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} 已中断",
         "queued": "Rail {{k}} 等待资源"
       },
-      "answerRun": "在 Rail {{k}} 的运行中回答"
+      "answerRun": "在 Rail {{k}} 的运行中回答",
+      "nextEngine": "下一个 Rail：{{engine}}",
+      "nextEngineChanged": "下一个 Rail 将使用新配置：{{engine}}",
+      "engineSource": {
+        "milestone": "此里程碑的专属配置",
+        "usual": "你的常用配置（在链运行期间更改）",
+        "launch": "启动时选择的配置"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

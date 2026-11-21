@@ -314,7 +314,8 @@
       "resume": "Retomar",
       "answer": "Responder",
       "resumed": "Execução retomada",
-      "resumeFailed": "Não foi possível retomar a execução"
+      "resumeFailed": "Não foi possível retomar a execução",
+      "engine": "Executa com {{engine}}"
     },
     "chain": {
       "title": "Cadeia sequencial",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} interrompido",
         "queued": "O rail {{k}} aguarda capacidade"
       },
-      "answerRun": "Responder na execução do rail {{k}}"
+      "answerRun": "Responder na execução do rail {{k}}",
+      "nextEngine": "Próximo rail: {{engine}}",
+      "nextEngineChanged": "O próximo rail usará a nova configuração: {{engine}}",
+      "engineSource": {
+        "milestone": "A configuração própria deste marco",
+        "usual": "Sua configuração habitual, alterada durante a cadeia",
+        "launch": "A configuração escolhida ao lançar"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

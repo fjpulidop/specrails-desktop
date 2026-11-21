@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readMilestoneEngineOverride } from './modules/builder/runtime/milestone-engine-preference'
 import { premiumSpec } from './modules/builder/runtime/__fixtures__/blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
@@ -245,7 +246,7 @@ describe('project-router', () => {
     })
 
     it('[spec:blueprint-generation-settings/project-scoped-generation-preference] [spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] uses an explicit override without overwriting the preference', async () => {
-      const { app } = setup()
+      const { app, contexts } = setup()
       const url = '/api/projects/proj-1/blueprint/generation-settings'
       await request(app).put(url).send(preferred)
       const override = await request(app).post('/api/projects/proj-1/chat/conversations').send({
@@ -255,6 +256,12 @@ describe('project-router', () => {
       expect(override.body.conversation).toMatchObject({ provider: 'claude', model: 'sonnet' })
       expect(JSON.parse(override.body.conversation.context_scope).reasoningEffort).toBe('low')
       expect((await request(app).get(url)).body.selection).toEqual(preferred)
+      // The exception becomes M2's own configuration (its launch chain's next rails run on it);
+      // generating M2 again with the usual configuration clears it.
+      const { db } = contexts.get('proj-1')!
+      expect(readMilestoneEngineOverride(db, 'm2')?.engine).toEqual({ provider: 'claude', model: 'sonnet', reasoningEffort: 'low' })
+      await request(app).post('/api/projects/proj-1/chat/conversations').send({ kind: 'milestone', milestone: 'm2' })
+      expect(readMilestoneEngineOverride(db, 'm2')).toBeNull()
     })
 
     it('[spec:blueprint-generation-settings/compatible-configuration-catalog] falls back from an incompatible primary to the first compatible installed provider', async () => {

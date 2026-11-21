@@ -314,7 +314,8 @@
       "resume": "Resume",
       "answer": "Answer",
       "resumed": "Run resumed",
-      "resumeFailed": "Could not resume the run"
+      "resumeFailed": "Could not resume the run",
+      "engine": "Runs on {{engine}}"
     },
     "chain": {
       "title": "Sequential chain",
@@ -412,7 +413,14 @@
         "interrupted": "Rail {{k}} interrupted",
         "queued": "Rail {{k}} waits for capacity"
       },
-      "answerRun": "Answer in rail {{k}}’s run"
+      "answerRun": "Answer in rail {{k}}’s run",
+      "nextEngine": "Next rail: {{engine}}",
+      "nextEngineChanged": "The next rail uses the new configuration: {{engine}}",
+      "engineSource": {
+        "milestone": "This milestone’s own configuration",
+        "usual": "Your usual configuration, changed while the chain runs",
+        "launch": "The configuration chosen at launch"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

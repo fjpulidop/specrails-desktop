@@ -16,6 +16,7 @@ import {
   railElapsedMs,
   railHoldAction,
   railHoldKey,
+  chainNextEngine,
 } from '../milestone-progress'
 
 function m(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
@@ -114,7 +115,7 @@ describe('milestone-progress (client model)', () => {
   it('coerceChain keeps only well-formed launched entries', () => {
     const chain = coerceChain({ id: 'c', milestoneN: 1, mode: 'parallel', status: 'paused', pauseReason: 'chunk_failed', nextChunk: 1, totalChunks: 2, currentRailIndex: 2, headBranch: 'feat/1', launched: [{ chunk: 1, railIndex: 2, ticketIds: [1, 'x'], runIds: ['r', 2], deliveryId: 'd' }, { chunk: 'no' }], updatedAt: 'now' })
     expect(chain).toMatchObject({ id: 'c', mode: 'parallel', status: 'paused', pauseReason: 'chunk_failed', totalChunks: 2, headBranch: 'feat/1' })
-    expect(chain?.launched).toEqual([{ chunk: 1, railIndex: 2, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }])
+    expect(chain?.launched).toEqual([{ chunk: 1, railIndex: 2, ticketIds: [1], runIds: ['r'], deliveryId: 'd', engine: null }])
     expect(coerceChain(null)).toBeNull()
     expect(coerceChain({ id: 'c', status: 'nope' })).toBeNull()
   })
@@ -182,5 +183,20 @@ describe('held rails', () => {
     expect(chainHeldRail(chain, [])).toMatchObject({ key: 'pausedByYou', rail: null, chunk: 3 })
     expect(chainHeldRail({ ...chain, plan: { ...chain.plan!, action: { kind: 'adopt_run', ticketId: 7, runId: 'r', pauseKind: null } } }, [{ ...rail, hold: null }])).toBeNull()
     expect(chainHeldRail({ ...chain, status: 'paused' }, [rail])).toBeNull()
+  })
+})
+
+describe('engines', () => {
+  it('coerces launched engines and the next-rail engine; chainNextEngine flags a change', () => {
+    const chain = coerceChain({
+      id: 'c', status: 'running', nextChunk: 3, totalChunks: 5,
+      launched: [{ chunk: 2, railIndex: 3, ticketIds: [7], runIds: ['r'], deliveryId: null, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } }],
+      nextEngine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high', source: 'usual' },
+    })!
+    expect(chain.launched[0].engine).toEqual({ provider: 'claude', model: 'sonnet', reasoningEffort: null })
+    expect(chain.nextEngine).toEqual({ provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high', source: 'usual' })
+    expect(chainNextEngine(chain)).toEqual({ engine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }, source: 'usual', changed: true })
+    expect(chainNextEngine({ ...chain, status: 'completed' })).toBeNull()
+    expect(coerceChain({ id: 'c', status: 'running', nextEngine: { provider: 'codex' } })!.nextEngine).toBeNull()
   })
 })

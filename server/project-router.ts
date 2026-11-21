@@ -285,6 +285,8 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     if (error) { res.status(400).json({ error }); return }
     const { provider, model, reasoningEffort } = req.body as MilestoneGenerationSelection
     saveMilestoneGenerationSelection(db, { provider, model, reasoningEffort })
+    // A live chain's next rail now runs on it: the chain row says so.
+    ctx(req).milestoneProgress?.schedule()
     res.json(milestoneGenerationSettings(db, project))
   })
 
