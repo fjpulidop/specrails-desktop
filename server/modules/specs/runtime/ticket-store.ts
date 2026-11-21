@@ -673,9 +673,22 @@ export function resolveTicketsFromCommand(
 
 export interface TicketFilters {
   status?: string
+  /** CSV; a ticket matches when it carries any of them (case-insensitive). */
   label?: string
   q?: string
+  /** CSV of priorities; `none` matches a ticket without one (drafts). */
+  priority?: string
+  /** CSV; a ticket matches only when it carries every one (milestone `M2` plus a label). */
+  labelsAll?: string
+  /** ISO timestamp: tickets updated at or after it. */
+  since?: string
+  /** Children of this epic id. */
+  epic?: string
+  /** CSV of ticket ids. */
+  ids?: string
 }
+
+const csv = (value: string) => value.split(',').map((part) => part.trim()).filter(Boolean)
 
 export function filterTickets(tickets: Ticket[], filters: TicketFilters): Ticket[] {
   let result = tickets
@@ -698,6 +711,34 @@ export function filterTickets(tickets: Ticket[], filters: TicketFilters): Ticket
       t.title.toLowerCase().includes(query) ||
       t.description.toLowerCase().includes(query)
     )
+  }
+
+  if (filters.priority) {
+    const priorities = csv(filters.priority)
+    result = result.filter(t => priorities.includes(t.priority ?? 'none'))
+  }
+
+  if (filters.labelsAll) {
+    const required = csv(filters.labelsAll).map(l => l.toLowerCase())
+    result = result.filter(t => {
+      const own = new Set(t.labels.map(l => l.toLowerCase()))
+      return required.every(l => own.has(l))
+    })
+  }
+
+  if (filters.since) {
+    const since = Date.parse(filters.since)
+    if (Number.isFinite(since)) result = result.filter(t => Date.parse(t.updated_at || '') >= since)
+  }
+
+  if (filters.epic) {
+    const epic = Number(filters.epic)
+    result = result.filter(t => t.parent_epic_id === epic)
+  }
+
+  if (filters.ids) {
+    const ids = new Set(csv(filters.ids).map(Number))
+    result = result.filter(t => ids.has(t.id))
   }
 
   return result

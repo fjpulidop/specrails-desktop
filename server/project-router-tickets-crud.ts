@@ -18,6 +18,19 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 /** The client's Undo window (8 s) plus margin: outbound Jira writes of undoable edits wait this long. */
 const UNDO_WINDOW_HOLD_MS = 10_000
 
+const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+const newestFirst = (a: Ticket, b: Ticket) => (b.updated_at || '').localeCompare(a.updated_at || '')
+
+/** List order: `updated` (default, newest first), `priority` (critical first), `id` (ascending), `created` (newest first). */
+function ticketOrder(sort: string | undefined): (a: Ticket, b: Ticket) => number {
+  switch (sort) {
+    case 'priority': return (a, b) => (PRIORITY_RANK[a.priority ?? ''] ?? 4) - (PRIORITY_RANK[b.priority ?? ''] ?? 4) || newestFirst(a, b)
+    case 'id': return (a, b) => a.id - b.id
+    case 'created': return (a, b) => (b.created_at || '').localeCompare(a.created_at || '') || b.id - a.id
+    default: return newestFirst
+  }
+}
+
 export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
   const repositoryScope = createRepositoryScope(ctx)
@@ -28,13 +41,19 @@ export function registerTicketCrudRoutes(deps: ProjectRoutesDeps): void {
       const filePath = ticketPath(req)
       const store = readStore(filePath)
       const allTickets = Object.values(store.tickets)
+      const text = (key: string) => typeof req.query[key] === 'string' ? req.query[key] as string : undefined
       const filtered = filterTickets(allTickets, {
-        status: req.query.status as string | undefined,
-        label: req.query.label as string | undefined,
-        q: req.query.q as string | undefined,
+        status: text('status'),
+        label: text('label'),
+        q: text('q'),
+        priority: text('priority'),
+        labelsAll: text('labelsAll'),
+        since: text('since'),
+        epic: text('epic'),
+        ids: text('ids'),
       })
-      // Sort by updated_at descending
-      filtered.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+      // Sort by updated_at descending (default), or by priority / id / creation on request.
+      filtered.sort(ticketOrder(text('sort')))
       // Optional board view: per-status counts and the newest items of each.
       if (req.query.groupBy === 'status') {
         const requested = Number.parseInt(String(req.query.perGroup ?? '5'), 10)

@@ -19,6 +19,7 @@ import { registerTicketAiActionRoutes } from './project-router-tickets-ai-action
 import { registerTicketAddendaRoutes } from './project-router-tickets-addenda'
 import { registerTicketAiEditRoutes } from './project-router-tickets-ai-edit'
 import { registerTicketAttachmentRoutes } from './project-router-tickets-attachments'
+import { registerTicketBulkRoutes } from './project-router-tickets-bulk'
 
 export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   registerRepositoryScopeValidation(deps)
@@ -30,4 +31,5 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   registerTicketAddendaRoutes(deps)
   registerTicketAiEditRoutes(deps)
   registerTicketAttachmentRoutes(deps)
+  registerTicketBulkRoutes(deps)
 }
