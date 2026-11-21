@@ -96,7 +96,7 @@ describe('the guidance a chosen resolution sends', () => {
     expect(text).toContain('- tests/desktop/menus.spec.ts › Salir exits from main')
     expect(text).toMatch(/deterministic/)
     expect(text).toMatch(/Do not lengthen timeouts/)
-    expect(continuationGuidance(diagnosis({}), { flakyTests: [] })).toBeNull()
+    expect(continuationGuidance(diagnosis({ kind: 'crash', phase: 'fixer', detail: null }), { flakyTests: [] })).toBeNull()
   })
 })
 

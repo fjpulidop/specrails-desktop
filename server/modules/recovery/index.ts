@@ -30,6 +30,7 @@ export {
   continuationGuidance,
   failureFingerprint,
   flakyTestsGuidance,
+  recipeStall,
   remainingAreHumanChecks,
   repeatedStop,
   resolutionGuidance,
@@ -41,6 +42,7 @@ export {
   type ResolutionChoice,
   type AutoContinueRefusal,
   type AutoContinueVerdict,
+  type RecipeStall,
 } from './continuation'
 export {
   ANALYSIS_ACTION_KINDS,

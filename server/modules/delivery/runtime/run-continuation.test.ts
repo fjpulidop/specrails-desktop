@@ -22,6 +22,38 @@ const probe = (scopes: DefinitionRunProbe['scopes'], patch: Partial<DefinitionRu
 const scope = (nodePath: string, status: string, visits = 1) => ({ nodePath, scopeId: 'root', kind: 'step', status, attemptId: `a-${nodePath}`, visits })
 const diagnosis = (patch: Partial<FailureDiagnosis>): FailureDiagnosis => ({ kind: 'crash', confidence: 'high', phase: null, rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'core', ...patch })
 
+// The Implement recipe's graph around verification and correction (kinds and ends as the frozen definition has them).
+const IMPLEMENT_NODES: Record<string, unknown> = {
+  developer: { kind: 'role-turn', ends: { failed: 'failed', invalid: 'failed', next: 'developer-blocker' } },
+  'developer-blocker': { kind: 'condition', ends: { false: 'tasks', true: 'developer-blocked' } },
+  'developer-blocked': { kind: 'end', params: { blockerFrom: 'developer', outcome: 'failure' } },
+  tasks: { kind: 'artifact-contract', ends: { fail: 'failed', failed: 'failed', pass: 'verify' } },
+  verify: { kind: 'verify', ends: { blocked: 'host-blocked', fail: 'correction-context', failed: 'failed', pass: 'reviewer' } },
+  'host-blocked': { kind: 'end', params: { blockerFrom: 'verify', outcome: 'failure' } },
+  'correction-context': { kind: 'condition', ends: { false: 'clear-review', true: 'capture-review' } },
+  'clear-review': { kind: 'assign', ends: { failed: 'failed', next: 'correction-budget' } },
+  'capture-review': { kind: 'assign', ends: { failed: 'failed', next: 'correction-budget' } },
+  'correction-budget': { kind: 'condition', ends: { false: 'correction-exhausted', true: 'begin-correction' } },
+  'correction-exhausted': { kind: 'end', params: { outcome: 'failure' } },
+  'begin-correction': { kind: 'assign', ends: { failed: 'failed', next: 'fixer' } },
+  fixer: { kind: 'role-turn', ends: { failed: 'failed', invalid: 'failed', next: 'correction-blocker' } },
+  'correction-blocker': { kind: 'condition', ends: { false: 'correction-progress', true: 'fixer-blocked' } },
+  'fixer-blocked': { kind: 'end', params: { blockerFrom: 'fixer', outcome: 'failure' } },
+  'correction-progress': { kind: 'condition', ends: { false: 'correction-decided', true: 'tasks' } },
+  'correction-decided': { kind: 'condition', ends: { false: 'correction-stalled', true: 'reviewer' } },
+  'correction-stalled': { kind: 'end', params: { outcome: 'failure' } },
+  reviewer: { kind: 'role-turn', ends: { failed: 'failed', invalid: 'failed', next: 'review-policy' } },
+  'review-policy': { kind: 'condition', ends: { false: 'correction-context', true: 'archive' } },
+  archive: { kind: 'openspec-archive', ends: { failed: 'archive-retry', next: 'done' } },
+  'archive-retry': { kind: 'condition', ends: { false: 'archive-failed', true: 'verify' } },
+  'archive-failed': { kind: 'end', params: { outcome: 'failure' } },
+  failed: { kind: 'end', params: { outcome: 'failure' } },
+  done: { kind: 'end', params: { outcome: 'success' } },
+}
+// The ledger of run d587300f as Core recorded it: every step succeeded, the run took `correction-stalled`.
+const STALLED_RUN = ['developer', 'developer-blocker', 'tasks', 'verify', 'correction-context', 'clear-review', 'correction-budget', 'begin-correction', 'fixer', 'correction-blocker', 'correction-progress', 'correction-decided', 'correction-stalled']
+  .map((nodePath) => ({ nodePath, scopeId: 'root', kind: 'step', status: 'succeeded', attemptId: `a-${nodePath}`, visits: 1 }))
+
 describe('Continue: how a run goes on', () => {
   it('maps the older remedy id to Continue and rejects anything else', () => {
     expect(normalizeContinueRemedy('retry-with-browser')).toBe('continue')
@@ -66,6 +98,26 @@ describe('Continue: how a run goes on', () => {
     }
   })
 
+  it('a correction stall (the fixer could not reproduce the failure) re-runs the same verification with a fresh correction budget', () => {
+    // Run d587300f (generala-dorada): verify failed on 4 Playwright tests, the fixer could not reproduce
+    // them and changed nothing, and the run ended at `correction-stalled` with every step succeeded.
+    // Core summarises it as "Automatic correction changed nothing." (the end node says "made no
+    // candidate changes"); neither the developer rule nor the ledger matched, and Continue got a 409.
+    frozen.value = { row: { status: 'completed' }, metadata: { definition: { nodes: IMPLEMENT_NODES } } }
+    const stalled = diagnosis({ kind: 'blocked', phase: 'correction-stalled', detail: 'Automatic correction changed nothing. Fixer: Diagnosis: the 4 Playwright failures (menus.spec:105, …) did not reproduce…' })
+    const completion = { ok: false, verified: false, reasons: ['Automatic correction made no candidate changes. Host verification is valid: false. … Fixer diagnosis: …', 'unverified'] }
+    const expected = { mode: 'fork', fromStep: 'verify', request: { fromNodePath: 'verify', scopeId: 'root', visit: 1, state: { $vars: { correctionAttempts: 0 } } } }
+    expect(planContinuation(db, 'run', 'continue', probe(STALLED_RUN, { status: 'failed', completion }), stalled)).toMatchObject(expected)
+    // Read from any one signal: the end node, Core's new summary, an older Core's wording, or the end reason alone.
+    for (const d of [diagnosis({ kind: 'blocked', phase: 'correction-stalled' }), diagnosis({ kind: 'blocked', detail: 'Automatic correction changed nothing.' }), diagnosis({ kind: 'blocked', detail: 'Automatic correction made no candidate changes.' })]) {
+      expect(planContinuation(db, 'run', 'continue', probe(STALLED_RUN, { status: 'failed' }), d)).toMatchObject(expected)
+    }
+    expect(planContinuation(db, 'run', 'continue', probe(STALLED_RUN, { status: 'failed', completion }), diagnosis({ kind: 'blocked' }))).toMatchObject(expected)
+    // At the latest verification visit.
+    const twice = STALLED_RUN.map((s) => (s.nodePath === 'verify' ? { ...s, visits: 3 } : s))
+    expect(planContinuation(db, 'run', 'continue', probe(twice, { status: 'failed' }), stalled)).toMatchObject({ fromStep: 'verify', request: { visit: 3 } })
+  })
+
   it('restarts the developer with fresh budgets after a stall', () => {
     const plan = planContinuation(db, 'run', 'continue', probe([scope('developer', 'succeeded', 3), scope('fixer', 'failed')], { status: 'failed' }), diagnosis({ kind: 'blocked', detail: 'Implementation attempt limit reached (3/3)' }))
     expect(plan).toMatchObject({ mode: 'fork', fromStep: 'developer', request: { fromNodePath: 'developer', visit: 3, state: { $vars: { implementationAttempts: 0, unblockAttempts: 0, lastImplementationHash: '' } } } })
@@ -80,7 +132,19 @@ describe('Continue: how a run goes on', () => {
 
   it('refuses a running run and a ledger with no step to continue from', () => {
     expect(() => planContinuation(db, 'run', 'continue', probe([], { status: 'running' }), null)).toThrow(/still running/)
-    expect(() => planContinuation(db, 'run', 'continue', probe([scope('planner', 'succeeded')]), null)).toThrow(/no step/)
+    expect(() => planContinuation(db, 'run', 'continue', probe([]), null)).toThrow(/no step/)
+  })
+
+  it('never strands a settled run whose steps all finished: it goes on from the work step its end reports', () => {
+    frozen.value = { row: { status: 'completed' }, metadata: { definition: { nodes: IMPLEMENT_NODES } } }
+    // archive → archive-retry (condition) → archive-failed (end, no blockerFrom): re-run the archive.
+    const archived = [...STALLED_RUN.filter((s) => s.nodePath !== 'correction-stalled'), scope('archive', 'succeeded'), scope('archive-retry', 'succeeded'), scope('archive-failed', 'succeeded')]
+    expect(planContinuation(db, 'run', 'continue', probe(archived, { status: 'failed' }), diagnosis({ kind: 'spec_invalid', phase: 'archive-failed' }))).toMatchObject({ fromStep: 'archive', request: { fromNodePath: 'archive', visit: 1 } })
+    // An end several work steps lead to (`failed`) goes on from the developer.
+    const failed = [...STALLED_RUN.filter((s) => s.nodePath !== 'correction-stalled'), scope('failed', 'succeeded')]
+    expect(planContinuation(db, 'run', 'continue', probe(failed, { status: 'failed' }), diagnosis({ kind: 'unknown', phase: 'failed' })).fromStep).toBe('developer')
+    // With no developer, the last work step it ran; never a condition or an end.
+    expect(stoppedStep(probe([scope('planner', 'succeeded'), scope('route', 'succeeded'), scope('failed', 'succeeded')]), null, { planner: {}, route: { kind: 'condition' }, failed: { kind: 'end' } })).toEqual({ nodePath: 'planner', visit: 1 })
   })
 })
 
