@@ -193,6 +193,7 @@
         "../../loops/runtime/loop-turn-limits",
         "../../provider-quota/runtime/stream-observer",
         "./agent-runtime-effective-config",
+        "./agent-runtime-headless-guard",
         "./agent-runtime-history",
         "./agent-runtime-loader",
         "./agent-runtime-package",
@@ -255,6 +256,11 @@
       ],
       "runtime/agent-runtime-events.ts": [
         "../../../db"
+      ],
+      "runtime/agent-runtime-headless-guard.ts": [
+        "../../../util/headless-env",
+        "node:fs",
+        "node:path"
       ],
       "runtime/agent-runtime-history.ts": [
         "./agent-runtime-metrics",

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1857 source/build files. Nearby tests are linked where names
+Includes 1858 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1756,6 +1756,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-effective-config.ts](../../server/modules/agent-runtime/runtime/agent-runtime-effective-config.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-effective-config.test.ts)
 - [agent-runtime-engines.ts](../../server/modules/agent-runtime/runtime/agent-runtime-engines.ts)
 - [agent-runtime-events.ts](../../server/modules/agent-runtime/runtime/agent-runtime-events.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-events.test.ts)
+- [agent-runtime-headless-guard.ts](../../server/modules/agent-runtime/runtime/agent-runtime-headless-guard.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-headless-guard.test.ts)
 - [agent-runtime-history.ts](../../server/modules/agent-runtime/runtime/agent-runtime-history.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-history.test.ts)
 - [agent-runtime-loader.ts](../../server/modules/agent-runtime/runtime/agent-runtime-loader.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-loader.test.ts)
 - [agent-runtime-metrics.ts](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts)

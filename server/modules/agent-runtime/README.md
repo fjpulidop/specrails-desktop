@@ -241,3 +241,16 @@ Failed gate outcomes and role error messages are reported explicitly in the read
 Failed terminal completion reasons are preserved as the job error when Core has no
 more specific runtime error, so a scoped correction blocker is not replaced by a
 generic unsuccessful-Core-exit message.
+
+## Headless guard for older retained Cores
+
+[`runtime/agent-runtime-headless-guard.ts`](runtime/agent-runtime-headless-guard.ts)
+keeps Electron windows of a run hidden when its retained Core predates Core's
+Electron headless guard: the bridge copies the installed Core's guard into the
+run's runtime directory once and loads it through `NODE_OPTIONS` of the Core
+process. A retained Core with its own guard, or `SPECRAILS_HEADLESS=0`, leaves
+`NODE_OPTIONS` untouched. The paired suite
+(`agent-runtime-headless-guard-paired.test.ts`) continues a real pre-guard run
+on a guard-carrying Core and checks the verification command loads the guard;
+`SPECRAILS_PREGUARD_CORE_SOURCE_DIR` selects a real older Core build instead of
+the paired Core with its guard removed.

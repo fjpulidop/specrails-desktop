@@ -17,6 +17,7 @@ import { coreChildSpawnOptions, trackCoreChild } from '../../../util/core-child-
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
 import { withHeadlessContract } from '../../../util/headless-env'
+import { headlessGuardLogLine, resolveRunHeadlessGuard, withElectronHeadlessGuard } from './agent-runtime-headless-guard'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
@@ -393,6 +394,13 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     writeFileSync(file, JSON.stringify(options.routeOverrides), { mode: 0o600 })
     args.push('--route-overrides', file)
   }
+  // A run keeps the Core it started with: one that predates Core's Electron headless
+  // guard gets it from Desktop, so app windows its verification opens stay hidden.
+  const providerEnv = coreProviderEnv(options.env)
+  const headlessGuard = resolveRunHeadlessGuard({ env: providerEnv, runCli: args[0], runtimeDirectory: dirname(options.contextPath), currentCli: findCoreAgentRuntimeCli })
+  const coreEnv = headlessGuard.source === 'desktop' ? withElectronHeadlessGuard(providerEnv, headlessGuard.path) : providerEnv
+  const guardLine = headlessGuardLogLine(headlessGuard)
+  if (guardLine) { try { options.onLine?.(guardLine) } catch { /* Advisory log observer. */ } }
   const started = Date.now()
   writeRuntimeHistory(options.contextPath, { status: 'running' })
   return new Promise<AiStepResult>((resolve) => {
@@ -404,7 +412,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     // Own process group: a signal aimed at Desktop's group (Ctrl-C, a dev restart) must not
     // reach Core, which treats it as "cancel the run". Desktop stops it by tree-kill only.
     const child = spawn(resolveCoreNodeRuntime(), args, {
-      cwd: options.cwd, env: windowsSpawnEnv(coreProviderEnv(options.env)), shell: false, windowsHide: true,
+      cwd: options.cwd, env: windowsSpawnEnv(coreEnv), shell: false, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'], ...coreChildSpawnOptions(),
     })
     trackCoreChild(child, 'runtime', `${args[0]} ${args[1]}`)
