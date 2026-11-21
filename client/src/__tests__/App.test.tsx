@@ -9,6 +9,8 @@ import { replayTour } from '../lib/onboarding-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
 
+vi.mock('../SurfaceWindowContent', () => ({ SurfaceWindowContent: () => <div data-testid="surface-content" />, preloadSurfaceWindowContent: () => {} }))
+
 vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div data-testid="plugins-window-surface" /> }))
 
 vi.mock('../features/loops/pages/LoopsPage', () => ({ default: () => <div data-testid="loops-library" /> }))
@@ -23,6 +25,7 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
   },
   Toaster: ({ position }: { position?: string }) => <div data-testid="toaster" data-position={position} />,
+  useSonner: () => ({ toasts: [] }),
 }))
 
 vi.mock('../lib/api', () => ({
@@ -120,6 +123,18 @@ it('boots the independent loop surface without mounting the main mission workspa
     render(<App />)
     expect(await screen.findByTestId('loop-window-surface')).toBeInTheDocument()
     expect(screen.queryByTestId('setup-wizard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+  } finally { window.history.replaceState({}, '', '/') }
+})
+
+
+it('a native surface window renders its own toaster, so a failure shows where the person acted', async () => {
+  // The job window's failed Continue used to be relayed to the main window, behind it, and seen by no one.
+  window.history.replaceState({}, '', '/?surfaceWindow=job-detail&requestId=r1&jobId=j1')
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('surface-content')).toBeInTheDocument()
+    expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
     expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
   } finally { window.history.replaceState({}, '', '/') }
 })

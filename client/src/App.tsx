@@ -20,7 +20,7 @@ import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, o
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
-import { useForwardSurfaceToasts, useShowSurfaceToasts } from './lib/surface-toasts'
+import { useShowSurfaceToasts, useTrackSurfaceToasts } from './lib/surface-toasts'
 import { SurfaceDocsHost } from './features/docs/components/SurfaceDocsHost'
 import { useToastsUsableOverModals } from './lib/toasts-over-modals'
 // The shell is static; its content chunk starts loading as soon as the route is known.
@@ -979,8 +979,9 @@ function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof s
         <TooltipProvider delayDuration={400}>
           <div className="h-screen overflow-hidden bg-popover">
             <SurfaceWindowContent id={route.id} params={route.params} />
-            {/* No toaster here: this window's toasts show in its opener. */}
-            <SurfaceToastForwarder />
+            {/* This window's own toaster: a toast shows where the person acted (closing hands the live ones to the opener). */}
+            <ThemedToaster />
+            <SurfaceToastTracker />
             {/* "Learn more" opens the guide here: this window has no app shell to ask. */}
             <SurfaceDocsHost />
           </div>
@@ -990,8 +991,8 @@ function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof s
   )
 }
 
-function SurfaceToastForwarder() {
-  useForwardSurfaceToasts()
+function SurfaceToastTracker() {
+  useTrackSurfaceToasts()
   return null
 }
 

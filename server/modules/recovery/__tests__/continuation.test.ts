@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoContinueVerdict, continuationGuidance, failureFingerprint, remainingAreHumanChecks, type FailureDiagnosis } from '..'
+import { autoContinueVerdict, continuationGuidance, failureFingerprint, recipeStall, remainingAreHumanChecks, type FailureDiagnosis } from '..'
 
 const diagnosis = (patch: Partial<FailureDiagnosis>): FailureDiagnosis => ({
   kind: 'crash', confidence: 'high', phase: 'developer', rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'core', ...patch,
@@ -14,6 +14,26 @@ describe('continuation guidance', () => {
     expect(text).toContain('Fixer diagnosis: nothing left to change')
     // Without the completion it still falls back to the detail.
     expect(continuationGuidance(diagnosis({ kind: 'blocked', detail: full.slice(0, 120) }))).toContain('Automatic correction made no candidate changes')
+  })
+  it('recognises a stall in Core\'s current summary, an older wording, the end node, or the end reason alone', () => {
+    // Core's stallDetail says "Automatic correction changed nothing." / "Automatic corrections ran out.";
+    // the recipe's end reason (and an older Core) says "made no candidate changes" / "limit reached".
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: 'Automatic correction changed nothing. Fixer: did not reproduce' }))).toBe('correction-stalled')
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: 'Automatic correction made no candidate changes.' }))).toBe('correction-stalled')
+    expect(recipeStall(diagnosis({ kind: 'blocked', phase: 'correction-stalled', detail: null }))).toBe('correction-stalled')
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: null }), ['Automatic correction made no candidate changes. Host verification is valid: false.'])).toBe('correction-stalled')
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: 'Automatic corrections ran out. The reviewer still asks for: x' }))).toBe('corrections-spent')
+    expect(recipeStall(diagnosis({ kind: 'blocked', phase: 'correction-exhausted' }))).toBe('corrections-spent')
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: 'Implementation attempt limit reached (3/3)' }))).toBe('implementation-spent')
+    expect(recipeStall(diagnosis({ kind: 'blocked', detail: 'Baseline blocked: no tests' }))).toBeNull()
+    expect(recipeStall(diagnosis({ kind: 'crash', detail: 'Automatic correction changed nothing.' }))).toBeNull()
+  })
+  it('a correction stall in Core\'s current wording still gets the stall guidance and the automatic continuation', () => {
+    const stalled = diagnosis({ kind: 'blocked', phase: 'correction-stalled', detail: 'Automatic correction changed nothing. Fixer: Diagnosis: the 4 Playwright failures did not reproduce.' })
+    const text = continuationGuidance(stalled)!
+    expect(text).toContain('previous attempt stalled: Automatic correction changed nothing.')
+    expect(text).toMatch(/Host verification ran again on the unchanged candidate/)
+    expect(autoContinueVerdict({ enabled: true, outcome: 'failed', diagnosis: stalled, chainAlreadyContinued: false })).toEqual({ continue: true, reason: 'stalled' })
   })
   it('sends the exact unfinished tasks with the browser and install rule', () => {
     const text = continuationGuidance(diagnosis({ kind: 'incomplete_tasks', incompleteTasks: ['5.2 Visual review at 390px'] }))!

@@ -13,6 +13,7 @@ import {
   type NativeSurfaceId,
   type SurfaceParams,
 } from './lib/native-surfaces'
+import { handOffSurfaceToasts } from './lib/surface-toasts'
 
 // The window's content loads in its own chunk so the main window does not ship
 // it. `preloadSurfaceWindowContent` starts that load as soon as the route is
@@ -39,7 +40,8 @@ export function isAppSettingsSurfaceResult(value: unknown): value is AppSettings
 
 /**
  * Closing waits for any result still in flight, so "do X, then close" reaches
- * the opener before the window (and its IPC channel) goes away.
+ * the opener before the window (and its IPC channel) goes away, and hands the
+ * toasts still on screen to the opener so the last outcome is not lost.
  */
 function useSurfaceWindowLifecycle(id: NativeSurfaceId) {
   const pending = useRef<Promise<unknown>>(Promise.resolve())
@@ -52,7 +54,7 @@ function useSurfaceWindowLifecycle(id: NativeSurfaceId) {
   }, [id])
   return useMemo(() => ({
     report(result: unknown) { pending.current = reportSurfaceResult(result).catch(() => {}) },
-    close() { setTimeout(() => { void pending.current.then(() => closeCurrentSurfaceWindow()) }, 0) },
+    close() { setTimeout(() => { void pending.current.then(() => handOffSurfaceToasts()).then(() => closeCurrentSurfaceWindow()) }, 0) },
   }), [])
 }
 

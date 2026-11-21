@@ -34,8 +34,37 @@ export function unfinishedTasksGuidance(incompleteTasks: readonly string[]): str
 
 const INSTALL_RULE = 'If a tool, package or runtime is missing, install it yourself (project-local or the Specrails cache) and go on. Never stop for a missing tool and never hand its installation to a person. If what is missing is a credential, a secret or an account login, do not invent one: say exactly what is missing and stop.'
 
-// Fixed end reasons of the Implement recipe for an attempt that ran out of ideas (domain.ts RECIPE_STALLED).
-const STALLED = /Implementation attempt limit reached|Automatic correction made no candidate changes|Automatic correction limit reached/i
+// The Implement recipe's end reasons for an attempt that ran out of ideas (domain.ts RECIPE_STALLED),
+// and Core's one-line summaries of them in the diagnosis detail (failure-classification `stallDetail`:
+// "Automatic correction changed nothing." / "Automatic corrections ran out."). Both wordings, old and new.
+const CORRECTIONS_SPENT = /Automatic correction limit reached|Automatic corrections ran out/i
+const CORRECTION_STALLED = /Automatic correction made no candidate changes|Automatic correction changed nothing/i
+const IMPLEMENTATION_SPENT = /Implementation attempt limit reached/i
+const STALLED = new RegExp([CORRECTIONS_SPENT, CORRECTION_STALLED, IMPLEMENTATION_SPENT].map((re) => re.source).join('|'), 'i')
+
+/** How an Implement attempt stalled on its own budget, read from the end node it reached and its words. */
+export type RecipeStall = 'corrections-spent' | 'correction-stalled' | 'implementation-spent'
+const STALL_ENDS: Readonly<Record<string, RecipeStall>> = {
+  'correction-exhausted': 'corrections-spent',
+  'correction-stalled': 'correction-stalled',
+  'implementation-exhausted': 'implementation-spent',
+}
+
+/**
+ * Which budget stall ended the run, or null. The end node the diagnosis names is authoritative;
+ * otherwise the detail (Core's summary) and the run's completion reasons (the end node's own
+ * template) are read, so neither a Core that rewords its summary nor an older one loses the cause.
+ */
+export function recipeStall(diagnosis: (Pick<FailureDiagnosis, 'kind' | 'detail'> & { phase?: string | null }) | null, completionReasons?: readonly unknown[] | null): RecipeStall | null {
+  if (!diagnosis || diagnosis.kind !== 'blocked') return null
+  const byEnd = diagnosis.phase ? STALL_ENDS[diagnosis.phase] : undefined
+  if (byEnd) return byEnd
+  const words = [diagnosis.detail, ...(completionReasons ?? [])].filter((value): value is string => typeof value === 'string' && !!value)
+  if (words.some((text) => CORRECTIONS_SPENT.test(text))) return 'corrections-spent'
+  if (words.some((text) => CORRECTION_STALLED.test(text))) return 'correction-stalled'
+  if (words.some((text) => IMPLEMENTATION_SPENT.test(text))) return 'implementation-spent'
+  return null
+}
 
 /**
  * The operator instruction that goes with a continuation, or null when the cause
@@ -109,14 +138,20 @@ function causeGuidance(diagnosis: Pick<FailureDiagnosis, 'kind' | 'confidence' |
       `Specrails continued this run because a port${diagnosis.port ? ` (${diagnosis.port})` : ''} was already taken by another process.`,
       'Serve and check the app on this run\'s own port (`$PORT`), never on a fixed port, and stop any server you start when you are done.',
     ].join('\n')
-    case 'blocked': return diagnosis.detail && STALLED.test(diagnosis.detail) ? [
+    case 'blocked': {
+      const stall = diagnosis.detail ? recipeStall(diagnosis, evidence.completionReasons) : null
+      return diagnosis.detail && stall ? [
       // The full end reason carries the reviewer's findings and the fixer's diagnosis that the
       // one-line detail cuts ("Latest r…"); the next attempt needs them to change approach.
       `Specrails continued this run after the previous attempt stalled: ${stallReason(diagnosis.detail, evidence.completionReasons)}`,
-      'Re-read the approved tasks and the last failing output, and change approach instead of repeating the last edit.',
+      // A correction stall continues by re-running host verification on the same candidate (run-continuation).
+      stall === 'correction-stalled'
+        ? 'Host verification ran again on the unchanged candidate before this turn. Work from its current output: if a failure the fixer could not reproduce came back, reproduce it the way the verification runs it (same command, port and parallelism) and fix its cause instead of reporting again that it did not reproduce.'
+        : 'Re-read the approved tasks and the last failing output, and change approach instead of repeating the last edit.',
       'Checks that need a browser can use `$SPECRAILS_BROWSE` (run `"$SPECRAILS_BROWSE" --help`).',
       INSTALL_RULE,
     ].join('\n') : null
+    }
     default: return null
   }
 }
@@ -244,6 +279,6 @@ export function autoContinueVerdict(input: {
   // the person's to raise or speed up; a hanging test ("produced no output") stays transient.
   if (diagnosis.kind === 'timeout' && diagnosis.detail && VERIFICATION_TIME_LIMIT.test(diagnosis.detail)) return { continue: false, reason: 'person_must_resolve' }
   if (TRANSIENT.has(diagnosis.kind)) return { continue: true, reason: 'transient_error' }
-  if (diagnosis.kind === 'blocked' && diagnosis.detail && STALLED.test(diagnosis.detail)) return { continue: true, reason: 'stalled' }
+  if (recipeStall(diagnosis)) return { continue: true, reason: 'stalled' }
   return { continue: false, reason: 'not_auto_fixable' }
 }
