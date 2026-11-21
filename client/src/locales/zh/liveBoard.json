@@ -21,7 +21,7 @@
     "mission": "按任务"
   },
   "columns": {
-    "needs": "需要你",
+    "needs": "需要处理",
     "working": "进行中",
     "done": "今日完成",
     "doneHint": "午夜清空",

@@ -377,7 +377,7 @@
     "failed": "Impossible d’envoyer votre réponse",
     "showMore": "Tout afficher",
     "showLess": "Afficher moins",
-    "notice": "Vous attend",
+    "notice": "Attention requise",
     "notHere": "Ne pas le faire ici",
     "notHereMeaning": "Cette spec n’appartient pas à ce dépôt ; l’exécution s’arrête sans modification.",
     "sentEnds": "Réponse envoyée — l’exécution s’arrête."

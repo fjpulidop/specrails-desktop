@@ -56,14 +56,16 @@ function usageLimitOf(item: InboxItem, t: Translate, language: string): { kindLa
  * stays for a hover), a reached cap names the cap and shows its figures, a run
  * paused at a provider's usage limit names that limit and says when it continues.
  */
-/** A run held by a restart, an interruption or a plain pause (`held:<kind>[:<step>]`), worded like the run window. */
+/** A run held by a restart, an interruption, a plain pause or the person's Pause (`held:<kind>[:<step>]`), worded like the run window. */
 function heldOf(item: InboxItem, t: Translate): { kindLabel: string; detail: string } | null {
   if (item.kind !== 'blocked' || !item.detail?.startsWith('held:')) return null
   const [, kind = 'paused', ...rest] = item.detail.split(':')
   const step = rest.join(':')
-  const known = ['restart', 'interrupted', 'paused'].includes(kind) ? kind : 'paused'
+  const known = ['restart', 'interrupted', 'paused', 'pausedByYou'].includes(kind) ? kind : 'paused'
+  // A plain pause or the person's own Pause says no step ("Paused by you. Nothing runs until you resume it.").
+  const stepless = known === 'paused' || known === 'pausedByYou'
   const stepName = step ? String(t(`agentRuntime:roles.${step}`, { defaultValue: '' })) : ''
-  const detail = stepName && known !== 'paused' ? t(`jobs:held.reason.${known}`, { step: stepName }) : t(`jobs:held.reason.${known}${known === 'paused' ? '' : 'NoStep'}`)
+  const detail = stepName && !stepless ? t(`jobs:held.reason.${known}`, { step: stepName }) : t(`jobs:held.reason.${known}${stepless ? '' : 'NoStep'}`)
   return { kindLabel: String(t(`jobs:held.label.${known}`)), detail: String(detail) }
 }
 

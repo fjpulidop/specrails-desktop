@@ -20,6 +20,8 @@ describe('attention copy: one item', () => {
     ['stopped', 'Generala Dorada · #6 Scoreboard has stopped', 'View'],
     ['stuck', 'Generala Dorada · #6 Scoreboard: a run has stalled', 'View'],
     ['paused', 'Generala Dorada · #6 Scoreboard is paused by a limit', 'View'],
+    ['pausedByYou', 'Generala Dorada · #6 Scoreboard is paused (by you)', 'View'],
+    ['held', 'Generala Dorada · #6 Scoreboard is paused', 'View'],
     ['done', 'Generala Dorada · #6 Scoreboard has finished', 'View'],
     ['generic', 'Generala Dorada · #6 Scoreboard needs your attention', 'View'],
   ] as const)('%s → its sentence and action (EN)', (kind, message, action) => {
@@ -33,6 +35,9 @@ describe('attention copy: one item', () => {
     expect(attentionReturnCopy([{ copy: { kind: 'review', project: 'Tetrisex', subject: '#12' }, open }], t, 'es')).toMatchObject({ message: 'Tetrisex · #12 está listo para revisar', action: 'Revisar' })
     expect(attentionReturnCopy([{ copy: item('stopped'), open }], t, 'es')).toMatchObject({ message: 'Generala Dorada · #6 Scoreboard se ha detenido', action: 'Ver' })
     expect(attentionReturnCopy([{ copy: item('generic'), open }], t, 'es')).toMatchObject({ message: 'Generala Dorada · #6 Scoreboard requiere tu atención', action: 'Ver' })
+    // The person's own Pause is never "paused by a limit".
+    expect(attentionReturnCopy([{ copy: item('pausedByYou'), open }], t, 'es')).toMatchObject({ message: 'Generala Dorada · #6 Scoreboard está en pausa (pausada por ti)', action: 'Ver' })
+    expect(attentionReturnCopy([{ copy: item('paused'), open }], t, 'es')).toMatchObject({ message: 'Generala Dorada · #6 Scoreboard está en pausa por un límite', action: 'Ver' })
   })
 
   it('a mission reply keeps its own sentence and opens the mission', () => {

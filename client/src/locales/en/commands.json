@@ -451,7 +451,7 @@
       "flowHandOff": "Hand off the Intent (run strip focused)",
       "historyBackForward": "Go back / forward to the previous place",
       "undoLast": "Undo the last change",
-      "openInbox": "Open the Needs you inbox",
+      "openInbox": "Open the Needs attention inbox",
       "reviewFiles": "Review: next / previous changed file",
       "reviewAnnotations": "Review: next / previous annotation",
       "reviewViewed": "Review: mark the file viewed",
@@ -560,6 +560,8 @@
         "stopped": "{{subject}} has stopped",
         "stuck": "{{subject}}: a run has stalled",
         "paused": "{{subject}} is paused by a limit",
+        "pausedByYou": "{{subject}} is paused (by you)",
+        "held": "{{subject}} is paused",
         "done": "{{subject}} has finished",
         "generic": "{{subject}} needs your attention"
       },

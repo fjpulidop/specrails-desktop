@@ -1411,7 +1411,7 @@
     "paused": "一時停止中。あなたの対応を待っています",
     "pausedReason": "一時停止中：{{reason}}",
     "decision": {
-      "approval": "あなたの対応が必要",
+      "approval": "要対応",
       "changes": "レビュアーが変更を求めています",
       "on_review": "レビューの準備ができました",
       "pr_draft": "ドラフト PR を公開できます",

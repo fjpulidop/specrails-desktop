@@ -181,7 +181,9 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', detail: null, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       } else {
         // `held:<kind>[:<step>]`: the client words it like the run window ("The app restarted during the Developer step.").
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: `held:${kind}${hold?.step ? `:${hold.step}` : ''}`, at: toIso(run.started_at, nowIso), action: 'resume-run' })
+        // The person's own Pause is `held:pausedByYou` ("Paused by you"), never a plain or limit pause.
+        const heldKind = kind === 'paused' && hold?.byYou ? 'pausedByYou' : kind
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: `held:${heldKind}${hold?.step ? `:${hold.step}` : ''}`, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       }
       continue
     }

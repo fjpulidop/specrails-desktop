@@ -411,8 +411,8 @@
       "interrupted": "Interrotto",
       "provider_limit": "Limite di utilizzo",
       "budget": "Limite di spesa",
-      "question": "Ti aspetta",
-      "approval": "Ti aspetta",
+      "question": "Richiede attenzione",
+      "approval": "Richiede attenzione",
       "paused": "In pausa",
       "queued": "In coda",
       "pausedByYou": "Messa in pausa da te"

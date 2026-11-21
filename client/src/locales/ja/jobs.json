@@ -411,8 +411,8 @@
       "interrupted": "中断",
       "provider_limit": "利用上限",
       "budget": "支出上限",
-      "question": "あなたの対応が必要",
-      "approval": "あなたの対応が必要",
+      "question": "要対応",
+      "approval": "要対応",
       "paused": "一時停止",
       "queued": "待機中",
       "pausedByYou": "あなたが一時停止"

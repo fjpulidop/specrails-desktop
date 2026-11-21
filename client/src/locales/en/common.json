@@ -277,7 +277,7 @@
       "launchForecast": "the launch forecast",
       "loopBuilder": "the Loop Builder",
       "shortcuts": "keyboard shortcuts",
-      "inbox": "the Needs you inbox",
+      "inbox": "the Needs attention inbox",
       "specsBoard": "specs and the backlog",
       "specTimeline": "the spec timeline and hand-off",
       "accessibility": "accessibility and personalisation",
@@ -377,7 +377,7 @@
     "failed": "Couldn't send your answer",
     "showMore": "Show all",
     "showLess": "Show less",
-    "notice": "Needs you",
+    "notice": "Needs attention",
     "notHere": "Don't do it here",
     "notHereMeaning": "This spec does not belong in this repository; the run ends without changes.",
     "sentEnds": "Answer sent — the run ends."

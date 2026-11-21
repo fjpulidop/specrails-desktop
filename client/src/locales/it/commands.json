@@ -560,6 +560,8 @@
         "stopped": "{{subject}} si è fermato",
         "stuck": "{{subject}}: un run non avanza",
         "paused": "{{subject}} è in pausa per un limite",
+        "pausedByYou": "{{subject}} è in pausa (da te)",
+        "held": "{{subject}} è in pausa",
         "done": "{{subject}} è terminato",
         "generic": "{{subject}} richiede la tua attenzione"
       },

@@ -21,7 +21,7 @@
     "mission": "By mission"
   },
   "columns": {
-    "needs": "Needs you",
+    "needs": "Needs attention",
     "working": "In progress",
     "done": "Done today",
     "doneHint": "Clears at midnight",

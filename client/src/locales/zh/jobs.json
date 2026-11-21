@@ -411,8 +411,8 @@
       "interrupted": "已中断",
       "provider_limit": "用量上限",
       "budget": "支出上限",
-      "question": "需要你处理",
-      "approval": "需要你处理",
+      "question": "需要处理",
+      "approval": "需要处理",
       "paused": "已暂停",
       "queued": "排队中",
       "pausedByYou": "已由你暂停"

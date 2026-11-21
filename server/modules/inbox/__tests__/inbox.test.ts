@@ -1,4 +1,5 @@
 import { saveLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { saveUserPause } from '../../loops/runtime/loop-user-pauses'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import type { AddressInfo } from 'node:net'
@@ -74,6 +75,15 @@ describe('inbox projection: runs', () => {
     // A restart is a pause that waits for Resume, worded like the run window (the run's hold).
     expect(byId['r-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:restart' })
     expect(byId['r-fork']).toBeUndefined()
+  })
+
+  it('words a run the person paused as paused by you, also after a restart', () => {
+    run('r-you', 0); pauseLoopRun(db, 'r-you', undefined, 'user_paused')
+    run('r-you-restart', 1); db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart' WHERE id='r-you-restart'").run()
+    saveUserPause(db, 'r-you-restart', { requestId: 'req-1', requestedAt: iso(-60_000), pausedAt: iso(-30_000) })
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-you']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:pausedByYou' })
+    expect(byId['r-you-restart']).toMatchObject({ kind: 'blocked', action: 'resume-run', detail: 'held:pausedByYou' })
   })
 
   it('a question item carries its card and a short question for the notification; a limit, budget or restart pause never becomes one', () => {

@@ -301,11 +301,11 @@ describe('JobRunHeader', () => {
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
-  it('a run waiting on the person says Needs you, never the node id it paused at', async () => {
+  it('a run waiting on the person says Needs attention, never the node id it paused at', async () => {
     const question = { stepId: 'clarify', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend?' }
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, nextStep: 'clarify', pendingQuestion: question })] }))
     renderHeader(failedJob, [], { projectId: 'p1' })
-    expect(await screen.findByText('Needs you')).toBeInTheDocument()
+    expect(await screen.findByText('Needs attention')).toBeInTheDocument()
     expect(screen.queryByText(/clarify/)).not.toBeInTheDocument()
   })
 
@@ -613,7 +613,7 @@ describe('JobRunHeader — a run that stopped without settling', () => {
     [{ kind: 'interrupted' as const, step: 'fixer', since: null }, 'Interrupted', 'The Fixer step stopped before it finished.'],
     [{ kind: 'provider_limit' as const, step: null, since: null }, 'Usage limit', "Waiting for the provider's usage limit to reset."],
     [{ kind: 'budget' as const, step: null, since: null }, 'Spending limit', 'The spending limit was reached.'],
-    [{ kind: 'question' as const, step: 'architect', since: null }, 'Needs you', 'Waiting for your answer.'],
+    [{ kind: 'question' as const, step: 'architect', since: null }, 'Needs attention', 'Waiting for your answer.'],
   ])('a %o hold has its own label and reason', (hold, label, reason) => {
     renderHeader(heldJob(hold))
     expect(screen.getByTestId('job-status')).toHaveTextContent(label)

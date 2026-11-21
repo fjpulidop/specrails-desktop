@@ -105,6 +105,8 @@
       "stopped": "Le moteur s’est arrêté : {{target}}",
       "corrections": "Poursuite des tâches restantes (développeur)",
       "resumed": "Reprise de l’exécution enregistrée",
+      "pausedByYou": "Mise en pause par vous",
+      "resumedByYou": "Reprise par vous",
       "blocked": "L'environnement hôte a bloqué l'exécution : {{target}}"
     },
     "check": {

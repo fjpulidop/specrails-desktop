@@ -109,7 +109,10 @@ describe('inbox item text and place', () => {
     expect(inboxAttentionCopy(mk({ kind: 'question', question: { kind: 'approval' } as never })).kind).toBe('approval')
     expect(inboxAttentionCopy(mk({ kind: 'failed' })).kind).toBe('stopped')
     expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:restart:implement' })).kind).toBe('stopped')
-    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:paused' })).kind).toBe('paused')
+    // Only a provider limit or the budget reads "paused by a limit"; the person's own Pause says so.
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:paused' })).kind).toBe('held')
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:pausedByYou' })).kind).toBe('pausedByYou')
+    expect(inboxAttentionCopy(mk({ kind: 'blocked', detail: 'held:pausedByYou:developer' })).kind).toBe('pausedByYou')
     expect(inboxAttentionCopy(mk({ kind: 'blocked', diagnosis: { kind: 'provider_limit' } as never })).kind).toBe('paused')
     expect(inboxAttentionCopy(mk({ kind: 'jira' })).kind).toBe('generic')
     // A reached cap is about the project's spending, not one spec.

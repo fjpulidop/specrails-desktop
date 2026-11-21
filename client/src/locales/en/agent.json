@@ -1411,7 +1411,7 @@
     "paused": "Paused. Waiting for you",
     "pausedReason": "Paused: {{reason}}",
     "decision": {
-      "approval": "Needs you",
+      "approval": "Needs attention",
       "changes": "The reviewer requested changes",
       "on_review": "Ready for your review",
       "pr_draft": "Draft PR ready to publish",

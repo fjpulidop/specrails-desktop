@@ -1411,7 +1411,7 @@
     "paused": "已暂停。等待你处理",
     "pausedReason": "已暂停：{{reason}}",
     "decision": {
-      "approval": "需要你处理",
+      "approval": "需要处理",
       "changes": "审阅者要求修改",
       "on_review": "可供你评审",
       "pr_draft": "草稿 PR 已可发布",

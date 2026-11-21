@@ -560,6 +560,8 @@
         "stopped": "{{subject}} 已停止",
         "stuck": "{{subject}}：运行没有进展",
         "paused": "{{subject}} 因达到限额已暂停",
+        "pausedByYou": "{{subject}} 已暂停（由你暂停）",
+        "held": "{{subject}} 已暂停",
         "done": "{{subject}} 已完成",
         "generic": "{{subject}} 需要你处理"
       },

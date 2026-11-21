@@ -14,7 +14,8 @@
 
 /** What an item is, as far as its wording goes. */
 export type AttentionCopyKind =
-  | 'question' | 'approval' | 'review' | 'stopped' | 'stuck' | 'paused' | 'done' | 'reply' | 'generic'
+  /** `paused`: a provider usage limit or the budget held it; `pausedByYou`: the person's own Pause; `held`: a plain pause. */
+  | 'question' | 'approval' | 'review' | 'stopped' | 'stuck' | 'paused' | 'pausedByYou' | 'held' | 'done' | 'reply' | 'generic'
 
 export interface AttentionCopy {
   kind: AttentionCopyKind

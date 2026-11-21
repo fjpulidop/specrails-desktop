@@ -21,7 +21,7 @@
     "mission": "ミッション別"
   },
   "columns": {
-    "needs": "あなたの対応待ち",
+    "needs": "要対応",
     "working": "進行中",
     "done": "今日完了",
     "doneHint": "深夜0時にクリア",

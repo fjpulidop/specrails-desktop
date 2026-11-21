@@ -1411,7 +1411,7 @@
     "paused": "En pause, en attente de votre part",
     "pausedReason": "En pause : {{reason}}",
     "decision": {
-      "approval": "Vous attend",
+      "approval": "Attention requise",
       "changes": "Le relecteur a demandé des modifications",
       "on_review": "Prêt pour votre relecture",
       "pr_draft": "PR brouillon prête à publier",

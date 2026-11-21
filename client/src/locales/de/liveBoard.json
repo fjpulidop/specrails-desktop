@@ -21,7 +21,7 @@
     "mission": "Nach Mission"
   },
   "columns": {
-    "needs": "Braucht dich",
+    "needs": "Erfordert Aufmerksamkeit",
     "working": "In Arbeit",
     "done": "Heute erledigt",
     "doneHint": "Leert sich um Mitternacht",

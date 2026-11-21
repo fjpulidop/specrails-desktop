@@ -105,6 +105,8 @@
       "stopped": "O motor parou: {{target}}",
       "corrections": "A continuar as tarefas restantes (developer)",
       "resumed": "Retomando a execução guardada",
+      "pausedByYou": "Pausada por você",
+      "resumedByYou": "Retomada por você",
       "blocked": "O ambiente do host bloqueou a execução: {{target}}"
     },
     "check": {

@@ -99,6 +99,7 @@ describe('the person\'s Pause of a Core definition run', () => {
     expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'completed', final_outcome: 'success', restart_reason: null })
     expect(readUserPause(db, 'r1')).toBeNull()
     expect(lines('r1').some((line) => line.includes('Resumed by you'))).toBe(true)
+    expect(getJobEvents(db, 'r1').filter((e) => e.event_type === 'run-user-pause').map((e) => JSON.parse(e.payload).state)).toEqual(['paused', 'resumed'])
     // The resume took a slot again and the settlement released it.
     expect(admission.snapshot().active).toEqual([])
     expect(manager.userPauseControl('r1')).toBeNull()
@@ -159,6 +160,44 @@ describe('the person\'s Pause of a Core definition run', () => {
     expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'paused', restart_reason: 'restart' })
     expect(readUserPause(db, 'r1')).not.toBeNull()
     expect(readRunHold(db, 'r1')).toMatchObject({ kind: 'paused', byYou: true })
+  })
+
+  it('says "Resumed by you" in its log when the person resumes it after a restart', async () => {
+    const core = fakeCore()
+    const first = new LoopRunManager(db, () => {}, core.executors)
+    void first.run(request('r1'))
+    await until(() => first.userPauseControl('r1') === 'pause')
+    await first.requestUserPause('r1')
+    await until(() => first.userPause('r1'))
+    first.shutdown()
+    markDefinitionRestart(db, 'r1')
+    const messages: WsMessage[] = []
+    const second = new LoopRunManager(db, (m) => messages.push(m), core.executors)
+    expect((await second.beginDefinitionResume('r1')).outcome).toBe('success')
+    const resumedLines = lines('r1').filter((line) => line.includes('Resumed by you'))
+    expect(resumedLines).toHaveLength(1)
+    // It follows the pause line, and the narrated log gets its structured mirror.
+    expect(lines('r1').findIndex((line) => line.includes('Resumed by you'))).toBeGreaterThan(lines('r1').findIndex((line) => line.includes('Paused by you')))
+    const states = getJobEvents(db, 'r1').filter((e) => e.event_type === 'run-user-pause').map((e) => JSON.parse(e.payload).state)
+    expect(states).toEqual(['paused', 'resumed'])
+    expect(messages).toContainEqual(expect.objectContaining({ type: 'log', processId: 'r1', line: expect.stringContaining('Resumed by you') }))
+    second.shutdown()
+  })
+
+  it('a plain restart resume says nothing about the person', async () => {
+    const core = fakeCore({ finishFirst: true })
+    const first = new LoopRunManager(db, () => {}, core.executors)
+    void first.run(request('r1'))
+    await until(() => core.runDefinition.mock.calls.length === 1)
+    first.shutdown()
+    markDefinitionRestart(db, 'r1')
+    // The restart's own claim is released as the resume route does before it resumes.
+    db.prepare('DELETE FROM definition_execution_claims WHERE run_id = ?').run('r1')
+    const second = new LoopRunManager(db, () => {}, core.executors)
+    core.finishFirst()
+    await second.beginDefinitionResume('r1')
+    expect(lines('r1').some((line) => line.includes('by you'))).toBe(false)
+    second.shutdown()
   })
 
   it('a restart while it is still finishing its step keeps the person\'s Pause', async () => {

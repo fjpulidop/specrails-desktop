@@ -1411,7 +1411,7 @@
     "paused": "En pausa. Te está esperando",
     "pausedReason": "En pausa: {{reason}}",
     "decision": {
-      "approval": "Te necesita",
+      "approval": "Requiere atención",
       "changes": "El revisor pidió cambios",
       "on_review": "Listo para tu revisión",
       "pr_draft": "PR en borrador listo para publicar",

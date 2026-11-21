@@ -21,7 +21,7 @@
     "mission": "Par mission"
   },
   "columns": {
-    "needs": "Vous attend",
+    "needs": "Attention requise",
     "working": "En cours",
     "done": "Terminé aujourd'hui",
     "doneHint": "Se vide à minuit",

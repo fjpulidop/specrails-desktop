@@ -25,13 +25,22 @@ export function inboxAttentionText(item: InboxItem): { title: string; body: stri
   return { title: text.kindLabel, body: parts.join(' · ') }
 }
 
+/** A blocked run: paused by the person, paused at a provider limit, held by a plain pause, or stopped. */
+function blockedKind(item: InboxItem): AttentionCopyKind {
+  const held = item.detail?.startsWith('held:') ? item.detail.split(':')[1] : null
+  if (held === 'pausedByYou') return 'pausedByYou'
+  if (item.diagnosis?.kind === 'provider_limit') return 'paused'
+  // A plain pause is no limit: it simply waits for the person's Resume.
+  return held === 'paused' ? 'held' : 'stopped'
+}
+
 /** What the item is, for the return toast: its kind, project and title ("Alpha · Add login is ready for review"). */
 export function inboxAttentionCopy(item: InboxItem): AttentionCopy {
   const kind: AttentionCopyKind = item.kind === 'question' ? (item.question?.kind === 'approval' ? 'approval' : 'question')
     : item.kind === 'review' ? 'review'
     : item.kind === 'failed' ? 'stopped'
     : item.kind === 'budget' || item.action === 'raise-cap' ? 'paused'
-    : item.kind === 'blocked' ? (item.diagnosis?.kind === 'provider_limit' || item.detail === 'held:paused' || item.detail?.startsWith('held:paused:') ? 'paused' : 'stopped')
+    : item.kind === 'blocked' ? blockedKind(item)
     : 'generic'
   // A reached cap is about the project's spending, not one spec.
   return { kind, project: item.projectName, subject: item.cap ? null : item.title }

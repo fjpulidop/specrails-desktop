@@ -105,6 +105,8 @@
       "stopped": "The runtime stopped: {{target}}",
       "corrections": "Continuing the remaining tasks (developer)",
       "resumed": "Resuming the saved run",
+      "pausedByYou": "Paused by you",
+      "resumedByYou": "Resumed by you",
       "blocked": "The host environment blocked the run: {{target}}"
     },
     "check": {

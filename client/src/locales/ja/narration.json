@@ -105,6 +105,8 @@
       "stopped": "実行エンジンが停止しました: {{target}}",
       "corrections": "残りのタスクを続行中（開発者）",
       "resumed": "保存した実行を再開しています",
+      "pausedByYou": "あなたが一時停止しました",
+      "resumedByYou": "あなたが再開しました",
       "blocked": "ホスト環境が実行をブロックしました: {{target}}"
     },
     "check": {

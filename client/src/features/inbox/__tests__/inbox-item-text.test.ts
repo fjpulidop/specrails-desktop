@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import i18n from '../../../lib/i18n'
+import i18n, { loadLanguage } from '../../../lib/i18n'
 import { inboxItemText } from '../lib/inbox-item-text'
 import { inboxAttentionText } from '../hooks/useInboxAttention'
 import type { InboxItem } from '../lib/inbox-model'
@@ -33,6 +33,15 @@ describe('one wording per inbox item (row, live board card, notification)', () =
     expect(words.detail).toMatch(/^Continues on its own at .+[^.]$/)
     expect(text({ ...paused, detail: 'usage_limit:claude:' }).detail).toBeNull()
     expect(inboxAttentionText(paused)).toEqual({ title: words.kindLabel, body: `Alpha · Loop "Implement" paused · ${words.detail}` })
+  })
+
+  it('words a run the person paused as paused by them, in the person\'s language', async () => {
+    const paused = mk({ kind: 'blocked', action: 'resume-run', title: 'Implement · #14', detail: 'held:pausedByYou' })
+    expect(text(paused)).toMatchObject({ kindLabel: 'Paused by you', detail: 'Paused by you. Nothing runs until you resume it.' })
+    expect(text({ ...paused, detail: 'held:pausedByYou:developer' }).kindLabel).toBe('Paused by you')
+    await loadLanguage('es')
+    const es = inboxItemText(paused, i18n.getFixedT('es'), 'es')
+    expect(es).toMatchObject({ kindLabel: 'Pausada por ti', detail: 'La pausaste tú. No se ejecuta nada hasta que la reanudes.' })
   })
 
   it('says a failure without a known cause in the app\'s words and keeps the raw outcome for a hover', () => {

@@ -50,3 +50,9 @@ export function userPauseRequestId(runId: string, sequence: number, nowMs: numbe
 
 /** Core's pause reason for the person's Pause (a lowercase token, like `budget`). */
 export const USER_PAUSE_REASON = 'requested'
+
+/** The run log's line when the person resumes a run they paused (live or after a restart). */
+export const USER_RESUME_LINE = '\n▶ Resumed by you — the run continues from its next step.'
+
+/** The structured run event (`{ state: 'paused' | 'resumed' }`) the narrated log words as "Paused by you" / "Resumed by you". */
+export const USER_PAUSE_EVENT = 'run-user-pause'

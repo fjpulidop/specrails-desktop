@@ -22,7 +22,7 @@
 import { acceptedRouteOverrides, currentRoleRoutes } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 import type { ChildProcess } from 'node:child_process'
 import { treeKillSafe as treeKill } from '../../../util/win-spawn'
-import type { DbInstance } from '../../../db'
+import { appendEvent, type DbInstance } from '../../../db'
 import type { InteractiveJobSession } from '../../execution/runtime/interactive-job-session'
 import type { WsMessage } from '../../../types'
 import { getAdapter, requireToolPolicy } from '../../../providers'
@@ -51,7 +51,7 @@ import { bindRunCap, initialEventSeq, normalizeLoopRunRequest, persistLoopRunLau
 import { runDefinitionEngine } from './loop-definition-execution'
 import { runLegacyTraversal } from './loop-legacy-traversal'
 import { saveLimitPause } from './loop-limit-pauses'
-import { clearUserPause, saveUserPause, USER_PAUSE_REASON, userPauseRequestId } from './loop-user-pauses'
+import { clearUserPause, readUserPause, saveUserPause, USER_PAUSE_EVENT, USER_PAUSE_REASON, USER_RESUME_LINE, userPauseRequestId } from './loop-user-pauses'
 import { sharesQuota } from '../../provider-quota/domain'
 import { settleLoopRun } from './loop-run-settlement'
 import type { LoopRunContext, LoopRunHost, LoopRunState } from './loop-run-context'
@@ -610,9 +610,28 @@ export class LoopRunManager {
     const request = frozen.request
     this._emit({ type: 'loop.run_resumed', projectId: request.projectId, loopRunId: runId, railIndex: request.railIndex ?? null,
       ticketIds: request.spec?.ticketIds ?? (request.ticketId == null ? [] : [request.ticketId]) })
+    // A run the person paused, retained over a restart: its log says who resumed it, as a resident resume does.
+    if (!this._stopBeforeStart.has(runId)) this._logUserResume(runId)
     const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId); this._endUserPauseState(runId) })
     this._definitionTasks.set(runId,task)
     return task
+  }
+
+  /** Writes the "Resumed by you" line of a retained run the person paused (before the resumed
+   *  execution numbers its events, so it follows the earlier log in order). */
+  private _logUserResume(runId: string): void {
+    try {
+      if (!readUserPause(this.db, runId)) return
+      const seq = initialEventSeq(this.db, runId, true)
+      const at = new Date(this.now()).toISOString()
+      const resumed = JSON.stringify({ state: 'resumed' })
+      this.db.transaction(() => {
+        appendEvent(this.db, runId, seq, { event_type: 'log', source: 'stdout', payload: JSON.stringify({ line: USER_RESUME_LINE }) })
+        appendEvent(this.db, runId, seq + 1, { event_type: USER_PAUSE_EVENT, source: 'stdout', payload: resumed })
+      })()
+      this._emit({ type: 'log', source: 'stdout', line: USER_RESUME_LINE, timestamp: at, processId: runId })
+      this._emit({ type: 'event', jobId: runId, event_type: USER_PAUSE_EVENT, source: 'stdout', payload: resumed, seq: seq + 1, timestamp: at })
+    } catch { /* the log line is informative; the resume proceeds */ }
   }
 
   /** The run's execution here ended: a settled run drops its Pause record; one left

@@ -377,7 +377,7 @@
     "failed": "Não foi possível enviar sua resposta",
     "showMore": "Ver tudo",
     "showLess": "Ver menos",
-    "notice": "Precisa de você",
+    "notice": "Requer atenção",
     "notHere": "Não fazer aqui",
     "notHereMeaning": "Esta spec não pertence a este repositório; a execução termina sem alterações.",
     "sentEnds": "Resposta enviada: a execução termina."

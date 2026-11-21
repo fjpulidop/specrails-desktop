@@ -560,6 +560,8 @@
         "stopped": "{{subject}} が停止しました",
         "stuck": "{{subject}}：実行が進んでいません",
         "paused": "{{subject}} は上限により一時停止中です",
+        "pausedByYou": "{{subject}} は一時停止中です（あなたが停止）",
+        "held": "{{subject}} は一時停止中です",
         "done": "{{subject}} が完了しました",
         "generic": "{{subject}} の対応が必要です"
       },

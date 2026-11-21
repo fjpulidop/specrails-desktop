@@ -1,5 +1,5 @@
 {
-  "title": "Needs you",
+  "title": "Needs attention",
   "subtitle_one": "{{count}} pending item",
   "subtitle_other": "{{count}} pending items",
   "subtitleEmpty": "You are all caught up",

@@ -21,7 +21,7 @@
     "mission": "Por missão"
   },
   "columns": {
-    "needs": "Precisa de você",
+    "needs": "Requer atenção",
     "working": "Em andamento",
     "done": "Concluído hoje",
     "doneHint": "Esvazia à meia-noite",

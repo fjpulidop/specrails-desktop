@@ -560,6 +560,8 @@
         "stopped": "{{subject}} wurde angehalten",
         "stuck": "{{subject}}: Ein Run kommt nicht voran",
         "paused": "{{subject}} ist wegen eines Limits pausiert",
+        "pausedByYou": "{{subject}} ist pausiert (von dir)",
+        "held": "{{subject}} ist pausiert",
         "done": "{{subject}} ist fertig",
         "generic": "{{subject}} erfordert deine Aufmerksamkeit"
       },

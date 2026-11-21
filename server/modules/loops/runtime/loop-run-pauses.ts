@@ -11,7 +11,7 @@ import { truncate } from './loop-run-vars'
 import { runCounters, type LoopRunContext } from './loop-run-context'
 import { BUDGET_PAUSED, LIMIT_PAUSED, USER_PAUSED, type LoopBudgetBreach, type LoopLimitPause, type PausedHumanDecision } from './loop-run-contract'
 import { clearLimitPause, saveLimitPause } from './loop-limit-pauses'
-import { clearUserPause, markUserPaused } from './loop-user-pauses'
+import { clearUserPause, markUserPaused, USER_PAUSE_EVENT, USER_RESUME_LINE } from './loop-user-pauses'
 import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
 import { runQuestionFrom } from '../../../shared/run-question'
@@ -191,6 +191,8 @@ export async function awaitUserPause(ctx: LoopRunContext, requestId: string): Pr
   const pausedAtMs = host.now()
   const pausedAt = new Date(pausedAtMs).toISOString()
   logLine(`\n■ Paused by you (${USER_PAUSED}) — the step in progress finished; nothing runs until you resume. Resume continues this same run from its next step.`, 'stderr')
+  // The narrated log says it in the person's language ("Paused by you").
+  ctx.events.emitRunEvent(USER_PAUSE_EVENT, { state: 'paused' })
   try { markUserPaused(host.db, runId, requestId, pausedAt) } catch { /* the in-memory pause still holds; a restart keeps the run paused anyway */ }
   pauseLoopRun(host.db, runId, runCounters(state), USER_PAUSED)
   host.emit({ type: 'loop.run_paused', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, reason, ticketIds: exactTicketIds, pauseKind: USER_PAUSED })
@@ -205,7 +207,8 @@ export async function awaitUserPause(ctx: LoopRunContext, requestId: string): Pr
   if (Number.isFinite(state.deadline)) state.deadline += Math.max(0, host.now() - pausedAtMs)
   try { clearUserPause(host.db, runId) } catch { /* a stale record is cleared by the run's settlement */ }
   resumeLoopRun(host.db, runId, new Date(host.now()))
-  logLine(`\n▶ Resumed by you — the run continues from its next step.`)
+  logLine(USER_RESUME_LINE)
+  ctx.events.emitRunEvent(USER_PAUSE_EVENT, { state: 'resumed' })
   host.emit({ type: 'loop.run_resumed', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, ticketIds: exactTicketIds })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: new Date(host.now()).toISOString() })
   // A budget spent while it was paused holds it there before Core continues (awaitBudget takes the slot again).
