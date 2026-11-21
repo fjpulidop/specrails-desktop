@@ -167,18 +167,30 @@
     "cancelJob": "Cancel job",
     "stopRun": "Stop run",
     "stopRunConfirmTitle": "Stop this run?",
-    "stopRunConfirmDescription": "The loop run will stop at the next step boundary. This action cannot be undone.",
+    "stopRunConfirmDescription": "It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.",
     "toast": {
       "cancelSignalSent": "Cancel signal sent",
       "cancelSignalSentDescription": "Job will stop at the next safe point",
-      "stopSignalSent": "Stop signal sent",
-      "stopSignalSentDescription": "The run will stop at the next step boundary",
+      "stopSignalSent": "Stopping the run",
+      "stopSignalSentDescription": "It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.",
       "cancelFailed": "Failed to cancel",
-      "networkError": "Network error"
+      "networkError": "Network error",
+      "pauseRequested": "Pausing the run",
+      "pauseRequestedDescription": "It pauses after the current step. Resume continues this same run.",
+      "pauseFailed": "Couldn’t pause the run",
+      "pauseUnsupported": "This run’s engine can’t pause mid-run. Stop it instead: you can continue it later.",
+      "resumed": "Run resumed",
+      "resumedDescription": "It continues from where it paused.",
+      "resumeFailed": "Couldn’t resume the run"
     },
     "title": "{{kind}} job · #{{id}}",
     "titleLoop": "Loop run · #{{id}}",
-    "titleGeneric": "Job · #{{id}}"
+    "titleGeneric": "Job · #{{id}}",
+    "pauseRun": "Pause",
+    "pausing": "Pausing…",
+    "resumeRun": "Resume",
+    "pauseRunTooltip": "Pause after the current step. Nothing is lost: Resume continues this same run.",
+    "pausingTooltip": "Finishing the current step, then the run pauses."
   },
   "comparison": {
     "title": "Job comparison",
@@ -402,7 +414,8 @@
       "question": "Needs you",
       "approval": "Needs you",
       "paused": "Paused",
-      "queued": "Queued"
+      "queued": "Queued",
+      "pausedByYou": "Paused by you"
     },
     "tooltip": {
       "restart": "The app restarted while this run was working. Nothing runs until you continue it.",
@@ -412,7 +425,8 @@
       "question": "The run asked you something and waits for your answer.",
       "approval": "The run waits for your approval to go on.",
       "paused": "Nothing runs until you continue it.",
-      "queued": "Launched, waiting for capacity. It starts by itself when there is room."
+      "queued": "Launched, waiting for capacity. It starts by itself when there is room.",
+      "pausedByYou": "You paused this run. It holds no run slot, and nothing runs until you resume it."
     },
     "reason": {
       "restart": "The app restarted during the {{step}} step.",
@@ -424,7 +438,8 @@
       "question": "Waiting for your answer.",
       "approval": "Waiting for your approval.",
       "paused": "Nothing runs until you continue it.",
-      "queued": "Waiting for capacity before it starts."
+      "queued": "Waiting for capacity before it starts.",
+      "pausedByYou": "Paused by you. Nothing runs until you resume it."
     },
     "stoppedTime": "Time it worked until it stopped",
     "cancelRun": "Cancel run",

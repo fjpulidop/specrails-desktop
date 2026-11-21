@@ -25,6 +25,7 @@ import { finishDefinitionCancellation } from './modules/loops/runtime/definition
 import { appendEvent, updateProjectSettings } from './db'
 import { clearLimitPause, readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import { clearRetainedBudgetPause, readRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
+import { clearUserPause } from './modules/loops/runtime/loop-user-pauses'
 import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-resume'
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
@@ -82,6 +83,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       const resumed = c.loopRunManager.resumeBudgetPause(runId, choice)
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
+    }
+    // A resident run the person paused resumes in place: the same attempt continues from its next step.
+    if (run && run.project_id === c.project.id && c.loopRunManager.resumeUserPause?.(runId)) {
+      res.status(202).json({ loopRunId: runId, resumed: true }); return
     }
     // provider-quota: a resident run waiting for a usage-limit reset resumes now (the provider may still refuse).
     if (run && run.project_id === c.project.id && c.loopRunManager.limitPause?.(runId)) {
@@ -165,6 +170,27 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(202).json({ loopRunId: runId, provider: body.provider, model }); return
     }
     res.status(400).json({ error: 'invalid_limit_action' })
+  })
+
+  // The person's Pause of a running Core definition run: Core finishes the step in progress and
+  // parks at the next step boundary; the run holds as paused by you until Resume (same attempt).
+  router.post('/:projectId/loop-runs/:id/pause', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
+    if (run.engine_version !== 2) { res.status(409).json({ error: 'pause_unsupported', detail: 'This run cannot pause; Stop ends it at its next step.' }); return }
+    try {
+      const result = await c.loopRunManager.requestUserPause(runId)
+      if (result.status === 'pausing') { res.status(202).json({ loopRunId: runId, pausing: true, requestId: result.requestId }); return }
+      if (result.status === 'paused') { res.status(200).json({ loopRunId: runId, paused: true }); return }
+      const detail = result.status === 'unsupported' ? "This run's Core cannot pause mid-run; Stop ends it at its next step."
+        : result.status === 'held' ? 'The run is already held and does no work.'
+          : result.status === 'not_ready' ? 'The run has not started its first step yet.'
+            : 'The run is not running in this app.'
+      res.status(409).json({ error: result.status === 'unsupported' ? 'pause_unsupported' : `pause_${result.status}`, detail })
+    } catch (error) {
+      res.status(409).json({ error: 'pause_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
   })
 
   router.post('/:projectId/loop-runs/:id/cancel', async (req: Request, res: Response) => {
@@ -797,7 +823,7 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
     const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
     // A resume answers any usage-limit or budget pause the run carried over a restart (the
     // resume route answered the budget gate first), so neither holds the run once it moves on.
-    try { clearLimitPause(c.db, runId); clearRetainedBudgetPause(c.db, runId) } catch { /* the records are advisory once the run moves on */ }
+    try { clearLimitPause(c.db, runId); clearRetainedBudgetPause(c.db, runId); clearUserPause(c.db, runId) } catch { /* the records are advisory once the run moves on */ }
     // Resident executions already own their original settlement callback.
     if (!resident) void completion.then(async result => {
       if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)

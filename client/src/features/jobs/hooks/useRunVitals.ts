@@ -168,7 +168,10 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
       const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string; pauseKind?: string; budget?: unknown; limit?: unknown; question?: unknown }
       if (msg?.type === 'loop.run_paused' && msg.loopRunId === runId) {
         setPaused(true)
-        setPausedReason(typeof msg.reason === 'string' ? msg.reason : null)
+        // The person's own Pause reads as its hold (localized "Paused by you"), not the server's sentence.
+        const byYou = msg.pauseKind === 'user_paused'
+        if (byYou) setHold({ kind: 'paused', byYou: true, step: null, since: new Date().toISOString() })
+        setPausedReason(!byYou && typeof msg.reason === 'string' ? msg.reason : null)
         setPauseBudget(msg.pauseKind === 'budget_paused' ? readDailyBudgetInfo(msg.budget) : null)
         setPauseLimit(msg.pauseKind === 'limit_paused' ? readLimitPause(msg.limit) : null)
         setQuestion(readRunQuestion(msg.question))

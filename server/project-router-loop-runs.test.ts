@@ -598,3 +598,44 @@ describe('continuing a run that settled on a usage limit on another provider', (
     expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku' } })).body).toMatchObject({ error: 'switch_unavailable' })
   })
 })
+
+describe('loop runs — the person\'s Pause', () => {
+  function pauseApp(manager: Record<string, unknown>, engineVersion = 2) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'r1', projectId: 'p1', loopId: 'implement', ticketIds: [], provider: 'claude', model: 'haiku', iterationLimit: 3, startedAt: '2026-11-21T08:00:00Z' })
+    db.prepare('UPDATE loop_runs SET engine_version=? WHERE id=?').run(engineVersion, 'r1')
+    const app = express(); app.use(express.json()); const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: manager, dailyBudgetRejection: () => null, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    return { app, db }
+  }
+
+  it('requests a pause at the next step boundary and answers 202 pausing', async () => {
+    const requestUserPause = vi.fn().mockResolvedValue({ status: 'pausing', requestId: 'desktop-user-pause:r1:1:abc' })
+    const res = await request(pauseApp({ requestUserPause }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ loopRunId: 'r1', pausing: true, requestId: 'desktop-user-pause:r1:1:abc' })
+    expect(requestUserPause).toHaveBeenCalledWith('r1')
+  })
+
+  it('409s a run that cannot pause: a legacy run, an older Core, a held or settled run', async () => {
+    expect((await request(pauseApp({ requestUserPause: vi.fn() }, 1).app).post('/api/projects/p1/loop-runs/r1/pause').send({})).body).toMatchObject({ error: 'pause_unsupported' })
+    for (const [status, error] of [['unsupported', 'pause_unsupported'], ['held', 'pause_held'], ['not_running', 'pause_not_running']] as const) {
+      const res = await request(pauseApp({ requestUserPause: vi.fn().mockResolvedValue({ status }) }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe(error)
+    }
+    expect((await request(pauseApp({ requestUserPause: vi.fn().mockRejectedValue(new Error('Core did not acknowledge')) }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})).body)
+      .toEqual({ error: 'pause_rejected', detail: 'Core did not acknowledge' })
+  })
+
+  it('resumes a resident run the person paused in place', async () => {
+    const resumeUserPause = vi.fn().mockReturnValue(true)
+    const beginDefinitionResume = vi.fn()
+    const res = await request(pauseApp({ budgetPause: () => null, resumeUserPause, beginDefinitionResume }).app).post('/api/projects/p1/loop-runs/r1/resume').send({})
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ loopRunId: 'r1', resumed: true })
+    expect(resumeUserPause).toHaveBeenCalledWith('r1')
+    expect(beginDefinitionResume).not.toHaveBeenCalled()
+  })
+})

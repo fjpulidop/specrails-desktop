@@ -167,18 +167,30 @@
     "cancelJob": "Job abbrechen",
     "stopRun": "Lauf stoppen",
     "stopRunConfirmTitle": "Diesen Lauf stoppen?",
-    "stopRunConfirmDescription": "Der Loop-Lauf stoppt an der nächsten Schrittgrenze. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "stopRunConfirmDescription": "Er stoppt beim nächsten Schritt und wird abgeschlossen. Du kannst ihn später in einem neuen Versuch fortsetzen, die Arbeit bleibt erhalten.",
     "toast": {
       "cancelSignalSent": "Abbruchsignal gesendet",
       "cancelSignalSentDescription": "Der Job stoppt am nächsten sicheren Punkt",
-      "stopSignalSent": "Stoppsignal gesendet",
-      "stopSignalSentDescription": "Der Lauf stoppt an der nächsten Schrittgrenze",
+      "stopSignalSent": "Lauf wird gestoppt",
+      "stopSignalSentDescription": "Er stoppt beim nächsten Schritt und wird abgeschlossen. Du kannst ihn später in einem neuen Versuch fortsetzen, die Arbeit bleibt erhalten.",
       "cancelFailed": "Abbrechen fehlgeschlagen",
-      "networkError": "Netzwerkfehler"
+      "networkError": "Netzwerkfehler",
+      "pauseRequested": "Lauf wird pausiert",
+      "pauseRequestedDescription": "Er pausiert nach dem aktuellen Schritt. Fortsetzen setzt genau diesen Lauf fort.",
+      "pauseFailed": "Lauf konnte nicht pausiert werden",
+      "pauseUnsupported": "Die Engine dieses Laufs kann nicht mittendrin pausieren. Stoppe ihn stattdessen: Du kannst ihn später fortsetzen.",
+      "resumed": "Lauf fortgesetzt",
+      "resumedDescription": "Er macht dort weiter, wo er pausiert wurde.",
+      "resumeFailed": "Lauf konnte nicht fortgesetzt werden"
     },
     "title": "{{kind}}-Job · #{{id}}",
     "titleLoop": "Loop-Lauf · #{{id}}",
-    "titleGeneric": "Job · #{{id}}"
+    "titleGeneric": "Job · #{{id}}",
+    "pauseRun": "Pausieren",
+    "pausing": "Wird pausiert…",
+    "resumeRun": "Fortsetzen",
+    "pauseRunTooltip": "Nach dem aktuellen Schritt pausieren. Nichts geht verloren: Fortsetzen setzt genau diesen Lauf fort.",
+    "pausingTooltip": "Der aktuelle Schritt wird abgeschlossen, dann pausiert der Lauf."
   },
   "comparison": {
     "title": "Job-Vergleich",
@@ -402,7 +414,8 @@
       "question": "Braucht dich",
       "approval": "Braucht dich",
       "paused": "Pausiert",
-      "queued": "In Warteschlange"
+      "queued": "In Warteschlange",
+      "pausedByYou": "Von dir pausiert"
     },
     "tooltip": {
       "restart": "Die App wurde neu gestartet, während dieser Lauf arbeitete. Nichts läuft, bis du ihn fortsetzt.",
@@ -412,7 +425,8 @@
       "question": "Der Lauf hat dir eine Frage gestellt und wartet auf deine Antwort.",
       "approval": "Der Lauf wartet auf deine Freigabe, um weiterzumachen.",
       "paused": "Nichts läuft, bis du ihn fortsetzt.",
-      "queued": "Gestartet, wartet auf Kapazität. Es beginnt von selbst, sobald Platz ist."
+      "queued": "Gestartet, wartet auf Kapazität. Es beginnt von selbst, sobald Platz ist.",
+      "pausedByYou": "Du hast diesen Lauf pausiert. Er belegt keinen Lauf-Slot, und nichts läuft, bis du ihn fortsetzt."
     },
     "reason": {
       "restart": "Die App wurde während des Schritts {{step}} neu gestartet.",
@@ -424,7 +438,8 @@
       "question": "Wartet auf deine Antwort.",
       "approval": "Wartet auf deine Freigabe.",
       "paused": "Nichts läuft, bis du ihn fortsetzt.",
-      "queued": "Wartet auf Kapazität, bevor es beginnt."
+      "queued": "Wartet auf Kapazität, bevor es beginnt.",
+      "pausedByYou": "Von dir pausiert. Nichts läuft, bis du ihn fortsetzt."
     },
     "stoppedTime": "Arbeitszeit bis zum Anhalten",
     "cancelRun": "Lauf abbrechen",

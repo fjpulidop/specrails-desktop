@@ -26,6 +26,9 @@ describe('runAnnouncementFor', () => {
   it('distinguishes a budget pause from a decision pause and a provider limit', () => {
     expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0, pauseKind: 'budget_paused' })).toMatchObject({ kind: 'paused', detail: 'budget' })
     expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0 })).toMatchObject({ kind: 'needsYou' })
+    // The person's own Pause is a pause, never "needs you".
+    expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0, pauseKind: 'user_paused' })).toEqual(expect.objectContaining({ kind: 'paused' }))
+    expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0, pauseKind: 'user_paused' })?.detail).toBeUndefined()
     expect(f({ type: 'loop.provider_limit', runId: 'r1' })).toMatchObject({ kind: 'paused', detail: 'limit' })
   })
 

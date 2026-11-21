@@ -52,6 +52,12 @@ export interface LoopRunHost {
   claimDefinition(req: LoopRunRequest & { runId: string }): void
   releaseDefinition(runId: string): void
   cancelResident(runId: string, graceful: boolean): void
+  /** The person's pending Pause of this run (its Core request id), or null. */
+  userPauseRequest(runId: string): string | null
+  /** The pending Pause was answered: the run parked on it, or it no longer applies. */
+  endUserPauseRequest(runId: string): void
+  /** What the run's retained Core said about the cooperative pause (the Pause control needs it). */
+  notePauseSupport(runId: string, supported: boolean): void
   runInteractiveAiStep(input: InteractiveAiStepInput): Promise<AiStepResult>
 }
 

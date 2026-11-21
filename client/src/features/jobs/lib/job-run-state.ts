@@ -58,6 +58,7 @@ export function jobHoldOf(job: Pick<JobSummary, 'status' | 'hold'> | null | unde
     ...(typeof hold.resumeAt === 'string' ? { resumeAt: hold.resumeAt } : {}),
     ...(typeof hold.waitingFor === 'string' ? { waitingFor: hold.waitingFor } : {}),
     ...(typeof hold.position === 'number' ? { position: hold.position } : {}),
+    ...(hold.kind === 'paused' && hold.byYou === true ? { byYou: true } : {}),
   }
 }
 
@@ -78,7 +79,10 @@ export function jobDisplayStatus(job: Pick<JobSummary, 'status' | 'hold'>): stri
 export function jobStatusLook(job: string | Pick<JobSummary, 'status' | 'hold'>): JobStatusLook {
   const status = typeof job === 'string' ? job : job.status
   const hold = typeof job === 'string' ? null : jobHoldOf(job)
-  if (hold) return { state: HELD_RUN_STATE[hold.kind], labelKey: `held.label.${hold.kind}`, tooltipKey: `held.tooltip.${hold.kind}` }
+  if (hold) {
+    const key = hold.byYou ? 'pausedByYou' : hold.kind
+    return { state: HELD_RUN_STATE[hold.kind], labelKey: `held.label.${key}`, tooltipKey: `held.tooltip.${key}` }
+  }
   return isJobStatus(status) ? JOB_STATUS_LOOK[status] : JOB_STATUS_LOOK.queued
 }
 
@@ -91,6 +95,7 @@ export function holdStepName(t: TFunction, step: string): string {
 /** One plain sentence: why the run is not working ("The app restarted during the Developer step."). */
 export function describeJobHold(t: TFunction, hold: JobHold): string {
   if (hold.kind === 'queued') return queuedReason(t, hold.waitingFor, hold.position)
+  if (hold.byYou) return t('jobs:held.reason.pausedByYou')
   const withStep = hold.step && (hold.kind === 'restart' || hold.kind === 'interrupted')
   return withStep
     ? t(`jobs:held.reason.${hold.kind}`, { step: holdStepName(t, hold.step!) })

@@ -167,18 +167,30 @@
     "cancelJob": "Annuler le job",
     "stopRun": "Arrêter l'exécution",
     "stopRunConfirmTitle": "Arrêter cette exécution ?",
-    "stopRunConfirmDescription": "L'exécution de la boucle s'arrêtera à la prochaine limite d'étape. Cette action est irréversible.",
+    "stopRunConfirmDescription": "Elle s’arrête à l’étape suivante et se clôt. Vous pourrez la poursuivre plus tard dans une nouvelle tentative qui conserve le travail.",
     "toast": {
       "cancelSignalSent": "Signal d'annulation envoyé",
       "cancelSignalSentDescription": "Le job s'arrêtera au prochain point sûr",
-      "stopSignalSent": "Signal d'arrêt envoyé",
-      "stopSignalSentDescription": "L'exécution s'arrêtera à la prochaine limite d'étape",
+      "stopSignalSent": "Arrêt de l’exécution",
+      "stopSignalSentDescription": "Elle s’arrête à l’étape suivante et se clôt. Vous pourrez la poursuivre plus tard dans une nouvelle tentative qui conserve le travail.",
       "cancelFailed": "Échec de l'annulation",
-      "networkError": "Erreur réseau"
+      "networkError": "Erreur réseau",
+      "pauseRequested": "Mise en pause de l’exécution",
+      "pauseRequestedDescription": "Elle se met en pause après l’étape en cours. Reprendre poursuit cette même exécution.",
+      "pauseFailed": "Impossible de mettre l’exécution en pause",
+      "pauseUnsupported": "Le moteur de cette exécution ne peut pas se mettre en pause en cours de route. Arrêtez-la plutôt : vous pourrez la poursuivre plus tard.",
+      "resumed": "Exécution reprise",
+      "resumedDescription": "Elle reprend là où elle s’était mise en pause.",
+      "resumeFailed": "Impossible de reprendre l’exécution"
     },
     "title": "Tâche {{kind}} · #{{id}}",
     "titleLoop": "Exécution de boucle · #{{id}}",
-    "titleGeneric": "Tâche · #{{id}}"
+    "titleGeneric": "Tâche · #{{id}}",
+    "pauseRun": "Mettre en pause",
+    "pausing": "Mise en pause…",
+    "resumeRun": "Reprendre",
+    "pauseRunTooltip": "Mettre en pause après l’étape en cours. Rien n’est perdu : Reprendre poursuit cette même exécution.",
+    "pausingTooltip": "L’étape en cours se termine, puis l’exécution se met en pause."
   },
   "comparison": {
     "title": "Comparaison de jobs",
@@ -402,7 +414,8 @@
       "question": "Vous attend",
       "approval": "Vous attend",
       "paused": "En pause",
-      "queued": "En file d'attente"
+      "queued": "En file d'attente",
+      "pausedByYou": "Mise en pause par vous"
     },
     "tooltip": {
       "restart": "L’app a redémarré pendant que cette exécution travaillait. Rien ne s’exécute tant que vous ne la reprenez pas.",
@@ -412,7 +425,8 @@
       "question": "L’exécution vous a posé une question et attend votre réponse.",
       "approval": "L’exécution attend votre approbation pour continuer.",
       "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
-      "queued": "Lancé, en attente de capacité. Il démarre tout seul dès qu'il y a de la place."
+      "queued": "Lancé, en attente de capacité. Il démarre tout seul dès qu'il y a de la place.",
+      "pausedByYou": "Vous avez mis cette exécution en pause. Elle n’occupe aucun créneau d’exécution, et rien ne s’exécute tant que vous ne la reprenez pas."
     },
     "reason": {
       "restart": "L’app a redémarré pendant l’étape {{step}}.",
@@ -424,7 +438,8 @@
       "question": "En attente de votre réponse.",
       "approval": "En attente de votre approbation.",
       "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
-      "queued": "En attente de capacité avant de démarrer."
+      "queued": "En attente de capacité avant de démarrer.",
+      "pausedByYou": "Mise en pause par vous. Rien ne s’exécute tant que vous ne la reprenez pas."
     },
     "stoppedTime": "Temps de travail jusqu’à l’arrêt",
     "cancelRun": "Annuler l’exécution",

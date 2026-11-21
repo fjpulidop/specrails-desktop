@@ -2853,6 +2853,7 @@
       "runtime/loop-run-manager.ts",
       "runtime/loop-runs-store.ts",
       "runtime/loop-turn-limits.ts",
+      "runtime/loop-user-pauses.ts",
       "runtime/loops-router.ts",
       "runtime/loops-store.ts",
       "runtime/run-attempts.ts"
@@ -2931,7 +2932,8 @@
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-pauses",
-        "./loop-runs-store"
+        "./loop-runs-store",
+        "./loop-user-pauses"
       ],
       "runtime/loop-definition-recovery.ts": [
         "../../../core-node-runtime",
@@ -3175,7 +3177,8 @@
         "../../../db",
         "./loop-budget-pauses",
         "./loop-limit-pauses",
-        "./loop-run-contract"
+        "./loop-run-contract",
+        "./loop-user-pauses"
       ],
       "runtime/loop-run-launch.ts": [
         "../../../db",
@@ -3223,6 +3226,7 @@
         "./loop-run-vars",
         "./loop-runs-store",
         "./loop-step-accounting",
+        "./loop-user-pauses",
         "node:child_process"
       ],
       "runtime/loop-run-pauses.ts": [
@@ -3234,7 +3238,8 @@
         "./loop-run-context",
         "./loop-run-contract",
         "./loop-run-vars",
-        "./loop-runs-store"
+        "./loop-runs-store",
+        "./loop-user-pauses"
       ],
       "runtime/loop-run-settlement.ts": [
         "../../../core-completion",
@@ -3287,6 +3292,9 @@
       "runtime/loop-turn-limits.ts": [
         "./loop-agents",
         "./loop-graph"
+      ],
+      "runtime/loop-user-pauses.ts": [
+        "../../../db"
       ],
       "runtime/loops-router.ts": [
         "../../../db",

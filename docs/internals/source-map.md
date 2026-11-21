@@ -586,6 +586,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
 - [LoopRunDetail.tsx](../../client/src/features/jobs/components/job-run/LoopRunDetail.tsx)
 - [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
+- [RunPauseControl.tsx](../../client/src/features/jobs/components/job-run/RunPauseControl.tsx)
 - [RunQuestionDock.tsx](../../client/src/features/jobs/components/job-run/RunQuestionDock.tsx)
 - [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
 - [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
@@ -607,6 +608,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [job-run-state.ts](../../client/src/features/jobs/lib/job-run-state.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-run-state.test.ts)
 - [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
 - [log-lines.ts](../../client/src/features/jobs/lib/log-lines.ts)
+- [pause-run.ts](../../client/src/features/jobs/lib/pause-run.ts)
 
 ## client/src/features/jobs/pages
 
@@ -2237,6 +2239,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-step-idle.ts](../../server/modules/loops/runtime/loop-step-idle.ts) · [test](../../server/modules/loops/runtime/loop-step-idle.test.ts)
 - [loop-templates.ts](../../server/modules/loops/runtime/loop-templates.ts) · [test](../../server/modules/loops/runtime/loop-templates.test.ts)
 - [loop-turn-limits.ts](../../server/modules/loops/runtime/loop-turn-limits.ts) · [test](../../server/modules/loops/runtime/loop-turn-limits.test.ts)
+- [loop-user-pauses.ts](../../server/modules/loops/runtime/loop-user-pauses.ts)
 - [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
 - [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)
 - [run-attempts.ts](../../server/modules/loops/runtime/run-attempts.ts) · [test](../../server/modules/loops/runtime/run-attempts.test.ts)

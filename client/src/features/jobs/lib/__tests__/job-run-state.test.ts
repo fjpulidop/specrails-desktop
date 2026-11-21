@@ -73,6 +73,17 @@ describe('a held job (its row says running, its run is stopped)', async () => {
     expect(describeJobHold(t, { kind: 'interrupted', step: 'spec-review', since: null })).toBe('The Spec review step stopped before it finished.')
   })
 
+  it('words a run the person paused as paused by you, in its look and its reason', async () => {
+    const hold = { kind: 'paused', byYou: true, step: null, since: null } as const
+    expect(jobHoldOf(running(hold))).toMatchObject({ kind: 'paused', byYou: true })
+    expect(jobStatusLook(running(hold))).toEqual({ state: 'paused', labelKey: 'held.label.pausedByYou', tooltipKey: 'held.tooltip.pausedByYou' })
+    expect(jobStatusLook(running({ kind: 'paused', step: null, since: null })).labelKey).toBe('held.label.paused')
+    expect(describeJobHold(i18n.getFixedT('en'), hold)).toBe('Paused by you. Nothing runs until you resume it.')
+    const { loadLanguage } = await import('../../../../lib/i18n')
+    await loadLanguage('es')
+    expect(i18n.getFixedT('es')('jobs:held.label.pausedByYou')).toBe('Pausada por ti')
+  })
+
   it('says it in Spanish too', async () => {
     const { loadLanguage } = await import('../../../../lib/i18n')
     await loadLanguage('es')

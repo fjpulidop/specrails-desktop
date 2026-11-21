@@ -167,18 +167,30 @@
     "cancelJob": "Annulla job",
     "stopRun": "Ferma esecuzione",
     "stopRunConfirmTitle": "Fermare questa esecuzione?",
-    "stopRunConfirmDescription": "L'esecuzione del loop si fermerà al prossimo confine di step. Questa azione non può essere annullata.",
+    "stopRunConfirmDescription": "Si ferma al passo successivo e si chiude. Potrai continuarla più tardi in un nuovo tentativo che conserva il lavoro.",
     "toast": {
       "cancelSignalSent": "Segnale di annullamento inviato",
       "cancelSignalSentDescription": "Il job si fermerà al prossimo punto sicuro",
-      "stopSignalSent": "Segnale di arresto inviato",
-      "stopSignalSentDescription": "L'esecuzione si fermerà al prossimo confine di step",
+      "stopSignalSent": "Arresto dell’esecuzione",
+      "stopSignalSentDescription": "Si ferma al passo successivo e si chiude. Potrai continuarla più tardi in un nuovo tentativo che conserva il lavoro.",
       "cancelFailed": "Annullamento non riuscito",
-      "networkError": "Errore di rete"
+      "networkError": "Errore di rete",
+      "pauseRequested": "Messa in pausa dell’esecuzione",
+      "pauseRequestedDescription": "Va in pausa dopo il passo corrente. Riprendi continua questa stessa esecuzione.",
+      "pauseFailed": "Impossibile mettere in pausa l’esecuzione",
+      "pauseUnsupported": "Il motore di questa esecuzione non può mettersi in pausa a metà. Fermala invece: potrai continuarla più tardi.",
+      "resumed": "Esecuzione ripresa",
+      "resumedDescription": "Continua da dove era stata messa in pausa.",
+      "resumeFailed": "Impossibile riprendere l’esecuzione"
     },
     "title": "Job {{kind}} · #{{id}}",
     "titleLoop": "Esecuzione del loop · #{{id}}",
-    "titleGeneric": "Job · #{{id}}"
+    "titleGeneric": "Job · #{{id}}",
+    "pauseRun": "Metti in pausa",
+    "pausing": "Messa in pausa…",
+    "resumeRun": "Riprendi",
+    "pauseRunTooltip": "Metti in pausa dopo il passo corrente. Non si perde nulla: Riprendi continua questa stessa esecuzione.",
+    "pausingTooltip": "Il passo corrente sta terminando, poi l’esecuzione va in pausa."
   },
   "comparison": {
     "title": "Confronto job",
@@ -402,7 +414,8 @@
       "question": "Ti aspetta",
       "approval": "Ti aspetta",
       "paused": "In pausa",
-      "queued": "In coda"
+      "queued": "In coda",
+      "pausedByYou": "Messa in pausa da te"
     },
     "tooltip": {
       "restart": "L’app si è riavviata mentre questa esecuzione lavorava. Non viene eseguito nulla finché non la continui.",
@@ -412,7 +425,8 @@
       "question": "L’esecuzione ti ha fatto una domanda e attende la tua risposta.",
       "approval": "L’esecuzione attende la tua approvazione per proseguire.",
       "paused": "Non viene eseguito nulla finché non la continui.",
-      "queued": "Avviato, in attesa di capacità. Parte da solo quando c'è posto."
+      "queued": "Avviato, in attesa di capacità. Parte da solo quando c'è posto.",
+      "pausedByYou": "Hai messo in pausa questa esecuzione. Non occupa alcuno slot di esecuzione e non viene eseguito nulla finché non la riprendi."
     },
     "reason": {
       "restart": "L’app si è riavviata durante il passo {{step}}.",
@@ -424,7 +438,8 @@
       "question": "In attesa della tua risposta.",
       "approval": "In attesa della tua approvazione.",
       "paused": "Non viene eseguito nulla finché non la continui.",
-      "queued": "In attesa di capacità prima di partire."
+      "queued": "In attesa di capacità prima di partire.",
+      "pausedByYou": "Messa in pausa da te. Non viene eseguito nulla finché non la riprendi."
     },
     "stoppedTime": "Tempo di lavoro fino all’arresto",
     "cancelRun": "Annulla esecuzione",

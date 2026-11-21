@@ -167,18 +167,30 @@
     "cancelJob": "Cancelar trabajo",
     "stopRun": "Detener ejecución",
     "stopRunConfirmTitle": "¿Detener esta ejecución?",
-    "stopRunConfirmDescription": "La ejecución del loop se detendrá en el siguiente límite de paso. Esta acción no se puede deshacer.",
+    "stopRunConfirmDescription": "Se detiene en el siguiente paso y se cierra. Podrás continuar más tarde en un intento nuevo conservando el trabajo.",
     "toast": {
       "cancelSignalSent": "Señal de cancelación enviada",
       "cancelSignalSentDescription": "El trabajo se detendrá en el siguiente punto seguro",
-      "stopSignalSent": "Señal de detención enviada",
-      "stopSignalSentDescription": "La ejecución se detendrá en el siguiente límite de paso",
+      "stopSignalSent": "Deteniendo la ejecución",
+      "stopSignalSentDescription": "Se detiene en el siguiente paso y se cierra. Podrás continuar más tarde en un intento nuevo conservando el trabajo.",
       "cancelFailed": "No se pudo cancelar",
-      "networkError": "Error de red"
+      "networkError": "Error de red",
+      "pauseRequested": "Pausando la ejecución",
+      "pauseRequestedDescription": "Se pausa tras el paso actual. Reanudar continúa esta misma ejecución.",
+      "pauseFailed": "No se pudo pausar la ejecución",
+      "pauseUnsupported": "El motor de esta ejecución no puede pausarse a mitad. Detenla: podrás continuarla más tarde.",
+      "resumed": "Ejecución reanudada",
+      "resumedDescription": "Continúa desde donde se pausó.",
+      "resumeFailed": "No se pudo reanudar la ejecución"
     },
     "title": "Trabajo {{kind}} · #{{id}}",
     "titleLoop": "Ejecución de loop · #{{id}}",
-    "titleGeneric": "Trabajo · #{{id}}"
+    "titleGeneric": "Trabajo · #{{id}}",
+    "pauseRun": "Pausar",
+    "pausing": "Pausando…",
+    "resumeRun": "Reanudar",
+    "pauseRunTooltip": "Pausa tras el paso actual. No se pierde nada: Reanudar continúa esta misma ejecución.",
+    "pausingTooltip": "Terminando el paso actual; después la ejecución se pausa."
   },
   "comparison": {
     "title": "Comparación de trabajos",
@@ -402,7 +414,8 @@
       "question": "Te necesita",
       "approval": "Te necesita",
       "paused": "Pausado",
-      "queued": "En cola"
+      "queued": "En cola",
+      "pausedByYou": "Pausada por ti"
     },
     "tooltip": {
       "restart": "La app se reinició mientras esta ejecución trabajaba. No se ejecuta nada hasta que la continúes.",
@@ -412,7 +425,8 @@
       "question": "La ejecución te ha preguntado algo y espera tu respuesta.",
       "approval": "La ejecución espera tu aprobación para seguir.",
       "paused": "No se ejecuta nada hasta que la continúes.",
-      "queued": "Lanzado, esperando capacidad. Empieza solo cuando haya hueco."
+      "queued": "Lanzado, esperando capacidad. Empieza solo cuando haya hueco.",
+      "pausedByYou": "Pausaste esta ejecución. No ocupa ningún hueco de ejecución y no se ejecuta nada hasta que la reanudes."
     },
     "reason": {
       "restart": "La app se reinició durante el paso {{step}}.",
@@ -424,7 +438,8 @@
       "question": "Esperando tu respuesta.",
       "approval": "Esperando tu aprobación.",
       "paused": "No se ejecuta nada hasta que la continúes.",
-      "queued": "Esperando capacidad antes de empezar."
+      "queued": "Esperando capacidad antes de empezar.",
+      "pausedByYou": "La pausaste tú. No se ejecuta nada hasta que la reanudes."
     },
     "stoppedTime": "Tiempo que trabajó hasta detenerse",
     "cancelRun": "Cancelar ejecución",

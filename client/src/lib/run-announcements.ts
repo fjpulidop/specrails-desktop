@@ -56,6 +56,8 @@ export function runAnnouncementFor(msg: unknown, activeProjectId: string | null)
       // Only a question or an approval needs the person; a budget or a provider limit is a pause.
       return m.pauseKind === 'budget_paused' ? mk('paused', railOf(m.railIndex), run, 'budget')
         : m.pauseKind === 'limit_paused' ? mk('paused', railOf(m.railIndex), run, 'limit')
+        // The person paused it themselves: a pause, never "needs you".
+        : m.pauseKind === 'user_paused' ? mk('paused', railOf(m.railIndex), run)
         : mk('needsYou', railOf(m.railIndex), run)
     case 'loop.provider_limit': return mk('paused', null, run, 'limit')
     case 'job.stuck': return mk('needsYou', null, run)
