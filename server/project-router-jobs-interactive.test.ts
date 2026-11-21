@@ -388,4 +388,13 @@ describe('the question card on /jobs/:id', () => {
     expect(res.status).toBe(409)
     expect(res.body.error).toBe('not_paused_here')
   })
+
+  it('an approval (no text) for a run not paused in this process is a 409 too, not "text is required"', async () => {
+    // Soak 2: the archive approval of a run a restart had retained answered 400, so the card could not approve it.
+    const { app } = buildApp({ queueOwns: false, loopOwns: false })
+    const res = await request(app).post('/api/projects/p1/jobs/run-r/messages').send({ text: '', interruptId: 'a1', approve: true })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('not_paused_here')
+    expect((await request(app).post('/api/projects/p1/jobs/run-r/messages').send({ text: '' })).status).toBe(400)
+  })
 })
