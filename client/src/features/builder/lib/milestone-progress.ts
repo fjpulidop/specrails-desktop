@@ -277,3 +277,15 @@ export function reviewableDelivery(p: MilestoneProgress): MilestoneDelivery | nu
   const onReview = candidates.find((d) => d.decision === 'on_review')
   return onReview ?? candidates[0]
 }
+
+/** What opening a rail row leads to: its live run, else its delivery's review, else nothing of its own. */
+export type MilestoneRailOpen =
+  | { kind: 'run'; runId: string }
+  | { kind: 'review'; deliveryId: string }
+  | { kind: 'none' }
+
+export function milestoneRailOpen(rail: Pick<MilestoneRail, 'runId' | 'delivery'>): MilestoneRailOpen {
+  if (rail.runId) return { kind: 'run', runId: rail.runId }
+  if (rail.delivery) return { kind: 'review', deliveryId: rail.delivery.id }
+  return { kind: 'none' }
+}

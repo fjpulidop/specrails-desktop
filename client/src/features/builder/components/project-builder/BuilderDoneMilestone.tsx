@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
+import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import { cancelChain, resumeChain, type ChainResumeFrom, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
@@ -23,10 +24,12 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
   const [chainBusy, setChainBusy] = useState(false)
   const m1 = progress.find((p) => p.n === 1) ?? null
 
-  const goTo = useCallback((path: string) => {
+  const goTo = useCallback((path: string, state?: Record<string, unknown>) => {
     setActiveProjectId(projectId)
-    setTimeout(() => navigate(path), 50)
+    setTimeout(() => { if (state) navigate(path, { state }); else navigate(path) }, 50)
   }, [navigate, projectId, setActiveProjectId])
+  const openReview = useCallback((deliveryId: string) => goTo(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/'), [goTo])
+  const openRail = useOpenMilestoneRail({ go: goTo, openReview })
 
   const onResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
     setChainBusy(true)
@@ -72,8 +75,8 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
       <MilestoneCard
         progress={m1}
         chainBusy={chainBusy}
-        onReview={(deliveryId) => goTo(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/')}
-        onOpenRail={() => goTo('/')}
+        onReview={openReview}
+        onOpenRail={openRail}
         onResume={onResume}
         onCancel={onCancel}
         onSetAutoAdvance={onSetAutoAdvance}

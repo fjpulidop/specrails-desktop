@@ -7,6 +7,7 @@ import { Hammer } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
+import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import {
   cancelChain,
@@ -200,10 +201,13 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     navigate(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/')
   }, [navigate])
 
-  const openRail = useCallback(() => {
+  // A rail row opens the rail's own place: its live run, else its delivery's review.
+  const goFromPanel = useCallback((to: string, state?: Record<string, unknown>) => {
     setPanelOpen(false)
-    navigate('/')
+    if (state) navigate(to, { state })
+    else navigate(to)
   }, [navigate])
+  const openRail = useOpenMilestoneRail({ go: goFromPanel, openReview })
 
   if (!activeProjectId || hasBlueprint === false || !blueprint) return null
 

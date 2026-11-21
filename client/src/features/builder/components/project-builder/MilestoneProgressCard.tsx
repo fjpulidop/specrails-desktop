@@ -97,7 +97,8 @@ export interface MilestoneRailRowProps {
   rail: MilestoneRail
   now: number
   onReview?: (deliveryId: string) => void
-  onOpenRail?: (railIndex: number) => void
+  /** Opens the rail's place (its run, else its review): the whole rail is passed. */
+  onOpenRail?: (rail: MilestoneRail) => void
 }
 
 export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneRailRowProps) {
@@ -119,7 +120,7 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
       )}
       <button
         type="button"
-        onClick={() => onOpenRail?.(rail.railIndex)}
+        onClick={() => onOpenRail?.(rail)}
         className="min-w-0 flex-1 truncate text-left text-caption font-medium hover:underline"
         title={t('milestoneProgress.rail.open')}
       >
@@ -368,7 +369,7 @@ export interface MilestoneCardProps {
   actions?: ReactNode
   chainBusy?: boolean
   onReview?: (deliveryId: string) => void
-  onOpenRail?: (railIndex: number) => void
+  onOpenRail?: (rail: MilestoneRail) => void
   onResume?: (chainId: string, from?: ChainResumeFrom) => void
   onCancel?: (chainId: string) => void
   onSetAutoAdvance?: (chainId: string, on: boolean) => void

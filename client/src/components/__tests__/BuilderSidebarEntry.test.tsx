@@ -165,6 +165,27 @@ describe('BuilderSidebarEntry', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/review/d-3')
   })
 
+  it('a rail row opens its live run (Board mode: /jobs/<id>) and closes the flyout; a delivery-only rail opens its review', async () => {
+    const delivery = { id: 'd-3', railIndex: 3, ticketIds: [1], decision: 'on_review', branch: 'b', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null }
+    progressState.progress = [m1({
+      state: 'running',
+      rails: [
+        { railIndex: 0, name: 'M1 · #6', ticketIds: [6], active: true, runId: 'loop-run-1', startedAt: null, chunkIndex: 1, delivery: null },
+        { railIndex: 3, name: 'M1 · #7', ticketIds: [1], active: false, runId: null, startedAt: null, chunkIndex: 2, delivery },
+      ],
+    }), m2]
+    const user = await openPanel()
+    await user.click(screen.getByText('M1 · #6'))
+    expect(mockNavigate).toHaveBeenCalledWith('/jobs/loop-run-1', { state: { placePush: 'job' } })
+    await waitFor(() => expect(screen.queryByTestId('builder-sidebar-panel')).not.toBeInTheDocument())
+    mockNavigate.mockClear()
+    await user.click(screen.getByTestId('builder-sidebar-toggle'))
+    await waitFor(() => expect(screen.getByTestId('builder-sidebar-panel')).toBeInTheDocument())
+    await user.click(screen.getByText('M1 · #7'))
+    expect(mockNavigate).toHaveBeenCalledWith('/review/d-3')
+    await waitFor(() => expect(screen.queryByTestId('builder-sidebar-panel')).not.toBeInTheDocument())
+  })
+
   it('[spec:milestone-lifecycle/launch-milestone-1-cta] Launch M1 posts the stored preference (auto-continue ON by default) and toasts the chain framing', async () => {
     launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }], pending: [[2], [3]], ticketCount: 1, skippedCount: 2 })
     const user = await openPanel()

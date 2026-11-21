@@ -193,7 +193,7 @@ describe('MilestoneChainRow / MilestoneRailRow', () => {
     expect(screen.getByText('Rail 4')).toBeInTheDocument()
     expect(screen.getByText('No delivery yet')).toBeInTheDocument()
     await user.click(screen.getByText('Rail 4'))
-    expect(onOpenRail).toHaveBeenCalledWith(3)
+    expect(onOpenRail).toHaveBeenCalledWith(expect.objectContaining({ railIndex: 3 }))
     expect(screen.queryByTestId('milestone-rail-review')).not.toBeInTheDocument()
   })
 })

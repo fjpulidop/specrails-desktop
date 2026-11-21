@@ -79,6 +79,7 @@
       "lib/milestone-launch.ts"
     ],
     "dependencies": [
+      "inbox",
       "missions",
       "projects",
       "providers"
