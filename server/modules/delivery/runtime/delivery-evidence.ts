@@ -785,7 +785,8 @@ export function definitionReviewBrief(status: DefinitionRunProbe, reviewerStepId
     const reviewer = scope.kind === 'implementation' ? output.review
       : scope.kind === 'implementation-step' && output.phase === 'reviewer' ? output
       : reviewerStepId === scope.nodePath && scope.kind === 'role-turn' ? (output.structured ?? output) : null
-    const record = reviewBriefFromReviewerOutput(reviewer)
+    // Core review triage records the findings it kept out of the run next to the structured review.
+    const record = reviewBriefFromReviewerOutput(reviewer, 'definition', scope.kind === 'role-turn' ? output.reviewNotes : undefined)
     if (record) found = record
   }
   return found

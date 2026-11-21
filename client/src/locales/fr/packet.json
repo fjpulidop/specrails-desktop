@@ -225,7 +225,8 @@
       "invariantsTouched": "Invariants touchés",
       "untested": "Chemins non testés",
       "humanChecks": "Vérifications humaines",
-      "divergences": "Écarts avec la spec"
+      "divergences": "Écarts avec la spec",
+      "reviewNotes": "Notes du relecteur, non traitées"
     },
     "userVisible": "Visible par les utilisateurs",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} entrées de la note ne respectaient pas le format attendu et ont été ignorées.",
     "topRisk": "Risque principal",
     "moreRisks_one": "+{{count}} autre",
-    "moreRisks_other": "+{{count}} autres"
+    "moreRisks_other": "+{{count}} autres",
+    "reviewNotesCaveat": "Constats que le relecteur a marqués comme hors de cette exécution. Aucune ronde de correction ne les a traités.",
+    "noteKind": {
+      "advice": "Conseil",
+      "out-of-scope": "Hors périmètre",
+      "host-only-check": "Vérification manuelle",
+      "regenerated-lockfile": "Fichier de verrouillage régénéré",
+      "frozen-artifact": "Artefact figé",
+      "withdrawn-criterion": "Retiré par vous",
+      "other": "Note"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} action",

@@ -225,7 +225,8 @@
       "invariantsTouched": "Invariants touched",
       "untested": "Untested paths",
       "humanChecks": "Human checks",
-      "divergences": "Spec divergences"
+      "divergences": "Spec divergences",
+      "reviewNotes": "Reviewer notes, not acted on"
     },
     "userVisible": "Visible to users",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} brief entries did not match the expected format and were skipped.",
     "topRisk": "Top risk",
     "moreRisks_one": "+{{count}} more",
-    "moreRisks_other": "+{{count}} more"
+    "moreRisks_other": "+{{count}} more",
+    "reviewNotesCaveat": "Findings the reviewer marked as not for this run. No correction round acted on them.",
+    "noteKind": {
+      "advice": "Advice",
+      "out-of-scope": "Out of scope",
+      "host-only-check": "Check by hand",
+      "regenerated-lockfile": "Regenerated lockfile",
+      "frozen-artifact": "Frozen artifact",
+      "withdrawn-criterion": "Withdrawn by you",
+      "other": "Note"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} action",

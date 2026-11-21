@@ -225,7 +225,8 @@
       "invariantsTouched": "涉及的不变量",
       "untested": "未测试的路径",
       "humanChecks": "人工检查",
-      "divergences": "与规范的偏差"
+      "divergences": "与规范的偏差",
+      "reviewNotes": "审阅者备注（未处理）"
     },
     "userVisible": "用户可见",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} 条摘要条目格式不符，已跳过。",
     "topRisk": "首要风险",
     "moreRisks_one": "另有 {{count}} 项",
-    "moreRisks_other": "另有 {{count}} 项"
+    "moreRisks_other": "另有 {{count}} 项",
+    "reviewNotesCaveat": "审阅者标记为不属于本次运行的发现。没有修正轮次处理它们。",
+    "noteKind": {
+      "advice": "建议",
+      "out-of-scope": "超出范围",
+      "host-only-check": "人工检查",
+      "regenerated-lockfile": "重新生成的锁文件",
+      "frozen-artifact": "已冻结的产物",
+      "withdrawn-criterion": "你已撤回",
+      "other": "备注"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} 项操作",

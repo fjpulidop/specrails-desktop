@@ -225,7 +225,8 @@
       "invariantsTouched": "影響を受ける不変条件",
       "untested": "テストされていないパス",
       "humanChecks": "人による確認",
-      "divergences": "仕様との相違"
+      "divergences": "仕様との相違",
+      "reviewNotes": "レビュアーのメモ（未対応）"
     },
     "userVisible": "ユーザーに見える",
     "invariantStatus": {
@@ -238,7 +239,17 @@
     "dropped_other": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
     "topRisk": "最大のリスク",
     "moreRisks_one": "他 {{count}} 件",
-    "moreRisks_other": "他 {{count}} 件"
+    "moreRisks_other": "他 {{count}} 件",
+    "reviewNotesCaveat": "レビュアーがこの実行の対象外とした指摘です。修正ラウンドは実行されていません。",
+    "noteKind": {
+      "advice": "助言",
+      "out-of-scope": "対象外",
+      "host-only-check": "手動確認",
+      "regenerated-lockfile": "再生成されたロックファイル",
+      "frozen-artifact": "凍結された成果物",
+      "withdrawn-criterion": "あなたが取り下げ",
+      "other": "メモ"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} 件のアクション",

@@ -2,7 +2,7 @@
  * "What to look at": the AI reviewer's advisory risk brief (Core
  * `reviewBrief: 1`), rendered first in the review packet in a fixed order —
  * risks (high first), behaviour changes, invariants touched, untested paths,
- * human checks. It guides attention; it is never presented as a measurement.
+ * human checks, then the reviewer findings review triage kept out of the run. It guides attention; it is never presented as a measurement.
  *
  * File references stay as plain monospace text: the packet links no files
  * elsewhere, and the Code explorer shows the base checkout rather than the
@@ -131,6 +131,23 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
               </li>
             ))}
           </Group>
+        ) : null}
+        {brief.reviewNotes?.length ? (
+          <div data-testid="brief-review-notes">
+            <h3 className="text-label text-foreground">{t('brief.sections.reviewNotes')}</h3>
+            <p className="mb-1 text-caption text-muted-foreground">{t('brief.reviewNotesCaveat')}</p>
+            <ul className="space-y-1.5">
+              {brief.reviewNotes.map((note, index) => (
+                <li key={`note-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="brief-review-note">
+                  <span className="shrink-0 rounded-full border border-border bg-background-deep/50 px-1.5 py-px text-caption text-muted-foreground">
+                    {t(`brief.noteKind.${note.kind}`, { defaultValue: t('brief.noteKind.other') })}
+                  </span>
+                  <span className="min-w-0 flex-1 text-foreground [overflow-wrap:anywhere]">{note.issue}</span>
+                  <TicketTag ticketId={note.ticketId} show={multiTicket} />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {brief.diagnostics.length > 0 ? (
           <div className="rounded-md border border-border/60 bg-background-deep/40 px-3 py-2 text-xs text-muted-foreground" data-testid="brief-diagnostic">
