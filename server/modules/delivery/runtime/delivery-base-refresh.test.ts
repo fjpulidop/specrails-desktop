@@ -20,6 +20,9 @@ beforeEach(() => {
   root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'base-refresh ')))
   repo = path.join(root, 'repo'); worktree = path.join(root, 'wt')
   git(root, ['init', '-q', '-b', 'main', repo])
+  // The merge commits under test run through the production Git runner, which uses the
+  // repository's identity (a CI runner has no global one).
+  git(repo, ['config', 'user.name', 'Fixture']); git(repo, ['config', 'user.email', 'fixture@example.invalid'])
   commit(repo, 'cart.js', 'line1\nline2\nline3\n', 'baseline')
   git(repo, ['worktree', 'add', '-q', '-b', 'feat/1-totals', worktree])
 })
