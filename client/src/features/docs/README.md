@@ -11,6 +11,7 @@ features. Keep imports focused on a subpath so importing a model does not eagerl
 load every UI component. Changes to this surface require updating the boundary manifest.
 
 - [components/DocsDialog.tsx](components/DocsDialog.tsx)
+- [components/SurfaceDocsHost.tsx](components/SurfaceDocsHost.tsx)
 - [pages/DocsPage.tsx](pages/DocsPage.tsx)
 
 ## Feature dependencies

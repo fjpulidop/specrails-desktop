@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1844 source/build files. Nearby tests are linked where names
+Includes 1846 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -293,6 +293,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useBuilderSession.ts](../../client/src/features/builder/hooks/useBuilderSession.ts)
 - [useMilestoneNotifications.ts](../../client/src/features/builder/hooks/useMilestoneNotifications.ts)
 - [useMilestoneProgress.ts](../../client/src/features/builder/hooks/useMilestoneProgress.ts)
+- [useOpenMilestoneRail.ts](../../client/src/features/builder/hooks/useOpenMilestoneRail.ts)
 
 ## client/src/features/builder/lib
 
@@ -477,6 +478,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [DocView.tsx](../../client/src/features/docs/components/DocView.tsx)
 - [DocsDialog.tsx](../../client/src/features/docs/components/DocsDialog.tsx) · [test](../../client/src/features/docs/components/__tests__/DocsDialog.test.tsx)
+- [SurfaceDocsHost.tsx](../../client/src/features/docs/components/SurfaceDocsHost.tsx) · [test](../../client/src/features/docs/components/__tests__/SurfaceDocsHost.test.tsx)
 
 ## client/src/features/docs/lib
 
