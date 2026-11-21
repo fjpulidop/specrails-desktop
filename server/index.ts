@@ -579,6 +579,8 @@ app.get('/api/health', (_req, res) => {
     apiVersion: API_VERSION,
     uptime: Math.floor(process.uptime()),
     projects: _getProjectCount(),
+    // Registered projects whose context has not loaded yet (background warm-up).
+    projectsWarming: _registry?.warmupStatus().pending ?? 0,
     mode: 'super',
   })
 })
@@ -682,7 +684,13 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
     // offline. New background launches report the persistence error directly.
     console.error('[background-process] persistent history unavailable:', error)
   }
-  registry.loadAll()
+  // Projects load in the background (most recently used first) so the server
+  // listens at once; a project that is asked for before its turn loads on demand.
+  const warmupStarted = Date.now()
+  void registry.startWarmup().then(() => {
+    const { loaded } = registry.warmupStatus()
+    console.log(`[project-registry] ${loaded} project(s) loaded in ${Date.now() - warmupStarted} ms`)
+  }).catch(logRejection('project warm-up'))
   _registry = registry
   // The shared launch cache keeps the current and recent Core builds and every one a
   // run's pin still names; older builds are collected off the startup path.
@@ -719,12 +727,14 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
       // Post-swap re-seed: refresh COPIED workspace files (instruction files,
       // Windows copy-fallback, Kimi skill links) for every workspace whose
       // recorded framework version ≠ current — also repairs missed swaps.
-      const reseedProjects = registry.listContexts().map((c) => ({
-        id: c.project.id,
-        slug: c.project.slug,
-        path: c.project.path,
-      }))
-      void reseedStaleWorkspaces(reseedProjects, check.version).catch(logRejection('framework workspace reseed'))
+      void registry.whenWarm().then(() => {
+        const reseedProjects = registry.listContexts().map((c) => ({
+          id: c.project.id,
+          slug: c.project.slug,
+          path: c.project.path,
+        }))
+        return reseedStaleWorkspaces(reseedProjects, check.version)
+      }).catch(logRejection('framework workspace reseed'))
     }
   } catch (err) {
     console.error('[framework-manager] startup versionCheck failed (non-fatal):', err)
@@ -740,7 +750,7 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
   app.use('/otlp', requireLoopback, createTelemetryRouter(registry))
 
   // Run telemetry compaction at startup after registry is hydrated
-  runCompactionForAll(registry).catch((err) => {
+  registry.whenWarm().then(() => runCompactionForAll(registry)).catch((err) => {
     console.error('[telemetry-compactor] startup compaction error:', err)
   })
 
@@ -760,12 +770,14 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
       // After the first detection lands, migrate repo-resident core installs to
       // the relocated workspace in the background — serialized, fail-open,
       // journaled. Kill switch: SPECRAILS_LEGACY_MIGRATION=false.
-      const projects = registry.listContexts().map((c) => ({
-        id: c.project.id,
-        slug: c.project.slug,
-        path: c.project.path,
-      }))
-      void runLegacyMigrationSweep(projects, { providers: snapshot.detected }).catch(logRejection('legacy migration sweep'))
+      void registry.whenWarm().then(() => {
+        const projects = registry.listContexts().map((c) => ({
+          id: c.project.id,
+          slug: c.project.slug,
+          path: c.project.path,
+        }))
+        return runLegacyMigrationSweep(projects, { providers: snapshot.detected })
+      }).catch(logRejection('legacy migration sweep'))
     })
     .catch((err) => {
       console.error('[provider-detection] startup detection failed (non-fatal):', err)
@@ -852,7 +864,8 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
       // A project scope's host follows that project's agent environment mode
       // (Core may launch any configured provider, so every adapter's names pass).
       env: (scope) => {
-        const context = registry.listContexts().find(item => item.project.slug === scope)
+        const row = registry.listProjects().find(item => item.slug === scope)
+        const context = row ? registry.getContext(row.id) : undefined
         return projectAgentSourceEnv(context?.db, providerEnvAllowlist(listAdapters()))
       },
     }),
@@ -1090,15 +1103,19 @@ server.listen(port, '127.0.0.1', () => {
   writePidFile()
   // Milestone launch chains launch chunks over loopback REST, so a chain whose
   // chunk settled while the server was down can only replay once we listen.
-  for (const ctx of _registry?.listContexts() ?? []) {
-    void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
-      console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
-    })
-  }
-  // Startup recovery: processes left in the worktrees of runs that settled before the restart.
-  if (_registry) {
-    void sweepSettledRunWorktrees(_registry).then((reaped) => {
-      if (reaped > 0) console.log(`[worktree-reaper] startup sweep terminated ${reaped} leftover processes`)
+  // Both wait for the background project warm-up so they cover every project.
+  const registry = _registry
+  if (registry) {
+    void registry.whenWarm().then(() => {
+      for (const ctx of registry.listContexts()) {
+        void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
+          console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
+        })
+      }
+      // Startup recovery: processes left in the worktrees of runs that settled before the restart.
+      return sweepSettledRunWorktrees(registry).then((reaped) => {
+        if (reaped > 0) console.log(`[worktree-reaper] startup sweep terminated ${reaped} leftover processes`)
+      })
     }).catch(logRejection('worktree leftover sweep'))
   }
   // Sweep stale shell-integration shim directories left behind by previous runs.

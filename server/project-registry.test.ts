@@ -83,6 +83,7 @@ import { createJob, deleteJob, initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
 import {
   captureProcessAdmission,
+  isProjectAdmissionPending,
   resetProcessAdmissionForTests,
 } from './process-admission'
 import { createPrDelivery, getPrDelivery, transitionDecision } from './modules/delivery/runtime/rail-pr-store'
@@ -226,6 +227,96 @@ describe('ProjectRegistry', () => {
       expect(registry.getContext('bad')).toBeUndefined()
       expect(registry.listFailedProjects().map((f) => f.project.id)).toContain('bad')
       expect(registry.listProjects().map((project) => project.id)).toEqual(['good', 'bad'])
+    })
+  })
+
+  describe('background warm-up', () => {
+    it('loads every project in the background, most recently used first', async () => {
+      for (const id of ['p1', 'p2', 'p3']) addProject(desktopDb, { id, slug: `s-${id}`, name: id, path: `/path/${id}` })
+      desktopDb.prepare("UPDATE projects SET last_seen_at = '2026-01-01 00:00:00' WHERE id = 'p1'").run()
+      desktopDb.prepare("UPDATE projects SET last_seen_at = '2026-03-01 00:00:00' WHERE id = 'p2'").run()
+      desktopDb.prepare("UPDATE projects SET last_seen_at = '2026-02-01 00:00:00' WHERE id = 'p3'").run()
+
+      const warm = registry.startWarmup()
+      // Nothing is loaded synchronously: the server can answer first.
+      expect(registry.listContexts()).toHaveLength(0)
+      expect(registry.warmupStatus()).toEqual({ pending: 3, loaded: 0 })
+      await warm
+      expect(registry.listContexts().map((ctx) => ctx.project.id)).toEqual(['p2', 'p3', 'p1'])
+      expect(registry.warmupStatus()).toEqual({ pending: 0, loaded: 3 })
+      await expect(registry.whenWarm()).resolves.toBeUndefined()
+    })
+
+    it('loads a project that is asked for before its turn', async () => {
+      addProject(desktopDb, { id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      addProject(desktopDb, { id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
+      const warm = registry.startWarmup()
+      const ctx = registry.getContext('p2')
+      expect(ctx?.project.id).toBe('p2')
+      expect(registry.warmupStatus().pending).toBe(1)
+      expect(registry.getContextByPath('/p1')?.project.id).toBe('p1')
+      await warm
+      expect(registry.getContext('p2')).toBe(ctx)
+    })
+
+    it('runs startup recovery for every background-loaded project', async () => {
+      for (const id of ['a', 'b', 'c', 'd', 'e', 'f']) addProject(desktopDb, { id, slug: `s-${id}`, name: id, path: `/path/${id}` })
+      await registry.startWarmup()
+      expect(registry.listContexts()).toHaveLength(6)
+      // Recovery opens each project's process admission when it settles.
+      await vi.waitFor(() => {
+        for (const id of ['a', 'b', 'c', 'd', 'e', 'f']) expect(isProjectAdmissionPending(id)).toBe(false)
+      })
+    })
+
+    it('skips a project removed before the warm-up reached it', async () => {
+      addProject(desktopDb, { id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      addProject(desktopDb, { id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
+      const warm = registry.startWarmup()
+      registry.removeProject('p1')
+      await warm
+      expect(registry.listContexts().map((ctx) => ctx.project.id)).toEqual(['p2'])
+      expect(registry.getContext('p1')).toBeUndefined()
+    })
+
+    it('counts warming projects in an app-wide budget', async () => {
+      addProject(desktopDb, { id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      addProject(desktopDb, { id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
+      desktopDb.prepare("INSERT OR REPLACE INTO desktop_settings (key, value) VALUES ('desktop_daily_budget_usd', '5')").run()
+      void registry.startWarmup()
+      const ctx = registry.getContext('p1')!
+      ctx.db.prepare(`INSERT INTO ai_invocations (id, project_id, surface, status, started_at, total_cost_usd) VALUES ('i1', 'p1', 'loop', 'completed', ?, 2)`).run(new Date().toISOString())
+      const desktop = registry.desktopCapStatuses().find((cap) => cap.period === 'day')
+      expect(desktop?.spentUsd).toBe(2)
+      // The other project was loaded so its spend could count.
+      expect(registry.warmupStatus().pending).toBe(0)
+      await registry.whenWarm()
+    })
+  })
+
+  describe('app-wide spend', () => {
+    it('reads no project spend when no app-wide daily budget is set', () => {
+      registry.addProject({ id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      const spy = vi.spyOn(registry as unknown as { _spendProjects: () => unknown[] }, '_spendProjects')
+      expect(registry.listContexts()[0].budgetCaps?.()).toEqual([])
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('sums every project once per spend snapshot', async () => {
+      registry.addProject({ id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      registry.addProject({ id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
+      desktopDb.prepare("INSERT OR REPLACE INTO desktop_settings (key, value) VALUES ('desktop_daily_budget_usd', '5')").run()
+      const spy = vi.spyOn(registry as unknown as { _spendProjects: () => unknown[] }, '_spendProjects')
+      await registry.withSpendSnapshot(async () => {
+        for (const ctx of registry.listContexts()) ctx.budgetCaps?.()
+        await new Promise((resolve) => setImmediate(resolve))
+        for (const ctx of registry.listContexts()) ctx.budgetCaps?.()
+      })
+      expect(spy).toHaveBeenCalledTimes(1)
+      // Outside a snapshot every read is current.
+      registry.listContexts()[0].budgetCaps?.()
+      registry.listContexts()[0].budgetCaps?.()
+      expect(spy).toHaveBeenCalledTimes(3)
     })
   })
 
@@ -652,6 +743,16 @@ describe('ProjectRegistry', () => {
     it('delegates to desktop-db touchProject', () => {
       registry.addProject({ id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
       expect(() => registry.touchProject('p1')).not.toThrow()
+    })
+
+    it('writes last_seen_at at most once per interval', () => {
+      registry.addProject({ id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      const writes = vi.spyOn(desktopDb, 'prepare')
+      registry.touchProject('p1')
+      registry.touchProject('p1')
+      registry.touchProject('p1')
+      const touches = writes.mock.calls.filter(([sql]) => String(sql).includes('last_seen_at'))
+      expect(touches).toHaveLength(1)
     })
   })
 

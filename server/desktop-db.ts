@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import Database from 'better-sqlite3'
 import type { DbInstance } from './db'
+import { enableStatementCache } from './db/statement-cache'
 import type { ProviderId } from './providers/types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 import { applyNumberedMigrations } from './util/sqlite-migrations'
@@ -886,7 +887,7 @@ export function initDesktopDb(dbPath: string = getDesktopDbPath()): DbInstance {
     db.close()
     throw err
   }
-  return db
+  return enableStatementCache(db)
 }
 
 export function listProjects(db: DbInstance): ProjectRow[] {

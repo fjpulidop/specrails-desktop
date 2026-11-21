@@ -242,6 +242,32 @@ export function readRegistryOrEmpty(home?: string): RegistryFile {
   }
 }
 
+/**
+ * Parsed registry for read-only resolution, re-read whenever the file changes.
+ * Every project load and many routes resolve artifacts; re-parsing the whole
+ * file each time made loading N projects O(N²). Validated by a `stat` on every
+ * call (inode, size and mtime/ctime), so a write by Core or another process is
+ * seen at once; atomic writes always replace the inode.
+ */
+const resolveCache = new Map<string, { stamp: string; registry: RegistryFile }>()
+
+function readRegistryForResolve(home?: string): RegistryFile {
+  const p = registryPath(home)
+  let stamp: string
+  try {
+    const st = statSync(p)
+    stamp = `${st.ino}:${st.size}:${st.mtimeMs}:${st.ctimeMs}`
+  } catch {
+    resolveCache.delete(p)
+    return readRegistryOrEmpty(home)
+  }
+  const hit = resolveCache.get(p)
+  if (hit && hit.stamp === stamp) return hit.registry
+  const registry = readRegistryOrEmpty(home)
+  resolveCache.set(p, { stamp, registry })
+  return registry
+}
+
 /** Write `data` to `filePath` atomically: temp file in the same dir, fsync,
  *  rename. A reader (even without the lock) only ever sees a complete old or
  *  new file — the lock serialises writers, the rename protects readers. */
@@ -708,11 +734,12 @@ export function resolveArtifacts(
 ): ResolvedArtifacts {
   const canon = canonicalizeRepoPath(repoPath)
   const key = normalizeKey(canon)
-  const reg = readRegistryOrEmpty(home)
+  const reg = readRegistryForResolve(home)
   const rawEntry = reg.projects[key]
   // A hand-edited / partially-written entry missing a path field must fall back
   // to legacy (repo-relative) — never return `ticketsPath: undefined`.
-  const entry = isCompleteEntry(rawEntry) ? rawEntry : undefined
+  // Callers get their own copy: the parsed registry is shared between calls.
+  const entry = isCompleteEntry(rawEntry) ? structuredClone(rawEntry) : undefined
 
   if (!entry) {
     // Legacy: every artifact lives under the repo's own `.specrails`.

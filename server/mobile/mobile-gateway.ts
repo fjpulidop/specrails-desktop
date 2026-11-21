@@ -10,7 +10,7 @@ import { loadOrCreateCert, rotateCert, mobileDir, type GatewayCert } from './mob
 import { createMobileRouter } from './mobile-router'
 import { MobileWsBridge } from './mobile-ws'
 import { listDevices, revokeAllDevices, sweepExpiredDevices, getAllowedProjects } from './mobile-devices'
-import { MobileWebrtcGateway } from './mobile-webrtc-peer'
+import type { MobileWebrtcGateway } from './mobile-webrtc-peer'
 import { MobileSignalReconnect } from './mobile-signal-reconnect'
 import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
 import type { MobilePlatform } from './mobile-types'
@@ -148,6 +148,8 @@ export class MobileGateway {
 
     this._cert = await loadOrCreateCert(mobileDir())
     setDesktopSetting(this._db, SETTING.fingerprint, this._cert.fingerprint)
+    // The WebRTC stack loads only once the (off by default) gateway starts.
+    const { MobileWebrtcGateway } = await import('./mobile-webrtc-peer')
 
     const app: Express = express()
     app.use(express.json({ limit: '256kb' }))

@@ -104,6 +104,24 @@ documented order (admission closes first, Jira/audit before the queue, active lo
 runs captured before the loop engine, the context assembled before the services
 that need it, recovery last) and owns teardown in `removeProject`/`shutdown`.
 
+### Startup warm-up
+
+The server listens before any project is loaded. `ProjectRegistry.startWarmup()`
+loads contexts in the background, most recently used first, a few milliseconds
+per event-loop turn. `getContext(id)` loads a project that the warm-up has not
+reached yet on demand, so a project route never answers "not loaded"; only a
+database that cannot be opened keeps the existing `503 project_unavailable`.
+`/api/health` reports `projectsWarming` (additive). Startup recovery still runs
+for every project; for background-loaded ones at most four run at once, and a
+project that is used first is recovered immediately. App-wide consumers that need
+every project (framework reseed, legacy migration, telemetry compaction, milestone
+chain replay, the settled-worktree sweep) wait for `whenWarm()`. An app-wide spend
+cap loads any project still pending before summing, so budgets never under-count.
+Cross-project read models (`/api/live-board`, `/api/inbox`) read one project at a
+time in short event-loop slices and share one app-wide spend figure per request
+(`withSpendSnapshot`). Every project and desktop connection reuses its prepared
+statements (`server/db/statement-cache.ts`).
+
 | File | Wiring it owns |
 |------|----------------|
 | `project-context-broadcast.ts` | `projectId` injection, late-bound observer taps, agent-job release |

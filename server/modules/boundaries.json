@@ -2652,6 +2652,7 @@
     "dependencies": {
       "adapters/http.ts": [
         "../../../project-registry",
+        "../../../util/event-loop-slices",
         "../application",
         "../ports",
         "./project-source",
@@ -2806,14 +2807,17 @@
     "dependencies": {
       "adapters/http.ts": [
         "../../../project-registry",
+        "../../../util/event-loop-slices",
         "../../../util/local-day",
         "../../accounting/runtime/desktop-analytics",
         "../../delivery/runtime/merge-preview",
         "../../inbox",
         "../../inbox/adapters/http",
         "../application",
+        "../ports",
         "./missions",
         "./project-source",
+        "./settled-project-cache",
         "express"
       ],
       "adapters/missions.ts": [
@@ -2828,6 +2832,10 @@
         "../../loops/runtime/run-attempts",
         "../domain",
         "../ports"
+      ],
+      "adapters/settled-project-cache.ts": [
+        "../../../db/types",
+        "../domain"
       ],
       "application.ts": [
         "./domain",

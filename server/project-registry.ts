@@ -1,6 +1,7 @@
 import { shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
+import { AsyncLocalStorage } from 'async_hooks'
 import type { DbInstance } from './db'
 import { getProjectSettings, initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
@@ -184,6 +185,64 @@ export { emitRecoveredPrDelivery, reprojectActivePrDeliveries } from './project-
 
 class ProjectDatabaseBusyError extends Error {}
 const PROJECT_LOAD_RETRY_DELAYS_MS = [1000, 2000, 5000, 30000]
+/** Background warm-up loads contexts for at most this long per event-loop turn. */
+const WARMUP_SLICE_MS = 8
+/** Startup recoveries of background-loaded projects that run at the same time. */
+const WARMUP_RECOVERY_CONCURRENCY = 4
+/** A project route touches `last_seen_at` at most this often (it orders the warm-up). */
+const TOUCH_INTERVAL_MS = 30_000
+
+/**
+ * Runs queued startup recoveries with bounded concurrency. A recovery is
+ * promoted (started at once) when its project is used before its turn.
+ */
+class RecoveryGate {
+  private readonly _queue = new Map<string, () => Promise<void>>()
+  private _running = 0
+  constructor(private readonly _limit: number) {}
+
+  enqueue(id: string, start: () => Promise<void>): void {
+    this._queue.set(id, start)
+    this._drain()
+  }
+
+  isQueued(id: string): boolean {
+    return this._queue.has(id)
+  }
+
+  promote(id: string): void {
+    const start = this._queue.get(id)
+    if (!start) return
+    this._queue.delete(id)
+    this._run(start, false)
+  }
+
+  cancel(id: string): void {
+    this._queue.delete(id)
+  }
+
+  clear(): void {
+    this._queue.clear()
+  }
+
+  private _drain(): void {
+    while (this._running < this._limit && this._queue.size > 0) {
+      const [id, start] = this._queue.entries().next().value as [string, () => Promise<void>]
+      this._queue.delete(id)
+      this._run(start, true)
+    }
+  }
+
+  private _run(start: () => Promise<void>, counted: boolean): void {
+    if (counted) this._running++
+    let done: Promise<void>
+    try { done = Promise.resolve(start()) } catch { done = Promise.resolve() }
+    void done.catch(() => { /* each recovery logs its own failure */ }).finally(() => {
+      if (counted) this._running--
+      this._drain()
+    })
+  }
+}
 
 export class ProjectRegistry {
   private _desktopDb: DbInstance
@@ -202,6 +261,13 @@ export class ProjectRegistry {
   private readonly _removalListeners = new Set<(project: { id: string; slug: string }) => void>()
   private _loadRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private _shuttingDown = false
+  /** Registered projects the background warm-up has not loaded yet (load order). */
+  private readonly _pending = new Set<string>()
+  private _warmup: Promise<void> | null = null
+  private readonly _recoveryGate = new RecoveryGate(WARMUP_RECOVERY_CONCURRENCY)
+  private readonly _lastTouched = new Map<string, number>()
+  /** Request-scoped memo of the app-wide spend (see withSpendSnapshot). */
+  private readonly _spendScope = new AsyncLocalStorage<Map<string, number>>()
   // App-wide shared browser context for "Add Spec from a website": ONE persistent
   // Chromium profile under ~/.specrails/browser-profile, so cookies/logins are
   // shared across every project. Launched lazily, disposed once at shutdown().
@@ -232,6 +298,62 @@ export class ProjectRegistry {
   }
 
   loadAll(): void {
+    const projects = this._reconcileCatalog()
+    for (const project of projects) {
+      this._pending.delete(project.id)
+      this._tryLoadProject(project)
+    }
+  }
+
+  /**
+   * Load every registered project in the background, most recently used first,
+   * a few milliseconds per event-loop turn so the server answers while it warms
+   * up. A project that is asked for before its turn (`getContext`) loads at
+   * once. Startup recovery of background-loaded projects runs with bounded
+   * concurrency; a project that is used is recovered first. Resolves when every
+   * project has been loaded (or has failed to load).
+   */
+  startWarmup(): Promise<void> {
+    if (this._warmup) return this._warmup
+    const projects = this._reconcileCatalog()
+    const order = [...projects].sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''))
+    for (const project of order) if (!this._contexts.has(project.id)) this._pending.add(project.id)
+    this._warmup = (async () => {
+      while (this._pending.size > 0 && !this._shuttingDown) {
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        const sliceStart = Date.now()
+        do {
+          const id = this._pending.values().next().value as string | undefined
+          if (id === undefined) break
+          this._loadPending(id, true)
+        } while (this._pending.size > 0 && Date.now() - sliceStart < WARMUP_SLICE_MS)
+      }
+    })()
+    return this._warmup
+  }
+
+  /** Resolves once the background warm-up (if any) has loaded every project. */
+  whenWarm(): Promise<void> {
+    return this._warmup ?? Promise.resolve()
+  }
+
+  /** Projects still waiting for the background warm-up. */
+  warmupStatus(): { pending: number; loaded: number } {
+    return { pending: this._pending.size, loaded: this._contexts.size }
+  }
+
+  private _loadPending(id: string, background: boolean): void {
+    if (!this._pending.delete(id)) return
+    const row = getProject(this._desktopDb, id)
+    if (row) this._tryLoadProject(row, 0, background)
+  }
+
+  /** Load every project the warm-up has not reached yet (used by app-wide totals that must be complete). */
+  private _loadAllPending(): void {
+    for (const id of [...this._pending]) this._loadPending(id, false)
+  }
+
+  private _reconcileCatalog(): ProjectRow[] {
     const projects = listProjects(this._desktopDb)
     // Self-heal the shared artifact registry: project one entry per desktop
     // project, leaving non-desktop (core-standalone) entries untouched. Wrapped
@@ -250,16 +372,14 @@ export class ProjectRegistry {
     } catch (err) {
       console.error('[project-registry] registry reconcile failed (non-fatal):', err)
     }
-    for (const project of projects) {
-      this._tryLoadProject(project)
-    }
+    return projects
   }
 
-  private _tryLoadProject(project: ProjectRow, retry = 0): void {
+  private _tryLoadProject(project: ProjectRow, retry = 0, background = false): void {
     this._clearLoadRetry(project.id)
     if (this._shuttingDown) return
     try {
-      this._loadProjectContext(project)
+      this._loadProjectContext(project, { background })
       const recovered = this._failedProjects.delete(project.id)
       if (recovered) {
         try {
@@ -373,6 +493,9 @@ export class ProjectRegistry {
 
   removeProject(id: string): void {
     this._clearLoadRetry(id)
+    this._pending.delete(id)
+    this._recoveryGate.cancel(id)
+    this._lastTouched.delete(id)
     rulesInventoryRuns.forget(id)
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
@@ -526,14 +649,25 @@ export class ProjectRegistry {
     return () => { this._removalListeners.delete(listener) }
   }
 
+  /**
+   * The project's live context. A project the background warm-up has not
+   * reached yet loads now; one whose startup recovery is still queued starts
+   * recovering now (it is in use).
+   */
   getContext(id: string): ProjectContext | undefined {
-    return this._contexts.get(id)
+    let ctx = this._contexts.get(id)
+    if (!ctx && this._pending.has(id)) {
+      this._loadPending(id, false)
+      ctx = this._contexts.get(id)
+    }
+    if (ctx && this._recoveryGate.isQueued(id)) this._recoveryGate.promote(id)
+    return ctx
   }
 
   getContextByPath(projectPath: string, projectId?: string): ProjectContext | undefined {
     const row = resolveRepositoryProject(listProjects(this._desktopDb), projectPath, projectId)
     if (!row) return undefined
-    return this._contexts.get(row.id)
+    return this.getContext(row.id)
   }
 
   /** Preserve manager closures and shared stores when the repository catalog changes. */
@@ -620,6 +754,8 @@ export class ProjectRegistry {
    */
   shutdown(): void {
     this._shuttingDown = true
+    this._pending.clear()
+    this._recoveryGate.clear()
     for (const id of this._loadRetryTimers.keys()) this._clearLoadRetry(id)
     for (const ctx of this._contexts.values()) {
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
@@ -658,6 +794,11 @@ export class ProjectRegistry {
   }
 
   touchProject(id: string): void {
+    // Every project request lands here; one desktop-DB write per interval is enough.
+    const now = Date.now()
+    const last = this._lastTouched.get(id)
+    if (last !== undefined && now - last < TOUCH_INTERVAL_MS) return
+    this._lastTouched.set(id, now)
     touchProject(this._desktopDb, id)
   }
 
@@ -683,7 +824,7 @@ export class ProjectRegistry {
    *     and registered before env warmup and startup recovery start.
    * Teardown (removeProject/shutdown) releases these in its own documented order.
    */
-  private _loadProjectContext(project: ProjectRow): ProjectContext {
+  private _loadProjectContext(project: ProjectRow, opts: { background?: boolean } = {}): ProjectContext {
     // Avoid double-loading
     const existing = this._contexts.get(project.id)
     if (existing) return existing
@@ -788,11 +929,14 @@ export class ProjectRegistry {
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
     startProjectEnvWarmup(db)
-    startProjectRecovery({
+    const recover = (): Promise<void> => startProjectRecovery({
       ctx, project, db, broadcast: boundBroadcast, jiraSyncManager, orphanLoopRuns,
       isCurrent: () => this._contexts.get(project.id) === ctx,
       recoverOrphanLoopRuns: (definitionStates) => this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns, definitionStates),
     })
+    // Startup recovery always runs; a background warm-up bounds how many run at once.
+    if (opts.background) this._recoveryGate.enqueue(project.id, recover)
+    else void recover()
     return ctx
   }
 
@@ -828,10 +972,35 @@ export class ProjectRegistry {
   private _desktopDailyBudgetSnapshot(at: Date = new Date()): { budget: number | null; totalSpend: number } {
     const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
     const budget = val != null ? parseFloat(val) : null
-    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, localDayStartIso(at)) }
+    // Without an app-wide daily budget the spend is never read (every consumer
+    // checks `budget > 0` first); summing every project per call made the
+    // per-project inbox/live-board caps O(projects²).
+    if (budget === null || !(budget > 0)) return { budget, totalSpend: 0 }
+    return { budget, totalSpend: this._appWideSpend(localDayStartIso(at)) }
+  }
+
+  /**
+   * Run `fn` with one app-wide spend figure per period: cross-project read
+   * models (inbox, live board) ask every project for its caps, and each ask
+   * would otherwise sum every project again. The memo lives only for `fn`.
+   */
+  withSpendSnapshot<T>(fn: () => T): T {
+    if (this._spendScope.getStore()) return fn()
+    return this._spendScope.run(new Map(), fn)
+  }
+
+  private _appWideSpend(sinceIso: string): number {
+    const memo = this._spendScope.getStore()
+    const cached = memo?.get(sinceIso)
+    if (cached !== undefined) return cached
+    const total = appWideSpendSince(this._spendProjects(), this._desktopDb, sinceIso)
+    memo?.set(sinceIso, total)
+    return total
   }
 
   private _spendProjects(): Array<{ db: DbInstance; projectId: string }> {
+    // An app-wide cap must count every project, including ones still warming up.
+    this._loadAllPending()
     return this.listContexts().map((c) => ({ db: c.db, projectId: c.project.id }))
   }
 
@@ -845,7 +1014,7 @@ export class ProjectRegistry {
     const budget = this._desktopCapConfig()[period]
     if (budget === null) return { budget: null, totalSpend: 0 }
     // Every project plus every agent turn (app-wide scope).
-    return { budget, totalSpend: appWideSpendSince(this._spendProjects(), this._desktopDb, periodStartIso(period, at)) }
+    return { budget, totalSpend: this._appWideSpend(periodStartIso(period, at)) }
   }
 
   /** The app-wide caps with their spend (all projects combined), for the Budget panel. */
