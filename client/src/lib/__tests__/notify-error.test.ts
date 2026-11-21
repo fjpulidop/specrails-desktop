@@ -53,6 +53,18 @@ describe('notifyError', () => {
     expect((opts.action as { label: string }).label).toBe('Raise limit')
   })
 
+  it('replacing a toast by id clears what the error does not set, so the old text and buttons do not survive', () => {
+    notifyError('Could not resume the chain', { id: 'chain-paused:c1' })
+    const opts = lastOptions()
+    expect(opts.id).toBe('chain-paused:c1')
+    for (const key of ['description', 'action', 'cancel', 'duration']) {
+      expect(key in opts).toBe(true)
+      expect(opts[key]).toBeUndefined()
+    }
+    notifyError('Could not resume the chain', { id: 'chain-paused:c1', detail: 'gone', retry: vi.fn() })
+    expect(lastOptions()).toMatchObject({ id: 'chain-paused:c1', description: 'gone', action: expect.objectContaining({ label: 'Retry' }) })
+  })
+
   it('prefers retry over a custom action', () => {
     notifyError('x', { retry: vi.fn(), action: { label: 'Other', onClick: vi.fn() } })
     expect((lastOptions().action as { label: string }).label).toBe('Retry')

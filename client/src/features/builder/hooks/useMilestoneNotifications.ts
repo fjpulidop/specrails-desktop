@@ -16,6 +16,11 @@ import {
 } from '../lib/milestone-progress'
 
 import { notifyError } from '../../../lib/notify-error'
+
+/** A result toast that replaces the prompt it answers (same id): sonner merges new options over
+ *  the old ones, so drop the prompt's description, buttons and long duration explicitly — else
+ *  "Chain resumed" keeps "Paused · 4h 44m in total" and a Resume button. */
+const answered = (id: string) => ({ id, description: undefined, action: undefined, cancel: undefined, duration: undefined })
 // App-level milestone toasts (premium-milestone-progress D5): state-accurate,
 // never "complete" for an undelivered or unmerged milestone.
 //   • a later chunk launched            → "M1 — rail 2 of 3 launched"
@@ -97,7 +102,7 @@ export function useMilestoneNotifications({ setActiveProjectId, projectsById }: 
               label: i18n.t('builder:milestoneProgress.toast.launchNext'),
               onClick: () => {
                 void resumeChain(projectId, chain.id).then((r) => {
-                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.nextLaunched'), { id: toastId })
+                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.nextLaunched'), answered(toastId))
                   else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: toastId, detail: r.detail ?? r.error })
                 })
               },
@@ -106,7 +111,7 @@ export function useMilestoneNotifications({ setActiveProjectId, projectsById }: 
               label: i18n.t('builder:milestoneProgress.toast.autoContinue'),
               onClick: () => {
                 void setChainAutoAdvance(projectId, chain.id, true).then((r) => {
-                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.autoOn'), { id: toastId })
+                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.autoOn'), answered(toastId))
                   else notifyError(i18n.t('builder:milestoneProgress.chain.autoFailed'), { id: toastId, detail: r.detail ?? r.error })
                 })
               },
@@ -123,7 +128,7 @@ export function useMilestoneNotifications({ setActiveProjectId, projectsById }: 
               label: i18n.t('builder:milestoneProgress.toast.resume'),
               onClick: () => {
                 void resumeChain(projectId, chain.id).then((r) => {
-                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.resumed'), { id: `chain-paused:${chain.id}` })
+                  if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.resumed'), answered(`chain-paused:${chain.id}`))
                   else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: `chain-paused:${chain.id}`, detail: r.detail ?? r.error })
                 })
               },

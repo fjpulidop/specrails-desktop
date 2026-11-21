@@ -82,6 +82,14 @@ describe('useMilestoneNotifications', () => {
     await act(async () => { opts.action.onClick() })
     expect(resumeChain).toHaveBeenCalledWith('p1', 'c1')
     expect(toastSuccess).toHaveBeenCalledWith('Chain resumed', expect.anything())
+    // It replaces the paused warning: none of the warning's text or buttons may survive the merge
+    // ("Chain resumed · Paused · 38m total [Resume]" read as a contradiction).
+    const resumed = toastSuccess.mock.calls.find(([t]) => t === 'Chain resumed')![1] as Record<string, unknown>
+    expect(resumed.id).toBe('chain-paused:c1')
+    for (const key of ['description', 'action', 'cancel', 'duration']) {
+      expect(key in resumed).toBe(true)
+      expect(resumed[key]).toBeUndefined()
+    }
     // Same pause frame again → no second warning; a different reason → a new one.
     send({ type: 'milestone.chain_changed', projectId: 'p1', chain: chain({ status: 'paused', pauseReason: 'launch_rejected:rail_limit_reached' }) })
     expect(toastWarning).toHaveBeenCalledTimes(1)
@@ -107,6 +115,8 @@ describe('useMilestoneNotifications', () => {
     await act(async () => { opts.action.onClick() })
     expect(resumeChain).toHaveBeenCalledWith('p1', 'c1')
     expect(toastSuccess).toHaveBeenCalledWith('Next rail launched', expect.objectContaining({ id: 'chain-checkpoint:c1:1' }))
+    const launched = toastSuccess.mock.calls.find(([t]) => t === 'Next rail launched')![1] as Record<string, unknown>
+    expect(['description', 'action', 'cancel', 'duration'].every((key) => key in launched && launched[key] === undefined)).toBe(true)
     await act(async () => { opts.cancel.onClick() })
     expect(setChainAutoAdvance).toHaveBeenCalledWith('p1', 'c1', true)
     expect(toastSuccess).toHaveBeenCalledWith('Auto-continue on — the next rails launch on their own', expect.objectContaining({ id: 'chain-checkpoint:c1:1' }))
