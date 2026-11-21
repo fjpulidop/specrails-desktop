@@ -5,6 +5,7 @@
 import fs from 'node:fs'
 import { createRepo } from './repos.mjs'
 import { chooseAnswer } from './scenarios.mjs'
+import { checkScenario } from './acceptance.mjs'
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
@@ -233,12 +234,43 @@ export async function runScenario(scenario, ctx, prepared = null) {
     let cost = 0
     for (const id of result.runIds) { const r = await api.get(`/projects/${projectId}/loop-runs/${id}`); cost += Number(r.data?.loopRun?.total_cost_usd ?? 0) }
     result.costUsd = Math.round(cost * 1000) / 1000
+    // The run's success precedes the delivery commit: wait until the rail's delivery settles, so the
+    // wall time includes delivery and the acceptance check sees the committed branch.
+    if (result.status === 'delivered') {
+      const settledAt = Date.now()
+      result.delivery = await waitDelivery(api, projectId, result.runIds)
+      result.deliverS = Math.round((Date.now() - settledAt) / 100) / 10
+    }
+    // Independent spec conformance: hidden acceptance tests, full suite and lint on the delivered branch.
+    if (result.status === 'delivered' && scenario.repos.some(r => Object.keys(r.hidden ?? {}).length)) {
+      result.acceptance = checkScenario(scenario, ctx.workDir)
+      log(`${scenario.name}: acceptance ${result.acceptance.pass ? 'pass' : 'FAIL'} ${result.acceptance.repos.map(r => `${r.name} suite=${r.suite} lint=${r.lint} hidden=${r.hidden?.pass}/${r.hidden?.tests}`).join('; ')}`)
+    }
   } catch (error) {
     result.notes.push(String(error.message ?? error))
   }
   result.durationS = Math.round((Date.now() - started) / 1000)
   result.pass = scenario.expect.status === 'any' || result.status === scenario.expect.status
   return result
+}
+
+/** The rail delivery of these runs once it left `building` (polled every second, at most `timeoutMs`). */
+async function waitDelivery(api, projectId, runIds, timeoutMs = 180_000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    const rails = await api.get(`/projects/${projectId}/rails`).catch(() => null)
+    const d = settledDelivery(rails?.data, runIds)
+    if (d) return d
+    await sleep(1000)
+  }
+  return null
+}
+
+/** A delivery of `runIds` that settled (any decision but `building`, with its final commits recorded). Pure. */
+export function settledDelivery(railsPayload, runIds) {
+  const d = Object.values(railsPayload?.prDeliveries ?? {}).find(x => (x?.runIds ?? []).some(id => runIds.includes(id)))
+  if (!d || !d.decision || d.decision === 'building' || !(d.branches ?? []).every(b => b.finalSha || b.succeeded === false)) return null
+  return { id: d.id, decision: d.decision, statusCode: d.statusCode ?? null, branches: (d.branches ?? []).map(b => ({ branch: b.branch, finalSha: b.finalSha ?? null })) }
 }
 
 async function afterRestart(api, projectId, runId, result, log) {

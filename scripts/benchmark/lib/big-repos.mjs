@@ -53,7 +53,7 @@ export const MODULES = [
   ['bloom', 'export function createBloom(bits) {\n  return { bits, data: new Uint8Array(Math.ceil(bits / 8)) }\n}', '`src/bloom.js`: add `addB(b, s)` and `mightContain(b, s)` with three FNV-1a based hashes; an added string must always be reported as present.'],
 ]
 
-const LINT = `// Repository lint (run by \`npm test\`). Conventions, see CONTRIBUTING.md:
+export const LINT = `// Repository lint (run by \`npm test\`). Conventions, see CONTRIBUTING.md:
 //  1. every exported function in src/ has a JSDoc block (/** ... */) right above it with @param for each parameter and @returns;
 //  2. no console.log in src/;
 //  3. lines are at most 100 characters;
@@ -86,7 +86,7 @@ console.log('lint: ok')
 `
 
 /** JSDoc for a starting function, so the starting repository passes its own lint. */
-function documented(source) {
+export function documented(source) {
   return source.replace(/^export function (\w+)\(([^)]*)\)/gm, (line, name, params) => {
     const names = params.split(',').map(p => p.trim().replace(/=.*$/, '').trim()).filter(Boolean)
     return ['/**', ` * ${name}.`, ...names.map(p => ` * @param {*} ${p}`), ' * @returns {*}', ' */', line].join('\n')

@@ -7,6 +7,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { assertLocalRemote } from './isolation.mjs'
 import { bigLibFiles } from './big-repos.mjs'
+import { shopLibFiles } from './speed-suite.mjs'
 
 const NT = "import test from 'node:test'\nimport assert from 'node:assert'\n"
 const pkg = (name, scripts = {}, extra = {}) => JSON.stringify({ name, version: '1.0.0', private: true, type: 'module', scripts: { test: 'node --test', ...scripts }, ...extra }, null, 2) + '\n'
@@ -18,6 +19,8 @@ export const TEMPLATES = {
   'big-lib-a': name => bigLibFiles(name, { count: 20, slow: [12, 15] }),
   'big-lib-b': name => bigLibFiles(name, { count: 20, offset: 20, slow: [20, 15] }),
   'big-lib-xl': name => bigLibFiles(name, { count: 40, slow: [24, 15] }),
+  // Speed benchmark: a small library with a convention lint in `npm test`.
+  'shop-lib': name => shopLibFiles(name),
   'node-lib': name => ({
     'package.json': pkg(name),
     'src/cart.js': "export function total(items) {\n  return items.reduce((sum, i) => sum + i.price * i.qty, 0)\n}\n",

@@ -14,7 +14,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertIsolatedTarget } from './lib/isolation.mjs'
 import { parseScenarioText } from './lib/scenarios.mjs'
-import { quotaDecision, quotaSample } from './lib/quota.mjs'
+import { quotaDecision, quotaSample, windowGate } from './lib/quota.mjs'
 import { createApi } from './lib/api.mjs'
 import { startServer, restartServer, stopServer, listenerPid, listenerPath, whichOnPath } from './lib/server.mjs'
 import { needsFakeInstaller, installerIsFake } from './lib/isolation.mjs'
@@ -26,6 +26,11 @@ import { mergeObjective, pendingDeliveries } from './lib/merge.mjs'
 import { renderReport } from './lib/report.mjs'
 import { parseArgs } from './lib/args.mjs'
 import { soakMain } from './lib/soak-main.mjs'
+
+/** Per-run time attribution of every run of a result (an automatic continuation adds a run). */
+function timingsOf(home, result) {
+  try { return result.runIds?.length ? result.runIds.map((id, i) => readRunTimings(home, id, i === 0 ? result.launchedAt : null)).filter(Boolean) : null } catch (error) { result.notes.push(`timings: ${error.message}`); return null }
+}
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const sleep = ms => new Promise(r => setTimeout(r, ms))
@@ -105,7 +110,7 @@ async function main() {
     quotaTicking = false
     const metrics = await sampler.stop()
     await quotaTicker
-    for (const r of results) { try { r.timings = r.runIds?.[0] ? readRunTimings(target.home, r.runIds[0], r.launchedAt) : null } catch (error) { r.notes.push(`timings: ${error.message}`) } }
+    for (const r of results) { r.runTimings = timingsOf(target.home, r); r.timings = r.runTimings?.[0] ?? null }
     session.results.push(...results)
     session.metrics = metrics
     session.burst = summarizeBurst({ results, startedAt: burstStart, finishedAt: burstEnd, metrics })
@@ -145,12 +150,19 @@ async function main() {
     while (queue.length && running.size < opts.parallel) {
       const s = queue.shift()
       if (launched >= opts.budgetRuns) { session.skipped.push({ name: s.name, reason: `run budget (${opts.budgetRuns}) reached` }); continue }
-      const decision = quotaDecision(await readQuota(), { provider: s.provider, stopAtWeekly: opts.stopAtWeekly })
+      let usage = await readQuota()
+      // A short window (the 5-hour session) at --pause-at-window: wait for it to drop instead of launching.
+      for (let gate = windowGate(usage, { provider: s.provider, pauseAt: opts.pauseAtWindow }); gate.wait && !opts.dryRun; gate = windowGate(usage, { provider: s.provider, pauseAt: opts.pauseAtWindow })) {
+        log(`quota: waiting, ${gate.reason}`)
+        await sleep(300_000)
+        usage = await readQuota()
+      }
+      const decision = quotaDecision(usage, { provider: s.provider, stopAtWeekly: opts.stopAtWeekly })
       log(`quota: ${decision.reason}`)
       if (!decision.ok) { session.stopReason = decision.reason; session.skipped.push({ name: s.name, reason: decision.reason }); continue }
       if (opts.dryRun) { session.skipped.push({ name: s.name, reason: 'dry run (quota allowed launch)' }); continue }
       launched++
-      const p = runScenario(s, { api, workDir, server, log, cache }).then(r => { session.results.push(r); running.delete(p); log(`${s.name}: ${r.status} ${r.costUsd ?? '-'} USD ${r.durationS}s`); writeReport() })
+      const p = runScenario(s, { api, workDir, server, log, cache }).then(r => { r.runTimings = timingsOf(target.home, r); r.timings = r.runTimings?.[0] ?? null; session.results.push(r); running.delete(p); log(`${s.name}: ${r.status} ${r.costUsd ?? '-'} USD ${r.durationS}s`); writeReport() })
       running.add(p)
     }
     if (running.size) await Promise.race(running)
