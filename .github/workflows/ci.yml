@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: fjpulidop/specrails-core
-          ref: 769545463de59e81cf80ebcf623bcadfcab4950e  # specrails-core #481 head (contract 5.17: roleDecisions, reviewTriage, machineInstalls, questionOptions, routeOverrides, frozen-process lease renewal, headless agent processes, speed: plan prefetch, artifact texts, protective non-goals); repin to the release that ships it
+          ref: c28242b3f7bdf1ed99394183efe7a6194f30d406  # specrails-core #481 head (contract 5.17: roleDecisions, reviewTriage, machineInstalls, questionOptions, routeOverrides, frozen-process lease renewal, headless agent processes, speed: plan prefetch, artifact texts, protective non-goals); repin to the release that ships it
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
