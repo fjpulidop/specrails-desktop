@@ -26,6 +26,7 @@ import { FileStoryManager, buildStorySystemPrompt } from './modules/code/runtime
 import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
 import { getAdapter } from './providers'
 import { milestoneLaunchSettings, milestoneGenerationSettings, saveMilestoneGenerationSelection, validateMilestoneGenerationSelection, type MilestoneGenerationSelection } from './modules/builder/runtime/milestone-generation-settings'
+import { readMilestoneEngineOverride, saveMilestoneEngineOverride } from './modules/builder/runtime/milestone-engine-preference'
 import { getDesktopSetting } from './desktop-db'
 import { registerJobsRoutes } from './project-router-jobs'
 import { registerSpendingRoutes } from './project-router-spending'
@@ -288,6 +289,42 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     // A live chain's next rail now runs on it: the chain row says so.
     ctx(req).milestoneProgress?.schedule()
     res.json(milestoneGenerationSettings(db, project))
+  })
+
+  // "Use another configuration only for M<n>" without generating (the popover
+  // records it at generation time): read every milestone's own engine, or set
+  // (`engine`) / clear (`engine: null`) one. The live chain's next rail follows.
+  const milestoneEngines = (req: Request) => {
+    const { db, project } = ctx(req)
+    const workspace = resolveBlueprintWorkspace({ slug: project.slug, path: project.path })
+    const blueprint = workspace ? readBlueprint(workspace) : null
+    if (!blueprint) return null
+    return Object.fromEntries(blueprint.milestones.map((m) => [m.id, readMilestoneEngineOverride(db, m.id)]))
+  }
+
+  router.get('/:projectId/blueprint/milestone-engines', (req: Request, res: Response) => {
+    const overrides = milestoneEngines(req)
+    if (!overrides) { res.status(404).json({ error: 'no blueprint for this project' }); return }
+    res.json({ overrides })
+  })
+
+  router.put('/:projectId/blueprint/milestone-engines', (req: Request, res: Response) => {
+    const { db, project } = ctx(req)
+    const body = (req.body ?? {}) as { milestoneId?: unknown; engine?: unknown }
+    const milestoneId = typeof body.milestoneId === 'string' && /^m[0-9]{1,3}$/i.test(body.milestoneId) ? body.milestoneId.toLowerCase() : null
+    if (!milestoneId) { res.status(400).json({ error: 'milestoneId (e.g. "m2") is required' }); return }
+    if (body.engine === undefined) { res.status(400).json({ error: 'engine (or null to follow the usual configuration) is required' }); return }
+    const overrides = milestoneEngines(req)
+    if (!overrides) { res.status(404).json({ error: 'no blueprint for this project' }); return }
+    if (!(milestoneId in overrides)) { res.status(404).json({ error: `milestone ${milestoneId} not found in the blueprint` }); return }
+    if (body.engine !== null) {
+      const error = validateMilestoneGenerationSelection(project, body.engine)
+      if (error) { res.status(400).json({ error }); return }
+    }
+    const engine = body.engine as MilestoneGenerationSelection | null
+    saveMilestoneEngineOverride(db, milestoneId, engine ? { provider: engine.provider, model: engine.model, reasoningEffort: engine.reasoningEffort ?? null } : null)
+    ctx(req).milestoneProgress?.schedule()
+    res.json({ overrides: milestoneEngines(req) })
   })
 
   router.get('/:projectId/blueprint', (req: Request, res: Response) => {
