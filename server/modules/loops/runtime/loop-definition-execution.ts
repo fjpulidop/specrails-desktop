@@ -6,7 +6,7 @@
  */
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { probeDefinitionRun } from './loop-definition-recovery'
-import { runDefinitionLoop } from './loop-definition-run'
+import { carriesHumanDecision, runDefinitionLoop } from './loop-definition-run'
 import { definitionRunNeverReachedCore, getLoopRun, readDefinitionRun, recordDefinitionRunning, saveDefinitionRun } from './loop-runs-store'
 import { awaitBudget, awaitHumanDecision, awaitProviderLimit, MAX_LIMIT_PAUSES } from './loop-run-pauses'
 import { parseCoreFailure } from '../../recovery/domain'
@@ -160,6 +160,12 @@ export async function runDefinitionEngine(ctx: LoopRunContext): Promise<void> {
       logLine(`\n▶ ${line}. The ${Object.keys(moved.routes).join(', ')} steps continue there for the rest of this run: the interrupted step starts again with a fresh session and the work already in the worktree is kept.`)
       emitRunEvent('provider_switched', { fromProvider: moved.fromProvider ?? req.provider, provider: choice.provider, model: choice.model, effort: choice.effort ?? null, roles: Object.keys(moved.routes), text: line })
     }
+  }
+  // A retained run answered while a budget is spent (the route lets the answer through): it
+  // parks on the budget with the answer kept, and Core continues with it once the budget allows.
+  if (continuation && carriesHumanDecision(continuation)) {
+    const breach = host.budgetBreach(runId)
+    if (breach && await awaitBudget(ctx, breach) === 'stop') { state.outcome = 'stopped'; return }
   }
   let activeDurationMs = continuation ? getLoopRun(db, runId)?.total_duration_ms ?? 0 : 0
   // A run that never reached Core (it waited, queued for capacity, when the app

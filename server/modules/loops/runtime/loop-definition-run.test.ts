@@ -4,6 +4,8 @@ import { LoopRunManager, type LoopExecutors, type LoopRunRequest } from './loop-
 import { createDefinitionEventProjection } from './loop-definition-events'
 import { getLoopRun, readDefinitionExecutionClaim } from './loop-runs-store'
 import type { DefinitionLoopInvocation, DefinitionRuntimeResult } from './loop-definition-run'
+import { carriesHumanDecision } from './loop-definition-run'
+import type { LoopBudgetBreach } from './loop-run-contract'
 
 let db: DbInstance
 beforeEach(() => { db = initDb(':memory:') })
@@ -164,6 +166,29 @@ describe('Core definitions in Loop Manager',()=>{
     const resumed = next.beginDefinitionResume('r1', { answer: 'go on', interruptId: 'q1' })
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'loop.run_resumed', projectId: 'p1', loopRunId: 'r1', railIndex: 0, ticketIds: [4] }))
     expect((await resumed).outcome).toBe('success')
+  })
+  it('a retained question answered while the budget is spent keeps the answer, parks on the budget, and continues with it', async () => {
+    // Soak 2: after a restart, the answer to a question held 100 min hit the budget gate (409) and was dropped.
+    const first = new LoopRunManager(db, () => {}, executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })))
+    void first.run({ ...request(), railIndex: 0, ticketId: 4 }).catch(() => undefined)
+    await vi.waitFor(() => expect(first.isPaused('r1')).toBe(true))
+    first.shutdown()
+    let spent: LoopBudgetBreach | null = { error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 1, spentUsd: 2, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'Today\'s spend has reached the daily budget.', action: 'Raise it.' }
+    const run = vi.fn(async (input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult> => { expect(input).toMatchObject({ resume: true, answer: 'go on', interruptId: 'q1' }); return complete() })
+    const next = new LoopRunManager(db, () => {}, executors(run), undefined, { dailyBudget: () => spent })
+    const resumed = next.beginDefinitionResume('r1', { answer: 'go on', interruptId: 'q1' })
+    await vi.waitFor(() => expect(next.budgetPause('r1')).not.toBeNull())
+    expect(getLoopRun(db, 'r1')).toMatchObject({ status: 'paused', restart_reason: 'budget_paused' })
+    expect(run).not.toHaveBeenCalled()
+    spent = null
+    expect(next.resumeBudgetPause('r1')).toMatchObject({ status: 'resumed' })
+    expect((await resumed).outcome).toBe('success')
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(carriesHumanDecision({ answer: '' })).toBe(true)
+    expect(carriesHumanDecision({ approve: ['a1'] })).toBe(true)
+    expect(carriesHumanDecision({ reject: 'a1', reason: 'no' })).toBe(true)
+    expect(carriesHumanDecision({})).toBe(false)
+    expect(carriesHumanDecision({ approve: [] })).toBe(false)
   })
   it('cancels a paused run without launching a resume and preserves unavailable billing',async()=>{
     const run=vi.fn(async():Promise<DefinitionRuntimeResult>=>({text:'',runtimeStatus:'paused',pendingInterrupts:[{id:'q1',nodePath:'ask',kind:'question'}]}))

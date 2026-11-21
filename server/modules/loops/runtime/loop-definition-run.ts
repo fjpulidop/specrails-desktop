@@ -70,6 +70,12 @@ export interface DefinitionPrepared {
 }
 /** `optionId` answers a structured question by choice; `reject` + `reason` rejects one approval (both need Core `questionOptions`). */
 /** `routeOverrides` (Core `routeOverrides`) moves roles to another provider for the rest of the run, on a plain resume. */
+/** Do resume controls answer a person's question or approval (answer, approve or reject)? Pure. */
+export function carriesHumanDecision(controls: unknown): boolean {
+  if (!controls || typeof controls !== 'object') return false
+  const c = controls as { answer?: unknown; approve?: unknown; reject?: unknown }
+  return typeof c.answer === 'string' || (Array.isArray(c.approve) && c.approve.length > 0) || typeof c.reject === 'string'
+}
 export interface DefinitionResumeControls { answer?: string; optionId?: string; approve?: string[]; reject?: string; reason?: string; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult; routeOverrides?: DefinitionRouteOverride }
 export interface DefinitionLoopInvocation {
   contextPath?: string

@@ -29,6 +29,7 @@ import { retainedRunCapRejection } from './modules/loops/runtime/loop-budget-res
 import { sharesQuota } from './modules/provider-quota/domain'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { createLoopProviderSwitch, routeOverrideRequest, validateSwitchChoice } from './modules/loops/runtime/loop-provider-switch'
+import { carriesHumanDecision } from './modules/loops/runtime/loop-definition-run'
 import { acceptedRouteOverrides } from './modules/agent-runtime/runtime/agent-runtime-route-overrides'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
@@ -689,9 +690,11 @@ export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: stri
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
   try {
     await awaitProcessAdmission(c.project.id)
-    // Continuing a workflow is cost-incurring: same gate as a rail launch.
+    // Continuing a workflow is cost-incurring: same gate as a rail launch. A person's answer to
+    // the run's question or approval is never refused for it: the run keeps the answer and parks
+    // on the budget before Core continues (as a resident run does), instead of dropping it.
     const budgetRejection = c.dailyBudgetRejection?.() ?? null
-    if (budgetRejection) { return { status: 409, body: budgetRejection } }
+    if (budgetRejection && !carriesHumanDecision(rawControls)) { return { status: 409, body: budgetRejection } }
     const successor = readDefinitionSuccessor(c.db, runId)
     if (successor) { return { status: 409, body: { error: 'runtime_fork_owns_worktree', loopRunId: successor } } }
     const observedClaim = readDefinitionExecutionClaim(c.db, runId)
