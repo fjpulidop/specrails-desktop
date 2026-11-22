@@ -216,7 +216,7 @@ describe('McpSettingsSection', () => {
     expect(await screen.findByText('Connect Claude Code or Codex')).toBeInTheDocument()
     expect(await screen.findByText('Connected')).toBeInTheDocument()
     expect((screen.getByLabelText(/Ask before spending/) as HTMLInputElement).value).toBe('1.5')
-    expect(screen.getByRole('switch', { name: 'New MCP tools (preview)' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'Simplified MCP tools' })).toHaveAttribute('aria-checked', 'true')
   })
 })
 
