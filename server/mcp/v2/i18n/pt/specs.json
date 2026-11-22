@@ -20,6 +20,7 @@
   "summary.bulk.merge": "{{count}} specs mescladas em {{target}}; as specs mescladas estão em Excluídas recentemente.",
   "summary.bulk.reorder": "{{changed}} specs reordenadas; {{skipped}} já estavam no lugar.",
   "summary.triaged": "{{count}} de {{total}} specs triadas.",
+  "summary.triaged_next": "A seguir: a oferta de lançamento coloca-as em trilhos e inicia-as numa só chamada (sem configurar trilhos).",
   "summary.smash_undone": "A divisão de {{ref}} foi desfeita.",
   "summary.addendum_added": "Adendo {{ref}} adicionado a {{spec}}; ele vai junto no próximo lançamento.",
   "summary.addendum_updated": "Adendo {{ref}} atualizado.",

@@ -591,6 +591,21 @@ describe('continuing a run that settled on a usage limit on another provider', (
     expect(valid.body.error).not.toMatch(/switch|provider|model|effort/)
   })
 
+  it('is not continuable once its saved Core state is gone, and Continue says to launch again', async () => {
+    settled.offer = offer
+    process.env.SPECRAILS_LOOPS_SECTION = '1'
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed', final_outcome='failure', engine_version=2, run_request_json=?, runtime_metadata_json=? WHERE id='run-1'")
+      .run(JSON.stringify({ runId: 'run-1', projectId: 'p1', loopId: 'loop' }), JSON.stringify({ source: 'definition', contextPath: '/nonexistent/worktree/.specrails/pipeline/run-1/desktop-context.json' }))
+    const app = buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, { db })
+    const attempts = (await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body
+    expect(attempts).toMatchObject({ continuable: false, providerSwitch: null })
+    const refused = await post(app, { remedy: 'continue' })
+    expect(refused.status).toBe(409)
+    expect(refused.body.error).toBe('runtime_state_gone')
+  })
+
   it('refuses a switch the run does not offer (no limit, an older Core, nothing else installed)', async () => {
     settled.offer = null
     const app = settledApp()

@@ -110,7 +110,7 @@ export async function seedRunningRun(api, workDir, name, { engineLog } = {}) {
 /** A delivery waiting for review (complete engine). */
 export async function seedDelivery(api, workDir, name, title = 'Add the discount badge') {
   const project = await seedProject(api, workDir, name)
-  const spec = await seedSpec(api, project, { title, description: 'Add src/eval-change.js exporting the badge value.' })
+  const spec = await seedSpec(api, project, { title, description: 'Add src/eval-change.js exporting the badge (a named export), with a test.' })
   const run = await launchOnRail(api, project, [spec])
   await until(() => packet(api, project, run.deliveryId), p => p && ['on_review', 'implementation_failed'].includes(p.decision), { timeoutMs: 300_000, everyMs: 3000 })
   const p = await packet(api, project, run.deliveryId)
@@ -118,10 +118,10 @@ export async function seedDelivery(api, workDir, name, title = 'Add the discount
   return { project, spec, ...run }
 }
 
-/** A failed run (fail engine). */
-export async function seedFailedRun(api, workDir, name) {
+/** A failed run: `fail` keeps failing; `flaky` fails once per project (a passing provider error), so Continue works. */
+export async function seedFailedRun(api, workDir, name, { mode = 'fail' } = {}) {
   const project = await seedProject(api, workDir, name)
-  const spec = await seedSpec(api, project, { title: 'Export the report as CSV', description: `Add a CSV export. ${engineMarker('fail')}` })
+  const spec = await seedSpec(api, project, { title: 'Export the report as CSV', description: `Add a CSV export. ${engineMarker(mode)}` })
   const run = await launchOnRail(api, project, [spec])
   await until(() => loopRun(api, project, run.runId), r => r && ['completed', 'failed', 'cancelled'].includes(r.status) && r.final_outcome !== 'success', { timeoutMs: 180_000 })
   return { project, spec, ...run }

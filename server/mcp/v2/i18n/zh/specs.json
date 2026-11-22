@@ -20,6 +20,7 @@
   "summary.bulk.merge": "已将 {{count}} 个规格合并到 {{target}}；被合并的规格位于“最近删除”。",
   "summary.bulk.reorder": "已重新排序 {{changed}} 个规格；{{skipped}} 个已在正确位置。",
   "summary.triaged": "已分类 {{total}} 个规格中的 {{count}} 个。",
+  "summary.triaged_next": "下一步：启动选项一次调用即可将它们放上轨道并启动（无需设置轨道）。",
   "summary.smash_undone": "已撤销 {{ref}} 的拆分。",
   "summary.addendum_added": "已向 {{spec}} 添加附录 {{ref}}；它将随下一次启动生效。",
   "summary.addendum_updated": "已更新附录 {{ref}}。",

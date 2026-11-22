@@ -1844,7 +1844,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-package-refs.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-refs.ts)
 - [agent-runtime-package-schedule.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-schedule.ts)
 - [agent-runtime-package.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package.test.ts)
-- [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts)
+- [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-paths.test.ts)
 - [agent-runtime-recovery.ts](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.test.ts)
 - [agent-runtime-repositories.ts](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.test.ts)
 - [agent-runtime-retention-host.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-host.ts)

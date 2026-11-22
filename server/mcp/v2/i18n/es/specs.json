@@ -20,6 +20,7 @@
   "summary.bulk.merge": "Se fusionaron {{count}} specs en {{target}}; las specs fusionadas están en Eliminadas recientemente.",
   "summary.bulk.reorder": "Se reordenaron {{changed}} specs; {{skipped}} ya estaban en su sitio.",
   "summary.triaged": "Se clasificaron {{count}} de {{total}} specs.",
+  "summary.triaged_next": "Siguiente: la oferta de lanzamiento las pone en carriles y las inicia en una sola llamada (sin configurar carriles).",
   "summary.smash_undone": "Se deshizo la división de {{ref}}.",
   "summary.addendum_added": "Se añadió el anexo {{ref}} a {{spec}}; irá en el próximo lanzamiento.",
   "summary.addendum_updated": "Anexo {{ref}} actualizado.",

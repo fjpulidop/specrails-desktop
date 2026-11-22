@@ -225,7 +225,7 @@ Project builder: converse, commit into a project with milestone 1, generate mile
 
 ### `specrails_rails`
 
-Rails of a project: list, create, rename, configure (specs, mode, loop, engine, profile, model, target PR), worktrees, overlaps, forecast. Launch via specrails_runs.
+Rails of a project: list, create, rename, configure (specs, mode, loop, engine, profile, model, target PR), worktrees, overlaps, forecast. Launching specs needs no setup here: specrails_runs(launch) assigns them (options.parallel: one rail each).
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
@@ -246,8 +246,8 @@ Runs (jobs, loop and Intent runs): list, get views, launch (assign+launch in one
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
 | `list` | read | — | filter: status[] (v2 words), kind[] loop\|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide |
-| `get` | read | — | Requires `ref`. view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification, cost, attempts, events |
-| `launch` | ai-spawn | costly | Requires `target`. target {specIds[], rail?} \| {rail} \| {loopId, specIds?} \| {command} \| {template}; provider/model/effort; options: parallel (one rail per spec), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp |
+| `get` | read | — | Requires `ref`. view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification (only when named), cost, attempts, events |
+| `launch` | ai-spawn | costly | Requires `target`. target {specIds[], rail?} \| {rail} \| {loopId, specIds?} \| {command} \| {template}; provider/model/effort; options: parallel (each spec on its own new rail, all in this one call; else one rail in order), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp |
 | `launch_all` | ai-spawn | costly | every rail with specs and no active run, each with its own settings |
 | `pause` | write | — | Requires `ref`. a run or a rail ref (the rail's active run); Core finishes the step, then holds. Answers once it holds (options.waitMs, default 25 s, max 45 s; 0 = at once) |
 | `resume` | ai-spawn | costly | Requires `ref`. a held run (or rail): options.mode recover (the interrupted steps), options.runCap once\|ignore or options.runCapUsd (budget hold) |

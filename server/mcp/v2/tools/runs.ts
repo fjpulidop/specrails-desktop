@@ -753,9 +753,10 @@ export const runsTool = defineTool({
     },
     get: {
       tier: 'read', required: ['ref'],
-      doc: 'view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification, cost, attempts, events',
+      doc: 'view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification (only when named), cost, attempts, events',
       handler: async (ctx, args) => {
-        const fields = resolveFields(args, RUN_FIELDS)
+        // `verification` reads Core's runtime state and evidence (two Core processes): only when named.
+        const fields = resolveFields(args, RUN_FIELDS).filter((field) => field !== 'verification' || Array.isArray(args.fields))
         const run = await loadRun(ctx, runTarget(ctx, args), { runtime: fields.includes('verification') })
         const state = runState(ctx, run)
         const data = { ...runSummary(run), ...await detailOf(ctx, run, args, fields) }
@@ -770,7 +771,7 @@ export const runsTool = defineTool({
     },
     launch: {
       tier: 'ai-spawn', confirm: 'costly', required: ['target'],
-      doc: 'target {specIds[], rail?} | {rail} | {loopId, specIds?} | {command} | {template}; provider/model/effort; options: parallel (one rail per spec), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp',
+      doc: 'target {specIds[], rail?} | {rail} | {loopId, specIds?} | {command} | {template}; provider/model/effort; options: parallel (each spec on its own new rail, all in this one call; else one rail in order), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp',
       preview: launchPreviewOf,
       handler: launch,
     },
@@ -968,7 +969,7 @@ export const runsTool = defineTool({
           response = await api(ctx, 'POST', `${base}/loop-runs/${id}/remedy`, body)
         } catch (err) {
           // The run's saved Core state is gone: continuing can never work, so say what still does instead of "retry".
-          if (err instanceof McpApiError && err.code === 'runtime_status_unavailable') {
+          if (err instanceof McpApiError && (err.code === 'runtime_status_unavailable' || err.code === 'runtime_state_gone')) {
             const specs = specRefs(run.project, run.job)
             throw new V2ToolError('conflict', ctx.v2.t('runs.error.cannot_continue'), {
               retryable: false,
@@ -976,6 +977,13 @@ export const runsTool = defineTool({
             })
           }
           throw err
+        }
+        // A settled run goes on as a NEW attempt (a fork): answer with that attempt, so the agent
+        // follows it (waiting on the old ref only sees the old attempt's failure again).
+        const child = str(response.loopRunId)
+        if (response.mode === 'fork' && child && child !== run.target.id) {
+          const next: Target = { ...run.target, id: child, ref: formatRef('run', child, run.project.slug) }
+          return await accepted(ctx, next, 'Continue', { ...response, run: next.ref, source: run.target.ref })
         }
         return await accepted(ctx, run.target, 'Continue', response)
       },

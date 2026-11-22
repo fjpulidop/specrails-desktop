@@ -20,6 +20,7 @@
   "summary.bulk.merge": "{{count}} specs fusionnées dans {{target}} ; les specs fusionnées sont dans Récemment supprimées.",
   "summary.bulk.reorder": "{{changed}} specs réordonnées ; {{skipped}} déjà en place.",
   "summary.triaged": "{{count}} specs triées sur {{total}}.",
+  "summary.triaged_next": "Ensuite : l'offre de lancement les place sur des rails et les démarre en un seul appel (sans configurer de rails).",
   "summary.smash_undone": "Découpage de {{ref}} annulé.",
   "summary.addendum_added": "Addendum {{ref}} ajouté à {{spec}} ; il sera inclus dans le prochain lancement.",
   "summary.addendum_updated": "Addendum {{ref}} mis à jour.",

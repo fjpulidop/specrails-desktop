@@ -20,6 +20,7 @@
   "summary.bulk.merge": "スペック {{count}} 件を {{target}} に統合しました。統合されたスペックは「最近削除した項目」にあります。",
   "summary.bulk.reorder": "スペック {{changed}} 件を並べ替えました。{{skipped}} 件はすでに正しい位置にありました。",
   "summary.triaged": "スペック {{total}} 件中 {{count}} 件をトリアージしました。",
+  "summary.triaged_next": "次へ: 起動オファーが1回の呼び出しでレールに載せて開始します(レール設定は不要)。",
   "summary.smash_undone": "{{ref}} の分割を元に戻しました。",
   "summary.addendum_added": "{{spec}} に補遺 {{ref}} を追加しました。次の起動に含まれます。",
   "summary.addendum_updated": "補遺 {{ref}} を更新しました。",

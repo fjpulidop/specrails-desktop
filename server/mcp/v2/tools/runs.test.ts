@@ -287,6 +287,16 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     expect(posts().at(-1)?.body).toEqual({ reject: 'a1', reason: 'Not on prod' })
   })
 
+  it('a Continue that forks answers with the new attempt, so the agent follows it', async () => {
+    useJob(JOBS.failed)
+    routes.set(`POST ${P}/loop-runs/r1/remedy`, { status: 201, body: { loopRunId: 'fork-1', remedy: 'continue', mode: 'fork', fromStep: 'architect', resumed: true } })
+    routes.set(`GET ${P}/jobs/fork-1`, { body: { job: { ...JOBS.working, id: 'fork-1' }, events: EVENTS } })
+    const state = (await runs({ action: 'get', ref: RUN })).envelope
+    const out = await act(offer(state, 'remedy.continue').call)
+    expect(out.envelope.refs.run).toBe('run:shop-api/fork-1')
+    expect(out.envelope.data).toMatchObject({ run: 'run:shop-api/fork-1', source: RUN, status: 'running' })
+  })
+
   it('remedies a failed run: analysis option, provider switch, start over, edit spec', async () => {
     useJob(JOBS.failed)
     routes.set(`POST ${P}/loop-runs/r1/remedy`, { status: 202, body: { loopRunId: 'r2' } })

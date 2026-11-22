@@ -16,7 +16,7 @@ import { definitionRunNeverReachedCore, getLoopRun, readDefinitionLineage, readD
 import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
 import { refreshDeliveryOnBase } from './project-delivery-base-refresh'
 import { IncompleteTasksRemedyError } from './modules/delivery/runtime/incomplete-tasks-remedy'
-import { normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
+import { frozenRuntimeStateAvailable, normalizeContinueRemedy, planContinuation, withProviderSwitch, type ContinueRemedy } from './modules/delivery/runtime/run-continuation'
 import { EnvFilesUnavailableError, enableEnvFilesForRun } from './modules/delivery/runtime/run-env-files'
 import { readAttemptChain, recordRunContinuation } from './modules/loops/runtime/run-attempts'
 import { isRuntimeContinuationActive, signalDefinitionRun } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
@@ -306,6 +306,8 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!run || run.project_id !== c.project.id) { res.status(404).json({ error: 'Loop run not found' }); return }
     const continuable = run.engine_version === 2 && (run.status === 'completed' ? run.final_outcome !== 'success' : run.status === 'paused' && run.restart_reason !== 'fork')
       && !readDefinitionSuccessor(c.db, runId)
+      // Continue needs the run's saved Core state; without it only a fresh launch works.
+      && frozenRuntimeStateAvailable(c.db, runId)
     let chain: ReturnType<typeof readAttemptChain> = null
     try { chain = readAttemptChain(c.db, runId) } catch { chain = null }
     // The chain's spend and whether it keeps stopping for the same cause (the card then leads with the options).
@@ -723,6 +725,7 @@ export async function continueDefinitionRun(c: ProjectContext, runId: string, re
     if (budgetRejection) return { status: 409, body: budgetRejection }
     const successor = readDefinitionSuccessor(c.db, runId)
     if (successor) return { status: 409, body: { error: 'runtime_fork_owns_worktree', detail: 'This attempt was already continued', loopRunId: successor } }
+    if (!frozenRuntimeStateAvailable(c.db, runId)) return { status: 409, body: { error: 'runtime_state_gone', detail: 'This run\'s saved state is gone; launch its specs again as a new run' } }
     const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId, true)
     if (probe.status === 'unavailable') return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } }
     const stored = c.db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get(runId) as { failure_diagnosis: string | null } | undefined

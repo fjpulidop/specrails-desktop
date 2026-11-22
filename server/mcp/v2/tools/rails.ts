@@ -89,7 +89,7 @@ async function railRow(ctx: V2CallContext, project: ProjectRow, index: number): 
 export const railsTool = defineTool({
   name: 'specrails_rails',
   title: 'Rails',
-  description: 'Rails of a project: list, create, rename, configure (specs, mode, loop, engine, profile, model, target PR), worktrees, overlaps, forecast. Launch via specrails_runs.',
+  description: 'Rails of a project: list, create, rename, configure (specs, mode, loop, engine, profile, model, target PR), worktrees, overlaps, forecast. Launching specs needs no setup here: specrails_runs(launch) assigns them (options.parallel: one rail each).',
   owner: 'WP3',
   fields: {
     ...WRITE_FIELDS,

@@ -143,6 +143,14 @@ the repository lock and the decision lease, after the isolated assembly and befo
    real-use trigger: 20 `.claude|.codex/skills/openspec-*/SKILL.md` regenerated on both sides.
    Managed paths are not excluded from the overlap/stash (excluding them would make Git refuse the
    fast-forward) and partial-file managed blocks (e.g. an instruction-file block) are not covered.
+   **Untracked files the delivery now tracks** (the agent files and OpenSpec setup a first run
+   installs stay untracked in the checkout; the delivery commits its own `openspec/config.yaml`):
+   `git stash apply` would refuse the whole restore for one of them, so each collision is classified
+   first. Identical content needs nothing; Specrails' setup files (`isSpecrailsSetupUntrackedPath`:
+   the managed paths plus `openspec/config.yaml`, the OpenSpec `.gitkeep`s and `.openspec-target`)
+   take the delivered copy; the rest is applied without them (the tracked part from a two-parent copy
+   of the stash, the other untracked files written back unstaged) ⇒ `restored`. Only the person's
+   own differing untracked file is a conflict ⇒ `needs_attention` with that path, nothing applied.
 3b. **Server-side restoration of a conflicting stash**
    ([local-restore-branch.ts](../../server/modules/delivery/runtime/local-restore-branch.ts)).
    Mission agents run read-only, so they are never asked to write: the origin mission gets one
@@ -156,7 +164,8 @@ the repository lock and the decision lease, after the isolated assembly and befo
      take the integrated version. An existing branch of that name is never borrowed (`failed`).
    - no conflict left ⇒ committed at once ("Restore local changes from before integrating #N"),
      `restore.status = ready`, `resolvedBy = clean`. The worktree apply is onto the same tree as
-     the checkout, so this mainly happens for identical untracked collisions and managed files.
+     the checkout, so this mainly happens for records saved before the checkout restore classified
+     untracked collisions (identical files and setup files now restore in place).
    - otherwise `resolving`: the write-capable resolver runs **outside the lock, confined to that
      worktree** (cwd/repoDir = the worktree). Default
      ([local-restore-resolver.ts](../../server/modules/delivery/runtime/local-restore-resolver.ts))

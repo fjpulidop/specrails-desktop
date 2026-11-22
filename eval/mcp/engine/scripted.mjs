@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { builderReply, platformFor, slicesFor } from './builder.mjs'
 
-export const MODES = Object.freeze(['complete', 'stall', 'limit', 'fail', 'question'])
+export const MODES = Object.freeze(['complete', 'stall', 'limit', 'fail', 'flaky', 'question'])
 const MARKER = /\[eval-engine:([a-z]+)\]/
 
 /** The mode a prompt asks for: its marker, else the default, else `complete`. */
@@ -13,6 +13,20 @@ export function modeOf(prompt, fallback) {
   const hit = MARKER.exec(String(prompt ?? ''))
   if (hit && MODES.includes(hit[1])) return hit[1]
   return MODES.includes(fallback) ? fallback : 'complete'
+}
+
+/**
+ * `flaky` is a provider error that goes away, like a real 500: the first Core step of a project
+ * fails, every later one (a Continue, a relaunch) completes. The project is read from the turn's
+ * cwd (`…/projects/<slug>/…`); the "already failed" mark lives next to the engine log.
+ */
+export function resolveMode(mode, cwd, logFile = process.env.EVAL_ENGINE_LOG) {
+  if (mode !== 'flaky') return mode
+  if (!logFile) return 'fail'
+  const project = /[\\/]projects[\\/]([^\\/]+)/.exec(String(cwd ?? ''))?.[1] ?? String(cwd ?? 'default')
+  const mark = path.join(path.dirname(logFile), 'flaky', project.replace(/[^\w.-]/g, '_'))
+  try { fs.mkdirSync(path.dirname(mark), { recursive: true }); fs.writeFileSync(mark, new Date().toISOString(), { flag: 'wx' }); return 'fail' }
+  catch { return 'complete' }
 }
 
 /** Core role of a structured call, from its --json-schema shape. */
@@ -69,13 +83,25 @@ function rawRoleObject(role, mode, schema) {
       questionOptions: [{ id: 'a', label: 'Option A: a JSON file', meaning: 'Store values in a JSON file' }, { id: 'b', label: 'Option B: SQLite', meaning: 'Store values in SQLite' }],
       recommendedOption: 'a', verification: [] }
     : { confidence: 'high', question: '', planningDepth: 'focused', planningReason: 'Small scripted change', verification: [] }
-  if (role === 'developer') return { summary: 'Implemented the scripted change.', files: ['src/eval-change.js'], tests: [], verification: 'none', incomplete: [] }
+  if (role === 'developer') return { summary: 'Implemented the scripted change.', files: ['src/eval-change.js', 'test/eval-change.test.js'], tests: ['test/eval-change.test.js'], verification: 'none', incomplete: [] }
   if (role === 'reviewer') return { approved: true, summary: 'Scripted review: the change matches the spec.', issues: [], score: 90,
     aspects: Object.fromEntries(Object.keys(schema?.properties?.aspects?.properties ?? {}).map(k => [k, 90])), acceptance: { criteria: [], checks: [], findings: [] } }
   return minimalInstance(schema)
 }
 
 const LIMIT_TEXT = "You've hit your session limit · resets 3am (Europe/Madrid)"
+
+/**
+ * The export a scripted developer delivers for the spec in `prompt` (pure): its title's subject in
+ * camelCase ("Add the discount badge" → `discountBadge`), valued with the title.
+ */
+export function deliveredExport(prompt) {
+  const title = (/title[":\s]+([^\n"]{3,80})/i.exec(String(prompt ?? ''))?.[1] ?? 'Scripted change').trim()
+  const words = title.replace(/^(add|añadir|create|implement|build|make)\s+/i, '').replace(/^(the|a|an|la|el|una?)\s+/i, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z0-9]+/).filter(Boolean)
+  const name = words.length ? words.map((w, i) => i ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()).join('').replace(/^[0-9]/, '_$&') : 'scriptedChange'
+  return { name, value: title }
+}
 
 /** Active OpenSpec change folders under `root` (not the archive). */
 function activeChanges(root) {
@@ -139,7 +165,11 @@ export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig,
       }
       if (role === 'developer') {
         fs.mkdirSync(path.join(cwd, 'src'), { recursive: true })
-        fs.writeFileSync(path.join(cwd, 'src', 'eval-change.js'), `export const SCRIPTED = ${JSON.stringify(new Date().toISOString())}\n`)
+        // What the spec asks for, recognisably: a named export for its subject, plus a test of it.
+        const { name, value } = deliveredExport(prompt)
+        fs.writeFileSync(path.join(cwd, 'src', 'eval-change.js'), `// ${value}\nexport const ${name} = ${JSON.stringify(value)}\n`)
+        fs.mkdirSync(path.join(cwd, 'test'), { recursive: true })
+        fs.writeFileSync(path.join(cwd, 'test', 'eval-change.test.js'), `import test from 'node:test'\nimport assert from 'node:assert/strict'\nimport { ${name} } from '../src/eval-change.js'\n\ntest('exports ${name}', () => {\n  assert.equal(${name}, ${JSON.stringify(value)})\n})\n`)
         for (const change of activeChanges(cwd)) {
           const file = path.join(change, 'tasks.md')
           fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('- [ ]', '- [x]'))

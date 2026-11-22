@@ -20,6 +20,7 @@
   "summary.bulk.merge": "Merged {{count}} specs into {{target}}; the merged specs are in Recently deleted.",
   "summary.bulk.reorder": "Reordered {{changed}} specs; {{skipped}} already in place.",
   "summary.triaged": "Triaged {{count}} of {{total}} specs.",
+  "summary.triaged_next": "Next: the launch offer puts them on rails and starts them in one call (no rails setup).",
   "summary.smash_undone": "Undid the split of {{ref}}.",
   "summary.addendum_added": "Added addendum {{ref}} to {{spec}}; it rides into the next launch.",
   "summary.addendum_updated": "Updated addendum {{ref}}.",

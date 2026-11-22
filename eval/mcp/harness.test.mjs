@@ -5,7 +5,7 @@ import { parseArgs, ArgsError } from './lib/args.mjs'
 import { assertEvalTarget, assertClientHome, clientEnv, IsolationError } from './lib/isolation.mjs'
 import { clientArgs, codexConfig, parseClientOutput, addUsage, mergeUsage, authProblem } from './lib/clients.mjs'
 import { nextReply, pendingConfirmation, asksPerson } from './lib/person.mjs'
-import { SCENARIOS, selectScenarios, pendingReason, promptOf } from './lib/scenarios.mjs'
+import { SCENARIOS, selectScenarios, pendingReason, promptOf, spanishEnough } from './lib/scenarios.mjs'
 import { called, confirmedWithToken, neverCalled, onlyAdvertisedOffers, answeredIn, passed } from './lib/checks.mjs'
 import { coreSelection, instanceEnv } from './lib/instance.mjs'
 
@@ -102,6 +102,7 @@ test('simulated person: answers a pending preview, then stops', () => {
   assert.equal(nextReply({ replies: ['a'] }, { used: 1 }), null)
   assert.ok(asksPerson('¿Quieres que la fusione?'))
   assert.equal(asksPerson('All done.'), false)
+  assert.ok(asksPerson('I need your go-ahead first.\n\n' + 'Details. '.repeat(80) + 'If you want it merged as-is, say so and I will run it.'))
 })
 
 test('scenario catalogue: 15 scenarios, selection, pending reasons, prompts', () => {
@@ -219,4 +220,12 @@ test('session auth: real HOME, eval server only, no config written outside the w
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(userHome, { recursive: true, force: true })
   }
+})
+
+test('a Spanish reply reads as Spanish, short ones included; English does not', () => {
+  assert.equal(spanishEnough('1 entregas; 1 esperan tu decisión.'), true)
+  assert.equal(spanishEnough('5 eventos.'), true)
+  assert.equal(spanishEnough('Se clasificaron 3 de 3 specs.'), true)
+  assert.equal(spanishEnough('5 events.'), false)
+  assert.equal(spanishEnough('Started 1 run(s). Call specrails_wait to follow them.'), false)
 })

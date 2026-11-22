@@ -20,6 +20,7 @@
   "summary.bulk.merge": "Unite {{count}} spec in {{target}}; le spec unite sono in Eliminate di recente.",
   "summary.bulk.reorder": "Riordinate {{changed}} spec; {{skipped}} già al loro posto.",
   "summary.triaged": "Smistate {{count}} spec su {{total}}.",
+  "summary.triaged_next": "Poi: l'offerta di avvio le mette su binari e le avvia in una sola chiamata (senza configurare binari).",
   "summary.smash_undone": "Annullata la suddivisione di {{ref}}.",
   "summary.addendum_added": "Aggiunto l'addendum {{ref}} a {{spec}}; entrerà nel prossimo lancio.",
   "summary.addendum_updated": "Addendum {{ref}} aggiornato.",

@@ -1136,7 +1136,8 @@ export const specsTool = defineTool({
           ? { id: 'launch', labelKey: 'specs.offer.launch_parallel', call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: refs }, options: { parallel: true } } } }
           : { id: 'launch', labelKey: 'specs.offer.launch', call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: refs } } } }
         const state = ctx.v2.state({ status: 'queued', offers: [launch], recommended: 'launch' })
-        return result({ items }, { summary: ctx.v2.t('specs.summary.triaged', { count: items.filter((i) => i.size).length, total: ids.length }), state, untrusted: untrusted('/data/items/*/rationale', '/data/items/*/reason') })
+        const summary = ctx.v2.t('specs.summary.triaged', { count: items.filter((i) => i.size).length, total: ids.length })
+        return result({ items }, { summary: refs.length > 1 ? `${summary} ${ctx.v2.t('specs.summary.triaged_next')}` : summary, state, untrusted: untrusted('/data/items/*/rationale', '/data/items/*/reason') })
       },
     },
     addendum_add: {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 import type { FailureDiagnosis } from '../../recovery'
-import { normalizeContinueRemedy, planContinuation, stoppedStep, withProviderSwitch } from './run-continuation'
+import { frozenRuntimeStateAvailable, normalizeContinueRemedy, planContinuation, stoppedStep, withProviderSwitch } from './run-continuation'
 
 const frozen = vi.hoisted(() => ({ value: undefined as unknown, prepare: vi.fn() }))
 vi.mock('../../loops/runtime/loop-runs-store', async () => ({ ...await vi.importActual<object>('../../loops/runtime/loop-runs-store'), readDefinitionRun: () => frozen.value }))
@@ -175,5 +175,18 @@ describe('Continue with another provider (a run that settled on a usage limit)',
     frozen.value = { row: { status: 'paused' }, metadata: {} }
     const plan = planContinuation(db, 'run', 'continue', probe([], { status: 'paused' }), diagnosis({ kind: 'provider_limit', resumablePhase: 'developer' }))
     expect(withProviderSwitch(plan, { runId: 'run', sequence: 1, offer, choice })).toMatchObject({ plan: { mode: 'resume' }, routeOverrides: { routes: { developer: { provider: 'claude' } } } })
+  })
+})
+
+describe('whether a settled run still has the state Continue needs', () => {
+  it('is available while its admission context is on disk, gone once it was removed, and unknown rows defer to the probe', () => {
+    frozen.value = { row: { status: 'completed' }, metadata: { contextPath: __filename } }
+    expect(frozenRuntimeStateAvailable(db, 'run')).toBe(true)
+    frozen.value = { row: { status: 'completed' }, metadata: { contextPath: '/gone/.specrails/pipeline/run/desktop-context.json' } }
+    expect(frozenRuntimeStateAvailable(db, 'run')).toBe(false)
+    frozen.value = { row: { status: 'completed' }, metadata: {} }
+    expect(frozenRuntimeStateAvailable(db, 'run')).toBe(true)
+    frozen.value = undefined
+    expect(frozenRuntimeStateAvailable(db, 'run')).toBe(true)
   })
 })

@@ -20,6 +20,7 @@
   "summary.bulk.merge": "{{count}} Specs in {{target}} zusammengeführt; die zusammengeführten Specs liegen in „Kürzlich gelöscht“.",
   "summary.bulk.reorder": "{{changed}} Specs neu sortiert; {{skipped}} standen schon richtig.",
   "summary.triaged": "{{count}} von {{total}} Specs triagiert.",
+  "summary.triaged_next": "Weiter: Das Start-Angebot legt sie auf Rails und startet sie in einem Aufruf (ohne Rail-Einrichtung).",
   "summary.smash_undone": "Aufteilung von {{ref}} rückgängig gemacht.",
   "summary.addendum_added": "Nachtrag {{ref}} zu {{spec}} hinzugefügt; er geht in den nächsten Start mit ein.",
   "summary.addendum_updated": "Nachtrag {{ref}} aktualisiert.",

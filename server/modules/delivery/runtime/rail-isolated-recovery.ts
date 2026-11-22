@@ -430,7 +430,7 @@ export async function reconcileRailWorktrees(
             | { status: string; final_outcome: string | null }
             | undefined
         : undefined
-      if (row.run_id && run?.final_outcome !== 'success' && hasAgentRuntimeRequest({ path: io.primaryRepoDir ?? repoDir }, row.run_id)) {
+      if (row.run_id && run?.final_outcome !== 'success' && hasAgentRuntimeRequest({ path: io.primaryRepoDir ?? repoDir }, row.run_id, frozenContextPath(db, row.run_id))) {
         updateRailWorktreeState(db, row.id, 'needs-review')
         continue
       }
@@ -960,4 +960,9 @@ export async function reconcileRailWorktrees(
     }
     return stuck.length
   })
+}
+
+/** The context path a definition run was admitted with, or null (never throws). */
+function frozenContextPath(db: DbInstance, runId: string): string | null {
+  try { return readDefinitionRun(db, runId)?.metadata.contextPath ?? null } catch { return null }
 }

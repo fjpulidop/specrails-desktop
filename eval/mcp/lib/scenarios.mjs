@@ -52,8 +52,14 @@ async function projectNamed(api, name) {
 /** A location for a Builder project inside the work dir (never the person's ~/projects). */
 const builderLocation = (workDir, name) => path.join(workDir, 'builder-projects', name)
 
-const SPANISH = /\b(el|la|los|las|de|del|que|en|para|una?|tus?|está|están|entregas?|esperan?|gast\w*|semana|integr\w*|revis\w*|hoy|proyectos?|ejecuci\w*|fusion\w*|hech[oa]s?|carril(es)?|marcha|esperándote|decisión)\b/gi
-const spanishEnough = text => (String(text ?? '').match(SPANISH) ?? []).length >= 2
+const SPANISH = /\b(el|la|los|las|de|del|que|en|para|se|sin|con|por|ya|clasific\w*|lista?s?|una?|tus?|está|están|entregas?|esperan?|gast\w*|semana|integr\w*|revis\w*|hoy|proyectos?|ejecuci\w*|fusion\w*|hech[oa]s?|carril(es)?|marcha|esperándote|decisión|eventos?)\b/gi
+const ENGLISH = /\b(the|and|is|are|of|waiting|runs?|events?|spent|today|ready|merged)\b/i
+/** Reads as Spanish: two Spanish words, or one in a short English-free line ("5 eventos."). */
+export const spanishEnough = text => {
+  const value = String(text ?? '')
+  const hits = (value.match(SPANISH) ?? []).length
+  return hits >= 2 || (hits === 1 && value.trim().split(/\s+/).length <= 3 && !ENGLISH.test(value))
+}
 
 export const SCENARIOS = [
   {
@@ -202,7 +208,8 @@ export const SCENARIOS = [
     id: 'S7', title: 'Diagnose a failed run and fix it the recommended way', needs: ['specrails_runs'], referenceCalls: 3, referenceLogical: 2,
     prompt: { en: p => `Why did the run of "Export the report as CSV" in project "${p.project.name}" fail? Fix it the recommended way.` },
     person: { confirm: 'Yes, do it.' },
-    seed: ctx => seed.seedFailedRun(ctx.api, ctx.workDir, `s7-${ctx.tag}`),
+    // A passing provider error (like a real 500): the recommended Continue then completes the run.
+    seed: ctx => seed.seedFailedRun(ctx.api, ctx.workDir, `s7-${ctx.tag}`, { mode: 'flaky' }),
     async reference(mcp, f) {
       const run = ref('run', f.project.slug, f.runId)
       const d = await mcp.call('specrails_runs', { action: 'diagnose', ref: run })
@@ -315,6 +322,8 @@ export const SCENARIOS = [
         assertion('mission on Codex (GPT) with high effort', conversation?.provider === 'codex' && conversation?.reasoning_effort === 'high', `${conversation?.provider}/${conversation?.reasoning_effort}`),
         confirmedWithToken(calls, 'specrails_missions', 'send', a => /summar/i.test(a.message ?? '')),
         assertion('the request reached the mission', messages.some(m => /summar/i.test(JSON.stringify(m.content ?? m.text ?? m))) || calls.some(c => c.ok && c.args?.action === 'send'), `${messages.length} message(s)`),
+        // The mission's Codex turn ran (the scripted app-server answers it).
+        assertion('the mission answered', messages.some(m => m.role === 'assistant'), messages.map(m => m.role).join(',')),
       ]
     },
   },
@@ -420,7 +429,8 @@ export const SCENARIOS = [
         confirmedWithToken(calls, 'specrails_deliveries', 'decide', a => a.decision === 'merge_local'),
         assertion('delivery integrated', /merged|integrated|accepted|done/i.test(`${p?.decision} ${p?.statusCode}`), `${p?.decision}/${p?.statusCode}`),
         called(calls, 'specrails_insights', 'spend'),
-        assertion('every call asked for Spanish', ours.length > 0 && ours.every(c => c.args?.lang === 'es'), ours.filter(c => c.args?.lang !== 'es').map(c => c.tool).join(', ')),
+        // The session language sticks (the first call's `lang`, or projects(select, lang)): later calls may omit it.
+        assertion('the session asked for Spanish', ours.length > 0 && ours[0].args?.lang === 'es' || ours.some(c => c.args?.action === 'select' && c.args?.lang === 'es'), ours[0] ? `${ours[0].tool}(${ours[0].args?.lang ?? '-'})` : ''),
         assertion('confirmation preview in Spanish', previews.length > 0 && previews.every(spanishEnough), previews.join(' | ').slice(0, 200)),
         assertion('summaries in Spanish', summaries.length > 0 && summaries.every(spanishEnough), summaries.filter(t => !spanishEnough(t)).join(' | ').slice(0, 200)),
         ...(finalText !== null ? [answeredIn(finalText, 'es')] : []),

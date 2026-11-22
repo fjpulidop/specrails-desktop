@@ -22,6 +22,7 @@
  * cause's guidance (recovery `continuationGuidance`) goes with it.
  */
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { readDefinitionRun } from '../../loops/runtime/loop-runs-store'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 import { recipeStall, type FailureDiagnosis } from '../../recovery'
@@ -45,6 +46,18 @@ export function normalizeContinueRemedy(value: unknown): ContinueRemedy | null {
 export type ContinuationPlan =
   | { mode: 'resume'; fromStep: string | null }
   | { mode: 'fork'; fromStep: string; request: DefinitionForkRequest }
+
+/**
+ * Whether the run's frozen Core state (its admission context) is still on disk. A settled run
+ * whose state was removed with its worktree can never continue from its step: callers then
+ * report it not continuable and offer a fresh launch instead. Runs without a recorded context
+ * path (older rows) are treated as available; the probe decides for them.
+ */
+export function frozenRuntimeStateAvailable(db: DbInstance, runId: string): boolean {
+  let contextPath: string | undefined
+  try { contextPath = readDefinitionRun(db, runId)?.metadata.contextPath } catch { return false }
+  return !contextPath || existsSync(contextPath)
+}
 
 /** Scope statuses of the step a run was on when it failed or stopped. */
 const STOPPED_AT = ['failed', 'interrupted', 'cancelled', 'blocked', 'running']

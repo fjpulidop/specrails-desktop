@@ -56,7 +56,7 @@ export const F = {
   fields: <const T extends readonly [string, ...string[]]>(sections: T) => z.array(z.enum(sections)).describe('Detail sections'),
   cursor: z.string().describe('From page.cursor'),
   limit: z.number().int().min(1).max(100),
-  lang: z.string().describe('Reply language code, e.g. es'),
+  lang: z.string().describe('Language, e.g. es (sticks)'),
   confirm: z.string().describe('confirmToken from the preview'),
   dryRun: z.boolean().describe('Preview only'),
   options: z.looseObject({}).describe('Rare fields; see specrails_system help'),

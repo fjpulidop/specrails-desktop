@@ -22,7 +22,7 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Piece | File | Notes |
 |---|---|---|
 | Isolated instance | `lib/instance.mjs` | `tsx server/index.ts` with its own `SPECRAILS_REGISTRY_HOME` (default `~/.specrails-dev-mcpeval`), port 4400/4401, `SPECRAILS_HEADLESS=1`, `SPECRAILS_MCP_V2=true` (`false` with `--v1`), the sibling built Core, and on `PATH` first: the scripted engine, then the benchmark's fake installers. Reuses `scripts/benchmark/lib/server.mjs`, which signals only a listener started with that home |
-| Scripted engine | `engine/claude`, `engine/scripted.mjs`, `engine/builder.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `question` (the architect asks with options) |
+| Scripted engine | `engine/claude`, `engine/scripted.mjs`, `engine/builder.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `flaky` (a provider error on a project's first Core step only, as a passing 500: S7's Continue then completes), `question` (the architect asks with options). The stand-in `codex` also serves `codex app-server --listen stdio://` (`engine/codex-app-server.mjs`): mission turns on Codex (S11) get one scripted answer |
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
 | Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment (`--auth session`: see Safety) |
 | Simulated person | `lib/person.mjs`, `lib/person-dialog.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question. Claude Code also shows the server's in-call confirmation dialog (MCP elicitation); a project-level `Elicitation` hook in the scenario's temp cwd gives the same yes/no there (`--no-dialog`: chat only). Codex `exec` declines dialogs, so it stays on the chat flow |
@@ -71,8 +71,8 @@ served through the legacy bridge carries a deprecation warning).
   client spend of one run.
 - Repositories are throwaway, with local bare remotes under the work dir. Nothing is pushed elsewhere. A seeded
   project commits what registration leaves uncommitted (as a real project would). The agent files the first run
-  installs stay untracked: a local integration stashes them and its restore reports needs_attention (a product
-  finding, not hidden here: committing them after the run conflicts with the delivery branch).
+  installs stay untracked: a local integration stashes them and puts them back after the merge (Specrails' own setup
+  files the delivery also committed take the delivered copy; only the person's own differing files need attention).
 - Between scenarios: a provider quota refusal that outlives a scenario (S4's scripted Claude limit) would hold every
   later run, so the harness stops the instance, drops the persisted refusal from its own `desktop.sqlite` and boots it
   again. Each turn's raw client stream is kept as `clients/<scenario>/turn-<n>.jsonl`.

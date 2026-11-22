@@ -11,7 +11,7 @@ import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtim
 import { updateRailWorktreeState } from './rail-worktrees-store'
 import { readHeadSha, resolveOverlaySources } from './isolated-worktree'
 import { saveIsolatedSettlementResult, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
-import { readDefinitionForkTarget } from '../../loops/runtime/loop-runs-store'
+import { readDefinitionForkTarget, readDefinitionRun } from '../../loops/runtime/loop-runs-store'
 import { transitionDecision } from './rail-pr-store'
 import { renderFollowUpBriefing } from './pr-follow-up'
 import { recordLoopRunProvenance, type ProvenanceCommit } from '../../code/runtime/file-story'
@@ -70,7 +70,8 @@ export function startIsolatedRuns(stage: RunLaunchStageInput): RunLaunchStageRes
     ownsRun: runId => !readDefinitionForkTarget(ctx.db, runId),
     onFinished: (runId, outcome, stallReason) => ctx.onLoopRunFinished(runId, outcome, { ...runFinishedOpts, ...(stallReason ? { stallReason } : {}) }),
     recordRunProvenance, markWorktree,
-    hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
+    // The run's frozen context decides (a run admitted mid-assembly keeps its state where it was admitted).
+    hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId, frozenContextPath(ctx.db, runId)),
     commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial, { worktreePath: run.handle.worktreePath }),
     intentFor: (run) => runIntent(ctx, run),
     forkChain: runId => definitionForkChain(ctx.db, runId),
@@ -208,4 +209,9 @@ function createWorktreeMarker(ctx: IsolatedLaunchInput['ctx']): MarkWorktree {
     }
   }
   return markWorktree
+}
+
+/** The context path a definition run was admitted with, or null (never throws). */
+function frozenContextPath(db: Parameters<typeof readDefinitionRun>[0], runId: string): string | null {
+  try { return readDefinitionRun(db, runId)?.metadata.contextPath ?? null } catch { return null }
 }

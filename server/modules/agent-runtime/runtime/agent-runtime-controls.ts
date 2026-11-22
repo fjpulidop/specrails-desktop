@@ -530,8 +530,11 @@ export class AgentRuntimeControls {
   private isSettledStatus(runId: string, state: RuntimeState | null): boolean {
     if (!state || this.active.has(runId) || state.lease?.active === true || state.status === 'running') return false
     if ((state.pendingInterrupts ?? []).some(item => item.kind === 'host-task')) return false
+    // A paused parent (a limit or budget hold, a question) with no live Core lease does not change
+    // until something resumes it: the resume flips the parent to running (or invalidates), and the
+    // file fingerprint still guards every write. Only a running parent is never served from cache.
     const parent = getLoopRun(this.ctx.db, runId)
-    return parent?.status !== 'running' && parent?.status !== 'paused'
+    return parent?.status !== 'running'
   }
 
   async resume(runId: string, input: RuntimeResumeInput): Promise<void> {

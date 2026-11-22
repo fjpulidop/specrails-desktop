@@ -1,4 +1,4 @@
-import { shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
+import { runtimeRunSummary, shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
 import { AsyncLocalStorage } from 'async_hooks'
@@ -889,9 +889,18 @@ export class ProjectRegistry {
       dailyBudgetRejection: budget.dailyBudgetRejection, runCapDefault: budget.runCapDefault,
       publishRunClarifications, getProjectContext: () => projectContext,
     })
-    const onLoopRunFinished = createLoopRunFinishedHandler({
+    const finishLoopRun = createLoopRunFinishedHandler({
       project, db, railLoopRuns, ticketStorePath: tickets.ticketStorePath, jiraSyncManager, publishRunClarifications, taps, broadcast: boundBroadcast,
     })
+    // A settled run's runtime summary is read next (its card, Continue, an agent's diagnose):
+    // read it once now, off the request path, so those reads hit the settled-status cache
+    // instead of each spawning Core's status command.
+    const onLoopRunFinished: typeof finishLoopRun = (runId, ...rest) => {
+      const finished = finishLoopRun(runId, ...rest)
+      const warm = setTimeout(() => { if (projectContext) void runtimeRunSummary(projectContext, runId).catch(() => null) }, 250)
+      warm.unref?.()
+      return finished
+    }
     const stuckRunDetector = new StuckRunDetector(project.id, { db }, boundBroadcast)
     stuckRunDetector.start()
 

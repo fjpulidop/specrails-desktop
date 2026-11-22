@@ -2297,7 +2297,8 @@
         "../../recovery",
         "./definition-fork",
         "./incomplete-tasks-remedy",
-        "node:crypto"
+        "node:crypto",
+        "node:fs"
       ],
       "runtime/run-env-files.ts": [
         "../../../db",

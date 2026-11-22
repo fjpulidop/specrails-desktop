@@ -33,6 +33,18 @@ import { captureProcessAdmission, ProcessAdmissionClosedError } from '../../../p
 import { projectContextOf, emitPrDeliveryUpdate } from './rails-http-shared'
 import { prDeliveryCheckoutTarget, prDeliveryCheckoutBlock } from './rail-delivery-revision'
 
+/** Packet evidence heals that found nothing to add, per delivery row version (bounded, process-local). */
+const HEAL_MEMO_MS = 10 * 60_000
+const healedAt = new Map<string, number>()
+function recentlyHealed(key: string, now = Date.now()): boolean {
+  const at = healedAt.get(key)
+  return at !== undefined && now - at < HEAL_MEMO_MS
+}
+function rememberHeal(key: string, now = Date.now()): void {
+  healedAt.set(key, now)
+  if (healedAt.size > 500) for (const [k, at] of healedAt) if (now - at >= HEAL_MEMO_MS || healedAt.size > 500) healedAt.delete(k)
+}
+
 export function registerRailReviewRoutes(router: Router): void {
   const ctx = projectContextOf
 
@@ -63,7 +75,11 @@ export function registerRailReviewRoutes(router: Router): void {
       // older packet stops claiming "nothing reported" once the data exists.
       try {
         const existing = readSettleEvidence(row.settle_evidence)
-        if (existing) {
+        // A heal that found nothing new is not retried on every read (it probes Core per unit):
+        // only after the delivery row changes, or once the memo expires.
+        const healKey = `${c.project.id}:${row.id}:${row.updated_at ?? ''}`
+        if (existing && !recentlyHealed(healKey)) {
+          rememberHeal(healKey)
           const pipelineDir = path.join(resolveProjectExecution({ slug: c.project.slug, path: c.project.path }).specrailsDir, 'pipeline')
           const definitionStatuses = await probeDefinitionRuns({ db: c.db, cwd: c.project.path, env: process.env },
             existing.units.filter(unit => !unit.runtime && unit.runId && getLoopRun(c.db, unit.runId)?.engine_version === 2).map(unit => unit.runId!), true)

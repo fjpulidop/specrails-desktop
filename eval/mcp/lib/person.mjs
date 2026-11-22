@@ -26,8 +26,9 @@ export function asksPerson(text) {
   const t = String(text ?? '').trim()
   if (!t) return false
   const tail = t.slice(-400)
-  return /\?\s*$/.test(t) || /\b(confirm|shall I|should I|do you want|would you like|go[- ]ahead|proceed|let me know|tell me (if|whether|to)|say (yes|the word)|¿|confirma|quieres|procedo|dime si|avísame)\b|¿/i.test(tail)
-    || /\b(need|want|wait for|waiting for|with) (your|an?) (explicit )?(go[- ]ahead|approval|confirmation|ok|okay|yes|answer|decision)\b/i.test(tail)
+  return /\?\s*$/.test(t) || /\b(confirm|shall I|should I|do you want|would you like|go[- ]ahead|proceed|let me know|tell me (if|whether|to)|say (yes|so|the word)|¿|confirma|quieres|procedo|dime si|avísame)\b|¿/i.test(tail)
+    // "I need your go-ahead first" may open the message rather than close it.
+    || /\b(need|want|wait for|waiting for|with) (your|an?) (explicit )?(go[- ]ahead|approval|confirmation|ok|okay|yes|answer|decision)\b/i.test(t)
     || /\b(necesito|espero) (tu|su) (confirmación|aprobación|visto bueno|respuesta)\b/i.test(tail)
 }
 

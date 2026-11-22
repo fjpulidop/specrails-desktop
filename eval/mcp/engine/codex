@@ -21,8 +21,15 @@ if (args[0] === 'debug' && args[1] === 'models') {
   console.log(JSON.stringify({ models: slugs.map(slug => ({ slug, supported_reasoning_levels: levels.map(effort => ({ effort })) })) }))
   process.exit(0)
 }
-if (args[0] !== 'exec') { log({ refused: args.slice(0, 3) }); console.error('eval engine: only `codex exec` turns are scripted'); process.exit(2) }
+// Missions on Codex drive `codex app-server --listen stdio://` (JSON-RPC lines, server/providers/codex-live-session.ts).
+// Global options (`-c key=value`, `--enable x`) may precede the subcommand.
+const VALUE_FLAGS = new Set(['-c', '--config', '--enable', '--disable', '-m', '--model', '-p', '--profile'])
+const subcommand = (() => { for (let i = 0; i < args.length; i++) { if (VALUE_FLAGS.has(args[i])) { i++; continue } if (!args[i].startsWith('-')) return args[i] } return null })()
+if (subcommand === 'app-server') { const { serveAppServer } = await import('./codex-app-server.mjs'); serveAppServer({ log }); }
+else if (args[0] !== 'exec') { log({ refused: args.slice(0, 3) }); console.error('eval engine: only `codex exec` turns are scripted'); process.exit(2) }
 
+if (args[0] === 'exec') runExec()
+function runExec() {
 const schemaFile = args[args.indexOf('--output-schema') + 1]
 let schema
 try { schema = args.includes('--output-schema') ? JSON.parse(fs.readFileSync(schemaFile, 'utf8')) : undefined } catch { schema = undefined }
@@ -42,3 +49,4 @@ if (seconds > 0) setTimeout(() => {
   emit({ type: 'turn.completed', usage: { input_tokens: 120, cached_input_tokens: 0, output_tokens: 30 } })
   process.exit(0)
 }, seconds * 1000)
+}

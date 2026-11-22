@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { modeOf, detectRole, minimalInstance, roleObject, fitToSchema, engineOutput } from './engine/scripted.mjs'
+import { modeOf, detectRole, minimalInstance, roleObject, fitToSchema, engineOutput, resolveMode, deliveredExport } from './engine/scripted.mjs'
 import { builderReply, isBuilderTurn, platformFor, slicesFor } from './engine/builder.mjs'
 
 const shim = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'claude')
@@ -133,4 +133,48 @@ test('builder turns follow the platform the person names, revisions included', (
   assert.equal(web.stack.db, 'browser localStorage')
   assert.match(web.m1Specs[1].shortSummary, /in the browser/)
   assert.match(block(builderReply()).platform, /CLI/)
+})
+
+test('the codex stand-in serves a mission turn over app-server JSON-RPC', () => {
+  const codex = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'codex')
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-app-server-'))
+  fs.writeFileSync(path.join(cwd, 'README.md'), '# demo\n')
+  const frames = [
+    { id: 1, method: 'initialize', params: { clientInfo: { name: 'specrails_desktop' } } },
+    { method: 'initialized' },
+    { id: 2, method: 'thread/start', params: { model: 'gpt-6.2-sol', cwd } },
+    { id: 3, method: 'turn/start', params: { threadId: 'ignored', input: [{ type: 'text', text: 'Summarize this repository' }], effort: 'high' } },
+  ].map(frame => JSON.stringify(frame)).join('\n') + '\n'
+  const run = spawnSync(process.execPath, [codex, '-c', 'mcp_servers.node_repl.enabled=false', 'app-server', '--listen', 'stdio://'], { cwd, input: frames, encoding: 'utf8', env: { ...process.env, EVAL_ENGINE_LOG: '' } })
+  fs.rmSync(cwd, { recursive: true, force: true })
+  assert.equal(run.status, 0, run.stderr)
+  const out = run.stdout.trim().split('\n').map(line => JSON.parse(line))
+  const thread = out.find(f => f.id === 2).result.thread.id
+  assert.ok(thread)
+  assert.equal(out.find(f => f.id === 3).result.turn.status, 'inProgress')
+  const message = out.find(f => f.method === 'item/completed')
+  assert.equal(message.params.threadId, thread)
+  assert.match(message.params.item.text, /summary of this repository: top-level entries README\.md/)
+  const done = out.find(f => f.method === 'turn/completed')
+  assert.equal(done.params.turn.status, 'completed')
+  assert.equal(done.params.turn.id, message.params.turnId)
+})
+
+test('flaky fails the first Core step of a project, then completes (a passing provider error)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-flaky-'))
+  const log = path.join(dir, 'engine.jsonl')
+  const cwd = '/home/x/.specrails/projects/s7-abc/worktrees/run-1/ticket-1'
+  assert.equal(resolveMode('flaky', cwd, log), 'fail')
+  assert.equal(resolveMode('flaky', '/home/x/.specrails/projects/s7-abc/worktrees/run-2/ticket-1', log), 'complete')
+  assert.equal(resolveMode('flaky', '/home/x/.specrails/projects/s7-other/worktrees/run-1/ticket-1', log), 'fail')
+  assert.equal(resolveMode('fail', cwd, log), 'fail')
+  assert.equal(resolveMode('complete', cwd, log), 'complete')
+  assert.equal(resolveMode('flaky', cwd, undefined), 'fail')
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('the scripted developer delivers a named export for the spec subject', () => {
+  assert.deepEqual(deliveredExport('"title": "Add the discount badge"'), { name: 'discountBadge', value: 'Add the discount badge' })
+  assert.deepEqual(deliveredExport('Title: Añadir la insignia de descuento\n'), { name: 'insigniaDeDescuento', value: 'Añadir la insignia de descuento' })
+  assert.equal(deliveredExport('').name, 'scriptedChange')
 })

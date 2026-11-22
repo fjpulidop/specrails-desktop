@@ -17,7 +17,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { engineOutput, detectRole, modeOf, isTriageTurn } from './scripted.mjs'
+import { engineOutput, detectRole, modeOf, resolveMode, isTriageTurn } from './scripted.mjs'
 import { isBuilderTurn } from './builder.mjs'
 
 const args = process.argv.slice(2)
@@ -70,7 +70,9 @@ try { schema = flag('--json-schema') ? JSON.parse(flag('--json-schema')) : undef
 // A Project Builder turn carries the blueprint-draft contract in its system prompt (or, for providers without one, its prompt).
 const systemPrompt = flag('--system-prompt') ?? flag('--append-system-prompt') ?? ''
 const role = !schema && isBuilderTurn(`${systemPrompt}\n${prompt}`) ? 'builder' : !schema && isTriageTurn(`${systemPrompt}\n${prompt}`) ? 'triage' : detectRole(schema)
-const mode = modeOf(prompt, process.env.EVAL_ENGINE_MODE)
+// Only a Core role turn can fail a flaky step (triage, Builder and spec turns never do).
+const requested = modeOf(prompt, process.env.EVAL_ENGINE_MODE)
+const mode = ['architect', 'developer', 'reviewer'].includes(role) ? resolveMode(requested, process.cwd()) : requested === 'flaky' ? 'complete' : requested
 const session = flag('--resume') ?? `eval-${process.pid}-${Date.now()}`
 const stream = flag('--output-format') === 'stream-json'
 log({ mode, role, schema: process.env.EVAL_ENGINE_LOG_SCHEMA ? schema : schema ? Object.keys(schema.properties ?? {}) : null, model: flag('--model') ?? null, resume: flag('--resume') ?? null, promptBytes: prompt.length })

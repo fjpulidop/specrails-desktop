@@ -79,6 +79,13 @@ describe('v2 registry', () => {
     expect(text).toBe(JSON.stringify(envelope))
   })
 
+  it('keeps the session language for later calls that omit lang', async () => {
+    harness.ctx.sessionState!.activeProjectId = 'p1'
+    await call(client, 'specrails_fake', { action: 'whoami', lang: 'es' })
+    const { envelope } = await call(client, 'specrails_fake', { action: 'whoami' })
+    expect(envelope).toMatchObject({ summary: 'En curso', data: { lang: 'es' } })
+  })
+
   it('resolves refs and fails a call without project with choices', async () => {
     expect((await call(client, 'specrails_fake', { action: 'target', ref: 'run:shop-api/r7' })).envelope.data).toMatchObject({ kind: 'run', id: 'r7', ref: 'run:shop-api/r7' })
     const { envelope, isError } = await call(client, 'specrails_fake', { action: 'whoami' })
