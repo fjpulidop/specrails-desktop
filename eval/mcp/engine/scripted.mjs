@@ -3,7 +3,7 @@
 // work for the `complete` mode.
 import fs from 'node:fs'
 import path from 'node:path'
-import { builderReply, slicesFor } from './builder.mjs'
+import { builderReply, platformFor, slicesFor } from './builder.mjs'
 
 export const MODES = Object.freeze(['complete', 'stall', 'limit', 'fail', 'question'])
 const MARKER = /\[eval-engine:([a-z]+)\]/
@@ -107,11 +107,12 @@ export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig,
   if (role === 'builder') {
     // The slices the conversation asked for so far ride in a per-session file (a resumed turn sees only its message).
     const file = builderStateFile(session)
-    let previous = []
-    try { previous = file && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).slices ?? [] : [] } catch { previous = [] }
-    const slices = slicesFor(prompt, previous)
-    if (file) try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify({ slices })) } catch { /* best effort */ }
-    return { text: builderReply({ marker: MARKER.exec(String(prompt ?? ''))?.[0] ?? null, slices }) }
+    let saved = {}
+    try { saved = file && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {} } catch { saved = {} }
+    const slices = slicesFor(prompt, saved.slices ?? [])
+    const platform = platformFor(prompt, saved.platform ?? null)
+    if (file) try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify({ slices, platform })) } catch { /* best effort */ }
+    return { text: builderReply({ marker: MARKER.exec(String(prompt ?? ''))?.[0] ?? null, slices, platform }) }
   }
   if (mode === 'limit') return { text: LIMIT_TEXT, isError: true, exitCode: 1, stderr: LIMIT_TEXT }
   if (mode === 'fail') return { text: 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error (scripted)"}}', isError: true, exitCode: 1 }

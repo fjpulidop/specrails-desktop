@@ -98,6 +98,29 @@ export function slicesFor(message, previous = []) {
 
 let SLICES = DEFAULT_SLICES
 
+/** The platforms the scripted Builder can plan; the person's words pick one (the last one named wins). */
+export const PLATFORMS = Object.freeze({
+  cli: { words: /\b(cli|command[- ]line|terminal|node(\.js)? (cli|script))\b/i, product: { name: 'Todo CLI', pitch: 'A minimal command-line todo list.', audience: 'Developers who live in the terminal' },
+    platform: 'CLI (Node.js)', stack: { language: 'JavaScript', framework: 'Node.js', db: 'JSON file' }, where: 'from the command line', what: 'CLI' },
+  web: { words: /\b(web ?app|browser|single[- ]page|spa|html|localstorage|website|web page|react|vue|svelte)\b/i, product: { name: 'Todo Web', pitch: 'A minimal todo list in the browser.', audience: 'Anyone who wants a quick list in a browser tab' },
+    platform: 'Web (static HTML, CSS and JavaScript)', stack: { language: 'JavaScript', framework: 'none (vanilla)', db: 'browser localStorage' }, where: 'in the browser', what: 'web app' },
+})
+
+/** The platform for a Builder turn (pure): the one this message names, else the conversation's, else the CLI. */
+export function platformFor(message, previous = null) {
+  const text = String(message ?? '')
+  let best = null
+  let at = -1
+  for (const [id, p] of Object.entries(PLATFORMS)) {
+    for (const m of text.matchAll(new RegExp(p.words.source, 'gi'))) if (m.index > at) { at = m.index; best = id }
+  }
+  // "not a CLI" / "no Node" names the CLI only to rule it out.
+  if (best === 'cli' && /\b(not|no|never|instead of)\b[^.]{0,20}\b(cli|command[- ]line|node)/i.test(text) && PLATFORMS.web.words.test(text)) best = 'web'
+  return best ?? previous ?? 'cli'
+}
+
+let PLATFORM = PLATFORMS.cli
+
 function premiumSpec(index, over = {}) {
   const scaffold = index === 0
   const slice = SLICES[index - 1] ?? `workflow slice ${index}`
@@ -106,7 +129,7 @@ function premiumSpec(index, over = {}) {
     title: scaffold ? 'Scaffold the runnable project foundation' : `Let the user ${slice}`,
     shortSummary: scaffold
       ? 'Turn the README-only repository into an installable, runnable, testable application shell with CI.'
-      : `Let the user ${slice} from the command line, independently testable on top of the scaffold.`,
+      : `Let the user ${slice} ${PLATFORM.where}, independently testable on top of the scaffold.`,
     description: premiumDescription({ readme: scaffold, subject: scaffold ? 'the project foundation' : `the "${slice}" flow` }),
     acceptanceCriteria: premiumCriteria(scaffold ? 'foundation' : slice),
     priority: 'medium',
@@ -122,19 +145,20 @@ function premiumSpec(index, over = {}) {
  * `[eval-engine:<mode>]` the person's message carried) rides into the first
  * spec, so the milestone chain's first run behaves that way (pure).
  */
-export function builderReply({ marker = null, slices = DEFAULT_SLICES } = {}) {
+export function builderReply({ marker = null, slices = DEFAULT_SLICES, platform = 'cli' } = {}) {
   SLICES = slices
+  PLATFORM = PLATFORMS[platform] ?? PLATFORMS.cli
   const specs = Array.from({ length: slices.length + 1 }, (_, i) => premiumSpec(i))
   if (marker) specs[0] = { ...specs[0], description: `${specs[0].description}\n\n${marker}` }
   const blueprint = {
     blueprintVersion: 1,
-    product: { name: 'Todo CLI', pitch: 'A minimal command-line todo list.', audience: 'Developers who live in the terminal' },
+    product: PLATFORM.product,
     coreFlow: `${slices.map(s => s.replace(/^./, c => c.toUpperCase())).join(', ')}.`,
-    platform: 'CLI (Node.js)',
-    stack: { language: 'JavaScript', framework: 'Node.js', db: 'JSON file' },
+    platform: PLATFORM.platform,
+    stack: PLATFORM.stack,
     assumptions: ['Single user, local machine'],
     milestones: [
-      { id: 'M1', title: 'Walking skeleton', goal: 'A runnable, tested CLI with the core flow.', status: 'planned', plannedSpecs: specs.map(s => s.title) },
+      { id: 'M1', title: 'Walking skeleton', goal: `A runnable, tested ${PLATFORM.what} with the core flow.`, status: 'planned', plannedSpecs: specs.map(s => s.title) },
       { id: 'M2', title: 'Polish', goal: 'What comes after the core flow.', status: 'planned', plannedSpecs: LATER.filter(l => !slices.includes(l.slice)).map(l => l.title).concat(['Export the list']).slice(0, 2) },
     ],
     specsComplete: true,

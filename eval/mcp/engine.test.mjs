@@ -6,7 +6,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { modeOf, detectRole, minimalInstance, roleObject, fitToSchema, engineOutput } from './engine/scripted.mjs'
-import { builderReply, isBuilderTurn, slicesFor } from './engine/builder.mjs'
+import { builderReply, isBuilderTurn, platformFor, slicesFor } from './engine/builder.mjs'
 
 const shim = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'claude')
 const DEV = { type: 'object', additionalProperties: false, required: ['summary', 'incomplete'], properties: { summary: { type: 'string' }, incomplete: { type: 'array', items: { type: 'string' } }, blocker: { type: 'object' } } }
@@ -120,4 +120,17 @@ test('triage turns answer one JSON object on an offered loop', async () => {
   assert.equal(answer.recommendedLoop, 'factory:quick')
   assert.equal(answer.size, 'S')
   assert.match((await run({ mode: 'complete', role: 'triage', prompt: '{"loops":[]}' })).text, /"size":"S"/)
+})
+
+test('builder turns follow the platform the person names, revisions included', () => {
+  assert.equal(platformFor('A small todo app'), 'cli')
+  assert.equal(platformFor('A todo single-page web app with localStorage'), 'web')
+  assert.equal(platformFor('Make it a browser app, not a CLI or Node.js tool', 'cli'), 'web')
+  assert.equal(platformFor('Add an edit feature', 'web'), 'web')
+  const block = text => JSON.parse(/```blueprint-draft\n([\s\S]*?)\n```/.exec(text)[1])
+  const web = block(builderReply({ platform: 'web' }))
+  assert.match(web.platform, /Web/)
+  assert.equal(web.stack.db, 'browser localStorage')
+  assert.match(web.m1Specs[1].shortSummary, /in the browser/)
+  assert.match(block(builderReply()).platform, /CLI/)
 })
