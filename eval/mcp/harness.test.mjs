@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import { parseArgs, ArgsError } from './lib/args.mjs'
 import { assertEvalTarget, assertClientHome, clientEnv, IsolationError } from './lib/isolation.mjs'
-import { clientArgs, codexConfig, parseClientOutput, addUsage, authProblem } from './lib/clients.mjs'
+import { clientArgs, codexConfig, parseClientOutput, addUsage, mergeUsage, authProblem } from './lib/clients.mjs'
 import { nextReply, pendingConfirmation, asksPerson } from './lib/person.mjs'
 import { SCENARIOS, selectScenarios, pendingReason, promptOf } from './lib/scenarios.mjs'
 import { called, confirmedWithToken, neverCalled, onlyAdvertisedOffers, answeredIn, passed } from './lib/checks.mjs'
@@ -81,6 +81,11 @@ test('client output parsing: Claude stream-json and Codex JSONL', () => {
   assert.equal(codex.text, 'Hecho.')
   assert.deepEqual(codex.tokens, { input: 20, output: 7, cacheRead: 5, cacheWrite: null })
   assert.deepEqual(addUsage({ input: 1, output: null, cacheRead: null, cacheWrite: null, costUsd: null }, { input: 2, output: 3, cacheRead: null, cacheWrite: null, costUsd: 0.1 }), { input: 3, output: 3, cacheRead: null, cacheWrite: null, costUsd: 0.1 })
+  // Codex reports the thread's running total on every turn (resume included): the latest turn wins.
+  const turn1 = { input: 224171, output: 500, cacheRead: 180000, cacheWrite: null, costUsd: null }
+  const turn2 = { input: 306684, output: 726, cacheRead: 251392, cacheWrite: null, costUsd: null }
+  assert.deepEqual(mergeUsage('codex', turn1, turn2), turn2)
+  assert.equal(mergeUsage('claude', { input: 1, output: 1, cacheRead: 1, cacheWrite: 1, costUsd: 0.1 }, { input: 1, output: 1, cacheRead: 1, cacheWrite: 1, costUsd: 0.1 }).input, 2)
   assert.ok(authProblem({ parsed: { error: 'Not logged in · Please run /login' }, stderr: '' }))
   assert.equal(authProblem({ parsed: { text: 'Merged.' }, stderr: '' }), null)
 })

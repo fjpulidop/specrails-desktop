@@ -70,3 +70,10 @@ test('report JSON and Markdown', () => {
   assert.match(md, /needs specrails_blueprint/)
   assert.match(md, /S3: run resumed — paused/)
 })
+
+test('client tokens: Codex input already includes its cached part', async () => {
+  const { clientTokens } = await import('./lib/report.mjs')
+  const tokens = { input: 306684, output: 726, cacheRead: 251392, cacheWrite: null }
+  assert.equal(clientTokens({ clientName: 'codex', client: { tokens } }), 307410)
+  assert.equal(clientTokens({ clientName: 'claude', client: { tokens: { input: 10, output: 5, cacheRead: 100, cacheWrite: 50 } } }), 165)
+})

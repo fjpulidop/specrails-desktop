@@ -142,6 +142,17 @@ export function parseClientOutput(client, stdout) {
   return out
 }
 
+/**
+ * Fold one more turn into a conversation's usage (pure). Claude reports each `-p` turn on its own, so turns add up.
+ * Codex's `turn.completed` carries the THREAD's running total (a resumed turn includes the earlier ones, as its
+ * rollout's token_count shows), so the latest turn replaces the sum.
+ */
+export function mergeUsage(client, a, b) {
+  if (client !== 'codex') return addUsage(a, b)
+  const later = (x, y) => y === null || y === undefined ? x : x === null || x === undefined ? y : Math.max(x, y)
+  return { input: later(a.input, b.input), output: later(a.output, b.output), cacheRead: later(a.cacheRead, b.cacheRead), cacheWrite: later(a.cacheWrite, b.cacheWrite), costUsd: later(a.costUsd ?? null, b.costUsd ?? null) }
+}
+
 /** Sum two turns' client usage (pure). */
 export function addUsage(a, b) {
   const sum = (x, y) => x === null && y === null ? null : (x ?? 0) + (y ?? 0)

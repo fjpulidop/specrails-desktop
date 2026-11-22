@@ -8,11 +8,14 @@ const median = values => percentile(values, 50)
 const fmt = (v, d = 0) => v === null || v === undefined ? '—' : typeof v === 'number' ? v.toFixed(d) : String(v)
 const pct = v => v === null || v === undefined ? '—' : `${Math.round(v * 100)}%`
 
-/** Total client tokens of a row (input incl. cache reads/writes, plus output), or null. */
+/**
+ * Total client tokens of a row, or null. Claude (Anthropic usage): input + cache reads + cache writes + output.
+ * Codex (OpenAI usage): input already includes the cached part, so input + output.
+ */
 export function clientTokens(row) {
   const t = row.client?.tokens
   if (!t) return null
-  const parts = [t.input, t.output, t.cacheRead, t.cacheWrite].filter(Number.isFinite)
+  const parts = (row.clientName === 'codex' ? [t.input, t.output] : [t.input, t.output, t.cacheRead, t.cacheWrite]).filter(Number.isFinite)
   return parts.length ? parts.reduce((a, b) => a + b, 0) : null
 }
 

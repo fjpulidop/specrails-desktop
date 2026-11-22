@@ -6,7 +6,7 @@ import path from 'node:path'
 import { assertEvalTarget } from './isolation.mjs'
 import { bootInstance, EVAL_DIR } from './instance.mjs'
 import { connectMcp, proxyCommand } from './mcp-client.mjs'
-import { prepareClientHome, runTurn, addUsage, authProblem, DEFAULT_MODELS } from './clients.mjs'
+import { prepareClientHome, runTurn, mergeUsage, authProblem, DEFAULT_MODELS } from './clients.mjs'
 import { pairCalls, parseLog, scenarioMetrics } from './metrics.mjs'
 import { nextReply } from './person.mjs'
 import { selectScenarios, pendingReason, promptOf, TOOL_PROBES } from './scenarios.mjs'
@@ -152,7 +152,7 @@ async function agentConversation({ o, model, scenario, facts, proxy, dir, root }
     const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000, budgetUsd: o.client === 'claude' && o.maxCostUsd ? o.maxCostUsd : null })
     const auth = authProblem(turn)
     if (auth && !turn.parsed.toolUses) return { client: { tokens: usage, costUsd: usage.costUsd }, turns: turns + 1, finalText: turn.parsed.text, authError: auth }
-    usage = addUsage(usage, { ...turn.parsed.tokens, costUsd: turn.parsed.costUsd })
+    usage = mergeUsage(o.client, usage, { ...turn.parsed.tokens, costUsd: turn.parsed.costUsd })
     session = turn.parsed.session ?? session
     finalText = turn.parsed.text || finalText
     const records = fs.existsSync(proxy.args[proxy.args.indexOf('--log') + 1]) ? parseLog(fs.readFileSync(proxy.args[proxy.args.indexOf('--log') + 1], 'utf8')) : []
