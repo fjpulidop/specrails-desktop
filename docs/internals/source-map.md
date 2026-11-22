@@ -689,7 +689,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
 - [reviewer-family-suggestion.ts](../../client/src/features/loops/lib/reviewer-family-suggestion.ts) · [test](../../client/src/features/loops/lib/reviewer-family-suggestion.test.ts)
-- [runtime-graph-edges.ts](../../client/src/features/loops/lib/runtime-graph-edges.ts)
+- [runtime-graph-edges.ts](../../client/src/features/loops/lib/runtime-graph-edges.ts) · [test](../../client/src/features/loops/lib/__tests__/runtime-graph-edges.test.ts)
 
 ## client/src/features/loops/pages
 
@@ -1286,7 +1286,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-settings-events.ts](../../client/src/lib/app-settings-events.ts)
 - [app-updater.ts](../../client/src/lib/app-updater.ts) · [test](../../client/src/lib/__tests__/app-updater.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
-- [bubble-avoid.ts](../../client/src/lib/bubble-avoid.ts)
+- [bubble-avoid.ts](../../client/src/lib/bubble-avoid.ts) · [test](../../client/src/lib/__tests__/bubble-avoid.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [continuity-api.ts](../../client/src/lib/continuity-api.ts)
 - [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)
