@@ -57,8 +57,8 @@ export function detectWebManager(port: number): Promise<DetectionResult> {
 // ---------------------------------------------------------------------------
 
 /** The directory containing `.specrails/`; `SPECRAILS_REGISTRY_HOME` overrides it like the server. */
-export function specrailsHome(): string {
-  return process.env.SPECRAILS_REGISTRY_HOME ?? os.homedir()
+export function specrailsHome(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  return env.SPECRAILS_REGISTRY_HOME ?? os.homedir()
 }
 
 export function loadDesktopToken(): string | null {

@@ -1,9 +1,8 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { ansi, bold, dim, red, cliError } from './output'
 import { DEFAULT_PORT } from './args'
-import { detectWebManager, httpGet, httpPost } from './desktop-client'
+import { detectWebManager, httpGet, httpPost, specrailsHome } from './desktop-client'
 
 /**
  * `specrails-desktop mcp connect|status|disconnect|doctor`: register the Specrails
@@ -199,7 +198,7 @@ function offlineReport(port: number, tokenFile: string): DoctorReport {
 }
 
 function defaultTokenFile(env: Readonly<Record<string, string | undefined>>): string {
-  return path.join(env.SPECRAILS_REGISTRY_HOME || os.homedir(), '.specrails', 'mcp.token')
+  return path.join(specrailsHome(env), '.specrails', 'mcp.token')
 }
 
 async function runDoctorCommand(options: McpConnectOptions, port: number, io: { out: Out; err: Out; cwd?: string; env?: Readonly<Record<string, string | undefined>>; tokenFile?: string }): Promise<number> {
