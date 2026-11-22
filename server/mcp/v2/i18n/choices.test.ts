@@ -35,7 +35,38 @@ describe('offer labels and effects', () => {
     for (const lang of SUPPORTED_LANGS) {
       for (const key of ['choose.other', 'choose.ask', 'choose.menu', 'choose.declined', 'choose.wrote', 'choose.field', 'choose.recommended']) expect(CATALOGS[lang]?.core?.[key], `${lang} ${key}`).toBeTruthy()
     }
-    expect(CATALOGS.es.core['choose.other']).toBe('Otra cosa — escríbela')
+    expect(CATALOGS.es.core['choose.other']).toBe('Otra cosa — escríbelo')
     expect(CATALOGS.en.core['choose.other']).toBe('Something else — write it')
   })
+
+  // The person reads these words in their own language: an English phrase left in one ("Something else — escríbelo")
+  // is the bug this guards against. Menu strings: the free-text items, the numbered yes/no menus of a confirmation,
+  // the menu rule, and every offer label and effect.
+  const ENGLISH_MENU_WORDS = /something else|write it|write why|write your|describe the changes|your own|go ahead|leave it|recommended|\bother\b|\bpick\b|\bchoose\b/i
+  const isMenuKey = (area: string, key: string) => (area === 'core' && /^(choose\.|confirm\.(required|declined|stale|replayed|expired|mismatch|malformed))/.test(key)) || /^(offer|choice)\./.test(key)
+  for (const lang of SUPPORTED_LANGS.filter((l) => l !== 'en')) {
+    it(`${lang}: no menu string mixes in English, and every numbered menu ends with the same free-text item`, () => {
+      const problems: string[] = []
+      const other = CATALOGS[lang].core['choose.other']
+      for (const area of I18N_AREAS) {
+        const catalog = CATALOGS[lang]?.[area] ?? {}
+        for (const [key, value] of Object.entries(catalog)) {
+          if (!isMenuKey(area, key)) continue
+          const words = value.replace(/\{\{[^}]*\}\}/g, '').replace(/\b(data\.choices|preview\.effect|resend|confirmToken)\b/g, '')
+          const english = words.match(ENGLISH_MENU_WORDS)
+          if (english) problems.push(`${area}.${key}: English "${english[0]}" in "${value}"`)
+        }
+      }
+      for (const key of ['confirm.required', 'confirm.declined']) {
+        const value = CATALOGS[lang].core[key]
+        if (/\b3\. /.test(value) && !value.includes(`3. ${other}`)) problems.push(`core.${key}: its menu's last item is not "${other}"`)
+      }
+      if (!CATALOGS[lang].core['choose.menu'].includes(other)) problems.push(`core.choose.menu does not name "${other}"`)
+      for (const key of ['choose.other_reject', 'choose.other_changes', 'choose.other_message']) {
+        const head = other.split(/[—（(]/)[0].trim()
+        if (!CATALOGS[lang].core[key].startsWith(head)) problems.push(`core.${key}: starts differently from "${head}"`)
+      }
+      expect(problems).toEqual([])
+    })
+  }
 })

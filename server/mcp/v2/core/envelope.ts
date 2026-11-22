@@ -46,6 +46,8 @@ export interface V2Success<D = unknown> {
   confirmed?: 'in_client'
   /** The option the person picked in the client's own choice form (`other`: they wrote their own answer). */
   chosen?: string
+  /** Non-English answers with a menu: its last, free-text item in the person's language, word for word. */
+  menuOther?: string
 }
 
 export interface V2ErrorBody extends Omit<EnvelopeError, 'code'> {
@@ -68,6 +70,8 @@ export interface V2Failure {
   warnings?: string[]
   /** See V2Success.chosen: the person picked it in the client's form, then the chosen call failed or needs a yes. */
   chosen?: string
+  /** See V2Success.menuOther (`confirmation_required`, `stale` and `held` answers are menus too). */
+  menuOther?: string
 }
 
 export type V2Envelope<D = unknown> = V2Success<D> | V2Failure

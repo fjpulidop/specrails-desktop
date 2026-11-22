@@ -16,7 +16,7 @@ const user = (text: string): GetPromptResult => ({ messages: [{ role: 'user', co
 const projectArg = (project?: string) => (project?.trim() ? `, project:${JSON.stringify(project.trim())}` : '')
 const CLOSE = 'Answer in my language (pass it as lang). Show every preview before you confirm anything, and wait for my yes.'
 /** The menu rule every prompt ends with: choices the person answers by keyboard (a number) or in their own words. */
-const MENU = 'Give me every decision as a menu: your client\'s question tool if it has one, else a numbered list (recommended first, last "Something else — write it"); I answer with a number or my own words. End each step with the next choices.'
+const MENU = 'Give me every decision as a menu: your client\'s question tool, else a numbered list (recommended first, last "Something else — write it" in my language: menuOther); I answer with a number or my own words. End every step with next choices.'
 
 export interface V2Prompt {
   name: string

@@ -9,7 +9,9 @@ import type { ToolHandlerExtra } from '../../tools/types'
 /**
  * Decision points as human choices (docs/internals/mcp-v2.md §Choices). Every decision the person makes reaches
  * them as a short menu: the legal options (label ≤ 5 words, a one-line effect, the recommended one first) plus
- * an implicit "Something else (write it)". An action that declares `choose` becomes a decision point when it is
+ * an implicit free-text option ("Something else — write it", `core.choose.other`, worded wholly in the person's
+ * language: a non-English answer that carries a menu names it as `menuOther`, so the agent never half-translates
+ * it). An action that declares `choose` becomes a decision point when it is
  * called without the choice: the server asks the person in the client's own form (MCP elicitation: one select
  * plus an optional free-text field) when the client can show one and `mcp_choices_in_client` is not `off`;
  * otherwise, or on a decline, cancel or timeout, it returns the choices for the agent to present as a menu.
@@ -169,4 +171,26 @@ export function withField(args: Record<string, unknown>, field: string, value: u
   if (!rest.length) return { ...args, [head]: value }
   const inner = args[head] && typeof args[head] === 'object' && !Array.isArray(args[head]) ? args[head] as Record<string, unknown> : {}
   return { ...args, [head]: withField(inner, rest.join('.'), value) }
+}
+
+/** Whether a success envelope carries something the agent shows as a menu (offers or choices, up to 3 levels deep). */
+export function carriesMenu(envelope: { state?: { offers?: unknown[] }; data?: unknown }): boolean {
+  if (envelope.state?.offers?.length) return true
+  const seen = (value: unknown, depth: number): boolean => {
+    if (!value || typeof value !== 'object' || depth > 3) return false
+    if (Array.isArray(value)) return value.slice(0, 25).some((item) => seen(item, depth + 1))
+    const record = value as Record<string, unknown>
+    if (Array.isArray(record.choices) && record.choices.length) return true
+    if (record.state && typeof record.state === 'object' && Array.isArray((record.state as { offers?: unknown }).offers) && ((record.state as { offers: unknown[] }).offers.length)) return true
+    return Object.values(record).some((item) => seen(item, depth + 1))
+  }
+  return seen(envelope.data, 0)
+}
+
+/**
+ * The menu's last item in the call's language (`core.choose.other`), for a non-English answer that carries a
+ * menu: the agent copies it word for word instead of translating the English rule half-way.
+ */
+export function menuOtherOf(lang: string, t: Translate, envelope: { state?: { offers?: unknown[] }; data?: unknown }): string | undefined {
+  return lang !== 'en' && carriesMenu(envelope) ? t('core.choose.other') : undefined
 }

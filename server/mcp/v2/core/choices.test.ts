@@ -7,7 +7,7 @@ import { setDesktopSetting } from '../../../desktop-db'
 import { call, createHarness, type Harness } from '../__fixtures__/harness'
 import { V2_TOOLS } from '../tools'
 import { ConfirmationLedger } from './confirm'
-import { choiceForm, compactChoices, freeTextOf, hasDecision, orderChoices, withField, type Choice, type ChoicePoint } from './choices'
+import { carriesMenu, choiceForm, compactChoices, freeTextOf, hasDecision, menuOtherOf, orderChoices, withField, type Choice, type ChoicePoint } from './choices'
 import { result } from './envelope'
 import { translator } from './lang'
 import { createCatalog, defineTool, registerV2Tool } from './registry'
@@ -153,7 +153,7 @@ describe('choice helpers', () => {
     expect(compactChoices(choices)).toEqual([{ id: 'b', label: 'Pick b', effect: 'Does b.', recommended: true }, { id: 'a', label: 'Pick a', effect: 'Does a.' }])
     const form = choiceForm({ question: '¿Y ahora?', choices }, t) as { message: string; requestedSchema: { properties: Record<string, { title: string; enumNames?: string[] }> } }
     expect(form.message).toBe('¿Y ahora? Elige una (la primera es la recomendada) o escribe la tuya.')
-    expect(form.requestedSchema.properties.other.title).toBe('Otra cosa — escríbela')
+    expect(form.requestedSchema.properties.other.title).toBe('Otra cosa — escríbelo')
     expect(form.requestedSchema.properties.choice.enumNames?.[0]).toBe('Pick b — Does b. · recomendada')
   })
 
@@ -166,5 +166,29 @@ describe('choice helpers', () => {
     expect(withField({ a: 1, options: { x: 1 } }, 'options.note', 'n')).toEqual({ a: 1, options: { x: 1, note: 'n' } })
     expect(hasDecision(null)).toBe(false)
     expect(hasDecision({ question: '', choices: [], other: { field: 'answer' } })).toBe(false)
+  })
+
+  it('names the menu\'s free-text item in the person\'s language on every non-English menu (menuOther)', async () => {
+    eliciting(false)
+    point = { question: '¿Qué hago?', choices: [choice('merge', { recommended: true }), choice('keep')] }
+    const es = (await call(asking, T, { action: 'decide', ref, lang: 'es' })).envelope
+    expect(es.data.choices).toHaveLength(2)
+    expect(es.menuOther).toBe('Otra cosa — escríbelo')
+    expect(es.summary).toContain('"Otra cosa — escríbelo"')
+    const en = (await call(asking, T, { action: 'decide', ref, lang: 'en' })).envelope
+    expect(en.menuOther).toBeUndefined()
+    // A confirmation is a yes/no menu: the same item, in the same words as its message.
+    const confirm = (await call(asking, T, { action: 'decide', ref, decision: 'merge', lang: 'fr' })).envelope
+    expect(confirm.error.code).toBe('confirmation_required')
+    expect(confirm.menuOther).toBe('Autre chose — écrivez-la')
+    expect(confirm.error.message).toContain(`3. ${confirm.menuOther}`)
+    // No menu, no field.
+    const plain = (await call(asking, T, { action: 'decide', ref, decision: 'keep', lang: 'de' })).envelope
+    expect(plain.ok).toBe(true)
+    expect(plain.menuOther).toBeUndefined()
+    expect(carriesMenu({ data: { items: [{ id: 'a', choices: [{ id: 'x' }] }] } })).toBe(true)
+    expect(carriesMenu({ data: { items: [{ id: 'a', state: { offers: [{ id: 'x' }] } }] } })).toBe(true)
+    expect(carriesMenu({ data: { items: [{ id: 'a', choices: [] }] } })).toBe(false)
+    expect(menuOtherOf('ja', translator('ja'), { state: { offers: [{}] } })).toBe('その他（書いてください）')
   })
 })

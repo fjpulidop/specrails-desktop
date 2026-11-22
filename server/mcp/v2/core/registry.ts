@@ -12,7 +12,7 @@ import { actionEnum } from '../../tools/actions'
 import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTierAllowed, type McpToolContext, type ToolHandlerExtra } from '../../tools/types'
 import { shortHash } from './canonical'
 import { askPerson, bindingArgs, carriesSecret, confirmationLedger, readConfirmInClient, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
-import { askChoice, compactChoices, hasDecision, readChoicesInClient, withField, type ChoicePoint } from './choices'
+import { askChoice, compactChoices, hasDecision, menuOtherOf, readChoicesInClient, withField, type ChoicePoint } from './choices'
 import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
 import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
 import { resolveLang, translator, type Lang, type Translate } from './lang'
@@ -331,7 +331,15 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     const session = (ctx.sessionState ?? { activeProjectId: null }) as V2SessionState
     const lang = resolveLang({ explicit: args.lang, session, db: ctx.desktopDb })
     const t = translator(lang)
-    const reply = (envelope: V2Envelope) => toCallToolResult(envelope, textMode)
+    const reply = (envelope: V2Envelope) => {
+      if (envelope.menuOther === undefined) {
+        // A yes/no confirmation and a held entity's offers are menus as well.
+        const other = envelope.ok ? menuOtherOf(lang, t, envelope)
+          : ['confirmation_required', 'stale'].includes(envelope.error.code) || envelope.error.state?.offers?.length ? menuOtherOf(lang, t, { state: { offers: [true] } }) : undefined
+        if (other) envelope.menuOther = other
+      }
+      return toCallToolResult(envelope, textMode)
+    }
     const fail = (err: unknown) => reply(failure(err, label))
 
     if (extra?.signal?.aborted) return fail(new V2ToolError('provider_unavailable', 'MCP request was cancelled before execution.'))
