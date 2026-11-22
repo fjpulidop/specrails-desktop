@@ -70,8 +70,9 @@ served through the legacy bridge carries a deprecation warning).
   subscription-usage reader and skips at `--stop-at-window` (default 70 %). `--max-cost-usd` (default $1) caps the
   client spend of one run.
 - Repositories are throwaway, with local bare remotes under the work dir. Nothing is pushed elsewhere. A seeded
-  project commits the files Specrails' setup adds (as a real project would), so a local integration does not have to
-  stash them.
+  project commits what registration leaves uncommitted (as a real project would). The agent files the first run
+  installs stay untracked: a local integration stashes them and its restore reports needs_attention (a product
+  finding, not hidden here: committing them after the run conflicts with the delivery branch).
 - Between scenarios: a provider quota refusal that outlives a scenario (S4's scripted Claude limit) would hold every
   later run, so the harness stops the instance, drops the persisted refusal from its own `desktop.sqlite` and boots it
   again. Each turn's raw client stream is kept as `clients/<scenario>/turn-<n>.jsonl`.

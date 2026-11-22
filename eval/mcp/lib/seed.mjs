@@ -115,8 +115,6 @@ export async function seedDelivery(api, workDir, name, title = 'Add the discount
   await until(() => packet(api, project, run.deliveryId), p => p && ['on_review', 'implementation_failed'].includes(p.decision), { timeoutMs: 300_000, everyMs: 3000 })
   const p = await packet(api, project, run.deliveryId)
   if (p.decision !== 'on_review') throw new Error(`seed delivery ended as ${p.decision}`)
-  // The first run installs the agent files into the checkout; the person's project has them committed.
-  commitInstalled(project.path)
   return { project, spec, ...run }
 }
 
