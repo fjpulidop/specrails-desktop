@@ -12,7 +12,7 @@
  */
 
 /** Entity kinds a row may name. Matches the MCP ref kinds of the same name. */
-export const JOURNAL_REF_KINDS = ['run', 'delivery', 'chain', 'intent', 'spec', 'mission', 'project', 'blueprint', 'milestone'] as const
+export const JOURNAL_REF_KINDS = ['run', 'delivery', 'chain', 'intent', 'spec', 'mission', 'project', 'blueprint', 'milestone', 'clone'] as const
 export type JournalRefKind = (typeof JOURNAL_REF_KINDS)[number]
 
 /** Why the person is the next actor. Null on a row = nobody needs to act. */
@@ -43,6 +43,13 @@ export interface JournalData {
   budgetUsd?: number
   /** Content fingerprint of a spec (title, body, priority, labels): a content edit changes it. */
   version?: string
+  /** A repository clone: destination folder, Git phase and percent, the registered project, a failure code. */
+  path?: string
+  phase?: string
+  percent?: number
+  projectId?: string
+  slug?: string
+  code?: string
 }
 
 /** What `classifyMessage` produces; the journal assigns `seq` and `at`. */
@@ -406,6 +413,22 @@ function classify(type: string, msg: Record<string, unknown>, base: Base): Journ
     case 'blueprint.milestone_completed': {
       const id = str(msg.milestoneId)
       return id ? [draft(base, { refKind: 'milestone', refId: id, kind: 'milestone.status', status: 'completed', settled: true, title: clip(msg.title, 120) })] : []
+    }
+
+    // ── Repository clones (app-global; `clone:<cloneId>`) ──
+    case 'repository.clone_started':
+    case 'repository.clone_progress':
+    case 'repository.clone_done':
+    case 'repository.clone_failed': {
+      const id = str(msg.cloneId)
+      if (!id) return []
+      const data = boundData({ path: clip(msg.path, 400) ?? undefined, phase: clip(msg.phase, 20) ?? undefined, percent: num(msg.percent), projectId: str(msg.newProjectId) ?? undefined, slug: str(msg.slug) ?? undefined, code: clip(msg.code, 40) ?? undefined })
+      const clone = { projectId: null, source: type }
+      if (type === 'repository.clone_done') return [draft(clone, { refKind: 'clone', refId: id, kind: 'clone.status', status: 'completed', settled: true, data })]
+      if (type === 'repository.clone_failed') return [draft(clone, { refKind: 'clone', refId: id, kind: 'clone.status', status: 'failed', settled: true, attention: 'failed', detail: clip(msg.error), data })]
+      const percent = num(msg.percent)
+      const phase = str(msg.phase)
+      return [draft(clone, { refKind: 'clone', refId: id, kind: 'clone.status', status: 'running', detail: phase ? clip(percent !== undefined ? `${phase} ${Math.round(percent)}%` : phase, 40) : null, data })]
     }
 
     // ── Missions (app-global) ──

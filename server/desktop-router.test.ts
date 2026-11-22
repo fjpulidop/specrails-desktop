@@ -156,8 +156,27 @@ describe('desktop-router', () => {
         const response = await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/cloned' })
         expect(response.status).toBe(201)
         expect(response.body).toEqual({ path: '/projects/cloned' })
-        expect(clone).toHaveBeenCalledWith({ url: 'owner/repo', destination: '/projects/cloned' }, expect.any(Function), expect.any(AbortSignal))
+        expect(clone).toHaveBeenCalledWith({ url: 'owner/repo', destination: '/projects/cloned' }, expect.any(Function), expect.any(AbortSignal), undefined, undefined)
         expect(registry.addProject).not.toHaveBeenCalled()
+      } finally { clone.mockRestore() }
+    })
+    it('with a cloneId, broadcasts throttled progress frames (phase and percent only)', async () => {
+      const clone = vi.spyOn(githubClone, 'cloneGithubRepository').mockImplementationOnce(async (_input, _safe, _signal, _run, onProgress) => {
+        for (const percent of [1, 4, 12, 15, 23, 100]) onProgress?.({ phase: 'receiving', percent })
+        onProgress?.({ phase: 'resolving', percent: 50 })
+        onProgress?.({ phase: 'resolving', percent: 50 })
+        return '/projects/cloned'
+      })
+      try {
+        const { app, broadcast } = createApp()
+        const response = await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/cloned', cloneId: 'c0ffee00-1111' })
+        expect(response.status).toBe(201)
+        const frames = (broadcast as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(([msg]) => msg as Record<string, unknown>).filter((msg) => msg.type === 'repository.clone_progress')
+        expect(frames.map((f) => [f.cloneId, f.phase, f.percent])).toEqual([['c0ffee00-1111', 'receiving', 1], ['c0ffee00-1111', 'receiving', 12], ['c0ffee00-1111', 'receiving', 23], ['c0ffee00-1111', 'receiving', 100], ['c0ffee00-1111', 'resolving', 50]])
+        // A malformed cloneId gets no frames.
+        clone.mockResolvedValueOnce('/projects/other')
+        await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/other', cloneId: 'x y' })
+        expect(clone).toHaveBeenLastCalledWith(expect.anything(), expect.any(Function), expect.any(AbortSignal), undefined, undefined)
       } finally { clone.mockRestore() }
     })
     it('rejects unsupported sources before starting a clone', async () => {

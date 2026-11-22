@@ -36,5 +36,9 @@
   "offer.assemble": "Workspace-Aufbau erneut versuchen",
   "error.no_destination": "clone braucht ein Ziel: path (oder options.destination), ein absoluter, neuer Ordner.",
   "error.no_sample": "Es gibt kein Beispielprojekt zum Entfernen.",
-  "error.repository_update_empty": "repository_update braucht mindestens eines von path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update braucht mindestens eines von path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "Klone im Hintergrund nach {{path}} ({{ref}}); das Projekt wird danach registriert. Verfolge es mit specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Klont noch nach {{path}}{{progress}}. Verfolge es mit specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "Das Klonen nach {{path}} ist fehlgeschlagen: {{reason}}",
+  "error.clone_unknown": "Kein Klonvorgang {{ref}} bekannt: Er wurde auf diesem Rechner nie gestartet oder sein Eintrag ist abgelaufen."
 }

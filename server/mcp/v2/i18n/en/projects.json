@@ -36,5 +36,9 @@
   "offer.assemble": "Retry the workspace assembly",
   "error.no_destination": "clone needs a destination: path (or options.destination), an absolute new folder.",
   "error.no_sample": "There is no sample project to remove.",
-  "error.repository_update_empty": "repository_update needs at least one of path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update needs at least one of path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "Cloning into {{path}} in the background ({{ref}}); it registers the project when done. Follow it with specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Still cloning into {{path}}{{progress}}. Follow it with specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "The clone into {{path}} failed: {{reason}}",
+  "error.clone_unknown": "No clone {{ref}} is known: it never started on this computer or its record expired."
 }

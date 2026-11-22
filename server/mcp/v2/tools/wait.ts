@@ -13,6 +13,7 @@ import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { statusFromChain, statusFromDelivery, statusFromRunHold, statusFromSpec, statusFromWord, type CanonicalStatus } from '../core/status-map'
 import { neutralize, untrusted } from '../core/untrusted'
 import { F } from '../core/views'
+import { settleInterruptedClones } from '../core/clone-jobs'
 
 /**
  * WP1. `specrails_wait`: one blocking call instead of polling, backed by the
@@ -130,6 +131,7 @@ export function nextOf(event: Pick<JournalEvent, 'refKind' | 'hold' | 'attention
       return { tool: 'specrails_projects', args: { action: 'install_status', ref } }
     case 'blueprint': return { tool: 'specrails_blueprint', args: { action: 'get', ref } }
     case 'milestone': return { tool: 'specrails_blueprint', args: { action: 'milestones', ref } }
+    case 'clone': return { tool: 'specrails_projects', args: { action: 'get', ref } }
   }
 }
 
@@ -153,7 +155,7 @@ export interface FiredItem {
 function refOf(event: JournalEvent, slugs: Map<string, string>): string {
   const kind = event.refKind as RefKind
   if (kind === 'project') return formatRef('project', slugs.get(event.refId) ?? event.refId)
-  if (kind === 'mission' || kind === 'blueprint') return formatRef(kind, event.refId)
+  if (kind === 'mission' || kind === 'blueprint' || kind === 'clone') return formatRef(kind, event.refId)
   const slug = event.projectId ? slugs.get(event.projectId) ?? event.projectId : null
   return slug ? formatRef(kind, event.refId, slug) : `${kind}:${event.refId}`
 }
@@ -288,6 +290,9 @@ async function untilHandler(ctx: V2CallContext, args: Record<string, unknown>) {
   const filter = filterFor(mode, refs, project?.id)
   const slugs = slugMap(ctx)
   const since = sinceSeq(journal, args.since, t, warnings)
+  // A clone no task of this process runs any more was cut by a restart: settle it before reading or waiting.
+  const clones = refs.filter((ref) => ref.kind === 'clone').map((ref) => ref.id)
+  if (clones.length) settleInterruptedClones(ctx, clones)
 
   const pendingOf = (fired: readonly FiredItem[]) => {
     if (mode !== 'settled' || !refs.length) return undefined

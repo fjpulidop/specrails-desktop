@@ -36,5 +36,9 @@
   "offer.assemble": "Riprova l'assemblaggio del workspace",
   "error.no_destination": "clone richiede una destinazione: path (o options.destination), una nuova cartella assoluta.",
   "error.no_sample": "Non c'è nessun progetto di esempio da rimuovere.",
-  "error.repository_update_empty": "repository_update richiede almeno uno tra path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update richiede almeno uno tra path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "Clonazione in {{path}} in background ({{ref}}); il progetto viene registrato alla fine. Seguila con specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Clonazione ancora in corso in {{path}}{{progress}}. Seguila con specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "La clonazione in {{path}} non è riuscita: {{reason}}",
+  "error.clone_unknown": "Nessuna clonazione {{ref}} nota: non è mai partita su questo computer o il suo record è scaduto."
 }

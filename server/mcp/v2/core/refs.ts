@@ -34,6 +34,7 @@ export const REF_KINDS = {
   loop: 'global',
   profile: 'global',
   plugin: 'global',
+  clone: 'global',
 } as const
 
 export type RefKind = keyof typeof REF_KINDS
