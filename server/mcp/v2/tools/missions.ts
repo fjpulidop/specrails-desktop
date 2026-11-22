@@ -14,12 +14,13 @@ import { shortHash } from '../core/canonical'
 import { approxTokens } from '../core/size-guard'
 import type { DecisionState } from '../core/decision-state'
 import { apiCall } from '../../tools/types'
+import { railsSnapshot } from './runs'
 import { loadOrGenerateToken } from '../../../auth'
-import type { IntentSession } from '../../../modules/intent'
+import { FLOW_SPEC_LOOP_ID, type IntentSession } from '../../../modules/intent'
 import type { ProjectRow } from '../../../desktop-db'
 import type { WsMessage } from '../../../types'
 import {
-  coerceFlowOffer, coerceRailLaunch, openLimit, parseCardId, projectCards, projectIntentState, projectMissionState, replyFor,
+  coerceFlowOffer, coerceRailLaunch, intentDraftOf, openLimit, parseCardId, projectCards, projectIntentState, projectMissionState, replyFor,
   type MessageLike, type MissionCard,
 } from '../projectors/mission-state'
 
@@ -58,6 +59,9 @@ const WAIT_MAX_MS = 45_000
 const ATTACH_PATH_MAX = 25 * 1024 * 1024
 const ATTACH_INLINE_MAX = 5 * 1024 * 1024
 const SELECTION_CHARS = 8_000
+const LIVE_CHARS = 600
+const SETTLE_POLLS = 60
+const SETTLE_POLL_MS = 125
 const AGENT = '/agent/conversations'
 
 // ── Targets ─────────────────────────────────────────────────────────────────
@@ -97,7 +101,7 @@ async function readMission(ctx: V2CallContext, id: string): Promise<MissionRead>
   }
 }
 
-function missionState(ctx: V2CallContext, id: string, read: MissionRead, cards: MissionCard[], flow?: { ref: Ref; state: string } | null): DecisionState {
+function missionState(ctx: V2CallContext, id: string, read: MissionRead, cards: MissionCard[], flow?: { ref: Ref; state: string; session?: IntentSession } | null): DecisionState {
   const row = projectOfPin(ctx, read.conversation.pinned_project_id)
   return ctx.v2.state(projectMissionState({
     ref: missionRef(id), conversationId: id, updatedAt: String(read.conversation.updated_at ?? ''), archived: Boolean(read.conversation.archivedAt),
@@ -354,22 +358,57 @@ function intentView(target: IntentTarget): Row {
   }
 }
 
-function intentState(ctx: V2CallContext, target: IntentTarget): DecisionState {
-  return ctx.v2.state(projectIntentState(target.flow, { intent: target.ref, mission: missionRef(target.flow.conversationId) }, { now: new Date().toISOString() }))
+function intentState(ctx: V2CallContext, target: IntentTarget, busy?: boolean): DecisionState {
+  return ctx.v2.state(projectIntentState(target.flow, { intent: target.ref, mission: missionRef(target.flow.conversationId) }, { now: new Date().toISOString(), ...(busy !== undefined ? { busy } : {}) }))
 }
 
-async function intentResult(ctx: V2CallContext, target: IntentTarget, flowValue: unknown, summaryKey: string, extra: Row = {}): Promise<unknown> {
+/** The tail of the running turn's streamed text (what the app shows live), or null. */
+function liveTail(live: Row): string | null {
+  const text = typeof live.streamingText === 'string' ? live.streamingText.trim() : ''
+  return text ? neutralize(text.length > LIVE_CHARS ? `…${text.slice(-LIVE_CHARS)}` : text) : null
+}
+
+/**
+ * What the Intent is doing now, read in one call: the running turn (and its
+ * streamed tail), the agent's last reply with its pending choice, and the
+ * preview apps it started (their URLs open in any browser).
+ */
+async function intentProgress(ctx: V2CallContext, target: IntentTarget): Promise<{ data: Row; busy: boolean; marks: string[] }> {
+  if (!target.flow.conversationId) return { data: {}, busy: false, marks: [] }
+  const read = await readMission(ctx, target.flow.conversationId).catch(() => null)
+  const data: Row = {}
+  const marks: string[] = []
+  const busy = read?.live.isStreaming === true
+  if (read) {
+    const tail = busy ? liveTail(read.live) : null
+    data.turn = { running: busy, ...(busy && read.live.startedAt ? { started: minute(read.live.startedAt) } : {}), ...(read.pending.length ? { queued: read.pending.length } : {}), ...(tail ? { live: tail } : {}) }
+    if (tail) marks.push('/data/turn/live')
+    const last = [...read.messages].reverse().find((message) => message.role === 'assistant')
+    if (last) { data.lastReply = { id: last.id, at: minute(last.created_at), text: neutralize(clip(last.content, 800)) }; marks.push('/data/lastReply/text') }
+    const pending = projectCards(read.messages, { busy }).filter((card) => card.pending)
+    if (pending.length) data.pendingCards = pending.map(brief)
+  }
+  try {
+    const processes = rows(record(await apiCall(ctx, 'GET', `/projects/${enc(target.row.id)}/background-processes?chatId=${enc(target.flow.conversationId)}`)).processes)
+    const apps = processes.filter((p) => String(p.flowId ?? '') === target.flowId && p.status === 'running')
+      .map((p) => ({ pid: p.pid, command: neutralize(clip(String(p.command ?? ''), 200)), ...(Array.isArray(p.appUrls) && p.appUrls.length ? { appUrls: p.appUrls } : p.appUrl ? { appUrls: [p.appUrl] } : {}) }))
+    if (apps.length) { data.apps = apps; marks.push('/data/apps/*/command') }
+  } catch { /* processes are best effort */ }
+  return { data, busy, marks }
+}
+
+async function intentResult(ctx: V2CallContext, target: IntentTarget, flowValue: unknown, summaryKey: string, extra: Row = {}, progress?: { busy: boolean; marks: string[] }): Promise<unknown> {
   const flow = record(flowValue)
   const session = (flow.id ? flow : target.flow) as unknown as IntentSession
   const next: IntentTarget = session.id && session.id !== target.flowId
     ? { row: target.row, flowId: session.id, ref: intentRef(target.row, session.id), flow: session }
     : { ...target, flow: session }
-  const state = intentState(ctx, next)
+  const state = intentState(ctx, next, progress?.busy)
   return result({ ...intentView(next), ...extra }, {
     summary: ctx.v2.t(summaryKey, { ref: next.ref, state: state.label }),
     refs: { intent: next.ref, mission: missionRef(next.flow.conversationId) },
     state,
-    untrusted: untrusted('/data/returnBriefing'),
+    untrusted: untrusted('/data/returnBriefing', ...(progress?.marks ?? [])),
   })
 }
 
@@ -382,7 +421,7 @@ async function intentPreview(ctx: V2CallContext, args: Row, effectKey: string, s
   const target = await intentTarget(ctx, args)
   const options = optionsOf(args)
   const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId)
-    : spend === 'launch' ? scaledCost(await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? 'factory:implement', provider: str(options.provider) }), 1)
+    : spend === 'launch' ? scaledCost(await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? FLOW_SPEC_LOOP_ID, provider: str(args.provider) ?? str(options.provider) }), 1)
       : null
   return {
     effect: ctx.v2.t(effectKey, { ref: target.ref, branch: target.flow.branch ?? '—' }),
@@ -398,6 +437,24 @@ function railIndexOf(ctx: V2CallContext, value: unknown): number {
   if (parsed?.kind === 'rail' && /^\d+$/.test(parsed.id)) return Number(parsed.id)
   if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
   throw new V2ToolError('invalid_input', ctx.v2.t('missions.error.rail_required'), { next: [{ tool: 'specrails_rails', args: { action: 'list' }, why: 'Pick a free rail.' }] })
+}
+
+/**
+ * The rail an Intent hands off to: the one asked for, else the app's own pick
+ * (the first free rail that carries no other spec), else a new rail (created
+ * only by the handler; the preview says "a new rail").
+ */
+async function handOffRail(ctx: V2CallContext, target: IntentTarget, asked: unknown, opts: { create: boolean }): Promise<{ index: number | null }> {
+  if (asked !== undefined && asked !== null && asked !== '') return { index: railIndexOf(ctx, asked) }
+  const snapshot = record(await railsSnapshot(ctx, target.row))
+  const free = rows(snapshot.rails).find((rail) => rail.availability === 'free'
+    && (!Array.isArray(rail.ticketIds) || rail.ticketIds.length === 0 || (rail.ticketIds.length === 1 && Number(rail.ticketIds[0]) === target.flow.ticketId)))
+  if (free && Number.isSafeInteger(Number(free.railIndex))) return { index: Number(free.railIndex) }
+  if (!opts.create) return { index: null }
+  const created = record(record(await apiCall(ctx, 'POST', `/projects/${enc(target.row.id)}/rails`, {})).rail)
+  const index = Number(created.railIndex)
+  if (!Number.isSafeInteger(index) || index < 0) throw new V2ToolError('conflict', ctx.v2.t('missions.error.rail_required'), { next: [{ tool: 'specrails_rails', args: { action: 'list' }, why: 'Pick a free rail.' }] })
+  return { index }
 }
 
 // ── Cards ───────────────────────────────────────────────────────────────────
@@ -440,6 +497,15 @@ async function decideCard(ctx: V2CallContext, args: Row): Promise<unknown> {
   const done = (key: string, data: Row, refs: Record<string, Ref> = {}) => result({ mission: ref, card: card.id, decision, ...data }, { summary: ctx.v2.t(key, { card: card.id, mission: ref }), refs: { mission: ref, ...refs } })
   const needRow = () => { if (!row) throw new V2ToolError('invalid_input', ctx.v2.t('missions.error.no_pin', { mission: ref })); return row }
 
+  if (card.kind === 'intent-draft' && decision === 'explore') {
+    // The card's Explore: an Intent session from this intent (its placeholder spec carries it), as the app starts it.
+    const project = needRow()
+    const message = read.messages.find((item) => item.id === card.messageId)
+    const draft = message ? intentDraftOf(message.content) : null
+    if (!draft?.ready) throw new V2ToolError('conflict', ctx.v2.t('missions.error.card_unreadable', { card: card.id }))
+    const flow = record(record(await apiCall(ctx, 'POST', flowBase(project), { conversationId: id, idea: draft.intent.problem, intent: draft.intent, ...(draft.title ? { title: draft.title } : {}) })).flow) as unknown as IntentSession
+    return intentResult(ctx, { row: project, flowId: flow.id, ref: intentRef(project, flow.id), flow }, flow, 'missions.summary.intent_started')
+  }
   if (card.kind === 'options' || card.kind === 'intent-draft') {
     const reply = replyFor(card, decision)
     if (!reply) throw new V2ToolError('invalid_input', ctx.v2.t('missions.error.card_decided', { card: card.id, decisions: (card.decisions ?? []).join(', ') }))
@@ -515,12 +581,13 @@ async function decideCard(ctx: V2CallContext, args: Row): Promise<unknown> {
 async function cardPreview(ctx: V2CallContext, args: Row): Promise<PreviewInput> {
   const { id, ref, read, cards, card } = await cardOf(ctx, args)
   const state = missionState(ctx, id, read, cards)
-  const kind = card.kind === 'options' || card.kind === 'intent-draft' ? 'reply' : card.kind
+  const explore = card.kind === 'intent-draft' && String(args.decision) === 'explore'
+  const kind = explore ? 'flow-offer' : card.kind === 'options' || card.kind === 'intent-draft' ? 'reply' : card.kind
   return {
     effect: ctx.v2.t(`missions.preview.card_${kind.replace(/-/g, '_')}`, { mission: ref, decision: String(args.decision), specs: Array.isArray(card.data.ticketIds) ? (card.data.ticketIds as number[]).map((t) => `#${t}`).join(', ') : '' }),
     refs: [ref],
     version: state.version,
-    cost: { forecastUsd: card.kind === 'options' || card.kind === 'intent-draft' ? missionForecast(ctx, id) : null, runs: 1 },
+    cost: { forecastUsd: !explore && (card.kind === 'options' || card.kind === 'intent-draft') ? missionForecast(ctx, id) : null, runs: 1 },
   }
 }
 
@@ -539,6 +606,8 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
   const attachmentIds = Array.isArray(options.attachmentIds) ? options.attachmentIds.filter((x): x is string => typeof x === 'string') : []
   const { response, settled } = await sendAndWait(ctx, id, async () => record(await apiCall(ctx, 'POST', `${AGENT}/${enc(id)}/send`, {
     text, queueId, ...(deliveryMode ? { deliveryMode } : {}), ...(attachmentIds.length ? { attachments: { ids: attachmentIds } } : {}),
+    // The person writes from their own client: the turn tells the agent, so it names MCP actions, never app buttons.
+    ...(ctx.firstPartyAgent ? {} : { surface: 'mcp' }),
   })), { waitMs: waitMsOf(args), queueId, done: ['agent_done', 'agent_turn_done'], failed: ['agent_error'], started: ['agent_input_started', 'agent_dequeued'] })
   const sent = record(response.message)
   const after = str(sent.id)
@@ -550,11 +619,34 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
     ...(settled.error ? { error: excerpt(settled.error, 400) } : {}),
     ...(after ? { after } : {}),
   }
+  // The reply arrives a moment before the turn settles: wait for that (bounded), so the fresh
+  // state carries the reply's chips as decidable cards (an Intent's options, a launch card…).
+  let state: DecisionState | undefined
+  if (settled.status === 'replied') {
+    let read = await readMission(ctx, id).catch(() => null)
+    for (let i = 0; read && read.live.isStreaming === true && i < SETTLE_POLLS; i++) {
+      await new Promise((done) => setTimeout(done, SETTLE_POLL_MS))
+      read = await readMission(ctx, id).catch(() => null)
+    }
+    if (read) {
+      const cards = projectCards(read.messages, { busy: read.live.isStreaming === true })
+      const pending = cards.filter((card) => card.pending)
+      if (pending.length) data.pendingCards = pending.map(brief)
+      const row = projectOfPin(ctx, read.conversation.pinned_project_id)
+      const flow = row ? await missionFlow(ctx, row, id) : null
+      state = missionState(ctx, id, read, cards, flow && row ? { ref: intentRef(row, flow.id), state: flow.state, session: flow } : null)
+    }
+  }
   const summary = settled.status === 'replied'
     ? ctx.v2.t('missions.summary.replied', { mission: ref, reply: excerpt(settled.text, 200) })
     : settled.status === 'failed' ? ctx.v2.t('missions.summary.turn_failed', { mission: ref, error: excerpt(settled.error, 160) })
       : ctx.v2.t(response.queued ? 'missions.summary.queued' : 'missions.summary.working', { mission: ref })
-  return result(data, { summary, refs: { mission: ref }, untrusted: untrusted('/data/reply/text', '/data/error') })
+  return result(data, { summary, refs: { mission: ref }, ...(state ? { state } : {}), untrusted: untrusted('/data/reply/text', '/data/error') })
+}
+
+/** The mission's open (or latest) Intent, or null (never throws: Intent may be unavailable here). */
+async function missionFlow(ctx: V2CallContext, row: ProjectRow, id: string): Promise<IntentSession | null> {
+  try { return (record(await apiCall(ctx, 'GET', `${flowBase(row)}/by-conversation/${enc(id)}`)).flow ?? null) as IntentSession | null } catch { return null }
 }
 
 async function getMission(ctx: V2CallContext, args: Row): Promise<unknown> {
@@ -566,18 +658,16 @@ async function getMission(ctx: V2CallContext, args: Row): Promise<unknown> {
   const cards = projectCards(read.messages, { busy })
   const sections = resolveFields(args, MISSION_SECTIONS)
   // Intent mark: the mission's open Intent (project-scoped; only for a pinned mission).
-  let flow: IntentSession | null = null
-  if (row && (sections.includes('intent') || sections.length === 0)) {
-    try { flow = (record(await apiCall(ctx, 'GET', `${flowBase(row)}/by-conversation/${enc(id)}`)).flow ?? null) as IntentSession | null } catch { flow = null }
-  }
+  const flow = row && (sections.includes('intent') || sections.length === 0) ? await missionFlow(ctx, row, id) : null
   const flowRef = flow && row ? intentRef(row, flow.id) : null
-  const state = missionState(ctx, id, read, cards, flow && flowRef ? { ref: flowRef, state: flow.state } : null)
+  const state = missionState(ctx, id, read, cards, flow && flowRef ? { ref: flowRef, state: flow.state, session: flow } : null)
   const live = new Set(busy ? [id] : [])
   const pendingCards = cards.filter((card) => card.pending)
   const lastReply = [...read.messages].reverse().find((message) => message.role === 'assistant')
   const data: Row = {
     ...missionItem(ctx, conversation, { running: live, background: new Set() }),
     ...(busy && read.live.startedAt ? { turnStarted: read.live.startedAt } : {}),
+    ...(busy && liveTail(read.live) ? { live: liveTail(read.live) } : {}),
     ...(read.pending.length ? { queued: read.pending.length } : {}),
     messages: read.messages.length,
     ...(lastReply ? { lastReply: { id: lastReply.id, at: minute(lastReply.created_at), text: neutralize(clip(lastReply.content, sections.includes('messages') ? 600 : 800)) } } : {}),
@@ -586,7 +676,7 @@ async function getMission(ctx: V2CallContext, args: Row): Promise<unknown> {
     ...(read.limitContinueAt ? { limitContinueAt: read.limitContinueAt } : {}),
     ...(conversation.forkSource ? { forkedFrom: missionRef(String(record(conversation.forkSource).conversationId)) } : {}),
   }
-  const marks = ['/data/title', '/data/lastReply/text']
+  const marks = ['/data/title', '/data/lastReply/text', '/data/live']
   let page
   if (sections.includes('messages') || str(optionsOf(args).after)) {
     const paged = pageMessages(args, id, read.messages, ctx.v2.view === 'detail' ? MESSAGES_BUDGET_DETAIL : MESSAGES_BUDGET_SUMMARY)
@@ -984,7 +1074,7 @@ export const missionsTool = defineTool({
       tier: (args) => isSpendDecision(args) ? 'ai-spawn' : 'write',
       confirm: (args) => isSpendDecision(args) ? 'costly' : null,
       required: ['ref', 'cardId', 'decision'],
-      doc: 'Decides a pending card (ids and decisions in get: pendingCards). options: option index or text; intent-draft: restated|alternative|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
+      doc: 'Decides a pending card (ids and decisions in get: pendingCards). options: option index or text; intent-draft: restated|alternative|explore (start Intent from it)|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
       preview: cardPreview,
       handler: decideCard,
     },
@@ -1061,10 +1151,11 @@ export const missionsTool = defineTool({
       },
     },
     intent_get: {
-      ...read, doc: 'The Intent session (intent or mission ref): state, branch, spec, delivery, legal moves. view detail adds diff totals and cost.',
+      ...read, doc: 'The Intent session (intent or mission ref): state, branch, spec, delivery, legal moves; while open, its turn (running, live text), last reply, pending cards and preview apps (appUrls). view detail adds diff totals and cost.',
       handler: async (ctx, args) => {
         const target = await intentTarget(ctx, args)
-        const extra: Row = {}
+        const progress = target.flow.state === 'active' || target.flow.state === 'paused' ? await intentProgress(ctx, target) : null
+        const extra: Row = { ...(progress?.data ?? {}) }
         if (ctx.v2.view === 'detail') {
           const [diff, cost] = await Promise.all([
             apiCall(ctx, 'GET', `${flowBase(target.row)}/${enc(target.flowId)}/diff`).catch(() => null),
@@ -1073,20 +1164,25 @@ export const missionsTool = defineTool({
           if (diff) extra.diff = record(diff).totals
           if (cost) extra.cost = costView(record(cost))
         }
-        return intentResult(ctx, target, target.flow, 'missions.summary.intent_get', extra)
+        return intentResult(ctx, target, target.flow, 'missions.summary.intent_get', extra, progress ?? undefined)
       },
     },
     intent_pause: { ...write, doc: 'Pauses (stops its dev servers, closes the agent session).', handler: simpleIntent('pause', 'missions.summary.intent_paused') },
     intent_resume: { ...spend, doc: 'Resumes a paused Intent (reopens its agent session).', preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_resume', 'turn'), handler: simpleIntent('resume', 'missions.summary.intent_resumed') },
     intent_hand_off: {
-      ...spend, required: ['ref', 'options.rail'], doc: 'Hands the worktree to a rail (options.rail index or rail ref) that derives the spec and delivers; options.loopId, provider, model, effort.',
-      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_hand_off', 'launch'),
+      ...spend, required: ['ref'], doc: 'Hands the worktree to a rail that derives the spec and delivers (Intent → Spec). Like the app\'s Hand off: options.rail (index or rail ref) defaults to the first free rail (a new one when none is free), the engine to the mission\'s (provider, model, effort override); options.loopId.',
+      preview: async (ctx, args) => {
+        const base = await intentPreview(ctx, args, 'missions.preview.intent_hand_off', 'launch')
+        const target = await intentTarget(ctx, args)
+        const rail = await handOffRail(ctx, target, optionsOf(args).rail, { create: false })
+        return { ...base, effect: `${base.effect} ${rail.index === null ? ctx.v2.t('missions.preview.hand_off_new_rail') : ctx.v2.t('missions.preview.hand_off_rail', { rail: `Rail ${rail.index + 1}` })}`, version: `i${shortHash({ v: base.version, rail: rail.index })}` }
+      },
       handler: async (ctx, args) => {
         const target = await intentTarget(ctx, args)
         const options = optionsOf(args)
-        const railIndex = railIndexOf(ctx, options.rail)
+        const { index: railIndex } = await handOffRail(ctx, target, options.rail, { create: true })
         const body = record(await apiCall(ctx, 'POST', `${flowBase(target.row)}/${enc(target.flowId)}/hand-off`, {
-          railIndex, ...(str(options.loopId) ? { loopId: str(options.loopId) } : {}), ...(args.provider ? { aiEngine: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}),
+          railIndex, ...(str(options.loopId) ? { loopId: str(options.loopId) } : {}), ...(args.provider ? { aiEngine: args.provider } : { engine: 'mission' }), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}),
         }))
         return intentResult(ctx, target, body.flow, 'missions.summary.intent_handed_off', runsOf(target.row, body))
       },

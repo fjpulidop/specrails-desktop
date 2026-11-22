@@ -43,12 +43,15 @@ let sent: Array<{ id: string; text: string; options: Row }>
 let routeLog: Array<{ method: string; path: string; body: Row }>
 let flows: Map<string, IntentSession>
 let replyMode: 'reply' | 'silent' | 'error'
+let streaming: string
+let railsState: Row[]
+let intentCalls: Array<{ op: string; input: Row }>
 
 function fakeManager(): AgentChatManager {
   return {
     isBusy: (id: string) => busy.has(id),
     pendingMessages: (id: string) => queue.get(id) ?? [],
-    conversationLive: (id: string) => ({ isStreaming: busy.has(id), streamingText: '', startedAt: busy.has(id) ? '2026-11-21T10:00:00.000Z' : undefined }),
+    conversationLive: (id: string) => ({ isStreaming: busy.has(id), streamingText: busy.has(id) ? streaming : '', startedAt: busy.has(id) ? '2026-11-21T10:00:00.000Z' : undefined }),
     sessionState: () => ({ residentPhase: 'idle', subagents: [{ subagentId: 's1', description: 'review the diff', phase: 'done', resultSummary: 'All good', conversationId: 'x', coreSessionId: 'x' }] }),
     limitContinueAt: () => null,
     scheduleLimitContinue: (_id: string, at: string | null) => ({ at }),
@@ -56,7 +59,7 @@ function fakeManager(): AgentChatManager {
     notifyConversationCreated: () => {},
     abort: (id: string) => busy.delete(id),
     closeCoreSession: async () => {},
-    isFlowActive: () => false,
+    isFlowActive: (id: string) => [...flows.values()].some((f) => f.conversationId === id && f.state === 'active'),
     editQueued: (id: string, queueId: string, text: string) => { const item = queue.get(id)?.find((q) => q.queueId === queueId); if (!item) return false; item.text = text; return true },
     steerQueued: (id: string, queueId: string) => !!queue.get(id)?.find((q) => q.queueId === queueId),
     removeQueued: (id: string, queueId: string) => { const list = queue.get(id) ?? []; const before = list.length; queue.set(id, list.filter((q) => q.queueId !== queueId)); return before !== (queue.get(id) ?? []).length },
@@ -92,15 +95,15 @@ function fakeIntent(): IntentService {
   }
   return {
     availability: async () => ({ available: true, missing: [] }),
-    startFlow: async (input: Row) => { const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9 }); flows.set(flow.id, flow); return flow },
+    startFlow: async (input: Row) => { intentCalls.push({ op: 'start', input }); const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9 }); flows.set(flow.id, flow); return flow },
     listOpen: () => [...flows.values()].filter((f) => f.state === 'active' || f.state === 'paused'),
     getByConversation: (id: string) => [...flows.values()].find((f) => f.conversationId === id) ?? null,
     getFlow: (id: string) => flows.get(id)!,
     pauseFlow: async (id: string) => apply(id, { type: 'pause', now: 'n' }),
-    resumeFlow: async (id: string) => flows.get(id)!,
+    resumeFlow: async (id: string) => { const flow = flows.get(id)!; if (flow.state === 'paused') flows.set(id, { ...flow, state: 'active', updatedAt: new Date().toISOString() }); return flows.get(id)! },
     discardFlow: async (id: string) => apply(id, { type: 'discard', now: 'n' }),
     closeFlow: async (id: string) => apply(id, { type: 'close', now: 'n' }),
-    handOffFlow: async ({ flowId, railIndex }: Row) => { const flow = { ...flows.get(flowId)!, state: 'handed_off' as const, railIndex, deliveryId: 'd1' }; flows.set(flowId, flow); return { flow, loopRunIds: ['lr1'], deliveryId: 'd1' } },
+    handOffFlow: async (input: Row) => { intentCalls.push({ op: 'hand-off', input }); const { flowId, railIndex } = input; const flow = { ...flows.get(flowId)!, state: 'handed_off' as const, railIndex, deliveryId: 'd1' }; flows.set(flowId, flow); return { flow, loopRunIds: ['lr1'], deliveryId: 'd1' } },
     returnToFlow: async ({ deliveryId }: Row) => { const flow = [...flows.values()].find((f) => f.deliveryId === deliveryId)!; const next = { ...flow, state: 'paused' as const }; flows.set(flow.id, next); return next },
     relaunchFlow: async ({ deliveryId }: Row) => ({ flow: [...flows.values()].find((f) => f.deliveryId === deliveryId)!, loopRunIds: ['lr2'], deliveryId }),
     diffSummary: async () => ({ branch: 'intent/f1', baseSha: 'a', headSha: 'b', files: [{ path: 'src/app.ts', additions: 3, deletions: 1 }], totals: { files: 1, additions: 3, deletions: 1 } }),
@@ -111,6 +114,7 @@ function fakeIntent(): IntentService {
 function stubProjectRoutes(): Router {
   const router = Router()
   const log = (req: express.Request) => routeLog.push({ method: req.method, path: req.path, body: req.body ?? {} })
+  router.get('/:projectId/rails', (_req, res) => { res.json({ rails: railsState }) })
   router.post('/:projectId/rails', (req, res) => { log(req); res.status(201).json({ rail: { railIndex: 3 } }) })
   router.put('/:projectId/rails/:i/tickets', (req, res) => { log(req); res.json({ ok: true }) })
   router.post('/:projectId/rails/:i/launch', (req, res) => { log(req); res.status(202).json({ loopRunIds: ['run-9'], prDeliveryId: 'del-9' }) })
@@ -133,7 +137,8 @@ function stubProjectRoutes(): Router {
 
 beforeEach(async () => {
   fs.mkdirSync(testHome, { recursive: true })
-  busy = new Set(); queue = new Map(); sent = []; routeLog = []; flows = new Map(); replyMode = 'reply'
+  busy = new Set(); queue = new Map(); sent = []; routeLog = []; flows = new Map(); replyMode = 'reply'; streaming = ''; intentCalls = []
+  railsState = [{ railIndex: 0, availability: 'busy', ticketIds: [3] }, { railIndex: 1, availability: 'free', ticketIds: [] }]
   h = createHarness()
   const app = express()
   app.use(express.json())
@@ -464,7 +469,6 @@ describe('specrails_missions: Intent', () => {
     expect(paused.envelope.data.state).toBe('paused')
     expect(paused.envelope.state.offers.map((o: Row) => o.id)).toEqual(['resume', 'hand_off', 'discard', 'send'])
 
-    expect((await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1' })).envelope.error.code).toBe('invalid_input')
     const handed = await confirmed({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', options: { rail: 'rail:shop-api/2' } })
     expect(handed.envelope.data).toMatchObject({ state: 'handed_off', runs: ['run:shop-api/lr1'], delivery: 'delivery:shop-api/d1' })
     expect(handed.envelope.state.offers.map((o: Row) => o.id)).toEqual(['return', 'relaunch'])
@@ -510,6 +514,108 @@ describe('specrails_missions: Intent', () => {
     const res = await missions({ action: 'intent_get', ref: `mission:${id}` })
     expect(res.envelope.error.code).toBe('not_found')
     expect(res.envelope.error.next[0].args.action).toBe('intent_start')
+  })
+})
+
+describe('specrails_missions: continuing an open Intent from an external client', () => {
+  const SETTLED = '```intent-draft\n' + JSON.stringify({ title: 'Greeting', problem: 'People are not greeted.', outcome: 'A greeting shows on load.', successSignals: ['The greeting shows'], affects: ['Visitors'], constraints: [], openQuestions: [], readings: { restated: 'Show a greeting.', alternative: 'Send a greeting email.', discriminator: 'On screen or by email?' }, ready: true }) + '\n```'
+
+  it('continues an open Intent by message: the turn is marked as written from an MCP client, the reply comes back, and the mission offers the Intent moves', async () => {
+    const id = mission()
+    flows.set('f1', flowSession({ conversationId: id }))
+    const got = await missions({ action: 'get', ref: `mission:${id}` })
+    const ids = got.envelope.state.offers.map((o: Row) => o.id)
+    expect(ids).toEqual(expect.arrayContaining(['send', 'intent', 'intent.pause', 'intent.hand_off', 'intent.discard']))
+    expect(ids).not.toContain('intent.send')
+
+    const replied = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Add a farewell too', options: { waitMs: 2000 } })
+    expect(replied.envelope.data).toMatchObject({ status: 'replied', reply: { text: 'Echo: Add a farewell too' } })
+    expect(sent.at(-1)).toMatchObject({ id, text: 'Add a farewell too', options: expect.objectContaining({ surface: 'mcp' }) })
+    // A write returns the fresh state (the settled turn: no re-read needed).
+    expect(replied.envelope.state.offers.map((o: Row) => o.id)).toContain('intent.hand_off')
+
+    // A running Intent turn: the mission offers the interrupt (the app composer's delivery) and it is admitted.
+    busy.add(id)
+    const running = await missions({ action: 'get', ref: `mission:${id}` })
+    const interrupt = running.envelope.state.offers.find((o: Row) => o.id === 'interrupt')
+    expect(interrupt.call.args).toMatchObject({ action: 'send', options: { deliveryMode: 'interrupt' } })
+    const cut = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Stop, use blue instead', options: { deliveryMode: 'interrupt', waitMs: 200 } })
+    expect(cut.envelope.data).toMatchObject({ accepted: true, queued: true })
+    expect(sent.at(-1)).toMatchObject({ text: 'Stop, use blue instead', options: expect.objectContaining({ deliveryMode: 'steer', surface: 'mcp' }) })
+  })
+
+  it('answers an options block of the Intent agent (a reply turn marked as MCP)', async () => {
+    const id = mission()
+    flows.set('f1', flowSession({ conversationId: id }))
+    say(id, 'user', 'levanta la app')
+    say(id, 'assistant', 'No app is running in this Intent.\n\n```options\n["Start the app", "Start and expose on the local network", "Not now"]\n```')
+    const got = await missions({ action: 'intent_get', ref: 'intent:shop-api/f1' })
+    const card = got.envelope.data.pendingCards[0]
+    expect(card).toMatchObject({ kind: 'options' })
+    const answered = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: '0', options: { waitMs: 2000 } })
+    expect(answered.envelope.data.status).toBe('replied')
+    expect(sent.at(-1)).toMatchObject({ text: 'Start the app', options: expect.objectContaining({ surface: 'mcp' }) })
+  })
+
+  it('reads the progress of an Intent: running turn with its live text, last reply, pending cards and preview app URLs (untrusted)', async () => {
+    const id = mission()
+    flows.set('f1', flowSession({ conversationId: id }))
+    say(id, 'assistant', 'Built the dice tray.')
+    busy.add(id)
+    streaming = 'Running the tests now… 12 passed'
+    const got = await missions({ action: 'intent_get', ref: `mission:${id}` })
+    expect(got.envelope.data).toMatchObject({
+      ref: 'intent:shop-api/f1', state: 'active',
+      turn: { running: true, live: 'Running the tests now… 12 passed' },
+      lastReply: { text: 'Built the dice tray.' },
+      apps: [{ pid: 42, appUrls: ['http://localhost:5173'] }],
+    })
+    expect(got.envelope.state.phase).toBe('turn')
+    expect(got.envelope.state.offers.map((o: Row) => o.id)).toEqual(['pause', 'hand_off', 'discard', 'interrupt', 'send'])
+    expectUntrusted(got.envelope, '/data/turn/live')
+    expectUntrusted(got.envelope, '/data/lastReply/text')
+    expectUntrusted(got.envelope, '/data/apps/0/command')
+    const mid = await missions({ action: 'get', ref: `mission:${id}` })
+    expect(mid.envelope.data.live).toBe('Running the tests now… 12 passed')
+    expectUntrusted(mid.envelope, '/data/live')
+  })
+
+  it('hands off with confirmation like the app: the first free rail and the mission engine by default, a new rail when none is free', async () => {
+    const id = mission()
+    flows.set('f1', flowSession({ conversationId: id }))
+    const first = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1' })
+    expect(first.envelope.error.code).toBe('confirmation_required')
+    expect(first.envelope.error.preview.effect).toContain('On Rail 2.')
+    const handed = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', confirm: first.envelope.error.confirmToken })
+    expect(handed.envelope.data).toMatchObject({ state: 'handed_off', rail: 'rail:shop-api/1', runs: ['run:shop-api/lr1'] })
+    expect(intentCalls.at(-1)).toMatchObject({ op: 'hand-off', input: { flowId: 'f1', railIndex: 1, missionEngine: true } })
+
+    flows.set('f1', flowSession({ conversationId: id }))
+    railsState = [{ railIndex: 0, availability: 'busy', ticketIds: [3] }]
+    const second = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', provider: 'codex' })
+    expect(second.envelope.error.preview.effect).toContain('a new rail is created')
+    const onNew = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', provider: 'codex', confirm: second.envelope.error.confirmToken })
+    expect(onNew.envelope.data.rail).toBe('rail:shop-api/3')
+    expect(routeLog.some((r) => r.method === 'POST' && r.path === '/p1/rails')).toBe(true)
+    expect(intentCalls.at(-1)?.input).toMatchObject({ railIndex: 3, options: { aiEngine: 'codex' } })
+    expect(intentCalls.at(-1)?.input.missionEngine).toBeUndefined()
+  })
+
+  it('switches modes: Explore on a settled intent card enters Intent; pause leaves it, resume enters it again', async () => {
+    const id = mission()
+    say(id, 'assistant', `Here is what I understood.\n\n${SETTLED}`)
+    const got = await missions({ action: 'get', ref: `mission:${id}` })
+    const explore = got.envelope.state.offers.find((o: Row) => o.id === 'reading.explore')
+    expect(explore.call.args).toMatchObject({ action: 'card_decide', decision: 'explore' })
+    const started = await confirmed(explore.call.args)
+    expect(started.envelope.data).toMatchObject({ ref: 'intent:shop-api/f2', state: 'active' })
+    expect(intentCalls[0]).toMatchObject({ op: 'start', input: { conversationId: id, idea: 'People are not greeted.', title: 'Greeting', intent: expect.objectContaining({ problem: 'People are not greeted.' }) } })
+
+    const paused = await missions({ action: 'intent_pause', ref: 'intent:shop-api/f2' })
+    expect(paused.envelope.data.state).toBe('paused')
+    const resume = paused.envelope.state.offers.find((o: Row) => o.id === 'resume')
+    const resumed = await confirmed(resume.call.args)
+    expect(resumed.envelope.data.state).toBe('active')
   })
 })
 

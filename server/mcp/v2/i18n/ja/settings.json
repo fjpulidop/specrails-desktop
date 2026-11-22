@@ -20,5 +20,7 @@
   "error.no_values": "{{section}} で変更するフィールドを values で渡してください。",
   "error.unknown_keys": "{{section}} にフィールド {{keys}} はありません。書き込み可能: {{allowed}}。",
   "error.invalid_value": "{{key}} は {{expected}} である必要があります。",
-  "error.guardrails_unsupported": "インストールされている Core には設定可能なガードレールがありません。先に Core を更新してください。"
+  "error.guardrails_unsupported": "インストールされている Core には設定可能なガードレールがありません。先に Core を更新してください。",
+  "risk.mcp_tier_on": "MCP クライアントがアプリを開かずにこれらの呼び出しを行えるようになります。本人がこのクライアント自身のダイアログで承認する必要があります。",
+  "error.tier_raise": "{{keys}} を有効にするには、このクライアント自身の確認ダイアログで本人の承認が必要です（確認トークンだけでは不十分で、アプリ内エージェントは実行できません）。このクライアントにダイアログがない場合は、本人が Specrails の設定 ▸ MCP で有効にします。"
 }

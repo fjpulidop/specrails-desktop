@@ -33,6 +33,13 @@ export const TIER_SETTING_KEY: Record<Exclude<McpTier, 'read'>, string> = {
   destructive: 'mcp_tier_destructive',
 }
 
+/** The field of each opt-out tier in Settings ▸ MCP, `PATCH /api/mcp-admin/tiers` and `specrails_settings` section `mcp`. */
+export const TIER_VALUE_KEY: Record<Exclude<McpTier, 'read'>, 'write' | 'aiSpawn' | 'destructive'> = {
+  write: 'write',
+  'ai-spawn': 'aiSpawn',
+  destructive: 'destructive',
+}
+
 export const MCP_ENABLED_KEY = 'mcp_enabled'
 
 /** True when MCP itself is enabled (default TRUE — only an explicit 'false' disables). */
@@ -67,8 +74,10 @@ export function tierLabel(tier: McpTier): string {
 
 /** The message returned when a tool is refused because its tier is disabled. */
 export function tierRefusalMessage(tier: McpTier): string {
+  if (tier === 'read') return 'This action requires MCP to be enabled.'
   return (
-    `This action requires the "${tierLabel(tier)}" permission tier, which is currently disabled. ` +
-    `Enable it in the Specrails app under Settings ▸ MCP, then retry.`
+    `This action requires the "${tierLabel(tier)}" permission tier, which is turned off (desktop setting ${TIER_SETTING_KEY[tier]}). ` +
+    `The person turns it on in Specrails Settings ▸ MCP ▸ "${tierLabel(tier)}", or from an MCP client with ` +
+    `specrails_settings(set, section: "mcp", values: { ${TIER_VALUE_KEY[tier]}: true }), which asks them in the client's own confirmation dialog. Then retry.`
   )
 }

@@ -62,6 +62,47 @@ if (!printMode) { log({ refused: args.slice(0, 4) }); console.error('eval engine
 
 const flag = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const pIndex = args.indexOf('-p') >= 0 ? args.indexOf('-p') : args.indexOf('--print')
+// A Core agent session (mission and Intent turns): one long-lived process reading stream-json user frames.
+// Each input is one scripted turn (init → assistant text → result). An Intent agent answers a feature request
+// with a choice (an ```options block), as the real persona offers to start the app; a picked choice is acknowledged.
+if (flag('--input-format') === 'stream-json') {
+  const session = flag('--resume') ?? `eval-session-${process.pid}-${Date.now()}`
+  let systemPrompt = flag('--system-prompt') ?? ''
+  try { if (flag('--system-prompt-file')) systemPrompt = fs.readFileSync(flag('--system-prompt-file'), 'utf8') } catch { /* unreadable: a plain session */ }
+  const intent = /# Specrails Intent/.test(systemPrompt)
+  const out = frame => process.stdout.write(JSON.stringify(frame) + '\n')
+  const textOf = content => typeof content === 'string' ? content : Array.isArray(content) ? content.map(b => typeof b?.text === 'string' ? b.text : '').join('\n') : ''
+  const answer = text => {
+    if (!intent) return 'Done.'
+    if (/(^|\n)\s*(Start the app|Not now)\s*$/.test(text)) return 'Noted. Decision: the app stays stopped for now.'
+    return 'Added it in the worktree and ran the tests (2 passed).\n\nDecision: scripted change.\n\nThe app can be tried now.\n\n```options\n["Start the app", "Not now"]\n```'
+  }
+  let n = 0
+  let buffer = ''
+  process.stdin.setEncoding('utf8')
+  process.stdin.on('data', chunk => {
+    buffer += chunk
+    let i
+    while ((i = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, i).trim()
+      buffer = buffer.slice(i + 1)
+      if (!line) continue
+      let frame
+      try { frame = JSON.parse(line) } catch { continue }
+      if (frame.type !== 'user') { log({ mode: 'session', frame: frame.type, subtype: frame.request?.subtype ?? null }); continue }
+      const reply = answer(textOf(frame.message?.content))
+      log({ mode: 'session', role: intent ? 'intent' : 'mission', resume: flag('--resume') ?? null, promptBytes: line.length })
+      // The CLI reports each input's lifecycle (Core ties the turn to the input by it).
+      if (frame.uuid) out({ type: 'command_lifecycle', command_uuid: frame.uuid, state: 'started' })
+      out({ type: 'system', subtype: 'init', session_id: session, model: flag('--model') ?? 'claude-haiku-5-5', tools: [], mcp_servers: [] })
+      out({ type: 'assistant', parent_tool_use_id: null, message: { id: `msg-${session}-${n++}`, role: 'assistant', content: [{ type: 'text', text: reply }], usage: { input_tokens: 120, output_tokens: 30 } } })
+      out({ type: 'result', subtype: 'success', is_error: false, num_turns: 1, duration_ms: 5, session_id: session, result: reply, usage: { input_tokens: 120, output_tokens: 30 }, total_cost_usd: 0 })
+      if (frame.uuid) out({ type: 'command_lifecycle', command_uuid: frame.uuid, state: 'completed' })
+    }
+  })
+  await new Promise(resolve => process.stdin.on('end', resolve))
+  process.exit(0)
+}
 const inlinePrompt = args[pIndex + 1] && !args[pIndex + 1].startsWith('--') ? args[pIndex + 1] : ''
 const stdin = process.stdin.isTTY ? '' : await new Promise(resolve => { let s = ''; process.stdin.setEncoding('utf8'); process.stdin.on('data', d => { s += d }); process.stdin.on('end', () => resolve(s)); process.stdin.on('error', () => resolve(s)) })
 const prompt = `${inlinePrompt}\n${stdin}`

@@ -20,5 +20,7 @@
   "error.no_values": "Passa i campi da modificare in values per {{section}}.",
   "error.unknown_keys": "{{section}} non ha il campo {{keys}}. Modificabili: {{allowed}}.",
   "error.invalid_value": "{{key}} deve essere {{expected}}.",
-  "error.guardrails_unsupported": "Il Core installato non ha guardrail configurabili. Aggiorna prima Core."
+  "error.guardrails_unsupported": "Il Core installato non ha guardrail configurabili. Aggiorna prima Core.",
+  "risk.mcp_tier_on": "I client MCP potranno fare queste chiamate senza aprire l’app; la persona deve accettare nella finestra di dialogo di questo client.",
+  "error.tier_raise": "Attivare {{keys}} richiede il sì della persona nella finestra di conferma di questo client (un token di conferma non basta e gli agenti dell’app non possono farlo). Se questo client non mostra finestre, la persona lo attiva in Impostazioni di Specrails ▸ MCP."
 }

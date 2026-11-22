@@ -20,5 +20,7 @@
   "error.no_values": "Passe os campos a alterar em values para {{section}}.",
   "error.unknown_keys": "{{section}} não tem o campo {{keys}}. Editáveis: {{allowed}}.",
   "error.invalid_value": "{{key}} deve ser {{expected}}.",
-  "error.guardrails_unsupported": "O Core instalado não tem proteções configuráveis. Atualize o Core primeiro."
+  "error.guardrails_unsupported": "O Core instalado não tem proteções configuráveis. Atualize o Core primeiro.",
+  "risk.mcp_tier_on": "Os clientes MCP poderão fazer essas chamadas sem abrir o app; a pessoa precisa aceitar no próprio diálogo deste cliente.",
+  "error.tier_raise": "Ativar {{keys}} exige que a pessoa aceite no próprio diálogo de confirmação deste cliente (um token de confirmação não basta e agentes do app não podem fazê-lo). Se este cliente não mostra diálogos, a pessoa ativa em Configurações do Specrails ▸ MCP."
 }

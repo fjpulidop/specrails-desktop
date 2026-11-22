@@ -828,7 +828,7 @@ export function createFlowHandOffAuthority(
     resolve(flowId) {
       const session = repository.get(flowId)
       if (!session || session.step !== 'handoff:launch' || !session.worktreePath || !session.branch || !session.headSha || session.ticketId === null) {
-        throw new IntentHandOffNotReadyError('This Intent is not waiting for a rail launch; end it from the Intent bar')
+        throw new IntentHandOffNotReadyError('This Intent is not waiting for a rail launch; end it with Hand off (the Intent bar, or specrails_missions intent_hand_off)')
       }
       return {
         flowId,

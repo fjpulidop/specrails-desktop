@@ -916,6 +916,20 @@ describe('AgentChatManager', () => {
     expect(userMessage?.context_refs[0]?.id).toBe(jobId)
   })
 
+  it('tells the agent when the person writes from their own MCP client (no app buttons to point at), and only then', async () => {
+    const prompts: string[] = []
+    vi.mocked(runAiCliInvocation).mockImplementation(async (hooks) => {
+      prompts.push(hooks.buildOpts.prompt)
+      return { code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult
+    })
+    const c = createAgentConversation(db, { provider: 'claude' })
+    await manager.sendMessage(c.id, 'hand it off', { surface: 'mcp' })
+    await manager.sendMessage(c.id, 'and now from the app')
+    expect(prompts[0]).toContain('Surface: MCP client')
+    expect(prompts[0]).toContain('never an app button')
+    expect(prompts[1]).not.toContain('Surface: MCP client')
+  })
+
   it('emits agent_error when the spawn fails', async () => {
     const c = createAgentConversation(db, { provider: 'claude' })
     vi.mocked(runAiCliInvocation).mockResolvedValue({

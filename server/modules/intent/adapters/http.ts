@@ -143,7 +143,9 @@ export function registerIntentHttp(router: Router, serviceForRequest: (request: 
       model: optionalString(body.model, 'model'),
       reasoningEffort: optionalString(body.reasoning_effort ?? body.reasoningEffort, 'reasoning_effort'),
     }
-    const result = await service.handOffFlow({ flowId: flowId(req), railIndex: body.railIndex, options })
+    // `engine: 'mission'`: no engine given ⇒ the Intent conversation's (what the hand-off card preselects).
+    const missionEngine = body.engine === 'mission'
+    const result = await service.handOffFlow({ flowId: flowId(req), railIndex: body.railIndex, options, ...(missionEngine ? { missionEngine } : {}) })
     res.status(202).json(result)
   }))
 

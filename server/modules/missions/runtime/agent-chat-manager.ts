@@ -121,6 +121,8 @@ export interface AgentTurnOptions {
   /** Client-generated correlation id echoed on agent_queued / agent_dequeued. */
   queueId?: string | null
   deliveryMode?: 'queue' | 'steer'
+  /** `mcp`: the person wrote from their own MCP client (the turn says so; no app buttons to point at). */
+  surface?: 'mcp'
 }
 
 interface QueuedTurn {
@@ -935,7 +937,10 @@ export class AgentChatManager {
       // Only await when Intent is wired: an unconditional await would put a
       // microtask before the spawn on every mission turn (no Intent port ⇒ no offer).
       : this._flowTurns?.offerable && await this._flowOfferable(conversationId) ? ' | Intent: offerable' : ''
-    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}${flowNote}`
+    // The person writes from their own MCP client (Claude Code, Codex…): they do not see the
+    // Specrails window, so the agent names the specrails_* MCP action, never an app button.
+    const surfaceNote = options.surface === 'mcp' ? ' | Surface: MCP client (the user is not looking at the Specrails window: for a Specrails step name the specrails_* MCP action, never an app button)' : ''
+    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}${flowNote}${surfaceNote}`
     const contextPrefix = conversation.pinned_project_id
       ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`
       : `[No project pinned (Home) | ${turnSettings}]`

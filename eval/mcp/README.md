@@ -26,14 +26,14 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
 | Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment (`--auth session`: see Safety) |
 | Simulated person | `lib/person.mjs`, `lib/person-dialog.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question. Claude Code also shows the server's in-call confirmation dialog (MCP elicitation); a project-level `Elicitation` hook in the scenario's temp cwd gives the same yes/no there (`--no-dialog`: chat only). Codex `exec` declines dialogs, so it stays on the chat flow |
-| Scenarios | `lib/scenarios.mjs` | S1–S15 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
+| Scenarios | `lib/scenarios.mjs` | S1–S16 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
 | Metrics | `lib/metrics.mjs` | calls and logical actions (a preview plus the call that confirms it count as one: the protocol requires both, the preview does no work and the person's decision sits between them; the calls bar uses logical actions against `referenceLogical`, raw calls are reported next to it), confirmations given in the client dialog (counted only when the server marks `confirmed: "in_client"` and the log shows the dialog's accept during that call), tool names, errors (invalid args, wrong tool), confirmations requested/used, irreversible calls without a confirmToken, destructive calls, response tokens (o200k), catalog tokens (Codex shape, as the budget test), read latency, `wait` use, repeated identical reads |
 | Report | `lib/report.mjs` | Pass bars of the plan, per-scenario table, failed assertions, savings vs v1, probe, quota |
 | Load probe | `lib/probe.mjs` | Read mix over the 100-project seed (`--fleet n`), and `wait` wake-up after an HTTP change |
 
 ## Scenarios that need more than HTTP
 
-All 15 scenarios have a seed, a reference solution and an HTTP checker. A scenario is reported `pending` only when a
+All 16 scenarios have a seed, a reference solution and an HTTP checker. A scenario is reported `pending` only when a
 v2 tool it needs is not implemented on the instance (probed at start: a stub answers `not_implemented`, a v1 action
 served through the legacy bridge carries a deprecation warning).
 
@@ -43,6 +43,10 @@ served through the legacy bridge carries a deprecation warning).
   (`[eval-engine:question]`) makes the chain's first run ask; seeds that need MCP-only states use the probe connection
   (`ctx.mcp`), whose calls never count as the scenario's. Builder projects are created under the work dir.
 - **S12 (Intent):** the seed starts a real Intent session on the scripted engine and trashes spec 9.
+- **S16 (continue an open Intent):** the seed starts an Intent; the agent sends it a request, answers the Intent
+  agent's ```options choice and hands it off (default rail, mission engine). The stand-in `claude` also plays Core
+  agent sessions (`--input-format stream-json`: one scripted turn per input, with the CLI's `command_lifecycle`
+  frames); an Intent turn answers a request with a choice. The checker fails if any reply sends the person to the app.
 - **S13 (connect):** a second, throwaway instance (port 4402) runs with `HOME` set to a fresh directory, because
   `mcp connect` edits the client configuration of the server's home. The reference runs
   `specrails-desktop mcp connect --client claude --json`; the checker starts the entry it wrote, as a new client

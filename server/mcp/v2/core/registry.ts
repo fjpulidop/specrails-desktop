@@ -4,7 +4,7 @@ import { z, type ZodRawShape } from 'zod'
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
 import type { ProjectRow } from '../../../desktop-db'
 import type { WsMessage } from '../../../types'
-import { tierRefusalMessage, type McpTier } from '../../mcp-tiers'
+import { TIER_VALUE_KEY, tierRefusalMessage, type McpTier } from '../../mcp-tiers'
 import { verifyAgentCapability } from '../../agent-capability'
 import { AGENT_CAPABILITY_HEADER } from '../../../modules/missions/runtime/agent-tier'
 import { acknowledgeAgentInputsRead, acknowledgeAgentSteering, onAgentSteering, runWithAgentSteering } from '../../../modules/missions/runtime/agent-steering'
@@ -219,6 +219,8 @@ export interface V2CallContext extends McpToolContext {
     /** Builds a DecisionState with this call's language, the catalog's policies and the spend threshold. */
     state(input: DecisionStateInput): DecisionState
     confirmAboveUsd: number
+    /** True once the person said yes in the client's own dialog during this call (MCP elicitation), never by a token. */
+    confirmedInClient?: boolean
     /** The catalog this call was registered with (help, describe, validate). */
     catalog: V2Catalog
     /**
@@ -369,7 +371,11 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     }
 
     const tier = resolveTier(spec.tier, args)
-    if (!toolTierAllowed(callCtx, tier)) return fail(new V2ToolError('unauthorized', tierRefusalMessage(tier)))
+    if (!toolTierAllowed(callCtx, tier)) {
+      // An external client is told the exact setting, and the call that turns it on (the person confirms it in the client's dialog).
+      const raise = !callCtx.firstPartyAgent && tier !== 'read' ? { next: [{ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { [TIER_VALUE_KEY[tier]]: true } }, why: 'Turn the tier on (the person confirms it in this client\'s dialog).' }] } : {}
+      return fail(new V2ToolError('unauthorized', tierRefusalMessage(tier), raise))
+    }
     const missing = (spec.required ?? []).filter((field) => !present(fieldValue(args, field)))
     const needsOne = spec.oneOf?.length && !spec.oneOf.some((field) => present(fieldValue(args, field)))
     if (missing.length || needsOne) {
@@ -455,6 +461,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
           return fail(new V2ToolError('not_implemented', legacy ? t('core.error.not_implemented_legacy', { label, legacy }) : t('core.error.not_implemented', { label })))
         }
         if (capability) recordMissionMcpAction(callCtx, def.name, args)
+        if (confirmedInClient) callCtx.v2.confirmedInClient = true
         const value = await spec.handler(callCtx, args)
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))

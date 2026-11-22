@@ -731,6 +731,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       return
     }
     const contextRefs = sanitizeContextRefs(body.contextRefs)
+    // `surface: 'mcp'`: written from the person's own MCP client (v2 send); the turn tells the agent so.
+    const surface = body.surface === 'mcp' ? 'mcp' as const : undefined
     // Fire-and-forget: the turn streams over WS. Persist the chosen tier first so
     // a refresh mid-turn restores the right level.
     // isBusy here and sendMessage's own busy/enqueue branch run in the same
@@ -739,7 +741,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     const queued = manager.isBusy(conversation.id)
     try {
       const previous = queueId ? getAgentInput(desktopDb, conversation.id, queueId) : undefined
-      void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs, deliveryMode }).catch((e) =>
+      void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs, deliveryMode, ...(surface ? { surface } : {}) }).catch((e) =>
         console.error('[agent-chat] send failed:', e),
       )
       if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })

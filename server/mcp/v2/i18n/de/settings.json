@@ -20,5 +20,7 @@
   "error.no_values": "Übergib die zu ändernden Felder in values für {{section}}.",
   "error.unknown_keys": "{{section}} hat kein Feld {{keys}}. Beschreibbar: {{allowed}}.",
   "error.invalid_value": "{{key}} muss {{expected}} sein.",
-  "error.guardrails_unsupported": "Die installierte Core hat keine konfigurierbaren Schutzregeln. Aktualisiere zuerst Core."
+  "error.guardrails_unsupported": "Die installierte Core hat keine konfigurierbaren Schutzregeln. Aktualisiere zuerst Core.",
+  "risk.mcp_tier_on": "MCP-Clients können diese Aufrufe dann ohne geöffnete App ausführen; die Person muss im eigenen Dialog dieses Clients zustimmen.",
+  "error.tier_raise": "Um {{keys}} einzuschalten, muss die Person im eigenen Bestätigungsdialog dieses Clients zustimmen (ein Bestätigungstoken reicht nicht, und App-Agenten können es nicht). Zeigt dieser Client keinen Dialog, schaltet die Person es in den Specrails-Einstellungen ▸ MCP ein."
 }

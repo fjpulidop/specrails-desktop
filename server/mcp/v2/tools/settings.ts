@@ -12,7 +12,7 @@ import { defineTool, type PreviewInput, type V2CallContext } from '../core/regis
 import { untrusted } from '../core/untrusted'
 import { F, optionsOf } from '../core/views'
 
-export const APP_SECTIONS = ['app', 'appearance', 'language', 'notifications', 'code', 'terminal', 'mobile', 'webhooks', 'external_mcp', 'connectors', 'role_prompts', 'agent_defaults', 'machine_installs'] as const
+export const APP_SECTIONS = ['app', 'appearance', 'language', 'notifications', 'code', 'terminal', 'mobile', 'webhooks', 'external_mcp', 'mcp', 'connectors', 'role_prompts', 'agent_defaults', 'machine_installs'] as const
 export const PROJECT_SECTIONS = ['general', 'runtime', 'subagents', 'branch', 'env', 'budget', 'telemetry', 'rules', 'retention', 'guardrails', 'loop_roles', 'verification', 'environment_plan'] as const
 type SectionId = (typeof APP_SECTIONS)[number] | (typeof PROJECT_SECTIONS)[number]
 
@@ -213,7 +213,31 @@ function delegate(ctx: V2CallContext, args: Values, call: Values) {
   return ctx.v2.dispatch({ tool: 'specrails_integrations', args: { ...call, ...control } })
 }
 
+const TIER_FIELDS = [['write', 'write'], ['aiSpawn', 'ai-spawn'], ['destructive', 'destructive']] as const
+
 const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
+  /**
+   * The MCP permission tiers of external clients (Settings ▸ MCP). Turning one
+   * OFF is always allowed; turning one ON widens what MCP clients may do, so it
+   * needs the person's yes in the client's own dialog (never a confirm token an
+   * agent could resend by itself) and is never taken by an in-app agent turn.
+   */
+  mcp: {
+    scope: 'app',
+    keys: { write: bool, aiSpawn: bool, destructive: bool },
+    async read({ ctx }) {
+      const values = Object.fromEntries(TIER_FIELDS.map(([key, tier]) => [key, isTierEnabled(ctx.desktopDb, tier)]))
+      return { values, source: bySame(values, { write: true, aiSpawn: true, destructive: true }, 'app'), info: { enabled: isMcpEnabled(ctx.desktopDb), read: true } }
+    },
+    async write({ ctx }, values, current) {
+      const raising = Object.keys(values).filter((key) => values[key] === true && current.values[key] === false)
+      if (raising.length && (ctx.firstPartyAgent || !ctx.v2.confirmedInClient)) {
+        throw new V2ToolError('unauthorized', ctx.v2.t('settings.error.tier_raise', { keys: raising.join(', ') }))
+      }
+      await send(ctx, 'PATCH', '/mcp-admin/tiers', values)
+    },
+    risks: (v) => Object.values(v).some((value) => value === true) ? ['mcp_tier_on'] : [],
+  },
   app: {
     scope: 'app',
     keys: { autoContinueRuns: bool, resumeOnDailyReset: bool, allowSubagents: bool, subagentRuntime: objOrNull, updateChannel: oneOf('latest', 'stable') },
@@ -610,6 +634,8 @@ function confirmFor(args: Values): ConfirmClass | null {
 
 function tierFor(args: Values): McpTier {
   const def = isDelegated(args.section) ? undefined : SECTIONS[args.section as Exclude<SectionId, DelegatedSection>]
+  // The tiers themselves: reachable while a tier is off (turning one on asks the person in the client's dialog).
+  if (args.section === 'mcp') return 'read'
   return def?.destructive?.(rec(args.values)) ? 'destructive' : 'write'
 }
 

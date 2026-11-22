@@ -611,7 +611,7 @@ export const systemTool = defineTool({
     },
     background: {
       ...byOp('background'),
-      doc: 'Background processes (dev servers, watchers) of a project. op: list (default; options.includeFinished) | logs (id = pid; options.lines) | kill (id = pid). Starting one is the in-app agent\'s (specrails_background start).',
+      doc: 'Background processes (dev servers, watchers) of a project. op: list (default; options.includeFinished) | logs (id = pid; options.lines) | kill (id = pid). An Intent\'s preview app is started by its agent: ask it with specrails_missions(send) and answer its choice.',
       maxTokens: 4000,
       preview: async (ctx, args) => {
         const { base } = projectBase(ctx, args)

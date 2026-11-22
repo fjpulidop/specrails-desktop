@@ -20,5 +20,7 @@
   "error.no_values": "Passez les champs à modifier dans values pour {{section}}.",
   "error.unknown_keys": "{{section}} n'a pas de champ {{keys}}. Modifiables : {{allowed}}.",
   "error.invalid_value": "{{key}} doit être {{expected}}.",
-  "error.guardrails_unsupported": "Le Core installé n'a pas de garde-fous configurables. Mettez d'abord Core à jour."
+  "error.guardrails_unsupported": "Le Core installé n'a pas de garde-fous configurables. Mettez d'abord Core à jour.",
+  "risk.mcp_tier_on": "Les clients MCP pourront alors faire ces appels sans ouvrir l’app ; la personne doit accepter dans la boîte de dialogue de ce client.",
+  "error.tier_raise": "Activer {{keys}} demande l’accord de la personne dans la boîte de confirmation de ce client (un jeton de confirmation ne suffit pas et les agents de l’app ne peuvent pas le faire). Si ce client n’affiche pas de dialogue, la personne l’active dans Réglages de Specrails ▸ MCP."
 }

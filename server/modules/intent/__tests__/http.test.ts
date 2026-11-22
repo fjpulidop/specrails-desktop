@@ -86,6 +86,8 @@ describe('Intent HTTP routes', () => {
     expect(handOff.status).toBe(202)
     expect(handOff.body).toMatchObject({ loopRunIds: ['run-1'], deliveryId: 'd-1' })
     expect(flows.handOffFlow).toHaveBeenCalledWith({ flowId: 'flow-1', railIndex: 2, options: { loopId: 'factory:flow-spec', aiEngine: undefined, model: undefined, reasoningEffort: 'high' } })
+    await request(server).post('/p1/flow/flow-1/hand-off').send({ railIndex: 3, engine: 'mission' })
+    expect(flows.handOffFlow).toHaveBeenLastCalledWith({ flowId: 'flow-1', railIndex: 3, options: { loopId: undefined, aiEngine: undefined, model: undefined, reasoningEffort: undefined }, missionEngine: true })
     expect((await request(server).get('/p1/flow/flow-1/diff')).body.totals).toEqual({ files: 0, additions: 0, deletions: 0 })
     expect((await request(server).get('/p1/flow/flow-1/cost')).body).toMatchObject({ costUsd: 0.5, unpricedTurns: 0 })
   })

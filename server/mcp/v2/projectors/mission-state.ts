@@ -1,4 +1,4 @@
-import { parseIntentDraft } from '../../../modules/specs/domain/intent'
+import { parseIntentDraft, type IntentDraft } from '../../../modules/specs/domain/intent'
 import { transition, IntentTransitionError, type IntentCommand, type IntentSession } from '../../../modules/intent'
 import type { CanonicalStatus } from '../core/status-map'
 import type { DecisionStateInput, HoldDraft, OfferDraft } from '../core/decision-state'
@@ -205,12 +205,12 @@ export function projectCards(messages: readonly MessageLike[], options: { busy: 
     const decided = (kind: string, index: number) => (message.intents ?? []).find((intent) => intent.kind === kind && intent.proposalIndex === index)
     const opts = parseOptions(content)
     if (opts) cards.push({ id: cardId(message.id, 'options', 0), kind: 'options', messageId: message.id, pending: newest, ...(newest ? { decisions: opts.map((_, i) => String(i)) } : {}), data: { options: opts }, at: message.created_at })
-    const drafts = fences(content, 'intent-draft').map(parseIntentDraft).filter((draft) => draft !== null)
-    const draft = drafts[drafts.length - 1]
+    const draft = intentDraftOf(content)
     if (draft) {
       cards.push({
         id: cardId(message.id, 'intent-draft', 0), kind: 'intent-draft', messageId: message.id, pending: newest,
-        ...(newest ? { decisions: draft.ready ? ['restated', 'alternative', 'delegate'] : ['restated', 'alternative'] } : {}),
+        // A settled intent offers Explore (an Intent session from it) next to Delegate, as the card does.
+        ...(newest ? { decisions: draft.ready ? ['restated', 'alternative', 'explore', 'delegate'] : ['restated', 'alternative'] } : {}),
         data: { title: draft.title ?? null, problem: draft.intent.problem, outcome: draft.intent.outcome, readings: draft.readings, ready: draft.ready, openQuestions: draft.intent.openQuestions.filter((item) => !item.answer).map((item) => item.question) },
         at: message.created_at,
       })
@@ -239,6 +239,12 @@ export function projectCards(messages: readonly MessageLike[], options: { busy: 
     })
   }
   return dedupeSystemCards(cards)
+}
+
+/** The intent card of a message: its last readable ```intent-draft block (as the app renders it). */
+export function intentDraftOf(content: string): IntentDraft | null {
+  const drafts = fences(content, 'intent-draft').map(parseIntentDraft).filter((draft) => draft !== null)
+  return drafts[drafts.length - 1] ?? null
 }
 
 /** A re-posted row (pr_decision per rail, pr-ci-offer per delivery, flow-delivered per Intent) keeps its newest copy. */
@@ -285,7 +291,8 @@ export interface MissionFacts {
   limit: { resumeAt: string | null; provider: string | null; at: string } | null
   /** Project slug of the pin (refs of linked deliveries and runs). */
   projectSlug: string | null
-  flow?: { ref: Ref; state: string } | null
+  /** The mission's Intent; with `session`, its legal moves join the mission's offers (one read continues it). */
+  flow?: { ref: Ref; state: string; session?: IntentSession } | null
 }
 
 /**
@@ -338,7 +345,14 @@ export function projectMissionState(facts: MissionFacts): DecisionStateInput {
     if (facts.busy) offers.push({ id: 'abort', labelKey: 'missions.offer.abort', call: self('abort') })
     offers.push({ id: 'send', labelKey: facts.busy ? 'missions.offer.queue' : 'missions.offer.send', call: self('send'), needs: ['message'] })
   }
+  const inIntent = facts.flow?.state === 'active'
+  // A running Intent turn takes new input as an interrupt (the app's composer does the same).
+  if (!facts.archived && facts.busy && inIntent) offers.push({ id: 'interrupt', labelKey: 'missions.offer.intent_interrupt', call: self('send', { options: { deliveryMode: 'interrupt' } }), needs: ['message'] })
   if (facts.flow) offers.push({ id: 'intent', labelKey: 'missions.offer.intent_get', call: { tool: TOOL, args: { action: 'intent_get', ref: facts.flow.ref } } })
+  if (facts.flow?.session) {
+    const moves = projectIntentState(facts.flow.session, { intent: facts.flow.ref, mission: facts.ref }, { now: facts.updatedAt || new Date(0).toISOString() }).offers
+    for (const move of moves) if (move.id !== 'send') offers.push({ ...move, id: `intent.${move.id}` })
+  }
 
   const needsYou = pending.length > 0 && !facts.busy
   const status: CanonicalStatus = facts.busy ? 'running' : facts.limit && !facts.limitContinueAt ? 'blocked' : needsYou ? 'needs_you' : facts.limitContinueAt ? 'waiting' : 'succeeded'
@@ -389,27 +403,28 @@ function legal(session: IntentSession, command: IntentCommand): boolean {
 }
 
 /** The legal Intent moves, by the domain's transition table. `missionRef` names the conversation. */
-export function projectIntentState(session: IntentSession, refs: { intent: Ref; mission: Ref }, facts: { now: string }): DecisionStateInput {
+export function projectIntentState(session: IntentSession, refs: { intent: Ref; mission: Ref }, facts: { now: string; busy?: boolean }): DecisionStateInput {
   const offers: OfferDraft[] = []
   const self = (action: string, extra: Row = {}) => ({ tool: TOOL, args: { action, ref: refs.intent, ...extra } })
   const now = facts.now
   if (legal(session, { type: 'pause', now })) offers.push({ id: 'pause', labelKey: 'missions.offer.intent_pause', call: self('intent_pause') })
   if (legal(session, { type: 'resume', now })) offers.push({ id: 'resume', labelKey: 'missions.offer.intent_resume', call: self('intent_resume') })
-  if (legal(session, { type: 'begin-hand-off', railIndex: Number.MAX_SAFE_INTEGER - 1, now })) offers.push({ id: 'hand_off', labelKey: 'missions.offer.intent_hand_off', call: self('intent_hand_off'), needs: ['options.rail'] })
+  if (legal(session, { type: 'begin-hand-off', railIndex: Number.MAX_SAFE_INTEGER - 1, now })) offers.push({ id: 'hand_off', labelKey: 'missions.offer.intent_hand_off', call: self('intent_hand_off') })
   if (session.deliveryId && legal(session, { type: 'returned', deliveryId: session.deliveryId, briefing: '', now })) {
     offers.push({ id: 'return', labelKey: 'missions.offer.intent_return', call: self('intent_return') })
     offers.push({ id: 'relaunch', labelKey: 'missions.offer.intent_relaunch', call: self('intent_relaunch') })
   }
   if (legal(session, { type: 'discard', now })) offers.push({ id: 'discard', labelKey: 'missions.offer.intent_discard', call: self('intent_discard') })
   if (legal(session, { type: 'close', now })) offers.push({ id: 'close', labelKey: 'missions.offer.intent_close', call: self('intent_close') })
-  if (session.state === 'active' || session.state === 'paused') offers.push({ id: 'send', labelKey: 'missions.offer.send', call: { tool: TOOL, args: { action: 'send', ref: refs.mission } }, needs: ['message'] })
+  if (session.state === 'active' && facts.busy) offers.push({ id: 'interrupt', labelKey: 'missions.offer.intent_interrupt', call: { tool: TOOL, args: { action: 'send', ref: refs.mission, options: { deliveryMode: 'interrupt' } } }, needs: ['message'] })
+  if (session.state === 'active' || session.state === 'paused') offers.push({ id: 'send', labelKey: facts.busy ? 'missions.offer.queue' : 'missions.offer.send', call: { tool: TOOL, args: { action: 'send', ref: refs.mission } }, needs: ['message'] })
   const status = INTENT_STATUS[session.state] ?? 'waiting'
   const hold: HoldDraft | null = session.state === 'paused'
     ? { kind: 'paused', since: session.updatedAt }
     : session.state === 'needs-review' ? { kind: 'question', reasonKey: 'missions.hold.intent_needs_review', since: session.updatedAt } : null
   return {
     status,
-    ...(session.step ? { phase: session.step } : {}),
+    ...(session.step ? { phase: session.step } : session.state === 'active' && facts.busy ? { phase: 'turn' } : {}),
     hold,
     offers,
     recommended: session.state === 'needs-review' ? 'close' : null,

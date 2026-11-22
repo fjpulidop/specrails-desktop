@@ -87,6 +87,14 @@ removed or handed to a rail. Best effort, like closing the session.
   card preselects the conversation's current provider/model/effort (rail
   default plus a note when that provider is not usable here) and Relaunch uses
   `agent.launchEngine` the same way (the stopped run's engine otherwise).
+  A hand-off request with `engine: 'mission'` and no `aiEngine` (MCP v2
+  `intent_hand_off`) resolves the same `agent.launchEngine`; without the flag
+  an omitted engine stays the rail default (the card's own choice).
+- An Intent is fully continuable from an external MCP client: v2 `send` marks
+  the turn `surface: 'mcp'` (the turn note says `Surface: MCP client`, so the
+  persona names `specrails_missions` actions instead of the Intent strip's
+  buttons), `card_decide` answers its chips, `intent_get` reads the running
+  turn, last reply and preview apps.
 - Every use case is idempotent by `flowId`; a repeated command whose target
   state already holds is a no-op.
 - Release removes only the Intent mount root (`worktrees/<flowId>`); a worktree

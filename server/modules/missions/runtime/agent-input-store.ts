@@ -9,6 +9,8 @@ export interface AgentInputOptions {
   attachmentIds?: string[]
   contextRefs?: AgentMessageContextRef[]
   deliveryMode?: 'queue' | 'steer'
+  /** Where the person wrote it: `mcp` = their own MCP client (no Specrails window in front of them). */
+  surface?: 'mcp'
 }
 
 export type AgentInputStatus = 'pending' | 'delivered' | 'cancelled' | 'interrupted'
@@ -97,6 +99,7 @@ export function enqueueAgentInput(db: DbInstance, input: {
     ...(input.options?.tierLevel !== undefined ? { tierLevel: input.options.tierLevel } : {}),
     ...(input.options?.model !== undefined ? { model: input.options.model } : {}),
     ...(input.options?.deliveryMode !== undefined ? { deliveryMode: input.options.deliveryMode } : {}),
+    ...(input.options?.surface === 'mcp' ? { surface: 'mcp' as const } : {}),
     attachmentIds: input.options?.attachmentIds ?? [], contextRefs: input.options?.contextRefs ?? [],
   }
   const optionsJson = canonicalJson(options)

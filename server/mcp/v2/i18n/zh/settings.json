@@ -20,5 +20,7 @@
   "error.no_values": "请在 values 中传入 {{section}} 要更改的字段。",
   "error.unknown_keys": "{{section}} 没有字段 {{keys}}。可写字段：{{allowed}}。",
   "error.invalid_value": "{{key}} 必须是 {{expected}}。",
-  "error.guardrails_unsupported": "已安装的 Core 没有可配置的防护措施。请先更新 Core。"
+  "error.guardrails_unsupported": "已安装的 Core 没有可配置的防护措施。请先更新 Core。",
+  "risk.mcp_tier_on": "MCP 客户端随后无需打开应用即可执行这些调用；必须由本人在此客户端自己的对话框中确认。",
+  "error.tier_raise": "开启 {{keys}} 需要本人在此客户端自己的确认对话框中同意（仅有确认令牌不够，应用内智能体也无法执行）。如果此客户端不显示对话框，请本人在 Specrails 设置 ▸ MCP 中开启。"
 }

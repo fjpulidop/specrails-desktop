@@ -1,10 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../../auth', () => ({ loadOrGenerateToken: () => 'settings-test-token' }))
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { TIER_SETTING_KEY, isTierEnabled } from '../../mcp-tiers'
 import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
 import { call, createHarness, registerTools, type Harness } from '../__fixtures__/harness'
 import { ConfirmationLedger, CONFIRM_ABOVE_USD_KEY } from '../core/confirm'
-import { createCatalog } from '../core/registry'
+import { createCatalog, registerV2Tool } from '../core/registry'
 import { integrationsTool } from './integrations'
 import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
@@ -20,6 +23,8 @@ let h: Harness
 let client: Client
 let requests: Array<{ method: string; path: string; body: any }>
 let state: Record<string, any>
+/** The DB whose MCP tiers the fake `/mcp-admin/tiers` route writes (the harness of the test). */
+let tierDb: Harness['db']
 
 type Handler = (body: any, path: string, method: string) => { status?: number; body: unknown }
 const routes: Array<[string, RegExp, Handler]> = [
@@ -46,6 +51,7 @@ const routes: Array<[string, RegExp, Handler]> = [
   ['GET', /^\/projects\/p1\/agent-runtime\/guardrails$/, () => ({ body: { supported: true, catalog: [{ id: 'no-force-push', phase: 'deliver' }, { id: 'scope-lock', phase: 'develop' }] } })],
   ['GET', /^\/projects\/p1\/agent-runtime\/config$/, () => ({ body: { configured: !!state.runtime, config: state.runtime, runtimeAvailable: true } })],
   ['PUT', /^\/projects\/p1\/agent-runtime\/config$/, (b) => { state.runtime = b; return { body: { configured: true, config: b } } }],
+  ['PATCH', /^\/mcp-admin\/tiers$/, (b) => { for (const [key, tier] of [['write', 'write'], ['aiSpawn', 'ai-spawn'], ['destructive', 'destructive']] as const) if (key in b) setDesktopSetting(tierDb, TIER_SETTING_KEY[tier], b[key] ? 'true' : 'false'); return { body: { ok: true } } }],
   ['GET', /^\/projects\/p1\/rules$/, () => ({ body: { supported: true, running: false, state: 'missing' } })],
 ]
 
@@ -58,6 +64,7 @@ beforeAll(async () => {
 afterAll(async () => { await client.close() })
 
 beforeEach(() => {
+  tierDb = h.db
   h.ctx.sessionState = { activeProjectId: 'p1', sessionKey: 'session-a' } as typeof h.ctx.sessionState
   setDesktopSetting(h.db, CONFIRM_ABOVE_USD_KEY, '')
   requests = []
@@ -347,5 +354,64 @@ describe('specrails_settings env and webhooks', () => {
     expect(done.envelope.ok).toBe(true)
     const missing = await call(client, T, { action: 'webhook_test', options: { webhookId: 'nope' } })
     expect(missing.envelope.error.code).toBe('not_found')
+  })
+})
+
+describe('specrails_settings section mcp (the permission tiers of MCP clients)', () => {
+  let own: Harness
+  let asking: Client
+  let answer: () => { action: string; content?: Record<string, unknown> } = () => ({ action: 'cancel' })
+
+  beforeAll(async () => {
+    own = createHarness()
+    registerV2Tool(own.server, own.ctx, settingsTool, { catalog: createCatalog(V2_TOOLS), ledger: new ConfirmationLedger() })
+    const [serverSide, clientSide] = InMemoryTransport.createLinkedPair()
+    await own.server.connect(serverSide)
+    asking = new Client({ name: 'eliciting-client', version: '1' }, { capabilities: { elicitation: { form: {} } } })
+    asking.setRequestHandler(ElicitRequestSchema, async () => answer() as never)
+    await asking.connect(clientSide)
+  })
+  afterAll(async () => { await asking.close() })
+  beforeEach(() => {
+    tierDb = own.db
+    setDesktopSetting(own.db, TIER_SETTING_KEY['ai-spawn'], 'false')
+    own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-t', elicitation: () => true } as never
+  })
+
+  it('reads the tiers, and turns one on only with the person\'s yes in the client dialog, even while it is off', async () => {
+    const got = await call(asking, T, { action: 'get', section: 'mcp' })
+    expect(got.envelope.data.values).toEqual({ write: true, aiSpawn: false, destructive: true })
+    answer = () => ({ action: 'accept', content: { confirm: true } })
+    const on = await call(asking, T, { action: 'set', section: 'mcp', values: { aiSpawn: true } })
+    expect(on.envelope).toMatchObject({ ok: true, confirmed: 'in_client', data: { values: { aiSpawn: true } } })
+    expect(isTierEnabled(own.db, 'ai-spawn')).toBe(true)
+  })
+
+  it('never turns a tier on from a confirm token alone (an agent could resend it by itself); the error names the Settings path', async () => {
+    own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-t', elicitation: () => false } as never
+    const first = await call(asking, T, { action: 'set', section: 'mcp', values: { aiSpawn: true } })
+    expect(first.envelope.error.code).toBe('confirmation_required')
+    const resent = await call(asking, T, { action: 'set', section: 'mcp', values: { aiSpawn: true }, confirm: first.envelope.error.confirmToken })
+    expect(resent.envelope.error.code).toBe('unauthorized')
+    expect(resent.envelope.error.message).toContain('Settings ▸ MCP')
+    expect(isTierEnabled(own.db, 'ai-spawn')).toBe(false)
+    // Turning a tier off needs no dialog.
+    const off = await call(asking, T, { action: 'set', section: 'mcp', values: { destructive: false } })
+    expect(off.envelope.ok).toBe(true)
+    expect(isTierEnabled(own.db, 'destructive')).toBe(false)
+    setDesktopSetting(own.db, TIER_SETTING_KEY.destructive, 'true')
+  })
+
+  it('a refused tier names the exact setting and offers the call that turns it on', async () => {
+    const refused = await call(asking, 'specrails_settings', { action: 'set', section: 'app', values: { autoContinueRuns: false } })
+    expect(refused.envelope.ok).toBe(true)
+    setDesktopSetting(own.db, TIER_SETTING_KEY.write, 'false')
+    try {
+      const blocked = await call(asking, T, { action: 'set', section: 'app', values: { autoContinueRuns: true } })
+      expect(blocked.envelope.error.code).toBe('unauthorized')
+      expect(blocked.envelope.error.message).toContain('Settings ▸ MCP ▸ "Write"')
+      expect(blocked.envelope.error.message).toContain('mcp_tier_write')
+      expect(blocked.envelope.error.next[0]).toMatchObject({ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { write: true } } })
+    } finally { setDesktopSetting(own.db, TIER_SETTING_KEY.write, 'true') }
   })
 })

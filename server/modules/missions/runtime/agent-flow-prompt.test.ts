@@ -53,5 +53,9 @@ describe('intent-mode: ending the Intent', () => {
     expect(prompt).toContain('## Ending the Intent')
     expect(prompt).toContain('a spec agreed here in chat with no file changed is a valid hand-off')
     expect(prompt).toContain('never write a file into the worktree just to "enable" it')
+    // From an MCP client there is no Intent strip: the agent names the MCP action, never a button.
+    expect(prompt).toContain('`Surface: MCP client`')
+    expect(prompt).toContain('`specrails_missions` action `intent_hand_off`')
+    expect(prompt).toContain('never a button')
   })
 })
