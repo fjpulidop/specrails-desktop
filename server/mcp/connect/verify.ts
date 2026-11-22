@@ -15,6 +15,8 @@ export interface VerifyResult {
   /** ≈ o200k tokens the advertised tools cost a model (conservative estimate, `catalogTokens`). */
   approxTokens?: number
   serverVersion?: string
+  /** The protocol version the server answered. */
+  protocolVersion?: string
   /** The server sent instructions (the v2 surface). */
   instructions?: boolean
   /** One line from `specrails_overview(app)` when available. */
@@ -23,7 +25,9 @@ export interface VerifyResult {
   ms: number
 }
 
-const PROTOCOL = '2025-06-18'
+/** The protocol version verify (and doctor) asks for. */
+export const VERIFY_PROTOCOL = '2025-06-18'
+const PROTOCOL = VERIFY_PROTOCOL
 
 /**
  * What the catalog costs a model per turn: each tool in the function shape a
@@ -89,7 +93,7 @@ export function verifyBridge(entry: BridgeEntry, options: { timeoutMs?: number; 
     void (async () => {
       const init = await request('initialize', { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'specrails-connect-verify', version: '1' } })
       if (errorOf(init)) return finish({ ok: false, error: errorOf(init) })
-      const initResult = (init.result ?? {}) as { serverInfo?: { version?: string }; instructions?: string }
+      const initResult = (init.result ?? {}) as { serverInfo?: { version?: string }; instructions?: string; protocolVersion?: string }
       child.stdin?.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`)
       const listed = await request('tools/list', {})
       if (errorOf(listed)) return finish({ ok: false, error: errorOf(listed) })
@@ -97,6 +101,7 @@ export function verifyBridge(entry: BridgeEntry, options: { timeoutMs?: number; 
       const base = {
         ok: true, toolCount: tools.length, approxTokens: catalogTokens(tools),
         ...(initResult.serverInfo?.version ? { serverVersion: initResult.serverInfo.version } : {}),
+        ...(typeof initResult.protocolVersion === 'string' ? { protocolVersion: initResult.protocolVersion } : {}),
         instructions: typeof initResult.instructions === 'string' && initResult.instructions.length > 0,
       }
       if (!tools.some((tool) => tool.name === 'specrails_overview')) return finish(base)

@@ -3,7 +3,8 @@ import type { Request, Response } from 'express'
 import type { DbInstance } from '../db'
 import type { WsMessage } from '../types'
 import type { McpServerManager } from './mcp-server'
-import { getMcpToken, regenerateMcpToken } from './mcp-token'
+import { getMcpToken, mcpTokenPath, regenerateMcpToken } from './mcp-token'
+import { safeEqual } from '../auth'
 import { setDesktopSetting } from '../desktop-db'
 import { TIER_SETTING_KEY, isTierEnabled, type McpTier } from './mcp-tiers'
 import { CONFIRM_ABOVE_USD_KEY, readConfirmThreshold } from './v2/core/confirm'
@@ -13,6 +14,11 @@ import type { BridgeEntry, ConnectClient, ConnectScope } from './connect/client-
 import { registrationCommand } from './connect/client-config'
 import { CONNECT_CLIENTS, ConnectError, connect, defaultConnectEnv, detectClients, type ConnectEnv } from './connect/connect'
 import { verifyBridge, type VerifyResult } from './connect/verify'
+import { stableNodeCommand, type StableNode } from './connect/node-path'
+import { runDoctor, type DoctorInput } from './connect/doctor'
+import { resolveBundledNodeExe } from '../path-resolver'
+import fs from 'fs'
+import path from 'path'
 
 // Loopback-only control plane for the Settings ▸ MCP panel, mounted on the MAIN
 // server at /api/mcp-admin behind requireAuth (the MASTER token — this is the
@@ -30,6 +36,12 @@ export interface McpAdminDeps {
     env?: () => ConnectEnv
     entry?: () => BridgeEntry | null
     verify?: (entry: BridgeEntry) => Promise<VerifyResult>
+    /** How the entry's Node was chosen (doctor reports it). */
+    nodeSource?: () => StableNode | undefined
+    /** Doctor seams: the token file and the Node version probe. */
+    tokenFile?: () => string
+    nodeVersion?: DoctorInput['nodeVersion']
+    doctorFs?: DoctorInput['fs']
   }
 }
 
@@ -45,15 +57,25 @@ function preferences(db: DbInstance): { confirmAboveUsd: number; v2: { enabled: 
 }
 
 /**
+ * How a source checkout's entry runs the bridge: this server's own Node, through
+ * a stable link when its path is versioned (Homebrew Cellar, nvm, …). The
+ * packaged app uses its bundled runtime.
+ */
+function defaultNodeSource(): StableNode {
+  return stableNodeCommand({ execPath: process.execPath, bundled: resolveBundledNodeExe(), env: process.env, platform: process.platform })
+}
+
+/**
  * The entry an external client registers: the bundled Node (or this server's
- * own Node, absolute, in a source checkout) and the bridge script, with the
- * app's port. No token: the bridge reads ~/.specrails/mcp.token.
+ * own Node, absolute and version-stable, in a source checkout) and the bridge
+ * script, with the app's port. No token: the bridge reads ~/.specrails/mcp.token.
  */
 function defaultBridgeEntry(port: number): BridgeEntry | null {
   const entry = buildSpecrailsMcpEntry({ port })
   if (!entry) return null
-  return { ...entry, command: entry.command === 'node' ? process.execPath : entry.command }
+  return { ...entry, command: entry.command === 'node' ? defaultNodeSource().command : entry.command }
 }
+
 
 function tierState(db: DbInstance): { write: boolean; aiSpawn: boolean; destructive: boolean } {
   return {
@@ -164,6 +186,34 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
     } catch (err) {
       const code = err instanceof ConnectError ? err.code : 'io'
       res.status(code === 'invalid_input' ? 400 : code === 'no_bridge' ? 503 : 500).json({ error: err instanceof Error ? err.message : String(err), code })
+    }
+  })
+
+  // `specrails-desktop mcp doctor`: read-only end-to-end diagnosis of external
+  // client connections (token, bridge, Node, each client's entry, a stdio round trip).
+  router.get('/doctor', async (req: Request, res: Response) => {
+    const projectDir = typeof req.query.projectDir === 'string' && path.isAbsolute(req.query.projectDir) ? req.query.projectDir : undefined
+    const entry = bridgeEntry()
+    const nodeSource = deps.connect?.nodeSource ? deps.connect.nodeSource() : deps.connect?.entry || !entry ? undefined : defaultNodeSource()
+    const status = manager.status()
+    try {
+      const report = await runDoctor({
+        cenv: connectEnv(),
+        port: desktopPort,
+        ...(projectDir && fs.existsSync(projectDir) ? { projectDir } : {}),
+        mcpEnabled: manager.isEnabledSetting(),
+        expected: entry,
+        ...(nodeSource ? { nodeSource } : {}),
+        tokenFile: deps.connect?.tokenFile?.() ?? mcpTokenPath(),
+        tokenMatches: (value) => safeEqual(value, getMcpToken()),
+        versions: { app: manager.version, catalog: isMcpV2Enabled(desktopDb) ? 'v2' : 'v1', advertisedTools: status.toolCount },
+        ...(deps.connect?.nodeVersion ? { nodeVersion: deps.connect.nodeVersion } : {}),
+        ...(deps.connect?.doctorFs ? { fs: deps.connect.doctorFs } : {}),
+        ...(req.query.verify === 'false' ? {} : { verify }),
+      })
+      res.json(report)
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
     }
   })
 

@@ -5,7 +5,7 @@ import os from 'os'
 import path from 'path'
 import type { AddressInfo } from 'net'
 import type { Server } from 'http'
-import { handleMcp, parseMcpArgs, describeConnect } from './mcp-connect'
+import { handleMcp, parseMcpArgs, describeConnect, doctorPort } from './mcp-connect'
 import { parseArgs } from './args'
 import { initDesktopDb, type DbInstance } from '../server/desktop-db'
 import { McpServerManager } from '../server/mcp/mcp-server'
@@ -26,6 +26,7 @@ describe('parseMcpArgs', () => {
     expect(parseMcpArgs(['connect', '--client', 'all', '--remove']).sub).toBe('disconnect')
     expect(parseMcpArgs([]).sub).toBe('help')
     expect(parseMcpArgs(['status']).clients).toBeNull()
+    expect(parseMcpArgs(['doctor', '--json', '--no-verify'])).toMatchObject({ sub: 'doctor', json: true, verify: false })
   })
 
   it('rejects bad input with a usage message', () => {
@@ -122,6 +123,49 @@ describe('handleMcp against a running app (temp home)', () => {
     expect(fs.existsSync(path.join(home, '.claude.json'))).toBe(false)
     expect(await run('connect', '--client', 'claude', '--scope', 'project')).toBe(0)
     expect(JSON.parse(fs.readFileSync(path.join(home, '.mcp.json'), 'utf8')).mcpServers.specrails.args).toEqual(ENTRY.args)
+  })
+
+  it('doctor prints each check with a fix, --json the report, and changes nothing', async () => {
+    expect(await run('connect', '--client', 'codex')).toBe(0)
+    const before = fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')
+    out = []
+    // ENTRY's Node and bridge do not exist in this test: doctor says so and exits 1.
+    expect(await run('doctor', '--no-verify')).toBe(1)
+    const text = out.join('\n')
+    expect(text).toContain('Specrails MCP doctor')
+    expect(text).toMatch(/ok\s+Specrails is running/)
+    expect(text).toMatch(/fail\s+The MCP bridge script is missing/)
+    expect(text).toMatch(/fix: Reinstall Specrails/)
+    expect(text).toMatch(/Codex \(user\): connected, with problems/)
+    expect(text).toMatch(/skip\s+Connection test skipped/)
+    expect(text).toMatch(/versions: app .* · protocol 2025-06-18 · catalog v2 \(15 tools\)/)
+    out = []
+    expect(await run('doctor', '--json', '--no-verify')).toBe(1)
+    const report = JSON.parse(out.join('\n'))
+    expect(report).toMatchObject({ ok: false, port: 4200 })
+    expect(report.checks.map((check: { id: string }) => check.id)).toContain('client:codex')
+    expect(fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')).toBe(before)
+  })
+
+  it('doctor without the app reports it and the token file, never the token', async () => {
+    await new Promise((resolve) => server.close(resolve))
+    server = await new Promise<Server>((resolve) => { const s = express().listen(0, '127.0.0.1', () => resolve(s)) })
+    const tokenFile = path.join(home, 'mcp.token')
+    fs.writeFileSync(tokenFile, 'secret-token-value-0123456789abcdef')
+    out = []
+    expect(await handleMcp(['doctor'], 1, { out: (l) => out.push(l), err: (l) => err.push(l), tokenFile, env: {} })).toBe(1)
+    const text = out.join('\n')
+    expect(text).toMatch(/fail\s+Specrails is not running on port 1/)
+    expect(text).toMatch(/fix: Open the Specrails app/)
+    expect(text).toMatch(/ok\s+The MCP token file is present/)
+    expect(text).not.toContain('secret-token-value')
+  })
+
+  it('doctor checks SPECRAILS_MCP_PORT / SPECRAILS_PORT unless --port is given', () => {
+    expect(doctorPort(4200, { SPECRAILS_MCP_PORT: '4300' })).toBe(4300)
+    expect(doctorPort(4200, { SPECRAILS_PORT: '4310' })).toBe(4310)
+    expect(doctorPort(4200, { SPECRAILS_MCP_PORT: 'x' })).toBe(4200)
+    expect(doctorPort(4500, { SPECRAILS_MCP_PORT: '4300' })).toBe(4500)
   })
 
   it('reports conflicts, usage errors and a stopped app with exit codes', async () => {

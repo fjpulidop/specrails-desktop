@@ -154,6 +154,7 @@ describe('commands and helpers', () => {
   it('warns about a temporary AppImage bridge', () => {
     expect(entryWarnings({ command: '/tmp/.mount_SpecrX/node', args: ['/tmp/.mount_SpecrX/specrails-mcp.js'], env: {} })[0]).toMatch(/temporary/)
     expect(entryWarnings(ENTRY)).toEqual([])
+    expect(entryWarnings({ ...ENTRY, command: '/opt/homebrew/Cellar/node/25.2.1/bin/node' })[0]).toMatch(/one installed Node version/)
   })
 })
 

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1936 source/build files. Nearby tests are linked where names
+Includes 1938 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1662,6 +1662,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [client-config.ts](../../server/mcp/connect/client-config.ts)
 - [connect.ts](../../server/mcp/connect/connect.ts) · [test](../../server/mcp/connect/connect.test.ts)
+- [doctor.ts](../../server/mcp/connect/doctor.ts) · [test](../../server/mcp/connect/doctor.test.ts)
+- [node-path.ts](../../server/mcp/connect/node-path.ts) · [test](../../server/mcp/connect/node-path.test.ts)
 - [verify.ts](../../server/mcp/connect/verify.ts)
 
 ## server/mcp/tools

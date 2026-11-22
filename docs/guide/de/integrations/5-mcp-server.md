@@ -29,6 +29,8 @@ specrails-desktop mcp connect --client claude   # oder codex
 
 Specrails trägt sich in die Konfiguration des Clients ein, sichert die Datei vorher, schreibt nirgends ein Zugriffstoken und prüft die Verbindung sofort (du siehst, wie viele Tools gefunden wurden). Mehrfaches Ausführen schadet nicht. Starte danach eine neue Claude-Code- oder Codex-Sitzung. **Befehl kopieren** zeigt den Befehl des Clients, falls du ihn selbst ausführen möchtest; für andere Assistenten nimm **Konfiguration kopieren**.
 
+Wenn etwas nicht funktioniert, führe `specrails-desktop mcp doctor` aus. Er prüft alles auf einmal (die App, die Datei mit dem Zugriffstoken, die Brücke und das Node, das sie ausführt, den Eintrag jedes Clients und eine echte Verbindung) und nennt zu jedem Problem die Lösung. Er schaut nur nach und ändert nichts. Findet dein Assistent Specrails nach einem Node-Update (etwa mit Homebrew) nicht mehr, klicke noch einmal auf **Verbinden**.
+
 **Vor dem Ausgeben fragen** (im selben Bereich, standardmäßig 0,50 $) ist der Betrag, ab dem ein verbundener Assistent dich fragen muss, bevor er bezahlte Arbeit startet. Merges, PRs und Löschungen fragen immer. Dein Assistent bekommt einen einfachen Satz aus 15 Tools mit fertigen nächsten Schritten, Warten ohne Abfragen, Antworten in deiner Sprache und Prompts wie *start-my-day*, *review-waiting*, *ship-milestone* und *why-stuck*. Braucht ein älteres Skript die bisherigen Tools, schalte **Vereinfachte MCP-Tools** im selben Bereich aus; die Missionen von Specrails selbst sind davon nicht betroffen.
 
 ## Nur für Agenten: deinen Client verbinden

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { isVersionedNodePath } from './node-path'
 import {
   editClaudeJson, editCodexToml, registrationCommand,
   type BridgeEntry, type ConnectClient, type ConnectScope, type EditOutcome, type EditResult,
@@ -183,6 +184,9 @@ export function entryWarnings(entry: BridgeEntry): string[] {
     warnings.push('The bridge path is temporary (an AppImage mount); install Specrails to a fixed location and connect again.')
   }
   if (entry.command === 'node') warnings.push('The bridge runs with the `node` on the client\'s PATH.')
+  else if (isVersionedNodePath(entry.command)) {
+    warnings.push(`The bridge runs with ${entry.command}, one installed Node version: it stops working when that version is upgraded or removed. Put a stable \`node\` on PATH (for example \`brew link node\`), then connect again.`)
+  }
   return warnings
 }
 

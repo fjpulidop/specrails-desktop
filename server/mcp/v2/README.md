@@ -30,7 +30,7 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `prompts.ts` | MCP prompts: start-my-day, review-waiting, ship-milestone, why-stuck |
 | `guide.ts` | v2 guide topics for `specrails_system(help, topic)` and `specrails://guide/{topic}` |
 | `docs-reference.ts` | generates `docs/agents/mcp.md` from the catalog (`UPDATE_MCP_DOCS=1` on `docs-reference.test.ts`) |
-| `../connect/` | one-command connect for Claude Code and Codex (`/api/mcp-admin/connect`, `specrails-desktop mcp connect`) |
+| `../connect/` | one-command connect for Claude Code and Codex (`/api/mcp-admin/connect`, `specrails-desktop mcp connect`), the entry's stable Node (`node-path.ts`) and the read-only `mcp doctor` (`doctor.ts`, `/api/mcp-admin/doctor`) |
 | `legacy.ts` | v1 tools as hidden aliases while v2 is served |
 | `__fixtures__/harness.ts` | shared test harness (`registerTools` wires `dispatch` between tools) |
 

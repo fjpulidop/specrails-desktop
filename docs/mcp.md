@@ -548,6 +548,24 @@ external tools are outside the Specrails permission tiers (those govern only
 
 ## Troubleshooting
 
+**Start with the doctor.** `specrails-desktop mcp doctor` checks the whole
+chain and prints a fix for each problem: the app answers on the port, MCP is
+on, the token file is present, private and the one the app accepts (its value
+is never printed), the bridge script and the Node that runs it (version, and a
+warning for a versioned Homebrew Cellar or nvm path that breaks on upgrade),
+each client's `specrails` entry (Claude Code user/local/project, Codex
+user/project; wrong port, missing paths, another install, a foreign entry),
+and one real stdio round trip with the versions (app, protocol, v1/v2
+catalog). It only reads; `--json` prints the report, `--no-verify` skips the
+round trip, `--port` checks another port.
+
+**It worked until I upgraded Node** — an entry written from a source checkout
+used to point at one installed Node version (for example
+`/opt/homebrew/Cellar/node/25.2.1/bin/node`). Run `specrails-desktop mcp
+connect` again: it now registers a link that survives upgrades
+(`/opt/homebrew/bin/node`, `/opt/homebrew/opt/node@22/bin/node`) or the app's
+bundled runtime, and warns when it can only find a versioned path.
+
 **My client can't connect / "app is not running"** — start the Specrails
 Desktop app. The MCP server is embedded in the app process; it isn't a separate
 daemon. If the window is hidden, the app is still running in the tray/menu bar —
