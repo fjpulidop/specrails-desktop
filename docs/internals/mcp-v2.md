@@ -484,6 +484,22 @@ project contributes at most `limit + 1` rows per tier, so a page costs projects 
 (`desktop-router-runs.test.ts`: 100 projects × 300 runs, p95 ≈ 40 ms locally against a 250 ms budget). Projects still
 warming up are never loaded by the read; the answer warns how many are missing.
 
+## Live evaluation at the cut-over
+
+`eval/mcp` (Claude Code, haiku, `--auth session`), S3/S5/S7/S10 against the v1 baseline (`--v1`):
+
+| | v1 | v2 |
+|---|---|---|
+| Scenarios completed | 1 of 4 (S3, S5 and S7 stopped: `projects(list)` returned ~78k tokens for the 100-project fleet and the agent never found the project) | 4 of 4 |
+| Catalog tokens (o200k) | 13706 (33 tools) | 6167 (15 tools) + 497 instructions |
+| Tool-result tokens per scenario | 82–87k | 2.3–8.9k |
+| Client tokens (Claude Code's own prompt included) | 62k–249k | 99k–250k (S3 −12 %, S7 0 %, S5 +55 %, S10 +64 %: v2 finished the work v1 abandoned) |
+| Paid or irreversible calls without the person's yes | S10 ran a paid retry unasked | 0 |
+| Client cost | $0.050 | $0.056 |
+
+The replay of all 15 scenarios passes (catalog 6167, load-probe p95 164 ms). Logical calls are still up to 3–5× the
+reference in S5/S7 because of how the model behaves (repeated `get`s around a decision).
+
 ## Open after phase 2
 
 | Item | Note |
