@@ -18,6 +18,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { engineOutput, detectRole, modeOf } from './scripted.mjs'
+import { isBuilderTurn } from './builder.mjs'
 
 const args = process.argv.slice(2)
 const log = entry => { if (process.env.EVAL_ENGINE_LOG) try { fs.appendFileSync(process.env.EVAL_ENGINE_LOG, JSON.stringify({ at: new Date().toISOString(), cwd: process.cwd(), ...entry }) + '\n') } catch { /* best effort */ } }
@@ -66,7 +67,9 @@ const stdin = process.stdin.isTTY ? '' : await new Promise(resolve => { let s = 
 const prompt = `${inlinePrompt}\n${stdin}`
 let schema
 try { schema = flag('--json-schema') ? JSON.parse(flag('--json-schema')) : undefined } catch { schema = undefined }
-const role = detectRole(schema)
+// A Project Builder turn carries the blueprint-draft contract in its system prompt (or, for providers without one, its prompt).
+const systemPrompt = flag('--system-prompt') ?? flag('--append-system-prompt') ?? ''
+const role = !schema && isBuilderTurn(`${systemPrompt}\n${prompt}`) ? 'builder' : detectRole(schema)
 const mode = modeOf(prompt, process.env.EVAL_ENGINE_MODE)
 const session = flag('--resume') ?? `eval-${process.pid}-${Date.now()}`
 const stream = flag('--output-format') === 'stream-json'

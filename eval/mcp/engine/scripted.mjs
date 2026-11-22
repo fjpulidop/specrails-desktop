@@ -3,6 +3,7 @@
 // work for the `complete` mode.
 import fs from 'node:fs'
 import path from 'node:path'
+import { builderReply } from './builder.mjs'
 
 export const MODES = Object.freeze(['complete', 'stall', 'limit', 'fail', 'question'])
 const MARKER = /\[eval-engine:([a-z]+)\]/
@@ -84,6 +85,8 @@ function activeChanges(root) {
 
 /** Perform one invocation; returns `{ text, structured?, isError?, exitCode?, stderr? }`. */
 export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig, openspecClient }) {
+  // Builder turns always answer with a full blueprint; a marker in the person's message rides into its first spec.
+  if (role === 'builder') return { text: builderReply({ marker: MARKER.exec(String(prompt ?? ''))?.[0] ?? null }) }
   if (mode === 'limit') return { text: LIMIT_TEXT, isError: true, exitCode: 1, stderr: LIMIT_TEXT }
   if (mode === 'fail') return { text: 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error (scripted)"}}', isError: true, exitCode: 1 }
   const object = roleObject(role, mode, schema)

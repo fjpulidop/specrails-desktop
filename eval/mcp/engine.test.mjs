@@ -6,6 +6,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { modeOf, detectRole, minimalInstance, roleObject, fitToSchema, engineOutput } from './engine/scripted.mjs'
+import { builderReply, isBuilderTurn } from './engine/builder.mjs'
 
 const shim = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'claude')
 const DEV = { type: 'object', additionalProperties: false, required: ['summary', 'incomplete'], properties: { summary: { type: 'string' }, incomplete: { type: 'array', items: { type: 'string' } }, blocker: { type: 'object' } } }
@@ -76,4 +77,21 @@ test('the claude shim answers --help/--version and scripts print-mode turns', ()
   const limited = spawnSync(shim, ['-p', '--output-format', 'stream-json'], { input: 'work [eval-engine:limit]', encoding: 'utf8' })
   assert.equal(limited.status, 1)
   assert.match(limited.stdout, /hit your session limit/)
+})
+
+test('builder turns: a complete blueprint-draft snapshot, the marker riding into the first spec', async () => {
+  assert.equal(isBuilderTurn('Emit a ```blueprint-draft block'), true)
+  assert.equal(isBuilderTurn('Implement the spec'), false)
+  const block = text => JSON.parse(/```blueprint-draft\n([\s\S]*?)\n```/.exec(text)[1])
+  const plain = block(builderReply())
+  assert.equal(plain.blueprintVersion, 1)
+  assert.equal(plain.specsComplete, true)
+  assert.equal(plain.m1Specs.length, 5)
+  assert.equal(plain.m1Specs[0].kind, 'scaffold')
+  assert.equal(new Set(plain.m1Specs.map(s => s.title)).size, 5)
+  const marked = block(builderReply({ marker: '[eval-engine:question]' }))
+  assert.match(marked.m1Specs[0].description, /\[eval-engine:question\]$/)
+  const out = await engineOutput({ mode: 'question', role: 'builder', prompt: 'A todo CLI [eval-engine:question]' })
+  assert.match(out.text, /```blueprint-draft/)
+  assert.match(out.text, /eval-engine:question/)
 })

@@ -116,7 +116,19 @@ test('scenario catalogue: 15 scenarios, selection, pending reasons, prompts', ()
     assert.ok(s.referenceCalls > 0, `${s.id} has a reference call count`)
     if (s.seed) assert.equal(typeof s.check, 'function', `${s.id} checks what it seeds`)
     if (s.check) assert.equal(typeof s.reference, 'function', `${s.id} has a reference solution`)
+    // Every scenario is wired now that phase 2 landed: it is pending only when a tool is missing on the instance.
+    assert.equal(pendingReason(s, {}), null, `${s.id} is wired`)
   }
+})
+
+test('legal offers: lean inbox items list offers as bare ids', () => {
+  const calls = [
+    { tool: 'specrails_inbox', args: { action: 'list' }, ok: true, text: '{"items":[{"ref":"inbox:p:review:d","offers":["decide.merge_local",{"id":"answer","needs":["answer"]}]}]}' },
+    { tool: 'specrails_inbox', args: { action: 'act', offerId: 'decide.merge_local' }, ok: true, text: '' },
+    { tool: 'specrails_inbox', args: { action: 'act', offerId: 'answer' }, ok: true, text: '' },
+  ]
+  assert.equal(onlyAdvertisedOffers(calls).pass, true)
+  assert.equal(onlyAdvertisedOffers([...calls, { tool: 'specrails_inbox', args: { action: 'act', offerId: 'decide.discard' }, ok: true, text: '' }]).pass, false)
 })
 
 test('checks: calls, tokens, destructive calls, legal offers, language', () => {

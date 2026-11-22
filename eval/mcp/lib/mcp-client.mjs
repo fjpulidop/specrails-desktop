@@ -1,6 +1,7 @@
 // A programmatic MCP client over the logging proxy. The `replay` client uses
-// it to run a scenario's reference solution (no model, $0), and seeds and
-// checkers never use it: they read the app's HTTP API.
+// it to run a scenario's reference solution (no model, $0); seeds use it to
+// reach states only MCP drives (a Builder project); checkers read the HTTP API
+// (S13 also starts the entry `mcp connect` registered, as a client would).
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
@@ -18,7 +19,7 @@ export function proxyCommand({ logFile, home, port, label }) {
 export async function connectMcp(proxy, { name = 'eval-replay' } = {}) {
   const [{ Client }, { StdioClientTransport }] = await Promise.all([sdk('client/index.js'), sdk('client/stdio.js')])
   const client = new Client({ name, version: '1' })
-  await client.connect(new StdioClientTransport({ command: proxy.command, args: proxy.args, env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR ?? '' }, stderr: 'ignore' }))
+  await client.connect(new StdioClientTransport({ command: proxy.command, args: proxy.args, env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR ?? '', ...(proxy.env ?? {}) }, stderr: 'ignore' }))
   const listed = await client.listTools()
   return {
     tools: listed.tools,

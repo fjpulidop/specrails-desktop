@@ -36,7 +36,7 @@ export function instanceEnv({ v2 = true, core, engineLog, engineMode, installedD
  * Boot the instance. Returns `{ api, port, home, pid, readyMs, stop() }`.
  * `fresh` wipes the isolated home first (only a harness-owned directory).
  */
-export async function bootInstance({ home, port, clientPort, workDir, v2 = true, coreDir, engineMode, fresh = false, log = () => {} }) {
+export async function bootInstance({ home, port, clientPort, workDir, v2 = true, coreDir, engineMode, fresh = false, extraEnv = {}, log = () => {} }) {
   if (fresh && fs.existsSync(home)) {
     if (listenerPid(port)) throw new Error(`Port ${port} is busy; stop that instance before a fresh boot`)
     if (!fs.existsSync(path.join(home, '.eval-mcp-home'))) throw new Error(`Refusing to wipe ${home}: it was not created by the eval harness`)
@@ -55,7 +55,7 @@ export async function bootInstance({ home, port, clientPort, workDir, v2 = true,
     desktopDir: DESKTOP_DIR, home, port, clientPort,
     logFile: path.join(logs, 'server.log'),
     pathPrepend: [ENGINE_DIR, FAKE_INSTALLERS, installedDir].join(path.delimiter),
-    extraEnv: instanceEnv({ v2, core, engineLog, engineMode, installedDir }),
+    extraEnv: { ...instanceEnv({ v2, core, engineLog, engineMode, installedDir }), ...extraEnv },
   }
   const existing = ownedListener(port, home)
   let pid = existing

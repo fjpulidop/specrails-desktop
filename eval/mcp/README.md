@@ -21,7 +21,7 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Piece | File | Notes |
 |---|---|---|
 | Isolated instance | `lib/instance.mjs` | `tsx server/index.ts` with its own `SPECRAILS_REGISTRY_HOME` (default `~/.specrails-dev-mcpeval`), port 4400/4401, `SPECRAILS_HEADLESS=1`, `SPECRAILS_MCP_V2=true` (`false` with `--v1`), the sibling built Core, and on `PATH` first: the scripted engine, then the benchmark's fake installers. Reuses `scripts/benchmark/lib/server.mjs`, which signals only a listener started with that home |
-| Scripted engine | `engine/claude`, `engine/scripted.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `question` (the architect asks with options) |
+| Scripted engine | `engine/claude`, `engine/scripted.mjs`, `engine/builder.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `question` (the architect asks with options) |
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
 | Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment |
 | Simulated person | `lib/person.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question |
@@ -30,12 +30,22 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Report | `lib/report.mjs` | Pass bars of the plan, per-scenario table, failed assertions, savings vs v1, probe, quota |
 | Load probe | `lib/probe.mjs` | Read mix over the 100-project seed (`--fleet n`), and `wait` wake-up after an HTTP change |
 
-## Pending scenarios
+## Scenarios that need more than HTTP
 
-A scenario runs only when every v2 tool it needs is implemented on the instance (probed at start: a stub answers
-`not_implemented`, a v1 action served through the legacy bridge carries a deprecation warning) and it has a seed and
-a checker. Today S1, S2 (blueprint), S8 (insights), S11, S12 (missions/Intent), S13 (`specrails mcp connect`) and
-S14 (insights) are reported as `pending`. Wiring one = add `seed`, `reference` and `check` in `lib/scenarios.mjs`.
+All 15 scenarios have a seed, a reference solution and an HTTP checker. A scenario is reported `pending` only when a
+v2 tool it needs is not implemented on the instance (probed at start: a stub answers `not_implemented`, a v1 action
+served through the legacy bridge carries a deprecation warning).
+
+- **S1/S2 (blueprint):** the scripted engine answers Project Builder turns (a system prompt carrying the
+  `blueprint-draft` contract) with a complete, gate-valid snapshot of five Milestone-1 specs (`engine/builder.mjs`,
+  mirroring the server's premium spec fixtures). A marker in the person's idea rides into the first spec, so S2's seed
+  (`[eval-engine:question]`) makes the chain's first run ask; seeds that need MCP-only states use the probe connection
+  (`ctx.mcp`), whose calls never count as the scenario's. Builder projects are created under the work dir.
+- **S12 (Intent):** the seed starts a real Intent session on the scripted engine and trashes spec 9.
+- **S13 (connect):** a second, throwaway instance (port 4402) runs with `HOME` set to a fresh directory, because
+  `mcp connect` edits the client configuration of the server's home. The reference runs
+  `specrails-desktop mcp connect --client claude --json`; the checker starts the entry it wrote, as a new client
+  session would, and verifies that the person's own `~/.claude.json` is untouched. A scenario's `teardown` stops it.
 
 ## Safety
 

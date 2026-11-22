@@ -63,7 +63,8 @@ export async function runEval(o, { log = console.log } = {}) {
     const v2Instance = !o.v1
     const available = v2Instance ? await probeTools(prober) : Object.fromEntries(Object.keys(TOOL_PROBES).map(t => [t, !['specrails_blueprint', 'specrails_missions', 'specrails_insights', 'specrails_settings', 'specrails_providers', 'specrails_integrations', 'specrails_system'].includes(t)]))
     log(`tools: ${Object.entries(available).map(([t, ok]) => `${t.replace('specrails_', '')}${ok ? '' : ' (pending)'}`).join(', ')}`)
-    const ctxBase = { api: instance.api, workDir: o.workDir, fleetSize: o.fleet, engineLog: instance.engineLog }
+    // Seeds may drive the app through MCP too (the probe connection: its calls never count as the scenario's).
+    const ctxBase = { api: instance.api, workDir: o.workDir, fleetSize: o.fleet, engineLog: instance.engineLog, mcp: prober, evalHome: target.home, coreDir: o.coreDir, log }
     for (const scenario of selectScenarios(o.scenario)) {
       for (let n = 1; n <= o.repeat; n++) {
         const row = { id: scenario.id, title: scenario.title, clientName: o.client, model, mode: o.v1 ? 'v1' : 'v2', lang: scenario.lang ?? 'en', repeatIndex: o.repeat > 1 ? n : 0, referenceCalls: scenario.referenceCalls, status: 'pending', reason: null }
@@ -80,10 +81,11 @@ export async function runEval(o, { log = console.log } = {}) {
         }
         const tag = `${Date.now().toString(36).slice(-5)}${n}`
         const t0 = Date.now()
+        let facts = null
         try {
           log(`${scenario.id}: seeding`)
           if (scenario.fleet && !ctxBase.fleet) ctxBase.fleet = await seedManyProjects(instance.api, o.workDir, o.fleet)
-          const facts = await scenario.seed({ ...ctxBase, tag })
+          facts = await scenario.seed({ ...ctxBase, tag })
           const logFile = path.join(runDir, `${scenario.id}-${n}.mcp.jsonl`)
           const proxy = proxyCommand({ logFile, home: target.home, port: target.port, label: scenario.id })
           const conversation = o.client === 'replay'
@@ -105,7 +107,10 @@ export async function runEval(o, { log = console.log } = {}) {
           row.status = 'error'
           row.reason = String(error?.message ?? error).slice(0, 300)
           log(`${scenario.id}: error — ${row.reason}`)
-        } finally { row.wallMs = Date.now() - t0 }
+        } finally {
+          row.wallMs = Date.now() - t0
+          if (scenario.teardown && facts) await scenario.teardown(facts).catch(error => log(`${scenario.id}: teardown — ${String(error?.message ?? error).slice(0, 200)}`))
+        }
       }
     }
     if (o.probe) {

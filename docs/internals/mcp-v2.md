@@ -24,6 +24,22 @@ With the flag on, `McpServerManager.buildServer` (`server/mcp/mcp-server.ts`) ca
 - keeps every v1 tool callable but hidden from `tools/list` (`v2/legacy.ts`);
 - lists the first-party `specrails_mission` to in-app sessions only.
 
+`buildServer` also registers, with the flag on, the v2 prompts (`v2/prompts.ts`: start-my-day, review-waiting,
+ship-milestone, why-stuck — short recipes over the v2 tools, `prompts.test.ts`) and the v2 guide topics
+(`v2/guide.ts`: served by `specrails_system(help, topic)` and as `specrails://guide/{topic}` resources, each ≤ 2k
+tokens). The person-facing agent reference `docs/agents/mcp.md` is generated from the live catalog by
+`v2/docs-reference.ts`; `docs-reference.test.ts` fails on drift (regenerate with
+`UPDATE_MCP_DOCS=1 npx vitest run server/mcp/v2/docs-reference.test.ts`).
+
+One-command connect lives in `server/mcp/connect/` (`client-config.ts` edits only the `specrails` entry of
+`~/.claude.json` / `.mcp.json` or Codex `config.toml`, with a backup; `connect.ts` detects clients and applies;
+`verify.ts` runs the registered entry over stdio: `initialize`, `tools/list`, `specrails_overview(app)`), served by
+`/api/mcp-admin/connect` (`mcp-admin-router.ts`) for `specrails-desktop mcp connect|status|disconnect`
+(`cli/mcp-connect.ts`) and **Settings ▸ MCP ▸ Connect**. The name `specrails` is reserved: Explore turns never load
+the person's own `specrails` entry (`server/user-mcp-config.ts` drops it from the approved servers and switches off a
+Codex `[mcp_servers.specrails]` table; the high Explore tier disallows `mcp__specrails`), because that entry carries
+their unrestricted access.
+
 The flag is read per session, so new sessions pick up a change without a restart.
 
 ### v1 compatibility while v2 is on
@@ -74,7 +90,7 @@ test.
 | WP10 integrations | `v2/tools/integrations.ts`, `v2/i18n/en/integrations.json` |
 | WP11 system | `v2/tools/system.ts`, `v2/i18n/en/system.json`, `server/desktop-router-updates.ts`, `client/src/hooks/useDesktopUpdateRemote.ts` |
 | WP12 i18n | `v2/i18n/{es,fr,de,pt,it,zh,ja}/<area>.json` (except `core.json`, generated) and their imports in `catalog.ts` |
-| WP13 connect, docs | `cli/mcp-connect.ts`, `v2/instructions.ts` (wording; the protocol rules stay), `v2/prompts.ts`, `docs/mcp.md`, `docs/agents/mcp.md`, the MCP settings section |
+| WP13 connect, docs | `cli/mcp-connect.ts`, `server/mcp/connect/**`, `v2/instructions.ts` (wording; the protocol rules stay), `v2/prompts.ts`, `v2/guide.ts`, `v2/docs-reference.ts`, `docs/mcp.md`, `docs/agents/mcp.md` (generated), the MCP settings section |
 | WP14 eval | `eval/mcp/**` |
 
 The design assigned no owner to `specrails_projects` and `specrails_rails`. WP0 assigns `projects` to WP2 (app-level
@@ -335,7 +351,10 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
   - `i18n.test.ts` fails on drift. Fix it with `UPDATE_MCP_I18N=1 npx vitest run server/mcp/v2/i18n`.
   - Areas may add their own `sources.json` section the same way.
 - The i18n tests also enforce that every translation is a subset of English with the same placeholders, and that
-  every literal `core.*` key in the v2 sources exists.
+  every literal `core.*` key in the v2 sources exists. `translations.test.ts` requires every key of every area,
+  `core` included, in all seven languages and different from English, except values that are the same word in that
+  language (`IDENTICAL_OK`) or carry nothing to translate (placeholders, numbers, product names). Pass translated
+  words into placeholders (`inbox.hold.cap` takes `insights.scope.*` and `insights.cap.*`), never raw English.
 
 ## Untrusted content (`core/untrusted.ts`)
 
@@ -414,8 +433,6 @@ events) and disposes both on session close.
 | `missions(intent_hand_off)` | Needs `options.rail` (no auto-pick of a free rail) |
 | Chat refs, mission attachments | Chat refs need a project; mission attachments are bare `attachmentId`s (no ref kind) |
 | Stopping a mission's preview/dev servers | Goes through `system(background)`; missions has no shortcut |
-| `help(topic)` bodies | Still the v1 guide bodies (WP13 rewrites them) |
-| `_one` plural variants | WP12 translates the `tc` plural keys of `insights` |
 
 ## Not in WP0 (owned elsewhere)
 

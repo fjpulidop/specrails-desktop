@@ -26,6 +26,11 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `core/forecast.ts` | cost forecasts: `launchForecast`/`scaledCost` (launches), `turnCostBand`/`turnCostFromLedger` (turns) |
 | `core/commit-tracker.ts` | in-process `blueprint:<commitId>` tracking from `blueprint.commit_*` frames |
 | `tools/*.ts` | one file per tool, owned by its work package |
+| `instructions.ts` | server instructions (≤ 600 tokens; `prompts.test.ts` checks every protocol rule is stated) |
+| `prompts.ts` | MCP prompts: start-my-day, review-waiting, ship-milestone, why-stuck |
+| `guide.ts` | v2 guide topics for `specrails_system(help, topic)` and `specrails://guide/{topic}` |
+| `docs-reference.ts` | generates `docs/agents/mcp.md` from the catalog (`UPDATE_MCP_DOCS=1` on `docs-reference.test.ts`) |
+| `../connect/` | one-command connect for Claude Code and Codex (`/api/mcp-admin/connect`, `specrails-desktop mcp connect`) |
 | `legacy.ts` | v1 tools as hidden aliases while v2 is served |
 | `__fixtures__/harness.ts` | shared test harness (`registerTools` wires `dispatch` between tools) |
 
