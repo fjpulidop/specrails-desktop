@@ -118,7 +118,7 @@
   "error.no_project": "Kein Projekt angegeben und keines ausgewählt. Übergib project oder rufe specrails_projects(select) auf.",
   "error.unknown_project": "Kein Projekt passt zu „{{selector}}“.",
   "error.ambiguous_project": "„{{selector}}“ passt zu mehreren Projekten; übergib eine der Auswahlmöglichkeiten.",
-  "error.bad_ref": "„{{ref}}“ ist keine gültige Ref. Refs sehen so aus: `run:<project>/<id>`.",
+  "error.bad_ref": "„{{ref}}“ ist keine gültige Ref. Refs sehen so aus: `{{kind}}:<project>/<id>`.",
   "error.wrong_ref_kind": "{{label}} erwartet eine {{expected}}-Ref, nicht {{kind}}.",
   "error.missing_fields": "{{label}}: {{missing}}. Es nimmt: {{takes}}.",
   "error.unknown_action": "Unbekannte Aktion „{{action}}“. Aktionen: {{actions}}.",

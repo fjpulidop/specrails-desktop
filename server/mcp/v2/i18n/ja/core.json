@@ -118,7 +118,7 @@
   "error.no_project": "プロジェクトが指定されておらず、選択もされていません。project を渡すか specrails_projects(select) を呼んでください。",
   "error.unknown_project": "「{{selector}}」に一致するプロジェクトはありません。",
   "error.ambiguous_project": "「{{selector}}」は複数のプロジェクトに一致します。候補のいずれかを渡してください。",
-  "error.bad_ref": "「{{ref}}」は有効な ref ではありません。ref は `run:<project>/<id>` の形式です。",
+  "error.bad_ref": "「{{ref}}」は有効な ref ではありません。ref は `{{kind}}:<project>/<id>` の形式です。",
   "error.wrong_ref_kind": "{{label}} が受け取るのは {{expected}} の ref で、{{kind}} ではありません。",
   "error.missing_fields": "{{label}}: {{missing}}。受け取る引数: {{takes}}。",
   "error.unknown_action": "不明なアクション「{{action}}」。アクション: {{actions}}。",

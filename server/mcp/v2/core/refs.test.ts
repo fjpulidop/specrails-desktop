@@ -65,13 +65,20 @@ describe('resolveTarget', () => {
     expect(() => resolveTarget(ROWS, { ...base, ref: 'r1' }, t)).toThrow(expect.objectContaining({ code: 'ambiguous' }))
   })
 
+  it('reads kind:id next to a project as that project\'s entity', () => {
+    expect(resolveTarget(ROWS, { ...base, defaultKind: 'spec', ref: 'spec:9', project: 'billing' }, t)).toEqual({ kind: 'spec', id: '9', project: ROWS[2], ref: 'spec:billing/9' })
+    expect(resolveTarget(ROWS, { ...base, ref: 'run:r1', sessionProjectId: 'p1' }, t).ref).toBe('run:shop-api/r1')
+    expect(() => resolveTarget(ROWS, { ...base, ref: 'spec:9', project: 'billing' }, t)).toThrow(/takes a run ref/)
+  })
+
   it('resolves app-global kinds without a project', () => {
     expect(resolveTarget(ROWS, { ...base, defaultKind: 'mission', ref: 'mission:c_1' }, t)).toEqual({ kind: 'mission', id: 'c_1', project: null, ref: 'mission:c_1' })
   })
 
   it('refuses a wrong kind, a malformed ref and a ref/project disagreement', () => {
     expect(() => resolveTarget(ROWS, { ...base, ref: 'spec:billing/4' }, t)).toThrow(/takes a run ref/)
-    expect(() => resolveTarget(ROWS, { ...base, ref: 'run:billing' }, t)).toThrow(/not a valid ref/)
+    expect(() => resolveTarget(ROWS, { ...base, ref: 'run:billing' }, t)).toThrow(/not a valid ref\. Refs look like run:<project>\/<id>/)
+    expect(() => resolveTarget(ROWS, { ...base, defaultKind: 'spec', ref: 'spec:9' }, t)).toThrow(/Refs look like spec:<project>\/<id>/)
     expect(() => resolveTarget(ROWS, { ...base, ref: 'run:billing/r1', project: 'shop-api' }, t)).toThrow(/belongs to billing/)
     expect(() => resolveTarget(ROWS, { ...base }, t)).toThrow(expect.objectContaining({ code: 'invalid_input' }))
     expect(resolveTarget(ROWS, { ...base, kinds: ['run', 'spec'], ref: 'spec:billing/4' }, t).kind).toBe('spec')

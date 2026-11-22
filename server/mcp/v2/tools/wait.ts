@@ -52,7 +52,7 @@ function resolveRefs(ctx: V2CallContext, raw: unknown): WatchedRef[] {
   const out: WatchedRef[] = []
   for (const value of list) {
     const parsed = parseRef(value)
-    if (!parsed) throw new V2ToolError('invalid_input', ctx.v2.t('core.error.bad_ref', { ref: String(value) }))
+    if (!parsed) throw new V2ToolError('invalid_input', ctx.v2.t('core.error.bad_ref', { ref: String(value), kind: 'run' }))
     if (!JOURNAL_KINDS.has(parsed.kind)) throw new V2ToolError('invalid_input', ctx.v2.t('wait.error.kind', { kind: parsed.kind, kinds: JOURNAL_REF_KINDS.join(', ') }))
     const kind = parsed.kind as JournalRefKind
     let watched: WatchedRef

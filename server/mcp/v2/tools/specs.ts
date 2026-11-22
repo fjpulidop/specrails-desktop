@@ -378,7 +378,11 @@ function statusFilter(value: unknown): string | undefined {
   if (!list.length) return undefined
   const expanded = [...new Set(list.flatMap((status) => status === 'active' ? ACTIVE_STATUSES : status === 'all' ? [...STATUSES] : [status]))]
   const bad = expanded.filter((status) => !(STATUSES as readonly string[]).includes(status))
-  if (bad.length) throw new V2ToolError('invalid_input', `Unknown status ${bad.join(', ')}. Use ${[...STATUSES, 'active', 'all'].join(', ')}.`)
+  if (bad.length) {
+    const deleted = bad.some((status) => /^(trash|trashed|deleted|removed)$/i.test(status))
+    throw new V2ToolError('invalid_input', `Unknown status ${bad.join(', ')}. Use ${[...STATUSES, 'active', 'all'].join(', ')}.${deleted ? ' Deleted specs are listed by specrails_specs(trash) and come back with specrails_specs(restore).' : ''}`,
+      deleted ? { next: [{ tool: 'specrails_specs', args: { action: 'trash' }, why: 'Deleted specs.' }] } : {})
+  }
   return expanded.join(',')
 }
 

@@ -118,7 +118,7 @@
   "error.no_project": "未指定项目，也没有选中的项目。请传入 project 或调用 specrails_projects(select)。",
   "error.unknown_project": "没有与“{{selector}}”匹配的项目。",
   "error.ambiguous_project": "“{{selector}}”匹配多个项目；请传入其中一个选项。",
-  "error.bad_ref": "“{{ref}}”不是有效的 ref。ref 的格式为 `run:<project>/<id>`。",
+  "error.bad_ref": "“{{ref}}”不是有效的 ref。ref 的格式为 `{{kind}}:<project>/<id>`。",
   "error.wrong_ref_kind": "{{label}} 接受 {{expected}} 类型的 ref，而不是 {{kind}}。",
   "error.missing_fields": "{{label}}：{{missing}}。它接受：{{takes}}。",
   "error.unknown_action": "未知操作“{{action}}”。可用操作：{{actions}}。",

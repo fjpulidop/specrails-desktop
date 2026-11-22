@@ -152,9 +152,15 @@ export function requireProjectRow(rows: readonly ProjectRow[], input: Pick<Scope
 export function resolveTarget(rows: readonly ProjectRow[], input: ScopeInput & { defaultKind: RefKind; kinds?: readonly RefKind[]; label: string }, translate: Translate): Target {
   const raw = typeof input.ref === 'number' ? String(input.ref) : input.ref
   if (typeof raw !== 'string' || !raw.trim()) throw new V2ToolError('invalid_input', translate('core.error.missing_fields', { label: input.label, missing: translate('core.error.missing_list', { fields: '"ref"' }), takes: 'ref' }))
-  const parsed = parseRef(raw)
+  let parsed = parseRef(raw)
   if (!parsed && /^[a-z]+:/.test(raw.trim()) && isRefKind(raw.trim().split(':')[0])) {
-    throw new V2ToolError('invalid_input', translate('core.error.bad_ref', { ref: raw }))
+    // `spec:9` next to an explicit project (or pin / session default) is that project's spec 9.
+    const [head, ...rest] = raw.trim().split(':')
+    const bareId = rest.join(':')
+    const kindOf = head as RefKind
+    const scoped = REF_KINDS[kindOf] !== 'global' && bareId && !bareId.includes('/') && resolveProject(rows, input, translate)
+    if (!scoped) throw new V2ToolError('invalid_input', translate('core.error.bad_ref', { ref: raw, kind: kindOf }))
+    parsed = { kind: kindOf, id: bareId, project: scoped.slug } as ParsedRef
   }
   const kind = parsed?.kind ?? input.defaultKind
   const allowed = input.kinds ?? [input.defaultKind]

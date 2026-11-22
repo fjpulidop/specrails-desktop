@@ -118,7 +118,7 @@
   "error.no_project": "No se indicó proyecto y no hay ninguno seleccionado. Pasa project o llama a specrails_projects(select).",
   "error.unknown_project": "Ningún proyecto coincide con «{{selector}}».",
   "error.ambiguous_project": "«{{selector}}» coincide con varios proyectos; pasa una de las opciones.",
-  "error.bad_ref": "«{{ref}}» no es una ref válida. Las refs tienen la forma `run:<project>/<id>`.",
+  "error.bad_ref": "«{{ref}}» no es una ref válida. Las refs tienen la forma `{{kind}}:<project>/<id>`.",
   "error.wrong_ref_kind": "{{label}} recibe una ref de tipo {{expected}}, no {{kind}}.",
   "error.missing_fields": "{{label}}: {{missing}}. Recibe: {{takes}}.",
   "error.unknown_action": "Acción desconocida «{{action}}». Acciones: {{actions}}.",
