@@ -56,6 +56,7 @@
   "preview.approve": "Approva il piano; il Builder scrive ogni spec di M1 in più turni.",
   "preview.repair": "Chiede al Builder di riemettere o completare il suo Blueprint.",
   "preview.commit": "Crea il progetto “{{name}}” in {{location}} con {{specs}} spec di M1 su {{providers}}.",
+  "preview.commit_defaults": "Nome e posizione sono quelli predefiniti del blueprint; passa options.name e options.location per sceglierli.",
   "preview.commit_github": "Crea anche un repository GitHub privato e ci fa il push.",
   "preview.generate": "Genera le spec dettagliate di M{{n}} su {{engine}} (sola lettura).",
   "preview.refine": "Chiede modifiche alle spec generate di M{{n}}.",

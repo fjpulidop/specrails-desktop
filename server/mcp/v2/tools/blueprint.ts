@@ -681,6 +681,8 @@ export const blueprintTool = defineTool({
         const { input, body, specs } = await commitInput(ctx, args)
         const sentences = [ctx.v2.t('blueprint.preview.commit', { name: input.name, location: input.location, specs, providers: input.providers.join(', ') })]
         if (input.createGithubRepo) sentences.push(ctx.v2.t('blueprint.preview.commit_github'))
+        const chosen = optionsOf(args)
+        if (!str(chosen.name) || !str(chosen.location)) sentences.push(ctx.v2.t('blueprint.preview.commit_defaults'))
         const conversation = rec(body.conversation)
         // Assembling the project runs no AI turn (offline core init).
         return { effect: sentences.join(' '), refs: [conversationRef(input.conversationId)], version: `b${shortHash({ u: conversation.updated_at, s: body.snapshotUpdatedAt ?? null })}`, cost: { forecastUsd: [0, 0], runs: 0 } }

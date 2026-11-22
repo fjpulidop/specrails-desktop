@@ -56,6 +56,7 @@
   "preview.approve": "計画を承認します。ビルダーが数ターンかけて M1 のスペックをすべて書きます。",
   "preview.repair": "ビルダーにブループリントの再出力または完成を依頼します。",
   "preview.commit": "{{location}} にプロジェクト「{{name}}」を作成し、M1 のスペック {{specs}} 件を {{providers}} で用意します。",
+  "preview.commit_defaults": "名前と場所はブループリントの既定値です。指定するには options.name と options.location を渡してください。",
   "preview.commit_github": "非公開の GitHub リポジトリも作成し、そこにプッシュします。",
   "preview.generate": "{{engine}} で M{{n}} の詳細なスペックを生成します（読み取り専用）。",
   "preview.refine": "M{{n}} の生成済みスペックの変更を依頼します。",

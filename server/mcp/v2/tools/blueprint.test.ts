@@ -420,6 +420,10 @@ describe('day-0 Builder', () => {
     const first = await call(client, T, { action: 'commit', ref: 'blueprint:b1', options: { githubRepo: true, location: '/tmp/shop' } })
     expect(first.envelope.error).toMatchObject({ code: 'confirmation_required', preview: { external: true, effect: expect.stringContaining('private GitHub repository') } })
     expect(posted(/commit$/)).toEqual([])
+    // Only the location was chosen: the preview says how to choose the name too.
+    expect(first.envelope.error.preview.effect).toContain('options.name and options.location')
+    const both = await call(client, T, { action: 'commit', ref: 'blueprint:b1', options: { githubRepo: true, name: 'Shop', location: '/tmp/shop' }, dryRun: true })
+    expect(both.envelope.data.preview.effect).not.toContain('options.name')
   })
 
   it('sessions lists resumable conversations with refs', async () => {

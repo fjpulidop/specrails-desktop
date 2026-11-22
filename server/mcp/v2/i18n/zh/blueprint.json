@@ -56,6 +56,7 @@
   "preview.approve": "批准计划；构建器将分多个回合编写每个 M1 规格。",
   "preview.repair": "让构建器重新输出或完成其蓝图。",
   "preview.commit": "在 {{location}} 创建项目“{{name}}”，包含 {{specs}} 个 M1 规格，使用 {{providers}}。",
+  "preview.commit_defaults": "名称和位置为蓝图的默认值；如需指定，请传入 options.name 和 options.location。",
   "preview.commit_github": "还会创建一个私有 GitHub 仓库并推送到其中。",
   "preview.generate": "在 {{engine}} 上生成 M{{n}} 的详细规格（只读）。",
   "preview.refine": "请求修改 M{{n}} 已生成的规格。",
