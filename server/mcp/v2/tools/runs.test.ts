@@ -146,6 +146,14 @@ describe('specrails_runs reads', () => {
     expect(calls.map((entry) => entry.path.split('?')[0])).toEqual([`${P}/jobs/r1`, `${P}/loop-runs/r1`])
   })
 
+  it('reports the engine a run moved to at a usage limit, not its launch engine', async () => {
+    useJob(JOBS.working, { events: [...EVENTS, ev('provider_switched', { fromProvider: 'claude', provider: 'codex', model: 'gpt-6.2-sol', effort: 'medium', roles: ['developer', 'reviewer'] })] })
+    const { envelope } = await runs({ action: 'get', ref: RUN })
+    expect(envelope.data).toMatchObject({ provider: 'codex', model: 'gpt-6.2-sol', effort: 'medium', switchedFrom: 'claude' })
+    useJob(JOBS.working)
+    expect((await runs({ action: 'get', ref: RUN })).envelope.data).toMatchObject({ provider: 'claude', model: 'sonnet' })
+  })
+
   it('gets a failed run with analysis options, attempts and the settled provider switch', async () => {
     useJob(JOBS.failed)
     routes.set(`GET ${P}/loop-runs/r0`, { body: { loopRun: { id: 'r0', provider: 'codex', model: 'gpt-5.5' } } })

@@ -180,8 +180,7 @@ function runSummary(run: LoadedRun): Row {
   const attempt = rec(run.attempts?.chain)
   const view: Row = {
     ref: run.target.ref, title: titleOf(job), kind: isLoop(job) ? 'loop' : 'job', jobStatus: job.status,
-    provider: job.provider ?? loopRun.provider ?? null, model: job.model ?? loopRun.model ?? null,
-    ...(str(loopRun.reasoning_effort) ? { effort: loopRun.reasoning_effort } : {}),
+    ...engineOf(run, job, loopRun),
     startedAt: job.started_at ?? null, finishedAt: job.finished_at ?? null, durationMs: job.duration_ms ?? null,
     costUsd: job.total_cost_usd ?? null,
     specs: specRefs(project, job),
@@ -211,6 +210,21 @@ function stepMatches(step: LogStep, selector: unknown): boolean {
   if (typeof selector === 'number') return step.index === selector
   if (typeof selector !== 'string') return false
   return step.title === selector || step.title.endsWith(`/${selector}`) || String(step.index) === selector
+}
+
+/**
+ * The engine a run works on now. The row keeps its launch provider/model; a switch at a usage limit
+ * (`provider_switched`, roles moved for the rest of the run) wins, as on the live board.
+ */
+function engineOf(run: LoadedRun, job: Row, loopRun: Row): Row {
+  const launched: Row = { provider: job.provider ?? loopRun.provider ?? null, model: job.model ?? loopRun.model ?? null, ...(str(loopRun.reasoning_effort) ? { effort: loopRun.reasoning_effort } : {}) }
+  const event = [...run.events].reverse().find((entry) => entry.event_type === 'provider_switched')
+  if (!event?.payload) return launched
+  try {
+    const moved = rec(JSON.parse(event.payload))
+    if (!str(moved.provider) || (Array.isArray(moved.roles) && moved.roles.length === 0)) return launched
+    return { provider: moved.provider, model: str(moved.model), ...(str(moved.effort) ? { effort: moved.effort } : {}), switchedFrom: str(moved.fromProvider) ?? launched.provider }
+  } catch { return launched }
 }
 
 /** Newest-first page of log lines: the failed step first on a failed run, or one step (`options.step`). */
