@@ -134,12 +134,12 @@ What needs the person across projects, most urgent first. act runs any offer by 
 |---|---|---|---|
 | `list` | read | — | filter: { project, kind: question\|review\|mission\|chain\|failed\|blocked\|budget\|jira (or a list) }; options.includeDismissed lists snoozed/done items too. Default limit 8 (detail 25). Lean items list write offers; open or detail has the full state. |
 | `open` | read | — | Requires `ref`. ref: inbox:<id>, or the run/delivery/chain ref it is about. Full state, question card, diagnosis and AI analysis. |
-| `answer` | write | — | Requires `ref`. optionId: one of the question's options (its label is sent); answer: free text. |
+| `answer` | write | — | Requires `ref`. optionId: one of the question's options (its label is sent); answer: free text. Neither: the person picks. |
 | `approve` | write | — | Requires `ref`. |
 | `reject` | write | — | Requires `ref`. options.reason (or answer): why, passed to the run. |
 | `snooze` | write | — | Requires `ref`, `until`. until: ISO time, 1h/3h/1d or tomorrow (max 30 days). Shared with the paired phone. |
 | `done` | write | — | Requires `ref`. Hides the item until its state changes; options.undo brings a snoozed or done item back. |
-| `act` | read | — | Requires `ref`, `offerId`. Runs state.offers[offerId].call; add what offer.needs names (answer, optionId, options.*). options.version: refuse if the item changed. |
+| `act` | read | — | Requires `ref`, `offerId`. Runs state.offers[offerId].call; add what offer.needs names (answer, optionId, options.*). No offerId: the person picks. options.version: refuse if the item changed. |
 
 ### `specrails_wait`
 
@@ -220,7 +220,7 @@ Project builder: converse, commit into a project with milestone 1, generate mile
 | `milestone_commit` | write | — | Add the generated milestone specs to the board as todo (options.specs: an edited batch). |
 | `chain_launch` | ai-spawn | costly | Launch milestone N one spec per rail; options: autoAdvance (default true), provider, model, effort. |
 | `chain_get` | read | — | Requires `ref`. Chain state: specs, held rails, next engine and the reconcile plan's offers (ref: chain or milestone). |
-| `chain_resume` | ai-spawn | costly | Requires `ref`. Execute the plan: from recommended (default), failed_step or start. |
+| `chain_resume` | ai-spawn | costly | Requires `ref`. Execute the plan: from recommended, failed_step or start. No from: the person picks. |
 | `chain_auto_advance` | per call | per call | Requires `ref`, `enabled`. Continue automatically after each integrated rail (true) or stop for your go (false). |
 | `chain_cancel` | destructive | irreversible | Requires `ref`. Stop the chain; running rails keep going. |
 | `settings_get` | read | — | Usual configuration (provider, model, effort), the launch default, each milestone's own engine and the choices. |
@@ -256,10 +256,10 @@ Runs (jobs, loop and Intent runs): list, get views, launch (assign+launch in one
 | `resume` | ai-spawn | costly | Requires `ref`. a held run (or rail): options.mode recover (the interrupted steps), options.runCap once\|ignore or options.runCapUsd (budget hold) |
 | `stop` | write | — | Requires `ref`. a run, or a rail ref (stops every run on it) |
 | `cancel` | destructive | irreversible | Requires `ref`. cancel a runtime continuation or Core run for good (stop is the reversible-looking everyday Stop) |
-| `answer` | write | — | Requires `ref`. the pending question: optionId (data.question.options) or a free answer |
+| `answer` | write | — | Requires `ref`. the pending question: optionId (data.question.options) or a free answer; neither: the person picks |
 | `approve` | write | — | Requires `ref`. |
 | `reject` | write | — | Requires `ref`. answer: the reason (required) |
-| `limit` | per call | per call | Requires `ref`, `choice`. choice resume_now \| auto (options.enabled) \| switch (provider, model?, effort?, options.remember) |
+| `limit` | per call | per call | Requires `ref`, `choice`. choice resume_now \| auto (options.enabled) \| switch (provider, model?, effort?, options.remember); no choice: the person picks |
 | `remedy` | per call | per call | Requires `ref`. a failed/stopped run: choice continue (options.instruction; provider/model/effort to switch) \| continue_to_review \| start_over \| edit_spec, or optionId of an analysis option; options.copyEnvFiles |
 | `fork` | ai-spawn | costly | Requires `ref`. a new attempt from one step: options.fromStep (graph node id), options.scopeId, options.visit |
 | `steer` | write | — | Requires `ref`, `message`. a message the running agent reads at its next turn (options.requestId keeps it idempotent) |
@@ -282,7 +282,7 @@ Deliveries waiting for a decision first: review packet, changes, diffs, merge pr
 |---|---|---|---|
 | `list` | read | — | Deliveries, waiting for you first. filter: decision[] (decision or status), spec, since (ISO), pending. |
 | `get` | read | — | Requires `ref`. Review packet summary + state. detail fields: packet, changes (paged files), file_diff (path; paged lines), merge_preview, ci, local_changes. options.repositoryId for one repository. |
-| `decide` | per call | per call | Requires `ref`, `decision`. Run a legal decision (state.offers). approve = the repository's Accept (create_pr or merge_local). request_changes needs note. options.version guards against a changed delivery. |
+| `decide` | per call | per call | Requires `ref`, `decision`. Run a legal decision (state.offers). approve = the repository's Accept (create_pr or merge_local). request_changes needs note. No decision: the person picks. options.version guards against a changed delivery. |
 
 ### `specrails_missions`
 
@@ -314,7 +314,7 @@ Missions (agent conversations): create, send, ask, queue, attachments, subagents
 | `detach` | destructive | irreversible | Requires `ref`, `options.attachmentId`. Deletes an attachment file. Always confirmed. |
 | `subagents` | read | — | Requires `ref`. Sub-agents of the mission's Core session; options.subagentId pages its activity (options.after seq, limit). |
 | `subagents_stop` | write | — | Requires `ref`. Stops sub-agents (options.subagentIds; default all of the mission). |
-| `card_decide` | per call | per call | Requires `ref`, `cardId`, `decision`. Decides a pending card (ids and decisions in get: pendingCards). options: option index or text; intent-draft: restated\|alternative\|explore (start Intent from it)\|delegate; rail-launch: launch\|dismiss; flow-offer: intent\|implement\|dismiss; pr-ci-offer: start\|dismiss. Delivery cards: specrails_deliveries. |
+| `card_decide` | per call | per call | Requires `ref`, `cardId`, `decision`. Decides a pending card (ids and decisions in get: pendingCards; no decision: the person picks). options: option index or text; intent-draft: restated\|alternative\|explore (start Intent from it)\|delegate; rail-launch: launch\|dismiss; flow-offer: intent\|implement\|dismiss; pr-ci-offer: start\|dismiss. Delivery cards: specrails_deliveries. |
 | `limit_continue` | per call | per call | Requires `ref`. After a usage limit: continue by itself at the reset (options.at ISO; default the reset time) or cancel (options.at null). |
 | `intent_list` | read | — | Missions in Intent in a project, and whether Intent can run here (availability, missing capabilities). |
 | `intent_start` | ai-spawn | costly | Starts Intent (build in an isolated worktree, then hand off): message = the idea, or options.spec (start from that spec); ref = an existing mission (default: a new mission in project, with provider/model/effort); options.repository for multi-repository projects. |

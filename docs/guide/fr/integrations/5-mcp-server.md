@@ -33,6 +33,8 @@ Si quelque chose ne marche pas, lancez `specrails-desktop mcp doctor`. Il vérif
 
 **Demander avant de dépenser** (même panneau, 0,50 $ par défaut) est le montant au-delà duquel un assistant connecté doit vous demander avant de lancer un travail payant. Les fusions, les PR et les suppressions demandent toujours. Votre assistant reçoit un jeu simple de 15 outils avec les prochaines étapes prêtes, une attente sans interrogation répétée, des réponses dans votre langue et des prompts comme *start-my-day*, *review-waiting*, *ship-milestone* et *why-stuck*. Si un ancien script a besoin des outils précédents, désactivez **Outils MCP simplifiés** dans le même panneau ; les missions de Specrails ne sont pas concernées.
 
+Chaque décision vous arrive sous forme de menu court : les options, chacune avec ce qui se passe si vous la choisissez, la recommandée en premier et en dernier « Autre chose — écrivez-la ». Répondez au clavier avec le numéro (ou l'option), ou avec vos propres mots. Si votre client peut afficher son propre formulaire, Specrails vous y pose directement la question ; une option qui fusionne, ouvre une PR ou dépense de l'argent demande toujours votre oui.
+
 ## Réservé aux agents : connecter votre client
 
 Quand une personne demande à un agent de se connecter, lisez le [guide de connexion MCP](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Il couvre la connexion en une commande, l'enregistrement manuel dans Claude Code et Codex, la vérification et le dépannage. L'enregistrement seul ne prouve pas la connexion : terminez `initialize`, `tools/list` et un appel en lecture seule.

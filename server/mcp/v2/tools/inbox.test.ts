@@ -167,6 +167,53 @@ describe('specrails_inbox(open)', () => {
   })
 })
 
+describe('specrails_inbox(act) as a choice form in the client (MCP elicitation)', () => {
+  const forms: Array<Record<string, any>> = []
+  let answer: (params: Record<string, any>) => Record<string, unknown> = () => ({ action: 'cancel' })
+  let formClient: Client
+  beforeEach(async () => {
+    forms.length = 0
+    const [{ Client: SdkClient }, { InMemoryTransport }, { ElicitRequestSchema }] = await Promise.all([import('@modelcontextprotocol/sdk/client/index.js'), import('@modelcontextprotocol/sdk/inMemory.js'), import('@modelcontextprotocol/sdk/types.js')])
+    const [serverSide, clientSide] = InMemoryTransport.createLinkedPair()
+    await client.close()
+    await h.server.connect(serverSide)
+    formClient = new SdkClient({ name: 'eliciting-client', version: '1' }, { capabilities: { elicitation: { form: {} } } })
+    formClient.setRequestHandler(ElicitRequestSchema, async (request) => { forms.push(request.params as Record<string, any>); return answer(request.params as Record<string, any>) as never })
+    await formClient.connect(clientSide)
+    client = formClient
+    h.ctx.sessionState = { ...(h.ctx.sessionState as object), activeProjectId: null, sessionKey: 'session-form', elicitation: () => true } as never
+  })
+
+  it('the person picks a question option by keyboard in the form and the run gets that answer', async () => {
+    asking(alpha, 'p1', 'r-ask', QUESTION)
+    desktop.on('POST', '/projects/p1/jobs/r-ask/messages', { ok: true })
+    answer = () => ({ action: 'accept', content: { choice: 'answer.implement' } })
+    const { envelope } = await inbox({ action: 'act', ref: 'inbox:p1:question:r-ask' })
+    expect(envelope).toMatchObject({ ok: true, chosen: 'answer.implement', data: { run: 'run:shop-api/r-ask' } })
+    expect(forms[0].message).toBe('Implement touch controls or drop task 2.1? Pick one (the first is recommended) or write your own.')
+    expect(forms[0].requestedSchema.properties.choice.enum).toEqual(['answer.drop', 'answer.implement', 'open'])
+    expect(desktop.calls.filter((c) => c.method === 'POST')).toEqual([{ method: 'POST', path: '/projects/p1/jobs/r-ask/messages', body: { text: 'Implement', interruptId: 'q1', optionId: 'implement' } }])
+  })
+
+  it('free text in the form is the answer, validated like any answer', async () => {
+    asking(alpha, 'p1', 'r-ask', QUESTION)
+    desktop.on('POST', '/projects/p1/jobs/r-ask/messages', { ok: true })
+    answer = () => ({ action: 'accept', content: { other: 'Only the keyboard controls' } })
+    const { envelope } = await inbox({ action: 'act', ref: 'inbox:p1:question:r-ask' })
+    expect(envelope).toMatchObject({ ok: true, chosen: 'other' })
+    expect(desktop.calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([{ text: 'Only the keyboard controls', interruptId: 'q1' }])
+  })
+
+  it('a closed form returns the menu to the agent and changes nothing', async () => {
+    asking(alpha, 'p1', 'r-ask', QUESTION)
+    answer = () => ({ action: 'decline' })
+    const { envelope } = await inbox({ action: 'act', ref: 'inbox:p1:question:r-ask' })
+    expect(envelope).toMatchObject({ ok: true, summary: expect.stringContaining('closed the form') })
+    expect(envelope.data.choices[0]).toMatchObject({ id: 'answer.drop', recommended: true })
+    expect(desktop.calls.filter((c) => c.method === 'POST')).toEqual([])
+  })
+})
+
 describe('specrails_inbox(answer / approve / reject)', () => {
   it('sends a chosen option like the question card: live turn door first', async () => {
     asking(alpha, 'p1', 'r-ask', QUESTION)
@@ -192,7 +239,10 @@ describe('specrails_inbox(answer / approve / reject)', () => {
   it('refuses an option the question did not offer, a missing answer and a non-question item', async () => {
     seedMixed()
     expect((await inbox({ action: 'answer', ref: 'inbox:p1:question:r-ask', optionId: 'maybe' })).envelope.error).toMatchObject({ code: 'invalid_input', message: expect.stringContaining('implement, drop') })
-    expect((await inbox({ action: 'answer', ref: 'inbox:p1:question:r-ask' })).envelope.error.code).toBe('invalid_input')
+    // No answer at all: the question is a decision point (its options as a menu, free text as the answer).
+    const menu = (await inbox({ action: 'answer', ref: 'inbox:p1:question:r-ask' })).envelope
+    expect(menu).toMatchObject({ ok: true, data: { question: 'Implement touch controls or drop task 2.1?', other: { field: 'answer' } } })
+    expect(menu.data.choices.map((choice: { id: string }) => choice.id)).toEqual(['answer.drop', 'answer.implement'])
     expect((await inbox({ action: 'answer', ref: 'inbox:p1:review:d-review', answer: 'x' })).envelope.error.code).toBe('invalid_input')
     expect(desktop.calls.some((c) => c.method === 'POST')).toBe(false)
   })
@@ -279,8 +329,13 @@ describe('specrails_inbox(act)', () => {
     expect(stale.envelope.error.state.offers.length).toBeGreaterThan(0)
   })
 
-  it('needs ref and offerId', async () => {
-    expect((await inbox({ action: 'act', ref: 'inbox:p1:question:r-ask' })).envelope.error.code).toBe('invalid_input')
+  it('needs a ref; without an offerId the item is a menu (one-click offers, free text where it goes)', async () => {
+    expect((await inbox({ action: 'act', offerId: 'x' })).envelope.error.code).toBe('invalid_input')
+    seedMixed()
+    const { envelope } = await inbox({ action: 'act', ref: 'inbox:p1:question:r-ask' })
+    expect(envelope).toMatchObject({ ok: true, summary: expect.stringContaining('numbered menu'), data: { other: { field: 'answer', call: { tool: 'specrails_inbox', args: { action: 'answer', ref: 'inbox:p1:question:r-ask' } } } } })
+    expect(envelope.data.choices.map((choice: { id: string }) => choice.id)).toEqual(['answer.drop', 'answer.implement', 'open'])
+    expect(envelope.data.choices[0]).toMatchObject({ recommended: true, label: 'Drop 2.1', effect: 'Sends this answer; the run continues.' })
   })
 })
 

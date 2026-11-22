@@ -237,9 +237,17 @@ describe(`specrails_${T}(get)`, () => {
 })
 
 describe(`specrails_${T}(decide)`, () => {
-  it('needs ref and decision', async () => {
+  it('needs a ref; without a decision the person picks from the legal ones (menu, request changes as free text)', async () => {
+    expect((await call(client, 'specrails_deliveries', { action: 'decide' })).envelope.error.code).toBe('invalid_input')
+    expect((await call(client, 'specrails_deliveries', { action: 'decide', ref: 'delivery:shop-api/d1' })).envelope.error.code).toBe('not_found')
+    delivery('d1', 'on_review')
     const { envelope } = await call(client, 'specrails_deliveries', { action: 'decide', ref: 'delivery:shop-api/d1' })
-    expect(envelope.error.code).toBe('invalid_input')
+    expect(envelope).toMatchObject({ ok: true, data: { question: expect.stringContaining('—'), other: { field: 'note', call: { tool: 'specrails_deliveries', args: { action: 'decide', ref: 'delivery:shop-api/d1', decision: 'request_changes' } } } } })
+    const ids = envelope.data.choices.map((choice: { id: string }) => choice.id)
+    expect(ids).toEqual(expect.arrayContaining(['decide.merge_local', 'decide.discard']))
+    expect(ids).not.toContain('decide.request_changes')
+    for (const choice of envelope.data.choices) expect(choice).toMatchObject({ label: expect.any(String), effect: expect.any(String), call: { tool: 'specrails_deliveries', args: { action: 'decide' } } })
+    expect(envelope.untrusted).toEqual(expect.arrayContaining(['/data/choices/*/label']))
   })
 
   it('confirms merge_local with a bound token, then runs the PR decision with expectedDecision', async () => {

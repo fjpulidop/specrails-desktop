@@ -97,7 +97,7 @@
   "offer.chain.follow_run": "Suivre la spec en cours",
   "offer.chain.answer_run": "Répondre à son exécution",
   "offer.chain.integrate": "Intégrer la spec livrée",
-  "offer.chain.rebuild": "Refaire sur la base à jour",
+  "offer.chain.rebuild": "Refaire sur la nouvelle base",
   "confirm.required": "Il faut l'accord de la personne. Montrez-lui preview.effect et demandez ; si elle accepte, faites l'appel de resend tel quel.",
   "confirm.dry_run": "Simulation, rien n'a été exécuté : {{label}} ferait : {{effect}}",
   "confirm.stale": "L'état a changé depuis l'aperçu, la confirmation ne s'applique donc plus. Montrez le nouvel aperçu et demandez de nouveau.",

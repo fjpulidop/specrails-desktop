@@ -12,7 +12,7 @@ import { actionEnum } from '../../tools/actions'
 import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTierAllowed, type McpToolContext, type ToolHandlerExtra } from '../../tools/types'
 import { shortHash } from './canonical'
 import { askPerson, bindingArgs, carriesSecret, confirmationLedger, readConfirmInClient, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
-import { askChoice, compactChoices, readChoicesInClient, withField, type ChoicePoint } from './choices'
+import { askChoice, compactChoices, hasDecision, readChoicesInClient, withField, type ChoicePoint } from './choices'
 import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
 import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
 import { resolveLang, translator, type Lang, type Translate } from './lang'
@@ -58,7 +58,8 @@ export interface V2ActionDef {
   maxTokens?: number
   preview?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<PreviewInput> | PreviewInput
   /**
-   * A decision point: called without the choice (only `fields` missing), the call asks the person in the
+   * A decision point: called without the choice (every one of `fields` absent, the other required fields
+   * present), the call asks the person in the
    * client's form or returns the choices to the agent (core/choices.ts). `point` returns null when there is
    * nothing to choose (the usual missing-field error then applies).
    */
@@ -398,11 +399,12 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
 
     // A decision point called without the choice: the person picks (client form) or the agent gets the menu.
     if (spec.choose && spec.handler) {
-      const absent = [...(spec.required ?? []).filter((field) => !present(fieldValue(args, field))), ...(spec.oneOf?.length && !spec.oneOf.some((field) => present(fieldValue(args, field))) ? spec.oneOf : [])]
-      if (absent.length && absent.every((field) => spec.choose!.fields.includes(field))) {
+      const choice = spec.choose
+      const otherMissing = (spec.required ?? []).filter((field) => !choice.fields.includes(field) && !present(fieldValue(args, field)))
+      if (!otherMissing.length && choice.fields.every((field) => !present(fieldValue(args, field)))) {
         try {
-          const point = await spec.choose.point(callCtx, args)
-          if (point?.choices.length) return await decide(point)
+          const point = await choice.point(callCtx, args)
+          if (hasDecision(point)) return await decide(point)
         } catch (err) {
           return fail(err)
         }

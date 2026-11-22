@@ -33,6 +33,8 @@ Se algo não funcionar, execute `specrails-desktop mcp doctor`. Verifica tudo de
 
 **Perguntar antes de gastar** (no mesmo painel, 0,50 $ por omissão) é o montante acima do qual um assistente ligado tem de te perguntar antes de começar trabalho pago. Merges, PRs e eliminações perguntam sempre. O teu assistente recebe um conjunto simples de 15 ferramentas com os próximos passos prontos, espera sem consultas repetidas, respostas no teu idioma e prompts como *start-my-day*, *review-waiting*, *ship-milestone* e *why-stuck*. Se um script antigo teu precisar das ferramentas anteriores, desativa **Ferramentas MCP simplificadas** no mesmo painel; as missões do próprio Specrails não são afetadas.
 
+Cada decisão chega-te como um menu curto: as opções, cada uma com o que acontece se a escolheres, a recomendada primeiro e no fim "Outra coisa — escreva". Responde com o número (ou a opção) pelo teclado, ou com as tuas palavras. Se o teu cliente puder mostrar o seu próprio formulário, o Specrails pergunta-te aí diretamente; uma opção que integra, abre uma PR ou gasta dinheiro continua a pedir o teu sim.
+
 ## Só para agentes: ligar o seu cliente
 
 Quando uma pessoa pedir a um agente para se ligar, leia o [guia de ligação MCP](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Cobre a ligação com um comando, o registo manual no Claude Code e no Codex, a verificação e a resolução de problemas. Registar não prova a ligação: conclua `initialize`, `tools/list` e uma chamada só de leitura.

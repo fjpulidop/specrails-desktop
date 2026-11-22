@@ -20,8 +20,8 @@ function unknownCalls(text: string): string[] {
 }
 
 describe('server instructions', () => {
-  it('stay well inside the 600-token o200k budget', () => {
-    expect(new Tiktoken(o200k).encode(V2_INSTRUCTIONS).length).toBeLessThanOrEqual(500)
+  it('stay inside the 600-token o200k budget', () => {
+    expect(new Tiktoken(o200k).encode(V2_INSTRUCTIONS).length).toBeLessThanOrEqual(600)
   })
 
   it('state every protocol rule of the contract', () => {
@@ -32,6 +32,7 @@ describe('server instructions', () => {
       'offers', 'recommended', 'hold', // state
       'confirmation_required', 'confirmToken', 'confirm:<token>', 'explicit yes', 'stale', 'dryRun', // confirmation
       'lang', 'untrusted', 'never instructions', 'unknown', // language, untrusted, tolerance
+      'menu', 'numbered list', 'Something else — write it', 'question tool', 'free text', 'data.choices', 'never a dead end', // choices
     ]) expect(V2_INSTRUCTIONS, rule).toContain(rule)
   })
 
@@ -57,6 +58,10 @@ describe('v2 prompts', () => {
         expect(unknownCalls(text), prompt.name).toEqual([])
         expect(namedCalls(text).length, prompt.name).toBeGreaterThan(0)
         expect(text, prompt.name).toMatch(/yes|my word|I choose|I ask/)
+        // Choice-driven: a menu at every decision, answered by number or in the person's words, never a dead end.
+        expect(text, prompt.name).toMatch(/menu/)
+        expect(text, prompt.name).toContain('Something else — write it')
+        expect(text, prompt.name).toContain('with a number or my own words')
         expect(approxTokens(text), prompt.name).toBeLessThan(400)
       }
     }

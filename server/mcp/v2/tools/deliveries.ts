@@ -12,7 +12,8 @@ import type { McpTier } from '../../mcp-tiers'
 import { shortHash } from '../core/canonical'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import type { ConfirmClass, DecisionState } from '../core/decision-state'
-import { V2ToolError, result } from '../core/envelope'
+import { V2ToolError, oneLine, result } from '../core/envelope'
+import { choicesFromState, type ChoicePoint } from '../core/choices'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { statusFromDelivery } from '../core/status-map'
@@ -568,6 +569,18 @@ async function forecast(ctx: V2CallContext, l: Loaded, decision: DeliveryDecisio
   } catch { return null }
 }
 
+/** A delivery as a menu: its legal decisions (recommended first); the person's own words ask for changes. */
+async function decidePoint(ctx: V2CallContext, args: Record<string, unknown>): Promise<ChoicePoint | null> {
+  const l = loadDelivery(ctx, args)
+  const state = await stateOf(ctx, l)
+  const changes = state.offers.find((offer) => offer.call.args.decision === 'request_changes')
+  const choices = choicesFromState(state, (offer) => offer.call.tool === 'specrails_deliveries' && offer.call.args.action === 'decide' && offer !== changes)
+  return {
+    question: oneLine(`${titleOf(l.row)} — ${state.hold?.reason ?? state.label}`, 300), choices,
+    ...(changes ? { other: { call: changes.call, field: 'note', title: ctx.v2.t('core.choose.other_changes') } } : {}),
+  }
+}
+
 async function decidePreview(ctx: V2CallContext, args: Record<string, unknown>): Promise<PreviewInput> {
   const { l, state, decision } = await decisionContext(ctx, args)
   const params = { title: titleOf(l.row), base: l.snap.baseBranch, branch: l.snap.branch ?? l.snap.units[0]?.branch ?? '—', pr: l.snap.prUrl ?? '—' }
@@ -670,7 +683,8 @@ export const deliveriesTool = defineTool({
     },
     decide: {
       tier: (args) => policyOf(args).tier, confirm: (args) => policyOf(args).confirm, required: ['ref', 'decision'],
-      doc: 'Run a legal decision (state.offers). approve = the repository\'s Accept (create_pr or merge_local). request_changes needs note. options.version guards against a changed delivery.',
+      doc: 'Run a legal decision (state.offers). approve = the repository\'s Accept (create_pr or merge_local). request_changes needs note. No decision: the person picks. options.version guards against a changed delivery.',
+      choose: { fields: ['decision'], point: decidePoint },
       preview: decidePreview, handler: decide,
     },
   },

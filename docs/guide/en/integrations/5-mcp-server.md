@@ -33,6 +33,8 @@ If something doesn't work, run `specrails-desktop mcp doctor`. It checks everyth
 
 **Ask before spending** (same panel, $0.50 by default) is the amount above which a connected assistant must ask you before it starts paid work. Merges, PRs and deletions always ask. Your assistant gets a simple set of 15 tools with ready-made next steps, waiting without polling, answers in your language and slash prompts such as *start-my-day*, *review-waiting*, *ship-milestone* and *why-stuck*. If an older script of yours needs the previous tools, switch off **Simplified MCP tools** in the same panel; Specrails' own missions are not affected.
 
+Every decision reaches you as a short menu: the options, each with what happens if you pick it, the recommended one first and a last "Something else — write it". Answer with the number (or the option) from the keyboard, or in your own words. When your client can show its own form, Specrails asks you there directly; an option that merges, opens a PR or spends money still asks for your yes.
+
 ## For agents only: connect your client
 
 When a person asks an agent to connect, read the [dedicated MCP connection runbook](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). It covers the one-command connect, manual registration for Claude Code and Codex, verification and troubleshooting. Registration alone is not proof of connection: complete `initialize`, `tools/list` and a read-only call.

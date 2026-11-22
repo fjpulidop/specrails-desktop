@@ -47,6 +47,20 @@ are written for.
 - **Decision-ready answers.** Runs, deliveries, chains and inbox items carry
   their state: status, why they wait, the legal next moves (offers) and the
   recommended one.
+- **Choices you answer from the keyboard.** Every decision reaches you as a
+  short menu: each option has a label of at most five words and one line on
+  what happens if you pick it, the recommended one comes first and the last is
+  always "Something else — write it". The agent uses its client's own question
+  tool when it has one, otherwise a numbered list; you answer with a number, an
+  option or your own words, and every step ends with the next choices. For key
+  decisions (a run's question or approval, a usage-limit pause, a delivery, a
+  mission or Intent card, resuming a milestone chain) a client that can show a
+  form (Claude Code, Codex) gets one from Specrails inside the call: one list
+  plus a free-text field. An option that needs your yes (a merge, a PR, paid
+  work over the threshold) still asks for it. Closing the form, or a client
+  without forms, gives the agent the same menu to show in the chat.
+  `desktop_settings.mcp_choices_in_client = 'off'` keeps choices in the chat
+  (`mcp_confirm_in_client` does the same for confirmations).
 - **Waiting without polling.** `specrails_wait(until, refs)` blocks up to 45
   seconds and returns what changed; the agent calls it again with the cursor.
 - **Confirmations bound to what you saw.** Merges, PRs, deletions and other
@@ -63,12 +77,15 @@ are written for.
 
 | Prompt | What it does |
 |---|---|
-| `start-my-day` | What needs you, what runs and what it costs, one proposal per item |
-| `review-waiting` | Deliveries and questions waiting for you, one at a time |
+| `start-my-day` | What runs and what it costs, then a numbered menu of what needs you |
+| `review-waiting` | Deliveries and questions waiting for you, one at a time, each decision as a menu |
 | `ship-milestone` | Generate, add and launch a blueprint milestone, then follow its chain |
-| `why-stuck` | Why a run waits, stopped or failed, and one next step |
+| `why-stuck` | Why a run waits, stopped or failed, and its next steps as a menu |
 | `implement` | Launch specs after a cost preview and report when they settle |
-| `spend` | Spend, subscription usage and limits in plain words |
+| `spend` | Spend, subscription usage and limits in plain words, then what to do next |
+
+Every prompt asks the agent for menus (recommended first, "Something else —
+write it" last) that you answer with a number or in your own words.
 
 Short guide topics are resources (`specrails://guide/<topic>`) and
 `specrails_system(help, topic)`. The full tool and action reference, generated

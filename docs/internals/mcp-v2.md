@@ -306,8 +306,14 @@ In-app sessions, and clients that announce no name, keep a per-connection key.
 ```ts
 DecisionState { status, appState, label, phase?, hold?: { kind, code?, reason, since, waitingFor?, resumeAt? },
                 offers: Offer[], recommended?, cost?, version }
-Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?, needsConfirm, needs?, why? }
+Offer { id, label, effect?, call: { tool, args }, tier, irreversible?, external?, costHint?, needsConfirm?, needs?, why? }
 ```
+
+- **Offers are human choices.** `label` is at most five words; `effect` is one line on what happens if the person
+  picks it, from `<area>.choice.<suffix>` (the label key with `.offer.` → `.choice.`; `OfferDraft.effect`/`effectKey`
+  override it). `i18n/choices.test.ts` requires both in all eight languages. `buildDecisionState` returns the
+  recommended offer first (the version hashes the domain order), and leaves `irreversible`, `external` and
+  `needsConfirm` out when false (lean menus).
 
 - **`status`** is the v2 vocabulary of 13 values: `queued`, `running`, `paused`, `waiting`, `needs_you`, `blocked`,
   `failed`, `succeeded`, `cancelled`, `ready_for_review`, `delivered`, `integrated` and `discarded`.
@@ -333,6 +339,34 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
     `options.runCapUsd`).
 - **`version`** is a 16-hex hash of status, phase, hold, offers, recommended and `versionFacts` (pass the row's
   `updated_at`, head SHA, decision row id…). It ignores language and cost. confirmTokens bind to it.
+
+## Choices (`core/choices.ts`)
+
+Every decision reaches the person as a menu (instructions, prompts and the `state-and-offers` guide say how agents
+present one: the client's question tool, else a numbered list, recommended first, last "Something else — write it";
+the person answers with a number, an option id or free text).
+
+- **Lean lists** carry `choices: [{ id, label, effect?, recommended?, needs? }]` instead of offer ids
+  (`inbox(list)`, `overview(app)` needsYou). The full `state` keeps the calls.
+- **Decision points.** An action with `choose: { fields, point }` called with every `fields` entry absent (and its
+  other required fields present) is a decision point. `point(ctx, args)` returns `{ question, choices: Choice[],
+  other? }` (`Choice = { id, label, effect?, recommended?, call, costHint? }`; `other = { call, field, title? }` says
+  where free text goes). Declared on `inbox(act)` (offerId), `inbox(answer)` and `runs(answer)` (answer|optionId; an
+  approval: approve, free text rejects with that reason), `runs(limit)` (choice; one switch choice per
+  `switchTargets` provider), `deliveries(decide)` (decision; free text is `request_changes` with the note),
+  `blueprint(chain_resume)` (from; the inbox's chain offer passes `from: recommended`) and `missions(card_decide)`
+  (decision; free text is a `send`).
+- **In the client.** When the client declared form elicitation, the call is external and `mcp_choices_in_client`
+  is not `off`, the server sends one `elicitation/create` form: `choice` (string enum of ids, `enumNames`
+  "label — effect (cost) · recommended", default the recommended) and an optional `other` text field. A picked id runs
+  its `call`; text runs `other.call` with `other.field` set, or, without one, returns `{ other }` to the agent (marked
+  untrusted). The chosen call goes through the whole pipeline (`callback` for the same tool, `dispatch` otherwise),
+  so its tier and the confirmation protocol apply: a pick that needs a yes shows the confirmation dialog in the same
+  call, and a cancelled one answers `confirmation_required`. The envelope says `chosen: <id>|"other"`.
+- **Fallback.** A client without forms, the setting off, an in-app turn, a decline, a cancel, a timeout (5 minutes)
+  or an accept without a valid choice return `ok` with `data: { question, choices (with call), other? }` and a summary
+  telling the agent to show the menu. No point (`null`, or nothing to pick and nowhere to send text) keeps the usual
+  missing-field error.
 
 ## Confirmation protocol (`core/confirm.ts`)
 

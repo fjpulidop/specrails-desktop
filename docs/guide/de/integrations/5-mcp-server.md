@@ -33,6 +33,8 @@ Wenn etwas nicht funktioniert, führe `specrails-desktop mcp doctor` aus. Er pr�
 
 **Vor dem Ausgeben fragen** (im selben Bereich, standardmäßig 0,50 $) ist der Betrag, ab dem ein verbundener Assistent dich fragen muss, bevor er bezahlte Arbeit startet. Merges, PRs und Löschungen fragen immer. Dein Assistent bekommt einen einfachen Satz aus 15 Tools mit fertigen nächsten Schritten, Warten ohne Abfragen, Antworten in deiner Sprache und Prompts wie *start-my-day*, *review-waiting*, *ship-milestone* und *why-stuck*. Braucht ein älteres Skript die bisherigen Tools, schalte **Vereinfachte MCP-Tools** im selben Bereich aus; die Missionen von Specrails selbst sind davon nicht betroffen.
 
+Jede Entscheidung erreicht dich als kurzes Menü: die Optionen, jeweils mit dem, was bei der Wahl passiert, die empfohlene zuerst und zuletzt „Etwas anderes — schreib es“. Antworte per Tastatur mit der Nummer (oder der Option) oder in eigenen Worten. Kann dein Client ein eigenes Formular zeigen, fragt Specrails dich direkt dort; eine Option, die mergt, einen PR öffnet oder Geld kostet, fragt trotzdem nach deinem Ja.
+
 ## Nur für Agenten: deinen Client verbinden
 
 Wenn eine Person einen Agenten bittet, sich zu verbinden, lies das [MCP-Verbindungshandbuch](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Es beschreibt das Verbinden mit einem Befehl, die manuelle Registrierung für Claude Code und Codex, die Prüfung und die Fehlersuche. Eine Registrierung allein beweist keine Verbindung: Schließe `initialize`, `tools/list` und einen reinen Lesezugriff ab.

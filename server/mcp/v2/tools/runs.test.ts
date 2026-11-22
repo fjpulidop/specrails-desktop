@@ -295,6 +295,38 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     expect(held.envelope.error).toMatchObject({ code: 'held', state: { status: 'running' } })
   })
 
+  it('without an answer the question is a menu: its options (recommended first) and a free answer', async () => {
+    useJob(JOBS.question)
+    routes.set(`POST ${P}/loop-runs/r1/resume`, { status: 202, body: { loopRunId: 'r1', resumed: true } })
+    const menu = (await runs({ action: 'answer', ref: RUN })).envelope
+    expect(menu).toMatchObject({ ok: true, data: { question: 'Which database?', other: { field: 'answer', call: { tool: 'specrails_runs', args: { action: 'answer', ref: RUN } } } } })
+    expect(menu.data.choices).toEqual([
+      { id: 'pg', label: 'Postgres', effect: 'Sends your answer; the run continues.', recommended: true, call: { tool: 'specrails_runs', args: { action: 'answer', ref: RUN, optionId: 'pg' } } },
+      { id: 'sq', label: 'SQLite', effect: 'Sends your answer; the run continues.', call: { tool: 'specrails_runs', args: { action: 'answer', ref: RUN, optionId: 'sq' } } },
+    ])
+    expect(posts()).toEqual([])
+    // The menu's call is the answer (keyboard: the person said "2").
+    await runs(menu.data.choices[1].call.args)
+    expect(posts().at(-1)?.body).toEqual({ answer: 'SQLite', interruptId: 'i1', optionId: 'sq' })
+    useJob(JOBS.approval)
+    const approval = (await runs({ action: 'answer', ref: RUN })).envelope
+    expect(approval.data.choices.map((c: { id: string; label: string }) => [c.id, c.label])).toEqual([['approve', 'Approve']])
+    expect(approval.data.other).toMatchObject({ field: 'answer', call: { args: { action: 'reject', ref: RUN } } })
+  })
+
+  it('without a choice a provider limit is a menu: try now, wait for the reset, or continue on each provider', async () => {
+    useJob({ ...JOBS.limit, loopPauseLimit: { ...LIMIT, switchTargets: [{ provider: 'codex', model: 'gpt-5.5' }, { provider: 'gemini' }] } })
+    const menu = (await runs({ action: 'limit', ref: RUN })).envelope
+    expect(menu.ok).toBe(true)
+    expect(menu.data.choices.map((c: { id: string; label: string }) => [c.id, c.label])).toEqual([
+      ['limit.resume_now', 'Try again now'], ['limit.auto', 'Resume when the limit resets'], ['limit.switch', 'Continue on codex'], ['limit.switch.gemini', 'Continue on gemini'],
+    ])
+    expect(menu.data.choices[3].call.args).toEqual({ action: 'limit', ref: RUN, choice: 'switch', provider: 'gemini' })
+    expect(menu.data.question).toContain('—')
+    useJob(JOBS.working)
+    expect((await runs({ action: 'limit', ref: RUN })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('approves and rejects (with a reason) the pending approval', async () => {
     useJob(JOBS.approval)
     routes.set(`POST ${P}/loop-runs/r1/resume`, { status: 202, body: { resumed: true } })

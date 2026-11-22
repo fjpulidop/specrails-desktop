@@ -35,7 +35,7 @@
   "offer.open_delivery": "Ouvrir la livraison",
   "offer.budget_view": "Voir les limites",
   "offer.budget_raise": "Relever la limite",
-  "offer.jira_retry": "Réessayer la mise à jour Jira",
+  "offer.jira_retry": "Réessayer l'envoi Jira",
   "offer.jira_outbox": "Voir la file Jira",
   "offer.chain_resume": "Reprendre la chaîne",
   "offer.chain_continue": "Passer au rail suivant",

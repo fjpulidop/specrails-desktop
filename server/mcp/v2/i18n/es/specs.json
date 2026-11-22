@@ -74,7 +74,7 @@
   "error.verbatim_body": "mode verbatim necesita body: el texto de la spec tal cual.",
   "warning.cursor_stale": "El backlog cambió desde la página anterior; puede que haya elementos repetidos u omitidos.",
   "warning.section_failed": "No se pudo leer la sección {{section}}: {{error}}",
-  "offer.launch_parallel": "Lanzar cada una en su carril",
+  "offer.launch_parallel": "Lanzar cada una aparte",
   "choice.launch": "Arranca una ejecución en un carril (IA).",
   "choice.launch_addenda": "Arranca una ejecución con las adendas abiertas.",
   "choice.promote": "La spec queda lista para lanzar.",

@@ -61,7 +61,7 @@ describe('specrails_inbox: chains and mission cards', () => {
     const { envelope } = await inbox({ action: 'open', ref: 'chain:shop-api/c1' })
     expect(envelope.data).toMatchObject({ kind: 'chain', chain: { milestoneN: 2, status: 'paused', pauseReason: 'head_missing', totalChunks: 2 } })
     expect(envelope.state.hold).toMatchObject({ kind: 'chain', code: 'head_missing' })
-    expect(envelope.state.offers.find((offer: { id: string }) => offer.id === 'chain.resume').call).toEqual({ tool: 'specrails_blueprint', args: { action: 'chain_resume', ref: 'chain:shop-api/c1' } })
+    expect(envelope.state.offers.find((offer: { id: string }) => offer.id === 'chain.resume').call).toEqual({ tool: 'specrails_blueprint', args: { action: 'chain_resume', ref: 'chain:shop-api/c1', from: 'recommended' } })
   })
 
   it('act runs a mission card decision through specrails_missions(card_decide)', async () => {

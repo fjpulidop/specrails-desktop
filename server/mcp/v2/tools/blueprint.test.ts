@@ -252,12 +252,16 @@ describe('chains: every reconcile offer runs as its exact call', () => {
 
   it('Finish needs no confirmation; a relaunch with auto-advance asks (several runs, forecast shown)', async () => {
     setChain(chainSnapshot({ plan: SCENARIOS.complete() }))
-    const finish = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1' })
+    const finish = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1', from: 'recommended' })
     expect(finish.envelope.ok).toBe(true)
     // A write accept stays under its 600-token budget.
     expect(approxTokens(finish.text)).toBeLessThan(RESPONSE_BUDGET.writeAccept)
     setChain(chainSnapshot({ plan: SCENARIOS.retry() }))
-    const retry = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1' })
+    // Without `from` the chain is a decision point: the person picks from its plan (this client shows no form).
+    const menu = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1' })
+    expect(menu.envelope).toMatchObject({ ok: true, summary: expect.stringContaining('numbered menu') })
+    expect(menu.envelope.data.choices[0]).toMatchObject({ id: 'chain.retry', label: 'Retry the failed spec', recommended: true, call: { tool: T, args: { action: 'chain_resume', ref: 'chain:shop-api/c1' } } })
+    const retry = await call(client, T, menu.envelope.data.choices[0].call.args)
     expect(retry.envelope.error).toMatchObject({ code: 'confirmation_required', preview: { cost: { runs: 3, forecastUsd: [0.6, 1.2] }, effect: expect.stringContaining('Retry the failed spec (#1)') } })
   })
 

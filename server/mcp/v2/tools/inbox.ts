@@ -3,12 +3,13 @@ import { createHash } from 'crypto'
 import { defineTool, type V2CallContext } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf } from '../core/views'
 import { asRecord } from '../core/text'
-import { relay, result, V2ToolError, type V2Envelope } from '../core/envelope'
+import { oneLine, relay, result, V2ToolError, type V2Envelope } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
 import { pageOf } from '../core/cursor'
-import { untrusted } from '../core/untrusted'
+import { neutralize, untrusted } from '../core/untrusted'
 import { projectDelivery, projectFailure, projectRunHold, type Projected } from '../core/decision-sources'
-import type { DecisionState, DecisionStateInput, OfferCall, OfferDraft } from '../core/decision-state'
+import type { DecisionState, DecisionStateInput, Offer, OfferCall, OfferDraft } from '../core/decision-state'
+import { choicesFromState, freeTextOf, oneClick, type ChoicePoint } from '../core/choices'
 import { statusFromHold, type CanonicalStatus } from '../core/status-map'
 import { projectChainState } from '../projectors/chain-state'
 import type { MilestoneChainSnapshot } from '../../../modules/builder/runtime/milestone-progress'
@@ -158,7 +159,7 @@ function chainProjection(item: InboxItem, chainRef: Ref, slug: string): { status
     headBranch: null, retryChunk: chain.retryChunk, launched: [], createdAt: item.at, updatedAt: item.at, plan: null,
   } satisfies MilestoneChainSnapshot
   const state = projectChainState({ chain: chainRef, run: (runId) => formatRef('run', runId, slug) }, snapshot)
-  const resume: OfferDraft = { id: 'chain.resume', labelKey: chain.status === 'awaiting_approval' ? 'inbox.offer.chain_continue' : 'inbox.offer.chain_resume', call: { tool: BLUEPRINT, args: { action: 'chain_resume', ref: chainRef } } }
+  const resume: OfferDraft = { id: 'chain.resume', labelKey: chain.status === 'awaiting_approval' ? 'inbox.offer.chain_continue' : 'inbox.offer.chain_resume', call: { tool: BLUEPRINT, args: { action: 'chain_resume', ref: chainRef, from: 'recommended' } } }
   const open: OfferDraft = { id: 'chain.open', labelKey: 'inbox.offer.chain_open', call: { tool: BLUEPRINT, args: { action: 'chain_get', ref: chainRef } } }
   return { status: state.status, projected: { offers: [resume, ...state.offers, open], recommended: 'chain.resume', ...(state.hold ? { hold: state.hold } : {}) } }
 }
@@ -428,6 +429,18 @@ export function dispatchOffer(ctx: V2CallContext, call: OfferCall): Promise<V2En
   return ctx.v2.dispatch(call)
 }
 
+/**
+ * The item as a decision point (`act` without offerId, `answer` without an answer): its one-click offers,
+ * recommended first, and where the person's own words go (an answer, a change request, a rejection reason).
+ */
+async function itemPoint(ctx: V2CallContext, args: Row, keep: (offer: Offer) => boolean = () => true): Promise<ChoicePoint | null> {
+  const { item, slug } = await resolveItem(ctx, args)
+  const facts = readInboxFacts(itemScope(ctx), [item], { analysis: true }).get(item.id)
+  const state = inboxItemState(ctx, item, slug, facts)
+  const question = item.question?.text ? neutralize(item.question.text) : `${neutralize(item.title)}${state.hold ? ` — ${state.hold.reason}` : ''}`
+  return { question: oneLine(question, 300), choices: choicesFromState(state, (offer) => oneClick(offer) && keep(offer)), other: freeTextOf(state, ctx.v2.t) }
+}
+
 // ── Tool ────────────────────────────────────────────────────────────────────
 
 const filterKey = (value: unknown) => createHash('sha256').update(JSON.stringify(value ?? null)).digest('base64url').slice(0, 10)
@@ -515,7 +528,8 @@ export const inboxTool = defineTool({
       tier: 'write',
       required: ['ref'],
       oneOf: ['answer', 'optionId'],
-      doc: 'optionId: one of the question\'s options (its label is sent); answer: free text.',
+      doc: 'optionId: one of the question\'s options (its label is sent); answer: free text. Neither: the person picks.',
+      choose: { fields: ['answer', 'optionId'], point: (ctx, args) => itemPoint(ctx, args, (offer) => offer.call.args.action === 'answer') },
       handler: async (ctx, args) => {
         const { item, slug } = await resolveItem(ctx, args)
         if (item.kind !== 'question') throw new V2ToolError('invalid_input', ctx.v2.t('inbox.error.not_question'), { state: inboxItemState(ctx, item, slug) })
@@ -586,7 +600,8 @@ export const inboxTool = defineTool({
     act: {
       tier: 'read',
       required: ['ref', 'offerId'],
-      doc: 'Runs state.offers[offerId].call; add what offer.needs names (answer, optionId, options.*). options.version: refuse if the item changed.',
+      doc: 'Runs state.offers[offerId].call; add what offer.needs names (answer, optionId, options.*). No offerId: the person picks. options.version: refuse if the item changed.',
+      choose: { fields: ['offerId'], point: (ctx, args) => itemPoint(ctx, args) },
       handler: async (ctx, args) => {
         const { item, slug } = await resolveItem(ctx, args)
         const facts = readInboxFacts(itemScope(ctx), [item], { analysis: true }).get(item.id)

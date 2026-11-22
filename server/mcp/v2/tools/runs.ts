@@ -15,6 +15,7 @@ import { formatRef, parseRef, type Ref, type Target } from '../core/refs'
 import { statusFromJob, type CanonicalStatus } from '../core/status-map'
 import { approxTokens } from '../core/size-guard'
 import { neutralize, untrusted } from '../core/untrusted'
+import { choicesFromState, type Choice, type ChoicePoint } from '../core/choices'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
 import { projectRunState, type RunFacts } from '../projectors/run-state'
 
@@ -420,6 +421,57 @@ function requireOffer(ctx: V2CallContext, state: DecisionState, matches: (offer:
   })
   const message = [ctx.v2.t('runs.error.not_held', { label: `specrails_runs(${ctx.v2.action})`, status: state.label }), ...(offered.length ? [ctx.v2.t('runs.error.offered', { offers: [...new Set(offered)].join(', ') })] : [])].join(' ')
   throw new V2ToolError('held', message, { state })
+}
+
+// ── Decision points (the person picks: core/choices.ts) ────────────────────
+
+/** A run question as a menu (its options, the recommended first) plus a free answer; an approval: approve, or reject with a reason. */
+async function answerPoint(ctx: V2CallContext, args: Row): Promise<ChoicePoint | null> {
+  const run = await loadRun(ctx, runTarget(ctx, args), { runtime: true })
+  const state = runState(ctx, run)
+  const ref = run.target.ref
+  const question = rec(run.job.question)
+  const text = oneLine(neutralize(String(question.text ?? state.hold?.reason ?? state.label)), 300)
+  if (state.offers.some((offer) => offer.id === 'answer')) {
+    const effect = ctx.v2.t('core.choice.run.answer')
+    const choices: Choice[] = arr(question.options).map(rec).filter((option) => option.id !== undefined && option.id !== null).map((option) => ({
+      id: String(option.id), label: oneLine(neutralize(String(option.label ?? option.id)), 80), effect,
+      ...(question.recommended === option.id ? { recommended: true } : {}),
+      call: { tool: 'specrails_runs', args: { action: 'answer', ref, optionId: option.id } },
+    }))
+    return { question: text, choices, other: { call: { tool: 'specrails_runs', args: { action: 'answer', ref } }, field: 'answer' } }
+  }
+  const approve = state.offers.find((offer) => offer.id === 'approve')
+  if (!approve) return null
+  const reject = state.offers.find((offer) => offer.id === 'reject')
+  return {
+    question: text, choices: choicesFromState(state, (offer) => offer.id === 'approve'),
+    ...(reject ? { other: { call: reject.call, field: 'answer', title: ctx.v2.t('core.choose.other_reject') } } : {}),
+  }
+}
+
+/** A provider-limit pause as a menu: try again, resume at the reset, or continue on each provider it can switch to. */
+async function limitPoint(ctx: V2CallContext, args: Row): Promise<ChoicePoint | null> {
+  const { target } = await runOrRail(ctx, args)
+  const run = await loadRun(ctx, target)
+  const state = runState(ctx, run)
+  const limits = state.offers.filter((offer) => offer.call.args.action === 'limit')
+  if (!limits.length) return null
+  const targets = arr(rec(run.job.loopPauseLimit ?? run.loopRun?.limitPause).switchTargets).map(rec).filter((candidate) => str(candidate.provider))
+  const choices = choicesFromState(state, (offer) => offer.call.args.action === 'limit' && offer.call.args.choice !== 'switch')
+  const switchOffer = limits.find((offer) => offer.call.args.choice === 'switch')
+  if (switchOffer) {
+    for (const [index, candidate] of targets.entries()) {
+      const provider = String(candidate.provider)
+      choices.push({
+        id: index === 0 ? switchOffer.id : `limit.switch.${provider}`,
+        label: ctx.v2.t('runs.offer.continue_on', { provider }), effect: ctx.v2.t('runs.choice.continue_on', { provider }),
+        ...(index === 0 && state.recommended === switchOffer.id ? { recommended: true } : {}),
+        call: { tool: 'specrails_runs', args: { action: 'limit', ref: target.ref, choice: 'switch', provider, ...(str(candidate.model) ? { model: candidate.model } : {}) } },
+      })
+    }
+  }
+  return { question: oneLine(`${titleOf(run.job)} — ${state.hold?.reason ?? state.label}`, 300), choices }
 }
 
 // ── Rails helpers (shared with rails.ts) ────────────────────────────────────
@@ -890,7 +942,8 @@ export const runsTool = defineTool({
     },
     answer: {
       tier: 'write', required: ['ref'], oneOf: ['answer', 'optionId'],
-      doc: 'the pending question: optionId (data.question.options) or a free answer',
+      doc: 'the pending question: optionId (data.question.options) or a free answer; neither: the person picks',
+      choose: { fields: ['answer', 'optionId'], point: answerPoint },
       handler: async (ctx, args) => {
         const run = await loadRun(ctx, runTarget(ctx, args), { runtime: true })
         const state = runState(ctx, run)
@@ -930,7 +983,8 @@ export const runsTool = defineTool({
     },
     limit: {
       tier: (args) => args.choice === 'switch' ? 'ai-spawn' : 'write', confirm: LIMIT_SWITCH, required: ['ref', 'choice'],
-      doc: 'choice resume_now | auto (options.enabled) | switch (provider, model?, effort?, options.remember)',
+      doc: 'choice resume_now | auto (options.enabled) | switch (provider, model?, effort?, options.remember); no choice: the person picks',
+      choose: { fields: ['choice'], point: limitPoint },
       preview: (ctx, args) => costedPreview(ctx, args, 'runs.preview.resume'),
       handler: async (ctx, args) => {
         const { target } = await runOrRail(ctx, args)

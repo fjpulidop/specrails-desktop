@@ -51,7 +51,7 @@
   "offer.triage": "Triage it",
   "offer.runs": "See its runs",
   "offer.review": "Review its delivery",
-  "offer.iterate": "Add a change for next run",
+  "offer.iterate": "Add a change for later",
   "offer.reopen": "Reopen it",
   "offer.smash": "Split it into sub-specs",
   "confirm.create": "The spec agent writes a new spec of {{ref}} from the request.",

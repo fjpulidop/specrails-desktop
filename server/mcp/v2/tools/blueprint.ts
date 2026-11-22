@@ -9,7 +9,8 @@ import type { Blueprint } from '../../../modules/builder/runtime/blueprint-types
 import { shortHash } from '../core/canonical'
 import { pageOf } from '../core/cursor'
 import type { DecisionState, OfferDraft } from '../core/decision-state'
-import { V2ToolError, result } from '../core/envelope'
+import { V2ToolError, oneLine, result } from '../core/envelope'
+import { choicesFromState } from '../core/choices'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { clipUntrusted, untrusted } from '../core/untrusted'
@@ -923,7 +924,15 @@ export const blueprintTool = defineTool({
     },
     chain_resume: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref'],
-      doc: 'Execute the plan: from recommended (default), failed_step or start.',
+      doc: 'Execute the plan: from recommended, failed_step or start. No from: the person picks.',
+      choose: {
+        fields: ['from'],
+        point: async (ctx, args) => {
+          const { project, chain } = await chainTarget(ctx, args)
+          const state = chainStateOf(ctx, project, chain, await railsOfChain(ctx, project, chain))
+          return { question: oneLine(state.hold?.reason ?? state.label, 300), choices: choicesFromState(state) }
+        },
+      },
       preview: async (ctx, args) => {
         const { project, chain } = await chainTarget(ctx, args)
         const rails = await railsOfChain(ctx, project, chain)

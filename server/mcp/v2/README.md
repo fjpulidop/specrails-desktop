@@ -18,6 +18,7 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `core/refs.ts` | global refs and fuzzy project resolution |
 | `core/status-map.ts`, `core/decision-state.ts`, `core/decision-sources.ts` | status vocabulary, `DecisionState`, offers from domain rules |
 | `core/confirm.ts` | confirmTokens (HMAC, single use, stale detection) and the spend threshold |
+| `core/choices.ts` | decision points as choices: the client's form (elicitation), the agent's menu fallback, free text |
 | `core/lang.ts`, `i18n/**` | language resolution and message catalogs |
 | `core/text.ts` | shared value helpers (`present`, `asRecord`, `clip`, `clipDeep`) |
 | `core/untrusted.ts` | untrusted-content pointers, `neutralize`, `reveal`, `clipUntrusted` |
@@ -27,7 +28,7 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `core/commit-tracker.ts` | in-process `blueprint:<commitId>` tracking from `blueprint.commit_*` frames |
 | `tools/*.ts` | one file per tool, owned by its work package |
 | `instructions.ts` | server instructions (≤ 600 tokens; `prompts.test.ts` checks every protocol rule is stated) |
-| `prompts.ts` | MCP prompts: start-my-day, review-waiting, ship-milestone, why-stuck |
+| `prompts.ts` | MCP prompts: start-my-day, review-waiting, ship-milestone, why-stuck, implement, spend (choice-driven) |
 | `guide.ts` | v2 guide topics for `specrails_system(help, topic)` and `specrails://guide/{topic}` |
 | `docs-reference.ts` | generates `docs/agents/mcp.md` from the catalog (`UPDATE_MCP_DOCS=1` on `docs-reference.test.ts`) |
 | `../connect/` | one-command connect for Claude Code and Codex (`/api/mcp-admin/connect`, `specrails-desktop mcp connect`), the entry's stable Node (`node-path.ts`) and the read-only `mcp doctor` (`doctor.ts`, `/api/mcp-admin/doctor`) |

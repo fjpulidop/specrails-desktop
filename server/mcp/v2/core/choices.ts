@@ -68,6 +68,28 @@ export function choicesFromState(state: Pick<DecisionState, 'offers' | 'recommen
   }))
 }
 
+/** True when there is something to decide: a choice, or a free-text answer the server can send. */
+export function hasDecision(point: ChoicePoint | null | undefined): point is ChoicePoint {
+  return Boolean(point && (point.choices.length || (point.other?.call && point.other.field)))
+}
+
+/**
+ * Where a state's free-text answer goes: an offer that takes the person's own words (an answer), a
+ * delivery's request for changes (the note), or a rejection (the reason). None: the text goes back to the agent.
+ */
+export function freeTextOf(state: Pick<DecisionState, 'offers'>, t: Translate): ChoicePoint['other'] {
+  const answer = state.offers.find((offer) => offer.needs?.some((need) => need.split('|').includes('answer')))
+  if (answer) return { call: answer.call, field: 'answer' }
+  const changes = state.offers.find((offer) => offer.call.args.decision === 'request_changes')
+  if (changes) return { call: changes.call, field: 'note', title: t('core.choose.other_changes') }
+  const reject = state.offers.find((offer) => offer.call.args.action === 'reject')
+  if (reject) return { call: reject.call, field: 'answer', title: t('core.choose.other_reject') }
+  return undefined
+}
+
+/** One-click choices of a state: offers that need nothing more from the person. */
+export const oneClick = (offer: Offer): boolean => !offer.needs?.length
+
 /** Recommended first, then the domain order (stable). */
 export function orderChoices(choices: readonly Choice[]): Choice[] {
   return [...choices.filter((choice) => choice.recommended), ...choices.filter((choice) => !choice.recommended)]
@@ -105,12 +127,14 @@ export function choiceForm(point: ChoicePoint, t: Translate): Record<string, unk
     requestedSchema: {
       type: 'object',
       properties: {
-        choice: {
-          type: 'string', title: t('core.choose.field'),
-          enum: choices.map((choice) => choice.id),
-          enumNames: choices.map((choice) => choiceTitle(choice, t)),
-          ...(choices[0]?.recommended ? { default: choices[0].id } : {}),
-        },
+        ...(choices.length ? {
+          choice: {
+            type: 'string', title: t('core.choose.field'),
+            enum: choices.map((choice) => choice.id),
+            enumNames: choices.map((choice) => choiceTitle(choice, t)),
+            ...(choices[0]?.recommended ? { default: choices[0].id } : {}),
+          },
+        } : {}),
         other: { type: 'string', title: point.other?.title ?? t('core.choose.other'), maxLength: 2000 },
       },
     },
@@ -125,7 +149,7 @@ export function choiceForm(point: ChoicePoint, t: Translate): Record<string, unk
  */
 export async function askChoice(extra: unknown, t: Translate, point: ChoicePoint): Promise<Picked | 'decline' | null> {
   const send = (extra as AskExtra | undefined)?.sendRequest
-  if (typeof send !== 'function' || !point.choices.length) return null
+  if (typeof send !== 'function' || !hasDecision(point)) return null
   try {
     const answer = await send({ method: 'elicitation/create', params: choiceForm(point, t) }, ElicitResultSchema, { signal: (extra as AskExtra).signal, timeout: ASK_PERSON_TIMEOUT_MS })
     if (answer.action === 'decline') return 'decline'

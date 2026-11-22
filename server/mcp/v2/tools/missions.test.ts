@@ -382,6 +382,20 @@ describe('specrails_missions: get, cards and links', () => {
     expect((await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: 'dismiss' })).envelope.error.code).toBe('conflict')
   })
 
+  it('card_decide without a decision is a menu of the card\'s decisions; free text becomes a message', async () => {
+    const id = mission()
+    seedCards(id)
+    const cards = (await missions({ action: 'get', ref: `mission:${id}` })).envelope.data.pendingCards
+    const options = cards.find((c: Row) => c.kind === 'options')
+    const menu = (await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: options.id })).envelope
+    expect(menu).toMatchObject({ ok: true, data: { other: { field: 'message', call: { tool: 'specrails_missions', args: { action: 'send', ref: `mission:${id}` } } } } })
+    expect(menu.data.choices.map((c: Row) => c.id)).toEqual(['option.0', 'option.1'])
+    expect(menu.data.choices[0]).toMatchObject({ label: 'Reply: Ship it', effect: expect.stringContaining('new turn'), call: { args: { action: 'card_decide', cardId: options.id, decision: '0' } } })
+    // A delivery card is decided in specrails_deliveries: no menu here.
+    const delivery = cards.find((c: Row) => c.kind === 'pr_decision')
+    expect((await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: delivery.id })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('card_decide answers options (a send), starts CI, and points delivery cards to specrails_deliveries', async () => {
     const id = mission()
     seedCards(id)

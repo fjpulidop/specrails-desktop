@@ -12,6 +12,7 @@ import { formatRef, parseRef, type Ref } from '../core/refs'
 import { neutralize, untrusted } from '../core/untrusted'
 import { shortHash } from '../core/canonical'
 import { approxTokens } from '../core/size-guard'
+import { choicesFromState, type ChoicePoint } from '../core/choices'
 import type { DecisionState } from '../core/decision-state'
 import { apiCall } from '../../tools/types'
 import { railsSnapshot } from './runs'
@@ -578,6 +579,22 @@ async function decideCard(ctx: V2CallContext, args: Row): Promise<unknown> {
   throw new V2ToolError('invalid_input', ctx.v2.t('missions.error.card_decided', { card: card.id, decisions: '—' }))
 }
 
+/** A pending card as a menu (its decisions, recommended first); the person's own words go to the agent as a message. */
+async function cardPoint(ctx: V2CallContext, args: Row): Promise<ChoicePoint | null> {
+  const { id, ref } = missionId(ctx, args)
+  const read = await readMission(ctx, id)
+  const cards = projectCards(read.messages, { busy: read.live.isStreaming === true })
+  const card = cards.find((item) => item.id === args.cardId && item.pending)
+  if (!card || card.kind === 'pr_decision') return null
+  const state = missionState(ctx, id, read, cards)
+  const choices = choicesFromState(state, (offer) => offer.call.args.action === 'card_decide' && offer.call.args.cardId === card.id)
+  const title = neutralize(String(read.conversation.title ?? ''))
+  return {
+    question: oneLine(title ? `${title} — ${state.hold?.reason ?? state.label}` : state.hold?.reason ?? state.label, 300), choices,
+    other: { call: { tool: 'specrails_missions', args: { action: 'send', ref } }, field: 'message', title: ctx.v2.t('core.choose.other_message') },
+  }
+}
+
 async function cardPreview(ctx: V2CallContext, args: Row): Promise<PreviewInput> {
   const { id, ref, read, cards, card } = await cardOf(ctx, args)
   const state = missionState(ctx, id, read, cards)
@@ -1074,7 +1091,8 @@ export const missionsTool = defineTool({
       tier: (args) => isSpendDecision(args) ? 'ai-spawn' : 'write',
       confirm: (args) => isSpendDecision(args) ? 'costly' : null,
       required: ['ref', 'cardId', 'decision'],
-      doc: 'Decides a pending card (ids and decisions in get: pendingCards). options: option index or text; intent-draft: restated|alternative|explore (start Intent from it)|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
+      choose: { fields: ['decision'], point: cardPoint },
+      doc: 'Decides a pending card (ids and decisions in get: pendingCards; no decision: the person picks). options: option index or text; intent-draft: restated|alternative|explore (start Intent from it)|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
       preview: cardPreview,
       handler: decideCard,
     },
