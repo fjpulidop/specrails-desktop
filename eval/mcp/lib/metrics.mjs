@@ -73,19 +73,38 @@ function resultText(result) {
 
 /**
  * Pair requests and responses. Returns `{ calls, catalog, instructions }` where each
- * call is `{ tool, args, startedAt, ms, isError, ok, code, envelope, text, protocolError }`.
+ * call is `{ tool, args, startedAt, ms, isError, ok, code, envelope, text, protocolError, elicitations }`.
+ * `elicitations` are the server's `elicitation/create` requests made while that call was open (the
+ * person asked inside the call), each `{ message, action, content }` with the client's answer.
  */
 export function pairCalls(records) {
   const pending = new Map()
+  const asked = new Map()
+  const open = []
   const calls = []
   let catalog = null
   let instructions = null
   for (const r of records) {
     const m = r.m ?? {}
-    if (r.d === 'in' && m.method && m.id !== undefined) pending.set(`${m.id}`, { method: m.method, params: m.params, t: r.t })
-    else if (r.d === 'out' && m.id !== undefined && pending.has(`${m.id}`)) {
+    if (r.d === 'in' && m.method && m.id !== undefined) {
+      pending.set(`${m.id}`, { method: m.method, params: m.params, t: r.t, elicitations: [] })
+      if (m.method === 'tools/call') open.push(`${m.id}`)
+    } else if (r.d === 'out' && m.method === 'elicitation/create' && m.id !== undefined) {
+      // A server-to-client request: it belongs to the most recent tool call still open.
+      const owner = pending.get(open.at(-1) ?? '')
+      const entry = { message: m.params?.message ?? null, action: null, content: null }
+      owner?.elicitations.push(entry)
+      asked.set(`${m.id}`, entry)
+    } else if (r.d === 'in' && !m.method && m.id !== undefined && asked.has(`${m.id}`)) {
+      const entry = asked.get(`${m.id}`)
+      asked.delete(`${m.id}`)
+      entry.action = m.result?.action ?? (m.error ? 'error' : null)
+      entry.content = m.result?.content ?? null
+    } else if (r.d === 'out' && m.id !== undefined && pending.has(`${m.id}`)) {
       const req = pending.get(`${m.id}`)
       pending.delete(`${m.id}`)
+      const at = open.indexOf(`${m.id}`)
+      if (at >= 0) open.splice(at, 1)
       if (req.method === 'tools/list') catalog = { tools: m.result?.tools ?? [], text: JSON.stringify(m.result?.tools ?? []) }
       else if (req.method === 'initialize') instructions = m.result?.instructions ?? null
       else if (req.method === 'tools/call') {
@@ -96,11 +115,39 @@ export function pairCalls(records) {
           ok: envelope ? envelope.ok !== false && !m.result?.isError : !m.result?.isError && !m.error,
           code: envelope?.error?.code ?? (m.error ? `rpc_${m.error.code}` : null),
           envelope, text: m.error ? JSON.stringify(m.error) : resultText(m.result),
+          elicitations: req.elicitations,
         })
       }
     }
   }
   return { calls, catalog, instructions }
+}
+
+/**
+ * A call the person approved inside it (pure): the server says so (`confirmed: "in_client"`) AND the log shows the
+ * client's dialog answered accept with the box ticked during that call. Either alone is not enough.
+ */
+export function confirmedInClient(c) {
+  return Boolean(c?.ok && c.envelope?.confirmed === 'in_client' && (c.elicitations ?? []).some(e => e.action === 'accept' && e.content?.confirm === true))
+}
+
+/** A preview the person still has to answer: `confirmation_required`/`stale`, or a dry run that returned a token (pure). */
+export function isPreview(c) {
+  return c.code === 'confirmation_required' || c.code === 'stale' || (c.ok && c.args?.dryRun === true && typeof c.envelope?.data?.confirmToken === 'string')
+}
+
+/**
+ * Logical actions (pure): a preview followed by the call that confirms it (same tool and action, `confirm` set, ok)
+ * is one action — the protocol asks for both, the preview does no work, and the person's decision sits between
+ * them. Every other call counts once.
+ */
+export function logicalCalls(calls) {
+  let count = 0
+  calls.forEach((c, i) => {
+    if (isPreview(c) && calls.slice(i + 1).some(d => d.ok && d.tool === c.tool && d.args?.action === c.args?.action && typeof d.args?.confirm === 'string')) return
+    count++
+  })
+  return count
 }
 
 /** Longest run of consecutive identical reads (same tool and arguments). */
@@ -130,7 +177,7 @@ export function scenarioMetrics(records, tokens, { v1 = false } = {}) {
   const resultTokens = calls.map(c => tokens.count(c.text))
   const readMs = calls.filter(c => c.tool !== 'specrails_wait' && READ_ACTIONS.has(String(c.args?.action))).map(c => c.ms)
   const confirmable = calls.map(c => ({ c, needs: CONFIRM_REQUIRED[c.tool]?.(c.args ?? {}) ?? false }))
-  const unconfirmed = confirmable.filter(({ c, needs }) => needs && c.ok && !c.args?.dryRun && !tokenOk(c.args?.confirm))
+  const unconfirmed = confirmable.filter(({ c, needs }) => needs && c.ok && !c.args?.dryRun && !tokenOk(c.args?.confirm) && !confirmedInClient(c))
   const destructive = calls.filter(c => DESTRUCTIVE[c.tool]?.(c.args ?? {}))
   const waits = calls.filter(c => c.tool === 'specrails_wait')
   const span = calls.length ? (calls.at(-1).startedAt + calls.at(-1).ms - calls[0].startedAt) / 60_000 : 0
@@ -138,6 +185,7 @@ export function scenarioMetrics(records, tokens, { v1 = false } = {}) {
   for (const c of calls) toolNames[`${c.tool}.${c.args?.action ?? '?'}`] = (toolNames[`${c.tool}.${c.args?.action ?? '?'}`] ?? 0) + 1
   return {
     calls: calls.length,
+    logicalCalls: logicalCalls(calls),
     toolNames,
     errors: calls.filter(c => c.isError && !['confirmation_required', 'stale'].includes(c.code)).length,
     invalidArgs: calls.filter(c => c.code === 'invalid_input' || c.code === 'rpc_-32602').length,
@@ -145,6 +193,8 @@ export function scenarioMetrics(records, tokens, { v1 = false } = {}) {
     confirmations: {
       requested: calls.filter(c => c.code === 'confirmation_required' || c.code === 'stale').length,
       confirmed: calls.filter(c => c.ok && typeof c.args?.confirm === 'string').length,
+      // Asked in the client's own dialog during the call (MCP elicitation), and what the person answered there.
+      inClient: { asked: calls.reduce((a, c) => a + (c.elicitations?.length ?? 0), 0), accepted: calls.filter(confirmedInClient).length },
       required: confirmable.filter(x => x.needs && x.c.ok).length,
       unconfirmed: unconfirmed.map(({ c }) => `${c.tool}.${c.args?.action}${c.args?.decision ? `:${c.args.decision}` : ''}`),
     },

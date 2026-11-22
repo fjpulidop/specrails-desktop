@@ -1,6 +1,7 @@
 // Fixture projects and states, created through the isolated app's HTTP API
 // (repositories are throwaway, with local bare remotes under the work dir).
 import fs from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { createRepo } from '../../../scripts/benchmark/lib/repos.mjs'
 import { registerProject } from '../../../scripts/benchmark/lib/driver.mjs'
 
@@ -18,9 +19,23 @@ export async function seedProject(api, workDir, name, { template = 'node-lib', f
     if (rails.status === 200) break
     await sleep(500)
   }
+  // Registering installs Specrails' agent files into the repository; a real project commits them (otherwise every
+  // local integration has to stash and restore them around the merge).
+  commitInstalled(repo)
   const projects = await api.get('/projects')
   const row = (projects.data?.projects ?? projects.data ?? []).find(p => p.id === id)
   return { id, slug: row?.slug ?? name, name: row?.name ?? name, path: repo }
+}
+
+/** Commit whatever setup left uncommitted in a seeded repository (no-op when clean). */
+export function commitInstalled(repo) {
+  const git = (...args) => spawnSync('git', ['-c', 'user.name=Specrails eval', '-c', 'user.email=eval@specrails.invalid', ...args], { cwd: repo, encoding: 'utf8' })
+  if (!git('status', '--porcelain').stdout.trim()) return false
+  git('add', '-A')
+  if (git('commit', '-q', '-m', 'chore: add the Specrails setup').status !== 0) return false
+  // The throwaway local bare remote (createRepo), so runs branch from the same base.
+  git('push', '-q', 'origin', 'HEAD')
+  return true
 }
 
 export async function seedSpec(api, project, { title, description = '', priority }) {

@@ -68,8 +68,35 @@ function premiumCriteria(seed = '') {
   ]
 }
 
-// The four slices of the todo CLI the blueprint describes (a coherent product reads as one to a real agent).
-const SLICES = ['add a todo', 'list the todos', 'mark a todo done', 'delete a todo']
+// The slices of the todo CLI the blueprint describes (a coherent product reads as one to a real agent). The person's
+// messages pick them: a Builder that honours "also let me edit" or "filter in Milestone 1" revises, as a real one would.
+export const FEATURES = Object.freeze([
+  { slice: 'add a todo', words: /\b(add|adds|adding|create|new (todo|task))\b/i },
+  { slice: 'list the todos', words: /\b(list|lists|listing|show|view)\b/i },
+  { slice: 'mark a todo done', words: /\b(done|complete|completes|completed|completing|finish|mark|toggle|check off)\b/i },
+  { slice: 'edit a todo', words: /\b(edit|edits|editing|rename|update a (todo|task))\b/i },
+  { slice: 'delete a todo', words: /\b(delete|deletes|deleting|remove|removes)\b/i },
+  { slice: 'filter the todos by status', words: /\b(filter|filters|filtering)\b/i },
+  { slice: 'set a due date', words: /\bdue[- ]dates?\b/i },
+  { slice: 'set a priority', words: /\bpriorit(y|ies|ize)\b/i },
+  { slice: 'search the todos', words: /\bsearch\b/i },
+])
+const DEFAULT_SLICES = ['add a todo', 'list the todos', 'mark a todo done', 'delete a todo']
+const LATER = [{ slice: 'set a due date', title: 'Due dates' }, { slice: 'filter the todos by status', title: 'Filter by status' }]
+
+/**
+ * The Milestone-1 slices for a Builder turn (pure): what this message asks for, added to what the conversation
+ * already had (`previous`, in the feature order), padded with the core flow to the gate's minimum of four.
+ */
+export function slicesFor(message, previous = []) {
+  const named = FEATURES.filter(f => f.words.test(String(message ?? ''))).map(f => f.slice)
+  const wanted = new Set([...previous, ...named])
+  // The Builder's gate wants 5–10 Milestone-1 specs (the scaffold plus 4–9 slices): pad with the core flow.
+  for (const slice of DEFAULT_SLICES) if (wanted.size < 4) wanted.add(slice)
+  return FEATURES.map(f => f.slice).filter(s => wanted.has(s))
+}
+
+let SLICES = DEFAULT_SLICES
 
 function premiumSpec(index, over = {}) {
   const scaffold = index === 0
@@ -95,19 +122,20 @@ function premiumSpec(index, over = {}) {
  * `[eval-engine:<mode>]` the person's message carried) rides into the first
  * spec, so the milestone chain's first run behaves that way (pure).
  */
-export function builderReply({ marker = null } = {}) {
-  const specs = Array.from({ length: 5 }, (_, i) => premiumSpec(i))
+export function builderReply({ marker = null, slices = DEFAULT_SLICES } = {}) {
+  SLICES = slices
+  const specs = Array.from({ length: slices.length + 1 }, (_, i) => premiumSpec(i))
   if (marker) specs[0] = { ...specs[0], description: `${specs[0].description}\n\n${marker}` }
   const blueprint = {
     blueprintVersion: 1,
     product: { name: 'Todo CLI', pitch: 'A minimal command-line todo list.', audience: 'Developers who live in the terminal' },
-    coreFlow: 'Add a todo, list todos, mark one done, delete one.',
+    coreFlow: `${slices.map(s => s.replace(/^./, c => c.toUpperCase())).join(', ')}.`,
     platform: 'CLI (Node.js)',
     stack: { language: 'JavaScript', framework: 'Node.js', db: 'JSON file' },
     assumptions: ['Single user, local machine'],
     milestones: [
       { id: 'M1', title: 'Walking skeleton', goal: 'A runnable, tested CLI with the core flow.', status: 'planned', plannedSpecs: specs.map(s => s.title) },
-      { id: 'M2', title: 'Polish', goal: 'Due dates and filters.', status: 'planned', plannedSpecs: ['Due dates', 'Filter by status'] },
+      { id: 'M2', title: 'Polish', goal: 'What comes after the core flow.', status: 'planned', plannedSpecs: LATER.filter(l => !slices.includes(l.slice)).map(l => l.title).concat(['Export the list']).slice(0, 2) },
     ],
     specsComplete: true,
     m1Specs: specs,

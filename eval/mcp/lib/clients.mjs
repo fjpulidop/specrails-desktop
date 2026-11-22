@@ -12,7 +12,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { assertClientHome, clientEnv, CREDENTIAL_KEYS } from './isolation.mjs'
+
+const PERSON_DIALOG = path.join(path.dirname(fileURLToPath(import.meta.url)), 'person-dialog.mjs')
 
 export const CLIENTS = Object.freeze(['claude', 'codex', 'replay'])
 /** Claude runs on haiku by default; Codex on its own configured default unless --model is given. */
@@ -31,12 +34,13 @@ const tomlString = s => JSON.stringify(String(s))
  * Write the client's temp home and MCP registration; returns `{ home, cwd, configFile, auth }`.
  * In session mode only the cwd (and Claude's MCP config file) are created, inside the work dir; HOME is the person's.
  */
-export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', effort = 'low', userHome = os.homedir() }) {
+export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', effort = 'low', userHome = os.homedir(), dialog = null }) {
   if (auth === 'session') {
     const scratch = assertClientHome(dir, root)
     const cwd = path.join(scratch, 'work')
     fs.mkdirSync(cwd, { recursive: true })
     if (client === 'claude') {
+      if (dialog) writePersonDialog(cwd, dialog, path.join(scratch, 'dialog.jsonl'))
       const configFile = path.join(scratch, 'mcp.json')
       fs.writeFileSync(configFile, JSON.stringify({ mcpServers: { specrails: { command: proxy.command, args: proxy.args } } }, null, 2))
       return { home: userHome, cwd, configFile, auth }
@@ -47,6 +51,7 @@ export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', eff
   const cwd = path.join(home, 'work')
   fs.mkdirSync(cwd, { recursive: true })
   if (client === 'claude') {
+    if (dialog) writePersonDialog(cwd, dialog, path.join(home, 'dialog.jsonl'))
     const configFile = path.join(home, 'mcp.json')
     fs.writeFileSync(configFile, JSON.stringify({ mcpServers: { specrails: { command: proxy.command, args: proxy.args } } }, null, 2))
     return { home, cwd, configFile, auth }
@@ -56,6 +61,24 @@ export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', eff
   const configFile = path.join(codexHome, 'config.toml')
   fs.writeFileSync(configFile, codexConfig(proxy))
   return { home, cwd, configFile, codexHome, auth }
+}
+
+/**
+ * The simulated person behind Claude Code's own confirmation dialog: a project-level `Elicitation` hook in the
+ * scenario's temp cwd (loaded through `--setting-sources project,local`; never the person's settings) that gives
+ * the scenario's yes/no, as the person would by clicking in the dialog. `dialog` is accept | decline | cancel.
+ */
+export function writePersonDialog(cwd, dialog, logFile) {
+  const dir = path.join(cwd, '.claude')
+  fs.mkdirSync(dir, { recursive: true })
+  const command = [process.execPath, PERSON_DIALOG, dialog, logFile].map(part => JSON.stringify(part)).join(' ')
+  fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({ hooks: { Elicitation: [{ hooks: [{ type: 'command', command }] }] } }, null, 2))
+}
+
+/** What the person answers in a dialog (pure): their decline, else their yes, else no answer (the chat flow). */
+export function dialogAnswer(person = {}) {
+  if (Array.isArray(person.replies)) return null
+  return person.decline ? 'decline' : person.confirm ? 'accept' : null
 }
 
 /** The temp CODEX_HOME config.toml: only the Specrails server (pure). */

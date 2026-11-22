@@ -3,7 +3,7 @@
 // work for the `complete` mode.
 import fs from 'node:fs'
 import path from 'node:path'
-import { builderReply } from './builder.mjs'
+import { builderReply, slicesFor } from './builder.mjs'
 
 export const MODES = Object.freeze(['complete', 'stall', 'limit', 'fail', 'question'])
 const MARKER = /\[eval-engine:([a-z]+)\]/
@@ -84,9 +84,23 @@ function activeChanges(root) {
 }
 
 /** Perform one invocation; returns `{ text, structured?, isError?, exitCode?, stderr? }`. */
-export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig, openspecClient }) {
+/** Where a Builder session keeps its slices (next to the engine log), or null without one. */
+function builderStateFile(session) {
+  const log = process.env.EVAL_ENGINE_LOG
+  return log && session ? path.join(path.dirname(log), 'builder-sessions', `${String(session).replace(/[^\w.-]/g, '_')}.json`) : null
+}
+
+export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig, openspecClient, session = null }) {
   // Builder turns always answer with a full blueprint; a marker in the person's message rides into its first spec.
-  if (role === 'builder') return { text: builderReply({ marker: MARKER.exec(String(prompt ?? ''))?.[0] ?? null }) }
+  if (role === 'builder') {
+    // The slices the conversation asked for so far ride in a per-session file (a resumed turn sees only its message).
+    const file = builderStateFile(session)
+    let previous = []
+    try { previous = file && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).slices ?? [] : [] } catch { previous = [] }
+    const slices = slicesFor(prompt, previous)
+    if (file) try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify({ slices })) } catch { /* best effort */ }
+    return { text: builderReply({ marker: MARKER.exec(String(prompt ?? ''))?.[0] ?? null, slices }) }
+  }
   if (mode === 'limit') return { text: LIMIT_TEXT, isError: true, exitCode: 1, stderr: LIMIT_TEXT }
   if (mode === 'fail') return { text: 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error (scripted)"}}', isError: true, exitCode: 1 }
   const object = roleObject(role, mode, schema)

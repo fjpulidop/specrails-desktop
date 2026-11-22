@@ -6,7 +6,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { modeOf, detectRole, minimalInstance, roleObject, fitToSchema, engineOutput } from './engine/scripted.mjs'
-import { builderReply, isBuilderTurn } from './engine/builder.mjs'
+import { builderReply, isBuilderTurn, slicesFor } from './engine/builder.mjs'
 
 const shim = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'claude')
 const DEV = { type: 'object', additionalProperties: false, required: ['summary', 'incomplete'], properties: { summary: { type: 'string' }, incomplete: { type: 'array', items: { type: 'string' } }, blocker: { type: 'object' } } }
@@ -91,6 +91,15 @@ test('builder turns: a complete blueprint-draft snapshot, the marker riding into
   assert.equal(new Set(plain.m1Specs.map(s => s.title)).size, 5)
   const marked = block(builderReply({ marker: '[eval-engine:question]' }))
   assert.match(marked.m1Specs[0].description, /\[eval-engine:question\]$/)
+  // The person's messages pick the slices (a revision adds to them), always within the gate's 5–10 specs.
+  assert.deepEqual(slicesFor('A small todo app'), ['add a todo', 'list the todos', 'mark a todo done', 'delete a todo'])
+  const first = slicesFor('A todo app: add tasks, mark them done, delete them and filter by all/active/done.')
+  assert.deepEqual(first, ['add a todo', 'mark a todo done', 'delete a todo', 'filter the todos by status'])
+  assert.deepEqual(slicesFor('Please also let me edit a todo.', first), ['add a todo', 'mark a todo done', 'edit a todo', 'delete a todo', 'filter the todos by status'])
+  const revised = block(builderReply({ slices: slicesFor('edit too', first) }))
+  assert.equal(revised.m1Specs.length, 6)
+  assert.ok(revised.m1Specs.some(s => s.title === 'Let the user edit a todo'))
+  assert.ok(!revised.milestones[1].plannedSpecs.includes('Filter by status'))
   const out = await engineOutput({ mode: 'question', role: 'builder', prompt: 'A todo CLI [eval-engine:question]' })
   assert.match(out.text, /```blueprint-draft/)
   assert.match(out.text, /eval-engine:question/)

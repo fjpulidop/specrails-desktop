@@ -25,9 +25,9 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Scripted engine | `engine/claude`, `engine/scripted.mjs`, `engine/builder.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `question` (the architect asks with options) |
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
 | Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment (`--auth session`: see Safety) |
-| Simulated person | `lib/person.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question |
+| Simulated person | `lib/person.mjs`, `lib/person-dialog.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question. Claude Code also shows the server's in-call confirmation dialog (MCP elicitation); a project-level `Elicitation` hook in the scenario's temp cwd gives the same yes/no there (`--no-dialog`: chat only). Codex `exec` declines dialogs, so it stays on the chat flow |
 | Scenarios | `lib/scenarios.mjs` | S1–S15 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
-| Metrics | `lib/metrics.mjs` | calls, tool names, errors (invalid args, wrong tool), confirmations requested/used, irreversible calls without a confirmToken, destructive calls, response tokens (o200k), catalog tokens (Codex shape, as the budget test), read latency, `wait` use, repeated identical reads |
+| Metrics | `lib/metrics.mjs` | calls and logical actions (a preview plus the call that confirms it count as one: the protocol requires both, the preview does no work and the person's decision sits between them; the calls bar uses logical actions against `referenceLogical`, raw calls are reported next to it), confirmations given in the client dialog (counted only when the server marks `confirmed: "in_client"` and the log shows the dialog's accept during that call), tool names, errors (invalid args, wrong tool), confirmations requested/used, irreversible calls without a confirmToken, destructive calls, response tokens (o200k), catalog tokens (Codex shape, as the budget test), read latency, `wait` use, repeated identical reads |
 | Report | `lib/report.mjs` | Pass bars of the plan, per-scenario table, failed assertions, savings vs v1, probe, quota |
 | Load probe | `lib/probe.mjs` | Read mix over the 100-project seed (`--fleet n`), and `wait` wake-up after an HTTP change |
 
@@ -69,6 +69,11 @@ served through the legacy bridge carries a deprecation warning).
 - Quota: before each Claude scenario the harness reads the 5-hour window through the isolated app's own
   subscription-usage reader and skips at `--stop-at-window` (default 70 %). `--max-cost-usd` (default $1) caps the
   client spend of one run.
-- Repositories are throwaway, with local bare remotes under the work dir. Nothing is pushed elsewhere.
+- Repositories are throwaway, with local bare remotes under the work dir. Nothing is pushed elsewhere. A seeded
+  project commits the files Specrails' setup adds (as a real project would), so a local integration does not have to
+  stash them.
+- Between scenarios: a provider quota refusal that outlives a scenario (S4's scripted Claude limit) would hold every
+  later run, so the harness stops the instance, drops the persisted refusal from its own `desktop.sqlite` and boots it
+  again. Each turn's raw client stream is kept as `clients/<scenario>/turn-<n>.jsonl`.
 
 Tests: `node --test eval/mcp/*.test.mjs` (also part of `npm run test:scripts`; macOS/Linux).

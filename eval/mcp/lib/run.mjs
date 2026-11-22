@@ -2,11 +2,12 @@
 // (seed, conversation with the simulated person, HTTP checker, server-side
 // metrics) → optional load probe → JSON + Markdown report.
 import fs from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { assertEvalTarget } from './isolation.mjs'
 import { bootInstance, EVAL_DIR } from './instance.mjs'
 import { connectMcp, proxyCommand } from './mcp-client.mjs'
-import { prepareClientHome, runTurn, mergeUsage, authProblem, DEFAULT_MODELS } from './clients.mjs'
+import { prepareClientHome, runTurn, mergeUsage, authProblem, dialogAnswer, DEFAULT_MODELS } from './clients.mjs'
 import { pairCalls, parseLog, scenarioMetrics } from './metrics.mjs'
 import { nextReply } from './person.mjs'
 import { selectScenarios, pendingReason, promptOf, TOOL_PROBES } from './scenarios.mjs'
@@ -16,6 +17,20 @@ import { buildReport, renderMarkdown } from './report.mjs'
 import { runProbe } from './probe.mjs'
 import { seedManyProjects } from './seed.mjs'
 import { quotaWindows } from '../../../scripts/benchmark/lib/quota.mjs'
+
+/** Whether the instance still holds a provider quota refusal (GET /provider-quota). */
+export async function quotaRefused(api) {
+  const res = await api.get('/provider-quota').catch(() => null)
+  return (res?.data?.providers ?? []).some(p => p?.level === 'rejected')
+}
+
+/** Drop the persisted quota refusals of a STOPPED, harness-owned instance (its desktop.sqlite). */
+export function clearQuotaRefusals(home) {
+  if (!fs.existsSync(path.join(home, '.eval-mcp-home'))) throw new Error(`Refusing to edit ${home}: it was not created by the eval harness`)
+  const db = path.join(home, '.specrails', 'desktop.sqlite')
+  const out = spawnSync('sqlite3', [db, "DELETE FROM desktop_settings WHERE key = 'provider_quota_refusals_v1';"], { encoding: 'utf8' })
+  if (out.status !== 0) throw new Error(`clearing the quota refusals: ${(out.stderr || out.error?.message || '').slice(0, 200)}`)
+}
 
 const stamp = (d = new Date()) => d.toISOString().replace(/[:.]/g, '-').slice(0, 19)
 
@@ -52,14 +67,15 @@ export async function runEval(o, { log = console.log } = {}) {
   fs.mkdirSync(runDir, { recursive: true })
   const model = o.model ?? DEFAULT_MODELS[o.client] ?? null
   const tokens = await tokenCounter()
-  const instance = await bootInstance({ home: target.home, port: target.port, clientPort: target.clientPort, workDir: o.workDir, v2: !o.v1, coreDir: o.coreDir, fresh: o.fresh, log })
+  const boot = fresh => bootInstance({ home: target.home, port: target.port, clientPort: target.clientPort, workDir: o.workDir, v2: !o.v1, coreDir: o.coreDir, fresh, log })
+  let instance = await boot(o.fresh)
   const quota = []
   const rows = []
   let probe = null
   let spent = 0
   try {
     // Tool availability is a v2 property; the v1 baseline runs the scenarios v2 can run.
-    const prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
+    let prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
     const v2Instance = !o.v1
     const available = v2Instance ? await probeTools(prober) : Object.fromEntries(Object.keys(TOOL_PROBES).map(t => [t, !['specrails_blueprint', 'specrails_missions', 'specrails_insights', 'specrails_settings', 'specrails_providers', 'specrails_integrations', 'specrails_system'].includes(t)]))
     log(`tools: ${Object.entries(available).map(([t, ok]) => `${t.replace('specrails_', '')}${ok ? '' : ' (pending)'}`).join(', ')}`)
@@ -67,7 +83,7 @@ export async function runEval(o, { log = console.log } = {}) {
     const ctxBase = { api: instance.api, workDir: o.workDir, fleetSize: o.fleet, engineLog: instance.engineLog, mcp: prober, evalHome: target.home, coreDir: o.coreDir, log }
     for (const scenario of selectScenarios(o.scenario)) {
       for (let n = 1; n <= o.repeat; n++) {
-        const row = { id: scenario.id, title: scenario.title, clientName: o.client, model, mode: o.v1 ? 'v1' : 'v2', lang: scenario.lang ?? 'en', repeatIndex: o.repeat > 1 ? n : 0, referenceCalls: scenario.referenceCalls, status: 'pending', reason: null }
+        const row = { id: scenario.id, title: scenario.title, clientName: o.client, model, mode: o.v1 ? 'v1' : 'v2', lang: scenario.lang ?? 'en', repeatIndex: o.repeat > 1 ? n : 0, referenceCalls: scenario.referenceCalls, referenceLogical: scenario.referenceLogical ?? scenario.referenceCalls, status: 'pending', reason: null }
         rows.push(row)
         const pending = pendingReason(scenario, available, { client: o.client }) ?? (scenario.fleet && !o.fleet ? '100-project seed disabled (--fleet 0)' : null)
         if (pending) { row.reason = pending; log(`${scenario.id}: pending — ${pending}`); continue }
@@ -110,6 +126,16 @@ export async function runEval(o, { log = console.log } = {}) {
         } finally {
           row.wallMs = Date.now() - t0
           if (scenario.teardown && facts) await scenario.teardown(facts).catch(error => log(`${scenario.id}: teardown — ${String(error?.message ?? error).slice(0, 200)}`))
+          // A scenario must not leave the next one a refused provider (S4's scripted limit): restart without it.
+          if (!instance.reused && await quotaRefused(instance.api)) {
+            log(`${scenario.id}: a provider quota refusal outlived the scenario; restarting the instance without it`)
+            await prober.close().catch(() => {})
+            await instance.stop()
+            clearQuotaRefusals(target.home)
+            instance = await boot(false)
+            prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
+            Object.assign(ctxBase, { api: instance.api, mcp: prober, engineLog: instance.engineLog })
+          }
         }
       }
     }
@@ -141,7 +167,9 @@ async function replayConversation(scenario, facts, proxy) {
 }
 
 async function agentConversation({ o, model, scenario, facts, proxy, dir, root }) {
-  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low' })
+  // Claude Code can show the server's in-call confirmation dialog; the simulated person answers it (--no-dialog: chat only).
+  const dialog = o.client === 'claude' && !o.noDialog ? dialogAnswer(scenario.person) : null
+  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low', dialog })
   let usage = { input: null, output: null, cacheRead: null, cacheWrite: null, costUsd: null }
   let prompt = promptOf(scenario, facts)
   let session = null
@@ -150,6 +178,8 @@ async function agentConversation({ o, model, scenario, facts, proxy, dir, root }
   let turns = 0
   for (; turns < 6; turns++) {
     const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000, budgetUsd: o.client === 'claude' && o.maxCostUsd ? o.maxCostUsd : null })
+    // Keep each turn's raw client stream next to the MCP log (where the tokens and the time went).
+    try { fs.writeFileSync(path.join(dir, `turn-${turns + 1}.jsonl`), turn.stdout ?? '') } catch { /* best effort */ }
     const auth = authProblem(turn)
     if (auth && !turn.parsed.toolUses) return { client: { tokens: usage, costUsd: usage.costUsd }, turns: turns + 1, finalText: turn.parsed.text, authError: auth }
     usage = mergeUsage(o.client, usage, { ...turn.parsed.tokens, costUsd: turn.parsed.costUsd })

@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pairCalls, scenarioMetrics, maxRepeatedReads, canonical, percentile, parseLog, catalogTokens } from './lib/metrics.mjs'
+import { pairCalls, scenarioMetrics, maxRepeatedReads, canonical, percentile, parseLog, catalogTokens, logicalCalls, confirmedInClient } from './lib/metrics.mjs'
+import { dialogAnswer, writePersonDialog } from './lib/clients.mjs'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { approxTokens } from './lib/tokens.mjs'
 
 const tokens = { count: approxTokens }
@@ -111,4 +115,62 @@ test('canonical, percentile and parseLog helpers', () => {
   assert.equal(percentile([5, 1, 3, 2, 4], 95), 5)
   assert.equal(percentile([], 50), null)
   assert.equal(parseLog('{"a":1}\n{torn\n{"b":2}\n').length, 2)
+})
+
+/** A tool call during which the server asked the person in the client's dialog (elicitation/create) and got `answer`. */
+function askedCall(name, args, envelope, answer) {
+  const rid = ++id
+  const start = (t += 100)
+  const text = JSON.stringify(envelope)
+  return [
+    { t: start, d: 'in', m: { jsonrpc: '2.0', id: rid, method: 'tools/call', params: { name, arguments: args } } },
+    { t: (t += 5), d: 'out', m: { jsonrpc: '2.0', id: 0, method: 'elicitation/create', params: { mode: 'form', message: 'Merges it. Go ahead?' } } },
+    { t: (t += 5), d: 'in', m: { jsonrpc: '2.0', id: 0, result: answer } },
+    { t: (t += 5), d: 'out', m: { jsonrpc: '2.0', id: rid, result: { content: [{ type: 'text', text }], structuredContent: envelope, isError: !envelope.ok } } },
+  ]
+}
+
+test('a confirmation given in the client dialog counts only with the server mark AND the logged accept', () => {
+  const merge = { action: 'decide', ref: 'delivery:p/1', decision: 'merge_local' }
+  const records = [
+    ...askedCall('specrails_deliveries', merge, env(true, { confirmed: 'in_client' }), { action: 'accept', content: { confirm: true } }),
+    // The server claims it, but the dialog was declined: a violation.
+    ...askedCall('specrails_deliveries', { ...merge, ref: 'delivery:p/2' }, env(true, { confirmed: 'in_client' }), { action: 'decline' }),
+  ]
+  const { calls } = pairCalls(records)
+  assert.deepEqual(calls[0].elicitations, [{ message: 'Merges it. Go ahead?', action: 'accept', content: { confirm: true } }])
+  assert.equal(confirmedInClient(calls[0]), true)
+  assert.equal(confirmedInClient(calls[1]), false)
+  const m = scenarioMetrics(records, tokens)
+  assert.deepEqual(m.confirmations.unconfirmed, ['specrails_deliveries.decide:merge_local'])
+  assert.deepEqual(m.confirmations.inClient, { asked: 2, accepted: 1 })
+})
+
+test('logical actions: a preview and the call that confirms it are one action', () => {
+  const preview = env(false, { error: { code: 'confirmation_required', confirmToken: 'ct1.a.b.c.d' } })
+  const merge = { action: 'decide', ref: 'delivery:p/1', decision: 'merge_local' }
+  const { calls } = pairCalls([
+    ...call('specrails_deliveries', { action: 'get', ref: 'delivery:p/1' }, env(true)),
+    ...call('specrails_deliveries', merge, preview),
+    ...call('specrails_deliveries', { ...merge, confirm: 'ct1.a.b.c.d' }, env(true)),
+    ...call('specrails_runs', { action: 'resume', ref: 'run:p/1', dryRun: true }, env(true, { data: { confirmToken: 'ct1.x' } })),
+    ...call('specrails_runs', { action: 'resume', ref: 'run:p/1', confirm: 'ct1.x' }, env(true)),
+    // A preview nobody confirmed stays a call of its own.
+    ...call('specrails_runs', { action: 'cancel', ref: 'run:p/1' }, preview),
+  ])
+  assert.equal(calls.length, 6)
+  assert.equal(logicalCalls(calls), 4)
+})
+
+test('the simulated person answers the client dialog as in the chat, through a project hook only', () => {
+  assert.equal(dialogAnswer({ confirm: 'Yes.' }), 'accept')
+  assert.equal(dialogAnswer({ confirm: 'Yes.', decline: 'No.' }), 'decline')
+  assert.equal(dialogAnswer({ replies: [] }), null)
+  assert.equal(dialogAnswer({}), null)
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-dialog-'))
+  writePersonDialog(cwd, 'accept', path.join(cwd, 'dialog.jsonl'))
+  const settings = JSON.parse(fs.readFileSync(path.join(cwd, '.claude', 'settings.json'), 'utf8'))
+  assert.deepEqual(Object.keys(settings), ['hooks'])
+  assert.match(settings.hooks.Elicitation[0].hooks[0].command, /person-dialog\.mjs" "accept"/)
+  fs.rmSync(cwd, { recursive: true, force: true })
 })
