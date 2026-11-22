@@ -40,18 +40,20 @@ export function asksPerson(text) {
 
 /**
  * The numbered menu at the end of a message: `1. …` / `1) …` / `**1.** …` / `1 — …` lines (pure). Returns the
- * last block of consecutive numbers starting at 1, as `[{ n, text }]`; fewer than two items is no menu.
+ * last block of consecutive numbers starting at 1, as `[{ n, text }]`; fewer than two items is no menu. A numbered
+ * list followed by more than two lines of prose is a summary, not the choices the message ends with.
  */
 export function menuOf(text) {
   const items = []
+  let after = 0
   for (const line of String(text ?? '').split('\n')) {
     const m = /^\s*(?:[-*]\s*)?(?:\*\*|__)?\(?(\d{1,2})(?:[.)]|\s*[—–-])(?:\*\*|__)?\s+(.+)$/.exec(line)
-    if (!m) continue
+    if (!m) { if (line.trim() && items.length) after++; continue }
     const n = Number(m[1])
     if (n === 1) items.length = 0
-    if (n === items.length + 1) items.push({ n, text: m[2].replace(/[*_`]/g, '').trim() })
+    if (n === items.length + 1) { items.push({ n, text: m[2].replace(/[*_`]/g, '').trim() }); after = 0 }
   }
-  return items.length >= 2 ? items : []
+  return items.length >= 2 && after <= 2 ? items : []
 }
 
 const YES = /\b(yes|s[ií]|go ahead|adelante|confirm\w*|proceed|procede|do it|hazlo|apply|integr\w*|merge|fusion\w*|launch|lanza\w*|switch|cambia\w*|resume|reanud\w*|continu\w*|send|env[ií]a\w*|start|empez\w*|discard|descart\w*|hand.?off|pasa\w*)\b/i

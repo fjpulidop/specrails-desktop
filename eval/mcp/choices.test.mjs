@@ -21,6 +21,9 @@ test('reads the numbered menu at the end of a message (markdown, parentheses, da
   assert.deepEqual(menuOf('1 — Yes, go ahead\n2 — No'), [{ n: 1, text: 'Yes, go ahead' }, { n: 2, text: 'No' }])
   // A single numbered line, or a numbered list that restarts, keeps only the last complete block.
   assert.deepEqual(menuOf('1. Only one'), [])
+  // A numbered summary followed by prose is not the menu the message ends with.
+  assert.deepEqual(menuOf('Done:\n1. Asked the Intent\n2. Answered its question\n3. Handed it off\n\nThe run is building.\nIt has a delivery.\nI did not wait on it.'), [])
+  assert.equal(menuOf('1. Yes\n2. No\n\nWhich one?').length, 2)
   assert.deepEqual(menuOf('1. a\n2. b\n\nThen:\n1. Yes\n2. No').map(item => item.text), ['Yes', 'No'])
 })
 

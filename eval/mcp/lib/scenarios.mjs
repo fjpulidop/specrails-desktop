@@ -115,7 +115,7 @@ export const SCENARIOS = [
       const run = facts.project ? await seed.until(() => seed.loopRun(api, facts.project, runId), r => r && !JSON.stringify(r.runtime_status_json ?? r.runtimeStatus ?? '').includes('"kind":"question"'), { timeoutMs: 30_000 }).catch(() => null) : null
       return [
         // The inbox offer (act answer.b) and the direct answer action (answer, optionId b) both answer the question.
-        assertion('question answered with option B', chose(calls, 'specrails_inbox', 'act', /^answer\.b$/i).filter(c => c.ok).length + okCalls(calls, 'specrails_inbox', 'act', a => /answer\.b/i.test(a.offerId ?? '')).length + okCalls(calls, 'specrails_inbox', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length + okCalls(calls, 'specrails_runs', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length > 0, ''),
+        assertion('question answered with option B', chose(calls, 'specrails_inbox', 'act', /^answer\.b$/i).filter(c => c.ok).length + okCalls(calls, 'specrails_inbox', 'act', a => /answer\.b/i.test(a.offerId ?? '')).length + okCalls(calls, 'specrails_inbox', 'answer', a => /^(answer\.)?b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length + okCalls(calls, 'specrails_runs', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length > 0, ''),
         assertion('the question no longer waits', Boolean(run), run ? `${run.status}` : 'still asking'),
       ]
     },
