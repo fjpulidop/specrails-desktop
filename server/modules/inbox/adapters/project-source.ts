@@ -57,10 +57,39 @@ function deliveryTitle(row: RailPrDeliveryRow): string {
   return row.loop_name || row.rail_key
 }
 
+function ticketIdsOf(raw: string | null): number[] {
+  return parseJsonArray(raw).filter((v): v is number => typeof v === 'number')
+}
+
 function ticketLabel(raw: string | null): string {
-  const ids = parseJsonArray(raw).filter((v): v is number => typeof v === 'number')
+  const ids = ticketIdsOf(raw)
   if (ids.length === 0) return ''
   return ` · ${ids.slice(0, 3).map((id) => `#${id}`).join(', ')}${ids.length > 3 ? ` +${ids.length - 3}` : ''}`
+}
+
+/**
+ * The spec title each run worked on, from the spec snapshot its delivery froze
+ * at launch (one statement for all runs). A run without a delivery has none.
+ */
+function runSpecTitles(db: DbInstance, runIds: readonly string[]): Map<string, Map<number, string>> {
+  const out = new Map<string, Map<number, string>>()
+  if (runIds.length === 0) return out
+  try {
+    const rows = db.prepare(`
+      SELECT j.value AS run_id, d.spec_snapshot
+      FROM rail_pr_deliveries d, json_each(d.run_ids) j
+      WHERE d.spec_snapshot IS NOT NULL AND j.value IN (${runIds.map(() => '?').join(',')})
+    `).all(...runIds) as Array<{ run_id: string; spec_snapshot: string | null }>
+    for (const row of rows) {
+      const titles = out.get(row.run_id) ?? new Map<number, string>()
+      for (const spec of readSpecSnapshot(row.spec_snapshot) ?? []) {
+        const title = spec.title?.trim()
+        if (title && !titles.has(spec.ticketId)) titles.set(spec.ticketId, title)
+      }
+      if (titles.size) out.set(row.run_id, titles)
+    }
+  } catch { /* a database without deliveries: titles fall back to the loop's name */ }
+  return out
 }
 
 /** Provider limits, environment problems and taken ports wait for the person; they are not defects of the change. */
@@ -100,6 +129,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       projectName: handle.project.name,
       kind,
       title: deliveryTitle(row),
+      ...(ticketIdsOf(row.ticket_ids).length ? { ticketIds: ticketIdsOf(row.ticket_ids) } : {}),
       // The run's diagnosis is the cause; a settlement note (for example why the
       // partial work of a failed run could not be committed) is only a consequence.
       detail: failed
@@ -147,11 +177,18 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
   `).all(handle.project.id, since) as RunRow[]
   const out: InboxItem[] = []
   const attempts = readRunAttempts(handle.db, rows.map((run) => run.id))
+  const specTitles = runSpecTitles(handle.db, rows.map((run) => run.id))
   for (const run of rows) {
     // A paused run waits on the person (a question, a usage limit, a budget, a restart) while its
     // delivery is still building, and the inbox lists no building delivery: never hide it behind one.
     if (run.status !== 'paused' && representedRunIds.has(run.id)) continue
-    const title = `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
+    // What the person asked for (the spec's title, as a delivery item reads), not the loop that ran it;
+    // the spec ids stay in `ticketIds`. Without a known spec title: the loop's name and the ids.
+    const ticketIds = ticketIdsOf(run.ticket_ids_json)
+    const specTitle = ticketIds.map((id) => specTitles.get(run.id)?.get(id)).find(Boolean)
+    const title = specTitle
+      ? ticketIds.length > 1 ? `${specTitle} +${ticketIds.length - 1}` : specTitle
+      : `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
     const version = `${run.status}:${run.final_outcome ?? ''}:${run.restart_reason ?? ''}`
     const base = {
       projectId: handle.project.id,
@@ -159,6 +196,7 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       title,
       version,
       subjectId: run.id,
+      ...(ticketIds.length ? { ticketIds } : {}),
       conversationId: null,
       diagnosis: null as PresentedFailureDiagnosis | null,
       ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),

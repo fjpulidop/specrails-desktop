@@ -150,6 +150,20 @@ describe('inbox projection: rail runs waiting on the person', () => {
   })
 })
 
+describe('inbox projection: titles', () => {
+  it('names a run by the spec it works on (its delivery snapshot), with the spec ids alongside', () => {
+    run('r-held', 0); pauseLoopRun(db, 'r-held')
+    delivery('d-held', 0, 'building')
+    db.prepare(`UPDATE rail_pr_deliveries SET run_ids = '["r-held"]', spec_snapshot = ? WHERE id = 'd-held'`)
+      .run(JSON.stringify([{ ticketId: 7, title: 'Add the search filter', description: null, labels: [] }]))
+    run('r-bare', 1); pauseLoopRun(db, 'r-bare')
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-held']).toMatchObject({ title: 'Add the search filter', ticketIds: [7] })
+    // No delivery snapshot: the loop's name stays the fallback.
+    expect(byId['r-bare']).toMatchObject({ title: 'Implement · #7', ticketIds: [7] })
+  })
+})
+
 describe('inbox projection: failure diagnosis', () => {
   const diagnose = (input: Parameters<typeof deriveFailureDiagnosis>[0]) => serializeDiagnosis(deriveFailureDiagnosis(input))
 

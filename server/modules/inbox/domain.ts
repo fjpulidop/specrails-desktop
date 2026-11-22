@@ -55,6 +55,8 @@ export interface InboxItem {
   diagnosis: InboxDiagnosis | null
   /** Present only on a "spend cap reached" item (`raise-cap`): which cap and where it stands. */
   cap?: InboxCap
+  /** The specs the work is about (a delivery or a run), when known: the title names the first. */
+  ticketIds?: number[]
   /** Rail the work ran on, when the item addresses one (a delivery or a run); lets a remote surface retry it. */
   railIndex?: number
   /** Where the run stands in its attempt chain, when it continued an earlier attempt ("attempt 3 of #14"). */
