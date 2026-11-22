@@ -14,18 +14,18 @@ const FLAGS = {
   '--stop-at-window': 'stopAtWindow', '--max-cost-usd': 'maxCostUsd', '--core-dir': 'coreDir', '--client-bin': 'clientBin',
   '--max-turns': 'maxTurns', '--turn-timeout-s': 'turnTimeoutS', '--auth': 'auth', '--effort': 'effort',
 }
-const BOOLEANS = { '--v1': 'v1', '--fresh': 'fresh', '--keep-server': 'keepServer', '--probe': 'probe', '--no-quota-guard': 'noQuotaGuard', '--no-dialog': 'noDialog', '--help': 'help', '-h': 'help' }
+const BOOLEANS = { '--v1': 'v1', '--fresh': 'fresh', '--keep-server': 'keepServer', '--probe': 'probe', '--no-quota-guard': 'noQuotaGuard', '--no-dialog': 'noDialog', '--keep-projects': 'keepProjects', '--help': 'help', '-h': 'help' }
 const NUMBERS = ['repeat', 'port', 'clientPort', 'fleet', 'stopAtWindow', 'maxCostUsd', 'maxTurns', 'turnTimeoutS']
 
 export const USAGE = `npm run eval:mcp -- --client claude|codex|replay [--scenario <id>|<id,id>|all] [--repeat n]
   [--model m] [--auth temp|session] [--effort low] [--v1] [--probe] [--fleet n] [--baseline <v1 report.json>] [--fresh] [--keep-server]
   [--home ~/.specrails-dev-mcpeval] [--port 4400 --client-port 4401] [--work-dir dir] [--out dir]
-  [--stop-at-window 70] [--max-cost-usd 1] [--no-dialog] [--max-turns 40] [--core-dir <specrails-core>] [--client-bin path]`
+  [--stop-at-window 70] [--max-cost-usd 1] [--no-dialog] [--keep-projects] [--max-turns 40] [--core-dir <specrails-core>] [--client-bin path]`
 
 export function parseArgs(argv, { userHome = os.homedir(), tmp = os.tmpdir() } = {}) {
   const o = { client: null, scenario: 'all', repeat: 1, model: null, home: path.join(userHome, '.specrails-dev-mcpeval'), port: DEFAULT_PORT, clientPort: DEFAULT_CLIENT_PORT,
     workDir: path.join(tmp, 'specrails-eval-mcp'), out: null, fleet: 100, baseline: null, stopAtWindow: 70, maxCostUsd: 1, coreDir: null, clientBin: null,
-    maxTurns: 40, turnTimeoutS: 600, auth: 'temp', effort: null, v1: false, fresh: false, keepServer: false, probe: false, noQuotaGuard: false, noDialog: false, help: false }
+    maxTurns: 40, turnTimeoutS: 600, auth: 'temp', effort: null, v1: false, fresh: false, keepServer: false, probe: false, noQuotaGuard: false, noDialog: false, keepProjects: false, help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (BOOLEANS[a]) { o[BOOLEANS[a]] = true; continue }

@@ -85,6 +85,13 @@ export async function runEval(o, { log = console.log } = {}) {
     let prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
     const v2Instance = !o.v1
     const available = v2Instance ? await probeTools(prober) : Object.fromEntries(Object.keys(TOOL_PROBES).map(t => [t, !['specrails_blueprint', 'specrails_missions', 'specrails_insights', 'specrails_settings', 'specrails_providers', 'specrails_integrations', 'specrails_system'].includes(t)]))
+    // Projects an earlier run left registered (not the reusable 100-project fleet) would crowd this run's inbox.
+    if (!o.keepProjects) {
+      const res = await instance.api.get('/projects').catch(() => null)
+      const stale = (res?.data?.projects ?? res?.data ?? []).filter(p => !/^fleet-\d+$/.test(String(p.name ?? '')))
+      for (const p of stale) await instance.api.call('DELETE', `/projects/${p.id}`).catch(() => null)
+      if (stale.length) log(`unregistered ${stale.length} project(s) an earlier run left (--keep-projects keeps them)`)
+    }
     log(`tools: ${Object.entries(available).map(([t, ok]) => `${t.replace('specrails_', '')}${ok ? '' : ' (pending)'}`).join(', ')}`)
     // Seeds may drive the app through MCP too (the probe connection: its calls never count as the scenario's).
     const ctxBase = { api: instance.api, workDir: o.workDir, fleetSize: o.fleet, engineLog: instance.engineLog, mcp: prober, evalHome: target.home, coreDir: o.coreDir, log }

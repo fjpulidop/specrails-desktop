@@ -963,7 +963,21 @@ export const runsTool = defineTool({
           if (body.optionId === undefined) body.remedy = 'continue'
           body.switch = { provider: args.provider, ...(str(args.model) ? { model: args.model } : {}), ...(str(args.effort) ? { effort: args.effort } : {}), ...(options.remember === true ? { remember: true } : {}) }
         }
-        return await accepted(ctx, run.target, 'Continue', await api(ctx, 'POST', `${base}/loop-runs/${id}/remedy`, body))
+        let response: Row
+        try {
+          response = await api(ctx, 'POST', `${base}/loop-runs/${id}/remedy`, body)
+        } catch (err) {
+          // The run's saved Core state is gone: continuing can never work, so say what still does instead of "retry".
+          if (err instanceof McpApiError && err.code === 'runtime_status_unavailable') {
+            const specs = specRefs(run.project, run.job)
+            throw new V2ToolError('conflict', ctx.v2.t('runs.error.cannot_continue'), {
+              retryable: false,
+              ...(specs.length ? { next: [{ tool: 'specrails_runs', args: { action: 'launch', project: run.project.slug, target: { specIds: specs } }, why: ctx.v2.t('runs.why.launch_again') }] } : {}),
+            })
+          }
+          throw err
+        }
+        return await accepted(ctx, run.target, 'Continue', response)
       },
     },
     fork: {

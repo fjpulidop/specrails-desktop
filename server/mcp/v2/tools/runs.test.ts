@@ -306,6 +306,15 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     expect((await runs({ action: 'remedy', ref: RUN, choice: 'change_model' })).envelope.error.code).toBe('invalid_input')
   })
 
+  it('says a continue cannot work when the run lost its saved state, and offers a fresh launch', async () => {
+    useJob(JOBS.failed)
+    routes.set(`POST ${P}/loop-runs/r1/remedy`, { status: 503, body: { error: 'runtime_status_unavailable', detail: 'ENOENT desktop-context.json' } })
+    const state = (await runs({ action: 'get', ref: RUN })).envelope
+    const out = await act(offer(state, 'remedy.continue').call)
+    expect(out.envelope.error).toMatchObject({ code: 'conflict', retryable: false, next: [{ tool: 'specrails_runs', args: { action: 'launch', target: { specIds: ['spec:shop-api/12'] } } }] })
+    expect(out.envelope.error.message).toMatch(/no longer continue/)
+  })
+
   it('refuses a continue the run cannot take (held, with the state)', async () => {
     useJob(JOBS.failed)
     routes.set(`GET ${P}/loop-runs/r1/attempts`, { body: { ...ATTEMPTS, continuable: false, providerSwitch: null } })

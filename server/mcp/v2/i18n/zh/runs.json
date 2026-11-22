@@ -40,5 +40,7 @@
   "error.bad_target": "target 需要 specIds、rail、loopId、command 或 template 之一。",
   "error.rail_empty": "轨道 {{rail}} 上没有可启动的 spec。请用 specrails_rails(configure) 为其分配 spec，或直接用 target.specIds 启动。",
   "error.fork_step": "fork 需要 options.fromStep（来自 view detail、fields graph 的步骤 id）。",
-  "error.rail_idle": "Rail {{rail}} 没有活动的运行。"
+  "error.rail_idle": "Rail {{rail}} 没有活动的运行。",
+  "error.cannot_continue": "此运行无法再从失败的步骤继续：其保存的状态已不存在。请重新启动该 spec（新的运行）。",
+  "why.launch_again": "将该 spec 作为新的运行重新启动。"
 }

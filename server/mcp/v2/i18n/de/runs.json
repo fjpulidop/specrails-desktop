@@ -40,5 +40,7 @@
   "error.bad_target": "target braucht eines von specIds, rail, loopId, command oder template.",
   "error.rail_empty": "Schiene {{rail}} hat keine Specs zum Starten. Lege mit specrails_rails(configure) Specs darauf oder starte sie direkt mit target.specIds.",
   "error.fork_step": "fork braucht options.fromStep (eine Schritt-ID aus view detail, fields graph).",
-  "error.rail_idle": "Rail {{rail}} hat keinen aktiven Lauf."
+  "error.rail_idle": "Rail {{rail}} hat keinen aktiven Lauf.",
+  "error.cannot_continue": "Dieser Lauf kann nicht mehr ab dem fehlgeschlagenen Schritt fortgesetzt werden: Sein gespeicherter Zustand ist weg. Starte die Spec erneut (ein neuer Lauf).",
+  "why.launch_again": "Die Spec als neuen Lauf erneut starten."
 }

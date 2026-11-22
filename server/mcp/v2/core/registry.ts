@@ -136,8 +136,13 @@ export const V1_ARG_ALIASES: ReadonlyArray<readonly [alias: string, field: strin
   ['id', 'ref'], ['jobId', 'ref'], ['itemId', 'ref'], ['runId', 'ref'], ['conversationId', 'ref'],
 ]
 
+/** What people call a provider → its id ("on GPT" is Codex). Exact words only; anything else passes through. */
+export const PROVIDER_WORDS: Readonly<Record<string, string>> = { gpt: 'codex', openai: 'codex', chatgpt: 'codex', anthropic: 'claude', google: 'gemini' }
+
 export function normalizeV1Args(def: Pick<V2ToolDef, 'fields' | 'v1Aliases'>, args: Record<string, unknown>): Record<string, unknown> {
   let out = args
+  const word = typeof args.provider === 'string' ? PROVIDER_WORDS[args.provider.trim().toLowerCase()] : undefined
+  if ('provider' in def.fields && word) out = { ...args, provider: word }
   for (const [alias, field] of [...(def.v1Aliases ?? []), ...V1_ARG_ALIASES]) {
     if (alias in def.fields || !(field in def.fields) || !present(out[alias])) continue
     if (out === args) out = { ...args }

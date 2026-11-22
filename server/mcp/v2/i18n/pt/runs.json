@@ -40,5 +40,7 @@
   "error.bad_target": "target precisa de um entre specIds, rail, loopId, command ou template.",
   "error.rail_empty": "O trilho {{rail}} não tem specs para iniciar. Coloque specs nele com specrails_rails(configure) ou inicie-as diretamente com target.specIds.",
   "error.fork_step": "fork precisa de options.fromStep (um id de etapa de view detail, fields graph).",
-  "error.rail_idle": "O rail {{rail}} não tem execução ativa."
+  "error.rail_idle": "O rail {{rail}} não tem execução ativa.",
+  "error.cannot_continue": "Esta execução já não pode continuar a partir do passo que falhou: o seu estado guardado desapareceu. Lance a spec de novo (uma nova execução).",
+  "why.launch_again": "Lançar a spec de novo como uma nova execução."
 }

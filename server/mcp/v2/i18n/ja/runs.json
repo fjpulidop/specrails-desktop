@@ -40,5 +40,7 @@
   "error.bad_target": "target には specIds、rail、loopId、command、template のいずれかが必要です。",
   "error.rail_empty": "レール {{rail}} には起動する spec がありません。specrails_rails(configure) で spec を割り当てるか、target.specIds で直接起動してください。",
   "error.fork_step": "fork には options.fromStep（view detail、fields graph のステップ id）が必要です。",
-  "error.rail_idle": "レール {{rail}} にアクティブな実行はありません。"
+  "error.rail_idle": "レール {{rail}} にアクティブな実行はありません。",
+  "error.cannot_continue": "この実行は失敗したステップから続行できなくなりました。保存された状態がありません。spec をもう一度起動してください（新しい実行）。",
+  "why.launch_again": "spec を新しい実行としてもう一度起動する。"
 }

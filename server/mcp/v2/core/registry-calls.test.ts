@@ -88,6 +88,13 @@ describe('v1 argument names on v2 actions', () => {
     expect((await call(client, 'specrails_target', { action: 'echo', id: 42 })).envelope.data).toMatchObject({ ref: '42' })
   })
 
+  it('maps what people call a provider to its id when the tool takes one', () => {
+    expect(normalizeV1Args({ fields: { provider: z.string() } }, { provider: 'GPT' })).toEqual({ provider: 'codex' })
+    expect(normalizeV1Args({ fields: { provider: z.string() } }, { provider: 'anthropic' })).toEqual({ provider: 'claude' })
+    expect(normalizeV1Args({ fields: { provider: z.string() } }, { provider: 'gpt-5.5' })).toEqual({ provider: 'gpt-5.5' })
+    expect(normalizeV1Args({ fields: { ref: z.string() } }, { provider: 'gpt' })).toEqual({ provider: 'gpt' })
+  })
+
   it('keeps an explicit v2 field, skips aliases the tool declares itself and leaves v1-only actions to the v1 handler', async () => {
     expect(normalizeV1Args(target, { ref: 'run:x/1', jobId: 'other' })).toEqual({ ref: 'run:x/1' })
     expect(normalizeV1Args({ fields: { id: z.string(), ref: z.string() } }, { id: '7' })).toEqual({ id: '7' })
