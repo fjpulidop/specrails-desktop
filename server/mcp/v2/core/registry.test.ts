@@ -236,6 +236,13 @@ describe('confirmation inside the call (MCP elicitation)', () => {
     expect(control.merged).toBe(1)
   })
 
+  it('does not act on a yes given while the state changed under the dialog (stale, fresh preview)', async () => {
+    answer = () => { control.version = 'v9zzzz'; return { action: 'accept', content: { confirm: true } } }
+    const moved = await call(asking, 'specrails_fake', merge)
+    expect(moved.envelope.error).toMatchObject({ code: 'stale', reason: 'stale', preview: { version: 'v9zzzz' } })
+    expect(control.merged).toBe(0)
+  })
+
   it('treats a decline (or an unticked box) as no, and a cancelled dialog as the token flow', async () => {
     answer = () => ({ action: 'decline' })
     const declined = await call(asking, 'specrails_fake', merge)

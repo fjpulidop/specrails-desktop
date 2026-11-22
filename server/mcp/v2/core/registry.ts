@@ -427,8 +427,15 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
             if (args.confirm === undefined || args.confirm === null || args.confirm === '') {
               // A client that can ask the person inside this call (MCP elicitation) gets the yes without another model turn.
               const asked = session.elicitation?.() === true && readConfirmInClient(ctx.desktopDb) ? await askPerson(extra, t, preview) : null
-              if (asked === 'accept') confirmedInClient = true
-              else {
+              if (asked === 'accept') {
+                // The dialog may stay open for minutes: the yes holds only for the state the person saw.
+                const now = await buildPreview()
+                if (now.version !== preview.version) {
+                  const fresh = ledger.issue(binding(now.version))
+                  return reply(failure(new V2ToolError('stale', t('core.confirm.stale'), { preview: now, confirmToken: fresh, resend: resend(fresh), reason: 'stale' }), label, `${label}: ${now.effect}`))
+                }
+                confirmedInClient = true
+              } else {
                 const declined = asked === 'decline'
                 return reply(failure(new V2ToolError('confirmation_required', t(declined ? 'core.confirm.declined' : 'core.confirm.required'), { preview, confirmToken, resend: resend(confirmToken), ...(declined ? { reason: 'declined' } : {}) }), label, `${label}: ${preview.effect}`))
               }

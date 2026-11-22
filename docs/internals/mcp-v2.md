@@ -341,7 +341,8 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
   - **In-call confirmation.** When the client declared form elicitation at initialize (`elicitation: { form }`, or the
     legacy empty object) and the desktop setting `mcp_confirm_in_client` is not `off`, a call that needs a yes first
     asks the person in the client's own dialog (`elicitation/create`, the preview effect plus "Go ahead?", one boolean).
-    Only an accept with the box ticked executes, and the result says `confirmed: "in_client"`; a decline returns
+    Only an accept with the box ticked executes (after re-checking the state version the dialog showed: a change
+    answers `stale` with a fresh preview), and the result says `confirmed: "in_client"`; a decline returns
     `confirmation_required` with `reason: declined` and says to ask in the chat (a client that cannot show the dialog
     may decline it too, so the token still confirms a later yes); a cancel,
     an error or no answer within 5 minutes falls back to the token flow. No extra model turn is spent on a yes. Verified
