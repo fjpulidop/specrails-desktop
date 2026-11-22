@@ -67,6 +67,13 @@ export function isJobLive(job: Pick<JobSummary, 'status' | 'hold'> | null | unde
   return job?.status === 'running' && !jobHoldOf(job)
 }
 
+/** A held job's state and name for the step it stopped on (graph node, log step); null when it is not held. */
+export function jobStepHold(t: TFunction, job: Pick<JobSummary, 'status' | 'hold'>): { state: RunState; label: string } | null {
+  if (!jobHoldOf(job)) return null
+  const look = jobStatusLook(job)
+  return { state: look.state, label: String(t(`jobs:${look.labelKey}`)) }
+}
+
 /** The status a log/graph surface should treat the job as: a held run is `paused` (settled for now, not working). */
 export function jobDisplayStatus(job: Pick<JobSummary, 'status' | 'hold'>): string {
   return jobHoldOf(job) ? 'paused' : job.status

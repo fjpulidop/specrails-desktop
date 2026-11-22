@@ -10,6 +10,7 @@ export const RAIL_RUN_STATE = {
   failed: 'failed',
 } as const satisfies Record<RailStatus, RunState>
 
-export function railRunState(status: RailStatus): RunState {
-  return RAIL_RUN_STATE[status]
+/** A running rail whose run is held (your pause, a limit, a question, a restart) waits: paused, not working. */
+export function railRunState(status: RailStatus, held = false): RunState {
+  return status === 'running' && held ? 'paused' : RAIL_RUN_STATE[status]
 }

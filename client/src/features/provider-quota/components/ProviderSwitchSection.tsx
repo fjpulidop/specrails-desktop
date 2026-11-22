@@ -7,9 +7,9 @@
  * next attempt). The server names the targets (never the limited provider, one
  * sharing its quota or one refusing too) and checks the choice again.
  */
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowRightLeft, Play } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, Play } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { modelsForProvider } from '../../loops/lib/loop-run-models'
@@ -80,7 +80,7 @@ export function useProviderSwitchChoice(targets: readonly SwitchTarget[]): Provi
   }
 }
 
-export function ProviderSwitchSection({ fromProvider, targets, state, busy, onSwitch, variant = 'pause', step = null, testId = 'limit-pause-switch', className }: {
+export function ProviderSwitchSection({ fromProvider, targets, state, busy, onSwitch, variant = 'pause', step = null, testId = 'limit-pause-switch', className, collapsible = false }: {
   fromProvider: string
   targets: readonly SwitchTarget[]
   state: ProviderSwitchState
@@ -92,15 +92,25 @@ export function ProviderSwitchSection({ fromProvider, targets, state, busy, onSw
   step?: string | null
   testId?: string
   className?: string
+  /** The title is a disclosure and the choice stays folded until the person opens it (a compact pause card). */
+  collapsible?: boolean
 }) {
   const { t } = useTranslation(['providerQuota', 'agent'])
   const name = providerLabel(state.target.provider), from = providerLabel(fromProvider)
   const keys = variant === 'settled' ? 'settledSwitch' : 'pause.switch'
+  const [open, setOpen] = useState(!collapsible)
+  const bodyId = useId()
+  const title = <><ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />{t(`${keys}.title`)}</>
   return (
     <div className={className ?? 'space-y-2 border-t border-accent-warning/30 pt-2'} data-testid={testId}>
-      <p className="flex items-center gap-1.5 text-strong text-foreground">
-        <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />{t(`${keys}.title`)}
-      </p>
+      {collapsible ? (
+        <button type="button" aria-expanded={open} aria-controls={bodyId} data-testid={`${testId}-toggle`} onClick={() => setOpen((value) => !value)}
+          className="flex items-center gap-1.5 rounded-control text-strong text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {title}
+          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+      ) : <p className="flex items-center gap-1.5 text-strong text-foreground">{title}</p>}
+      {open && <div id={bodyId} className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="space-y-1 text-caption text-muted-foreground">
           <span>{t('pause.switch.provider')}</span>
@@ -144,6 +154,7 @@ export function ProviderSwitchSection({ fromProvider, targets, state, busy, onSw
         onClick={() => onSwitch(state.choice)}>
         <Play className="h-3.5 w-3.5" aria-hidden />{t(`${keys}.resume`, { provider: name })}
       </Button>
+      </div>}
     </div>
   )
 }

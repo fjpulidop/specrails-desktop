@@ -7,7 +7,8 @@ const toCents = (usd: number): number => Math.round(usd * 100)
 
 /** A starting point for "raise to": one more cap's worth above what the run already spent (cents precision). */
 export function suggestedRaise(info: Pick<DailyBudgetInfo, 'budgetUsd' | 'spentUsd'>): number {
-  return Math.ceil(toCents(info.spentUsd) + toCents(info.budgetUsd)) / 100
+  // A cap below a cent (or no spend yet) still suggests a valid raise: at least one cent above the spend.
+  return Math.max(toCents(info.spentUsd) + toCents(info.budgetUsd), toCents(info.spentUsd) + 1) / 100
 }
 
 /** A raise only continues the run when it ends up above the spend. */

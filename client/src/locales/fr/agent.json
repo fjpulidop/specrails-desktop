@@ -410,7 +410,7 @@
     "confirmDiscard": "Confirmer l'abandon ?",
     "mergedNote": "Fusionnée. Les specs sont passées à Terminé",
     "discardedNote": "Abandonnée. Les specs sont revenues dans le backlog",
-    "implementationFailedNote": "Le run d’implémentation a échoué avant de produire quelque chose de livrable. Ouvrez le journal du run pour inspecter l’échec, puis abandonnez cette carte avant de relancer.",
+    "implementationFailedNote": "Le run s’est arrêté avant d’avoir quoi que ce soit à livrer. Ouvrez son journal pour voir pourquoi.",
     "dismiss": "Fermer le suivi",
     "discardLocalResult": "Supprimer le résultat local",
     "retryPush": "Réessayer le push",

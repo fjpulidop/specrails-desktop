@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
-import { jobDisplayStatus, jobHoldOf } from '../lib/job-run-state'
+import { jobDisplayStatus, jobHoldOf, jobStepHold } from '../lib/job-run-state'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
 import { LoopRunDetail } from '../components/job-run/LoopRunDetail'
@@ -533,7 +533,7 @@ export default function JobDetailPage() {
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopStepExplorer events={events} jobStatus={displayStatus} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
+              <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
             </>}
             logContent={navigation => isLoopJob ? <>
               {eventBuffer.omitted && (
@@ -541,7 +541,7 @@ export default function JobDetailPage() {
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopRunDetail events={events} jobStatus={displayStatus} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
+              <LoopRunDetail events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
                 settled={settledView} elapsedMs={job.duration_ms ?? null} />
             </> : <>
               {eventBuffer.omitted && (

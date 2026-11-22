@@ -427,7 +427,7 @@
     "retryPushNote": "La implementación terminó correctamente y los cambios están seguros en local. Reintenta solo el push.",
     "cleanupIncomplete_one": "La limpieza está incompleta ({{count}} aviso)",
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
-    "implementationFailedNote": "La ejecución de implementación falló antes de generar algo entregable. Abre el log de la ejecución para revisar el fallo y descarta esta card antes de relanzar.",
+    "implementationFailedNote": "La ejecución se detuvo antes de tener nada que entregar. Abre su log para ver por qué.",
     "degraded": {
       "pushed": "La rama se subió pero no se pudo crear la PR. Reintenta para terminar.",
       "localOnly": "Los cambios se ensamblaron en local pero no se subieron. Reintenta para publicar la PR."

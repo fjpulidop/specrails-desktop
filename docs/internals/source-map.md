@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1939 source/build files. Nearby tests are linked where names
+Includes 1941 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -384,7 +384,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useBoardDnd.ts](../../client/src/features/dashboard/hooks/useBoardDnd.ts)
 - [useBoardPalette.ts](../../client/src/features/dashboard/hooks/useBoardPalette.ts)
 - [useBoardRails.ts](../../client/src/features/dashboard/hooks/useBoardRails.ts)
-- [useBoardSpecColumns.ts](../../client/src/features/dashboard/hooks/useBoardSpecColumns.ts)
+- [useBoardSpecColumns.ts](../../client/src/features/dashboard/hooks/useBoardSpecColumns.ts) · [test](../../client/src/features/dashboard/hooks/__tests__/useBoardSpecColumns.test.ts)
 - [useBoardViewPrefs.ts](../../client/src/features/dashboard/hooks/useBoardViewPrefs.ts)
 - [useDashboardSplit.ts](../../client/src/features/dashboard/hooks/useDashboardSplit.ts)
 - [useRailConfigHandlers.ts](../../client/src/features/dashboard/hooks/useRailConfigHandlers.ts)
@@ -689,6 +689,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
 - [reviewer-family-suggestion.ts](../../client/src/features/loops/lib/reviewer-family-suggestion.ts) · [test](../../client/src/features/loops/lib/reviewer-family-suggestion.test.ts)
+- [runtime-graph-edges.ts](../../client/src/features/loops/lib/runtime-graph-edges.ts)
 
 ## client/src/features/loops/pages
 
@@ -1285,6 +1286,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-settings-events.ts](../../client/src/lib/app-settings-events.ts)
 - [app-updater.ts](../../client/src/lib/app-updater.ts) · [test](../../client/src/lib/__tests__/app-updater.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
+- [bubble-avoid.ts](../../client/src/lib/bubble-avoid.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [continuity-api.ts](../../client/src/lib/continuity-api.ts)
 - [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)
@@ -1326,7 +1328,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
 - [run-announcements.ts](../../client/src/lib/run-announcements.ts) · [test](../../client/src/lib/__tests__/run-announcements.test.ts)
-- [run-cap.ts](../../client/src/lib/run-cap.ts)
+- [run-cap.ts](../../client/src/lib/run-cap.ts) · [test](../../client/src/lib/__tests__/run-cap.test.ts)
 - [save-text-file.ts](../../client/src/lib/save-text-file.ts) · [test](../../client/src/lib/__tests__/save-text-file.test.ts)
 - [shared-fetch.ts](../../client/src/lib/shared-fetch.ts) · [test](../../client/src/lib/__tests__/shared-fetch.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)

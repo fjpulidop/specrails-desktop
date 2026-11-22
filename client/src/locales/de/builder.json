@@ -409,7 +409,7 @@
         "merge_failed": "Git konnte sie nicht zusammenführen"
       },
       "held": {
-        "pausedByYou": "Rail {{k}} pausiert — von dir pausiert",
+        "pausedByYou": "Du hast Rail {{k}} pausiert",
         "paused": "Rail {{k}} pausiert",
         "question": "Rail {{k}} wartet auf deine Antwort",
         "approval": "Rail {{k}} wartet auf deine Freigabe",

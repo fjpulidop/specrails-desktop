@@ -98,7 +98,7 @@
     "iteratingPr": "Aggiornamento PR",
     "prReady": "PR pronta",
     "implementationFailed": "Implementazione non riuscita",
-    "implementationFailedHint": "Il run di implementazione non è riuscito. Apri il log del run, poi scarta questa scheda prima di rilanciare.",
+    "implementationFailedHint": "Il run si è fermato prima di avere qualcosa da consegnare. Apri il suo log per capire perché.",
     "runStopped": "Interrotta",
     "runStoppedHint": "Hai fermato questa esecuzione prima della consegna. Continua la riprende da dove si è fermata, oppure scarta questa scheda.",
     "prFailed": "PR non riuscita",
@@ -187,7 +187,8 @@
     "fixCiStarted": "Monitoraggio della CI avviato",
     "fixCiFailed": "Impossibile avviare il loop di CI",
     "continue": "Continua",
-    "continueHint": "Mantiene tutto e riprende da dove l'esecuzione è fallita o si è fermata, nello stesso worktree."
+    "continueHint": "Mantiene tutto e riprende da dove l'esecuzione è fallita o si è fermata, nello stesso worktree.",
+    "implementationFailedDiscardTooltip": "Chiude questa scheda e riporta le spec in Specs. Il log del run resta disponibile."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} in esecuzione",
       "running_other": "{{count}} in esecuzione",
+      "paused_one": "{{count}} in pausa",
+      "paused_other": "{{count}} in pausa",
       "ready_one": "{{count}} pronto",
       "ready_other": "{{count}} pronti",
       "failed_one": "{{count}} fallito",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "Inattivo",
       "running": "In esecuzione",
-      "failed": "Non riuscito"
+      "failed": "Non riuscito",
+      "paused": "In pausa"
     },
     "deleteMenuItem": "Elimina rail",
     "deleteConfirm": {

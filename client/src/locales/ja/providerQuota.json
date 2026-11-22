@@ -47,7 +47,8 @@
     },
     "headless": {
       "ok": "実行中、{{framework}} のウィンドウは非表示のままです",
-      "warn": "実行中に {{framework}} のウィンドウが表示される場合があります — ランチャーとテストで SPECRAILS_HEADLESS を尊重してください"
+      "warn": "実行中に {{framework}} のウィンドウが開くことがあります",
+      "warnHint": "非表示のままにするには、プロジェクトのランチャーとテストが SPECRAILS_HEADLESS に従うようにしてください。"
     },
     "blocking": "起動する前に失敗したチェックを解決してください。",
     "quotaWarning_one": "{{provider}} は{{window}}上限の {{percent}}% を使用しました。{{count}} 本のレールを起動すると上限で一時停止する可能性があり、リセット後に自動で再開します。",

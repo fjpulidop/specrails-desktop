@@ -336,7 +336,7 @@ describe('held rails — a live run that is not working (the reported "Running �
     render(<MilestoneCard progress={progress({ chain: c, rails: [held({ kind: 'paused', since: pausedAt, byYou: true })] })} onResume={onResume} />)
     const row = screen.getByTestId('milestone-chain-row')
     expect(row).toHaveAttribute('data-held', 'pausedByYou')
-    expect(screen.getByTestId('milestone-chain-held')).toHaveTextContent('Rail 3 paused — paused by you')
+    expect(screen.getByTestId('milestone-chain-held')).toHaveTextContent('You paused Rail 3')
     expect(row).not.toHaveTextContent('waiting for rail 3')
     const resume = screen.getByTestId('milestone-chain-resume')
     expect(resume).toHaveTextContent('Resume the run of #7')

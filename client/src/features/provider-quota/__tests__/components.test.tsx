@@ -62,7 +62,9 @@ describe('LaunchAllDialog preflight', () => {
     render(withWs(<LaunchAllDialog open railCount={1} specCount={1} onConfirm={() => {}} onCancel={() => {}} projectId="p1" providers={['']} />))
     const chips = await screen.findByTestId('launch-preflight')
     await waitFor(() => expect(within(chips).getByTestId('preflight-chip-headless')).toHaveAttribute('data-state', 'warn'))
-    expect(within(chips).getByTestId('preflight-chip-headless')).toHaveTextContent('Tauri windows may appear during runs — make its launcher and tests honour SPECRAILS_HEADLESS')
+    expect(within(chips).getByTestId('preflight-chip-headless')).toHaveTextContent('Tauri windows may open during runs')
+    // What to do about it is the chip's tooltip, so the chip stays one short line.
+    expect(within(chips).getByTestId('preflight-chip-headless')).toHaveAttribute('title', expect.stringContaining('honour SPECRAILS_HEADLESS'))
     expect(screen.queryByTestId('launch-preflight-blocking')).not.toBeInTheDocument()
   })
 
@@ -103,6 +105,11 @@ describe('LimitPauseCard', () => {
     render(withWs(<LimitPauseCard projectId="p1" runId="run-1" limit={limit} providers={['claude', 'codex', 'gemini']} onChanged={onChanged} />))
     const section = screen.getByTestId('limit-pause-switch')
     expect(section).toHaveTextContent('Continue now with another provider')
+    // Folded until the person opens it: waiting or resuming is the card's decision.
+    expect(screen.queryByTestId('limit-pause-switch-provider')).toBeNull()
+    expect(screen.getByTestId('limit-pause-switch-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(screen.getByTestId('limit-pause-switch-toggle'))
+    expect(screen.getByTestId('limit-pause-switch-toggle')).toHaveAttribute('aria-expanded', 'true')
     // Legacy one-click buttons are not shown for a Core run.
     expect(screen.queryByTestId('limit-pause-switch-claude')).toBeNull()
     expect(screen.getByTestId('limit-pause-switch-provider')).toHaveTextContent('Claude')
@@ -130,6 +137,7 @@ describe('LimitPauseCard', () => {
   it('a provider without reasoning efforts sends no effort; a run with no other provider keeps today\'s card', async () => {
     const limit = { providerId: 'codex', resumeAt: null, autoResume: false, message: '', pausedAt: 't', switchable: true, switchRoles: ['developer'], switchTargets: [{ provider: 'gemini', model: 'gemini-3.5-flash', effort: null }] }
     const { unmount } = render(withWs(<LimitPauseCard projectId="p1" runId="run-1" limit={limit} />))
+    await userEvent.click(screen.getByTestId('limit-pause-switch-toggle'))
     expect(screen.queryByTestId('limit-pause-switch-effort')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Resume with Gemini' }))
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)![1]!.body))).toEqual({ action: 'switch', provider: 'gemini', model: 'gemini-3.5-flash' })

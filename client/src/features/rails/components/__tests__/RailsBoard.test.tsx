@@ -159,7 +159,9 @@ describe('RailsBoard toolbar', () => {
     renderToolbar([rail(1), rail(2)], { onLaunchAll, launchAllCount: 2 })
     const launch = screen.getByTestId('rails-launch-all')
     expect(launch).not.toBeDisabled()
-    expect(launch.className).toMatch(/bg-accent-success/)
+    // The one primary action takes the primary tone; success green is a lamp, never an action fill.
+    expect(launch.className).toMatch(/bg-primary/)
+    expect(launch.className).not.toMatch(/bg-accent-success/)
     expect(screen.getByTestId('rails-launch-all-count')).toHaveTextContent('2')
     fireEvent.click(launch)
     expect(onLaunchAll).toHaveBeenCalled()

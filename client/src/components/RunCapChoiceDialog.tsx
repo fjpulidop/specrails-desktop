@@ -40,6 +40,8 @@ export function RunCapChoiceDialog({ info, busy = false, onChoose, onDismiss }: 
       description={info ? dailyBudgetPausedMessage(t, info) : undefined}
       confirmLabel={t('budget.runCap.raise')}
       confirmDisabled={!valid}
+      // Four answers (raise, continue, once, cancel) stack rather than wrap into a ragged row.
+      stackedFooter={!!info?.nextStep}
       busy={busy}
       tone="default"
       testId="run-cap-dialog"

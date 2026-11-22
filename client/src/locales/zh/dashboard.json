@@ -98,7 +98,7 @@
     "iteratingPr": "正在更新 PR",
     "prReady": "PR 已就绪",
     "implementationFailed": "实现失败",
-    "implementationFailedHint": "实现运行失败。请打开运行日志，然后在重新启动前丢弃此卡片。",
+    "implementationFailedHint": "运行在产出可交付内容之前就停止了。打开其日志查看原因。",
     "runStopped": "已停止",
     "runStoppedHint": "你在交付前停止了此次运行。继续会从停止处接着运行，或丢弃此卡片。",
     "prFailed": "PR 失败",
@@ -187,7 +187,8 @@
     "fixCiStarted": "已开始监控 CI",
     "fixCiFailed": "无法启动 CI 循环",
     "continue": "继续",
-    "continueHint": "保留全部内容，在同一个 worktree 中从运行失败或停止处继续。"
+    "continueHint": "保留全部内容，在同一个 worktree 中从运行失败或停止处继续。",
+    "implementationFailedDiscardTooltip": "关闭此卡片并将其 spec 退回 Specs。运行日志仍可查看。"
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} 运行中",
       "running_other": "{{count}} 运行中",
+      "paused_one": "{{count}} 个已暂停",
+      "paused_other": "{{count}} 个已暂停",
       "ready_one": "{{count}} 就绪",
       "ready_other": "{{count}} 就绪",
       "failed_one": "{{count}} 失败",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "空闲",
       "running": "运行中",
-      "failed": "失败"
+      "failed": "失败",
+      "paused": "已暂停"
     },
     "deleteMenuItem": "删除轨道",
     "deleteConfirm": {

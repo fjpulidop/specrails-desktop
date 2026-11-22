@@ -16,6 +16,7 @@ import { continueMode, costPerAttempt, isPlainContinue, KEEP_TRYING_ID, readReso
 import { formatUsd } from '../../../../lib/format-usd'
 import type { ProviderSwitchContinue } from '../../../recovery/hooks/useContinueRemedies'
 import { ProviderSwitchSection, useProviderSwitchChoice, type ProviderSwitchState } from '../../../provider-quota/components/ProviderSwitchSection'
+import { useBubbleAvoid } from '../../../../lib/bubble-avoid'
 
 export type RunDetailTab = 'failure' | 'log'
 const NO_TARGETS: never[] = []
@@ -185,6 +186,8 @@ function RunDetailTabsView({
 }: RunDetailTabsProps) {
   const { t, i18n } = useTranslation('jobs')
   const id = useId()
+  // The agent bubble keeps clear of the docked composer.
+  const composerAvoidRef = useBubbleAvoid<HTMLDivElement>()
   const failureAvailable = showDiagnosis || pendingQuestion || !!continuityContent
   // One AI reading for the card (which leads with it when the app names no cause) and the panel below it.
   const analysisShown = !!(showDiagnosis && diagnosis && job.status === 'failed')
@@ -420,7 +423,7 @@ function RunDetailTabsView({
               </div>
             </Activity>
           )}
-          {composer && <div className="shrink-0 border-t border-border bg-background/60 px-3 py-2" data-testid="run-composer-dock">{composer}</div>}
+          {composer && <div ref={composerAvoidRef} className="shrink-0 border-t border-border bg-background/60 px-3 py-2" data-testid="run-composer-dock">{composer}</div>}
         </div>
       </Activity>
     </div>

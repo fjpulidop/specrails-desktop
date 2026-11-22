@@ -410,7 +410,7 @@
     "confirmDiscard": "破棄しますか？",
     "mergedNote": "マージ済み。スペックを完了に移動しました",
     "discardedNote": "破棄済み。スペックをバックログに戻しました",
-    "implementationFailedNote": "実装の実行は、配信可能な成果物が生成される前に失敗しました。実行ログで失敗内容を確認し、再実行する前にこのカードを破棄してください。",
+    "implementationFailedNote": "実行は納品できるものができる前に停止しました。ログを開いて理由を確認してください。",
     "dismiss": "フォローアップを閉じる",
     "discardLocalResult": "ローカル結果を破棄",
     "retryPush": "プッシュを再試行",

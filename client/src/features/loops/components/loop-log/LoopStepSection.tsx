@@ -12,6 +12,7 @@ import {
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT } from './loop-node-visuals'
 import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
 import { loopStepRunState } from '../../lib/loop-run-state'
+import type { RuntimeGraphHold } from './RuntimeGraphExplorer'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ export interface LoopStepSectionProps {
   setRef: (key: string, el: HTMLDivElement | null) => void
   /** Ticket-ref click handler threaded into `LogLine` (stable — like onToggle). */
   onOpenTicket?: (ticketId: number) => void
+  /** The run is held on this step (a usage limit, your pause): the step reads as the hold, not as a failure. */
+  held?: RuntimeGraphHold | null
 }
 
 function LoopStepSectionInner({
@@ -102,6 +105,7 @@ function LoopStepSectionInner({
   onCopy,
   setRef,
   onOpenTicket,
+  held = null,
 }: LoopStepSectionProps) {
   const { t } = useTranslation('jobs')
   const { meta, lines, end, lastActivity } = segment
@@ -110,7 +114,7 @@ function LoopStepSectionInner({
   const visible = visibleLinesFor(lines, filter)
   const isRunning = status === 'running'
   // One state per attempt: a provider-limit failure is blocked, a stalled or interrupted step paused.
-  const runState = loopStepRunState(status, end?.reason)
+  const runState = held?.state ?? loopStepRunState(status, end?.reason)
   // Template/Command detail (payload-borne since the log-hygiene change; the
   // old flat-log lines are gone). Collapsed by default; local state — the memo
   // never blocks a state-driven re-render.
@@ -180,7 +184,12 @@ function LoopStepSectionInner({
               )}
             </span>
           )}
-          {runState === 'blocked' && (
+          {held && (
+            <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning" data-testid="loop-step-held">
+              {held.label}
+            </span>
+          )}
+          {!held && runState === 'blocked' && (
             <span
               className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning"
               title={t('loopExplorer.providerLimitHint')}
@@ -189,7 +198,7 @@ function LoopStepSectionInner({
               {t('loopExplorer.providerLimit')}
             <span className="sr-only"> ({t('loopExplorer.providerLimitHint')})</span></span>
           )}
-          {status === 'stalled' && (
+          {!held && status === 'stalled' && (
             <span
               className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning"
               title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
@@ -197,7 +206,7 @@ function LoopStepSectionInner({
               {t('loopExplorer.stalled')}
             {(end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined) ? <span className="sr-only"> ({end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined})</span> : null}</span>
           )}
-          {status === 'interrupted' && (
+          {!held && status === 'interrupted' && (
             <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning">
               {t('loopExplorer.interrupted')}
             </span>
@@ -307,6 +316,8 @@ export const LoopStepSection = memo(
     prev.segment.lastActivity?.actionKey === next.segment.lastActivity?.actionKey &&
     prev.segment.lastActivity?.actionArg === next.segment.lastActivity?.actionArg &&
     prev.status === next.status &&
+    prev.held?.state === next.held?.state &&
+    prev.held?.label === next.held?.label &&
     prev.collapsed === next.collapsed &&
     prev.filter === next.filter &&
     prev.onOpenTicket === next.onOpenTicket,

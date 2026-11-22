@@ -47,7 +47,8 @@
     },
     "headless": {
       "ok": "Les fenêtres {{framework}} restent masquées pendant les exécutions",
-      "warn": "Des fenêtres {{framework}} peuvent apparaître pendant les exécutions — faites respecter SPECRAILS_HEADLESS par son lanceur et ses tests"
+      "warn": "Des fenêtres {{framework}} peuvent s’ouvrir pendant les exécutions",
+      "warnHint": "Pour les garder masquées, faites respecter SPECRAILS_HEADLESS par le lanceur et les tests du projet."
     },
     "blocking": "Corrigez la vérification en échec avant de lancer.",
     "quotaWarning_one": "{{provider}} a utilisé {{percent}} % de sa limite {{window}}. Lancer {{count}} rail peut le mettre en pause à la limite ; il reprend ensuite seul après la réinitialisation.",

@@ -409,7 +409,7 @@
         "merge_failed": "Git could not merge it"
       },
       "held": {
-        "pausedByYou": "Rail {{k}} paused — paused by you",
+        "pausedByYou": "You paused Rail {{k}}",
         "paused": "Rail {{k}} paused",
         "question": "Rail {{k}} waits for your answer",
         "approval": "Rail {{k}} waits for your approval",

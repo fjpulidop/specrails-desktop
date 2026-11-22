@@ -547,7 +547,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
+  source: 'manual' | 'product-backlog' | 'hub' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */

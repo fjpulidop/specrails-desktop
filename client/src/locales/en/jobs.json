@@ -333,7 +333,28 @@
     "graphAttempts_other": "{{count}} attempts",
     "graphTrace": "Trace",
     "graphPathOnly": "Only the path taken",
-    "notReached": "{{count}} not reached"
+    "notReached": "{{count}} not reached",
+    "graphOutcome": {
+      "next": "Next",
+      "true": "Yes",
+      "false": "No",
+      "pass": "Passed",
+      "fail": "Did not pass",
+      "failed": "Failed",
+      "invalid": "Invalid",
+      "blocked": "Blocked",
+      "continue": "Continue",
+      "stop": "Stop",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "timeout": "Timed out",
+      "error": "Error",
+      "done": "Done",
+      "skipped": "Skipped",
+      "retry": "Retry",
+      "answered": "Answered",
+      "declined": "Declined"
+    }
   },
   "logViewer": {
     "loading": "Loading logs...",

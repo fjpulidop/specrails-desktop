@@ -48,7 +48,8 @@ export function MergePreviewView({ preview, detailed = false, className = '' }: 
     <div className={`flex min-w-0 flex-col gap-0.5 text-caption ${className}`} data-testid="merge-preview" data-merge-preview={preview.status}>
       {lines.map((line) => (
         <span key={line.key} className="flex min-w-0 items-start gap-1.5" title={line.title}>
-          {state ? <RunStateGlyph state={state} size="xs" className="mt-0.5" /> : <span className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />}
+          {/* A line without a state (clean, unknown) carries no glyph and no spacer: it aligns with its heading. */}
+          {state ? <RunStateGlyph state={state} size="xs" className="mt-0.5" /> : null}
           <span className={`min-w-0 [overflow-wrap:anywhere] ${state === 'blocked' ? 'text-foreground' : 'text-muted-foreground'}`}>{line.text}</span>
         </span>
       ))}

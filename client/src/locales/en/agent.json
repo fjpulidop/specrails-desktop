@@ -427,7 +427,7 @@
     "retryPushNote": "Implementation succeeded and the changes are safe locally. Retry only the push.",
     "cleanupIncomplete_one": "Cleanup is incomplete ({{count}} warning)",
     "cleanupIncomplete_other": "Cleanup is incomplete ({{count}} warnings)",
-    "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
+    "implementationFailedNote": "The run stopped before it had anything to deliver. Open its log to see why.",
     "degraded": {
       "pushed": "The branch was pushed but the PR could not be created. Retry to finish.",
       "localOnly": "The changes were assembled locally but not pushed. Retry to publish the PR."

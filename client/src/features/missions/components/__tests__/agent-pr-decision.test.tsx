@@ -443,7 +443,7 @@ describe('AgentPrDecisionCard states', () => {
   it('implementation_failed: failed implementation note + Discard only', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runIds: ['run-1'] })} />)
     expect(screen.getByText('Implementation failed')).toBeInTheDocument()
-    expect(screen.getByText(/implementation run failed/)).toBeInTheDocument()
+    expect(screen.getByText(/stopped before it had anything to deliver/)).toBeInTheDocument()
     expect(getAction('Discard')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
     expect(queryAction('Integrate locally')).not.toBeInTheDocument()
@@ -715,7 +715,7 @@ describe('AgentPrDecisionCard states', () => {
     })} />)
 
     expect(screen.getByText('Implementation failed')).toBeInTheDocument()
-    expect(screen.getByText(/implementation run failed/)).toBeInTheDocument()
+    expect(screen.getByText(/stopped before it had anything to deliver/)).toBeInTheDocument()
     expect(screen.queryByText('Implementation complete: delivery needs attention')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry push' })).not.toBeInTheDocument()
     expect(getAction('Discard')).toBeInTheDocument()

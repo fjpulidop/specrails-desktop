@@ -13,7 +13,10 @@
     "untitledSpec": "Untitled spec",
     "doneHeading": "Done · {{count}}",
     "clearFilters": "Clear filters",
-    "emptyNoSearchMatch": "No specs match \"{{query}}\""
+    "emptyNoSearchMatch": "No specs match \"{{query}}\"",
+    "emptyAllOnRails": "Every spec is on a rail",
+    "emptyAllOnRailsHint_one": "{{count}} spec is in the Rails column.",
+    "emptyAllOnRailsHint_other": "{{count}} specs are in the Rails column."
   },
   "status": {
     "todo": "Todo",

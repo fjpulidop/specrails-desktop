@@ -47,7 +47,8 @@
     },
     "headless": {
       "ok": "Le finestre di {{framework}} restano nascoste durante le esecuzioni",
-      "warn": "Le finestre di {{framework}} possono apparire durante le esecuzioni — fai rispettare SPECRAILS_HEADLESS al launcher e ai test"
+      "warn": "Le finestre {{framework}} possono aprirsi durante le esecuzioni",
+      "warnHint": "Per tenerle nascoste, fai rispettare SPECRAILS_HEADLESS al launcher e ai test del progetto."
     },
     "blocking": "Risolvi il controllo non superato prima del lancio.",
     "quotaWarning_one": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Lanciare {{count}} rail può metterlo in pausa al limite; poi riprende da solo dopo l'azzeramento.",

@@ -409,7 +409,7 @@
         "merge_failed": "Git がマージできませんでした"
       },
       "held": {
-        "pausedByYou": "Rail {{k}} 一時停止 — あなたが一時停止",
+        "pausedByYou": "Rail {{k}} をあなたが一時停止しました",
         "paused": "Rail {{k}} 一時停止中",
         "question": "Rail {{k}} はあなたの回答待ち",
         "approval": "Rail {{k}} はあなたの承認待ち",

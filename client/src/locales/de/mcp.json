@@ -1,8 +1,8 @@
 {
   "heading": "MCP-Server",
   "explainer": {
-    "what": "Ein MCP-Server (Model Context Protocol) ermöglicht es externen KI-Tools – wie Claude Desktop, Cursor oder jedem MCP-Client – direkt mit Specrails zu kommunizieren. Sie können Ihre Projekte durchsuchen, Spezifikationen lesen und – wenn Sie es erlauben – Arbeiten starten, alles über eine einzige sichere lokale Verbindung.",
-    "how": "Standardmäßig eingeschaltet: Verbinde unten Claude Code oder Codex oder kopiere die Client-Konfiguration in ein anderes KI-Tool. Specrails lauscht nur auf deinem eigenen Rechner – nichts ist aus dem Internet erreichbar.",
+    "what": "Ein MCP-Server (Model Context Protocol) lässt andere KI-Tools wie Claude Desktop, Cursor oder jeden MCP-Client direkt mit Specrails sprechen. Sie können deine Projekte durchsuchen, Specs lesen und, wenn du es erlaubst, Arbeit starten. Alles läuft über eine einzige sichere lokale Verbindung.",
+    "how": "Standardmäßig eingeschaltet. Verbinde unten Claude Code oder Codex oder kopiere die Client-Konfiguration in ein anderes KI-Tool. Specrails lauscht nur auf deinem eigenen Rechner; nichts ist aus dem Internet erreichbar.",
     "grants": "Alle Berechtigungsstufen sind standardmäßig aktiv. Deaktivieren Sie eine Stufe, um einzuschränken, was Clients tun dürfen – eine Fähigkeit nach der anderen."
   },
   "enable": {
@@ -20,20 +20,20 @@
   },
   "tiers": {
     "heading": "Berechtigungsstufen",
-    "description": "Jede Stufe, die ein Client verwenden darf. Lesen ist immer aktiv; der Rest ist standardmäßig an – schalten Sie Stufen aus, um Clients einzuschränken.",
+    "description": "Jede Stufe, die ein Client verwenden darf. Lesen ist immer aktiv, die anderen sind standardmäßig an. Schalte eine aus, um Clients einzuschränken.",
     "read": "Lesen",
     "readHelp": "Projekte, Spezifikationen und Analysen durchsuchen. Immer erlaubt.",
     "write": "Schreiben",
     "writeHelp": "Specs erstellen und bearbeiten.",
     "aiSpawn": "KI starten",
-    "aiSpawnHelp": "KI-Rails und Jobs starten, die die CLI ausführen.",
+    "aiSpawnHelp": "Rails und Läufe mit deinen KI-CLIs starten.",
     "destructive": "Destruktiv",
     "destructiveHelp": "Specs und andere Projektdaten löschen.",
     "updateFailed": "Berechtigungen konnten nicht aktualisiert werden"
   },
   "config": {
     "heading": "Client-Konfiguration",
-    "description": "Fügen Sie dies in Ihren MCP-Client ein. Sie enthält kein Geheimnis – das Token wird separat kopiert.",
+    "description": "Füge dies in deinen MCP-Client ein. Sie enthält kein Geheimnis; das Token wird separat kopiert.",
     "copyConfig": "Konfiguration kopieren",
     "configCopied": "Konfiguration kopiert",
     "copyFailed": "Kopieren fehlgeschlagen"
@@ -63,7 +63,7 @@
     "sourceDiscovered": "aus {{provider}}",
     "sourceCustom": "benutzerdefiniert",
     "orphan": "nicht in der Quellkonfiguration gefunden",
-    "codexNative": "codex-nativ — immer aktiv",
+    "codexNative": "Codex-nativ · immer aktiv",
     "empty": "Keine MCP-Server gefunden. Füge einen benutzerdefinierten Server hinzu oder registriere einen mit deinem KI-CLI.",
     "addCustom": "Benutzerdefiniert hinzufügen",
     "remove": "Server entfernen",
@@ -84,7 +84,7 @@
       "addVar": "Variable hinzufügen",
       "envKey": "SCHLÜSSEL",
       "envValue": "Wert",
-      "nameInvalid": "Nur Buchstaben, Ziffern, Punkte und Bindestriche — und 'specrails' ist reserviert",
+      "nameInvalid": "Nur Buchstaben, Ziffern, Punkte und Bindestriche. 'specrails' ist reserviert.",
       "nameTaken": "Ein benutzerdefinierter Server mit diesem Namen existiert bereits"
     },
     "errors": {

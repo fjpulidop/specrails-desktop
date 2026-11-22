@@ -410,7 +410,7 @@
     "confirmDiscard": "Verwerfen bestätigen?",
     "mergedNote": "Gemergt. Specs nach Erledigt verschoben",
     "discardedNote": "Verworfen. Specs zurück ins Backlog",
-    "implementationFailedNote": "Der Implementierungslauf ist fehlgeschlagen, bevor etwas Auslieferbares entstanden ist. Öffne das Run-Protokoll, um den Fehler zu prüfen, und verwirf diese Karte vor einem erneuten Start.",
+    "implementationFailedNote": "Der Lauf hat angehalten, bevor er etwas liefern konnte. Öffne sein Protokoll, um zu sehen, warum.",
     "dismiss": "Fortsetzung schließen",
     "discardLocalResult": "Lokales Ergebnis verwerfen",
     "retryPush": "Push wiederholen",

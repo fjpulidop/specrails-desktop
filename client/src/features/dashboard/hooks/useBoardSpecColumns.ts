@@ -52,6 +52,10 @@ export function useBoardSpecColumns(opts: {
           t.source === 'free-prompt' ||
           // Specs created by an external LLM through the MCP server.
           t.source === 'mcp' ||
+          // A spec created through the HTTP API without a named source (the
+          // legacy 'hub' wire value, shared with specrails-core's tickets.json):
+          // the rails and the live board show it, so the board must too.
+          t.source === 'hub' ||
           // Day-0 specs committed by the Project Builder. The created_by
           // fallback keeps projects created before `project-builder` became a
           // first-class source visible without rewriting their ticket store.

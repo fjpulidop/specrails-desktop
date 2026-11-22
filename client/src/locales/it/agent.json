@@ -410,7 +410,7 @@
     "confirmDiscard": "Confermare lo scarto?",
     "mergedNote": "Merge effettuato. Le spec sono passate a Completate",
     "discardedNote": "Scartata. Le spec sono tornate nel backlog",
-    "implementationFailedNote": "Il run di implementazione non è riuscito prima di produrre qualcosa di consegnabile. Apri il log del run per controllare l'errore, poi scarta questa scheda prima di rilanciare.",
+    "implementationFailedNote": "Il run si è fermato prima di avere qualcosa da consegnare. Apri il suo log per capire perché.",
     "dismiss": "Chiudi follow-up",
     "discardLocalResult": "Elimina risultato locale",
     "retryPush": "Riprova push",

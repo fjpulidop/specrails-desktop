@@ -249,7 +249,7 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const strip = screen.getByTestId('rail-pr-strip')
         expect(strip).toHaveAttribute('data-decision', 'implementation_failed')
         expect(within(strip).getByText('Implementation failed')).toBeInTheDocument()
-        expect(menuItem('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('implementation run failed'))
+        expect(menuItem('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('The run\'s log stays available'))
         expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
       })
@@ -1217,9 +1217,29 @@ describe('strip: one primary, readable detail, honest spinners', () => {
     global.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 202 })) as unknown as typeof fetch
     setActiveProjectId('p1')
     renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2 }))
-    expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent(/implementation run failed/i)
+    // Without a known cause the card says what happened and where to look; never "discard before relaunching".
+    expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent('The run stopped before it had anything to deliver. Open its log to see why.')
+    expect(screen.getByTestId('rail-pr-detail-line')).not.toHaveTextContent(/discard/i)
     fireEvent.click(screen.getByTestId('rail-pr-relaunch'))
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/rails\/2\/relaunch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceId: 'del-1' }) })))
+  })
+
+  it('implementation_failed says the run window\'s reason once: one pill, the diagnosis headline, no repeated chips', async () => {
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => {
+      const href = String(url)
+      if (href.includes('/loop-runs/run-9')) return new Response(JSON.stringify({ loopRun: { failureDiagnosis: { kind: 'provider_unavailable', confidence: 'high', detail: 'API Error: 500', phase: 'architect', remedies: [] } } }), { status: 200 })
+      return new Response('{}', { status: 200 })
+    }) as unknown as typeof fetch
+    setActiveProjectId('p1')
+    renderStrip(snapshot({ decision: 'implementation_failed', statusCode: 'implementation_failed', runIds: ['run-9'], deliverySha: 'abcdef1234567',
+      units: [{ ticketId: 1, branch: 'feat/1', implementationOutcome: 'failed', deliveryOutcome: 'not_started', succeeded: false, runId: 'run-9' }] } as never))
+    expect(await screen.findByTestId('rail-pr-failure-reason')).toHaveTextContent(/Architect/)
+    expect(screen.queryByTestId('rail-pr-detail-line')).toBeNull()
+    expect(screen.getAllByText(/implementation failed/i)).toHaveLength(1)
+    expect(screen.queryByTestId('rail-pr-status-code')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-unit-evidence')).toBeNull()
+    // Nothing was delivered: the recorded commit is only the base it started from.
+    expect(screen.queryByTestId('rail-pr-delivery-sha')).toBeNull()
   })
 
   describe('resumable failed attempt', () => {

@@ -506,7 +506,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     else void runVerb('accept')
                   }}
                   disabled={operationBusy}
-                  className="gap-1.5 text-sm bg-accent-success text-background hover:bg-accent-success/90"
+                  className="gap-1.5 text-sm"
                   data-testid="packet-accept"
                 >
                   {pending === 'accept' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}

@@ -1,4 +1,6 @@
-import { RuntimeGraphExplorer } from './RuntimeGraphExplorer'
+import { RuntimeGraphExplorer, type RuntimeGraphHold } from './RuntimeGraphExplorer'
+
+export type { RuntimeGraphHold }
 /**
  * LoopStepExplorer — premium step-grouped log exploration for loop jobs.
  *
@@ -43,6 +45,8 @@ export interface LoopStepExplorerProps {
   events: EventRow[]
   /** Job status — drives running/interrupted derivation and the follow pill. */
   jobStatus?: string
+  /** The run's hold (state and name), when it is held: the step it stopped on reads as the hold. */
+  hold?: RuntimeGraphHold | null
   isLoading?: boolean
   variant?: 'page' | 'glass'
   /** Project scope for `#N` ticket refs in step-box lines — defaults to the
@@ -71,6 +75,7 @@ function PulseDot() {
 export function LoopStepExplorer({
   events,
   jobStatus,
+  hold: holdProp = null,
   isLoading,
   variant = 'page',
   projectId,
@@ -96,6 +101,9 @@ export function LoopStepExplorer({
   const model = useMemo(() => groupByLoopStep(events), [events, i18nInstance.language])
 
   const settled = jobStatus != null && jobStatus !== 'running' && jobStatus !== 'queued'
+  // One object per hold (callers build it on every render): the graph's layout memo keys on it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const hold = useMemo(() => holdProp, [holdProp?.state, holdProp?.label])
   const isJobRunning = jobStatus === 'running'
 
   const segStatuses = useMemo(
@@ -302,7 +310,7 @@ export function LoopStepExplorer({
       {/* With a graph, the outcome shares the graph's toolbar row. */}
       {model.completion && !model.graphMeta?.runtimeTopology && <div data-testid="loop-completion-scroll" className="shrink-0"><LoopCompletionSummary result={model.completion} /></div>}
       {model.graphMeta?.runtimeTopology && <>
-        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={onShowStep ?? focusSegment} leading={model.completion ? <LoopCompletionSummary result={model.completion} compact /> : undefined} onFork={forkControl.fork} forkBusy={forkControl.busy} />
+        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} hold={hold} onFocus={onShowStep ?? focusSegment} leading={model.completion ? <LoopCompletionSummary result={model.completion} compact /> : undefined} onFork={forkControl.fork} forkBusy={forkControl.busy} />
         {forkControl.error && <p role="alert" className="px-2 text-xs text-destructive">{forkControl.error}</p>}
         {forkControl.created && <div className="p-2 text-xs"><p>{t('loopExplorer.forkCreated')}</p><Button size="sm" variant="outline" onClick={() => onOpenRun?.(forkControl.created!)} disabled={!onOpenRun}>{t('loopExplorer.openFork')}</Button><code className="ml-2">{forkControl.created}</code></div>}
       </>}
@@ -378,7 +386,7 @@ export function LoopStepExplorer({
         tabIndex={variant === 'glass' ? 0 : undefined}
       ><LoopCompletionSummary result={model.completion} /></div>}
       {model.graphMeta?.runtimeTopology && <>
-        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={focusSegment} onFork={forkControl.fork} forkBusy={forkControl.busy} />
+        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} hold={hold} onFocus={focusSegment} onFork={forkControl.fork} forkBusy={forkControl.busy} />
         {forkControl.error && <p role="alert" className="px-2 text-xs text-destructive">{forkControl.error}</p>}
         {forkControl.created && <div className="p-2 text-xs"><p>{t('loopExplorer.forkCreated')}</p><Button size="sm" variant="outline" onClick={() => onOpenRun?.(forkControl.created!)} disabled={!onOpenRun}>{t('loopExplorer.openFork')}</Button><code className="ml-2">{forkControl.created}</code></div>}
       </>}
@@ -412,6 +420,7 @@ export function LoopStepExplorer({
             key={seg.key}
             segment={seg}
             status={segStatuses[i]}
+            held={hold && i === model.segments.length - 1 && seg.end?.status !== 'ok' ? hold : null}
             collapsed={!effectiveExpanded.has(seg.key)}
             filter={filter}
             onToggle={handleToggle}

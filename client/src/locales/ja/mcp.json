@@ -1,7 +1,7 @@
 {
   "heading": "MCP サーバー",
   "explainer": {
-    "what": "MCP（Model Context Protocol）サーバーを使うと、Claude Desktop や Cursor などの外部 AI ツール、あるいは任意の MCP クライアントが Specrails と直接やり取りできます。プロジェクトの閲覧、仕様の読み取り、そして許可すれば作業の起動まで、すべて安全なローカル接続を通じて行えます。",
+    "what": "MCP（Model Context Protocol）サーバーを使うと、Claude Desktop や Cursor などのほかの AI ツールや任意の MCP クライアントが Specrails と直接やり取りできます。プロジェクトの閲覧やスペックの読み取りができ、許可すれば作業も起動できます。すべて安全なローカル接続を通じて行われます。",
     "how": "既定でオンです。下で Claude Code または Codex を接続するか、クライアント設定をほかの AI ツールにコピーしてください。Specrails は自分のマシン上だけで待ち受け、インターネットには公開されません。",
     "grants": "すべての権限ティアはデフォルトでオンです。ティアのチェックを外すと、クライアントができることを 1 つずつ制限できます。"
   },
@@ -20,13 +20,13 @@
   },
   "tiers": {
     "heading": "権限ティア",
-    "description": "クライアントが使用できる各ティア。読み取りは常にオンで、それ以外はデフォルトでオンです。制限したいティアをオフにしてください。",
+    "description": "クライアントが使用できる各ティア。読み取りは常にオンで、それ以外は既定でオンです。制限したいティアをオフにしてください。",
     "read": "読み取り",
     "readHelp": "プロジェクト、仕様、分析を閲覧します。常に許可されます。",
     "write": "書き込み",
     "writeHelp": "スペックを作成・編集します。",
     "aiSpawn": "AI 起動",
-    "aiSpawnHelp": "CLI を実行する AI レールとジョブを起動します。",
+    "aiSpawnHelp": "AI CLI でレールと実行を起動します。",
     "destructive": "破壊的操作",
     "destructiveHelp": "スペックとその他のプロジェクトデータを削除します。",
     "updateFailed": "権限を更新できませんでした"
@@ -63,7 +63,7 @@
     "sourceDiscovered": "{{provider}} から",
     "sourceCustom": "カスタム",
     "orphan": "ソース設定に見つかりません",
-    "codexNative": "codex ネイティブ — 常時有効",
+    "codexNative": "Codex ネイティブ · 常時有効",
     "empty": "MCP サーバーが見つかりません。カスタムサーバーを追加するか、AI CLI で登録してください。",
     "addCustom": "カスタムを追加",
     "remove": "サーバーを削除",
@@ -84,7 +84,7 @@
       "addVar": "変数を追加",
       "envKey": "キー",
       "envValue": "値",
-      "nameInvalid": "使用できるのは英数字・ドット・ハイフンのみ — 'specrails' は予約済みです",
+      "nameInvalid": "使用できるのは英数字・ドット・ハイフンのみです。'specrails' は予約済みです。",
       "nameTaken": "同じ名前のカスタムサーバーが既に存在します"
     },
     "errors": {

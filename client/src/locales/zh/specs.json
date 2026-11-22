@@ -13,7 +13,10 @@
     "untitledSpec": "未命名 spec",
     "doneHeading": "已完成 · {{count}}",
     "clearFilters": "清除筛选",
-    "emptyNoSearchMatch": "没有匹配\"{{query}}\"的 Spec"
+    "emptyNoSearchMatch": "没有匹配\"{{query}}\"的 Spec",
+    "emptyAllOnRails": "所有 spec 都在 rail 上",
+    "emptyAllOnRailsHint_one": "{{count}} 个 spec 在 Rails 栏中。",
+    "emptyAllOnRailsHint_other": "{{count}} 个 spec 在 Rails 栏中。"
   },
   "status": {
     "todo": "待办",

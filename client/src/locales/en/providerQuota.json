@@ -47,7 +47,8 @@
     },
     "headless": {
       "ok": "{{framework}} windows stay hidden during runs",
-      "warn": "{{framework}} windows may appear during runs — make its launcher and tests honour SPECRAILS_HEADLESS"
+      "warn": "{{framework}} windows may open during runs",
+      "warnHint": "To keep them hidden, make the project's launcher and tests honour SPECRAILS_HEADLESS."
     },
     "blocking": "Fix the failed check before launching.",
     "quotaWarning_one": "{{provider}} has used {{percent}}% of its {{window}} limit. Launching {{count}} rail may pause it at the limit; it then resumes on its own after the reset.",

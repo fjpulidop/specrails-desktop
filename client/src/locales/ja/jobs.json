@@ -333,7 +333,28 @@
     "graphAttempts_other": "{{count}} 回の試行",
     "graphTrace": "トレース",
     "graphPathOnly": "通過した経路のみ",
-    "notReached": "未到達 {{count}} 件"
+    "notReached": "未到達 {{count}} 件",
+    "graphOutcome": {
+      "next": "次へ",
+      "true": "はい",
+      "false": "いいえ",
+      "pass": "合格",
+      "fail": "不合格",
+      "failed": "失敗",
+      "invalid": "無効",
+      "blocked": "ブロック",
+      "continue": "続行",
+      "stop": "停止",
+      "approved": "承認",
+      "rejected": "却下",
+      "timeout": "タイムアウト",
+      "error": "エラー",
+      "done": "完了",
+      "skipped": "スキップ",
+      "retry": "再試行",
+      "answered": "回答済み",
+      "declined": "辞退"
+    }
   },
   "logViewer": {
     "loading": "ログを読み込み中...",

@@ -34,7 +34,7 @@ import {
 import { useNativeSurface } from '../../../components/ui/surface'
 import { getActiveProjectId } from '../../../lib/api'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
-import { jobDisplayStatus, jobHoldOf } from '../lib/job-run-state'
+import { jobDisplayStatus, jobHoldOf, jobStepHold } from '../lib/job-run-state'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
 import { useRuntimeRuns } from './job-run/useRuntimeRuns'
@@ -456,7 +456,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopStepExplorer events={events} jobStatus={displayStatus} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
+                      <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
                     </>}
                     logContent={navigation => job.command.startsWith('loop:') ? <>
                       {eventBuffer.omitted && (
@@ -464,7 +464,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopRunDetail events={events} jobStatus={displayStatus} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
+                      <LoopRunDetail events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} isLoading={isLoading} projectId={projectId} variant="glass" navigation={navigation} onOpenRun={openFork}
                         settled={settledView} elapsedMs={job.duration_ms ?? null} />
                     </> : <>
                       {eventBuffer.omitted && (

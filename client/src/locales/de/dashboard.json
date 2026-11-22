@@ -98,7 +98,7 @@
     "iteratingPr": "PR wird aktualisiert",
     "prReady": "PR bereit",
     "implementationFailed": "Implementierung fehlgeschlagen",
-    "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
+    "implementationFailedHint": "Der Lauf hat angehalten, bevor er etwas liefern konnte. Öffne sein Protokoll, um zu sehen, warum.",
     "runStopped": "Gestoppt",
     "runStoppedHint": "Du hast diesen Lauf vor der Lieferung angehalten. Fortsetzen macht dort weiter, wo er angehalten wurde, oder verwirf diese Karte.",
     "prFailed": "PR fehlgeschlagen",
@@ -187,7 +187,8 @@
     "fixCiStarted": "CI-Überwachung gestartet",
     "fixCiFailed": "Die CI-Schleife konnte nicht starten",
     "continue": "Fortsetzen",
-    "continueHint": "Behält alles und macht dort weiter, wo der Lauf fehlschlug oder angehalten wurde, im selben Worktree."
+    "continueHint": "Behält alles und macht dort weiter, wo der Lauf fehlschlug oder angehalten wurde, im selben Worktree.",
+    "implementationFailedDiscardTooltip": "Schließt diese Karte und schickt ihre Specs zurück zu Specs. Das Protokoll des Laufs bleibt verfügbar."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",
+      "paused_one": "{{count}} pausiert",
+      "paused_other": "{{count}} pausiert",
       "ready_one": "{{count}} bereit",
       "ready_other": "{{count}} bereit",
       "failed_one": "{{count}} fehlgeschlagen",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "Inaktiv",
       "running": "Läuft",
-      "failed": "Fehlgeschlagen"
+      "failed": "Fehlgeschlagen",
+      "paused": "Pausiert"
     },
     "deleteMenuItem": "Rail löschen",
     "deleteConfirm": {

@@ -81,7 +81,7 @@
     "iteratingPr": "Updating PR",
     "prReady": "PR ready",
     "implementationFailed": "Implementation failed",
-    "implementationFailedHint": "The implementation run failed. Open the run log, then discard this card before relaunching.",
+    "implementationFailedHint": "The run stopped before it had anything to deliver. Open its log to see why.",
     "runStopped": "Stopped",
     "runStoppedHint": "You stopped this run before it delivered. Continue picks it up where it stopped, or discard this card.",
     "prFailed": "PR failed",
@@ -187,7 +187,8 @@
     "fixCiStarted": "CI watch started",
     "fixCiFailed": "The CI loop could not start",
     "continue": "Continue",
-    "continueHint": "Keeps everything and goes on from where the run failed or stopped, in the same worktree."
+    "continueHint": "Keeps everything and goes on from where the run failed or stopped, in the same worktree.",
+    "implementationFailedDiscardTooltip": "Close this card and return its specs to Specs. The run's log stays available."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} running",
       "running_other": "{{count}} running",
+      "paused_one": "{{count}} paused",
+      "paused_other": "{{count}} paused",
       "ready_one": "{{count}} ready",
       "ready_other": "{{count}} ready",
       "failed_one": "{{count}} failed",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "Idle",
       "running": "Running",
-      "failed": "Failed"
+      "failed": "Failed",
+      "paused": "Paused"
     },
     "deleteMenuItem": "Delete rail",
     "deleteConfirm": {

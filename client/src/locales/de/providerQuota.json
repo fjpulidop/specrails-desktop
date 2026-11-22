@@ -47,7 +47,8 @@
     },
     "headless": {
       "ok": "{{framework}}-Fenster bleiben während der Läufe verborgen",
-      "warn": "{{framework}}-Fenster können während der Läufe erscheinen — Starter und Tests sollten SPECRAILS_HEADLESS beachten"
+      "warn": "{{framework}}-Fenster können sich während der Läufe öffnen",
+      "warnHint": "Damit sie verborgen bleiben, müssen Launcher und Tests des Projekts SPECRAILS_HEADLESS beachten."
     },
     "blocking": "Behebe die fehlgeschlagene Prüfung vor dem Start.",
     "quotaWarning_one": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rail kann am Limit pausieren; er setzt nach dem Reset von selbst fort.",

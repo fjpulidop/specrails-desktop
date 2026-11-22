@@ -195,7 +195,10 @@ export const RAILS_COMPACT_THRESHOLD_PX = 320
 
 export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
-  const running = rails.filter((r) => r.status === 'running').length
+  // A held run (your pause, a limit, a question) is not running: the summary counts it apart.
+  const isHeld = (rail: RailState, pos: number) => rail.status === 'running' && railMetrics?.[railIndexFromId(rail.id) ?? pos]?.heldSince != null
+  const held = rails.filter((r, pos) => isHeld(r, pos)).length
+  const running = rails.filter((r, pos) => r.status === 'running' && !isHeld(r, pos)).length
   const failed = rails.filter((r) => r.status === 'failed').length
   const ready = launchAllCount ?? 0
   const atLimit = rails.length >= MAX_RAILS
@@ -287,7 +290,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                 data-testid="rails-launch-all"
                 aria-label={iconOnly ? t('railsBoard.launchAll') : undefined}
                 className={launchEnabled
-                  ? 'inline-flex items-center gap-1.5 h-8 px-3 shrink-0 rounded-md text-xs font-semibold whitespace-nowrap bg-accent-success text-background hover:bg-accent-success/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background'
+                  ? 'inline-flex items-center gap-1.5 h-8 px-3 shrink-0 rounded-md text-xs font-semibold whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background'
                   : toolbarButtonClass}
               >
                 <Rocket className="w-3.5 h-3.5" aria-hidden />
@@ -306,6 +309,9 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
           >
             {running > 0 && (
               <SummaryItem state="working" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" />
+            )}
+            {held > 0 && (
+              <SummaryItem state="paused" label={t('railsBoard.summary.paused', { count: held })} testId="rails-summary-paused" />
             )}
             {ready > 0 && (
               <SummaryItem state="queued" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />

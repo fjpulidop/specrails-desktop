@@ -4,6 +4,7 @@ import { onRunQuestionAnswered, plainRunQuestion, readRunQuestion, runQuestionSe
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
 import { answerableRun } from './job-run-model'
+import { useBubbleAvoid } from '../../../../lib/bubble-avoid'
 
 function useSharedWebSocketOptional(): ReturnType<typeof useSharedWebSocket> | null {
   try { return useSharedWebSocket() } catch { return null }
@@ -39,6 +40,8 @@ export function RunQuestionDock({ projectId, runId, initial, onAnswered }: {
   initial: RunWindowQuestion | null
   onAnswered?: () => void
 }) {
+  // The agent bubble keeps clear of the docked question.
+  const avoidRef = useBubbleAvoid<HTMLDivElement>()
   const [current, setCurrent] = useState(initial)
   const answeredHere = useRef(false)
   // Answered here: the confirmation stays a moment, then the dock steps aside (see onAnswered below).
@@ -66,7 +69,7 @@ export function RunQuestionDock({ projectId, runId, initial, onAnswered }: {
   }), [projectId, runId, onAnswered])
   if (!current) return null
   return (
-    <div className="shrink-0 px-3 py-2" data-run-question-dock={runId}>
+    <div ref={avoidRef} className="shrink-0 px-3 py-2" data-run-question-dock={runId}>
       <RunQuestionCard question={current.question} projectId={projectId} runId={current.runId ?? runId} engine={current.engine}
         onAnswered={() => { answeredHere.current = true; setTimeout(() => { if (answeredHere.current) { answeredHere.current = false; setCurrent(null) } }, 4000) }} />
     </div>

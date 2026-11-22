@@ -141,7 +141,8 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
               : tQuota('preflight.quotaWarning', { provider, percent: Math.round(chip.usedPercent ?? 0), window: windowLabel(quota?.windowId ?? null), count: railCount })
             return (
               <div key={chip.id} role="status" data-testid="launch-all-quota-warning" data-level={chip.level}
-                className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 text-xs ${chip.level === 'rejected' || chip.level === 'critical' ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning'}`}>
+                className="flex items-start gap-2.5 rounded-lg border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-accent-warning">
+                {/* A usage limit holds the rails until the reset (blocked, amber); it never fails the launch, so never red. */}
                 <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{text}</span>
               </div>
@@ -158,7 +159,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
               <span><span className="font-medium text-foreground">{t('launchAllDialog.pipelinesTitle', { count: railCount })}</span>{' '}{t('launchAllDialog.pipelinesBody')}</span>
             </li>
             <li className="flex items-start gap-2.5">
-              <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
+              <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
               <span><span className="font-medium text-foreground">{t('launchAllDialog.costTitle')}</span>{' '}{t('launchAllDialog.costBody')}</span>
             </li>
           </ul>
@@ -171,7 +172,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
           <Button
             ref={confirmRef}
             disabled={railCount === 0 || blocked}
-            className="gap-2 bg-accent-success text-background hover:bg-accent-success/90 focus-visible:ring-accent-success"
+            className="gap-2"
             onClick={onConfirm}
           >
             {t('launchAllDialog.launch', { count: railCount })}

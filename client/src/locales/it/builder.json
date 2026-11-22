@@ -409,7 +409,7 @@
         "merge_failed": "Git non è riuscito a unirla"
       },
       "held": {
-        "pausedByYou": "Rail {{k}} in pausa — messa in pausa da te",
+        "pausedByYou": "Hai messo in pausa il Rail {{k}}",
         "paused": "Rail {{k}} in pausa",
         "question": "Il rail {{k}} attende la tua risposta",
         "approval": "Il rail {{k}} attende la tua approvazione",

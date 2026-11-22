@@ -29,6 +29,9 @@ import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import { useContinueRemedies } from '../../recovery/hooks/useContinueRemedies'
 import { useAttemptChain } from '../../recovery/hooks/useAttemptChain'
+import { useRunDiagnosis } from '../../recovery/hooks/useRunDiagnosis'
+import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
+import type { FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 import { SafetyArchiveNotice } from './SafetyArchiveNotice'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
@@ -102,6 +105,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const implementationFailedStrip = d === 'implementation_failed' && presentation.implementationFailed && decision.statusCode !== 'review_changes_requested'
   const runtimeRuns = useRuntimeRuns(stripProjectId, { jobId: failedRunId ?? undefined, enabled: implementationFailedStrip && !!failedRunId })
   const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
+  // The reason the run stopped, in the run window's own words (its failure card's headline).
+  const failureDiagnosis = useRunDiagnosis(stripProjectId, failedRunId, implementationFailedStrip && !runStopped && !!failedRunId, decision.statusCode)
   const canResume = failedRun !== null && failedRun.canResume && !failedRun.active
   const relaunchBlocked = failedRun !== null && (failedRun.active || failedRun.status === 'running' || failedRun.status === 'paused')
   // A settled definition run continues where it failed or stopped, keeping its work (never a relaunch
@@ -122,6 +127,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     (decision.decision === 'on_review' && decision.statusCode === 'ready_for_review') ||
     (decision.decision === 'pr_ready' && decision.statusCode === 'pr_ready') ||
     (decision.decision === 'pr_draft' && decision.statusCode === 'pr_draft_ready') ||
+    (decision.decision === 'implementation_failed' && decision.statusCode === 'implementation_failed') ||
     runStopped
   const statusLabel = isKnownPrDeliveryStatusCode(decision.statusCode) && !statusRepeatsPill
     ? t(`common:prDeliveryStatus.${decision.statusCode}`)
@@ -412,7 +418,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   // A later milestone chunk was stacked on this delivery (premium-milestone-
   // progress): discarding it pauses the chain — say so before the click.
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
-  const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
+  const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedDiscardTooltip') : t('railPr.discardTooltip')
 
   const plainLinkChip = decision.prUrl ? (
     <a
@@ -619,7 +625,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     return { failed, blocked, label: t(failed ? 'railPr.unit.failed' : blocked ? 'railPr.unit.blocked' : noChanges ? 'railPr.unit.noChanges' : 'railPr.unit.succeeded') }
   }
   const unitSummary = (decision.units ?? []).map((unit) => `#${unit.ticketId} · ${unitState(unit).label}`).join('\n')
-  const unitEvidence = (decision.units ?? []).flatMap((unit) => {
+  // A failed implementation's one unit only repeats the pill: per-unit evidence speaks there when several specs share it.
+  const unitEvidence = d === 'implementation_failed' && (decision.units ?? []).length < 2 ? [] : (decision.units ?? []).flatMap((unit) => {
     const { failed, blocked, label } = unitState(unit)
     if (!failed && !blocked) return []
     return [(
@@ -791,6 +798,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   let actions: React.ReactNode = null
   // The pill's explanation, readable without hovering (the tooltip keeps it too).
   let detailLine: string | null = null
+  let reasonDiagnosis: FailureDiagnosis | null = null
 
   if (existingPrIteration) {
     pill = statePill('working', t('railPr.iteratingPr'))
@@ -939,7 +947,9 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
     const hint = t(runStopped ? 'railPr.runStoppedHint' : 'railPr.implementationFailedHint')
-    detailLine = hint
+    // One headline (the pill), one reason (the run's diagnosis when known), one set of actions.
+    detailLine = runStopped || !failureDiagnosis ? hint : null
+    reasonDiagnosis = runStopped ? null : failureDiagnosis
     pill = runStopped
       ? statePill(deliveryLook(d, 'stopped').state, t('railPr.runStopped'), { title: hint, hint, testId: 'rail-pr-run-stopped' })
       : statePill(deliveryLook('implementation_failed').state, t('railPr.implementationFailed'), { title: hint, hint })
@@ -1021,7 +1031,9 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {actions}
       <HelpHint topic="prDecision" />
       {detailLine && <p className="basis-full text-caption text-muted-foreground" data-testid="rail-pr-detail-line">{detailLine}</p>}
-      {decision.deliverySha && (
+      {reasonDiagnosis && <FailureReasonLine diagnosis={reasonDiagnosis} />}
+      {/* A failed implementation delivered nothing: its recorded commit is the base it started from. */}
+      {decision.deliverySha && d !== 'implementation_failed' && (
         <span
           className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-muted-foreground'} font-mono`}
           data-testid="rail-pr-delivery-sha"
@@ -1187,4 +1199,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </ConfirmDialog>
     </div>
   )
+}
+
+/** A failed run's reason on the rail card: the run window's failure headline, once. */
+function FailureReasonLine({ diagnosis }: { diagnosis: FailureDiagnosis }) {
+  const { headline } = useDiagnosisText(diagnosis)
+  return <p className="basis-full text-caption text-muted-foreground" data-testid="rail-pr-failure-reason">{headline}</p>
 }

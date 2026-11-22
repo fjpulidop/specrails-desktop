@@ -124,6 +124,8 @@ export function RailRow({
   onModeChange, onProfileChange, onEngineChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs, launchBlockedReason,
 }: RailRowProps) {
+  // A held run (your pause, a limit, a question) is not working: the rail's lamp says paused.
+  const railHeld = status === 'running' && executionMetric?.heldSince != null
   const { t } = useTranslation('dashboard')
   const { activeProjectId, projects } = useDesktop()
   const repositories = projectRepositories(projects.find(project => project.id === activeProjectId))
@@ -467,7 +469,7 @@ export function RailRow({
           >
             <GripVertical className="w-3 h-3" />
           </button>
-          <RunStateDot state={railRunState(status)} label={t(`railRow.status.${status}`)} />
+          <RunStateDot state={railRunState(status, railHeld)} label={t(railHeld ? 'railRow.status.paused' : `railRow.status.${status}`)} />
           {editing ? (
             <form
               className="flex items-center gap-0.5 min-w-0 flex-1"
@@ -718,7 +720,7 @@ export function RailRow({
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <RunStateDot state={railRunState(status)} label={t(`railRow.status.${status}`)} />
+            <RunStateDot state={railRunState(status, railHeld)} label={t(railHeld ? 'railRow.status.paused' : `railRow.status.${status}`)} />
             {editing ? (
               <form
                 className="flex items-center gap-0.5"

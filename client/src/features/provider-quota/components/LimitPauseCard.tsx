@@ -28,7 +28,8 @@ function SwitchProvider({ limit, targets, busy, onSwitch }: {
 }) {
   const state = useProviderSwitchChoice(targets)
   if (!state) return null
-  return <ProviderSwitchSection fromProvider={limit.providerId} targets={targets} state={state} busy={busy} onSwitch={(choice) => onSwitch({ action: 'switch', ...choice })} />
+  // Folded: waiting or resuming is the card's decision; another provider is one click away.
+  return <ProviderSwitchSection collapsible fromProvider={limit.providerId} targets={targets} state={state} busy={busy} onSwitch={(choice) => onSwitch({ action: 'switch', ...choice })} />
 }
 
 export function LimitPauseCard({ projectId, runId, limit, providers = [], onChanged }: {

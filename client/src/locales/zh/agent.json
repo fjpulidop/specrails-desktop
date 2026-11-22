@@ -410,7 +410,7 @@
     "confirmDiscard": "确认丢弃？",
     "mergedNote": "已合并。Spec 已移至完成",
     "discardedNote": "已丢弃。Spec 已退回待办",
-    "implementationFailedNote": "实现运行在生成可交付内容前失败。请打开运行日志查看失败原因，然后在重新启动前丢弃此卡片。",
+    "implementationFailedNote": "运行在产出可交付内容之前就停止了。打开其日志查看原因。",
     "dismiss": "关闭后续任务",
     "discardLocalResult": "丢弃本地结果",
     "retryPush": "重试推送",

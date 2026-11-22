@@ -98,7 +98,7 @@
     "iteratingPr": "Mise à jour de la PR",
     "prReady": "PR prête",
     "implementationFailed": "Échec de l’implémentation",
-    "implementationFailedHint": "Le run d’implémentation a échoué. Ouvrez le journal du run, puis abandonnez cette carte avant de relancer.",
+    "implementationFailedHint": "Le run s’est arrêté avant d’avoir quoi que ce soit à livrer. Ouvrez son journal pour voir pourquoi.",
     "runStopped": "Arrêtée",
     "runStoppedHint": "Vous avez arrêté cette exécution avant sa livraison. Continuer la reprend là où elle s'est arrêtée, ou supprimez cette carte.",
     "prFailed": "PR en échec",
@@ -187,7 +187,8 @@
     "fixCiStarted": "Surveillance de la CI démarrée",
     "fixCiFailed": "La boucle de CI n’a pas pu démarrer",
     "continue": "Continuer",
-    "continueHint": "Garde tout et reprend là où l'exécution a échoué ou s'est arrêtée, dans le même worktree."
+    "continueHint": "Garde tout et reprend là où l'exécution a échoué ou s'est arrêtée, dans le même worktree.",
+    "implementationFailedDiscardTooltip": "Ferme cette carte et renvoie ses specs vers Specs. Le journal du run reste disponible."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} en cours",
       "running_other": "{{count}} en cours",
+      "paused_one": "{{count}} en pause",
+      "paused_other": "{{count}} en pause",
       "ready_one": "{{count}} prêt",
       "ready_other": "{{count}} prêts",
       "failed_one": "{{count}} en échec",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "Inactif",
       "running": "En cours",
-      "failed": "Échec"
+      "failed": "Échec",
+      "paused": "En pause"
     },
     "deleteMenuItem": "Supprimer le rail",
     "deleteConfirm": {

@@ -410,7 +410,7 @@
     "confirmDiscard": "Confirmar descarte?",
     "mergedNote": "Merge concluído. Specs movidas para Concluído",
     "discardedNote": "Descartada. Specs devolvidas ao backlog",
-    "implementationFailedNote": "A execução de implementação falhou antes de produzir algo entregável. Abra o log da execução para inspecionar a falha e descarte este cartão antes de relançar.",
+    "implementationFailedNote": "A execução parou antes de ter algo para entregar. Abra o log para ver o motivo.",
     "dismiss": "Encerrar acompanhamento",
     "discardLocalResult": "Descartar resultado local",
     "retryPush": "Tentar push novamente",

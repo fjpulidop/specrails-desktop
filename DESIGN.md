@@ -252,6 +252,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Shape:** control radius (6 px), 32 px high (28 px small, 40 px large).
 - **Primary:** Signal Cyan fill with Night Ink text; **Secondary:** Chrome fill; **Outline** and **Ghost** use hairline and accent hover.
 - **Hover / Focus:** colour shift in 150 ms; press scales to 0.98 in 100 ms; focus shows a 2 px ring in the primary.
+- **Accept and deliver actions** (Accept and open a pull request, Accept into my project, Create PR, Merge) are the screen's one primary action and use **Primary**. Success green is the done lamp, a state: it never fills an action button (the Lamp Rule). A done state after the action is shown with the lamp, not by the button that caused it.
 
 ### Badges and lamps
 - **Style:** pill, transparent fill, 30% tinted hairline, a 6 px leading dot in the lamp colour, caption text.

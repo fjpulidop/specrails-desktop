@@ -60,6 +60,8 @@ export function LaunchPreflightChips({ report, loading, onRecheck }: { report: P
             const Icon = look.icon
             return (
               <li key={chip.id} data-testid={`preflight-chip-${chip.id}`} data-state={chip.state}
+                // A chip names the check; what to do about a warning is its tooltip.
+                title={chip.kind === 'headless' && chip.state === 'warn' ? t('preflight.headless.warnHint') : undefined}
                 className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption', look.className)}>
                 <Icon className={cn('h-3 w-3 shrink-0', look.iconClass)} aria-hidden />
                 {chipText(chip, t, i18n.language)}

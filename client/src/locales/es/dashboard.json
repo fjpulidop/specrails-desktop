@@ -81,7 +81,7 @@
     "iteratingPr": "Actualizando PR",
     "prReady": "PR lista",
     "implementationFailed": "Implementación fallida",
-    "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
+    "implementationFailedHint": "La ejecución se detuvo antes de tener nada que entregar. Abre su log para ver por qué.",
     "runStopped": "Detenida",
     "runStoppedHint": "Detuviste esta ejecución antes de entregar. Continuar la retoma donde se detuvo; o descarta esta tarjeta.",
     "prFailed": "PR fallida",
@@ -187,7 +187,8 @@
     "fixCiStarted": "Vigilancia del CI iniciada",
     "fixCiFailed": "No se pudo iniciar el loop de CI",
     "continue": "Continuar",
-    "continueHint": "Conserva todo y sigue desde donde la ejecución falló o se detuvo, en el mismo worktree."
+    "continueHint": "Conserva todo y sigue desde donde la ejecución falló o se detuvo, en el mismo worktree.",
+    "implementationFailedDiscardTooltip": "Cierra esta card y devuelve sus specs a Specs. El log de la ejecución sigue disponible."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +200,8 @@
     "summary": {
       "running_one": "{{count}} en ejecución",
       "running_other": "{{count}} en ejecución",
+      "paused_one": "{{count}} en pausa",
+      "paused_other": "{{count}} en pausa",
       "ready_one": "{{count}} listo",
       "ready_other": "{{count}} listos",
       "failed_one": "{{count}} fallido",
@@ -283,7 +286,8 @@
     "status": {
       "idle": "Inactivo",
       "running": "En ejecución",
-      "failed": "Fallido"
+      "failed": "Fallido",
+      "paused": "En pausa"
     },
     "deleteMenuItem": "Eliminar rail",
     "deleteConfirm": {

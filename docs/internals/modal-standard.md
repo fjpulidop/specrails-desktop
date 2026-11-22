@@ -94,7 +94,7 @@ bar (`lib/modal-safe-area.ts`).
   secondary info or a destructive action such as Delete. On the right, Cancel
   (`variant="ghost"`) comes first, then the primary action (`default`, or
   `destructive` when it destroys data). Footer buttons use the Button default
-  size. On narrow viewports the footer stacks with the primary on top.
+  size. On narrow viewports the footer stacks with the primary on top. A confirmation with four or more actions (the per-run limit dialog) passes `stackedFooter` to `ConfirmDialog` and stacks at every width, so the row never wraps into a ragged second line.
 - **Initial focus**: the primary for confirms and launch dialogs
   (`onOpenAutoFocus` → `primaryRef`), the first field for forms. `⌘↵` submits,
   and the primary shows the kbd hint.

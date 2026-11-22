@@ -333,7 +333,28 @@
     "graphAttempts_other": "{{count}} 次尝试",
     "graphTrace": "追踪",
     "graphPathOnly": "仅显示已走路径",
-    "notReached": "{{count}} 个未到达"
+    "notReached": "{{count}} 个未到达",
+    "graphOutcome": {
+      "next": "下一步",
+      "true": "是",
+      "false": "否",
+      "pass": "通过",
+      "fail": "未通过",
+      "failed": "失败",
+      "invalid": "无效",
+      "blocked": "受阻",
+      "continue": "继续",
+      "stop": "停止",
+      "approved": "已批准",
+      "rejected": "已拒绝",
+      "timeout": "超时",
+      "error": "错误",
+      "done": "完成",
+      "skipped": "已跳过",
+      "retry": "重试",
+      "answered": "已回答",
+      "declined": "已谢绝"
+    }
   },
   "logViewer": {
     "loading": "正在加载日志…",

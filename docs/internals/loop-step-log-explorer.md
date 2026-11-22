@@ -20,6 +20,17 @@ latest attempt within each scope; a successful sibling cannot hide a failed one.
 Trace/span identifiers appear only when present in the recorded event. Core v2
 uses the same stable event-span identity in JSONL and optional OTLP export, so a
 selected attempt's recorded `step_started` span can be located in a collector.
+
+A held run (its job's `hold`: a usage limit, your pause, the budget, a restart, a
+question) stopped on its latest step: that node, its latest attempt and its log
+section read as the hold, in the run window's own words and lamp (`jobStepHold`),
+never as a red failure; earlier failures stay failed. Edge labels name only the
+ways out of a branching step; Core's known outcome ids (`next`, `failed`, `true`,
+`pass`, ...) are translated (`jobs:loopExplorer.graphOutcome.*`), anything else
+reads as words. Each label sits in the gap under its source's rank (a smooth-step
+edge bent there), staggered into lanes when two would share a spot, so a label
+never lands on a node. Below a 48rem container the selected step's panel floats
+over the graph instead of taking its height.
 These are point events, not provider-duration spans. Identifiers do not prove
 that a collector was configured or accepted the export. Malformed
 topology is ignored without interrupting the normal log view. Legacy snapshots

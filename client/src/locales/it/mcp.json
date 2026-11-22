@@ -1,8 +1,8 @@
 {
   "heading": "Server MCP",
   "explainer": {
-    "what": "Un server MCP (Model Context Protocol) consente a strumenti di IA esterni — come Claude Desktop, Cursor o qualsiasi client MCP — di comunicare direttamente con Specrails. Possono esplorare i tuoi progetti, leggere le specifiche e, se lo consenti, avviare lavori, il tutto tramite un'unica connessione locale sicura.",
-    "how": "È attivo di default: collega Claude Code o Codex qui sotto, oppure copia la configurazione client in un altro strumento di IA. Specrails ascolta solo sulla tua macchina: nulla è esposto a internet.",
+    "what": "Un server MCP (Model Context Protocol) consente ad altri strumenti di IA, come Claude Desktop, Cursor o qualsiasi client MCP, di comunicare direttamente con Specrails. Possono esplorare i tuoi progetti, leggere le spec e, se lo consenti, avviare lavoro. Tutto passa da un’unica connessione locale sicura.",
+    "how": "È attivo di default. Collega Claude Code o Codex qui sotto, oppure copia la configurazione client in un altro strumento di IA. Specrails ascolta solo sulla tua macchina; nulla è esposto a internet.",
     "grants": "Tutti i livelli di permesso sono attivi per impostazione predefinita. Deseleziona un livello per limitare ciò che i client possono fare, una capacità alla volta."
   },
   "enable": {
@@ -20,20 +20,20 @@
   },
   "tiers": {
     "heading": "Livelli di permesso",
-    "description": "Ogni livello che un client può usare. La lettura è sempre attiva; il resto è attivo di default — disattivane uno per limitare i client.",
+    "description": "Ogni livello che un client può usare. La lettura è sempre attiva e gli altri sono attivi di default. Disattivane uno per limitare i client.",
     "read": "Lettura",
     "readHelp": "Esplorare progetti, specifiche e analisi. Sempre consentito.",
     "write": "Scrittura",
     "writeHelp": "Creare e modificare spec.",
     "aiSpawn": "Avvio IA",
-    "aiSpawnHelp": "Avviare rail e lavori di IA che eseguono la CLI.",
+    "aiSpawnHelp": "Avviare rail ed esecuzioni con le tue CLI di IA.",
     "destructive": "Distruttivo",
     "destructiveHelp": "Eliminare spec e altri dati del progetto.",
     "updateFailed": "Impossibile aggiornare i permessi"
   },
   "config": {
     "heading": "Configurazione del client",
-    "description": "Incolla questo nel tuo client MCP. Non contiene alcun segreto: il token si copia separatamente.",
+    "description": "Incolla questo nel tuo client MCP. Non contiene alcun segreto; il token si copia separatamente.",
     "copyConfig": "Copia configurazione",
     "configCopied": "Configurazione copiata",
     "copyFailed": "Copia non riuscita"
@@ -63,7 +63,7 @@
     "sourceDiscovered": "da {{provider}}",
     "sourceCustom": "personalizzato",
     "orphan": "non trovato nella configurazione di origine",
-    "codexNative": "nativo codex — sempre attivo",
+    "codexNative": "Codex nativo · sempre attivo",
     "empty": "Nessun server MCP trovato. Aggiungi un server personalizzato o registrane uno con la tua CLI IA.",
     "addCustom": "Aggiungi personalizzato",
     "remove": "Rimuovi server",
@@ -84,7 +84,7 @@
       "addVar": "Aggiungi variabile",
       "envKey": "CHIAVE",
       "envValue": "valore",
-      "nameInvalid": "Solo lettere, cifre, punti e trattini — e 'specrails' è riservato",
+      "nameInvalid": "Usa solo lettere, cifre, punti e trattini. 'specrails' è riservato.",
       "nameTaken": "Esiste già un server personalizzato con questo nome"
     },
     "errors": {

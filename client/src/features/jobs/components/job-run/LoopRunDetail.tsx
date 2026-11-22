@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EventRow } from '../../../../types'
-import { LoopStepExplorer } from '../../../loops/components/loop-log/LoopStepExplorer'
+import { LoopStepExplorer, type RuntimeGraphHold } from '../../../loops/components/loop-log/LoopStepExplorer'
 import { NarratedProgress } from '../../../loops/components/loop-log/NarratedProgress'
 import { FEATURE_NARRATED_PROGRESS } from '../../../../lib/feature-flags'
 import { LogViewer } from '../LogViewer'
@@ -15,9 +15,11 @@ type Mode = 'steps' | 'narrated' | 'log'
  * default, with the story and the raw log one click away. A step picked in the
  * graph tab opens here.
  */
-export function LoopRunDetail({ events, jobStatus, isLoading, projectId, variant, navigation, onOpenRun, settled, elapsedMs }: {
+export function LoopRunDetail({ events, jobStatus, hold = null, isLoading, projectId, variant, navigation, onOpenRun, settled, elapsedMs }: {
   events: EventRow[]
   jobStatus: string
+  /** The run's hold, when it is held (see LoopStepExplorer). */
+  hold?: RuntimeGraphHold | null
   isLoading?: boolean
   projectId?: string
   variant: 'page' | 'glass'
@@ -48,7 +50,7 @@ export function LoopRunDetail({ events, jobStatus, isLoading, projectId, variant
       {mode !== 'steps' && <div className="shrink-0 border-b border-border/40 px-3 py-1">{switcher}</div>}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {mode === 'steps' && (
-          <LoopStepExplorer events={events} jobStatus={jobStatus} isLoading={isLoading} variant={variant} projectId={projectId} onOpenRun={onOpenRun} view="detail" focusStep={focus} toolbarLeading={switcher} />
+          <LoopStepExplorer events={events} jobStatus={jobStatus} hold={hold} isLoading={isLoading} variant={variant} projectId={projectId} onOpenRun={onOpenRun} view="detail" focusStep={focus} toolbarLeading={switcher} />
         )}
         {mode === 'narrated' && <NarratedProgress events={events} settled={settled} elapsedMs={elapsedMs} variant={variant} />}
         {mode === 'log' && <LogViewer events={events} isLoading={isLoading} projectId={projectId} />}

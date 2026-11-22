@@ -409,7 +409,7 @@
         "merge_failed": "Git 无法合并"
       },
       "held": {
-        "pausedByYou": "Rail {{k}} 已暂停 — 由你暂停",
+        "pausedByYou": "你暂停了 Rail {{k}}",
         "paused": "Rail {{k}} 已暂停",
         "question": "Rail {{k}} 等待你的回答",
         "approval": "Rail {{k}} 等待你的批准",
