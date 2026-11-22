@@ -720,7 +720,10 @@ execution (one spec per rail) and can use Kimi.
   body `{kind:'milestone', milestone, provider, model, reasoningEffort}`; null effort
   uses the provider default). The Blueprint flyout offers a usual configuration
   saved through `GET/PUT /blueprint/generation-settings`, scoped to the project's
-  SQLite `queue_state`, plus an optional exception for one milestone. Saving never
+  SQLite `queue_state`, plus an optional exception for one milestone (recorded when
+  that milestone is generated on another engine, or set directly through
+  `GET/PUT /blueprint/milestone-engines { milestoneId, engine | null }`, which MCP's
+  `specrails_blueprint(settings_set, milestone)` uses). Saving never
   changes the project primary, day-0 Builder, existing conversations or rail execution
   settings. Without a saved preference the compatible project primary is used,
   or the first compatible installed provider if that primary lacks read-only tools.

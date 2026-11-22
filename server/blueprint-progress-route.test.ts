@@ -217,4 +217,38 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect([201, 400]).toContain(res.status)
     if (res.status === 201) expect(invalidate).toHaveBeenCalled()
   })
+
+  it('[spec:blueprint-generation-settings/project-scoped-generation-preference] GET/PUT milestone-engines reads, sets and clears "only for M<n>"', async () => {
+    const ws = workspacePathFor('recipely')
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    const bp = blueprint()
+    bp.milestones.push({ id: 'm2', title: 'Pantry', goal: 'g', status: 'planned', plannedSpecs: [] })
+    writeBlueprintPair(ws, bp)
+    const schedule = vi.fn()
+    const ctx = makeContext(db, repo, { milestoneProgress: { schedule } as unknown as MilestoneProgressBroadcaster })
+    ctx.project.providers = ['claude', 'codex']
+    const app = createApp(ctx)
+    const url = '/api/projects/proj-1/blueprint/milestone-engines'
+    expect((await request(app).get(url)).body).toEqual({ overrides: { m1: null, m2: null } })
+    const engine = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
+    let res = await request(app).put(url).send({ milestoneId: 'M2', engine })
+    expect(res.status).toBe(200)
+    expect(res.body.overrides.m2).toMatchObject({ engine })
+    expect(schedule).toHaveBeenCalledTimes(1)
+    for (const [body, status] of [
+      [{ milestoneId: 'm9', engine }, 404],
+      [{ milestoneId: 'two', engine }, 400],
+      [{ milestoneId: 'm2' }, 400],
+      [{ milestoneId: 'm2', engine: { ...engine, model: 'nope' } }, 400],
+    ] as const) expect((await request(app).put(url).send(body)).status).toBe(status)
+    expect((await request(app).get(url)).body.overrides.m2).toMatchObject({ engine })
+    res = await request(app).put(url).send({ milestoneId: 'm2', engine: null })
+    expect(res.body.overrides.m2).toBeNull()
+  })
+
+  it('milestone-engines 404s without a blueprint', async () => {
+    const app = createApp(makeContext(db, repo))
+    expect((await request(app).get('/api/projects/proj-1/blueprint/milestone-engines')).status).toBe(404)
+    expect((await request(app).put('/api/projects/proj-1/blueprint/milestone-engines').send({ milestoneId: 'm2', engine: null })).status).toBe(404)
+  })
 })

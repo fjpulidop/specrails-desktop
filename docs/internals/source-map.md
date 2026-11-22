@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1915 source/build files. Nearby tests are linked where names
+Includes 1916 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1722,12 +1722,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/mcp/v2/projectors
 
+- [chain-state.ts](../../server/mcp/v2/projectors/chain-state.ts) · [test](../../server/mcp/v2/projectors/chain-state.test.ts)
 - [delivery-state.ts](../../server/mcp/v2/projectors/delivery-state.ts) · [test](../../server/mcp/v2/projectors/delivery-state.test.ts)
 - [run-state.ts](../../server/mcp/v2/projectors/run-state.ts) · [test](../../server/mcp/v2/projectors/run-state.test.ts)
 
 ## server/mcp/v2/tools
 
-- [blueprint.ts](../../server/mcp/v2/tools/blueprint.ts)
+- [blueprint.ts](../../server/mcp/v2/tools/blueprint.ts) · [test](../../server/mcp/v2/tools/blueprint.test.ts)
 - [deliveries.ts](../../server/mcp/v2/tools/deliveries.ts) · [test](../../server/mcp/v2/tools/deliveries.test.ts)
 - [inbox.ts](../../server/mcp/v2/tools/inbox.ts) · [test](../../server/mcp/v2/tools/inbox.test.ts)
 - [index.ts](../../server/mcp/v2/tools/index.ts)
