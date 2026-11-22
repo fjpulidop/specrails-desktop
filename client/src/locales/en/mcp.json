@@ -98,5 +98,47 @@
     "removeConfirmTitle": "Remove {{name}}?",
     "removeConfirmBody": "The mission agent stops loading this server for every provider. A discovered server stays in your AI provider config and can be enabled again.",
     "formProviderToggle": "Enable for {{provider}}"
+  },
+  "connect": {
+    "heading": "Connect Claude Code or Codex",
+    "description": "One click registers Specrails in the client's own config (backed up first, no token written) and checks the connection.",
+    "unavailable": "The MCP bridge is not bundled with this installation.",
+    "state": {
+      "connected": "Connected",
+      "outdated": "Older path",
+      "not_connected": "Not connected",
+      "conflict": "Name in use"
+    },
+    "notInstalled": "Not found on this Mac or PC",
+    "connect": "Connect {{client}}",
+    "connecting": "Connecting…",
+    "update": "Update",
+    "disconnect": "Disconnect",
+    "copyCommand": "Copy command",
+    "commandCopied": "Command copied",
+    "verified": "Verified · {{tools}} tools · ≈{{tokens}} tokens",
+    "verifyError": "Saved, but the check failed: {{error}}",
+    "enableToVerify": "Saved. Turn the MCP server on to check the connection.",
+    "backup": "Backup: {{path}}",
+    "next": {
+      "claude": "Start a new Claude Code session (or run /mcp) to load Specrails.",
+      "codex": "Start a new Codex session to load Specrails."
+    },
+    "connected": "{{client}} is connected to Specrails",
+    "disconnected": "{{client}} no longer loads Specrails",
+    "failed": "Could not connect {{client}}",
+    "verifyFailed": "{{client}} was saved, but the connection check failed",
+    "replaceTitle": "Replace the existing \"specrails\" server?",
+    "replaceBody": "{{client}} already has a server named \"specrails\" in {{path}} that is not this app. Replace it? The file is backed up first.",
+    "replace": "Replace"
+  },
+  "preferences": {
+    "threshold": "Ask before spending",
+    "thresholdHelp": "A connected AI asks you first when work it starts could cost more than this, or starts more than one run. PRs, merges and deletions always ask.",
+    "thresholdInvalid": "Enter an amount from 0 to {{max}}",
+    "v2": "New MCP tools (preview)",
+    "v2Help": "15 tools with ready-made next steps, waiting without polling and answers in your language. Applies to new client sessions.",
+    "v2Forced": "Set by SPECRAILS_MCP_V2 in the environment.",
+    "saveFailed": "Could not save the MCP setting"
   }
 }

@@ -98,5 +98,47 @@
     "removeConfirmTitle": "¿Eliminar {{name}}?",
     "removeConfirmBody": "El agente de misión deja de cargar este servidor para todos los proveedores. Un servidor detectado sigue en la configuración de tu proveedor de IA y puede volver a activarse.",
     "formProviderToggle": "Activar para {{provider}}"
+  },
+  "connect": {
+    "heading": "Conectar Claude Code o Codex",
+    "description": "Un clic registra Specrails en la configuración del propio cliente (con copia de seguridad, sin escribir ningún token) y comprueba la conexión.",
+    "unavailable": "Esta instalación no incluye el puente MCP.",
+    "state": {
+      "connected": "Conectado",
+      "outdated": "Ruta antigua",
+      "not_connected": "Sin conectar",
+      "conflict": "Nombre en uso"
+    },
+    "notInstalled": "No está en este equipo",
+    "connect": "Conectar {{client}}",
+    "connecting": "Conectando…",
+    "update": "Actualizar",
+    "disconnect": "Desconectar",
+    "copyCommand": "Copiar comando",
+    "commandCopied": "Comando copiado",
+    "verified": "Verificado · {{tools}} herramientas · ≈{{tokens}} tokens",
+    "verifyError": "Guardado, pero la comprobación falló: {{error}}",
+    "enableToVerify": "Guardado. Enciende el servidor MCP para comprobar la conexión.",
+    "backup": "Copia: {{path}}",
+    "next": {
+      "claude": "Abre una sesión nueva de Claude Code (o usa /mcp) para cargar Specrails.",
+      "codex": "Abre una sesión nueva de Codex para cargar Specrails."
+    },
+    "connected": "{{client}} está conectado a Specrails",
+    "disconnected": "{{client}} ya no carga Specrails",
+    "failed": "No se pudo conectar {{client}}",
+    "verifyFailed": "{{client}} se guardó, pero la comprobación de la conexión falló",
+    "replaceTitle": "¿Reemplazar el servidor «specrails» existente?",
+    "replaceBody": "{{client}} ya tiene un servidor llamado «specrails» en {{path}} que no es esta app. ¿Reemplazarlo? Antes se guarda una copia del archivo.",
+    "replace": "Reemplazar"
+  },
+  "preferences": {
+    "threshold": "Preguntar antes de gastar",
+    "thresholdHelp": "Una IA conectada te pregunta antes cuando el trabajo que inicia podría costar más que esto o lanza más de una ejecución. Las PR, las fusiones y los borrados siempre preguntan.",
+    "thresholdInvalid": "Escribe un importe de 0 a {{max}}",
+    "v2": "Nuevas herramientas MCP (vista previa)",
+    "v2Help": "15 herramientas con los siguientes pasos ya preparados, espera sin sondeos y respuestas en tu idioma. Se aplica a las sesiones nuevas del cliente.",
+    "v2Forced": "Lo fija SPECRAILS_MCP_V2 en el entorno.",
+    "saveFailed": "No se pudo guardar el ajuste de MCP"
   }
 }
