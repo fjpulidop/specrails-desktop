@@ -447,12 +447,32 @@ and `specrails://jobs/<id>`, a mission → `specrails://missions/<id>`) through 
 `McpServerManager` creates one subscription set per session (`registerResourceSubscriptions`, shared with the v1 bus
 events) and disposes both on session close.
 
+## Long clones and the app-wide run list
+
+**`projects(clone)`** (`v2/core/clone-jobs.ts`) runs the clone in the background of the server process through the
+app's own routes (`POST /repositories/clone` with a `cloneId`, then `POST /projects`), without the calling request's
+cancellation. The call answers inline when Git finishes within `options.waitMs` (default 20 s, max 45 s; a refusal
+inside that window is the route's own error, as before) and otherwise answers `{ ref: clone:<id>, status: running,
+accepted: true }`. The journal holds the app-global `clone` ref kind from `repository.clone_*` frames: started,
+throttled Git progress (phase and percent only, parsed from `git clone --progress`), done with the registered
+project (`data.projectId`, `data.slug`), failed with the route's reason (`data.code`). `wait(until, refs:[clone:…])`
+settles on it and points at `projects(get, ref: clone:…)`, which shows the clone; `projects(list)` names the clones
+still running in `data.cloning`. The running set is process-local: a row still `running` for a clone no task of this
+process owns was cut by a restart, and the first `get` or `wait` that reads it records `failed` with
+`code: interrupted` (naming the possibly partial folder), so no clone stays running forever.
+
+**`runs(list)` without a project** reads `GET /api/runs` ([API](api-reference.md)): every loaded project, live runs
+with their hold first, then history, newest first, with a keyset cursor (`page.cursor` wraps the route's `next`).
+Items have the same shape and filters as a project's list plus `project`; `needsYou` reads the live tier. Each
+project contributes at most `limit + 1` rows per tier, so a page costs projects × page size, not history
+(`desktop-router-runs.test.ts`: 100 projects × 300 runs, p95 ≈ 40 ms locally against a 250 ms budget). Projects still
+warming up are never loaded by the read; the answer warns how many are missing.
+
 ## Open after phase 2
 
 | Item | Note |
 |---|---|
-| `projects(clone)` longer than a client's 60 s call timeout | Still synchronous (up to 5 min). A 202 + `wait` needs a clone row in the event journal and a ref before the project exists |
-| A cross-project run read model | `runs(list)` without a project uses `/recent-jobs` (50, no holds); app-wide 7d/30d provider spend split in `insights` needs a server addition too |
+| App-wide provider spend split in `insights` | The 7d/30d split per provider app-wide needs a server addition |
 | Inbox items for mission cards and paused chains | The inbox read model (`server/modules/inbox`) has no chain or mission kind; adding them changes the app's inbox UI, so it is its own change. Until then `overview(live)` / `blueprint(chain_get)` / `missions(get)` show them |
 | `held` items in `insights` | Read through the full `/api/inbox` per call |
 | Blueprint commit tracking | In process only (`core/commit-tracker.ts`); a restart forgets running commits (the project they created stays readable) |

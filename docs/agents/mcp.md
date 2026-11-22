@@ -154,10 +154,10 @@ Projects and setup: list, select the session default, add or clone, provision, r
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
 | `list` | read | — | project (or options.query): fuzzy search by slug, name or path. Default limit 25. |
-| `get` | read | — | project defaults to the session default. view detail adds settings, setup and integration branch. |
+| `get` | read | — | project defaults to the session default. view detail adds settings, setup and integration branch. ref clone:<id>: that clone (progress, the new project, or why it failed). |
 | `select` | read | — | Sets the session default project (and the session language with lang). options.clear removes the default. |
 | `add` | write | — | Requires `path`. name; options: providers[], workspacePaths[], repositories[{path,name?,workspacePaths?,integrationBranch?}], select (make it the session default). |
-| `clone` | write | — | Requires `url`. path (or options.destination): new absolute folder; then registers it (options.register: false to skip), name and options of add apply. |
+| `clone` | write | — | Requires `url`. path (or options.destination): new absolute folder; then registers it (options.register: false to skip), name and options of add apply. Answers done inline within options.waitMs (default 20 s, max 45 s); a longer clone answers 202 with ref clone:<id>: follow it with specrails_wait(until, refs:[clone:<id>]). |
 | `provision` | ai-spawn | costly | Quick (offline) setup of every registered provider; options.providers narrows it, options.config writes install-config first (tier forced quick), options.assemble retries the background workspace assembly instead. |
 | `install_status` | read | — |  |
 | `abort_install` | write | — |  |
@@ -245,7 +245,7 @@ Runs (jobs, loop and Intent runs): list, get views, launch (assign+launch in one
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `list` | read | — | filter: status[] (v2 words), kind[] loop\|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide |
+| `list` | read | — | filter: status[] (v2 words), kind[] loop\|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = every project: live runs with their hold first, then history, paged |
 | `get` | read | — | Requires `ref`. view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification (only when named), cost, attempts, events |
 | `launch` | ai-spawn | costly | Requires `target`. target {specIds[], rail?} \| {rail} \| {loopId, specIds?} \| {command} \| {template}; provider/model/effort; options: parallel (each spec on its own new rail, all in this one call; else one rail in order), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp |
 | `launch_all` | ai-spawn | costly | every rail with specs and no active run, each with its own settings |

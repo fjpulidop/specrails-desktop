@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1932 source/build files. Nearby tests are linked where names
+Includes 1933 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1716,6 +1716,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [bus.ts](../../server/mcp/v2/core/bus.ts)
 - [canonical.ts](../../server/mcp/v2/core/canonical.ts)
+- [clone-jobs.ts](../../server/mcp/v2/core/clone-jobs.ts)
 - [commit-tracker.ts](../../server/mcp/v2/core/commit-tracker.ts)
 - [confirm.ts](../../server/mcp/v2/core/confirm.ts) · [test](../../server/mcp/v2/core/confirm.test.ts)
 - [cursor.ts](../../server/mcp/v2/core/cursor.ts) · [test](../../server/mcp/v2/core/cursor.test.ts)

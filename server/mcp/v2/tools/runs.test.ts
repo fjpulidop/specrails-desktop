@@ -123,12 +123,30 @@ describe('specrails_runs reads', () => {
     expect(found.envelope.data.items[0]).toMatchObject({ ref: RUN, status: 'failed', snippet: 'TypeError at login' })
     expect(found.envelope.untrusted).toContain('/data/items/*/snippet')
 
-    routes.set('GET /recent-jobs', { body: { jobs: [{ id: 'j9', projectId: 'p1', command: '/specrails:implement #1', status: 'completed' }] } })
+    routes.set('GET /runs', { body: {
+      runs: [
+        { id: 'r7', projectId: 'p1', command: '/specrails:implement #2', status: 'running', hold: { kind: 'question' }, started_at: '2026-11-21T10:00:00Z' },
+        { id: 'j9', projectId: 'p1', command: '/specrails:implement #1', status: 'completed' },
+      ],
+      next: 'opaque-after', projects: { loaded: 1, notLoaded: 2, failed: [] },
+    } })
     const harness = createHarness()
     harness.ctx.sessionState = { activeProjectId: null, sessionKey: 's-b' } as never
     registerV2Tool(harness.server, harness.ctx, runsTool, { catalog: v2Catalog() })
-    const appWide = await call(await harness.connect(), 'specrails_runs', { action: 'list' })
-    expect(appWide.envelope.data.items).toEqual([expect.objectContaining({ ref: 'run:shop-api/j9', project: 'project:shop-api', status: 'succeeded' })])
+    const appClient = await harness.connect()
+    const appWide = await call(appClient, 'specrails_runs', { action: 'list', limit: 2 })
+    // Live runs carry their hold (decision vocabulary) like a project's list.
+    expect(appWide.envelope.data.items).toEqual([
+      expect.objectContaining({ ref: 'run:shop-api/r7', project: 'project:shop-api', status: 'needs_you', hold: 'question' }),
+      expect.objectContaining({ ref: 'run:shop-api/j9', project: 'project:shop-api', status: 'succeeded' }),
+    ])
+    expect(appWide.envelope.page).toMatchObject({ truncated: true })
+    expect(appWide.envelope.warnings).toEqual(['2 project(s) still loading: their runs are not listed yet.'])
+    // The cursor carries the read model's keyset position; needsYou reads the live tier.
+    await call(appClient, 'specrails_runs', { action: 'list', limit: 2, cursor: appWide.envelope.page.cursor })
+    expect(calls.filter((entry) => entry.path.startsWith('/runs?')).map((entry) => entry.path)).toEqual(['/runs?limit=2', '/runs?limit=2&after=opaque-after'])
+    await call(appClient, 'specrails_runs', { action: 'list', filter: { needsYou: true } })
+    expect(calls[calls.length - 1].path).toBe('/runs?limit=25&status=running')
   })
 
   it('gets a limit-paused run: decision state, localized reason, offers and a lean summary', async () => {
