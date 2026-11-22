@@ -32,6 +32,7 @@ export type ParsedArgs =
   | { mode: 'status'; port: number }
   | { mode: 'jobs'; port: number }
   | { mode: 'desktop'; subArgs: string[]; port: number }
+  | { mode: 'mcp'; subArgs: string[]; port: number }
   | { mode: 'command'; resolved: string; port: number; projectOverride?: string }
   | { mode: 'raw'; resolved: string; port: number; projectOverride?: string }
 
@@ -72,6 +73,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (args[0] === '--jobs') {
     return { mode: 'jobs', port }
+  }
+
+  if (args[0] === 'mcp') {
+    return { mode: 'mcp', subArgs: args.slice(1), port }
   }
 
   if (args[0] === 'desktop') {
