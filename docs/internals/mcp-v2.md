@@ -534,6 +534,15 @@ warming up are never loaded by the read; the answer warns how many are missing.
 The replay of all 15 scenarios passes (catalog 6167, load-probe p95 164 ms). Logical calls are still up to 3–5× the
 reference in S5/S7 because of how the model behaves (repeated `get`s around a decision).
 
+### Choices (live check)
+
+Replay, all 16 scenarios: 16/16, every decision as choices 19/19 (server forms), keyboard-only 6/6, catalog 6164,
+mean result tokens ≤ 774 (the lean inbox items carry their menu). Live, `--auth session`: Claude Code (haiku, S2, S4,
+S5, S6, S14, S16; $0.056) presented every decision as a numbered menu or answered in its form (16/16 decision points,
+keyboard-only 6/6); Codex (low effort, S4–S6) asked yes/no in prose until the confirmation message itself asked for a
+menu, then answered menus by number (S5 once stopped without asking: it judged the scripted delivery incomplete).
+The client configuration files kept their sha256.
+
 ## Open after phase 2
 
 | Item | Note |
