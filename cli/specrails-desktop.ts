@@ -7,6 +7,7 @@ import { cliLog, cliError, ansi, dim, red, bold, dimCyan, cliPrefix, cliWarn, is
 import { detectWebManager, httpGet, httpPost, DETECTION_TIMEOUT_MS, HTTP_REQUEST_TIMEOUT_MS } from './desktop-client'
 import { runViaWebManager, runDirect, resolveProjectFromCwd, EXIT_PATTERN } from './run-command'
 import { formatJobDuration, formatJobStarted } from './format'
+import { handleMcp } from './mcp-connect'
 export { KNOWN_VERBS } from './args'
 export { type ParsedArgs } from './args'
 export { parseArgs } from './args'
@@ -44,6 +45,11 @@ async function main(): Promise<void> {
 
   if (parsed.mode === 'jobs') {
     const code = await handleJobs(parsed.port)
+    process.exit(code)
+  }
+
+  if (parsed.mode === 'mcp') {
+    const code = await handleMcp(parsed.subArgs, parsed.port)
     process.exit(code)
   }
 
@@ -92,7 +98,7 @@ if (require.main === module) {
 export const _internal = {
   ansi, dim, red, bold, dimCyan, cliPrefix, cliLog, cliError, cliWarn,
   httpGet, httpPost, formatJobDuration, formatJobStarted, printVersion, printHelp,
-  handleStatus, handleJobs, handleDesktop, desktopStart, desktopStop, desktopStatus, desktopAdd, desktopRemove, desktopList, desktopServerPath,
+  handleStatus, handleJobs, handleDesktop, handleMcp, desktopStart, desktopStop, desktopStatus, desktopAdd, desktopRemove, desktopList, desktopServerPath,
   resolveProjectFromCwd, runViaWebManager, runDirect, isPortInUse, readPid, isProcessRunning, main,
   isTTY, DESKTOP_PID_FILE, DESKTOP_LOG_FILE, EXIT_PATTERN, DEFAULT_PORT, DETECTION_TIMEOUT_MS, HTTP_REQUEST_TIMEOUT_MS,
 }

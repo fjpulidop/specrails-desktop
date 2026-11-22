@@ -2,7 +2,7 @@
   "heading": "MCP-Server",
   "explainer": {
     "what": "Ein MCP-Server (Model Context Protocol) ermöglicht es externen KI-Tools – wie Claude Desktop, Cursor oder jedem MCP-Client – direkt mit Specrails zu kommunizieren. Sie können Ihre Projekte durchsuchen, Spezifikationen lesen und – wenn Sie es erlauben – Arbeiten starten, alles über eine einzige sichere lokale Verbindung.",
-    "how": "Standardmäßig eingeschaltet – kopieren Sie die Client-Konfiguration unten in Ihr KI-Tool. Specrails lauscht nur auf Ihrem eigenen Rechner – nichts ist im Internet erreichbar.",
+    "how": "Standardmäßig eingeschaltet: Verbinde unten Claude Code oder Codex oder kopiere die Client-Konfiguration in ein anderes KI-Tool. Specrails lauscht nur auf deinem eigenen Rechner – nichts ist aus dem Internet erreichbar.",
     "grants": "Alle Berechtigungsstufen sind standardmäßig aktiv. Deaktivieren Sie eine Stufe, um einzuschränken, was Clients tun dürfen – eine Fähigkeit nach der anderen."
   },
   "enable": {
@@ -98,5 +98,47 @@
     "removeConfirmTitle": "{{name}} entfernen?",
     "removeConfirmBody": "Der Missions-Agent lädt diesen Server für keinen Anbieter mehr. Ein erkannter Server bleibt in der Konfiguration deines KI-Anbieters und kann wieder aktiviert werden.",
     "formProviderToggle": "Für {{provider}} aktivieren"
+  },
+  "connect": {
+    "heading": "Claude Code oder Codex verbinden",
+    "description": "Ein Klick trägt Specrails in die Konfiguration des Clients ein (vorher gesichert, ohne Token) und prüft die Verbindung.",
+    "unavailable": "Diese Installation enthält die MCP-Bridge nicht.",
+    "state": {
+      "connected": "Verbunden",
+      "outdated": "Alter Pfad",
+      "not_connected": "Nicht verbunden",
+      "conflict": "Name belegt"
+    },
+    "notInstalled": "Auf diesem Rechner nicht gefunden",
+    "connect": "{{client}} verbinden",
+    "connecting": "Verbinde…",
+    "update": "Aktualisieren",
+    "disconnect": "Trennen",
+    "copyCommand": "Befehl kopieren",
+    "commandCopied": "Befehl kopiert",
+    "verified": "Geprüft · {{tools}} Tools · ≈{{tokens}} Tokens",
+    "verifyError": "Gespeichert, aber die Prüfung ist fehlgeschlagen: {{error}}",
+    "enableToVerify": "Gespeichert. Schalte den MCP-Server ein, um die Verbindung zu prüfen.",
+    "backup": "Sicherung: {{path}}",
+    "next": {
+      "claude": "Starte eine neue Claude-Code-Sitzung (oder führe /mcp aus), um Specrails zu laden.",
+      "codex": "Starte eine neue Codex-Sitzung, um Specrails zu laden."
+    },
+    "connected": "{{client}} ist mit Specrails verbunden",
+    "disconnected": "{{client}} lädt Specrails nicht mehr",
+    "failed": "{{client}} konnte nicht verbunden werden",
+    "verifyFailed": "{{client}} wurde gespeichert, aber die Verbindungsprüfung ist fehlgeschlagen",
+    "replaceTitle": "Vorhandenen Server „specrails“ ersetzen?",
+    "replaceBody": "{{client}} hat in {{path}} bereits einen Server namens „specrails“, der nicht diese App ist. Ersetzen? Die Datei wird vorher gesichert.",
+    "replace": "Ersetzen"
+  },
+  "preferences": {
+    "threshold": "Vor dem Ausgeben fragen",
+    "thresholdHelp": "Eine verbundene KI fragt dich zuerst, wenn die gestartete Arbeit mehr als diesen Betrag kosten könnte oder mehr als einen Lauf startet. PRs, Merges und Löschungen fragen immer.",
+    "thresholdInvalid": "Gib einen Betrag von 0 bis {{max}} ein",
+    "v2": "Neue MCP-Tools (Vorschau)",
+    "v2Help": "15 Tools mit fertigen nächsten Schritten, Warten ohne Abfragen und Antworten in deiner Sprache. Gilt für neue Client-Sitzungen.",
+    "v2Forced": "Durch SPECRAILS_MCP_V2 in der Umgebung festgelegt.",
+    "saveFailed": "Die MCP-Einstellung konnte nicht gespeichert werden"
   }
 }

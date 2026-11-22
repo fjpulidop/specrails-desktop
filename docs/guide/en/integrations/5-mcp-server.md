@@ -19,11 +19,21 @@ You stay in control of *what* an external AI may do through a set of permission 
 
 All four tiers are granted out of the box, so a connected assistant can drive the whole app right away. Untick any tier you'd rather keep to yourself; if your assistant then tries something that tier covers, Specrails refuses with a clear message telling you which tier to switch back on.
 
+## Connect Claude Code or Codex in one step
+
+Open **Settings ▸ MCP** and click **Connect** next to Claude Code or Codex — or run one command in a terminal:
+
+```bash
+specrails-desktop mcp connect --client claude   # or codex
+```
+
+Specrails adds itself to the client's own configuration, keeps a backup of the file, writes no access token anywhere, and checks the connection right away (you see how many tools it found). Running it again is harmless. Start a new Claude Code or Codex session afterwards. **Copy command** shows the client's own command if you prefer to run it yourself; for other assistants, use **Copy client config**.
+
+**Ask before spending** (same panel, $0.50 by default) is the amount above which a connected assistant must ask you before it starts paid work. Merges, PRs and deletions always ask. Switch on **New MCP tools (preview)** for the new set of 15 tools: ready-made next steps, waiting without polling, answers in your language and slash prompts such as *start-my-day*, *review-waiting*, *ship-milestone* and *why-stuck*.
+
 ## For agents only: connect your client
 
-When a person asks an agent to connect, read the [dedicated MCP connection runbook](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). It covers Claude Code and Codex CLI and desktop: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
-
-Keep Specrails running and open **Settings ▸ MCP ▸ Copy client config**. Some versions return only `specrails-mcp`, which may not be on PATH; the runbook explains how to locate the actual executable and script. The bridge reads the token locally, so no token belongs in client configuration. Registration alone is not proof of connection: complete `initialize`, `tools/list`, and a read-only `specrails_projects` call with `{"action":"list"}`.
+When a person asks an agent to connect, read the [dedicated MCP connection runbook](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). It covers the one-command connect, manual registration for Claude Code and Codex, verification and troubleshooting. Registration alone is not proof of connection: complete `initialize`, `tools/list` and a read-only call.
 
 For a quick look at everything, the assistant can call `specrails_status`: what is running, what needs you, recent failures, today's spend and the machine's CPU and memory, in one call. `specrails_inbox` reads and answers the **Needs attention** inbox, `specrails_missions` lists and messages your missions, `specrails_board` shows one project's backlog and rails, `specrails_spend` your spend and caps, and `specrails_resources` what Specrails launched. A failed job comes with its diagnosis, the saved AI analysis and the end of its log.
 

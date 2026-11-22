@@ -19,11 +19,21 @@ Resti tu a controllare *cosa* può fare un'AI esterna tramite una serie di livel
 
 Tutti e quattro i livelli sono concessi fin da subito, quindi un assistente collegato può guidare l'intera app da subito. Deseleziona qualsiasi livello che preferisci tenere per te; se poi il tuo assistente prova a fare qualcosa coperto da quel livello, Specrails rifiuta con un messaggio chiaro che ti indica quale livello riattivare.
 
+## Collega Claude Code o Codex in un passo
+
+Apri **Impostazioni ▸ MCP** e fai clic su **Collega** accanto a Claude Code o Codex, oppure esegui un comando nel terminale:
+
+```bash
+specrails-desktop mcp connect --client claude   # o codex
+```
+
+Specrails si aggiunge alla configurazione del client, conserva un backup del file, non scrive alcun token di accesso e verifica subito la connessione (vedi quanti strumenti ha trovato). Ripeterlo non fa danni. Poi apri una nuova sessione di Claude Code o Codex. **Copia comando** mostra il comando del client se preferisci eseguirlo tu; per altri assistenti, usa **Copia configurazione**.
+
+**Chiedi prima di spendere** (nello stesso pannello, 0,50 $ di default) è l'importo oltre il quale un assistente collegato deve chiederti prima di avviare lavoro a pagamento. Merge, PR ed eliminazioni chiedono sempre. Attiva **Nuovi strumenti MCP (anteprima)** per il nuovo insieme di 15 strumenti: prossimi passi già pronti, attesa senza interrogazioni ripetute, risposte nella tua lingua e prompt come *start-my-day*, *review-waiting*, *ship-milestone* e *why-stuck*.
+
 ## Solo per agenti: collegare il tuo client
 
-Quando una persona chiede a un agente di collegarsi, leggi il [runbook dedicato alla connessione MCP](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Copre Claude Code e Codex CLI e desktop: individuare il bridge incluso, preservare la configurazione esistente, verificare la connessione reale e diagnosticare i problemi. La versione web è Markdown semplice e non richiede JavaScript.
-
-Tieni Specrails in esecuzione e apri **Impostazioni ▸ MCP ▸ Copia configurazione**. Alcune versioni restituiscono solo `specrails-mcp`, che potrebbe non essere nel PATH; il runbook spiega come individuare l'eseguibile e lo script effettivi. Il bridge legge il token in locale, quindi nessun token va nella configurazione del client. La sola registrazione non prova la connessione: completa `initialize`, `tools/list` e una chiamata in sola lettura a `specrails_projects` con `{"action":"list"}`.
+Quando una persona chiede a un agente di collegarsi, leggi la [guida di collegamento MCP](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Copre il collegamento con un comando, la registrazione manuale in Claude Code e Codex, la verifica e la risoluzione dei problemi. La sola registrazione non prova il collegamento: completa `initialize`, `tools/list` e una chiamata in sola lettura.
 
 Per una panoramica veloce, l'assistente può chiamare `specrails_status`: cosa è in esecuzione, cosa ti aspetta, i fallimenti recenti, la spesa di oggi e la CPU e la memoria della macchina, in una sola chiamata. `specrails_inbox` legge e risponde all'elenco **Da gestire**, `specrails_missions` elenca le tue missioni e invia loro messaggi, `specrails_board` mostra il backlog e i rail di un progetto, `specrails_spend` la tua spesa e i limiti, e `specrails_resources` ciò che Specrails ha avviato. Un job fallito arriva con la sua diagnosi, l'analisi AI salvata e la fine del suo log.
 

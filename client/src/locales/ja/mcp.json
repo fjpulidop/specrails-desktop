@@ -2,7 +2,7 @@
   "heading": "MCP サーバー",
   "explainer": {
     "what": "MCP（Model Context Protocol）サーバーを使うと、Claude Desktop や Cursor などの外部 AI ツール、あるいは任意の MCP クライアントが Specrails と直接やり取りできます。プロジェクトの閲覧、仕様の読み取り、そして許可すれば作業の起動まで、すべて安全なローカル接続を通じて行えます。",
-    "how": "デフォルトでオンになっています。下のクライアント設定を AI ツールにコピーしてください。Specrails は自分のマシン上でのみ待ち受け、インターネットには何も公開されません。",
+    "how": "既定でオンです。下で Claude Code または Codex を接続するか、クライアント設定をほかの AI ツールにコピーしてください。Specrails は自分のマシン上だけで待ち受け、インターネットには公開されません。",
     "grants": "すべての権限ティアはデフォルトでオンです。ティアのチェックを外すと、クライアントができることを 1 つずつ制限できます。"
   },
   "enable": {
@@ -98,5 +98,47 @@
     "removeConfirmTitle": "{{name}} を削除しますか？",
     "removeConfirmBody": "ミッションエージェントは、どのプロバイダーでもこのサーバーを読み込まなくなります。検出されたサーバーは AI プロバイダーの設定に残り、再度有効にできます。",
     "formProviderToggle": "{{provider}} で有効にする"
+  },
+  "connect": {
+    "heading": "Claude Code または Codex を接続",
+    "description": "ワンクリックでクライアント自身の設定に Specrails を登録し（先にバックアップ、トークンは書き込みません）、接続を確認します。",
+    "unavailable": "このインストールには MCP ブリッジが含まれていません。",
+    "state": {
+      "connected": "接続済み",
+      "outdated": "古いパス",
+      "not_connected": "未接続",
+      "conflict": "名前が使用中"
+    },
+    "notInstalled": "このコンピューターには見つかりません",
+    "connect": "{{client}} を接続",
+    "connecting": "接続中…",
+    "update": "更新",
+    "disconnect": "切断",
+    "copyCommand": "コマンドをコピー",
+    "commandCopied": "コマンドをコピーしました",
+    "verified": "確認済み · ツール {{tools}} 個 · ≈{{tokens}} トークン",
+    "verifyError": "保存しましたが、確認に失敗しました: {{error}}",
+    "enableToVerify": "保存しました。MCP サーバーをオンにすると接続を確認できます。",
+    "backup": "バックアップ: {{path}}",
+    "next": {
+      "claude": "新しい Claude Code セッションを開始（または /mcp を実行）して Specrails を読み込んでください。",
+      "codex": "新しい Codex セッションを開始して Specrails を読み込んでください。"
+    },
+    "connected": "{{client}} を Specrails に接続しました",
+    "disconnected": "{{client}} は Specrails を読み込まなくなりました",
+    "failed": "{{client}} を接続できませんでした",
+    "verifyFailed": "{{client}} は保存されましたが、接続の確認に失敗しました",
+    "replaceTitle": "既存の「specrails」サーバーを置き換えますか？",
+    "replaceBody": "{{client}} の {{path}} には、このアプリではない「specrails」という名前のサーバーがすでにあります。置き換えますか？ファイルは先にバックアップされます。",
+    "replace": "置き換える"
+  },
+  "preferences": {
+    "threshold": "支出の前に確認",
+    "thresholdHelp": "接続した AI が始める作業がこの金額を超える可能性があるとき、または複数の実行を始めるときは、先に確認します。PR、マージ、削除は常に確認します。",
+    "thresholdInvalid": "0 から {{max}} までの金額を入力してください",
+    "v2": "新しい MCP ツール（プレビュー）",
+    "v2Help": "次の一手が用意された 15 個のツール、ポーリング不要の待機、あなたの言語での回答。新しいクライアントセッションに適用されます。",
+    "v2Forced": "環境変数 SPECRAILS_MCP_V2 で設定されています。",
+    "saveFailed": "MCP の設定を保存できませんでした"
   }
 }

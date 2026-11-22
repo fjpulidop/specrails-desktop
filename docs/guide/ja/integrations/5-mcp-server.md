@@ -19,11 +19,21 @@ Specrails は、[Model Context Protocol](https://modelcontextprotocol.io) を話
 
 4 つのティアはすべて最初から付与されているので、接続したアシスタントはすぐにアプリ全体を操作できます。自分だけに留めておきたいティアはチェックを外してください。その後アシスタントがそのティアに該当する操作を試みると、Specrails は拒否し、どのティアを再びオンにすればよいかを明確なメッセージで知らせます。
 
+## Claude Code または Codex をワンステップで接続
+
+**設定 ▸ MCP** を開き、Claude Code または Codex の横にある **接続** をクリックします。ターミナルでコマンドを 1 つ実行しても構いません。
+
+```bash
+specrails-desktop mcp connect --client claude   # または codex
+```
+
+Specrails はクライアント自身の設定に自分を追加し、ファイルのバックアップを残し、アクセストークンはどこにも書き込まず、すぐに接続を確認します（見つかったツールの数が表示されます）。何度実行しても問題ありません。そのあと新しい Claude Code または Codex セッションを開始してください。自分で実行したい場合は **コマンドをコピー** でクライアント自身のコマンドを確認できます。ほかのアシスタントには **設定をコピー** を使います。
+
+**支出の前に確認**（同じパネル、既定は 0.50 ドル）は、接続したアシスタントが有料の作業を始める前に確認しなければならない金額です。マージ、PR、削除は常に確認します。**新しい MCP ツール（プレビュー）** をオンにすると、新しい 15 個のツールが使えます。用意された次の一手、ポーリング不要の待機、あなたの言語での回答、*start-my-day*、*review-waiting*、*ship-milestone*、*why-stuck* などのプロンプトです。
+
 ## エージェント向け: クライアントを接続する
 
-ユーザーからエージェントに接続を頼まれたら、[MCP 接続専用のランブック](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md)を読んでください。Claude Code と Codex の CLI 版・デスクトップ版について、同梱のブリッジを見つける方法、既存の設定を保持する方法、実際の接続を確認する方法、失敗を診断する方法を扱っています。Web 版はプレーンな Markdown で、JavaScript は不要です。
-
-Specrails を起動したまま、**Settings ▸ MCP ▸ Copy client config** を開きます。バージョンによっては `specrails-mcp` だけが返され、それが PATH 上にないことがあります。実際の実行ファイルとスクリプトの見つけ方はランブックで説明しています。ブリッジはトークンをローカルで読み取るので、クライアントの設定にトークンを書く必要はありません。登録しただけでは接続の証明になりません。`initialize`、`tools/list`、そして `{"action":"list"}` を指定した読み取り専用の `specrails_projects` 呼び出しまで完了させてください。
+接続を頼まれたら、[MCP 接続ランブック](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md) を読んでください。コマンド 1 つでの接続、Claude Code と Codex への手動登録、確認、トラブルシューティングを扱っています。登録だけでは接続の証明になりません。`initialize`、`tools/list`、読み取り専用の呼び出しまで完了してください。
 
 全体をすばやく把握するには、アシスタントは `specrails_status` を呼び出せます。実行中のもの、あなたを待っているもの、最近の失敗、今日の支出、マシンの CPU とメモリが 1 回の呼び出しでわかります。`specrails_inbox` は**対応待ち**リストを読み取って回答し、`specrails_missions` はミッションを一覧表示してメッセージを送り、`specrails_board` は 1 つのプロジェクトのバックログとレールを、`specrails_spend` は支出と上限を、`specrails_resources` は Specrails が起動したものを表示します。失敗したジョブには、その診断、保存済みの AI 分析、ログの末尾が付いてきます。
 

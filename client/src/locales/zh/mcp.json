@@ -2,7 +2,7 @@
   "heading": "MCP 服务器",
   "explainer": {
     "what": "MCP（模型上下文协议）服务器让外部 AI 工具——例如 Claude Desktop、Cursor 或任何 MCP 客户端——直接与 Specrails 通信。它们可以浏览你的项目、读取规格，并在你允许的情况下启动任务，全部通过一个安全的本地连接完成。",
-    "how": "默认已开启——把下方的客户端配置复制到你的 AI 工具里即可。Specrails 只在你自己的机器上监听，不会暴露到互联网。",
+    "how": "默认开启——在下方连接 Claude Code 或 Codex，或把客户端配置复制到其他 AI 工具中。Specrails 只在你自己的电脑上监听，不会暴露到互联网。",
     "grants": "所有权限层级默认开启。取消勾选某个层级即可逐项限制客户端能做的事。"
   },
   "enable": {
@@ -98,5 +98,47 @@
     "removeConfirmTitle": "移除 {{name}}？",
     "removeConfirmBody": "任务代理将不再为任何提供商加载此服务器。已发现的服务器仍保留在你的 AI 提供商配置中，可以再次启用。",
     "formProviderToggle": "为 {{provider}} 启用"
+  },
+  "connect": {
+    "heading": "连接 Claude Code 或 Codex",
+    "description": "一键把 Specrails 写入客户端自己的配置（先备份，不写入任何令牌），并检查连接。",
+    "unavailable": "此安装未包含 MCP 桥接程序。",
+    "state": {
+      "connected": "已连接",
+      "outdated": "旧路径",
+      "not_connected": "未连接",
+      "conflict": "名称已占用"
+    },
+    "notInstalled": "此电脑上未找到",
+    "connect": "连接 {{client}}",
+    "connecting": "正在连接…",
+    "update": "更新",
+    "disconnect": "断开",
+    "copyCommand": "复制命令",
+    "commandCopied": "已复制命令",
+    "verified": "已验证 · {{tools}} 个工具 · ≈{{tokens}} 个 token",
+    "verifyError": "已保存，但检查失败：{{error}}",
+    "enableToVerify": "已保存。打开 MCP 服务器以检查连接。",
+    "backup": "备份：{{path}}",
+    "next": {
+      "claude": "开启新的 Claude Code 会话（或运行 /mcp）以加载 Specrails。",
+      "codex": "开启新的 Codex 会话以加载 Specrails。"
+    },
+    "connected": "{{client}} 已连接到 Specrails",
+    "disconnected": "{{client}} 不再加载 Specrails",
+    "failed": "无法连接 {{client}}",
+    "verifyFailed": "{{client}} 已保存，但连接检查失败",
+    "replaceTitle": "替换现有的 “specrails” 服务器？",
+    "replaceBody": "{{client}} 在 {{path}} 中已有一个名为 “specrails” 的服务器，但它不是本应用。要替换吗？会先备份该文件。",
+    "replace": "替换"
+  },
+  "preferences": {
+    "threshold": "花费前先询问",
+    "thresholdHelp": "当已连接的 AI 启动的工作可能超过此金额，或会启动多个运行时，会先询问你。PR、合并和删除始终会询问。",
+    "thresholdInvalid": "请输入 0 到 {{max}} 之间的金额",
+    "v2": "新版 MCP 工具（预览）",
+    "v2Help": "15 个工具，附带现成的下一步，无需轮询即可等待，并用你的语言回答。对新的客户端会话生效。",
+    "v2Forced": "由环境变量 SPECRAILS_MCP_V2 设定。",
+    "saveFailed": "无法保存 MCP 设置"
   }
 }

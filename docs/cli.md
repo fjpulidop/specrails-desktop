@@ -151,6 +151,19 @@ specrails-desktop /opsx:archive      # archive to openspec/changes/archive/
 
 `opsx:apply` and `opsx:verify` run **in the conversation** — `apply` edits code and flips tasks from `- [ ]` to `- [x]`; `verify` reads the change artifacts and writes a completeness/correctness/coherence report. They do **not** queue a server job or spawn the Architect → Developer → Reviewer pipeline (that's the separate `/specrails:implement` flow). Full lifecycle reference: [internals/openspec-workflow.md](internals/openspec-workflow.md).
 
+## Connect Claude Code or Codex (MCP)
+
+```bash
+specrails-desktop mcp connect --client claude      # or codex, or all
+specrails-desktop mcp connect --client codex --scope project --dry-run
+specrails-desktop mcp status
+specrails-desktop mcp disconnect --client claude
+```
+
+The running app registers its MCP bridge in the client's own configuration
+(backed up first, no token written) and verifies the connection. Details and
+options: [Connecting a client](mcp.md#connecting-a-client).
+
 ## Diagnostic flags
 
 | Flag | What it does |
