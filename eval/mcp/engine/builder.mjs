@@ -11,7 +11,7 @@ function premiumDescription(opts = {}) {
   const subject = opts.subject ?? 'the core workflow'
   return [
     '## Problem Statement',
-    `A home cook who opens the product today has no way to complete ${subject} end to end: the flow stops at the first screen, nothing is persisted, and nobody can tell whether the slice works. It matters now because every later Milestone-1 spec is defined as building on this slice.${opts.readme ? ' The repository already contains a README and nothing else.' : ''} A good outcome is a thin, runnable, tested version of ${subject} that a contributor can run from a clean checkout and a reviewer can exercise without guidance.`,
+    `A developer who opens the product today has no way to complete ${subject} end to end: the flow stops at the first screen, nothing is persisted, and nobody can tell whether the slice works. It matters now because every later Milestone-1 spec is defined as building on this slice.${opts.readme ? ' The repository already contains a README and nothing else.' : ''} A good outcome is a thin, runnable, tested version of ${subject} that a contributor can run from a clean checkout and a reviewer can exercise without guidance.`,
     '',
     '## Proposed Solution',
     `1. The user opens the entry screen for ${subject} and sees the empty state.`,
@@ -68,16 +68,20 @@ function premiumCriteria(seed = '') {
   ]
 }
 
+// The four slices of the todo CLI the blueprint describes (a coherent product reads as one to a real agent).
+const SLICES = ['add a todo', 'list the todos', 'mark a todo done', 'delete a todo']
+
 function premiumSpec(index, over = {}) {
   const scaffold = index === 0
+  const slice = SLICES[index - 1] ?? `workflow slice ${index}`
   return {
     kind: scaffold ? 'scaffold' : 'feature',
-    title: scaffold ? 'Scaffold the runnable project foundation' : `Deliver workflow slice ${index}`,
+    title: scaffold ? 'Scaffold the runnable project foundation' : `Let the user ${slice}`,
     shortSummary: scaffold
       ? 'Turn the README-only repository into an installable, runnable, testable application shell with CI.'
-      : `Deliver an independently testable workflow slice ${index} on top of the scaffold.`,
-    description: premiumDescription({ readme: scaffold, subject: scaffold ? 'the project foundation' : `workflow slice ${index}` }),
-    acceptanceCriteria: premiumCriteria(scaffold ? 'foundation' : `slice ${index}`),
+      : `Let the user ${slice} from the command line, independently testable on top of the scaffold.`,
+    description: premiumDescription({ readme: scaffold, subject: scaffold ? 'the project foundation' : `the "${slice}" flow` }),
+    acceptanceCriteria: premiumCriteria(scaffold ? 'foundation' : slice),
     priority: 'medium',
     labels: ['M1', scaffold ? 'foundation' : 'workflow'],
     ...(index > 0 ? { dependsOnIndex: index - 1 } : {}),
@@ -97,13 +101,13 @@ export function builderReply({ marker = null } = {}) {
   const blueprint = {
     blueprintVersion: 1,
     product: { name: 'Todo CLI', pitch: 'A minimal command-line todo list.', audience: 'Developers who live in the terminal' },
-    coreFlow: 'Add a todo, list todos, mark one done.',
+    coreFlow: 'Add a todo, list todos, mark one done, delete one.',
     platform: 'CLI (Node.js)',
     stack: { language: 'JavaScript', framework: 'Node.js', db: 'JSON file' },
     assumptions: ['Single user, local machine'],
     milestones: [
       { id: 'M1', title: 'Walking skeleton', goal: 'A runnable, tested CLI with the core flow.', status: 'planned', plannedSpecs: specs.map(s => s.title) },
-      { id: 'M2', title: 'Polish', goal: 'Due dates and filters.', status: 'planned', plannedSpecs: ['Due dates', 'Filters'] },
+      { id: 'M2', title: 'Polish', goal: 'Due dates and filters.', status: 'planned', plannedSpecs: ['Due dates', 'Filter by status'] },
     ],
     specsComplete: true,
     m1Specs: specs,
