@@ -34,6 +34,8 @@ export function onlyAdvertisedOffers(calls) {
   for (const c of calls) {
     const text = c.text ?? ''
     for (const m of text.matchAll(/"id":"([a-z_]+\.[a-z_]+|[a-z_]+)"/g)) seen.add(m[1])
+    // Lean inbox items list their offers as bare ids.
+    for (const list of text.matchAll(/"offers":\[([^\]]*)\]/g)) for (const m of list[1].matchAll(/"([a-z_]+(?:\.[a-z_-]+)?)"/g)) seen.add(m[1])
     if (c.tool === 'specrails_inbox' && c.args?.action === 'act' && c.args?.offerId && !seen.has(c.args.offerId)) illegal.push(c.args.offerId)
   }
   return assertion('inbox(act) used only advertised offers', illegal.length === 0, illegal.join(', '))

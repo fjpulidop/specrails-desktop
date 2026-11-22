@@ -67,6 +67,9 @@ function seedMixed() {
   pauseLoopRun(beta, 'r-budget', undefined, 'budget_paused')
 }
 
+/** A lean inbox offer: a bare id, or `{ id, needs }` when act needs arguments. */
+const offerId = (offer: string | { id: string }) => typeof offer === 'string' ? offer : offer.id
+
 describe('specrails_inbox(list)', () => {
   it('lists every kind, most urgent first, lean, with the domain offers and the recommended one', async () => {
     seedMixed()
@@ -76,16 +79,17 @@ describe('specrails_inbox(list)', () => {
     expect(items.map((item) => [item.kind, item.project])).toEqual([['question', 'shop-api'], ['review', 'shop-api'], ['budget', 'blog'], ['failed', 'blog']])
     const [question, review, budget, failed] = items
     expect(question).toMatchObject({ ref: 'inbox:p1:question:r-ask', status: 'needs_you', subject: 'run:shop-api/r-ask', recommended: 'answer.drop' })
-    expect(question.offers.map((offer: { id: string }) => offer.id)).toEqual(['answer.implement', 'answer.drop', 'answer'])
-    expect(question.offers.find((offer: { id: string }) => offer.id === 'answer').needs).toEqual(['answer'])
+    expect(question.offers.map(offerId)).toEqual(['answer.implement', 'answer.drop', 'answer'])
+    expect(question.offers.find((offer: string | { id: string }) => offerId(offer) === 'answer').needs).toEqual(['answer'])
     // The delivery's legal decisions (decision-policy actionAllowed on the real row).
     expect(review.subject).toBe('delivery:shop-api/d-review')
-    expect(review.offers.map((offer: { id: string }) => offer.id)).toEqual(expect.arrayContaining(['decide.create_pr', 'decide.merge_local', 'decide.discard']))
-    expect(review.offers.find((offer: { id: string }) => offer.id === 'decide.create_pr').confirm).toBe(true)
+    expect(review.offers.map(offerId)).toEqual(expect.arrayContaining(['decide.create_pr', 'decide.merge_local', 'decide.discard']))
+    // Lean offers are the ids act takes; labels and confirmation facts are in the item's full state.
+    expect(review.offers).toContain('decide.create_pr')
     expect(budget).toMatchObject({ status: 'paused', why: expect.stringContaining('budget') })
-    expect(budget.offers.map((offer: { id: string }) => offer.id)).toEqual(['budget.once', 'budget.ignore', 'budget.raise'])
+    expect(budget.offers.map(offerId)).toEqual(['budget.once', 'budget.ignore', 'budget.raise'])
     expect(failed.status).toBe('failed')
-    expect(failed.offers.map((offer: { id: string }) => offer.id)).toContain('diagnose')
+    expect(failed.offers.map(offerId)).toContain('diagnose')
     expect(question.why).toBeUndefined()
     expect(envelope.data).toMatchObject({ total: 4, byKind: { question: 1, review: 1, budget: 1, failed: 1 } })
     expect(envelope.summary).toMatch(/^4 things need the person: .*Most urgent: “Implement · #7” in Shop API\.$/)
@@ -190,7 +194,7 @@ describe('specrails_inbox(answer / approve / reject)', () => {
     asking(alpha, 'p1', 'r-gate', APPROVAL)
     desktop.on('POST', '/projects/p1/jobs/r-gate/messages', { ok: true })
     const listed = (await inbox({ action: 'list' })).envelope.data.items[0]
-    expect(listed.offers.map((offer: { id: string }) => offer.id)).toEqual(['approve', 'reject'])
+    expect(listed.offers.map(offerId)).toEqual(['approve', 'reject'])
     expect((await inbox({ action: 'answer', ref: listed.ref, answer: 'yes' })).envelope.error.code).toBe('invalid_input')
     expect((await inbox({ action: 'approve', ref: listed.ref })).envelope.ok).toBe(true)
     expect((await inbox({ action: 'reject', ref: listed.ref, options: { reason: 'Not on prod' } })).envelope.ok).toBe(true)

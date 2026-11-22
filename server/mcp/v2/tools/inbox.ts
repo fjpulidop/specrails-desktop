@@ -241,7 +241,9 @@ export function leanItem(item: InboxItem, slug: string, state: DecisionState): R
     at: item.at,
     ...(subjectRefOf(item, slug) ? { subject: subjectRefOf(item, slug) } : {}),
     // Read offers (open the run or delivery) stay in the full state: the subject ref already names them.
-    offers: state.offers.filter((offer) => offer.tier !== 'read').map((offer) => ({ id: offer.id, label: offer.label, ...(offer.needs ? { needs: offer.needs } : {}), ...(offer.needsConfirm ? { confirm: true } : {}) })),
+    // The ids `act` takes, nothing more: labels and confirmation facts live in the item's full state
+    // (open), and a confirmable act answers with its own preview. An offer that needs arguments says which.
+    offers: state.offers.filter((offer) => offer.tier !== 'read').map((offer) => offer.needs ? { id: offer.id, needs: offer.needs } : offer.id),
     ...(state.recommended ? { recommended: state.recommended } : {}),
     ...(item.attempt ? { attempt: item.attempt } : {}),
   }
