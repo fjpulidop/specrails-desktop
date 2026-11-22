@@ -33,6 +33,7 @@ import { registerMachineInstallRoutes } from './modules/machine-installs/adapter
 import { createSqliteApprovalStore } from './modules/machine-installs/adapters/sqlite'
 import type { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
 import { registerWebhookRoutes } from './desktop-router-webhooks'
+import { registerDesktopUpdateRoutes } from './desktop-router-updates'
 import { registerQuotaRoutes } from './modules/provider-quota/adapters/http'
 import { registerLaunchPreflightRoutes } from './modules/launch-preflight/adapters/http'
 import { createDesktopLaunchPreflight } from './modules/launch-preflight/runtime/composition'
@@ -98,6 +99,8 @@ export function createDesktopRouter(
   registerRuntimeRolePromptRoutes(router)
   registerRuntimeProviderRoutes(router, { registry, broadcast })
   registerCoreUpdateRoutes(router, { registry, broadcast })
+  // Desktop app updates over HTTP (MCP): manifest check + relay to the window's updater.
+  registerDesktopUpdateRoutes(router, { desktopDb: registry.desktopDb, broadcast })
 
   return router
 }
