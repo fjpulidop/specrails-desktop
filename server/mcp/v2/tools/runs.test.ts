@@ -305,6 +305,9 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     expect(confirmed.envelope.error).toMatchObject({ code: 'held' })
     expect(posts()).toHaveLength(0)
     expect(confirmed.envelope.error.state.offers.map((o: { id: string }) => o.id)).not.toContain('remedy.continue')
+    // The message names what the run does offer.
+    expect(confirmed.envelope.error.message).toMatch(/It offers: .*runs\(remedy start_over\)/)
+    expect(confirmed.envelope.error.message).not.toMatch(/remedy continue\b/)
   })
 
   it('pauses, stops and plays a rail through its active run', async () => {

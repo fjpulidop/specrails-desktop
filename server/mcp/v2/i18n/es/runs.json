@@ -31,6 +31,7 @@
   "preview.check": "Ejecuta la comprobación {{kind}} de {{title}} en su worktree: lanza los propios comandos del proyecto.",
   "preview.fork": "Inicia un nuevo intento de {{title}} desde el paso {{step}}.",
   "error.not_held": "{{label}}: la ejecución no está esperando eso (está {{status}}).",
+  "error.offered": "Ofrece: {{offers}}.",
   "error.no_option": "La opción \"{{option}}\" no es una de las que ofreció la pregunta: {{options}}.",
   "error.reject_reason": "reject necesita el motivo en answer.",
   "error.no_rail": "La ejecución no está en un rail, así que no puede empezar de nuevo; vuelve a lanzar sus specs.",

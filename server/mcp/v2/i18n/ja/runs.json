@@ -31,6 +31,7 @@
   "preview.check": "{{title}} の {{kind}} チェックを worktree で実行します: プロジェクト自身のコマンドを実行します。",
   "preview.fork": "ステップ {{step}} から {{title}} の新しい試行を開始します。",
   "error.not_held": "{{label}}: 実行はそれを待っていません（現在は {{status}}）。",
+  "error.offered": "提示されている操作: {{offers}}。",
   "error.no_option": "オプション \"{{option}}\" は質問の選択肢にありません: {{options}}。",
   "error.reject_reason": "reject には answer で理由が必要です。",
   "error.no_rail": "この実行はレール上にないため、やり直せません。スペックを再度起動してください。",

@@ -31,6 +31,7 @@
   "preview.check": "Esegue il controllo {{kind}} di {{title}} nel suo worktree: lancia i comandi del progetto stesso.",
   "preview.fork": "Avvia un nuovo tentativo di {{title}} dal passaggio {{step}}.",
   "error.not_held": "{{label}}: l'esecuzione non è in attesa di questo (è {{status}}).",
+  "error.offered": "Offre: {{offers}}.",
   "error.no_option": "L'opzione \"{{option}}\" non è tra quelle offerte dalla domanda: {{options}}.",
   "error.reject_reason": "reject richiede la motivazione in answer.",
   "error.no_rail": "L'esecuzione non è su un rail, quindi non può ricominciare; lancia di nuovo le sue spec.",

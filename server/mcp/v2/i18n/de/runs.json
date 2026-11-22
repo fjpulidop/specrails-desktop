@@ -31,6 +31,7 @@
   "preview.check": "Führt den {{kind}}-Check von {{title}} in seinem Worktree aus: Dabei laufen die eigenen Befehle des Projekts.",
   "preview.fork": "Startet einen neuen Versuch von {{title}} ab Schritt {{step}}.",
   "error.not_held": "{{label}}: Der Lauf wartet nicht darauf (er ist {{status}}).",
+  "error.offered": "Er bietet an: {{offers}}.",
   "error.no_option": "Option \"{{option}}\" gehört nicht zu den Optionen der Frage: {{options}}.",
   "error.reject_reason": "reject braucht die Begründung in answer.",
   "error.no_rail": "Der Lauf ist auf keiner Rail und kann daher nicht neu beginnen; starte seine Specs erneut.",

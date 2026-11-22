@@ -31,6 +31,7 @@
   "preview.check": "在 worktree 中运行 {{title}} 的 {{kind}} 检查：它会执行项目自己的命令。",
   "preview.fork": "从步骤 {{step}} 开始 {{title}} 的新尝试。",
   "error.not_held": "{{label}}：该运行并未在等待此操作（当前为 {{status}}）。",
+  "error.offered": "可用操作：{{offers}}。",
   "error.no_option": "选项 \"{{option}}\" 不在问题提供的选项中：{{options}}。",
   "error.reject_reason": "reject 需要在 answer 中提供理由。",
   "error.no_rail": "该运行不在 rail 上，因此无法重新开始；请重新启动其规格。",

@@ -378,7 +378,13 @@ function accepted(ctx: V2CallContext, target: Target, label: string, data: Row):
 /** Refuses a call the run's current state does not offer (`held`, with the state). */
 function requireOffer(ctx: V2CallContext, state: DecisionState, matches: (offer: DecisionState['offers'][number]) => boolean): void {
   if (state.offers.some(matches)) return
-  throw new V2ToolError('held', ctx.v2.t('runs.error.not_held', { label: `specrails_runs(${ctx.v2.action})`, status: state.label }), { state })
+  // Name what the run does offer, so the agent picks one instead of guessing another choice.
+  const offered = state.offers.map((offer) => {
+    const a = offer.call.args as Row
+    return `${offer.call.tool.replace(/^specrails_/, '')}(${[a.action, a.choice ?? a.optionId ?? a.decision].filter((part) => typeof part === 'string').join(' ')})`
+  })
+  const message = [ctx.v2.t('runs.error.not_held', { label: `specrails_runs(${ctx.v2.action})`, status: state.label }), ...(offered.length ? [ctx.v2.t('runs.error.offered', { offers: [...new Set(offered)].join(', ') })] : [])].join(' ')
+  throw new V2ToolError('held', message, { state })
 }
 
 // ── Rails helpers (shared with rails.ts) ────────────────────────────────────
