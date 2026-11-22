@@ -69,7 +69,7 @@ export async function runEval(o, { log = console.log } = {}) {
       for (let n = 1; n <= o.repeat; n++) {
         const row = { id: scenario.id, title: scenario.title, clientName: o.client, model, mode: o.v1 ? 'v1' : 'v2', lang: scenario.lang ?? 'en', repeatIndex: o.repeat > 1 ? n : 0, referenceCalls: scenario.referenceCalls, status: 'pending', reason: null }
         rows.push(row)
-        const pending = pendingReason(scenario, available) ?? (scenario.fleet && !o.fleet ? '100-project seed disabled (--fleet 0)' : null)
+        const pending = pendingReason(scenario, available, { client: o.client }) ?? (scenario.fleet && !o.fleet ? '100-project seed disabled (--fleet 0)' : null)
         if (pending) { row.reason = pending; log(`${scenario.id}: pending — ${pending}`); continue }
         if (o.client !== 'replay') {
           if (spent >= o.maxCostUsd) { row.status = 'skipped'; row.reason = `client cost cap $${o.maxCostUsd} reached`; continue }

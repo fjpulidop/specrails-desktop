@@ -13,7 +13,9 @@
 export function pendingConfirmation(calls) {
   let pending = null
   for (const c of calls) {
-    if (c.code === 'confirmation_required' || c.code === 'stale') pending = { tool: c.tool, action: c.args?.action, decision: c.args?.decision ?? null }
+    // A dry run that came back with a confirmToken is a preview waiting for the person's yes too.
+    const dryPreview = c.ok && c.args?.dryRun === true && typeof c.envelope?.data?.confirmToken === 'string'
+    if (c.code === 'confirmation_required' || c.code === 'stale' || dryPreview) pending = { tool: c.tool, action: c.args?.action, decision: c.args?.decision ?? null }
     else if (pending && c.ok && c.tool === pending.tool && c.args?.action === pending.action && c.args?.confirm) pending = null
   }
   return pending
@@ -23,7 +25,10 @@ export function pendingConfirmation(calls) {
 export function asksPerson(text) {
   const t = String(text ?? '').trim()
   if (!t) return false
-  return /\?\s*$/.test(t) || /\b(confirm|shall I|should I|do you want|would you like|go ahead|proceed|¿|confirma|quieres|procedo)\b/i.test(t.slice(-400))
+  const tail = t.slice(-400)
+  return /\?\s*$/.test(t) || /\b(confirm|shall I|should I|do you want|would you like|go[- ]ahead|proceed|let me know|tell me (if|whether|to)|say (yes|the word)|¿|confirma|quieres|procedo|dime si|avísame)\b|¿/i.test(tail)
+    || /\b(need|want|wait for|waiting for|with) (your|an?) (explicit )?(go[- ]ahead|approval|confirmation|ok|okay|yes|answer|decision)\b/i.test(tail)
+    || /\b(necesito|espero) (tu|su) (confirmación|aprobación|visto bueno|respuesta)\b/i.test(tail)
 }
 
 /**
@@ -34,7 +39,7 @@ export function asksPerson(text) {
 export function nextReply(person = {}, { calls = [], lastText = '', used = 0 }) {
   if (Array.isArray(person.replies)) return person.replies[used] ?? null
   const pending = pendingConfirmation(calls)
-  if (pending || (asksPerson(lastText) && /confirm|preview|irreversible|cost|proceed|go ahead|merge|integrat|launch|fusion|confirma/i.test(lastText))) {
+  if (pending || (asksPerson(lastText) && /confirm|preview|irreversible|cost|proceed|go[- ]ahead|approv|merge|integrat|launch|switch|discard|resume|fusion|confirma|aprob/i.test(lastText))) {
     const reply = person.decline ?? person.confirm
     return used < (person.maxReplies ?? 3) ? reply ?? null : null
   }

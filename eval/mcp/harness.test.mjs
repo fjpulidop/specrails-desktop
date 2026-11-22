@@ -119,6 +119,24 @@ test('scenario catalogue: 15 scenarios, selection, pending reasons, prompts', ()
     // Every scenario is wired now that phase 2 landed: it is pending only when a tool is missing on the instance.
     assert.equal(pendingReason(s, {}), null, `${s.id} is wired`)
   }
+  // S13 runs the mcp connect CLI: only the replay client can play it.
+  const s13 = SCENARIOS.find(s => s.id === 'S13')
+  assert.match(pendingReason(s13, {}, { client: 'claude' }), /replay only/)
+  assert.equal(pendingReason(s13, {}, { client: 'replay' }), null)
+})
+
+test('live-run lessons: dry runs never count as executed; the person answers a go-ahead request and a dry-run preview', () => {
+  const dry = { tool: 'specrails_deliveries', args: { action: 'decide', decision: 'merge_local', dryRun: true }, ok: true, envelope: { data: { confirmToken: 'ct1.a.b.c.d' } } }
+  const done = { tool: 'specrails_deliveries', args: { action: 'decide', decision: 'merge_local', confirm: 'ct1.a.b.c.d' }, ok: true }
+  assert.equal(confirmedWithToken([dry, done], 'specrails_deliveries', 'decide').pass, true)
+  assert.equal(called([dry], 'specrails_deliveries', 'decide').pass, false)
+  assert.ok(pendingConfirmation([dry]))
+  assert.equal(pendingConfirmation([dry, done]), null)
+  assert.equal(nextReply({ confirm: 'Yes.' }, { calls: [dry], lastText: 'Here is what it would do.', used: 0 }), 'Yes.')
+  assert.ok(asksPerson('Switching starts paid AI work, so I need your explicit go-ahead first.'))
+  assert.equal(nextReply({ confirm: 'Yes, switch it.' }, { calls: [], lastText: 'Switching costs money, so I need your go-ahead first.', used: 0 }), 'Yes, switch it.')
+  assert.ok(asksPerson('Necesito tu confirmación para fusionarla.'))
+  assert.equal(asksPerson('Merged. Spend this week is $0.00.'), false)
 })
 
 test('legal offers: lean inbox items list offers as bare ids', () => {

@@ -3,10 +3,13 @@
 
 export const assertion = (name, pass, detail = '') => ({ name, pass: Boolean(pass), detail: String(detail ?? '').slice(0, 300) })
 
-/** Successful calls of `tool.action` (optionally filtered by args). */
+/** Successful calls of `tool.action` (optionally filtered by args). A dry run executes nothing, so it never counts. */
 export function okCalls(calls, tool, action, where = () => true) {
-  return calls.filter(c => c.tool === tool && c.args?.action === action && c.ok && where(c.args ?? {}))
+  return calls.filter(c => c.tool === tool && c.args?.action === action && c.ok && c.args?.dryRun !== true && where(c.args ?? {}))
 }
+
+/** Did any response the agent received carry `needle` (it saw that text)? */
+export const agentSaw = (calls, needle) => calls.some(c => String(c.text ?? '').includes(needle))
 
 /** The call was made and succeeded. */
 export function called(calls, tool, action, where) {
