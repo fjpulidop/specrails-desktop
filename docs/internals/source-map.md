@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1915 source/build files. Nearby tests are linked where names
+Includes 1924 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -15,6 +15,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [desktop-control.ts](../../cli/desktop-control.ts)
 - [format.ts](../../cli/format.ts)
 - [help.ts](../../cli/help.ts)
+- [mcp-connect.ts](../../cli/mcp-connect.ts) · [test](../../cli/mcp-connect.test.ts)
 - [output.ts](../../cli/output.ts)
 - [run-command.ts](../../cli/run-command.ts)
 - [specrails-desktop.ts](../../cli/specrails-desktop.ts) · [test](../../cli/specrails-desktop.test.ts)
@@ -1032,6 +1033,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
 - [MachineInstallsSection.tsx](../../client/src/features/settings/components/MachineInstallsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MachineInstallsSection.test.tsx)
+- [McpConnectCard.tsx](../../client/src/features/settings/components/McpConnectCard.tsx) · [test](../../client/src/features/settings/components/__tests__/McpConnectCard.test.tsx)
+- [McpPreferencesCard.tsx](../../client/src/features/settings/components/McpPreferencesCard.tsx)
 - [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
 - [MissionConnectorsSection.tsx](../../client/src/features/settings/components/MissionConnectorsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MissionConnectorsSection.test.tsx)
 - [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
@@ -1651,6 +1654,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [prompts.ts](../../server/mcp/prompts.ts)
 - [resources.ts](../../server/mcp/resources.ts)
 
+## server/mcp/connect
+
+- [client-config.ts](../../server/mcp/connect/client-config.ts)
+- [connect.ts](../../server/mcp/connect/connect.ts) · [test](../../server/mcp/connect/connect.test.ts)
+- [verify.ts](../../server/mcp/connect/verify.ts)
+
 ## server/mcp/tools
 
 - [actions.ts](../../server/mcp/tools/actions.ts)
@@ -1694,10 +1703,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/mcp/v2
 
+- [docs-reference.ts](../../server/mcp/v2/docs-reference.ts) · [test](../../server/mcp/v2/docs-reference.test.ts)
 - [flag.ts](../../server/mcp/v2/flag.ts)
+- [guide.ts](../../server/mcp/v2/guide.ts)
 - [index.ts](../../server/mcp/v2/index.ts)
 - [instructions.ts](../../server/mcp/v2/instructions.ts)
 - [legacy.ts](../../server/mcp/v2/legacy.ts)
+- [prompts.ts](../../server/mcp/v2/prompts.ts) · [test](../../server/mcp/v2/prompts.test.ts)
 
 ## server/mcp/v2/core
 
