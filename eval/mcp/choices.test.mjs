@@ -87,6 +87,8 @@ test('counts decision points and keyboard inputs from the forms and the chat', (
   const typed = decisionMetrics(calls, { replies: ['Yes', 'Do it'] })
   assert.equal(typed.keyboardOnly, false)
   assert.equal(decisionMetrics([], {}).keyboardOnly, false)
+  // A client that declines forms unseen (codex exec): only its chat turns reached the person.
+  assert.deepEqual(decisionMetrics(calls, { asked: [{ menu: false }], replies: ['Yes'] }, undefined, { formsShown: false }), { points: 1, asChoices: 0, forms: { choice: 0, confirm: 0 }, menusReturned: 1, inputs: ['text'], freeText: 1, keyboardOnly: true })
 })
 
 test('reports the two choice bars', () => {

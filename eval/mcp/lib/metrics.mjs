@@ -147,9 +147,11 @@ export const returnedMenu = c => Boolean(c?.ok && Array.isArray(c.envelope?.data
  *   (`option`, `text`, `button`). Keyboard-only: no input is free text, except at most one.
  * @param {object[]} calls pairCalls(...).calls
  * @param {{ asked?: Array<{ menu: boolean }>, replies?: string[] }} conversation the live client's turns (none for replay)
+ * @param {{ formsShown?: boolean }} options false for a client that declines every form unseen (`codex exec`): its
+ *   forms never reached the person, so only the chat turns count
  */
-export function decisionMetrics(calls, { asked = [], replies = [] } = {}, isKeyboard = r => /^\s*\d{1,2}\s*\.?\s*$/.test(String(r ?? ''))) {
-  const forms = calls.flatMap(c => c.elicitations ?? [])
+export function decisionMetrics(calls, { asked = [], replies = [] } = {}, isKeyboard = r => /^\s*\d{1,2}\s*\.?\s*$/.test(String(r ?? '')), { formsShown = true } = {}) {
+  const forms = formsShown ? calls.flatMap(c => c.elicitations ?? []) : []
   const formInputs = forms.filter(f => f.action === 'accept' || f.action === 'decline').map(f => f.kind === 'choice'
     ? (typeof f.content?.other === 'string' && f.content.other.trim() ? 'text' : f.action === 'accept' ? 'option' : 'button')
     : 'button')

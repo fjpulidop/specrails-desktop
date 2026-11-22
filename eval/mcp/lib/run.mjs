@@ -130,7 +130,7 @@ export async function runEval(o, { log = console.log } = {}) {
           const records = fs.existsSync(logFile) ? parseLog(fs.readFileSync(logFile, 'utf8')) : []
           const { calls } = pairCalls(records)
           row.metrics = scenarioMetrics(records, tokens, { v1: o.v1 })
-          row.metrics.decisions = decisionMetrics(calls, conversation.person ?? {}, isKeyboardReply)
+          row.metrics.decisions = decisionMetrics(calls, conversation.person ?? {}, isKeyboardReply, { formsShown: o.client !== 'codex' })
           row.assertions = o.v1 ? [] : await scenario.check({ api: instance.api, facts, calls, metrics: row.metrics, finalText: o.client === 'replay' ? null : conversation.finalText })
           row.status = o.v1 ? 'baseline' : passed(row.assertions) ? 'pass' : 'fail'
           row.finalText = conversation.finalText?.slice(0, 1500) ?? null
