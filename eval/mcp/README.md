@@ -10,6 +10,7 @@ npm run eval:mcp -- --client replay --scenario all            # reference soluti
 npm run eval:mcp -- --client claude --scenario S5 --repeat 3  # Claude Code (haiku by default)
 npm run eval:mcp -- --client codex  --scenario S3,S15
 npm run eval:mcp -- --client claude --scenario all --v1       # v1 baseline (flag off) for the token bar
+npm run eval:mcp -- --client codex  --scenario S14 --auth session  # the person's own sign-in, config untouched
 npm run eval:mcp -- --client claude --baseline eval/mcp/results/<v1>.json
 npm run eval:mcp -- --client replay --scenario S15 --probe    # + load probe on the 100-project seed
 ```
@@ -23,7 +24,7 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Isolated instance | `lib/instance.mjs` | `tsx server/index.ts` with its own `SPECRAILS_REGISTRY_HOME` (default `~/.specrails-dev-mcpeval`), port 4400/4401, `SPECRAILS_HEADLESS=1`, `SPECRAILS_MCP_V2=true` (`false` with `--v1`), the sibling built Core, and on `PATH` first: the scripted engine, then the benchmark's fake installers. Reuses `scripts/benchmark/lib/server.mjs`, which signals only a listener started with that home |
 | Scripted engine | `engine/claude`, `engine/scripted.mjs`, `engine/builder.mjs` | A stand-in `claude` CLI: Specrails runs cost $0 and are reproducible. Mode per spec through a marker in its text, `[eval-engine:<mode>]`: `complete` (plays architect/developer/reviewer through the role's own OpenSpec workflow tool and delivers), `stall` (each Core step takes `EVAL_ENGINE_STALL_S`, default 30 s), `limit` (Claude's session-limit message), `fail` (a provider error), `question` (the architect asks with options) |
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
-| Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment |
+| Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment (`--auth session`: see Safety) |
 | Simulated person | `lib/person.mjs` | Replies between turns (`--resume`): the scenario's yes/no to a pending preview, or its answer to a question |
 | Scenarios | `lib/scenarios.mjs` | S1–S15 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
 | Metrics | `lib/metrics.mjs` | calls, tool names, errors (invalid args, wrong tool), confirmations requested/used, irreversible calls without a confirmToken, destructive calls, response tokens (o200k), catalog tokens (Codex shape, as the budget test), read latency, `wait` use, repeated identical reads |
@@ -51,9 +52,20 @@ served through the legacy bridge carries a deprecation warning).
 
 - The home and ports of the person's apps (`~/.specrails`, `~/.specrails-dev`, 4200/4201, 4300/4301) are refused; a
   fresh boot (`--fresh`) wipes only a home that carries the harness's `.eval-mcp-home` marker.
-- Clients never see `~/.claude` or `~/.codex`. A temp home has no sign-in: pass a credential in the environment
-  (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, or `ANTHROPIC_API_KEY`; `OPENAI_API_KEY`/`CODEX_API_KEY` for
-  Codex). Without one the scenario ends as `error: client not signed in`.
+- By default (`--auth temp`) clients never see `~/.claude` or `~/.codex`. A temp home has no sign-in: pass a credential
+  in the environment (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, or `ANTHROPIC_API_KEY`;
+  `OPENAI_API_KEY`/`CODEX_API_KEY` for Codex). Without one the scenario ends as `error: client not signed in`.
+- `--auth session` uses the person's current sign-in without changing their configuration. Claude Code runs with the
+  real `HOME` (its login is in the keychain), a temp cwd under the work dir, `--strict-mcp-config` with a temp config
+  holding only the eval server, `--setting-sources project,local` (no user settings, hooks, plugins or `CLAUDE.md`),
+  only `mcp__specrails` + `ToolSearch` allowed (`--permission-mode dontAsk`, no `--dangerously-*`) and
+  `--max-budget-usd`. Codex reads auth from the real `~/.codex` but runs `--ignore-user-config --ignore-rules`; the
+  eval server, approval/sandbox and `model_reasoning_effort` (`--effort`, default `low`) come only from `-c`
+  overrides, and apps, plugins, hooks, sub-agents and browser/computer use are `--disable`d. No credential is
+  forwarded from the environment. What the clients still write themselves: session transcripts
+  (`~/.claude/projects/<temp-cwd slug>/`, `~/.codex/sessions/`), Codex's state/log SQLite and caches, and Claude
+  Code's feature-flag caches inside `~/.claude.json` (`cachedGrowthBookFeatures` and friends). Snapshot the
+  configuration files before and after a live run to verify.
 - Quota: before each Claude scenario the harness reads the 5-hour window through the isolated app's own
   subscription-usage reader and skips at `--stop-at-window` (default 70 %). `--max-cost-usd` (default $1) caps the
   client spend of one run.

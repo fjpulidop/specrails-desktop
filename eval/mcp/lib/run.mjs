@@ -94,7 +94,7 @@ export async function runEval(o, { log = console.log } = {}) {
           row.client = conversation.client
           row.turns = conversation.turns
           spent += conversation.client?.costUsd ?? 0
-          if (conversation.authError) { row.status = 'error'; row.reason = `client not signed in inside its temp home: ${conversation.authError}`; log(`${scenario.id}: ${row.reason}`); continue }
+          if (conversation.authError) { row.status = 'error'; row.reason = `client not signed in${o.auth === 'session' ? ' (session auth)' : ' inside its temp home'}: ${conversation.authError}`; log(`${scenario.id}: ${row.reason}`); continue }
           await new Promise(r => setTimeout(r, 2000)) // let settled effects land before the HTTP check
           const records = fs.existsSync(logFile) ? parseLog(fs.readFileSync(logFile, 'utf8')) : []
           const { calls } = pairCalls(records)
@@ -124,7 +124,7 @@ export async function runEval(o, { log = console.log } = {}) {
     if (!o.keepServer && !instance.reused) await instance.stop()
   }
   const baseline = o.baseline ? JSON.parse(fs.readFileSync(o.baseline, 'utf8')).rows ?? [] : []
-  const report = buildReport({ startedAt, finishedAt: new Date().toISOString(), options: { client: o.client, model, scenario: o.scenario, repeat: o.repeat, v1: o.v1, fleet: o.fleet, port: target.port }, rows, baseline, probe, quota })
+  const report = buildReport({ startedAt, finishedAt: new Date().toISOString(), options: { client: o.client, model, auth: o.auth ?? 'temp', effort: o.client === 'codex' && o.auth === 'session' ? (o.effort ?? 'low') : (o.effort ?? null), scenario: o.scenario, repeat: o.repeat, v1: o.v1, fleet: o.fleet, port: target.port }, rows, baseline, probe, quota })
   const out = o.out ?? path.join(EVAL_DIR, 'results')
   fs.mkdirSync(out, { recursive: true })
   const base = path.join(out, `${startedAt.slice(0, 10)}-${o.client}${o.v1 ? '-v1' : ''}-${stamp().slice(11)}`)
@@ -141,7 +141,7 @@ async function replayConversation(scenario, facts, proxy) {
 }
 
 async function agentConversation({ o, model, scenario, facts, proxy, dir, root }) {
-  const prepared = prepareClientHome({ client: o.client, dir, root, proxy })
+  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low' })
   let usage = { input: null, output: null, cacheRead: null, cacheWrite: null, costUsd: null }
   let prompt = promptOf(scenario, facts)
   let session = null
@@ -149,7 +149,7 @@ async function agentConversation({ o, model, scenario, facts, proxy, dir, root }
   let used = 0
   let turns = 0
   for (; turns < 6; turns++) {
-    const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000 })
+    const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000, budgetUsd: o.client === 'claude' && o.maxCostUsd ? o.maxCostUsd : null })
     const auth = authProblem(turn)
     if (auth && !turn.parsed.toolUses) return { client: { tokens: usage, costUsd: usage.costUsd }, turns: turns + 1, finalText: turn.parsed.text, authError: auth }
     usage = addUsage(usage, { ...turn.parsed.tokens, costUsd: turn.parsed.costUsd })
