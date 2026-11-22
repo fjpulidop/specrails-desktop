@@ -95,3 +95,11 @@ test('builder turns: a complete blueprint-draft snapshot, the marker riding into
   assert.match(out.text, /```blueprint-draft/)
   assert.match(out.text, /eval-engine:question/)
 })
+
+test('the codex shim publishes its model catalog, so Core confirms the effort of a switched run', () => {
+  const codex = path.join(path.dirname(fileURLToPath(import.meta.url)), 'engine', 'codex')
+  const out = spawnSync(codex, ['debug', 'models'], { encoding: 'utf8' })
+  assert.equal(out.status, 0)
+  const sol = JSON.parse(out.stdout).models.find(m => m.slug === 'gpt-6.2-sol')
+  assert.ok(sol.supported_reasoning_levels.some(l => l.effort === 'medium'))
+})

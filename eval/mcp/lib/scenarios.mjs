@@ -153,6 +153,8 @@ export const SCENARIOS = [
         called(calls, 'specrails_runs', 'limit', a => a.choice === 'switch'),
         // The live board shows the engine the run continues on (the loop-run row keeps its launch provider).
         assertion('run continues on codex', card?.provider === 'codex' || run?.provider === 'codex', `board ${card?.provider} / row ${run?.provider}`),
+        // ...and keeps going there (a switch Core refuses fails the run right away).
+        assertion('the switched run did not fail', !/failed|error/i.test(String(run?.status ?? '')), String(run?.status ?? '')),
         assertion('not relaunched from scratch', !okCallsOf(calls, 'launch').length),
       ]
     },

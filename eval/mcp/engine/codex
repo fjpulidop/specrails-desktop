@@ -13,6 +13,14 @@ const HELP = 'Usage: codex exec [OPTIONS] [PROMPT]\n       codex exec resume [OP
 if (args.includes('--help') || args.includes('-h')) { process.stdout.write(HELP); process.exit(0) }
 if (args[0] === '--version' || args[0] === '-V') { console.log('codex-cli 0.171.0'); process.exit(0) }
 if (args[0] === 'login' && args[1] === 'status') { console.log('Logged in using ChatGPT'); process.exit(0) }
+// Core confirms reasoning-effort support from the client's own catalog (`codex debug models`); without it a run
+// switched to Codex with an effort fails "effort … is not confirmed for codex-cli" (seen live in S4).
+if (args[0] === 'debug' && args[1] === 'models') {
+  const levels = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+  const slugs = ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6.2-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+  console.log(JSON.stringify({ models: slugs.map(slug => ({ slug, supported_reasoning_levels: levels.map(effort => ({ effort })) })) }))
+  process.exit(0)
+}
 if (args[0] !== 'exec') { log({ refused: args.slice(0, 3) }); console.error('eval engine: only `codex exec` turns are scripted'); process.exit(2) }
 
 const schemaFile = args[args.indexOf('--output-schema') + 1]
