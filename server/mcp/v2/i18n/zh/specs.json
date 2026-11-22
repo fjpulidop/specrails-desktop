@@ -72,5 +72,6 @@
   "error.not_smashed": "{{ref}} 没有可移除的子规格。",
   "error.verbatim_body": "mode verbatim 需要 body：按原样书写的规格文本。",
   "warning.cursor_stale": "自上一页以来待办列表已发生变化；条目可能重复或被跳过。",
-  "warning.section_failed": "无法读取 {{section}} 分区：{{error}}"
+  "warning.section_failed": "无法读取 {{section}} 分区：{{error}}",
+  "offer.launch_parallel": "启动它们，每个在各自的轨道上"
 }

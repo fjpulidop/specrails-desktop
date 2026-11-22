@@ -72,5 +72,6 @@
   "error.not_smashed": "{{ref}} no tiene subspecs que quitar.",
   "error.verbatim_body": "mode verbatim necesita body: el texto de la spec tal cual.",
   "warning.cursor_stale": "El backlog cambió desde la página anterior; puede que haya elementos repetidos u omitidos.",
-  "warning.section_failed": "No se pudo leer la sección {{section}}: {{error}}"
+  "warning.section_failed": "No se pudo leer la sección {{section}}: {{error}}",
+  "offer.launch_parallel": "Lanzarlas, cada una en su propio carril"
 }

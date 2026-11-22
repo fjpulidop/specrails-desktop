@@ -72,5 +72,6 @@
   "error.not_smashed": "{{ref}} には削除するサブスペックがありません。",
   "error.verbatim_body": "mode verbatim には body（書かれたままのスペックのテキスト）が必要です。",
   "warning.cursor_stale": "前のページ以降にバックログが変更されました。項目が重複したり抜けたりする可能性があります。",
-  "warning.section_failed": "{{section}} セクションを読み込めませんでした: {{error}}"
+  "warning.section_failed": "{{section}} セクションを読み込めませんでした: {{error}}",
+  "offer.launch_parallel": "それぞれ専用のレールで起動する"
 }

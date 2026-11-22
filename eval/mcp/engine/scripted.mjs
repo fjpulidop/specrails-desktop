@@ -84,6 +84,17 @@ function activeChanges(root) {
 }
 
 /** Perform one invocation; returns `{ text, structured?, isError?, exitCode?, stderr? }`. */
+/** Whether a turn is a spec triage (its system prompt asks for one JSON object about one spec) (pure). */
+export const isTriageTurn = text => /You triage one software spec/.test(String(text ?? ''))
+
+/** The triage answer (pure): a small spec on the first loop the evidence offers. */
+export function triageAnswer(prompt) {
+  let loops = []
+  try { loops = JSON.parse(String(prompt ?? '').slice(String(prompt ?? '').indexOf('{'))).loops ?? [] } catch { loops = [] }
+  return JSON.stringify({ size: 'S', filesLikely: ['src/index.js'], publicInterfaces: false, dataModel: false, securitySurface: false,
+    recommendedLoop: loops[0]?.id ?? 'factory:implement', rationale: 'Small, contained change (scripted triage).', confidence: 'medium' })
+}
+
 /** Where a Builder session keeps its slices (next to the engine log), or null without one. */
 function builderStateFile(session) {
   const log = process.env.EVAL_ENGINE_LOG
@@ -92,6 +103,7 @@ function builderStateFile(session) {
 
 export async function engineOutput({ mode, role, schema, prompt, cwd, mcpConfig, openspecClient, session = null }) {
   // Builder turns always answer with a full blueprint; a marker in the person's message rides into its first spec.
+  if (role === 'triage') return { text: triageAnswer(prompt) }
   if (role === 'builder') {
     // The slices the conversation asked for so far ride in a per-session file (a resumed turn sees only its message).
     const file = builderStateFile(session)

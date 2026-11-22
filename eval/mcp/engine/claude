@@ -17,7 +17,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { engineOutput, detectRole, modeOf } from './scripted.mjs'
+import { engineOutput, detectRole, modeOf, isTriageTurn } from './scripted.mjs'
 import { isBuilderTurn } from './builder.mjs'
 
 const args = process.argv.slice(2)
@@ -69,7 +69,7 @@ let schema
 try { schema = flag('--json-schema') ? JSON.parse(flag('--json-schema')) : undefined } catch { schema = undefined }
 // A Project Builder turn carries the blueprint-draft contract in its system prompt (or, for providers without one, its prompt).
 const systemPrompt = flag('--system-prompt') ?? flag('--append-system-prompt') ?? ''
-const role = !schema && isBuilderTurn(`${systemPrompt}\n${prompt}`) ? 'builder' : detectRole(schema)
+const role = !schema && isBuilderTurn(`${systemPrompt}\n${prompt}`) ? 'builder' : !schema && isTriageTurn(`${systemPrompt}\n${prompt}`) ? 'triage' : detectRole(schema)
 const mode = modeOf(prompt, process.env.EVAL_ENGINE_MODE)
 const session = flag('--resume') ?? `eval-${process.pid}-${Date.now()}`
 const stream = flag('--output-format') === 'stream-json'

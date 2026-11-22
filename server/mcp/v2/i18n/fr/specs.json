@@ -72,5 +72,6 @@
   "error.not_smashed": "{{ref}} n'a pas de sous-specs à retirer.",
   "error.verbatim_body": "mode verbatim requiert body : le texte de la spec tel qu'écrit.",
   "warning.cursor_stale": "Le backlog a changé depuis la page précédente ; des éléments peuvent être répétés ou omis.",
-  "warning.section_failed": "La section {{section}} n'a pas pu être lue : {{error}}"
+  "warning.section_failed": "La section {{section}} n'a pas pu être lue : {{error}}",
+  "offer.launch_parallel": "Les lancer, chacune sur son propre rail"
 }

@@ -1125,7 +1125,13 @@ export const specsTool = defineTool({
             items.push({ ref: specRef(row, id), status: 'failed', reason: err instanceof Error ? clip(err.message, 160) : String(err) })
           }
         }
-        return result({ items }, { summary: ctx.v2.t('specs.summary.triaged', { count: items.filter((i) => i.size).length, total: ids.length }), untrusted: untrusted('/data/items/*/rationale', '/data/items/*/reason') })
+        // What usually follows a triage: launch what was triaged (several specs: one rail each), in one call.
+        const refs = ids.map((id) => specRef(row, id))
+        const launch: OfferDraft = refs.length > 1
+          ? { id: 'launch', labelKey: 'specs.offer.launch_parallel', call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: refs }, options: { parallel: true } } } }
+          : { id: 'launch', labelKey: 'specs.offer.launch', call: { tool: 'specrails_runs', args: { action: 'launch', project: row.slug, target: { specIds: refs } } } }
+        const state = ctx.v2.state({ status: 'queued', offers: [launch], recommended: 'launch' })
+        return result({ items }, { summary: ctx.v2.t('specs.summary.triaged', { count: items.filter((i) => i.size).length, total: ids.length }), state, untrusted: untrusted('/data/items/*/rationale', '/data/items/*/reason') })
       },
     },
     addendum_add: {

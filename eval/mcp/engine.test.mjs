@@ -112,3 +112,12 @@ test('the codex shim publishes its model catalog, so Core confirms the effort of
   const sol = JSON.parse(out.stdout).models.find(m => m.slug === 'gpt-6.2-sol')
   assert.ok(sol.supported_reasoning_levels.some(l => l.effort === 'medium'))
 })
+
+test('triage turns answer one JSON object on an offered loop', async () => {
+  const { isTriageTurn, triageAnswer, engineOutput: run } = await import('./engine/scripted.mjs')
+  assert.equal(isTriageTurn('You triage one software spec before implementation.'), true)
+  const answer = JSON.parse(triageAnswer('Triage evidence (JSON data):\n' + JSON.stringify({ spec: {}, loops: [{ id: 'factory:quick', name: 'Quick' }] })))
+  assert.equal(answer.recommendedLoop, 'factory:quick')
+  assert.equal(answer.size, 'S')
+  assert.match((await run({ mode: 'complete', role: 'triage', prompt: '{"loops":[]}' })).text, /"size":"S"/)
+})
