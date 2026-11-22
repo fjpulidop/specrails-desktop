@@ -5,10 +5,10 @@
   "summary.recommended": "Empfohlen: {{offer}}.",
   "summary.decided": "{{decision}}: erledigt für {{title}}. Jetzt {{status}}.",
   "offer.request_changes": "Änderungen anfordern",
-  "offer.checkout": "Branch in deinem Repository auschecken",
-  "offer.refresh_on_base": "Aktualisierte Basis übernehmen und erneut prüfen",
-  "offer.local_restore": "Deine lokalen Änderungen wiederherstellen",
-  "offer.local_bring_back": "Deine wiederhergestellten Änderungen zurückholen",
+  "offer.checkout": "Branch auschecken",
+  "offer.refresh_on_base": "Basis holen, neu prüfen",
+  "offer.local_restore": "Lokale Änderungen wiederherstellen",
+  "offer.local_bring_back": "Wiederhergestelltes zurückholen",
   "offer.local_discard_branch": "Wiederherstellungs-Branch verwerfen",
   "offer.approve": "Annehmen",
   "effect.approve": "Annehmen bedeutet hier: {{resolved}}.",
@@ -36,5 +36,12 @@
   "error.path_required": "file_diff braucht path: eine Datei aus der Änderungsliste.",
   "error.stale_version": "Die Lieferung hat sich geändert, seit du sie gelesen hast. Prüfe den aktuellen Stand.",
   "error.stale_decision": "Jemand anderes hat inzwischen über diese Lieferung entschieden. Prüfe den aktuellen Stand.",
-  "warning.packet_unavailable": "Das Review-Paket ist für diese Lieferung nicht verfügbar."
+  "warning.packet_unavailable": "Das Review-Paket ist für diese Lieferung nicht verfügbar.",
+  "choice.request_changes": "Ein Revisionslauf setzt deine Notiz um (KI).",
+  "choice.checkout": "Wechselt dein Repository auf den Liefer-Branch.",
+  "choice.refresh_on_base": "Holt die neue Basis und prüft erneut (KI).",
+  "choice.local_restore": "Holt deine gesicherten Änderungen zurück.",
+  "choice.local_bring_back": "Spielt die Änderungen auf deinen Branch.",
+  "choice.local_discard_branch": "Löscht den Branch; nicht umkehrbar.",
+  "choice.approve": "Nimmt sie wie das Repository es vorsieht an; endgültig."
 }

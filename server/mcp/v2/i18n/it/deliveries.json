@@ -5,10 +5,10 @@
   "summary.recommended": "Consigliato: {{offer}}.",
   "summary.decided": "{{decision}}: fatto per {{title}}. Ora {{status}}.",
   "offer.request_changes": "Chiedi modifiche",
-  "offer.checkout": "Fai il checkout del branch nel tuo repository",
-  "offer.refresh_on_base": "Integra la base aggiornata e verifica di nuovo",
-  "offer.local_restore": "Ripristina le tue modifiche locali",
-  "offer.local_bring_back": "Riporta indietro le modifiche ripristinate",
+  "offer.checkout": "Fai checkout del branch",
+  "offer.refresh_on_base": "Aggiorna dalla base, riverifica",
+  "offer.local_restore": "Ripristina le modifiche",
+  "offer.local_bring_back": "Riporta le modifiche",
   "offer.local_discard_branch": "Scarta il branch di ripristino",
   "offer.approve": "Accetta",
   "effect.approve": "Accettare qui significa: {{resolved}}.",
@@ -36,5 +36,12 @@
   "error.path_required": "file_diff richiede path: un file dall'elenco delle modifiche.",
   "error.stale_version": "La consegna è cambiata da quando l'hai letta. Controlla lo stato attuale.",
   "error.stale_decision": "Qualcun altro ha deciso su questa consegna nel frattempo. Controlla lo stato attuale.",
-  "warning.packet_unavailable": "Il pacchetto di revisione non è disponibile per questa consegna."
+  "warning.packet_unavailable": "Il pacchetto di revisione non è disponibile per questa consegna.",
+  "choice.request_changes": "Una revisione applica la tua nota (lavoro IA).",
+  "choice.checkout": "Porta il repository sul branch della consegna.",
+  "choice.refresh_on_base": "Porta la nuova base e riverifica (IA).",
+  "choice.local_restore": "Rimette le tue modifiche locali salvate.",
+  "choice.local_bring_back": "Applica le modifiche ripristinate al tuo branch.",
+  "choice.local_discard_branch": "Elimina il branch; irreversibile.",
+  "choice.approve": "La accetta come prevede il repository; irreversibile."
 }

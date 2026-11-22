@@ -120,10 +120,11 @@
   "summary.resources_unsupported": "El uso de recursos no está disponible en esta plataforma.",
   "summary.mission_resources": "Esta misión usa {{cpu}} de CPU y {{memory}} en {{processes}} procesos.",
   "hold.cap_exhausted": "El límite {{period}} {{scope}} de {{budget}} está agotado; los lanzamientos se rechazan hasta {{reset}}.",
-  "offer.raise_cap": "Subir o quitar el límite",
+  "offer.raise_cap": "Subir o quitar el tope",
   "error.period": "since debe ser today, week, month, 7d, 30d, 90d, all o una fecha ISO.",
   "error.limits": "options.limits admite day, week, month, run y alert: un número mayor que 0 lo fija, null lo quita.",
   "error.spec": "ticket_summary necesita options.spec: una ref o un número de spec.",
   "error.scenario": "options.scenario es {from, to, days?} con refs provider:model (claude:opus), o \"list\".",
-  "error.mission_project": "Esta misión no está fijada a un proyecto; pasa project."
+  "error.mission_project": "Esta misión no está fijada a un proyecto; pasa project.",
+  "choice.raise_cap": "Cambia el límite de gasto; tú eliges."
 }

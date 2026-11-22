@@ -33,12 +33,16 @@
   "offer.install_status": "Einrichtung prüfen",
   "offer.abort_install": "Einrichtung stoppen",
   "offer.provision": "Einrichtung ausführen",
-  "offer.assemble": "Workspace-Aufbau erneut versuchen",
+  "offer.assemble": "Workspace neu zusammenbauen",
   "error.no_destination": "clone braucht ein Ziel: path (oder options.destination), ein absoluter, neuer Ordner.",
   "error.no_sample": "Es gibt kein Beispielprojekt zum Entfernen.",
   "error.repository_update_empty": "repository_update braucht mindestens eines von path, name, options.integrationBranch, options.workspacePaths.",
   "summary.clone_started": "Klone im Hintergrund nach {{path}} ({{ref}}); das Projekt wird danach registriert. Verfolge es mit specrails_wait(until, refs:[\"{{ref}}\"]).",
   "summary.clone_running": "Klont noch nach {{path}}{{progress}}. Verfolge es mit specrails_wait(until, refs:[\"{{ref}}\"]).",
   "summary.clone_failed": "Das Klonen nach {{path}} ist fehlgeschlagen: {{reason}}",
-  "error.clone_unknown": "Kein Klonvorgang {{ref}} bekannt: Er wurde auf diesem Rechner nie gestartet oder sein Eintrag ist abgelaufen."
+  "error.clone_unknown": "Kein Klonvorgang {{ref}} bekannt: Er wurde auf diesem Rechner nie gestartet oder sein Eintrag ist abgelaufen.",
+  "choice.install_status": "Zeigt den Stand der Einrichtung; ändert nichts.",
+  "choice.abort_install": "Stoppt die laufende Einrichtung.",
+  "choice.provision": "Installiert die Specrails-Agenten im Projekt.",
+  "choice.assemble": "Baut den Multi-Repo-Workspace erneut."
 }

@@ -42,5 +42,9 @@
   "error.fork_step": "fork 需要 options.fromStep（来自 view detail、fields graph 的步骤 id）。",
   "error.rail_idle": "Rail {{rail}} 没有活动的运行。",
   "error.cannot_continue": "此运行无法再从失败的步骤继续：其保存的状态已不存在。请重新启动该 spec（新的运行）。",
-  "why.launch_again": "将该 spec 作为新的运行重新启动。"
+  "why.launch_again": "将该 spec 作为新的运行重新启动。",
+  "choice.stop": "停止运行；已完成的步骤保留。",
+  "choice.settle": "把完成的运行变成交付。",
+  "choice.dismiss": "从待办中移除；其他不变。",
+  "choice.continue_on": "运行在 {{provider}} 上继续（AI 工作）。"
 }

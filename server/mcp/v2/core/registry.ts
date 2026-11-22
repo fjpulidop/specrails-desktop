@@ -12,6 +12,7 @@ import { actionEnum } from '../../tools/actions'
 import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTierAllowed, type McpToolContext, type ToolHandlerExtra } from '../../tools/types'
 import { shortHash } from './canonical'
 import { askPerson, bindingArgs, carriesSecret, confirmationLedger, readConfirmInClient, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
+import { askChoice, compactChoices, readChoicesInClient, withField, type ChoicePoint } from './choices'
 import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
 import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
 import { resolveLang, translator, type Lang, type Translate } from './lang'
@@ -56,6 +57,12 @@ export interface V2ActionDef {
   /** Response cap override (o200k tokens), e.g. logs pages. */
   maxTokens?: number
   preview?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<PreviewInput> | PreviewInput
+  /**
+   * A decision point: called without the choice (only `fields` missing), the call asks the person in the
+   * client's form or returns the choices to the agent (core/choices.ts). `point` returns null when there is
+   * nothing to choose (the usual missing-field error then applies).
+   */
+  choose?: { fields: readonly string[]; point: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<ChoicePoint | null> | ChoicePoint | null }
   /** Absent: the action is a stub and answers `not_implemented`. */
   handler?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<unknown> | unknown
 }
@@ -316,7 +323,7 @@ const STALE_REASON: Record<VerifyFailure, { code: 'stale' | 'confirmation_requir
 export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): V2Callback {
   const ledger = options.ledger ?? confirmationLedger
   const textMode = options.textMode ?? 'json'
-  return async (rawArgs, extra) => {
+  const callback: V2Callback = async (rawArgs, extra) => {
     let args = rawArgs ?? {}
     const action = actionOf(args)
     const label = `${def.name}(${action})`
@@ -368,6 +375,38 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         extra.sendNotification({ method: 'notifications/progress', params: { progressToken: token, progress, ...(total !== undefined ? { total } : {}), ...(message ? { message } : {}) } })
           .catch(() => { /* notifications never fail the tool */ })
       },
+    }
+
+    async function decide(point: ChoicePoint): Promise<CallToolResult> {
+      const run = async (call: { tool: string; args: Record<string, unknown> }, chosen: string): Promise<CallToolResult> => {
+        const callArgs = { ...call.args, ...(args.lang !== undefined && call.args.lang === undefined ? { lang: args.lang } : {}) }
+        const raw = call.tool === def.name ? await callback(callArgs, extra) : options.dispatch ? await options.dispatch({ tool: call.tool, args: callArgs }, extra) : null
+        if (!raw) return fail(new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`))
+        return reply({ ...envelopeOfResult(raw), chosen })
+      }
+      const inClient = callCtx.firstPartyAgent !== true && session.elicitation?.() === true && readChoicesInClient(ctx.desktopDb)
+      const picked = inClient ? await askChoice(extra, t, point) : null
+      if (picked && picked !== 'decline' && 'id' in picked) return run(point.choices.find((choice) => choice.id === picked.id)!.call, picked.id)
+      if (picked && picked !== 'decline' && 'other' in picked) {
+        if (point.other?.call && point.other.field) return run({ tool: point.other.call.tool, args: withField(point.other.call.args, point.other.field, picked.other) }, 'other')
+        return reply({ ...success({ other: picked.other }, t('core.choose.wrote', { text: picked.other.slice(0, 200) })), untrusted: ['/data/other', '/summary'], chosen: 'other' })
+      }
+      // No form (or the person closed it): the agent presents the menu and resends the chosen call.
+      const other = point.other?.call && point.other.field ? { other: { field: point.other.field, call: point.other.call } } : {}
+      return reply({ ...success({ question: point.question, choices: compactChoices(point.choices, { calls: true }), ...other }, t(picked === 'decline' ? 'core.choose.declined' : 'core.choose.menu')), untrusted: ['/data/question', '/data/choices/*/label', '/data/choices/*/effect'] })
+    }
+
+    // A decision point called without the choice: the person picks (client form) or the agent gets the menu.
+    if (spec.choose && spec.handler) {
+      const absent = [...(spec.required ?? []).filter((field) => !present(fieldValue(args, field))), ...(spec.oneOf?.length && !spec.oneOf.some((field) => present(fieldValue(args, field))) ? spec.oneOf : [])]
+      if (absent.length && absent.every((field) => spec.choose!.fields.includes(field))) {
+        try {
+          const point = await spec.choose.point(callCtx, args)
+          if (point?.choices.length) return await decide(point)
+        } catch (err) {
+          return fail(err)
+        }
+      }
     }
 
     const tier = resolveTier(spec.tier, args)
@@ -484,6 +523,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     callCtx.onMissionInput = undefined
     return operation()
   }
+  return callback
 }
 
 /** Registers one v2 tool and returns its callback (registerV2Surface dispatches through it). */

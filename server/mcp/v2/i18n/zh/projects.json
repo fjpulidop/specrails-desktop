@@ -30,9 +30,9 @@
   "effect.sample_remove": "取消注册示例项目{{folder}}。",
   "effect.sample_remove_folder": "并删除其文件夹 {{path}}",
   "effect.provision": "在 {{name}} 中为 {{providers}} 安装 Specrails 工作区（快速、离线）。",
-  "offer.install_status": "查看设置",
-  "offer.abort_install": "停止设置",
-  "offer.provision": "运行设置",
+  "offer.install_status": "查看安装",
+  "offer.abort_install": "停止安装",
+  "offer.provision": "运行安装",
   "offer.assemble": "重试工作区组装",
   "error.no_destination": "clone 需要一个目标：path（或 options.destination），一个绝对路径的新文件夹。",
   "error.no_sample": "没有可移除的示例项目。",
@@ -40,5 +40,9 @@
   "summary.clone_started": "正在后台克隆到 {{path}}（{{ref}}）；完成后会注册该项目。用 specrails_wait(until, refs:[\"{{ref}}\"]) 跟踪。",
   "summary.clone_running": "仍在克隆到 {{path}}{{progress}}。用 specrails_wait(until, refs:[\"{{ref}}\"]) 跟踪。",
   "summary.clone_failed": "克隆到 {{path}} 失败：{{reason}}",
-  "error.clone_unknown": "未知的克隆 {{ref}}：它从未在这台电脑上开始，或其记录已过期。"
+  "error.clone_unknown": "未知的克隆 {{ref}}：它从未在这台电脑上开始，或其记录已过期。",
+  "choice.install_status": "显示安装进度；不做更改。",
+  "choice.abort_install": "停止正在进行的安装。",
+  "choice.provision": "在项目中安装 Specrails 的代理。",
+  "choice.assemble": "重新组装多仓库工作区。"
 }

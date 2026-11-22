@@ -120,10 +120,11 @@
   "summary.resources_unsupported": "此平台上不提供资源用量信息。",
   "summary.mission_resources": "此任务在 {{processes}} 个进程中使用了 {{cpu}} CPU 和 {{memory}}。",
   "hold.cap_exhausted": "{{scope}}{{period}}上限 {{budget}} 已用完；在 {{reset}} 之前启动将被拒绝。",
-  "offer.raise_cap": "提高或清除上限",
+  "offer.raise_cap": "提高或取消上限",
   "error.period": "since 必须是 today、week、month、7d、30d、90d、all 或 ISO 日期。",
   "error.limits": "options.limits 接受 day、week、month、run 和 alert：大于 0 的数字表示设置，null 表示清除。",
   "error.spec": "ticket_summary 需要 options.spec：规格 ref 或编号。",
   "error.scenario": "options.scenario 为 {from, to, days?}，使用 provider:model 引用（claude:opus），或 \"list\"。",
-  "error.mission_project": "此任务未固定到项目；请传入 project。"
+  "error.mission_project": "此任务未固定到项目；请传入 project。",
+  "choice.raise_cap": "修改支出限额，由你决定。"
 }

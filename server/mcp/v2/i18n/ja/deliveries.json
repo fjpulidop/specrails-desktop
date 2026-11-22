@@ -5,9 +5,9 @@
   "summary.recommended": "おすすめ: {{offer}}。",
   "summary.decided": "{{decision}}: {{title}} に対して完了しました。現在は {{status}} です。",
   "offer.request_changes": "変更を依頼",
-  "offer.checkout": "リポジトリでブランチをチェックアウト",
-  "offer.refresh_on_base": "更新されたベースを取り込んで再検証",
-  "offer.local_restore": "ローカルの変更を復元",
+  "offer.checkout": "ブランチをチェックアウト",
+  "offer.refresh_on_base": "ベースを更新して再検証",
+  "offer.local_restore": "ローカル変更を復元",
   "offer.local_bring_back": "復元した変更を戻す",
   "offer.local_discard_branch": "復元ブランチを破棄",
   "offer.approve": "受け入れる",
@@ -36,5 +36,12 @@
   "error.path_required": "file_diff には path（変更一覧のファイル）が必要です。",
   "error.stale_version": "読み込んだ後にデリバリーが変更されました。現在の状態を確認してください。",
   "error.stale_decision": "その間に別の人がこのデリバリーを判断しました。現在の状態を確認してください。",
-  "warning.packet_unavailable": "このデリバリーのレビューパケットは利用できません。"
+  "warning.packet_unavailable": "このデリバリーのレビューパケットは利用できません。",
+  "choice.request_changes": "修正実行がメモを反映します（AI 作業）。",
+  "choice.checkout": "リポジトリを納品ブランチに切り替えます。",
+  "choice.refresh_on_base": "新しいベースを取り込み再検証します（AI）。",
+  "choice.local_restore": "退避したローカル変更を戻します。",
+  "choice.local_bring_back": "復元した変更をブランチに適用します。",
+  "choice.local_discard_branch": "復元ブランチを削除します（元に戻せません）。",
+  "choice.approve": "リポジトリの方式で受け入れます（元に戻せません）。"
 }

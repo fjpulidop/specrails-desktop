@@ -42,5 +42,9 @@
   "error.fork_step": "fork needs options.fromStep (a step id from view detail, fields graph).",
   "error.rail_idle": "Rail {{rail}} has no active run.",
   "error.cannot_continue": "This run can no longer continue from its failed step: its saved state is gone. Launch the spec again (a new run).",
-  "why.launch_again": "Launch the spec again as a new run."
+  "why.launch_again": "Launch the spec again as a new run.",
+  "choice.stop": "Stops the run; finished steps stay.",
+  "choice.settle": "Turns the finished run into a delivery.",
+  "choice.dismiss": "Hides it from what waits; nothing else changes.",
+  "choice.continue_on": "The run continues on {{provider}} (AI work)."
 }

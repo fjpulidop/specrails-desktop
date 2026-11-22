@@ -45,10 +45,12 @@ describe('specrails_inbox: chains and mission cards', () => {
     const items = envelope.data.items as Array<Record<string, any>>
     expect(items.map((item) => item.kind)).toEqual(['mission', 'chain'])
     const [mission, chain] = items
-    expect(mission).toMatchObject({ status: 'needs_you', subject: 'mission:conv-1', title: 'Checkout', detail: '#12', recommended: 'launch' })
-    expect(mission.offers.map((offer: string | { id: string }) => typeof offer === 'string' ? offer : offer.id)).toEqual(['launch', 'dismiss'])
-    expect(chain).toMatchObject({ status: 'paused', subject: 'chain:shop-api/c1', recommended: 'chain.resume' })
-    expect(chain.offers).toEqual(expect.arrayContaining(['chain.resume', 'chain.cancel']))
+    expect(mission).toMatchObject({ status: 'needs_you', subject: 'mission:conv-1', title: 'Checkout', detail: '#12' })
+    expect(mission.choices.map((choice: { id: string }) => choice.id)).toEqual(['launch', 'dismiss'])
+    expect(mission.choices[0]).toMatchObject({ id: 'launch', recommended: true })
+    expect(chain).toMatchObject({ status: 'paused', subject: 'chain:shop-api/c1' })
+    expect(chain.choices[0]).toMatchObject({ id: 'chain.resume', label: 'Resume the chain', effect: 'The milestone chain continues.', recommended: true })
+    expect(chain.choices.map((choice: { id: string }) => choice.id)).toEqual(expect.arrayContaining(['chain.resume', 'chain.cancel']))
     const filtered = await inbox({ action: 'list', filter: { kind: 'chain' } })
     expect((filtered.envelope.data.items as unknown[]).length).toBe(1)
     expect(envelope.summary).toMatch(/mission card/)

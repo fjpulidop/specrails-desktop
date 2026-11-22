@@ -5,10 +5,10 @@
   "summary.recommended": "Recomendado: {{offer}}.",
   "summary.decided": "{{decision}}: hecho para {{title}}. Ahora {{status}}.",
   "offer.request_changes": "Pedir cambios",
-  "offer.checkout": "Hacer checkout de la rama en tu repositorio",
-  "offer.refresh_on_base": "Traer la base actualizada y verificar de nuevo",
+  "offer.checkout": "Hacer checkout de la rama",
+  "offer.refresh_on_base": "Actualizar desde base y verificar",
   "offer.local_restore": "Restaurar tus cambios locales",
-  "offer.local_bring_back": "Recuperar tus cambios restaurados",
+  "offer.local_bring_back": "Recuperar los cambios restaurados",
   "offer.local_discard_branch": "Descartar la rama de restauración",
   "offer.approve": "Aceptar",
   "effect.approve": "Aceptar aquí significa: {{resolved}}.",
@@ -36,5 +36,12 @@
   "error.path_required": "file_diff necesita path: un archivo de la lista de cambios.",
   "error.stale_version": "La entrega cambió desde que la leíste. Revisa el estado actual.",
   "error.stale_decision": "Otra persona decidió sobre esta entrega mientras tanto. Revisa el estado actual.",
-  "warning.packet_unavailable": "El paquete de revisión no está disponible para esta entrega."
+  "warning.packet_unavailable": "El paquete de revisión no está disponible para esta entrega.",
+  "choice.request_changes": "Una ejecución de revisión aplica tu nota (IA).",
+  "choice.checkout": "Cambia tu repositorio a la rama de la entrega.",
+  "choice.refresh_on_base": "Trae la base nueva y verifica de nuevo (IA).",
+  "choice.local_restore": "Devuelve tus cambios locales guardados.",
+  "choice.local_bring_back": "Aplica los cambios restaurados en tu rama.",
+  "choice.local_discard_branch": "Borra la rama de restauración; no se deshace.",
+  "choice.approve": "La acepta a la manera del repositorio; no se deshace."
 }

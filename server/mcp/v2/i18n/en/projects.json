@@ -40,5 +40,9 @@
   "summary.clone_started": "Cloning into {{path}} in the background ({{ref}}); it registers the project when done. Follow it with specrails_wait(until, refs:[\"{{ref}}\"]).",
   "summary.clone_running": "Still cloning into {{path}}{{progress}}. Follow it with specrails_wait(until, refs:[\"{{ref}}\"]).",
   "summary.clone_failed": "The clone into {{path}} failed: {{reason}}",
-  "error.clone_unknown": "No clone {{ref}} is known: it never started on this computer or its record expired."
+  "error.clone_unknown": "No clone {{ref}} is known: it never started on this computer or its record expired.",
+  "choice.install_status": "Shows how the setup is going; changes nothing.",
+  "choice.abort_install": "Stops the running setup.",
+  "choice.provision": "Installs Specrails' agents in the project.",
+  "choice.assemble": "Builds the multi-repository workspace again."
 }

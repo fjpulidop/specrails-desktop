@@ -31,14 +31,18 @@
   "effect.sample_remove_folder": "（フォルダー {{path}} も削除）",
   "effect.provision": "{{name}} に {{providers}} 用の Specrails ワークスペースをインストールします（短時間、オフライン）。",
   "offer.install_status": "セットアップを確認",
-  "offer.abort_install": "セットアップを停止",
+  "offer.abort_install": "セットアップを止める",
   "offer.provision": "セットアップを実行",
-  "offer.assemble": "ワークスペースの構築を再試行",
+  "offer.assemble": "ワークスペース構築を再試行",
   "error.no_destination": "clone には保存先が必要です: path（または options.destination）に新しいフォルダーの絶対パスを指定してください。",
   "error.no_sample": "削除するサンプルプロジェクトはありません。",
   "error.repository_update_empty": "repository_update には path、name、options.integrationBranch、options.workspacePaths のうち少なくとも 1 つが必要です。",
   "summary.clone_started": "{{path}} へバックグラウンドでクローン中です（{{ref}}）。完了するとプロジェクトを登録します。specrails_wait(until, refs:[\"{{ref}}\"]) で追跡してください。",
   "summary.clone_running": "{{path}} へのクローンはまだ進行中です{{progress}}。specrails_wait(until, refs:[\"{{ref}}\"]) で追跡してください。",
   "summary.clone_failed": "{{path}} へのクローンに失敗しました: {{reason}}",
-  "error.clone_unknown": "クローン {{ref}} は不明です。このコンピューターで開始されていないか、記録の期限が切れています。"
+  "error.clone_unknown": "クローン {{ref}} は不明です。このコンピューターで開始されていないか、記録の期限が切れています。",
+  "choice.install_status": "進み具合を表示します（変更なし）。",
+  "choice.abort_install": "実行中のセットアップを止めます。",
+  "choice.provision": "プロジェクトに Specrails のエージェントを入れます。",
+  "choice.assemble": "複数リポジトリの作業場所を組み直します。"
 }

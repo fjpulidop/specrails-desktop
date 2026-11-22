@@ -42,5 +42,9 @@
   "error.fork_step": "fork richiede options.fromStep (un id di passaggio da view detail, fields graph).",
   "error.rail_idle": "Il rail {{rail}} non ha un'esecuzione attiva.",
   "error.cannot_continue": "Questa esecuzione non può più continuare dal passo fallito: il suo stato salvato non c'è più. Lancia di nuovo la spec (una nuova esecuzione).",
-  "why.launch_again": "Lancia di nuovo la spec come nuova esecuzione."
+  "why.launch_again": "Lancia di nuovo la spec come nuova esecuzione.",
+  "choice.stop": "Ferma l'esecuzione; i passi fatti restano.",
+  "choice.settle": "Trasforma l'esecuzione finita in consegna.",
+  "choice.dismiss": "La toglie dalle attese; nient'altro cambia.",
+  "choice.continue_on": "L'esecuzione continua su {{provider}} (IA)."
 }

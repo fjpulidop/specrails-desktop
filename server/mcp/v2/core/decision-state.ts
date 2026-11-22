@@ -48,17 +48,21 @@ export interface OfferCall {
 export interface Offer {
   /** Stable within the entity: `resume`, `limit.switch`, `decide.merge_local`, `remedy.continue`… */
   id: string
-  /** Localized. */
+  /** Localized, at most five words: what the person picks. */
   label: string
+  /** Localized, one line: what happens if the person picks it. */
+  effect?: string
   /** The exact call that executes this offer (also runnable through `specrails_inbox(act, offerId)`). */
   call: OfferCall
   tier: McpTier
-  irreversible: boolean
-  external: boolean
+  /** Present (true) only when it cannot be undone; absent means false (lean menus). */
+  irreversible?: boolean
+  /** Present (true) only when it changes a system outside Specrails. */
+  external?: boolean
   /** USD range when the domain can estimate it. */
   costHint?: [number, number]
-  /** True when executing it returns `confirmation_required` first (external MCP clients). */
-  needsConfirm: boolean
+  /** Present (true) when executing it returns `confirmation_required` first (external MCP clients). */
+  needsConfirm?: boolean
   /** Arguments only the person can supply, to add to `call.args` (`answer|optionId`, `options.runCapUsd`). */
   needs?: string[]
   /** Localized; why the server recommends or offers it. */
@@ -101,6 +105,10 @@ export interface OfferDraft {
   labelParams?: Params
   /** Text already in the person's language (an AI analysis option); wins over labelKey. */
   label?: string
+  /** Message key of the effect; default: the label key with `.offer.` → `.choice.`. */
+  effectKey?: string
+  /** Effect text already in the person's language; wins over effectKey. */
+  effect?: string
   call: OfferCall
   costHint?: [number, number]
   needs?: string[]
@@ -165,8 +173,21 @@ function holdReason(hold: HoldDraft, translate: Translate): string {
   return translate(`core.hold.${hold.kind}`, hold.params)
 }
 
+/** The effect key an offer's label key implies (`core.offer.run.resume` → `core.choice.run.resume`). */
+export function effectKeyOf(labelKey: string): string {
+  return labelKey.replace('.offer.', '.choice.')
+}
+
+function offerEffect(draft: OfferDraft, translate: Translate): string | undefined {
+  if (draft.effect) return draft.effect
+  const key = draft.effectKey ?? effectKeyOf(draft.labelKey)
+  const text = translate(key, draft.labelParams)
+  return text && text !== key ? text : undefined
+}
+
 /**
- * Builds the state. Throws (a programming error, caught by tests) when an
+ * Builds the state. Offers come back with the recommended one first (a menu reads top-down); the
+ * version hashes them in the domain's own order. Throws (a programming error, caught by tests) when an
  * offer targets a call the v2 catalog does not have, or when two offers share
  * an id. A `recommended` id that is not an offer is dropped.
  */
@@ -183,21 +204,25 @@ export function buildDecisionState(input: DecisionStateInput, env: DecisionEnv):
       label: draft.label ?? env.translate(draft.labelKey, draft.labelParams),
       call: draft.call,
       tier: policy.tier,
-      irreversible: policy.confirm === 'irreversible',
-      external: policy.confirm === 'external',
-      needsConfirm: confirmNeeded(policy.confirm, { highUsd: draft.costHint?.[1] }, env.confirmAboveUsd),
     }
+    if (policy.confirm === 'irreversible') offer.irreversible = true
+    if (policy.confirm === 'external') offer.external = true
+    if (confirmNeeded(policy.confirm, { highUsd: draft.costHint?.[1] }, env.confirmAboveUsd)) offer.needsConfirm = true
+    const effect = offerEffect(draft, env.translate)
+    if (effect) offer.effect = effect
     if (draft.costHint) offer.costHint = draft.costHint
     if (draft.needs?.length) offer.needs = draft.needs
     const why = draft.why ?? (draft.whyKey ? env.translate(draft.whyKey) : undefined)
     if (why) offer.why = why
     return offer
   })
+  const recommended = input.recommended && seen.has(input.recommended) ? input.recommended : undefined
+  const ordered = recommended ? [...offers.filter((offer) => offer.id === recommended), ...offers.filter((offer) => offer.id !== recommended)] : offers
   const state: DecisionState = {
     status: input.status,
     appState: appState(input.status),
     label: env.translate(`core.status.${input.status}`),
-    offers,
+    offers: ordered,
     version: stateVersion(input),
   }
   if (input.phase) state.phase = input.phase
@@ -208,7 +233,7 @@ export function buildDecisionState(input: DecisionStateInput, env: DecisionEnv):
     if (input.hold.resumeAt) hold.resumeAt = input.hold.resumeAt
     state.hold = hold
   }
-  if (input.recommended && seen.has(input.recommended)) state.recommended = input.recommended
+  if (recommended) state.recommended = recommended
   if (input.cost) state.cost = input.cost
   return state
 }

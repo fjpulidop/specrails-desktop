@@ -1,8 +1,8 @@
 {
   "offer.stop": "Detener",
   "offer.settle": "Preparar la entrega",
-  "offer.dismiss": "Descartar",
-  "offer.continue_on": "Continuar en {{provider}}",
+  "offer.dismiss": "Ocultar",
+  "offer.continue_on": "Seguir en {{provider}}",
   "summary.list": "{{count}} ejecuciones{{more}}.",
   "summary.list_more": ", hay más en la página siguiente",
   "summary.search": "{{count}} ejecuciones coinciden con \"{{query}}\".",
@@ -42,5 +42,9 @@
   "error.fork_step": "fork necesita options.fromStep (un id de paso de view detail, fields graph).",
   "error.rail_idle": "El rail {{rail}} no tiene ninguna ejecución activa.",
   "error.cannot_continue": "Esta ejecución ya no puede continuar desde el paso fallido: su estado guardado ya no existe. Lanza la spec de nuevo (una ejecución nueva).",
-  "why.launch_again": "Lanza la spec de nuevo como una ejecución nueva."
+  "why.launch_again": "Lanza la spec de nuevo como una ejecución nueva.",
+  "choice.stop": "Detiene la ejecución; los pasos hechos quedan.",
+  "choice.settle": "Convierte la ejecución terminada en entrega.",
+  "choice.dismiss": "La quita de lo pendiente; nada más cambia.",
+  "choice.continue_on": "La ejecución sigue en {{provider}} (IA)."
 }

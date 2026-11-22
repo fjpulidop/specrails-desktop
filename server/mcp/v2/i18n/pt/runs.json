@@ -2,7 +2,7 @@
   "offer.stop": "Parar",
   "offer.settle": "Preparar a entrega",
   "offer.dismiss": "Dispensar",
-  "offer.continue_on": "Continuar em {{provider}}",
+  "offer.continue_on": "Seguir no {{provider}}",
   "summary.list": "{{count}} execuções{{more}}.",
   "summary.list_more": ", há mais na próxima página",
   "summary.search": "{{count}} execuções correspondem a \"{{query}}\".",
@@ -42,5 +42,9 @@
   "error.fork_step": "fork precisa de options.fromStep (um id de etapa de view detail, fields graph).",
   "error.rail_idle": "O rail {{rail}} não tem execução ativa.",
   "error.cannot_continue": "Esta execução já não pode continuar a partir do passo que falhou: o seu estado guardado desapareceu. Lance a spec de novo (uma nova execução).",
-  "why.launch_again": "Lançar a spec de novo como uma nova execução."
+  "why.launch_again": "Lançar a spec de novo como uma nova execução.",
+  "choice.stop": "Para a execução; as etapas feitas ficam.",
+  "choice.settle": "Transforma a execução concluída em entrega.",
+  "choice.dismiss": "Tira da lista de pendências; nada mais muda.",
+  "choice.continue_on": "A execução segue no {{provider}} (IA)."
 }

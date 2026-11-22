@@ -125,5 +125,6 @@
   "error.limits": "options.limits takes day, week, month, run and alert: a number above 0 sets it, null clears it.",
   "error.spec": "ticket_summary needs options.spec: a spec ref or number.",
   "error.scenario": "options.scenario is {from, to, days?} with provider:model refs (claude:opus), or \"list\".",
-  "error.mission_project": "This mission is not pinned to a project; pass project."
+  "error.mission_project": "This mission is not pinned to a project; pass project.",
+  "choice.raise_cap": "Changes the spend limit; you choose the amount."
 }

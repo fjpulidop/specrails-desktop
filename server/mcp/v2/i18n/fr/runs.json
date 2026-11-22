@@ -1,7 +1,7 @@
 {
   "offer.stop": "Arrêter",
   "offer.settle": "Préparer la livraison",
-  "offer.dismiss": "Écarter",
+  "offer.dismiss": "Ignorer",
   "offer.continue_on": "Continuer sur {{provider}}",
   "summary.list": "{{count}} exécutions{{more}}.",
   "summary.list_more": ", d'autres sur la page suivante",
@@ -42,5 +42,9 @@
   "error.fork_step": "fork requiert options.fromStep (un id d'étape issu de view detail, fields graph).",
   "error.rail_idle": "Le rail {{rail}} n'a aucune exécution active.",
   "error.cannot_continue": "Cette exécution ne peut plus reprendre à l'étape en échec : son état enregistré n'existe plus. Relancez la spec (une nouvelle exécution).",
-  "why.launch_again": "Relancer la spec comme une nouvelle exécution."
+  "why.launch_again": "Relancer la spec comme une nouvelle exécution.",
+  "choice.stop": "Arrête l'exécution ; les étapes faites restent.",
+  "choice.settle": "Transforme l'exécution finie en livraison.",
+  "choice.dismiss": "La retire des attentes ; rien d'autre ne change.",
+  "choice.continue_on": "L'exécution continue sur {{provider}} (IA)."
 }

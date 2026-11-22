@@ -1,7 +1,7 @@
 {
   "offer.stop": "停止",
-  "offer.settle": "デリバリーを準備",
-  "offer.dismiss": "却下",
+  "offer.settle": "納品を準備",
+  "offer.dismiss": "閉じる",
   "offer.continue_on": "{{provider}} で続行",
   "summary.list": "実行 {{count}} 件{{more}}。",
   "summary.list_more": "（次のページに続きあり）",
@@ -42,5 +42,9 @@
   "error.fork_step": "fork には options.fromStep（view detail、fields graph のステップ id）が必要です。",
   "error.rail_idle": "レール {{rail}} にアクティブな実行はありません。",
   "error.cannot_continue": "この実行は失敗したステップから続行できなくなりました。保存された状態がありません。spec をもう一度起動してください（新しい実行）。",
-  "why.launch_again": "spec を新しい実行としてもう一度起動する。"
+  "why.launch_again": "spec を新しい実行としてもう一度起動する。",
+  "choice.stop": "実行を止めます（済んだ手順は残ります）。",
+  "choice.settle": "終わった実行を納品にします。",
+  "choice.dismiss": "待ち一覧から外します（他は変わりません）。",
+  "choice.continue_on": "実行は {{provider}} で続きます（AI）。"
 }

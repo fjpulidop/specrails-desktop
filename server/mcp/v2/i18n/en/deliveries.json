@@ -5,10 +5,10 @@
   "summary.recommended": "Recommended: {{offer}}.",
   "summary.decided": "{{decision}}: done for {{title}}. Now {{status}}.",
   "offer.request_changes": "Ask for changes",
-  "offer.checkout": "Check out the branch in your repository",
-  "offer.refresh_on_base": "Bring in the updated base and verify again",
+  "offer.checkout": "Check out the branch",
+  "offer.refresh_on_base": "Update from base, verify again",
   "offer.local_restore": "Restore your local changes",
-  "offer.local_bring_back": "Bring your restored changes back",
+  "offer.local_bring_back": "Bring restored changes back",
   "offer.local_discard_branch": "Discard the restore branch",
   "offer.approve": "Accept",
   "effect.approve": "Accept here means: {{resolved}}.",
@@ -36,5 +36,12 @@
   "error.path_required": "file_diff needs path: a file from the changes list.",
   "error.stale_version": "The delivery changed since you read it. Review the current state.",
   "error.stale_decision": "Someone else decided this delivery meanwhile. Review the current state.",
-  "warning.packet_unavailable": "The review packet is not available for this delivery."
+  "warning.packet_unavailable": "The review packet is not available for this delivery.",
+  "choice.request_changes": "A revision run applies your note (AI work).",
+  "choice.checkout": "Switches your repository to the delivery branch.",
+  "choice.refresh_on_base": "Brings in the new base and re-verifies (AI work).",
+  "choice.local_restore": "Puts your stashed local changes back.",
+  "choice.local_bring_back": "Applies the restored changes onto your branch.",
+  "choice.local_discard_branch": "Deletes the restore branch; cannot be undone.",
+  "choice.approve": "Accepts it the repository's way; cannot be undone."
 }

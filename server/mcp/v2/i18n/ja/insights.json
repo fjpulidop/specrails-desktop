@@ -120,10 +120,11 @@
   "summary.resources_unsupported": "このプラットフォームではリソース使用量を利用できません。",
   "summary.mission_resources": "このミッションはプロセス {{processes}} 個で CPU {{cpu}}、メモリ {{memory}} を使用しています。",
   "hold.cap_exhausted": "{{scope}}の{{period}}上限 {{budget}} を使い切りました。{{reset}} まで起動は拒否されます。",
-  "offer.raise_cap": "上限を引き上げるか解除する",
+  "offer.raise_cap": "上限を上げる／外す",
   "error.period": "since は today、week、month、7d、30d、90d、all、または ISO 日付である必要があります。",
   "error.limits": "options.limits には day、week、month、run、alert を指定します。0 より大きい数値で設定、null で解除します。",
   "error.spec": "ticket_summary には options.spec（スペックの ref または番号）が必要です。",
   "error.scenario": "options.scenario は provider:model 形式の参照（claude:opus）を使った {from, to, days?}、または \"list\" です。",
-  "error.mission_project": "このミッションはプロジェクトに固定されていません。project を渡してください。"
+  "error.mission_project": "このミッションはプロジェクトに固定されていません。project を渡してください。",
+  "choice.raise_cap": "支出上限を変えます（値は指定）。"
 }

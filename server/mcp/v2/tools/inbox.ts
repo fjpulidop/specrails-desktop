@@ -293,18 +293,20 @@ export function leanItem(item: InboxItem, slug: string, state: DecisionState): R
     // Second precision is enough to order and age an item.
     at: typeof item.at === 'string' ? item.at.replace(/\.\d{3}Z$/, 'Z') : item.at,
     ...(subjectRefOf(item, slug) ? { subject: subjectRefOf(item, slug) } : {}),
-    // Read offers (open the run or delivery) stay in the full state: the subject ref already names them.
-    // The ids `act` takes, nothing more: labels and confirmation facts live in the item's full state
-    // (open), and a confirmable act answers with its own preview. An offer that needs arguments says which.
-    offers: state.offers.filter((offer) => offer.tier !== 'read').map((offer) => offer.needs ? { id: offer.id, needs: offer.needs } : offer.id),
-    ...(state.recommended ? { recommended: state.recommended } : {}),
+    // The person's menu (recommended first): the ids `act` takes, each with its label and effect. Read offers
+    // (open the run or delivery) stay in the full state: the subject ref already names them. Confirmation
+    // facts live there too, and a confirmable act answers with its own preview. An offer that needs arguments says which.
+    choices: state.offers.filter((offer) => offer.tier !== 'read').map((offer) => ({
+      id: offer.id, label: offer.label, ...(offer.effect ? { effect: offer.effect } : {}),
+      ...(offer.id === state.recommended ? { recommended: true } : {}), ...(offer.needs ? { needs: offer.needs } : {}),
+    })),
     ...(item.attempt ? { attempt: item.attempt } : {}),
   }
 }
 
 /** The detail shape: lean plus the full state and the item's own card. */
 export function detailItem(item: InboxItem, slug: string, state: DecisionState): Row {
-  const { offers: _offers, recommended: _recommended, why: _why, ...lean } = leanItem(item, slug, state)
+  const { choices: _choices, why: _why, ...lean } = leanItem(item, slug, state)
   return {
     ...lean,
     state,
@@ -318,8 +320,8 @@ export function detailItem(item: InboxItem, slug: string, state: DecisionState):
 }
 
 /** Fields that hold run, spec or model text (never instructions). */
-export const LEAN_UNTRUSTED = ['title', 'detail', 'why', 'offers/*/label'] as const
-export const ITEM_UNTRUSTED = ['title', 'detail', 'why', 'offers/*/label', 'question', 'diagnosis/detail', 'state/offers/*/label', 'state/offers/*/why'] as const
+export const LEAN_UNTRUSTED = ['title', 'detail', 'why', 'choices/*/label'] as const
+export const ITEM_UNTRUSTED = ['title', 'detail', 'why', 'choices/*/label', 'question', 'diagnosis/detail', 'state/offers/*/label', 'state/offers/*/why'] as const
 
 // ── Reads ───────────────────────────────────────────────────────────────────
 

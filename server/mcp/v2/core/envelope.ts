@@ -44,6 +44,8 @@ export interface V2Success<D = unknown> {
   untrusted?: string[]
   /** The person agreed inside the call, in the client's own dialog (MCP elicitation), instead of with a confirmToken. */
   confirmed?: 'in_client'
+  /** The option the person picked in the client's own choice form (`other`: they wrote their own answer). */
+  chosen?: string
 }
 
 export interface V2ErrorBody extends Omit<EnvelopeError, 'code'> {
@@ -64,6 +66,8 @@ export interface V2Failure {
   summary: string
   error: V2ErrorBody
   warnings?: string[]
+  /** See V2Success.chosen: the person picked it in the client's form, then the chosen call failed or needs a yes. */
+  chosen?: string
 }
 
 export type V2Envelope<D = unknown> = V2Success<D> | V2Failure

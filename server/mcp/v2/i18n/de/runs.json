@@ -1,8 +1,8 @@
 {
   "offer.stop": "Stoppen",
   "offer.settle": "Lieferung vorbereiten",
-  "offer.dismiss": "Verwerfen",
-  "offer.continue_on": "Auf {{provider}} fortsetzen",
+  "offer.dismiss": "Ausblenden",
+  "offer.continue_on": "Auf {{provider}} weiter",
   "summary.list": "{{count}} Läufe{{more}}.",
   "summary.list_more": ", weitere auf der nächsten Seite",
   "summary.search": "{{count}} Läufe passen zu „{{query}}“.",
@@ -42,5 +42,9 @@
   "error.fork_step": "fork braucht options.fromStep (eine Schritt-ID aus view detail, fields graph).",
   "error.rail_idle": "Rail {{rail}} hat keinen aktiven Lauf.",
   "error.cannot_continue": "Dieser Lauf kann nicht mehr ab dem fehlgeschlagenen Schritt fortgesetzt werden: Sein gespeicherter Zustand ist weg. Starte die Spec erneut (ein neuer Lauf).",
-  "why.launch_again": "Die Spec als neuen Lauf erneut starten."
+  "why.launch_again": "Die Spec als neuen Lauf erneut starten.",
+  "choice.stop": "Stoppt den Lauf; fertige Schritte bleiben.",
+  "choice.settle": "Macht aus dem fertigen Lauf eine Lieferung.",
+  "choice.dismiss": "Nimmt ihn aus der Warteliste; sonst nichts.",
+  "choice.continue_on": "Der Lauf geht auf {{provider}} weiter (KI)."
 }

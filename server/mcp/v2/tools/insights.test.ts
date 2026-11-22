@@ -368,7 +368,7 @@ describe('budgets', () => {
     expect(envelope.data.held[0].ref).toBe('run:shop-api/r1')
     expect(envelope.summary).toMatch(/^The project daily cap of \$20\.00 is used up: launches are refused until .+ or it is raised\. Each run pauses when its cost reaches \$5\.00\. 1 run is paused at its run cap\.$/)
     expect(envelope.state).toMatchObject({ status: 'blocked', hold: { kind: 'budget', code: 'cap_day' } })
-    expect(envelope.state.offers[0]).toMatchObject({ id: 'budget.raise', call: { tool: T, args: { action: 'budget_set', scope: 'project', project: 'project:shop-api' } }, needs: ['options.limits'], tier: 'write', needsConfirm: false })
+    expect(envelope.state.offers[0]).toMatchObject({ id: 'budget.raise', call: { tool: T, args: { action: 'budget_set', scope: 'project', project: 'project:shop-api' } }, needs: ['options.limits'], tier: 'write' })
     expect(envelope.untrusted).toEqual(['/data/held/*/title'])
   })
 
