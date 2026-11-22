@@ -311,6 +311,7 @@
       "components/AgentWorkspaceSidebar.tsx",
       "components/MissionConversationMenu.tsx",
       "components/MissionModeBadge.tsx",
+      "components/MissionOpenRequests.tsx",
       "components/MissionWindowAction.tsx",
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",

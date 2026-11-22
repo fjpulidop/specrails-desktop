@@ -8,8 +8,31 @@ import { readRunQuestion, type RunQuestion } from '../../../components/run-quest
 import { JOB_PARAM, MISSION_PARAM, REVIEW_PARAM } from '../../../lib/places'
 import { readFailureDiagnosis, type FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 
-export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira'
-export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira' | 'raise-cap'
+export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira' | 'chain' | 'mission'
+export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira' | 'raise-cap' | 'resume-chain' | 'open-mission'
+
+/** A milestone chain that stopped for the person (`resume-chain` items). */
+export interface InboxChain {
+  milestoneN: number
+  /** `paused` (a failure, a limit, a conflict, a pause) or `awaiting_approval` (a checkpoint between rails). */
+  status: 'paused' | 'awaiting_approval'
+  /** The pause reason code (`chunk_failed`, `integration_failed:conflict`…); null at a checkpoint. */
+  pauseReason: string | null
+  autoAdvance: boolean
+  nextChunk: number
+  totalChunks: number
+  retryChunk: number | null
+}
+
+export type InboxCardKind = 'rail-launch' | 'flow-offer' | 'pr-ci-offer'
+
+/** A mission card that waits for the person (`open-mission` items). */
+export interface InboxMissionCard {
+  id: string
+  kind: InboxCardKind
+  ticketIds?: number[]
+  prNumber?: number
+}
 
 /** A spend cap that is reached right now (`raise-cap` items). */
 export interface InboxCap {
@@ -40,6 +63,10 @@ export interface InboxItem {
   attempt?: { number: number; of: number } | null
   /** A question item's card (who asks, the question, its choices): answered inline. */
   question?: RunQuestion | null
+  /** A `chain` item's chain. */
+  chain?: InboxChain | null
+  /** A `mission` item's card. */
+  card?: InboxMissionCard | null
 }
 
 export interface InboxSnapshot {
@@ -48,8 +75,30 @@ export interface InboxSnapshot {
   generatedAt: string
 }
 
-const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira']
-const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap']
+const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira', 'chain', 'mission']
+const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap', 'resume-chain', 'open-mission']
+const CARD_KINDS: readonly string[] = ['rail-launch', 'flow-offer', 'pr-ci-offer']
+
+const int = (value: unknown, min = 0): number | null => (typeof value === 'number' && Number.isInteger(value) && value >= min ? value : null)
+
+function readChain(raw: unknown): InboxChain | null {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object' || (c.status !== 'paused' && c.status !== 'awaiting_approval')) return null
+  const milestoneN = int(c.milestoneN, 1)
+  if (milestoneN === null) return null
+  return {
+    milestoneN, status: c.status, pauseReason: typeof c.pauseReason === 'string' && c.pauseReason ? c.pauseReason : null,
+    autoAdvance: c.autoAdvance === true, nextChunk: int(c.nextChunk) ?? 0, totalChunks: int(c.totalChunks) ?? 0, retryChunk: int(c.retryChunk),
+  }
+}
+
+function readCard(raw: unknown): InboxMissionCard | null {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !c.id || !CARD_KINDS.includes(String(c.kind))) return null
+  const ticketIds = Array.isArray(c.ticketIds) ? c.ticketIds.filter((id): id is number => int(id, 1) !== null) : []
+  const prNumber = int(c.prNumber, 1)
+  return { id: c.id, kind: c.kind as InboxCardKind, ...(ticketIds.length ? { ticketIds } : {}), ...(prNumber ? { prNumber } : {}) }
+}
 
 function readAttempt(raw: unknown): { number: number; of: number } | null {
   const a = raw as Record<string, unknown> | null
@@ -76,6 +125,10 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
     const id = str('id'), projectId = str('projectId'), title = str('title'), at = str('at'), subjectId = str('subjectId')
     if (!id || !projectId || !title || !at || !subjectId) return []
     if (!KINDS.includes(String(v.kind)) || !ACTIONS.includes(String(v.action))) return []
+    const chain = v.kind === 'chain' ? readChain(v.chain) : null
+    const card = v.kind === 'mission' ? readCard(v.card) : null
+    // A chain or mission item is only actionable with its chain / card (and a mission to open).
+    if ((v.kind === 'chain' && !chain) || (v.kind === 'mission' && (!card || !str('conversationId')))) return []
     return [{
       id, projectId, title, at, subjectId,
       projectName: str('projectName') ?? projectId,
@@ -88,6 +141,8 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       cap: readCap(v.cap),
       attempt: readAttempt(v.attempt),
       question: v.kind === 'question' ? readRunQuestion(v.question) : null,
+      ...(chain ? { chain } : {}),
+      ...(card ? { card } : {}),
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {
@@ -193,10 +248,12 @@ export function groupByProject(items: readonly InboxItem[]): InboxGroup[] {
 // ── Where an item leads ──────────────────────────────────────────────────────
 
 /** i18n key (inbox namespace) of the primary action's label. */
-export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'>): string {
+export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'> & { chain?: InboxChain | null }): string {
   if (item.action === 'raise-cap') return 'actions.raiseCap'
   if (item.action === 'resume-run') return 'actions.resume'
   if (item.action === 'retry-jira') return 'actions.retry'
+  if (item.action === 'resume-chain') return item.chain?.status === 'awaiting_approval' ? 'actions.continueChain' : 'actions.resumeChain'
+  if (item.action === 'open-mission') return 'actions.openMission'
   if (item.kind === 'question') return 'actions.answer'
   if (item.kind === 'review') return 'actions.openReview'
   return 'actions.open'
@@ -360,8 +417,10 @@ export function planAnnouncements(
 }
 
 /** The notification category of an item (Settings ▸ Notifications). */
-export function attentionCategoryOf(item: Pick<InboxItem, 'kind' | 'diagnosis'>): 'question' | 'review' | 'failed' | 'budget' {
-  if (item.kind === 'question') return 'question'
+export function attentionCategoryOf(item: Pick<InboxItem, 'kind' | 'diagnosis' | 'chain'>): 'question' | 'review' | 'failed' | 'budget' {
+  // A mission card waits on the person's decision, like a question; a chain checkpoint is a go-ahead to review.
+  if (item.kind === 'question' || item.kind === 'mission') return 'question'
+  if (item.kind === 'chain') return item.chain?.status === 'awaiting_approval' ? 'review' : item.diagnosis?.kind === 'provider_limit' ? 'budget' : 'failed'
   if (item.kind === 'review') return 'review'
   if (item.kind === 'budget') return 'budget'
   // A run blocked by the provider's usage limit is a spending signal, like the live provider-limit alert.

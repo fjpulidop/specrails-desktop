@@ -7,6 +7,7 @@ import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from
 import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
 import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
+import { missionCardItems } from './mission-source'
 import type { ProjectInboxSource } from '../ports'
 import type { PresentedFailureDiagnosis } from '../../recovery'
 import type { CapStatus } from '../../execution'
@@ -21,6 +22,8 @@ export interface InboxProjectHandle {
   /** Every configured spend cap this project answers for (its own, plus the
    *  app-wide ones when this project is the one that speaks for them). */
   caps?: () => CapStatus[]
+  /** The app database (missions live above projects): only this project's mission cards are read from it. */
+  desktopDb?: DbInstance
 }
 
 interface RunRow {
@@ -244,6 +247,78 @@ function capItems(handle: InboxProjectHandle, nowIso: string): InboxItem[] {
   }))
 }
 
+interface ChainRow {
+  id: string
+  milestone_n: number
+  status: 'paused' | 'awaiting_approval'
+  pause_reason: string | null
+  auto_advance: number
+  next_chunk: number
+  chunks: string
+  current_run_ids: string
+  current_delivery_id: string | null
+  retry_chunk: number | null
+  updated_at: string
+}
+
+/** Pause reasons that come from the in-flight rail itself: its run or delivery item is folded into the chain's. */
+const RAIL_CAUSED = /^(chunk_|provider_limit)/
+
+/**
+ * Milestone chains that stopped for the person: paused (a rail failed or hit a
+ * limit, an integration conflict, a missing head, the rail limit, the person's
+ * own pause) or parked at a wave checkpoint (`awaiting_approval`, auto-advance
+ * off). One item per chain; its primary action resumes the chain the way the
+ * chain row's Resume does (`POST blueprint/chains/:id/resume`). A rail-caused
+ * pause folds the in-flight rail's failed / blocked / limit item into the chain
+ * item (Resume continues or retries that rail), keeping its diagnosis; a
+ * question stays its own item, since only the run can take the answer.
+ */
+function chainItems(handle: InboxProjectHandle, items: InboxItem[], nowIso: string): InboxItem[] {
+  const rows = handle.db.prepare(`
+    SELECT id, milestone_n, status, pause_reason, auto_advance, next_chunk, chunks, current_run_ids, current_delivery_id, retry_chunk, updated_at
+    FROM milestone_launch_chains
+    WHERE status IN ('paused', 'awaiting_approval')
+    ORDER BY updated_at DESC
+    LIMIT 20
+  `).all() as ChainRow[]
+  const out: InboxItem[] = []
+  for (const row of rows) {
+    const total = parseJsonArray(row.chunks).length
+    let folded: InboxItem | undefined
+    if (row.status === 'paused' && RAIL_CAUSED.test(row.pause_reason ?? '')) {
+      const subjects = new Set([...parseJsonArray(row.current_run_ids).filter((id): id is string => typeof id === 'string'), ...(row.current_delivery_id ? [row.current_delivery_id] : [])])
+      for (let i = items.length - 1; i >= 0; i -= 1) {
+        const item = items[i]
+        if (!subjects.has(item.subjectId) || item.kind === 'question' || item.kind === 'review') continue
+        folded ??= item
+        items.splice(i, 1)
+      }
+    }
+    const reason = row.status === 'paused' ? row.pause_reason : null
+    out.push({
+      id: inboxItemId(handle.project.id, 'chain', row.id),
+      projectId: handle.project.id,
+      projectName: handle.project.name,
+      kind: 'chain',
+      title: `Milestone ${row.milestone_n}`,
+      detail: folded?.detail ?? reason,
+      at: toIso(row.updated_at, nowIso),
+      version: `${row.status}:${reason ?? ''}:${row.next_chunk}:${row.retry_chunk ?? ''}:${row.auto_advance}`,
+      action: 'resume-chain',
+      subjectId: row.id,
+      conversationId: folded?.conversationId ?? null,
+      diagnosis: folded?.diagnosis ?? null,
+      ...(folded?.railIndex !== undefined ? { railIndex: folded.railIndex } : {}),
+      chain: {
+        milestoneN: row.milestone_n, status: row.status, pauseReason: reason, autoAdvance: row.auto_advance !== 0,
+        nextChunk: row.next_chunk, totalChunks: total, retryChunk: row.retry_chunk,
+      },
+    })
+  }
+  return out
+}
+
 /** Run ids that recent deliveries already account for (the delivery speaks for them). */
 function representedRuns(db: DbInstance): Set<string> {
   const ids = new Set<string>()
@@ -273,6 +348,12 @@ export function createProjectInboxSource(handle: InboxProjectHandle, now: () => 
       guard('runs', () => runItems(handle, represented, nowIso, nowMs))
       guard('jira', () => jiraItems(handle, nowIso))
       guard('caps', () => capItems(handle, nowIso))
+      // Last among the project's own reads: a rail-caused pause folds its rail's item into the chain's.
+      guard('chains', () => chainItems(handle, items, nowIso))
+      if (handle.desktopDb) {
+        const desktopDb = handle.desktopDb
+        guard('missions', () => missionCardItems({ project: handle.project, db: desktopDb }, nowMs))
+      }
       return items
     },
   }

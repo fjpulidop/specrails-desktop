@@ -10,6 +10,8 @@ import { untrusted } from '../core/untrusted'
 import { projectDelivery, projectFailure, projectRunHold, type Projected } from '../core/decision-sources'
 import type { DecisionState, DecisionStateInput, OfferCall, OfferDraft } from '../core/decision-state'
 import { statusFromHold, type CanonicalStatus } from '../core/status-map'
+import { projectChainState } from '../projectors/chain-state'
+import type { MilestoneChainSnapshot } from '../../../modules/builder/runtime/milestone-progress'
 import { apiCall, McpApiError } from '../../tools/types'
 import type { InboxItem, InboxKind, InboxSnapshot } from '../../../modules/inbox'
 import { RUN_HOLD_KINDS, type RunHold, type RunHoldKind } from '../../../modules/loops/runtime/loop-run-hold'
@@ -39,12 +41,14 @@ const RUNS = 'specrails_runs'
 const DELIVERIES = 'specrails_deliveries'
 const INSIGHTS = 'specrails_insights'
 const INTEGRATIONS = 'specrails_integrations'
+const BLUEPRINT = 'specrails_blueprint'
+const MISSIONS = 'specrails_missions'
 
 const MAX_ANSWER = 20_000
 const MAX_REASON = 4_000
 
 /** What waits hardest on the person first: a run blocked on an answer, then a decision, then holds and failures. */
-const URGENCY: Record<InboxKind, number> = { question: 0, review: 1, budget: 2, blocked: 3, failed: 4, jira: 5 }
+const URGENCY: Record<InboxKind, number> = { question: 0, review: 1, mission: 2, budget: 3, chain: 4, blocked: 5, failed: 6, jira: 7 }
 
 export function compareUrgency(a: InboxItem, b: InboxItem): number {
   const rank = (URGENCY[a.kind] ?? 9) - (URGENCY[b.kind] ?? 9)
@@ -136,7 +140,47 @@ export function holdOfItem(item: InboxItem): RunHold | null {
 export function subjectRefOf(item: InboxItem, slug: string): Ref | null {
   if (item.action === 'open-review') return formatRef('delivery', item.subjectId, slug)
   if (item.action === 'open-run' || item.action === 'resume-run') return formatRef('run', item.subjectId, slug)
+  if (item.action === 'resume-chain') return formatRef('chain', item.subjectId, slug)
+  if (item.action === 'open-mission' && item.conversationId) return formatRef('mission', item.conversationId)
   return null
+}
+
+/**
+ * A chain item's state: the chain row's own hold and controls (`projectChainState`,
+ * read from the item alone, without the reconcile plan), plus Resume (the plan's
+ * recommended step, `blueprint(chain_resume)`) and the full chain (`chain_get`).
+ */
+function chainProjection(item: InboxItem, chainRef: Ref, slug: string): { status: CanonicalStatus; projected: Projected } {
+  const chain = item.chain!
+  const snapshot = {
+    id: item.subjectId, milestoneN: chain.milestoneN, mode: 'sequential', status: chain.status, pauseReason: chain.pauseReason,
+    autoAdvance: chain.autoAdvance, nextChunk: chain.nextChunk, totalChunks: chain.totalChunks, currentRailIndex: item.railIndex ?? null,
+    headBranch: null, retryChunk: chain.retryChunk, launched: [], createdAt: item.at, updatedAt: item.at, plan: null,
+  } satisfies MilestoneChainSnapshot
+  const state = projectChainState({ chain: chainRef, run: (runId) => formatRef('run', runId, slug) }, snapshot)
+  const resume: OfferDraft = { id: 'chain.resume', labelKey: chain.status === 'awaiting_approval' ? 'inbox.offer.chain_continue' : 'inbox.offer.chain_resume', call: { tool: BLUEPRINT, args: { action: 'chain_resume', ref: chainRef } } }
+  const open: OfferDraft = { id: 'chain.open', labelKey: 'inbox.offer.chain_open', call: { tool: BLUEPRINT, args: { action: 'chain_get', ref: chainRef } } }
+  return { status: state.status, projected: { offers: [resume, ...state.offers, open], recommended: 'chain.resume', ...(state.hold ? { hold: state.hold } : {}) } }
+}
+
+/** A mission card item: the card's own decisions (`missions(card_decide)`) and the mission itself. */
+function missionProjection(item: InboxItem, missionRef: Ref): Projected {
+  const card = item.card!
+  const decide = (id: string, labelKey: string, decision: string, labelParams?: Record<string, string>): OfferDraft => ({
+    id, labelKey, ...(labelParams ? { labelParams } : {}), call: { tool: MISSIONS, args: { action: 'card_decide', ref: missionRef, cardId: card.id, decision } },
+  })
+  const offers: OfferDraft[] = []
+  let recommended: string | undefined
+  if (card.kind === 'rail-launch') {
+    offers.push(decide('launch', 'missions.offer.rail_launch', 'launch', { specs: (card.ticketIds ?? []).map((id) => `#${id}`).join(', ') }), decide('dismiss', 'missions.offer.dismiss_card', 'dismiss'))
+    recommended = 'launch'
+  } else if (card.kind === 'flow-offer') {
+    offers.push(decide('intent', 'missions.offer.flow_intent', 'intent'), decide('implement', 'missions.offer.flow_implement', 'implement'), decide('dismiss', 'missions.offer.dismiss_card', 'dismiss'))
+  } else {
+    offers.push(decide('ci', 'missions.offer.ci_start', 'start'), decide('dismiss', 'missions.offer.ci_not_now', 'dismiss'))
+  }
+  offers.push({ id: 'open', labelKey: 'inbox.offer.mission_open', call: { tool: MISSIONS, args: { action: 'get', ref: missionRef, fields: ['cards'] } } })
+  return { offers, ...(recommended ? { recommended } : {}) }
 }
 
 export const inboxRefOf = (item: InboxItem): Ref => formatRef('inbox', item.id)
@@ -176,6 +220,14 @@ export function inboxStateInput(item: InboxItem, slug: string, facts: InboxFacts
   if (item.kind === 'question' && subject) {
     status = 'needs_you'
     projected = questionOffers(ref, item, subject)
+  } else if (item.action === 'resume-chain' && item.chain && subject) {
+    // A rail-caused pause folded the rail's item in; Resume continues or retries that rail.
+    const chain = chainProjection(item, subject, slug)
+    status = chain.status
+    projected = chain.projected
+  } else if (item.action === 'open-mission' && item.card && subject) {
+    status = 'needs_you'
+    projected = missionProjection(item, subject)
   } else if (hold && subject) {
     status = statusFromHold(hold)
     projected = projectRunHold(subject, hold, null, translate, { switchTargets: facts.switchTargets })
@@ -260,6 +312,8 @@ export function detailItem(item: InboxItem, slug: string, state: DecisionState):
     ...(item.diagnosis ? { diagnosis: { kind: item.diagnosis.kind, confidence: item.diagnosis.confidence, detail: item.diagnosis.detail, remedies: item.diagnosis.remedies } } : {}),
     ...(item.cap ? { cap: item.cap } : {}),
     ...(item.conversationId ? { mission: formatRef('mission', item.conversationId) } : {}),
+    ...(item.chain ? { chain: item.chain } : {}),
+    ...(item.card ? { card: item.card } : {}),
   }
 }
 
@@ -279,7 +333,7 @@ const kindsOf = (value: unknown): string[] => (Array.isArray(value) ? value : ty
 /** The item a call addresses: an inbox ref (or v1 `itemId`), or the run/delivery it is about. */
 async function resolveItem(ctx: V2CallContext, args: Row): Promise<{ item: InboxItem; slug: string }> {
   const raw = args.ref ?? args.itemId ?? args.runId
-  const target = ctx.v2.target({ ...args, ref: raw }, 'inbox', ['inbox', 'run', 'delivery'])
+  const target = ctx.v2.target({ ...args, ref: raw }, 'inbox', ['inbox', 'run', 'delivery', 'chain'])
   const items = (await readInbox(ctx)).items
   const item = target.kind === 'inbox'
     ? items.find((candidate) => candidate.id === target.id) ?? (args.runId ? items.find((candidate) => candidate.subjectId === target.id && candidate.kind === 'question') : undefined)
@@ -393,7 +447,7 @@ export const inboxTool = defineTool({
   actions: {
     list: {
       tier: 'read',
-      doc: 'filter: { project, kind: question|review|failed|blocked|budget|jira (or a list) }; options.includeDismissed lists snoozed/done items too. Default limit 8 (detail 25). Lean items list write offers; open or detail has the full state.',
+      doc: 'filter: { project, kind: question|review|mission|chain|failed|blocked|budget|jira (or a list) }; options.includeDismissed lists snoozed/done items too. Default limit 8 (detail 25). Lean items list write offers; open or detail has the full state.',
       handler: async (ctx, args) => {
         const filter = record(args.filter)
         const options = optionsOf(args)
@@ -432,7 +486,7 @@ export const inboxTool = defineTool({
     open: {
       tier: 'read',
       required: ['ref'],
-      doc: 'ref: inbox:<id>, or the run/delivery ref it is about. Full state, question card, diagnosis and AI analysis.',
+      doc: 'ref: inbox:<id>, or the run/delivery/chain ref it is about. Full state, question card, diagnosis and AI analysis.',
       handler: async (ctx, args) => {
         const { item, slug } = await resolveItem(ctx, args)
         const scope = itemScope(ctx)

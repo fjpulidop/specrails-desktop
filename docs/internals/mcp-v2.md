@@ -453,7 +453,6 @@ events) and disposes both on session close.
 |---|---|
 | `projects(clone)` longer than a client's 60 s call timeout | Still synchronous (up to 5 min). A 202 + `wait` needs a clone row in the event journal and a ref before the project exists |
 | A cross-project run read model | `runs(list)` without a project uses `/recent-jobs` (50, no holds); app-wide 7d/30d provider spend split in `insights` needs a server addition too |
-| Inbox items for mission cards and paused chains | The inbox read model (`server/modules/inbox`) has no chain or mission kind; adding them changes the app's inbox UI, so it is its own change. Until then `overview(live)` / `blueprint(chain_get)` / `missions(get)` show them |
 | `held` items in `insights` | Read through the full `/api/inbox` per call |
 | Blueprint commit tracking | In process only (`core/commit-tracker.ts`); a restart forgets running commits (the project they created stays readable) |
 | `missions(intent_hand_off)` | Needs `options.rail` (no auto-pick of a free rail) |

@@ -21,7 +21,9 @@
     "budget": "Pausado por orçamento",
     "jira": "Falha na sincronização com o Jira",
     "failedNoCause": "Parou antes da entrega",
-    "capReached": "Trabalho em pausa"
+    "capReached": "Trabalho em pausa",
+    "chain": "Marco em pausa",
+    "chainCheckpoint": "Marco à espera da tua aprovação"
   },
   "actions": {
     "open": "Abrir",
@@ -29,7 +31,10 @@
     "answer": "Responder",
     "resume": "Retomar",
     "retry": "Tentar novamente",
-    "raiseCap": "Aumentar limite"
+    "raiseCap": "Aumentar limite",
+    "resumeChain": "Retomar",
+    "continueChain": "Continuar",
+    "openMission": "Abrir missão"
   },
   "working": "Processando…",
   "rowLabel": "{{action}}: {{title}}",
@@ -62,7 +67,9 @@
     "stillOverBudget_month": "Ainda acima do orçamento mensal",
     "muted": "Notificações de {{project}} silenciadas",
     "unmuted": "Notificações de {{project}} reativadas",
-    "muteFailed": "Não foi possível alterar as notificações do projeto"
+    "muteFailed": "Não foi possível alterar as notificações do projeto",
+    "chainResumed": "Marco retomado",
+    "chainResumeFailed": "Não foi possível retomar o marco"
   },
   "cap": {
     "title": {
@@ -87,5 +94,30 @@
     "mute": "Silenciar as notificações de {{project}}",
     "unmute": "Reativar as notificações de {{project}}"
   },
-  "attempt": "tentativa {{number}}"
+  "attempt": "tentativa {{number}}",
+  "chain": {
+    "title": "Marco {{n}}",
+    "progress": "Rail {{done}} de {{total}} concluído",
+    "reason": {
+      "chunk_failed": "Um rail falhou",
+      "chunk_stalled": "Um rail ficou parado",
+      "chunk_stopped": "Um rail foi parado",
+      "provider_limit": "Foi atingido o limite de uso do fornecedor",
+      "head_missing": "Falta o branch de base",
+      "head_discarded": "O branch de base foi descartado",
+      "run_lost": "A execução de um rail perdeu-se",
+      "rail_limit_reached": "Nenhum rail livre",
+      "launch_rejected": "Um rail não conseguiu arrancar",
+      "integration_failed": "Integrar o último rail precisa de ti",
+      "paused": "Em pausa"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Proposta de lançamento",
+    "flowOffer": "Intent ou implementar?",
+    "prCiOffer": "Corrigir a CI que falha?"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

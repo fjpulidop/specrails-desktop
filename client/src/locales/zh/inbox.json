@@ -21,7 +21,9 @@
     "budget": "因预算暂停",
     "jira": "Jira 同步失败",
     "failedNoCause": "在交付前停止",
-    "capReached": "工作已暂停"
+    "capReached": "工作已暂停",
+    "chain": "里程碑已暂停",
+    "chainCheckpoint": "里程碑等待你确认"
   },
   "actions": {
     "open": "打开",
@@ -29,7 +31,10 @@
     "answer": "回答",
     "resume": "继续",
     "retry": "重试",
-    "raiseCap": "调高上限"
+    "raiseCap": "调高上限",
+    "resumeChain": "继续",
+    "continueChain": "继续下一步",
+    "openMission": "打开任务"
   },
   "working": "处理中…",
   "rowLabel": "{{action}}：{{title}}",
@@ -62,7 +67,9 @@
     "stillOverBudget_month": "仍超出每月预算",
     "muted": "已将 {{project}} 的通知静音",
     "unmuted": "已重新开启 {{project}} 的通知",
-    "muteFailed": "无法更改该项目的通知"
+    "muteFailed": "无法更改该项目的通知",
+    "chainResumed": "里程碑已继续",
+    "chainResumeFailed": "无法继续该里程碑"
   },
   "cap": {
     "title": {
@@ -87,5 +94,30 @@
     "mute": "将 {{project}} 的通知静音",
     "unmute": "重新开启 {{project}} 的通知"
   },
-  "attempt": "第 {{number}} 次尝试"
+  "attempt": "第 {{number}} 次尝试",
+  "chain": {
+    "title": "里程碑 {{n}}",
+    "progress": "已完成 {{done}}/{{total}} 个轨道",
+    "reason": {
+      "chunk_failed": "有轨道失败了",
+      "chunk_stalled": "有轨道卡住了",
+      "chunk_stopped": "有轨道被停止了",
+      "provider_limit": "已达到提供商的使用上限",
+      "head_missing": "缺少作为基础的分支",
+      "head_discarded": "作为基础的分支已被丢弃",
+      "run_lost": "某个轨道的执行丢失了",
+      "rail_limit_reached": "没有空闲的轨道",
+      "launch_rejected": "有轨道无法启动",
+      "integration_failed": "集成最后一个轨道需要你处理",
+      "paused": "已暂停"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "启动提议",
+    "flowOffer": "Intent 还是直接实现？",
+    "prCiOffer": "修复失败的 CI？"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

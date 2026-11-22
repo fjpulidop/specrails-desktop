@@ -21,7 +21,9 @@
     "budget": "En pause (budget)",
     "jira": "Échec de la synchronisation Jira",
     "failedNoCause": "Arrêté avant la livraison",
-    "capReached": "Travail en pause"
+    "capReached": "Travail en pause",
+    "chain": "Jalon en pause",
+    "chainCheckpoint": "Jalon en attente de votre feu vert"
   },
   "actions": {
     "open": "Ouvrir",
@@ -29,7 +31,10 @@
     "answer": "Répondre",
     "resume": "Reprendre",
     "retry": "Réessayer",
-    "raiseCap": "Relever le plafond"
+    "raiseCap": "Relever le plafond",
+    "resumeChain": "Reprendre",
+    "continueChain": "Continuer",
+    "openMission": "Ouvrir la mission"
   },
   "working": "En cours…",
   "rowLabel": "{{action}} : {{title}}",
@@ -62,7 +67,9 @@
     "stillOverBudget_month": "Toujours au-dessus du budget mensuel",
     "muted": "Notifications de {{project}} coupées",
     "unmuted": "Notifications de {{project}} réactivées",
-    "muteFailed": "Impossible de modifier les notifications du projet"
+    "muteFailed": "Impossible de modifier les notifications du projet",
+    "chainResumed": "Jalon repris",
+    "chainResumeFailed": "Impossible de reprendre le jalon"
   },
   "cap": {
     "title": {
@@ -87,5 +94,30 @@
     "mute": "Couper les notifications de {{project}}",
     "unmute": "Réactiver les notifications de {{project}}"
   },
-  "attempt": "tentative {{number}}"
+  "attempt": "tentative {{number}}",
+  "chain": {
+    "title": "Jalon {{n}}",
+    "progress": "Rail {{done}} sur {{total}} terminé",
+    "reason": {
+      "chunk_failed": "Un rail a échoué",
+      "chunk_stalled": "Un rail est bloqué",
+      "chunk_stopped": "Un rail a été arrêté",
+      "provider_limit": "La limite d'utilisation du fournisseur est atteinte",
+      "head_missing": "La branche de base est introuvable",
+      "head_discarded": "La branche de base a été abandonnée",
+      "run_lost": "L'exécution d'un rail a été perdue",
+      "rail_limit_reached": "Aucun rail libre",
+      "launch_rejected": "Un rail n'a pas pu démarrer",
+      "integration_failed": "L'intégration du dernier rail a besoin de vous",
+      "paused": "En pause"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Proposition de lancement",
+    "flowOffer": "Intent ou implémenter ?",
+    "prCiOffer": "Corriger la CI en échec ?"
+  },
+  "card": {
+    "pr": "PR n° {{number}}"
+  }
 }

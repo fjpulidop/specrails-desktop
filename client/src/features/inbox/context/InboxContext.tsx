@@ -12,8 +12,9 @@ import { openBudgetPanel } from '../../../lib/app-settings-events'
 import { RunCapChoiceDialog } from '../../../components/RunCapChoiceDialog'
 import type { RunCapChoice } from '../../../lib/run-cap'
 import { OPEN_INBOX_EVENT } from '../../../lib/inbox-events'
+import { requestOpenMission } from '../../../lib/mission-events'
 import { INBOX_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
-import { fetchInbox, resumeInboxRun, retryInboxJira, type InboxActionOutcome } from '../lib/inbox-api'
+import { fetchInbox, resumeInboxChain, resumeInboxRun, retryInboxJira, type InboxActionOutcome } from '../lib/inbox-api'
 import {
   doneDismissal, groupByProject, inboxItemKey, inboxTarget, isDismissed, isUnseen, markSeen, markUnseen, nextSnoozeExpiry, readDismissals,
   readSeenMarks, snoozeDismissal, unseenCount, writeDismissals, writeSeenMarks,
@@ -232,25 +233,32 @@ export function InboxProvider({ children, dockBadge: injectedBadge }: { children
   const runPrimary = useCallback(async (item: InboxItem, choice?: RunCapChoice) => {
     markReadRef.current(item)
     if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap') { openItem(item); return }
+    // A mission card is decided in its mission: the missions feature opens it (switching project when pinned elsewhere).
+    if (item.action === 'open-mission') {
+      if (item.conversationId) { closePlace(); requestOpenMission(item.conversationId) }
+      return
+    }
     setBusy((current) => new Set(current).add(item.id))
     let outcome: InboxActionOutcome
     try {
-      outcome = item.action === 'resume-run' ? await resumeInboxRun(item, choice) : await retryInboxJira(item)
+      outcome = item.action === 'resume-run' ? await resumeInboxRun(item, choice)
+        : item.action === 'resume-chain' ? await resumeInboxChain(item)
+          : await retryInboxJira(item)
     } finally {
       if (alive.current) setBusy((current) => { const next = new Set(current); next.delete(item.id); return next })
     }
     if (outcome.kind === 'ok') {
-      toast.success(t(item.action === 'resume-run' ? 'toast.resumed' : 'toast.retried'))
-    } else if (outcome.kind === 'over-budget' && outcome.budget.period === 'run') {
+      toast.success(t(item.action === 'resume-chain' ? 'toast.chainResumed' : item.action === 'resume-run' ? 'toast.resumed' : 'toast.retried'))
+    } else if (outcome.kind === 'over-budget' && outcome.budget.period === 'run' && item.action === 'resume-run') {
       // The run's per-run soft cap stands: the person answers Continue / Raise.
       if (alive.current) setRunCapPrompt({ item, budget: outcome.budget })
     } else if (outcome.kind === 'over-budget') {
       notifyError(t('toast.stillOverBudget'), { detail: dailyBudgetActionMessage(t as never, outcome.budget) })
     } else {
-      notifyError(t(item.action === 'resume-run' ? 'toast.resumeFailed' : 'toast.retryFailed'), { detail: outcome.detail })
+      notifyError(t(item.action === 'resume-chain' ? 'toast.chainResumeFailed' : item.action === 'resume-run' ? 'toast.resumeFailed' : 'toast.retryFailed'), { detail: outcome.detail })
     }
     void refresh()
-  }, [openItem, refresh, t])
+  }, [openItem, closePlace, refresh, t])
 
   // ── Seen / unseen (per viewer, keyed by id and version like Snooze / Done)
   const persistSeen = useCallback((updater: (current: SeenMarks) => SeenMarks) => {
@@ -333,7 +341,7 @@ export function InboxProvider({ children, dockBadge: injectedBadge }: { children
   // ── Announcements: new item versions go through the attention pipeline once.
   const openFromAttention = useCallback((item: InboxItem) => {
     // An open-type item lands on its place; one whose primary acts (Resume, Retry) opens the inbox instead.
-    if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap') void runPrimary(item)
+    if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap' || item.action === 'open-mission') void runPrimary(item)
     else openPlace('1')
   }, [runPrimary, openPlace])
   useInboxAttention({ status, snapshot: snapshotItems, visible: items, locationRef, uiModeRef, open: openFromAttention })

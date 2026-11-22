@@ -129,8 +129,8 @@ What needs the person across projects, most urgent first. act runs any offer by 
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `list` | read | — | filter: { project, kind: question\|review\|failed\|blocked\|budget\|jira (or a list) }; options.includeDismissed lists snoozed/done items too. Default limit 8 (detail 25). Lean items list write offers; open or detail has the full state. |
-| `open` | read | — | Requires `ref`. ref: inbox:<id>, or the run/delivery ref it is about. Full state, question card, diagnosis and AI analysis. |
+| `list` | read | — | filter: { project, kind: question\|review\|mission\|chain\|failed\|blocked\|budget\|jira (or a list) }; options.includeDismissed lists snoozed/done items too. Default limit 8 (detail 25). Lean items list write offers; open or detail has the full state. |
+| `open` | read | — | Requires `ref`. ref: inbox:<id>, or the run/delivery/chain ref it is about. Full state, question card, diagnosis and AI analysis. |
 | `answer` | write | — | Requires `ref`. optionId: one of the question's options (its label is sent); answer: free text. |
 | `approve` | write | — | Requires `ref`. |
 | `reject` | write | — | Requires `ref`. options.reason (or answer): why, passed to the run. |

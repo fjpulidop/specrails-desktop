@@ -2713,6 +2713,10 @@
         "./project-source",
         "express"
       ],
+      "adapters/mission-source.ts": [
+        "../../../db",
+        "../domain"
+      ],
       "adapters/project-source.ts": [
         "../../../db",
         "../../../jira/jira-db",
@@ -2725,7 +2729,8 @@
         "../../recovery",
         "../../recovery/adapters/sqlite",
         "../domain",
-        "../ports"
+        "../ports",
+        "./mission-source"
       ],
       "application.ts": [
         "./domain",

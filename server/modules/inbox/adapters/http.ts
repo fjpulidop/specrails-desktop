@@ -10,12 +10,14 @@ import { mapInSlices, replay, settle } from '../../../util/event-loop-slices'
  * and database. The live board projects the very same sources, so its "Needs
  * you" column and this inbox always agree.
  */
-export function createInboxSources(registry: Pick<ProjectRegistry, 'listContexts'>, now?: () => number): ProjectInboxSource[] {
+export function createInboxSources(registry: Pick<ProjectRegistry, 'listContexts'> & { desktopDb?: ProjectRegistry['desktopDb'] }, now?: () => number): ProjectInboxSource[] {
   // An app-wide cap belongs to no project: the first project speaks for it so it appears once.
   return registry.listContexts().map((ctx, index) => createProjectInboxSource({
     project: { id: ctx.project.id, name: ctx.project.name },
     db: ctx.db,
     caps: () => (ctx.budgetCaps?.() ?? []).filter((cap) => cap.scope === 'project' || index === 0),
+    // Mission cards live in the app database; the source reads only this project's.
+    ...(registry.desktopDb ? { desktopDb: registry.desktopDb } : {}),
   }, now))
 }
 

@@ -4,6 +4,7 @@ import { MotionConfig } from 'motion/react'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
 import { MissionWindowBindings } from './features/missions/components/MissionWindowBindings'
+import { MissionOpenRequests } from './features/missions/components/MissionOpenRequests'
 import { MissionWindowSurface } from './features/missions/components/MissionWindowSurface'
 import { MissionWindowError } from './features/missions/components/MissionWindowAction'
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense }from 'react'
@@ -1099,6 +1100,7 @@ function AppRoutes() {
                             <MissionWindowBindings />
                             <MissionWindowError />
                             {secondary ? <MissionWindowSurface /> : <LiveBoardProvider><DesktopApp /></LiveBoardProvider>}
+                            {!secondary && <MissionOpenRequests />}
                             <AgentBrowserCaptureHost />
                             <LiveAnnouncer />
                             <ThemedToaster />

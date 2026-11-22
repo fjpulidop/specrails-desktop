@@ -39,6 +39,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/AgentWorkspaceSidebar.tsx](components/AgentWorkspaceSidebar.tsx)
 - [components/MissionConversationMenu.tsx](components/MissionConversationMenu.tsx)
 - [components/MissionModeBadge.tsx](components/MissionModeBadge.tsx)
+- [components/MissionOpenRequests.tsx](components/MissionOpenRequests.tsx)
 - [components/MissionWindowAction.tsx](components/MissionWindowAction.tsx)
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)

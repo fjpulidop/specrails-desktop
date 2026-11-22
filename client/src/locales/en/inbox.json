@@ -21,7 +21,9 @@
     "budget": "Paused: spend limit reached",
     "jira": "Jira sync failed",
     "failedNoCause": "Stopped before delivery",
-    "capReached": "Work paused"
+    "capReached": "Work paused",
+    "chain": "Milestone paused",
+    "chainCheckpoint": "Milestone waiting for your go"
   },
   "actions": {
     "open": "Open",
@@ -29,7 +31,10 @@
     "answer": "Answer",
     "resume": "Resume",
     "retry": "Retry",
-    "raiseCap": "Raise limit"
+    "raiseCap": "Raise limit",
+    "resumeChain": "Resume",
+    "continueChain": "Continue",
+    "openMission": "Open mission"
   },
   "working": "Working…",
   "rowLabel": "{{action}}: {{title}}",
@@ -62,7 +67,9 @@
     "stillOverBudget_month": "Still over the monthly limit",
     "muted": "Notifications from {{project}} muted",
     "unmuted": "Notifications from {{project}} on",
-    "muteFailed": "Couldn't change the project's notifications"
+    "muteFailed": "Couldn't change the project's notifications",
+    "chainResumed": "Milestone resumed",
+    "chainResumeFailed": "Couldn't resume the milestone"
   },
   "cap": {
     "title": {
@@ -87,5 +94,30 @@
     "mute": "Mute notifications from {{project}}",
     "unmute": "Turn notifications from {{project}} back on"
   },
-  "attempt": "attempt {{number}}"
+  "attempt": "attempt {{number}}",
+  "chain": {
+    "title": "Milestone {{n}}",
+    "progress": "Rail {{done}} of {{total}} done",
+    "reason": {
+      "chunk_failed": "A rail failed",
+      "chunk_stalled": "A rail stalled",
+      "chunk_stopped": "A rail was stopped",
+      "provider_limit": "The provider's usage limit was reached",
+      "head_missing": "The branch to build on is missing",
+      "head_discarded": "The branch to build on was discarded",
+      "run_lost": "A rail's run was lost",
+      "rail_limit_reached": "No free rail",
+      "launch_rejected": "A rail couldn't start",
+      "integration_failed": "Integrating the last rail needs you",
+      "paused": "Paused"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Launch proposal",
+    "flowOffer": "Intent or implement?",
+    "prCiOffer": "Fix the failing CI?"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

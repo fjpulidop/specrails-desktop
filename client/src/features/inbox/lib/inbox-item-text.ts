@@ -69,7 +69,37 @@ function heldOf(item: InboxItem, t: Translate): { kindLabel: string; detail: str
   return { kindLabel: String(t(`jobs:held.label.${known}`)), detail: String(detail) }
 }
 
+const CHAIN_REASONS = ['chunk_failed', 'chunk_stalled', 'chunk_stopped', 'provider_limit', 'head_missing', 'head_discarded', 'run_lost', 'rail_limit_reached', 'launch_rejected', 'integration_failed']
+const CARD_KEYS = { 'rail-launch': 'railLaunch', 'flow-offer': 'flowOffer', 'pr-ci-offer': 'prCiOffer' } as const
+
+/** A milestone chain that stopped: named by its milestone, worded by why it stopped (or where it stands at a checkpoint). */
+function chainText(item: InboxItem, t: Translate): InboxItemText | null {
+  const chain = item.chain
+  if (item.kind !== 'chain' || !chain) return null
+  const checkpoint = chain.status === 'awaiting_approval'
+  const code = chain.pauseReason?.split(':')[0] ?? null
+  const reason = code ? String(t(`inbox:chain.reason.${CHAIN_REASONS.includes(code) ? code : 'paused'}`)) : null
+  const progress = chain.totalChunks > 0 ? String(t('inbox:chain.progress', { done: Math.min(chain.nextChunk, chain.totalChunks), total: chain.totalChunks })) : null
+  return {
+    title: String(t('inbox:chain.title', { n: chain.milestoneN })),
+    kindLabel: String(t(checkpoint ? 'inbox:kinds.chainCheckpoint' : 'inbox:kinds.chain')),
+    // A rail-caused pause carries that rail's diagnosis: its cause is the reason.
+    detail: checkpoint ? progress : causeOf(item, t) ?? reason ?? progress,
+    rawDetail: null,
+  }
+}
+
+/** A mission card waiting for a decision: the mission, what the card proposes, and its subject. */
+function missionText(item: InboxItem, t: Translate): InboxItemText | null {
+  const card = item.card
+  if (item.kind !== 'mission' || !card) return null
+  const detail = card.kind === 'pr-ci-offer' ? (card.prNumber ? String(t('inbox:card.pr', { number: card.prNumber })) : null) : item.detail
+  return { title: item.title, kindLabel: String(t(`inbox:missionCard.${CARD_KEYS[card.kind]}`)), detail, rawDetail: null }
+}
+
 export function inboxItemText(item: InboxItem, t: Translate, language: string): InboxItemText {
+  const own = chainText(item, t) ?? missionText(item, t)
+  if (own) return own
   const held = heldOf(item, t)
   if (held) return { title: item.attempt ? `${item.title} · ${String(t('inbox:attempt', { number: item.attempt.number }))}` : item.title, kindLabel: held.kindLabel, detail: held.detail, rawDetail: null }
   const cause = causeOf(item, t)

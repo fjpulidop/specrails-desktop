@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1932 source/build files. Nearby tests are linked where names
+Includes 1935 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -750,6 +750,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
 - [MissionHomeHeader.tsx](../../client/src/features/missions/components/MissionHomeHeader.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionHomeHeader.test.tsx)
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
+- [MissionOpenRequests.tsx](../../client/src/features/missions/components/MissionOpenRequests.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionOpenRequests.test.tsx)
 - [MissionPaneLayoutMenu.tsx](../../client/src/features/missions/components/MissionPaneLayoutMenu.tsx)
 - [MissionSelectionMenu.tsx](../../client/src/features/missions/components/MissionSelectionMenu.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSelectionMenu.test.tsx)
 - [MissionSplitDivider.tsx](../../client/src/features/missions/components/MissionSplitDivider.tsx)
@@ -1307,6 +1308,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [layers.ts](../../client/src/lib/layers.ts)
 - [live-board-events.ts](../../client/src/lib/live-board-events.ts)
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
+- [mission-events.ts](../../client/src/lib/mission-events.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
 - [model-label.ts](../../client/src/lib/model-label.ts)
@@ -2243,6 +2245,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/inbox/adapters
 
 - [http.ts](../../server/modules/inbox/adapters/http.ts)
+- [mission-source.ts](../../server/modules/inbox/adapters/mission-source.ts)
 - [project-source.ts](../../server/modules/inbox/adapters/project-source.ts)
 
 ## server/modules/intent
