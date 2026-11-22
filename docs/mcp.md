@@ -7,11 +7,13 @@ agent can drive the whole dashboard: list your projects, read and
 create specs, launch the AI pipeline, watch jobs settle, inspect analytics, and
 more — through a versioned tool catalog with discoverable action schemas.
 
-> **Just want to get going?** Open **Settings ▸ MCP**, click **Copy client
-> config**, then follow the [client-specific agent runbook](agents/mcp.md).
-> MCP and all four permission tiers
-> are on by default. Disable **Write**, **AI-spawn**, or **Destructive** there
-> to restrict external clients. Existing disabled settings survive upgrades.
+> **Just want to get going?** Run `specrails-desktop mcp connect --client claude`
+> (or `--client codex`), or click **Settings ▸ MCP ▸ Connect**. It registers the
+> bundled bridge in the client's own configuration, backs the file up first and
+> checks the connection; see [Connecting a client](#connecting-a-client).
+> MCP and all four permission tiers are on by default. Disable **Write**,
+> **AI-spawn**, or **Destructive** there to restrict external clients. Existing
+> disabled settings survive upgrades.
 
 This is the **app talking to an outside agent** — the opposite direction from
 the [Serena plugin](running-pipelines.md#plugins), where Specrails *consumes* an MCP server. Here Specrails *is*
@@ -204,7 +206,8 @@ their own. A client without subscriptions polls `specrails_status` with
 
 Three short prompts chain the tools; they only describe calls and grant no
 permission: `diagnose-failure` (`jobId?`, `projectId?`), `launch-spec`
-(`specId`, `projectId?`) and `triage-inbox`.
+(`specId`, `projectId?`) and `triage-inbox`. With the new MCP tools on, the
+[v2 prompts](#new-mcp-tools-v2-preview) replace them.
 
 ### Async results — `specrails_watch`
 
@@ -252,6 +255,54 @@ Claude does not).
 `wire-schema.test.ts` holds the budget (≤ 60 KB model payload, ≤ 6.5 KB per
 tool, ≤ 80 KB `tools/list`) and checks that every shortened description is
 returned verbatim by `specrails_describe`.
+
+## New MCP tools (v2, preview)
+
+Settings ▸ MCP ▸ **New MCP tools** (or `SPECRAILS_MCP_V2=true`) serves the
+second catalog to new client sessions. It is built so a person can use all of
+Specrails from Claude Code or Codex without opening the app:
+
+- **15 tools** named after what they manage (`specrails_overview`,
+  `specrails_inbox`, `specrails_wait`, `specrails_projects`, `specrails_specs`,
+  `specrails_blueprint`, `specrails_rails`, `specrails_runs`,
+  `specrails_deliveries`, `specrails_missions`, `specrails_insights`,
+  `specrails_settings`, `specrails_providers`, `specrails_integrations`,
+  `specrails_system`), about 6k tokens for the whole catalog. Claude Code loads
+  the six everyday ones up front.
+- **Short server instructions** at `initialize`: start with
+  `specrails_overview(app)`, use refs, wait instead of polling, prefer the
+  recommended offer, the confirmation protocol, language and untrusted fields.
+- **Decision-ready answers.** Runs, deliveries, chains and inbox items carry
+  their state: status, why they wait, the legal next moves (offers) and the
+  recommended one.
+- **Waiting without polling.** `specrails_wait(until, refs)` blocks up to 45
+  seconds and returns what changed; the agent calls it again with the cursor.
+- **Confirmations bound to what you saw.** Merges, PRs, deletions and other
+  irreversible or external actions always ask. Work that costs money asks when
+  its forecast is above **Ask before spending** (Settings ▸ MCP, default $0.50)
+  or when it starts more than one run. The agent shows you a preview; its
+  confirmation token only works for that exact action and expires if the state
+  changes.
+- **Your language.** Summaries, reasons and previews come back in the language
+  you speak to the agent (en, es, fr, de, pt, it, zh, ja).
+
+**Prompts** (slash commands in Claude Code, for example
+`/mcp__specrails__start-my-day`; prompts in Codex):
+
+| Prompt | What it does |
+|---|---|
+| `start-my-day` | What needs you, what runs and what it costs, one proposal per item |
+| `review-waiting` | Deliveries and questions waiting for you, one at a time |
+| `ship-milestone` | Generate, add and launch a blueprint milestone, then follow its chain |
+| `why-stuck` | Why a run waits, stopped or failed, and one next step |
+| `implement` | Launch specs after a cost preview and report when they settle |
+| `spend` | Spend, subscription usage and limits in plain words |
+
+Short guide topics are resources (`specrails://guide/<topic>`) and
+`specrails_system(help, topic)`. The full tool and action reference, generated
+from the catalog, is in [the agent page](agents/mcp.md#catalog-reference). The
+older tools stay callable while the new ones are on, with a deprecation note
+pointing to the new call.
 
 ## Runtime runs and rail availability (mission-rail-cards)
 
@@ -332,21 +383,51 @@ It is already running — the app persists `mcp_enabled` as on and serves
 `/api/mcp` from the first launch, and the scoped token is minted at boot so the
 bridge finds it immediately.
 
-1. Open the app and go to **Settings ▸ MCP**.
+1. Open the app and go to **Settings ▸ MCP**, or run
+   `specrails-desktop mcp connect --client claude|codex` from a terminal.
 2. Review the permission tiers (**Write** / **AI-spawn** / **Destructive**).
    Untick the ones you don't want an external client to have; untick all three
    to keep the agent read-only.
-3. Click **Copy client config** to grab a ready-to-paste configuration, or
-   **Copy token** if your client needs the raw token (for the direct-HTTP path
-   below).
+3. Click **Connect** next to Claude Code or Codex. For other clients, click
+   **Copy client config**, or **Copy token** if your client needs the raw token
+   (for the direct-HTTP path below).
+4. Set **Ask before spending**: the amount above which a connected AI must ask
+   you before it starts paid work (default $0.50). Merges, PRs and deletions
+   always ask, whatever the amount.
 
 Toggling the enable switch off tears down all open MCP sessions immediately;
 toggling it back on boots the transport again — no app restart either way.
 
 ## Connecting a client
 
-There are two ways to connect, and **the stdio bridge is the recommended,
-universal one.**
+### One command for Claude Code and Codex
+
+```bash
+specrails-desktop mcp connect --client claude     # or codex, or all
+specrails-desktop mcp status                      # installed clients and their state
+specrails-desktop mcp disconnect --client codex
+```
+
+**Settings ▸ MCP ▸ Connect** does the same with one click. Specrails must be
+running. Connect:
+
+- writes only the `specrails` entry: Claude Code `~/.claude.json` (or
+  `.mcp.json` with `--scope project`); Codex `~/.codex/config.toml` (or
+  `.codex/config.toml`), including `tool_timeout_sec = 90` so a 45-second
+  `specrails_wait` fits;
+- backs the file up first (`<file>.bak-specrails-<time>`), keeps every other
+  server, key and comment, and never resets a file it cannot read;
+- writes no token anywhere — the bridge reads `~/.specrails/mcp.token` itself;
+- does nothing when the entry is already current, so it is safe to repeat (run
+  it again after moving the app);
+- checks the connection the way the client will (`initialize`, `tools/list`,
+  `specrails_overview(app)`) and prints the tool count.
+
+`--dry-run` shows the change without writing it. A `specrails` entry that
+belongs to something else is never replaced unless you pass `--force` (the
+app asks first). Then start a new Claude Code or Codex session.
+
+For other clients, use one of the two options below.
 
 ### Option A — the stdio bridge `specrails-mcp` (recommended)
 

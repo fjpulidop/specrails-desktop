@@ -19,11 +19,21 @@ Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](http
 
 四个层级默认全部授予，所以接入的助手一开始就能驱动整个应用。把你想自己保留的层级取消勾选即可；之后如果助手试图做该层级涵盖的事，Specrails 会拒绝，并给出一条清晰的提示，告诉你该重新打开哪个层级。
 
+## 一步连接 Claude Code 或 Codex
+
+打开 **设置 ▸ MCP**，点击 Claude Code 或 Codex 旁边的 **连接**——或者在终端里运行一条命令：
+
+```bash
+specrails-desktop mcp connect --client claude   # 或 codex
+```
+
+Specrails 会把自己加入客户端自己的配置，先备份该文件，不在任何地方写入访问令牌，并立即检查连接（你会看到它找到了多少个工具）。重复运行也没有问题。之后开启新的 Claude Code 或 Codex 会话。如果你想自己运行，**复制命令** 会给出客户端自己的命令；其他助手请使用 **复制配置**。
+
+**花费前先询问**（同一面板，默认 0.50 美元）是一个金额：已连接的助手启动的付费工作超过它时，必须先询问你。合并、PR 和删除始终会询问。打开 **新版 MCP 工具（预览）** 即可使用新的 15 个工具：现成的下一步、无需轮询的等待、用你的语言回答，以及 *start-my-day*、*review-waiting*、*ship-milestone*、*why-stuck* 等提示词。
+
 ## 仅供 agent 阅读：连接你的客户端
 
-当有人请 agent 进行连接时，请阅读[专门的 MCP 连接手册](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md)。它涵盖 Claude Code 和 Codex 的 CLI 与桌面版：找到内置的桥接、保留现有配置、验证真实连接并诊断故障。网页版是纯 Markdown，不需要 JavaScript。
-
-保持 Specrails 运行，打开 **Settings ▸ MCP ▸ Copy client config**。有些版本只返回 `specrails-mcp`，它可能不在 PATH 中；手册说明了如何找到实际的可执行文件和脚本。桥接会在本地读取令牌，所以客户端配置里不应出现任何令牌。仅完成注册并不能证明已经连接：请完成 `initialize`、`tools/list`，以及一次带 `{"action":"list"}` 的只读 `specrails_projects` 调用。
+当有人请 agent 连接时，请阅读 [MCP 连接手册](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md)。它涵盖一条命令连接、在 Claude Code 和 Codex 中手动注册、验证和故障排查。仅完成注册并不能证明已连接：请完成 `initialize`、`tools/list` 和一次只读调用。
 
 想快速了解全局，助手可以调用 `specrails_status`：一次调用就能看到正在运行什么、什么在等你处理、最近的失败、今天的花费以及机器的 CPU 和内存。`specrails_inbox` 读取并回答**待处理**列表，`specrails_missions` 列出你的任务并向其发送消息，`specrails_board` 显示某个项目的 backlog 和 rail，`specrails_spend` 显示你的花费和上限，`specrails_resources` 显示 Specrails 启动了什么。失败的 job 会附带它的诊断、已保存的 AI 分析以及日志末尾。
 
