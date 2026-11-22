@@ -1,0 +1,22 @@
+{
+  "mood.idle": "Alles ruhig: Nichts läuft und nichts wartet auf dich",
+  "summary.app": "{{headline}}{{spend}}.",
+  "summary.running": "{{count}} laufen",
+  "summary.needs_you": "{{count}} warten auf dich",
+  "summary.failing": "{{count}} fehlgeschlagen oder blockiert",
+  "summary.done_today": "{{count}} heute erledigt",
+  "summary.spend": "; heute {{usd}} USD ausgegeben",
+  "summary.spend_estimated": "; heute {{usd}} USD ausgegeben (teilweise geschätzt)",
+  "summary.top": " Am dringendsten: „{{title}}“ in {{project}}.",
+  "summary.project": "{{name}}: {{specs}} Specs ({{columns}}); {{rails}} Rails, {{running}} laufen{{reviews}}{{queue}}.",
+  "summary.project_reviews": ", {{count}} warten auf Review",
+  "summary.project_queue": "; {{count}} in der Warteschlange",
+  "summary.project_queue_paused": " (Warteschlange pausiert)",
+  "summary.live": "Live-Board: {{needs}} brauchen dich, {{working}} in Arbeit, {{done}} heute erledigt{{scope}}.",
+  "summary.context": "Briefing zu {{name}}: {{specs}} Specs, {{rails}} Rails, Branch {{branch}}{{dirty}}.",
+  "summary.context_dirty": " (nicht committete Änderungen)",
+  "next.act": "{{label}} – {{title}}",
+  "next.wait": "Warten, bis die laufende Arbeit abgeschlossen ist",
+  "next.projects": "Ein Projekt zum Arbeiten auswählen",
+  "next.inbox": "Alles ansehen, was auf dich wartet"
+}

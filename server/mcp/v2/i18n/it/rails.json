@@ -1,0 +1,18 @@
+{
+  "summary.list": "{{count}} rail: {{free}} liberi, {{busy}} occupati, {{waiting}} in attesa di una decisione.",
+  "summary.created": "{{label}} creato.",
+  "summary.removed": "{{label}} rimosso.",
+  "summary.renamed": "{{label}} rinominato.",
+  "summary.configured": "{{label}} aggiornato: {{changed}}.",
+  "summary.prepared": "Preparazione di {{count}} worktree per i prossimi lanci.",
+  "summary.released": "Rilasciati {{count}} worktree preparati.",
+  "summary.overlaps": "{{count}} altri rail probabilmente toccheranno gli stessi file.",
+  "summary.forecast": "{{label}}: {{forecast}}.",
+  "summary.forecast_none": "storico ancora insufficiente per una previsione",
+  "summary.forecast_range": "di solito {{low}}–{{high}} min, {{cost}}",
+  "summary.forecast_cost": "{{low}}–{{high}} USD",
+  "summary.forecast_cost_none": "costo sconosciuto",
+  "preview.remove": "Rimuove {{label}} e riporta le sue spec sulla board.",
+  "error.launch_option": "{{keys}} sono opzioni di lancio, non impostazioni del rail: passale a specrails_runs(launch).",
+  "error.config": "config accetta specIds, mode, engine, profile, name; model, effort e targetPr sono opzioni di lancio."
+}

@@ -1,0 +1,19 @@
+{
+  "item": "{{ref}} est {{label}}",
+  "summary.fired_one": "{{item}}.",
+  "summary.fired": "{{count}} changements ; premier : {{item}}.",
+  "summary.timeout": "Rien n'a changé en {{seconds}} s. Rappelez specrails_wait avec le cursor ; ce n'est pas un échec.",
+  "summary.interrupted": "La personne a envoyé un nouveau message ; l'attente s'est terminée plus tôt.",
+  "summary.events": "{{count}} événements.",
+  "summary.no_events": "Aucun événement.",
+  "reason.stuck": "L'étape en cours a cessé de produire de l'activité.",
+  "reason.review": "Elle attend votre revue.",
+  "reason.failed": "Elle a échoué ; diagnostiquez-la ou choisissez une solution.",
+  "reason.budget": "Un plafond de dépense a été atteint ; relevez-le ou attendez la réinitialisation.",
+  "reason.blocked": "Elle est bloquée jusqu'à ce que vous agissiez.",
+  "warning.cursor_reset": "Le cursor appartient à un autre journal ; l'attente reprend à partir de maintenant.",
+  "warning.gap": "Des événements plus anciens ont été supprimés par la rétention ; la page commence au plus ancien événement conservé.",
+  "error.too_many_refs": "Attendez au plus {{max}} refs à la fois.",
+  "error.kind": "Une attente ne peut pas suivre des refs {{kind}}. Pris en charge : {{kinds}}.",
+  "notice": "{{ref}} a besoin de vous. Appelez specrails_wait(until) ou ouvrez-le."
+}

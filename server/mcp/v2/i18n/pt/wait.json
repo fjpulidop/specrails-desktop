@@ -1,0 +1,19 @@
+{
+  "item": "{{ref}} está {{label}}",
+  "summary.fired_one": "{{item}}.",
+  "summary.fired": "{{count}} mudanças; a primeira: {{item}}.",
+  "summary.timeout": "Nada mudou em {{seconds}} s. Chame specrails_wait de novo com o cursor; isto não é uma falha.",
+  "summary.interrupted": "A pessoa enviou uma nova mensagem; a espera terminou antes.",
+  "summary.events": "{{count}} eventos.",
+  "summary.no_events": "Nenhum evento.",
+  "reason.stuck": "A etapa atual parou de produzir atividade.",
+  "reason.review": "Aguarda a sua revisão.",
+  "reason.failed": "Falhou; diagnostique ou escolha uma solução.",
+  "reason.budget": "Um limite de gasto foi atingido; aumente-o ou aguarde a redefinição.",
+  "reason.blocked": "Está bloqueado até você agir.",
+  "warning.cursor_reset": "O cursor pertence a outro journal; aguardando a partir de agora.",
+  "warning.gap": "Eventos antigos foram removidos pela retenção; a página começa no evento mais antigo mantido.",
+  "error.too_many_refs": "Aguarde no máximo {{max}} refs de uma vez.",
+  "error.kind": "Uma espera não pode acompanhar refs do tipo {{kind}}. Suportados: {{kinds}}.",
+  "notice": "{{ref}} precisa de você. Chame specrails_wait(until) ou abra-o."
+}

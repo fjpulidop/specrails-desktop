@@ -1,0 +1,18 @@
+{
+  "summary.list": "{{count}} rails: {{free}} livres, {{busy}} ocupados, {{waiting}} aguardando uma decisão.",
+  "summary.created": "{{label}} criado.",
+  "summary.removed": "{{label}} removido.",
+  "summary.renamed": "{{label}} renomeado.",
+  "summary.configured": "{{label}} atualizado: {{changed}}.",
+  "summary.prepared": "Preparando {{count}} worktree(s) para os próximos lançamentos.",
+  "summary.released": "{{count}} worktree(s) preparado(s) liberado(s).",
+  "summary.overlaps": "{{count}} outro(s) rail(s) provavelmente vão mexer nos mesmos arquivos.",
+  "summary.forecast": "{{label}}: {{forecast}}.",
+  "summary.forecast_none": "ainda não há histórico suficiente para uma previsão",
+  "summary.forecast_range": "geralmente {{low}}–{{high}} min, {{cost}}",
+  "summary.forecast_cost": "{{low}}–{{high}} USD",
+  "summary.forecast_cost_none": "custo desconhecido",
+  "preview.remove": "Remove {{label}} e devolve suas specs ao quadro.",
+  "error.launch_option": "{{keys}} são opções de lançamento, não configurações do rail: passe-as para specrails_runs(launch).",
+  "error.config": "config aceita specIds, mode, engine, profile, name; model, effort e targetPr são opções de lançamento."
+}

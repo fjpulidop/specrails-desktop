@@ -1,0 +1,22 @@
+{
+  "mood.idle": "Tutto tranquillo: niente in esecuzione e niente che ti aspetta",
+  "summary.app": "{{headline}}{{spend}}.",
+  "summary.running": "{{count}} in esecuzione",
+  "summary.needs_you": "{{count}} ti aspettano",
+  "summary.failing": "{{count}} non riusciti o bloccati",
+  "summary.done_today": "{{count}} completati oggi",
+  "summary.spend": "; {{usd}} USD spesi oggi",
+  "summary.spend_estimated": "; {{usd}} USD spesi oggi (in parte stimati)",
+  "summary.top": " Il più urgente: “{{title}}” in {{project}}.",
+  "summary.project": "{{name}}: {{specs}} spec ({{columns}}); {{rails}} rail, {{running}} in esecuzione{{reviews}}{{queue}}.",
+  "summary.project_reviews": ", {{count}} in attesa di revisione",
+  "summary.project_queue": "; {{count}} in coda",
+  "summary.project_queue_paused": " (coda in pausa)",
+  "summary.live": "Board in tempo reale: {{needs}} ti aspettano, {{working}} in corso, {{done}} completati oggi{{scope}}.",
+  "summary.context": "Briefing di {{name}}: {{specs}} spec, {{rails}} rail, branch {{branch}}{{dirty}}.",
+  "summary.context_dirty": " (modifiche non committate)",
+  "next.act": "{{label}} — {{title}}",
+  "next.wait": "Attendi che il lavoro in corso si assesti",
+  "next.projects": "Scegli un progetto su cui lavorare",
+  "next.inbox": "Vedi tutto ciò che ti aspetta"
+}

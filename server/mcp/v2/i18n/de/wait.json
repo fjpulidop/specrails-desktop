@@ -1,0 +1,19 @@
+{
+  "item": "{{ref}} ist {{label}}",
+  "summary.fired_one": "{{item}}.",
+  "summary.fired": "{{count}} Änderungen; erste: {{item}}.",
+  "summary.timeout": "In {{seconds}} s hat sich nichts geändert. Rufe specrails_wait erneut mit dem cursor auf; das ist kein Fehler.",
+  "summary.interrupted": "Die Person hat eine neue Nachricht gesendet; das Warten wurde vorzeitig beendet.",
+  "summary.events": "{{count}} Ereignisse.",
+  "summary.no_events": "Keine Ereignisse.",
+  "reason.stuck": "Der aktuelle Schritt erzeugt keine Aktivität mehr.",
+  "reason.review": "Es wartet auf dein Review.",
+  "reason.failed": "Es ist fehlgeschlagen; diagnostiziere es oder wähle eine Abhilfe.",
+  "reason.budget": "Ein Ausgabenlimit wurde erreicht; erhöhe es oder warte auf das Zurücksetzen.",
+  "reason.blocked": "Es ist blockiert, bis du handelst.",
+  "warning.cursor_reset": "Der cursor gehört zu einem anderen Journal; es wird ab jetzt gewartet.",
+  "warning.gap": "Ältere Ereignisse wurden durch die Aufbewahrungsregel entfernt; die Seite beginnt beim ältesten erhaltenen Ereignis.",
+  "error.too_many_refs": "Warte auf höchstens {{max}} Refs gleichzeitig.",
+  "error.kind": "Ein Warten kann {{kind}}-Refs nicht verfolgen. Unterstützt: {{kinds}}.",
+  "notice": "{{ref}} braucht dich. Rufe specrails_wait(until) auf oder öffne es."
+}

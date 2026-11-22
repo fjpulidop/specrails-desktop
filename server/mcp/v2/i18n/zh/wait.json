@@ -1,0 +1,19 @@
+{
+  "item": "{{ref}} 为 {{label}}",
+  "summary.fired_one": "{{item}}。",
+  "summary.fired": "{{count}} 项变化；第一项：{{item}}。",
+  "summary.timeout": "{{seconds}} 秒内没有变化。请带上 cursor 再次调用 specrails_wait；这不是失败。",
+  "summary.interrupted": "此人发送了新消息；等待提前结束。",
+  "summary.events": "{{count}} 个事件。",
+  "summary.no_events": "没有事件。",
+  "reason.stuck": "当前步骤不再产生活动。",
+  "reason.review": "它在等待你的审阅。",
+  "reason.failed": "它失败了；请诊断或选择补救措施。",
+  "reason.budget": "已达到花费上限；请提高上限或等待重置。",
+  "reason.blocked": "在你采取行动之前它处于受阻状态。",
+  "warning.cursor_reset": "该 cursor 属于另一个日志；从现在开始等待。",
+  "warning.gap": "较早的事件已因保留策略被移除；此页从保留的最早事件开始。",
+  "error.too_many_refs": "一次最多等待 {{max}} 个 ref。",
+  "error.kind": "等待无法跟进 {{kind}} 类型的 ref。支持的类型：{{kinds}}。",
+  "notice": "{{ref}} 需要你处理。调用 specrails_wait(until) 或打开它。"
+}

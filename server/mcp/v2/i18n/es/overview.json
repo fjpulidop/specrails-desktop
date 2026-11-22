@@ -1,0 +1,22 @@
+{
+  "mood.idle": "Todo tranquilo: nada en marcha y nada esperándote",
+  "summary.app": "{{headline}}{{spend}}.",
+  "summary.running": "{{count}} en marcha",
+  "summary.needs_you": "{{count}} esperándote",
+  "summary.failing": "{{count}} con fallo o bloqueo",
+  "summary.done_today": "{{count}} hechas hoy",
+  "summary.spend": "; {{usd}} USD gastados hoy",
+  "summary.spend_estimated": "; {{usd}} USD gastados hoy (en parte estimado)",
+  "summary.top": " Lo más urgente: “{{title}}” en {{project}}.",
+  "summary.project": "{{name}}: {{specs}} specs ({{columns}}); {{rails}} rails, {{running}} en marcha{{reviews}}{{queue}}.",
+  "summary.project_reviews": ", {{count}} pendientes de revisión",
+  "summary.project_queue": "; {{count}} en cola",
+  "summary.project_queue_paused": " (cola en pausa)",
+  "summary.live": "Tablero en vivo: {{needs}} te necesitan, {{working}} en curso, {{done}} hechas hoy{{scope}}.",
+  "summary.context": "Resumen de {{name}}: {{specs}} specs, {{rails}} rails, rama {{branch}}{{dirty}}.",
+  "summary.context_dirty": " (cambios sin confirmar)",
+  "next.act": "{{label}} — {{title}}",
+  "next.wait": "Espera a que el trabajo en curso termine",
+  "next.projects": "Elige un proyecto en el que trabajar",
+  "next.inbox": "Mira todo lo que te espera"
+}

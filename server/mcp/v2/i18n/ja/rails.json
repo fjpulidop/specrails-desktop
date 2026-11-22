@@ -1,0 +1,18 @@
+{
+  "summary.list": "レール {{count}} 本: 空き {{free}} 本、使用中 {{busy}} 本、判断待ち {{waiting}} 本。",
+  "summary.created": "{{label}} を作成しました。",
+  "summary.removed": "{{label}} を削除しました。",
+  "summary.renamed": "{{label}} の名前を変更しました。",
+  "summary.configured": "{{label}} を更新しました: {{changed}}。",
+  "summary.prepared": "次の起動に備えて worktree を {{count}} 個準備しています。",
+  "summary.released": "準備済みの worktree を {{count}} 個解放しました。",
+  "summary.overlaps": "他のレール {{count}} 本が同じファイルに触れる可能性があります。",
+  "summary.forecast": "{{label}}: {{forecast}}。",
+  "summary.forecast_none": "予測に必要な履歴がまだ足りません",
+  "summary.forecast_range": "通常 {{low}}–{{high}} 分、{{cost}}",
+  "summary.forecast_cost": "{{low}}–{{high}} USD",
+  "summary.forecast_cost_none": "コスト不明",
+  "preview.remove": "{{label}} を削除し、そのスペックをボードに戻します。",
+  "error.launch_option": "{{keys}} はレールの設定ではなく起動オプションです: specrails_runs(launch) に渡してください。",
+  "error.config": "config は specIds、mode、engine、profile、name を受け付けます。model、effort、targetPr は起動オプションです。"
+}
