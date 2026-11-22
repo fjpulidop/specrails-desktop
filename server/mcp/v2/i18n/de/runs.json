@@ -19,6 +19,7 @@
   "summary.recovery": "{{label}} im ursprünglichen Worktree des Laufs erledigt.",
   "summary.deleted": "Verlauf gelöscht.",
   "preview.launch": "Startet {{count}} Lauf/Läufe: {{what}}.",
+  "preview.sequential": "Sie laufen nacheinander in einem einzigen Lauf; für einen Lauf pro Spec, jeden auf eigener Schiene, füge options.parallel: true hinzu.",
   "preview.launch_all": "Startet {{count}} Rail(s) mit ihren eigenen Einstellungen.",
   "preview.time": "Solche Läufe dauern meist {{low}}–{{high}} min.",
   "preview.queue": "Die Maschine ist ausgelastet: {{running}} laufen, neue Läufe warten auf einen freien Slot.",
@@ -36,6 +37,7 @@
   "error.change_model": "Das Modell zu wechseln ist ein neuer Start: specrails_runs(launch, target:{specIds}, model).",
   "error.unknown_step": "Kein Schritt \"{{step}}\". Schritte: {{steps}}.",
   "error.bad_target": "target braucht eines von specIds, rail, loopId, command oder template.",
+  "error.rail_empty": "Schiene {{rail}} hat keine Specs zum Starten. Lege mit specrails_rails(configure) Specs darauf oder starte sie direkt mit target.specIds.",
   "error.fork_step": "fork braucht options.fromStep (eine Schritt-ID aus view detail, fields graph).",
   "error.rail_idle": "Rail {{rail}} hat keinen aktiven Lauf."
 }

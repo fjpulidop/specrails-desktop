@@ -19,6 +19,7 @@
   "summary.recovery": "{{label}} hecho en el worktree original de la ejecución.",
   "summary.deleted": "Historial eliminado.",
   "preview.launch": "Inicia {{count}} ejecución(es): {{what}}.",
+  "preview.sequential": "Se ejecutan una tras otra en una sola ejecución; para una ejecución por spec, cada una en su propio carril, añade options.parallel: true.",
   "preview.launch_all": "Lanza {{count}} rail(s) con sus propios ajustes.",
   "preview.time": "Las ejecuciones como esta suelen tardar {{low}}–{{high}} min.",
   "preview.queue": "La máquina está ocupada: {{running}} en marcha, las nuevas ejecuciones esperan un hueco libre.",
@@ -36,6 +37,7 @@
   "error.change_model": "Cambiar el modelo es un lanzamiento nuevo: specrails_runs(launch, target:{specIds}, model).",
   "error.unknown_step": "No existe el paso \"{{step}}\". Pasos: {{steps}}.",
   "error.bad_target": "target necesita uno de specIds, rail, loopId, command o template.",
+  "error.rail_empty": "El carril {{rail}} no tiene specs que lanzar. Pon specs en él con specrails_rails(configure) o lánzalas directamente con target.specIds.",
   "error.fork_step": "fork necesita options.fromStep (un id de paso de view detail, fields graph).",
   "error.rail_idle": "El rail {{rail}} no tiene ninguna ejecución activa."
 }

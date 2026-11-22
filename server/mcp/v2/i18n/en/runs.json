@@ -19,6 +19,7 @@
   "summary.recovery": "{{label}} done on the run's original worktree.",
   "summary.deleted": "History deleted.",
   "preview.launch": "Starts {{count}} run(s): {{what}}.",
+  "preview.sequential": "They run one after another in a single run; for one run per spec, each on its own rail, add options.parallel: true.",
   "preview.launch_all": "Launches {{count}} rail(s) with their own settings.",
   "preview.time": "Runs like this usually take {{low}}–{{high}} min.",
   "preview.queue": "The machine is busy: {{running}} running, new runs wait for a free slot.",
@@ -36,6 +37,7 @@
   "error.change_model": "Changing the model is a new launch: specrails_runs(launch, target:{specIds}, model).",
   "error.unknown_step": "No step \"{{step}}\". Steps: {{steps}}.",
   "error.bad_target": "target needs one of specIds, rail, loopId, command or template.",
+  "error.rail_empty": "Rail {{rail}} has no specs to launch. Put specs on it with specrails_rails(configure), or launch them directly with target.specIds.",
   "error.fork_step": "fork needs options.fromStep (a step id from view detail, fields graph).",
   "error.rail_idle": "Rail {{rail}} has no active run."
 }

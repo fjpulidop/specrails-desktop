@@ -19,6 +19,7 @@
   "summary.recovery": "已在运行的原始 worktree 上完成 {{label}}。",
   "summary.deleted": "历史记录已删除。",
   "preview.launch": "开始 {{count}} 次运行：{{what}}。",
+  "preview.sequential": "它们会在一次运行中依次执行；如需每个 spec 在各自的轨道上单独运行，请添加 options.parallel: true。",
   "preview.launch_all": "以各自的设置启动 {{count}} 个 rail。",
   "preview.time": "此类运行通常需要 {{low}}–{{high}} 分钟。",
   "preview.queue": "机器正忙：{{running}} 个正在运行，新的运行将等待空闲槽位。",
@@ -36,6 +37,7 @@
   "error.change_model": "更改模型即为新的启动：specrails_runs(launch, target:{specIds}, model)。",
   "error.unknown_step": "没有步骤 \"{{step}}\"。可用步骤：{{steps}}。",
   "error.bad_target": "target 需要 specIds、rail、loopId、command 或 template 之一。",
+  "error.rail_empty": "轨道 {{rail}} 上没有可启动的 spec。请用 specrails_rails(configure) 为其分配 spec，或直接用 target.specIds 启动。",
   "error.fork_step": "fork 需要 options.fromStep（来自 view detail、fields graph 的步骤 id）。",
   "error.rail_idle": "Rail {{rail}} 没有活动的运行。"
 }

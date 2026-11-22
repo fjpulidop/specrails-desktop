@@ -19,6 +19,7 @@
   "summary.recovery": "{{label}} concluído no worktree original da execução.",
   "summary.deleted": "Histórico excluído.",
   "preview.launch": "Inicia {{count}} execução(ões): {{what}}.",
+  "preview.sequential": "Elas rodam uma após a outra numa única execução; para uma execução por spec, cada uma no seu próprio trilho, adicione options.parallel: true.",
   "preview.launch_all": "Lança {{count}} rail(s) com as próprias configurações.",
   "preview.time": "Execuções como esta costumam levar {{low}}–{{high}} min.",
   "preview.queue": "A máquina está ocupada: {{running}} em andamento, novas execuções aguardam uma vaga livre.",
@@ -36,6 +37,7 @@
   "error.change_model": "Mudar o modelo é um novo lançamento: specrails_runs(launch, target:{specIds}, model).",
   "error.unknown_step": "Não existe a etapa \"{{step}}\". Etapas: {{steps}}.",
   "error.bad_target": "target precisa de um entre specIds, rail, loopId, command ou template.",
+  "error.rail_empty": "O trilho {{rail}} não tem specs para iniciar. Coloque specs nele com specrails_rails(configure) ou inicie-as diretamente com target.specIds.",
   "error.fork_step": "fork precisa de options.fromStep (um id de etapa de view detail, fields graph).",
   "error.rail_idle": "O rail {{rail}} não tem execução ativa."
 }

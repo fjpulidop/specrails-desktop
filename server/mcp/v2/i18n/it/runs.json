@@ -19,6 +19,7 @@
   "summary.recovery": "{{label}} eseguito sul worktree originale dell'esecuzione.",
   "summary.deleted": "Cronologia eliminata.",
   "preview.launch": "Avvia {{count}} esecuzione/i: {{what}}.",
+  "preview.sequential": "Vengono eseguite una dopo l'altra in un'unica esecuzione; per un'esecuzione per spec, ognuna sul proprio binario, aggiungi options.parallel: true.",
   "preview.launch_all": "Lancia {{count}} rail con le loro impostazioni.",
   "preview.time": "Le esecuzioni come questa di solito durano {{low}}–{{high}} min.",
   "preview.queue": "La macchina è occupata: {{running}} in esecuzione, le nuove esecuzioni attendono uno slot libero.",
@@ -36,6 +37,7 @@
   "error.change_model": "Cambiare modello è un nuovo lancio: specrails_runs(launch, target:{specIds}, model).",
   "error.unknown_step": "Nessun passaggio \"{{step}}\". Passaggi: {{steps}}.",
   "error.bad_target": "target richiede uno tra specIds, rail, loopId, command o template.",
+  "error.rail_empty": "Il binario {{rail}} non ha spec da avviare. Mettici delle spec con specrails_rails(configure) o avviale direttamente con target.specIds.",
   "error.fork_step": "fork richiede options.fromStep (un id di passaggio da view detail, fields graph).",
   "error.rail_idle": "Il rail {{rail}} non ha un'esecuzione attiva."
 }

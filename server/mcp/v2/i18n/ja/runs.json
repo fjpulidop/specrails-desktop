@@ -19,6 +19,7 @@
   "summary.recovery": "実行の元の worktree で {{label}} が完了しました。",
   "summary.deleted": "履歴を削除しました。",
   "preview.launch": "{{count}} 件の実行を開始します: {{what}}。",
+  "preview.sequential": "1 回の実行で順番に処理されます。spec ごとに専用のレールで 1 回ずつ実行するには options.parallel: true を追加してください。",
   "preview.launch_all": "レール {{count}} 本をそれぞれの設定で起動します。",
   "preview.time": "このような実行は通常 {{low}}–{{high}} 分かかります。",
   "preview.queue": "マシンがビジー状態です: 実行中 {{running}} 件、新しい実行は空きスロットを待ちます。",
@@ -36,6 +37,7 @@
   "error.change_model": "モデルの変更は新しい起動になります: specrails_runs(launch, target:{specIds}, model)。",
   "error.unknown_step": "ステップ \"{{step}}\" はありません。ステップ: {{steps}}。",
   "error.bad_target": "target には specIds、rail、loopId、command、template のいずれかが必要です。",
+  "error.rail_empty": "レール {{rail}} には起動する spec がありません。specrails_rails(configure) で spec を割り当てるか、target.specIds で直接起動してください。",
   "error.fork_step": "fork には options.fromStep（view detail、fields graph のステップ id）が必要です。",
   "error.rail_idle": "レール {{rail}} にアクティブな実行はありません。"
 }

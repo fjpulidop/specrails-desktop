@@ -548,10 +548,18 @@ async function launch(ctx: V2CallContext, args: Row): Promise<unknown> {
 async function launchPreviewOf(ctx: V2CallContext, args: Row): Promise<PreviewInput> {
   const plan = launchPlan(ctx, args)
   const body = launchBody(ctx, args)
+  // A rail launch needs specs on the rail: refuse at preview time, before the person is asked to agree.
+  let railSpecs: number[] | null = null
+  if (plan.kind === 'rail' && plan.rail !== null) {
+    const rail = arr(rec(await railsSnapshot(ctx, plan.project)).rails).map(rec).find((row) => Number(row.railIndex) === plan.rail)
+    railSpecs = arr(rail?.ticketIds).filter((id): id is number => typeof id === 'number')
+    if (!railSpecs.length) throw new V2ToolError('invalid_input', ctx.v2.t('runs.error.rail_empty', { rail: plan.rail + 1 }), { next: [{ tool: 'specrails_rails', args: { action: 'list', project: plan.project.slug }, why: 'The rails and their specs.' }] })
+  }
+  const sequential = plan.kind === 'specs' && plan.groups.length === 1 && plan.groups[0].length > 1 && plan.rail === null
+  const effect = [ctx.v2.t('runs.preview.launch', { count: plan.runs, what: plan.what }), ...(sequential ? [ctx.v2.t('runs.preview.sequential')] : [])].join(' ')
   return launchPreview(ctx, plan.project, {
-    forecast: plan.forecast, provider: str(body.aiEngine), runs: plan.runs,
-    effect: ctx.v2.t('runs.preview.launch', { count: plan.runs, what: plan.what }),
-    versionFacts: { k: plan.kind, g: plan.groups, r: plan.rail },
+    forecast: plan.forecast, provider: str(body.aiEngine), runs: plan.runs, effect,
+    versionFacts: { k: plan.kind, g: plan.groups, r: plan.rail, ...(railSpecs ? { s: railSpecs } : {}) },
   })
 }
 

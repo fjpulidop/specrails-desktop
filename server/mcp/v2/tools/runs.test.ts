@@ -417,6 +417,16 @@ describe('specrails_runs launch', () => {
     const partial = await runs({ action: 'launch', target: { specIds: [1, 2] }, options: { parallel: true }, confirm: dry.envelope.data.confirmToken })
     expect(partial.envelope.data.refused).toEqual([{ specs: ['spec:shop-api/2'], error: 'tickets_in_flight', detail: 'busy' }])
     routes.set(`POST ${P}/rails/3/launch`, { status: 202, body: { loopRunIds: ['b'], railIndex: 3 } })
+    routes.set(`GET ${P}/rails`, { body: { rails: [{ railIndex: 0, ticketIds: [] }, { railIndex: 3, ticketIds: [7] }], activeJobs: {}, activeLoopRuns: {}, prDeliveries: {} } })
+    // An empty rail is refused at preview time, before the person is asked to agree.
+    const empty = await runs({ action: 'launch', target: { rail: 'rail:shop-api/0' } })
+    expect(empty.envelope.error).toMatchObject({ code: 'invalid_input', next: [expect.objectContaining({ tool: 'specrails_rails' })] })
+    expect(empty.envelope.error.message).toMatch(/Rail 1 has no specs/)
+    // Several specs without options.parallel run in one run: the preview says so and how to split them.
+    const together = await runs({ action: 'launch', target: { specIds: [1, 2] }, dryRun: true })
+    expect(together.envelope.data.preview.effect).toMatch(/one after another.*options\.parallel: true/)
+    const split = await runs({ action: 'launch', target: { specIds: [1, 2] }, options: { parallel: true }, dryRun: true })
+    expect(split.envelope.data.preview.effect).not.toMatch(/one after another/)
     routes.set(`POST ${P}/loop-runs`, { status: 202, body: { loopRunId: 'c' } })
     routes.set(`POST ${P}/spawn`, { status: 202, body: { jobId: 'd' } })
     routes.set(`POST ${P}/templates/t1/run`, { status: 202, body: { jobId: 'e' } })
