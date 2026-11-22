@@ -96,12 +96,16 @@ function item(handle: MissionCardHandle, row: Pick<MessageRow, 'conversation_id'
 export function missionCardItems(handle: MissionCardHandle, nowMs: number): InboxItem[] {
   const nowIso = new Date(nowMs).toISOString()
   const since = new Date(nowMs - MISSION_CARD_WINDOW_MS).toISOString()
+  // An index-range lower bound on (conversation_id, created_at): the day prefix is the same in both stored
+  // formats ('YYYY-MM-DD HH:MM:SS' and ISO), so it never drops a row the exact julianday check keeps.
+  const sinceDay = since.slice(0, 10)
+  // The offer's own projectId is checked below; the id pre-filter keeps other projects' offers out of the LIMIT.
   const out: InboxItem[] = []
 
   const proposals = handle.db.prepare(`
     SELECT m.id, m.conversation_id, m.content, m.intent, m.created_at, c.title
     FROM agent_conversations c
-    JOIN agent_messages m ON m.conversation_id = c.id
+    JOIN agent_messages m ON m.conversation_id = c.id AND m.created_at >= ?
     WHERE c.pinned_project_id = ? AND c.deleted_at IS NULL AND c.archived_at IS NULL
       AND m.role = 'assistant'
       AND julianday(m.created_at) >= julianday(?)
@@ -112,7 +116,7 @@ export function missionCardItems(handle: MissionCardHandle, nowMs: number): Inbo
           AND julianday(u.created_at) > julianday(m.created_at))
     ORDER BY m.created_at DESC
     LIMIT 100
-  `).all(handle.project.id, since) as MessageRow[]
+  `).all(sinceDay, handle.project.id, since) as MessageRow[]
   for (const row of proposals) {
     const done = decided(row.intent)
     const at = toIso(row.created_at, nowIso)
@@ -134,14 +138,15 @@ export function missionCardItems(handle: MissionCardHandle, nowMs: number): Inbo
 
   const offers = handle.db.prepare(`
     SELECT m.id, m.conversation_id, m.content, NULL AS intent, m.created_at, c.title
-    FROM agent_messages m
-    JOIN agent_conversations c ON c.id = m.conversation_id
-    WHERE m.role = 'system' AND c.deleted_at IS NULL AND c.archived_at IS NULL
+    FROM agent_conversations c
+    JOIN agent_messages m ON m.conversation_id = c.id AND m.created_at >= ?
+    WHERE c.deleted_at IS NULL AND c.archived_at IS NULL AND m.role = 'system'
       AND julianday(m.created_at) >= julianday(?)
       AND instr(m.content, '"pr-ci-offer"') > 0 AND instr(m.content, '"offered"') > 0
+      AND instr(m.content, ?) > 0
     ORDER BY m.created_at DESC
     LIMIT 100
-  `).all(since) as MessageRow[]
+  `).all(sinceDay, since, handle.project.id) as MessageRow[]
   const seen = new Set<string>()
   for (const row of offers) {
     let data: Row

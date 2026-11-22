@@ -134,6 +134,15 @@ describe('inbox: mission cards', () => {
     expect(items[0]).toMatchObject({ kind: 'mission', detail: 'PR #41', conversationId: 'conv-ci', card: { id: `${newest}:pr-ci-offer:0`, kind: 'pr-ci-offer', prNumber: 41, prDeliveryId: 'd-7' } })
   })
 
+  it('other projects\' offers never crowd this project\'s offer out of the read', () => {
+    conversation('conv-ci', 'p2')
+    message('conv-ci', 'system', JSON.stringify({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd-1', prNumber: 7, state: 'offered', at: iso(-500_000) }), -500_000)
+    for (let i = 0; i < 120; i++) {
+      message('conv-ci', 'system', JSON.stringify({ kind: 'pr-ci-offer', projectId: 'p2', prDeliveryId: `d-x${i}`, prNumber: 100 + i, state: 'offered', at: iso(-100_000 + i) }), -100_000 + i)
+    }
+    expect(source().collect().map((item) => item.detail)).toEqual(['PR #7'])
+  })
+
   it('a missing app database or mission table costs only the mission cards', () => {
     chain('c1', 'paused', { pauseReason: 'head_missing' })
     desktop.exec('DROP TABLE agent_messages')
