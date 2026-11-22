@@ -125,5 +125,11 @@
   "summary.done": "{{label}}: erledigt.",
   "summary.deprecated": "veraltet: nutze {{target}}",
   "error.missing_list": "es fehlt {{fields}}",
-  "error.needs_one_of": "braucht eines von {{fields}}"
+  "error.needs_one_of": "braucht eines von {{fields}}",
+  "specStatus.todo": "To-do",
+  "specStatus.in_progress": "In Arbeit",
+  "specStatus.done": "Fertig",
+  "specStatus.cancelled": "Abgebrochen",
+  "specStatus.draft": "Entwurf",
+  "specStatus.on_review": "In Prüfung"
 }

@@ -125,5 +125,11 @@
   "summary.done": "{{label}} が完了しました。",
   "summary.deprecated": "非推奨: {{target}} を使ってください",
   "error.missing_list": "{{fields}} がありません",
-  "error.needs_one_of": "{{fields}} のいずれかが必要です"
+  "error.needs_one_of": "{{fields}} のいずれかが必要です",
+  "specStatus.todo": "未着手",
+  "specStatus.in_progress": "進行中",
+  "specStatus.done": "完了",
+  "specStatus.cancelled": "キャンセル",
+  "specStatus.draft": "下書き",
+  "specStatus.on_review": "レビュー中"
 }

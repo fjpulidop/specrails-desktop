@@ -125,5 +125,11 @@
   "summary.done": "{{label}}: fatto.",
   "summary.deprecated": "deprecato: usa {{target}}",
   "error.missing_list": "manca {{fields}}",
-  "error.needs_one_of": "serve uno tra {{fields}}"
+  "error.needs_one_of": "serve uno tra {{fields}}",
+  "specStatus.todo": "Da fare",
+  "specStatus.in_progress": "In corso",
+  "specStatus.done": "Completato",
+  "specStatus.cancelled": "Annullato",
+  "specStatus.draft": "Bozza",
+  "specStatus.on_review": "In revisione"
 }

@@ -166,6 +166,12 @@ describe('specrails_overview(project)', () => {
     expect(envelope.summary).toBe('Shop API: 4 specs (todo 3, in progress 1); 2 rails, 2 running, 1 awaiting review; 1 queued (queue paused).')
   })
 
+  it('words the spec columns of the summary in the call\'s language', async () => {
+    const { envelope } = await overview({ action: 'project', project: 'shop', lang: 'es' })
+    expect(envelope.summary).toMatch(/\(por hacer 3, en curso 1\)/)
+    expect(envelope.summary).not.toMatch(/todo|in progress/)
+  })
+
   it('detail adds the newest specs per column and the blueprint', async () => {
     const { envelope } = await overview({ action: 'project', project: 'p1', view: 'detail' })
     expect(envelope.data.top).toEqual({ todo: [{ ref: 'spec:shop-api/4', title: 'Add login', priority: 'high' }] })

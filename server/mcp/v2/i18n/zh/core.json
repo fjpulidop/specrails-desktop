@@ -125,5 +125,11 @@
   "summary.done": "{{label}} 已完成。",
   "summary.deprecated": "已弃用：请使用 {{target}}",
   "error.missing_list": "缺少 {{fields}}",
-  "error.needs_one_of": "需要 {{fields}} 之一"
+  "error.needs_one_of": "需要 {{fields}} 之一",
+  "specStatus.todo": "待办",
+  "specStatus.in_progress": "进行中",
+  "specStatus.done": "完成",
+  "specStatus.cancelled": "已取消",
+  "specStatus.draft": "草稿",
+  "specStatus.on_review": "审核中"
 }

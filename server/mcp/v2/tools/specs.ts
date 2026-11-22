@@ -8,6 +8,7 @@ import { V2ToolError, result, type ResultMeta } from '../core/envelope'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { statusFromSpec } from '../core/status-map'
+import { specStatusWord } from '../core/lang'
 import { untrusted, neutralize } from '../core/untrusted'
 import { approxTokens } from '../core/size-guard'
 import { shortHash } from '../core/canonical'
@@ -456,7 +457,7 @@ async function listSpecs(ctx: V2CallContext, args: Row): Promise<unknown> {
   const end = offset + items.length
   const more = end < matched
   const counts = asRecord(response.statusCounts)
-  const countText = Object.entries(counts).map(([s, n]) => `${s.replace(/_/g, ' ')} ${n}`).join(', ')
+  const countText = Object.entries(counts).map(([s, n]) => `${specStatusWord(ctx.v2.lang, s)} ${n}`).join(', ')
   const summary = matched === 0
     ? ctx.v2.t(query || Object.keys(filter).length ? 'specs.summary.list_none' : 'specs.summary.list_empty', { project: row.name })
     : ctx.v2.t('specs.summary.list', { shown: items.length, from: offset + 1, matched, total: response.total as number, counts: countText || '-' })

@@ -27,6 +27,12 @@
     "appState.hint.blocked": "common:runState.hint.blocked",
     "appState.hint.failed": "common:runState.hint.failed",
     "appState.hint.done": "common:runState.hint.done",
-    "appState.hint.stopped": "common:runState.hint.stopped"
+    "appState.hint.stopped": "common:runState.hint.stopped",
+    "specStatus.todo": "tickets:ticketStatus.todo",
+    "specStatus.in_progress": "tickets:ticketStatus.inProgress",
+    "specStatus.done": "tickets:ticketStatus.done",
+    "specStatus.cancelled": "tickets:ticketStatus.cancelled",
+    "specStatus.draft": "tickets:ticketStatus.draft",
+    "specStatus.on_review": "tickets:ticketStatus.onReview"
   }
 }

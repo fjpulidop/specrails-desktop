@@ -3,6 +3,7 @@ import { F, resolveFields } from '../core/views'
 import { asRecord } from '../core/text'
 import { result } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
+import { specStatusWord } from '../core/lang'
 import { untrusted } from '../core/untrusted'
 import { statusFromDelivery, statusFromJob, statusFromWord, type CanonicalStatus } from '../core/status-map'
 import { apiCall, McpApiError } from '../../tools/types'
@@ -301,7 +302,7 @@ async function projectOverview(ctx: V2CallContext, args: Row) {
   return result(data, {
     summary: t('overview.summary.project', {
       name: row.name, specs: board.total,
-      columns: board.columns.filter((column) => column.count > 0).map((column) => `${column.status.replace(/_/g, ' ')} ${column.count}`).join(', ') || '—',
+      columns: board.columns.filter((column) => column.count > 0).map((column) => `${specStatusWord(ctx.v2.lang, column.status)} ${column.count}`).join(', ') || '—',
       rails: board.rails.length, running: board.running.length,
       reviews: reviews ? t('overview.summary.project_reviews', { count: reviews }) : '',
       queue: queued ? `${t('overview.summary.project_queue', { count: queued })}${board.queue?.paused ? t('overview.summary.project_queue_paused') : ''}` : '',

@@ -73,3 +73,14 @@ export type Translate = (key: string, params?: Params) => string
 export function translator(lang: Lang): Translate {
   return (key, params) => t(lang, key, params)
 }
+
+/** Languages whose status words read lowercased inside a sentence ("todo 3, in progress 1"). */
+const LOWERCASE_WORDS: ReadonlySet<Lang> = new Set(['en', 'es', 'fr', 'pt', 'it'])
+
+/** A spec status (`on_review`) as the app words it in `lang`, for counts inside a summary; unknown → the raw word. */
+export function specStatusWord(lang: Lang, status: string): string {
+  const key = `core.specStatus.${status}`
+  const word = lookup(lang, key) ?? lookup('en', key)
+  if (!word) return status.replace(/_/g, ' ')
+  return LOWERCASE_WORDS.has(lang) ? word.toLocaleLowerCase(lang) : word
+}
