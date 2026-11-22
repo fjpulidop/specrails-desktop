@@ -201,7 +201,8 @@ function builderView(ctx: V2CallContext, body: Row, writingHint: boolean | null,
   if (committed && projectRef) {
     offers.push({ id: 'launch_m1', labelKey: 'blueprint.offer.launch_m1', call: { tool: 'specrails_blueprint', args: { action: 'chain_launch', project: projectRef, milestone: 1 } } })
   } else if (!writing) {
-    if (ready) offers.push({ id: 'commit', labelKey: 'blueprint.offer.create_project', call: { tool: 'specrails_blueprint', args: { action: 'commit', ref } } })
+    // The person names the project and its folder; without them the commit picks the product name and the projects folder.
+    if (ready) offers.push({ id: 'commit', labelKey: 'blueprint.offer.create_project', call: { tool: 'specrails_blueprint', args: { action: 'commit', ref } }, needs: ['options.name', 'options.location'] })
     if (status === 'rejected' || (claimsComplete && quality.length) || (specs.length && written < specs.length && !claimsComplete && written > 0)) {
       offers.push({ id: 'repair', labelKey: written < specs.length && status !== 'rejected' ? 'blueprint.offer.continue' : 'blueprint.offer.repair', call: { tool: 'specrails_blueprint', args: { action: 'repair', ref } } })
     }
@@ -723,7 +724,7 @@ export const blueprintTool = defineTool({
       tier: 'ai-spawn', required: ['ref'],
       // Creating a GitHub repository is an external change; otherwise it is costly AI work.
       confirm: (args) => (args.options as Record<string, unknown> | undefined)?.githubRepo ? 'external' : 'costly',
-      doc: 'Create the project from the blueprint (202); options: name, location, providers[], githubRepo, waitMs.',
+      doc: 'Create the project from the blueprint (202); options: name and location (the person\'s; default: the product name in the projects folder), providers[], githubRepo, waitMs.',
       preview: async (ctx, args) => {
         const { input, body, specs } = await commitInput(ctx, args)
         const sentences = [ctx.v2.t('blueprint.preview.commit', { name: input.name, location: input.location, specs, providers: input.providers.join(', ') })]

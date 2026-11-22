@@ -211,7 +211,7 @@ Project builder: converse, commit into a project with milestone 1, generate mile
 | `repair` | ai-spawn | costly | Requires `ref`. Re-ask a rejected/incomplete blueprint, or continue a halted spec generation. |
 | `abort` | write | — | Requires `ref`. Stop the Builder turn (blueprint ref) or a milestone generation (milestone ref). |
 | `get` | read | — | Requires `ref`. A Builder conversation (fields conversation, blueprint = outline, spec = one M1 spec in full with options.spec n) or a project commit; options.waitMs waits for a reply in progress. |
-| `commit` | ai-spawn | per call | Requires `ref`. Create the project from the blueprint (202); options: name, location, providers[], githubRepo, waitMs. |
+| `commit` | ai-spawn | per call | Requires `ref`. Create the project from the blueprint (202); options: name and location (the person's; default: the product name in the projects folder), providers[], githubRepo, waitMs. |
 | `milestones` | read | — | Milestones M1..Mn: state, counts, chain, next step; milestone or ref: one milestone with specs, rails, generation, engine. |
 | `milestone_generate` | ai-spawn | costly | Generate (options.fresh: regenerate) or refine (message) a planned milestone's specs; options: provider, model, effort (another than the usual = only this milestone), waitMs. |
 | `milestone_commit` | write | — | Add the generated milestone specs to the board as todo (options.specs: an edited batch). |
@@ -245,7 +245,7 @@ Runs (jobs, loop and Intent runs): list, get views, launch (assign+launch in one
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `list` | read | — | filter: status[] (v2 words), kind[] loop\|job, spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide |
+| `list` | read | — | filter: status[] (v2 words), kind[] loop\|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide |
 | `get` | read | — | Requires `ref`. view detail + fields: steps, graph, logs (options.step, options.lines, cursor), narrated, verification, cost, attempts, events |
 | `launch` | ai-spawn | costly | Requires `target`. target {specIds[], rail?} \| {rail} \| {loopId, specIds?} \| {command} \| {template}; provider/model/effort; options: parallel (one rail per spec), runCapUsd, loopId, profile, targetPr, repositoryIds, workspaceSelection, baseBranch, revisionOf+revisionNote, followUp |
 | `launch_all` | ai-spawn | costly | every rail with specs and no active run, each with its own settings |

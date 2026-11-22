@@ -405,8 +405,11 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
           const preview = await buildPreview()
           const needed = confirmClass !== null && !firstParty && confirmNeeded(confirmClass, costOf(preview), confirmAboveUsd)
           const confirmToken = needed ? ledger.issue(binding(preview.version)) : null
-          return reply(success({ preview, wouldExecute: false, ...(confirmToken ? { confirmToken, resend: resend(confirmToken) } : {}) },
-            t('core.confirm.dry_run', { label, effect: preview.effect })))
+          // A client that can ask in its own dialog needs no separate preview turn: say so (the yes then costs no model turn).
+          const dialog = confirmToken !== null && session.elicitation?.() === true && readConfirmInClient(ctx.desktopDb)
+          const again = confirmToken ? resend(confirmToken) : undefined
+          return reply(success({ preview, wouldExecute: false, ...(confirmToken ? { confirmToken, ...(again ? { resend: again } : {}) } : {}) },
+            t('core.confirm.dry_run', { label, effect: preview.effect }), dialog ? [t('core.confirm.dry_run_dialog')] : []))
         }
 
         // The in-app agent's permission ladder and cards govern first-party turns (unchanged).

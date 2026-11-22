@@ -5,7 +5,7 @@
 // END STATE through the app's HTTP API, never the transcript (except where the
 // plan asks about the agent's words: S14's language and S15's flag).
 import { assertion, called, confirmedWithToken, neverCalled, onlyAdvertisedOffers, answeredIn, agentSaw, okCalls } from './checks.mjs'
-import { DESTRUCTIVE } from './metrics.mjs'
+import { DESTRUCTIVE, confirmedInClient } from './metrics.mjs'
 import * as seed from './seed.mjs'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -160,7 +160,7 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'S5', title: 'Review a delivery and integrate it locally', needs: ['specrails_deliveries'], referenceCalls: 5, referenceLogical: 4,
+    id: 'S5', title: 'Review a delivery and integrate it locally', needs: ['specrails_deliveries'], referenceCalls: 4, referenceLogical: 3,
     prompt: { en: p => `Review the delivery of the spec "${p.title}" in project "${p.project.name}" and integrate it locally.` },
     person: { confirm: 'Yes, integrate it.' },
     seed: async ctx => ({ ...(await seed.seedDelivery(ctx.api, ctx.workDir, `s5-${ctx.tag}`, 'Add the discount badge')), title: 'Add the discount badge' }),
@@ -263,7 +263,8 @@ export const SCENARIOS = [
       const runCount = (board?.cards ?? []).filter(c => list.some(t => (c.ticketIds ?? []).includes(t.id)) && c.railIndex !== undefined && JSON.stringify(c).includes(facts.project.id)).length
       return [
         assertion('3 specs created', list.length >= 3, `${list.length} specs`),
-        assertion('launched with one confirmation', launches.length >= 1 && launches.every(c => typeof c.args.confirm === 'string'), `${launches.length} launch call(s)`),
+        // Confirmed by token or in the client's own dialog (verified in the log).
+        assertion('launched with one confirmation', launches.length >= 1 && launches.every(c => typeof c.args.confirm === 'string' || confirmedInClient(c)), `${launches.length} launch call(s)`),
         assertion('3 runs started', runCount >= 3 || list.filter(t => t.status !== 'todo' && t.status !== 'draft').length >= 3, `${runCount} runs`),
       ]
     },
@@ -318,7 +319,7 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'S12', title: 'Discard the Intent session, restore a spec from trash', needs: ['specrails_missions', 'specrails_specs'], referenceCalls: 5, referenceLogical: 4,
+    id: 'S12', title: 'Discard the Intent session, restore a spec from trash', needs: ['specrails_missions', 'specrails_specs'], referenceCalls: 4, referenceLogical: 3,
     prompt: { en: p => `In project "${p.project.name}": discard the Intent session and restore spec ${p.trashed} from the trash.` },
     person: { confirm: 'Yes, discard it.' },
     async seed(ctx) {
@@ -393,13 +394,13 @@ export const SCENARIOS = [
         assertion('specrails entry written to the fresh home', Boolean(entry?.command) && Array.isArray(entry?.args), file),
         assertion('no token in the configuration', !/token|secret|bearer/i.test(JSON.stringify(entry ?? {}).replace(/mcp\.token/g, '')), ''),
         assertion('a new session through the entry lists the tools and answers', tools >= 15 && overview, `${tools} tools, overview ${overview}`),
-        assertion("the person's own ~/.claude.json is untouched", realAfter === facts.realClaude, ''),
+        assertion("the person's own ~/.claude.json MCP entries are untouched", realAfter === facts.realClaude, ''),
       ]
     },
     teardown: f => f.instance?.stop(),
   },
   {
-    id: 'S14', title: 'Spanish: review and merge + costs', needs: ['specrails_deliveries', 'specrails_insights'], referenceCalls: 5, referenceLogical: 4, lang: 'es',
+    id: 'S14', title: 'Spanish: review and merge + costs', needs: ['specrails_deliveries', 'specrails_insights'], referenceCalls: 4, referenceLogical: 3, lang: 'es',
     prompt: { es: p => `Revisa la entrega de "${p?.title ?? 'la spec'}" en el proyecto "${p?.project?.name ?? ''}" y fusiónala en local. Después dime cuánto hemos gastado esta semana.` },
     person: { confirm: 'Sí, adelante.' },
     seed: async ctx => ({ ...(await seed.seedDelivery(ctx.api, ctx.workDir, `s14-${ctx.tag}`, 'Añadir la insignia de descuento')), title: 'Añadir la insignia de descuento' }),
@@ -459,8 +460,24 @@ function okCallsOf(calls, action) {
   return calls.filter(c => c.tool === 'specrails_runs' && c.args?.action === action && c.ok)
 }
 
+/**
+ * The MCP server registrations of a Claude config (top level and per project), as a stable string. The person's
+ * own Claude Code rewrites caches in that file all the time; what `mcp connect` must never touch is these entries.
+ */
 function statOf(file) {
-  try { const st = fs.statSync(file); return `${st.size}:${st.mtimeMs}` } catch { return 'absent' }
+  try {
+    const config = JSON.parse(fs.readFileSync(file, 'utf8'))
+    const projects = Object.fromEntries(Object.entries(config.projects ?? {}).map(([dir, p]) => [dir, p?.mcpServers ?? null]).filter(([, servers]) => servers && Object.keys(servers).length))
+    return canonicalJson({ mcpServers: config.mcpServers ?? null, projects })
+  } catch (error) {
+    return error?.code === 'ENOENT' ? 'absent' : `unreadable: ${error?.message ?? error}`
+  }
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`
+  return JSON.stringify(value)
 }
 
 export const scenarioById = id => SCENARIOS.find(s => s.id.toLowerCase() === String(id).toLowerCase()) ?? null

@@ -134,5 +134,6 @@
   "specStatus.on_review": "On review",
   "confirm.declined": "Not confirmed in the client's dialog (declined there, or the client declines dialogs it cannot show): nothing was done. Ask the person in the chat; only on a yes make the call in resend.",
   "confirm.ask": "{{effect}} Go ahead?",
-  "confirm.ask_field": "Yes, go ahead"
+  "confirm.ask_field": "Yes, go ahead",
+  "confirm.dry_run_dialog": "This client shows the person a confirmation dialog: make the call without dryRun and they confirm there."
 }

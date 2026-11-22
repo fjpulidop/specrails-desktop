@@ -255,7 +255,8 @@ describe('confirmation inside the call (MCP elicitation)', () => {
   it('never asks for a call that needs no confirmation, a dry run, a client without the capability, or with the setting off', async () => {
     answer = () => ({ action: 'accept', content: { confirm: true } })
     await call(asking, 'specrails_fake', { action: 'spend' })
-    await call(asking, 'specrails_fake', { ...merge, dryRun: true })
+    const dry = await call(asking, 'specrails_fake', { ...merge, dryRun: true })
+    expect(dry.envelope.warnings).toEqual([expect.stringContaining('without dryRun')])
     own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-e', elicitation: () => false } as never
     expect((await call(asking, 'specrails_fake', merge)).envelope.error.code).toBe('confirmation_required')
     own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-e', elicitation: () => true } as never

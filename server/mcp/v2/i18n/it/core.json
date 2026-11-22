@@ -134,5 +134,6 @@
   "specStatus.on_review": "In revisione",
   "confirm.declined": "Non confermato nella finestra del client (rifiutato lì, o il client rifiuta le finestre che non può mostrare): non è stato fatto nulla. Chiedi alla persona nella chat; solo con un sì esegui la chiamata di resend.",
   "confirm.ask": "{{effect}} Procedo?",
-  "confirm.ask_field": "Sì, procedi"
+  "confirm.ask_field": "Sì, procedi",
+  "confirm.dry_run_dialog": "Questo client mostra alla persona una finestra di conferma: esegui la chiamata senza dryRun e confermerà lì."
 }

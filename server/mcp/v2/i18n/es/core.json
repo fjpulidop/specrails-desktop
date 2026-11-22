@@ -134,5 +134,6 @@
   "specStatus.on_review": "En revisión",
   "confirm.declined": "No se confirmó en el diálogo del cliente (se rechazó allí, o el cliente rechaza los diálogos que no puede mostrar): no se hizo nada. Pregunta a la persona en el chat; solo si dice que sí, haz la llamada de resend.",
   "confirm.ask": "{{effect}} ¿Adelante?",
-  "confirm.ask_field": "Sí, adelante"
+  "confirm.ask_field": "Sí, adelante",
+  "confirm.dry_run_dialog": "Este cliente muestra a la persona un diálogo de confirmación: haz la llamada sin dryRun y lo confirmará ahí."
 }

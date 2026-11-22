@@ -134,5 +134,6 @@
   "specStatus.on_review": "レビュー中",
   "confirm.declined": "クライアントのダイアログで確認されませんでした（そこで拒否されたか、表示できないダイアログをクライアントが拒否しました）。何も実行されていません。チャットで本人に確認し、同意があった場合のみ resend の呼び出しを実行してください。",
   "confirm.ask": "{{effect}} 実行しますか？",
-  "confirm.ask_field": "はい、実行する"
+  "confirm.ask_field": "はい、実行する",
+  "confirm.dry_run_dialog": "このクライアントは本人に確認ダイアログを表示します。dryRun なしで呼び出せば、そこで確認されます。"
 }

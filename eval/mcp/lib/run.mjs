@@ -18,6 +18,13 @@ import { runProbe } from './probe.mjs'
 import { seedManyProjects } from './seed.mjs'
 import { quotaWindows } from '../../../scripts/benchmark/lib/quota.mjs'
 
+/** Ids of the registered projects (null when the route does not answer). */
+export async function projectIds(api) {
+  const res = await api.get('/projects').catch(() => null)
+  const rows = res?.data?.projects ?? res?.data
+  return Array.isArray(rows) ? rows.map(p => p.id) : null
+}
+
 /** Whether the instance still holds a provider quota refusal (GET /provider-quota). */
 export async function quotaRefused(api) {
   const res = await api.get('/provider-quota').catch(() => null)
@@ -98,6 +105,7 @@ export async function runEval(o, { log = console.log } = {}) {
         const tag = `${Date.now().toString(36).slice(-5)}${n}`
         const t0 = Date.now()
         let facts = null
+        const before = new Set((await projectIds(instance.api)) ?? [])
         try {
           log(`${scenario.id}: seeding`)
           if (scenario.fleet && !ctxBase.fleet) ctxBase.fleet = await seedManyProjects(instance.api, o.workDir, o.fleet)
@@ -126,6 +134,9 @@ export async function runEval(o, { log = console.log } = {}) {
         } finally {
           row.wallMs = Date.now() - t0
           if (scenario.teardown && facts) await scenario.teardown(facts).catch(error => log(`${scenario.id}: teardown — ${String(error?.message ?? error).slice(0, 200)}`))
+          // A scenario's projects (and their held or failed runs) must not show up in the next one's inbox.
+          const fleet = new Set((ctxBase.fleet ?? []).map(p => p.id))
+          for (const id of (await projectIds(instance.api)) ?? []) if (!before.has(id) && !fleet.has(id)) await instance.api.call('DELETE', `/projects/${id}`).catch(() => null)
           // A scenario must not leave the next one a refused provider (S4's scripted limit): restart without it.
           if (!instance.reused && await quotaRefused(instance.api)) {
             log(`${scenario.id}: a provider quota refusal outlived the scenario; restarting the instance without it`)

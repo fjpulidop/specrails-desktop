@@ -380,7 +380,7 @@ function statusFilter(value: unknown): string | undefined {
   const expanded = [...new Set(list.flatMap((status) => status === 'active' ? ACTIVE_STATUSES : status === 'all' ? [...STATUSES] : [status]))]
   const bad = expanded.filter((status) => !(STATUSES as readonly string[]).includes(status))
   if (bad.length) {
-    const deleted = bad.some((status) => /^(trash|trashed|deleted|removed)$/i.test(status))
+    const deleted = bad.some((status) => DELETED_WORD.test(status))
     throw new V2ToolError('invalid_input', `Unknown status ${bad.join(', ')}. Use ${[...STATUSES, 'active', 'all'].join(', ')}.${deleted ? ' Deleted specs are listed by specrails_specs(trash) and come back with specrails_specs(restore).' : ''}`,
       deleted ? { next: [{ tool: 'specrails_specs', args: { action: 'trash' }, why: 'Deleted specs.' }] } : {})
   }
@@ -414,9 +414,14 @@ function findRail(rails: Row[], rail: unknown): Row | undefined {
     ?? rails.find((r) => typeof raw === 'string' && typeof r.name === 'string' && r.name.toLowerCase() === raw.toLowerCase())
 }
 
+const DELETED_WORD = /^(trash|trashed|deleted|removed)$/i
+
 async function listSpecs(ctx: V2CallContext, args: Row): Promise<unknown> {
   const row = ctx.v2.project(args)
   const filter = asRecord(args.filter)
+  // Asking the list for deleted specs (and nothing else) answers with the trash right away, not an error and a retry.
+  const asked = (Array.isArray(filter.status) ? filter.status : typeof filter.status === 'string' ? filter.status.split(',') : []).map((s) => String(s).trim()).filter(Boolean)
+  if (asked.length && asked.every((status) => DELETED_WORD.test(status))) return trashList(ctx, args)
   const options = optionsOf(args)
   const qs = new URLSearchParams()
   const status = statusFilter(filter.status)

@@ -8,7 +8,7 @@ import { findFailedStep, splitSteps, type LogStep } from '../../tools/job-logs'
 import { shortHash } from '../core/canonical'
 import { decodeCursor, encodeCursor } from '../core/cursor'
 import { needsPerson, type DecisionState } from '../core/decision-state'
-import { V2ToolError, oneLine, result } from '../core/envelope'
+import { V2ToolError, oneLine, relay, result } from '../core/envelope'
 import { waitMsOf } from '../core/bus'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { formatRef, parseRef, type Ref, type Target } from '../core/refs'
@@ -678,12 +678,12 @@ export const runsTool = defineTool({
     provider: z.string(),
     model: z.string(),
     effort: z.string(),
-    filter: F.filter.describe('list: status[], kind[], spec, rail, since, needsYou'),
+    filter: F.filter.describe('list: status[], kind[] (loop|job|intent), spec, rail, since, needsYou'),
   },
   actions: {
     list: {
       tier: 'read',
-      doc: 'filter: status[] (v2 words), kind[] loop|job, spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide',
+      doc: 'filter: status[] (v2 words), kind[] loop|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide',
       handler: async (ctx, raw) => {
         const args = compatArgs(raw)
         const filter = rec(args.filter)
@@ -702,6 +702,8 @@ export const runsTool = defineTool({
         }
         const wanted = new Set(arr(filter.status).filter((value): value is string => typeof value === 'string'))
         const kinds = new Set(arr(filter.kind).filter((value): value is string => typeof value === 'string'))
+        // Intent sessions live with the missions: answer with them instead of an empty run list.
+        if (kinds.size && [...kinds].every((kind) => kind === 'intent')) return relay(await ctx.v2.dispatch({ tool: 'specrails_missions', args: { action: 'intent_list', ...(project ? { project: project.slug } : {}), ...(typeof args.lang === 'string' ? { lang: args.lang } : {}) } }))
         const spec = filter.spec === undefined ? null : Number(parseRef(filter.spec)?.id ?? filter.spec)
         const keep = (status: CanonicalStatus, hold: unknown, job: Row) => (!wanted.size || wanted.has(status))
           && (!kinds.size || kinds.has(isLoop(job) ? 'loop' : 'job'))

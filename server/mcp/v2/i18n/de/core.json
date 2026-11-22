@@ -134,5 +134,6 @@
   "specStatus.on_review": "In Prüfung",
   "confirm.declined": "Im Dialog des Clients nicht bestätigt (dort abgelehnt, oder der Client lehnt Dialoge ab, die er nicht anzeigen kann): Es wurde nichts ausgeführt. Frage die Person im Chat; nur bei einem Ja führe den Aufruf aus resend aus.",
   "confirm.ask": "{{effect}} Fortfahren?",
-  "confirm.ask_field": "Ja, fortfahren"
+  "confirm.ask_field": "Ja, fortfahren",
+  "confirm.dry_run_dialog": "Dieser Client zeigt der Person einen Bestätigungsdialog: Führe den Aufruf ohne dryRun aus, sie bestätigt dort."
 }

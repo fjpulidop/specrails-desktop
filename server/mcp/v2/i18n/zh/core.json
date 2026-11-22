@@ -134,5 +134,6 @@
   "specStatus.on_review": "审核中",
   "confirm.declined": "未在客户端对话框中确认（在那里被拒绝，或客户端会拒绝无法显示的对话框）：未执行任何操作。请在聊天中询问对方；只有对方同意后才执行 resend 中的调用。",
   "confirm.ask": "{{effect}} 继续吗？",
-  "confirm.ask_field": "是，继续"
+  "confirm.ask_field": "是，继续",
+  "confirm.dry_run_dialog": "此客户端会向对方显示确认对话框：去掉 dryRun 直接调用，对方会在那里确认。"
 }
