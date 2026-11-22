@@ -98,7 +98,7 @@
   "offer.chain.answer_run": "Answer its run's question",
   "offer.chain.integrate": "Integrate the delivered spec",
   "offer.chain.rebuild": "Rebuild the spec on the updated base",
-  "confirm.required": "{{label}} needs the person's confirmation: {{effect}} Show this preview, ask, and resend with confirm.",
+  "confirm.required": "Needs the person's yes. Show them preview.effect and ask; on a yes make the call in resend unchanged.",
   "confirm.dry_run": "Dry run, nothing executed: {{label}} would: {{effect}}",
   "confirm.stale": "The state changed since the preview, so the confirmation no longer applies. Show the new preview and ask again.",
   "confirm.replayed": "This confirmation was already used. Show the new preview and ask again.",
@@ -131,5 +131,8 @@
   "specStatus.done": "Done",
   "specStatus.cancelled": "Cancelled",
   "specStatus.draft": "Draft",
-  "specStatus.on_review": "On review"
+  "specStatus.on_review": "On review",
+  "confirm.declined": "Not confirmed in the client's dialog (declined there, or the client declines dialogs it cannot show): nothing was done. Ask the person in the chat; only on a yes make the call in resend.",
+  "confirm.ask": "{{effect}} Go ahead?",
+  "confirm.ask_field": "Yes, go ahead"
 }

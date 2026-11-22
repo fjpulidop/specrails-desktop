@@ -76,5 +76,6 @@
   "error.chain_active": "里程碑 {{n}} 已有一条活动的链。",
   "error.not_conversation": "{{ref}} 不是构建器对话或项目提交。",
   "error.no_snapshot": "构建器还没有可提交的蓝图；请继续对话。",
-  "error.engine_fields": "options 需要 provider 和 model（effort 可选），或 clear: true。"
+  "error.engine_fields": "options 需要 provider 和 model（effort 可选），或 clear: true。",
+  "error.no_spec": "里程碑 1 中没有第 {{n}} 个 spec：蓝图共有 {{count}} 个。"
 }

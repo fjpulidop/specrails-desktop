@@ -11,7 +11,7 @@ import { acknowledgeAgentInputsRead, acknowledgeAgentSteering, onAgentSteering, 
 import { actionEnum } from '../../tools/actions'
 import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTierAllowed, type McpToolContext, type ToolHandlerExtra } from '../../tools/types'
 import { shortHash } from './canonical'
-import { bindingArgs, confirmationLedger, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
+import { askPerson, bindingArgs, carriesSecret, confirmationLedger, readConfirmInClient, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
 import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
 import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
 import { resolveLang, translator, type Lang, type Translate } from './lang'
@@ -192,6 +192,8 @@ export interface V2SessionState {
   /** Per MCP session; confirmTokens bind to it. */
   sessionKey?: string
   lang?: Lang | null
+  /** The client can ask the person inside a call (MCP elicitation, form mode). */
+  elicitation?: () => boolean
 }
 
 /** What a v2 handler receives: the v1 tool context plus the v2 helpers of this call. */
@@ -394,28 +396,42 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         }
         const firstParty = callCtx.firstPartyAgent === true
 
+        // The exact call that confirms: the same arguments (no dryRun) plus the token.
+        // Never echoed when the arguments carry a write-only value (a secret stays out of the transcript).
+        const resend = (confirmToken: string) => carriesSecret(args) ? undefined : { tool: def.name, args: { ...Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'dryRun' && key !== 'confirm')), confirm: confirmToken } }
+        const costOf = (preview: Preview) => ({ highUsd: preview.cost ? preview.cost.forecastUsd?.[1] ?? null : undefined, runs: preview.cost?.runs })
+
         if (args.dryRun === true) {
           const preview = await buildPreview()
-          const needed = confirmClass !== null && !firstParty && confirmNeeded(confirmClass, { highUsd: preview.cost ? preview.cost.forecastUsd?.[1] ?? null : undefined, runs: preview.cost?.runs }, confirmAboveUsd)
-          return reply(success({ preview, wouldExecute: false, ...(needed ? { confirmToken: ledger.issue(binding(preview.version)) } : {}) },
+          const needed = confirmClass !== null && !firstParty && confirmNeeded(confirmClass, costOf(preview), confirmAboveUsd)
+          const confirmToken = needed ? ledger.issue(binding(preview.version)) : null
+          return reply(success({ preview, wouldExecute: false, ...(confirmToken ? { confirmToken, resend: resend(confirmToken) } : {}) },
             t('core.confirm.dry_run', { label, effect: preview.effect })))
         }
 
         // The in-app agent's permission ladder and cards govern first-party turns (unchanged).
+        let confirmedInClient = false
         if (confirmClass && !firstParty) {
           const preview = await buildPreview()
-          const needed = confirmNeeded(confirmClass, { highUsd: preview.cost ? preview.cost.forecastUsd?.[1] ?? null : undefined, runs: preview.cost?.runs }, confirmAboveUsd)
+          const needed = confirmNeeded(confirmClass, costOf(preview), confirmAboveUsd)
           if (needed) {
             const confirmToken = ledger.issue(binding(preview.version))
             if (args.confirm === undefined || args.confirm === null || args.confirm === '') {
-              return fail(new V2ToolError('confirmation_required', t('core.confirm.required', { label, effect: preview.effect }), { preview, confirmToken }))
+              // A client that can ask the person inside this call (MCP elicitation) gets the yes without another model turn.
+              const asked = session.elicitation?.() === true && readConfirmInClient(ctx.desktopDb) ? await askPerson(extra, t, preview) : null
+              if (asked === 'accept') confirmedInClient = true
+              else {
+                const declined = asked === 'decline'
+                return reply(failure(new V2ToolError('confirmation_required', t(declined ? 'core.confirm.declined' : 'core.confirm.required'), { preview, confirmToken, resend: resend(confirmToken), ...(declined ? { reason: 'declined' } : {}) }), label, `${label}: ${preview.effect}`))
+              }
+            } else {
+              const verdict = ledger.verify(args.confirm, binding(preview.version))
+              if (!verdict.ok) {
+                const { code, key } = STALE_REASON[verdict.reason]
+                return reply(failure(new V2ToolError(code, t(key), { preview, confirmToken, resend: resend(confirmToken), reason: verdict.reason }), label, `${label}: ${preview.effect}`))
+              }
+              ledger.consume(args.confirm as string)
             }
-            const verdict = ledger.verify(args.confirm, binding(preview.version))
-            if (!verdict.ok) {
-              const { code, key } = STALE_REASON[verdict.reason]
-              return fail(new V2ToolError(code, t(key), { preview, confirmToken, reason: verdict.reason }))
-            }
-            ledger.consume(args.confirm as string)
           }
         }
 
@@ -427,6 +443,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         const value = await spec.handler(callCtx, args)
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))
+        if (confirmedInClient) envelope.confirmed = 'in_client'
         const base = isV2Result(value) ? value.pageBase : undefined
         return reply(guardSize(envelope, { capTokens: spec.maxTokens ?? viewCap(callCtx.v2.view), ...(base ? { baseOffset: base.offset, basePath: base.path, cursorKey: base.key } : {}) }))
       } catch (err) {

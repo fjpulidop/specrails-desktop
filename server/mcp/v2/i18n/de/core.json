@@ -98,7 +98,7 @@
   "offer.chain.answer_run": "Die Frage ihrer Ausführung beantworten",
   "offer.chain.integrate": "Die ausgelieferte Spec integrieren",
   "offer.chain.rebuild": "Die Spec auf der aktualisierten Basis neu aufbauen",
-  "confirm.required": "{{label}} braucht die Bestätigung der Person: {{effect}} Zeige diese Vorschau, frage nach und sende erneut mit confirm.",
+  "confirm.required": "Braucht das Ja der Person. Zeige ihr preview.effect und frage; bei einem Ja führe den Aufruf aus resend unverändert aus.",
   "confirm.dry_run": "Probelauf, nichts ausgeführt: {{label}} würde: {{effect}}",
   "confirm.stale": "Der Zustand hat sich seit der Vorschau geändert, daher gilt die Bestätigung nicht mehr. Zeige die neue Vorschau und frage erneut.",
   "confirm.replayed": "Diese Bestätigung wurde bereits verwendet. Zeige die neue Vorschau und frage erneut.",
@@ -131,5 +131,8 @@
   "specStatus.done": "Fertig",
   "specStatus.cancelled": "Abgebrochen",
   "specStatus.draft": "Entwurf",
-  "specStatus.on_review": "In Prüfung"
+  "specStatus.on_review": "In Prüfung",
+  "confirm.declined": "Im Dialog des Clients nicht bestätigt (dort abgelehnt, oder der Client lehnt Dialoge ab, die er nicht anzeigen kann): Es wurde nichts ausgeführt. Frage die Person im Chat; nur bei einem Ja führe den Aufruf aus resend aus.",
+  "confirm.ask": "{{effect}} Fortfahren?",
+  "confirm.ask_field": "Ja, fortfahren"
 }

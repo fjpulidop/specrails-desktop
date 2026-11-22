@@ -76,5 +76,6 @@
   "error.chain_active": "マイルストーン {{n}} にはすでにアクティブなチェーンがあります。",
   "error.not_conversation": "{{ref}} はビルダーとの会話でもプロジェクトのコミットでもありません。",
   "error.no_snapshot": "ビルダーにはまだコミットできるブループリントがありません。会話を続けてください。",
-  "error.engine_fields": "options には provider と model（effort は任意）、または clear: true が必要です。"
+  "error.engine_fields": "options には provider と model（effort は任意）、または clear: true が必要です。",
+  "error.no_spec": "マイルストーン 1 に spec {{n}} はありません。ブループリントには {{count}} 件あります。"
 }

@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { setDesktopSetting } from '../../../desktop-db'
 import { call, createHarness, type Harness } from '../__fixtures__/harness'
 import { V2_TOOLS } from '../tools'
-import { ConfirmationLedger } from './confirm'
+import { ConfirmationLedger, elicitsForms } from './confirm'
 import { result } from './envelope'
 import { createCatalog, defineTool, registerV2Tool, type LegacyDelegate } from './registry'
 import { WRITE_FIELDS } from './views'
@@ -132,6 +134,9 @@ describe('confirmation protocol', () => {
       code: 'confirmation_required', confirmToken: expect.stringMatching(/^ct1\./),
       preview: { label: 'specrails_fake(merge)', class: 'irreversible', reversible: false, external: false, refs: ['delivery:shop-api/1'], version: 'v1aaaa', effect: 'Merges the delivery into main. It cannot be undone.' },
     })
+    // The exact confirming call comes back with the preview, so the agent makes it without rebuilding the arguments.
+    expect(first.envelope.error.resend).toEqual({ tool: 'specrails_fake', args: { ...merge, confirm: first.envelope.error.confirmToken } })
+    expect(first.envelope.summary).toBe('specrails_fake(merge): Merges the delivery into main. It cannot be undone.')
     expect(control.merged).toBe(0)
     const confirmed = await call(client, 'specrails_fake', { ...merge, confirm: first.envelope.error.confirmToken })
     expect(confirmed.envelope).toMatchObject({ ok: true, data: { merged: true } })
@@ -164,6 +169,7 @@ describe('confirmation protocol', () => {
     const { envelope } = await call(client, 'specrails_fake', { ...merge, dryRun: true })
     expect(envelope).toMatchObject({ ok: true, data: { wouldExecute: false, preview: { class: 'irreversible' }, confirmToken: expect.any(String) } })
     expect(envelope.summary).toMatch(/^Dry run, nothing executed/)
+    expect(envelope.data.resend).toEqual({ tool: 'specrails_fake', args: { ...merge, confirm: envelope.data.confirmToken } })
     expect(control.merged).toBe(0)
   })
 
@@ -196,5 +202,74 @@ describe('legacy delegate (a v1 tool of the same name)', () => {
     expect(properties.action.enum).not.toContain('old_action')
     expect(properties.confirm).toMatchObject({ type: 'string' })
     expect(tool.inputSchema.required).toEqual(['action'])
+  })
+})
+
+describe('confirmation inside the call (MCP elicitation)', () => {
+  const merge = { action: 'merge', ref: 'delivery:shop-api/1' }
+  let own: Harness
+  let asking: Client
+  const asked: Array<Record<string, unknown>> = []
+  let answer: () => { action: string; content?: Record<string, unknown> } = () => ({ action: 'cancel' })
+
+  beforeAll(async () => {
+    own = createHarness()
+    registerV2Tool(own.server, own.ctx, fake, { catalog: createCatalog([...V2_TOOLS, fake]), ledger: new ConfirmationLedger() })
+    const [serverSide, clientSide] = InMemoryTransport.createLinkedPair()
+    await own.server.connect(serverSide)
+    asking = new Client({ name: 'eliciting-client', version: '1' }, { capabilities: { elicitation: { form: {} } } })
+    asking.setRequestHandler(ElicitRequestSchema, async (request) => { asked.push(request.params as Record<string, unknown>); return answer() as never })
+    await asking.connect(clientSide)
+  })
+  afterAll(async () => { await asking.close() })
+  beforeEach(() => {
+    asked.length = 0
+    own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-e', elicitation: () => true } as never
+  })
+
+  it('asks the person in the client and executes on an explicit yes, with no token round trip', async () => {
+    answer = () => ({ action: 'accept', content: { confirm: true } })
+    const done = await call(asking, 'specrails_fake', merge)
+    expect(done.envelope).toMatchObject({ ok: true, data: { merged: true }, confirmed: 'in_client' })
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatchObject({ mode: 'form', message: 'Merges the delivery into main. It cannot be undone. Go ahead?', requestedSchema: { required: ['confirm'] } })
+    expect(control.merged).toBe(1)
+  })
+
+  it('treats a decline (or an unticked box) as no, and a cancelled dialog as the token flow', async () => {
+    answer = () => ({ action: 'decline' })
+    const declined = await call(asking, 'specrails_fake', merge)
+    expect(declined.envelope.error).toMatchObject({ code: 'confirmation_required', reason: 'declined', confirmToken: expect.stringMatching(/^ct1\./) })
+    expect(declined.envelope.error.message).toMatch(/Not confirmed in the client's dialog/)
+    answer = () => ({ action: 'accept', content: { confirm: false } })
+    expect((await call(asking, 'specrails_fake', merge)).envelope.error.reason).toBe('declined')
+    answer = () => ({ action: 'cancel' })
+    const cancelled = await call(asking, 'specrails_fake', merge)
+    expect(cancelled.envelope.error).toMatchObject({ code: 'confirmation_required', resend: { args: { confirm: cancelled.envelope.error.confirmToken } } })
+    expect(cancelled.envelope.error.reason).toBeUndefined()
+    expect(control.merged).toBe(0)
+    // The token still confirms in the chat afterwards.
+    expect((await call(asking, 'specrails_fake', { ...merge, confirm: cancelled.envelope.error.confirmToken })).envelope.ok).toBe(true)
+  })
+
+  it('never asks for a call that needs no confirmation, a dry run, a client without the capability, or with the setting off', async () => {
+    answer = () => ({ action: 'accept', content: { confirm: true } })
+    await call(asking, 'specrails_fake', { action: 'spend' })
+    await call(asking, 'specrails_fake', { ...merge, dryRun: true })
+    own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-e', elicitation: () => false } as never
+    expect((await call(asking, 'specrails_fake', merge)).envelope.error.code).toBe('confirmation_required')
+    own.ctx.sessionState = { activeProjectId: null, sessionKey: 'session-e', elicitation: () => true } as never
+    setDesktopSetting(own.db, 'mcp_confirm_in_client', 'off')
+    try { expect((await call(asking, 'specrails_fake', merge)).envelope.error.code).toBe('confirmation_required') } finally { setDesktopSetting(own.db, 'mcp_confirm_in_client', 'on') }
+    expect(asked).toHaveLength(0)
+    expect(control.merged).toBe(0)
+  })
+
+  it('reads form support from the declared capabilities', () => {
+    expect(elicitsForms({ elicitation: { form: {}, url: {} } })).toBe(true)
+    expect(elicitsForms({ elicitation: {} })).toBe(true)
+    expect(elicitsForms({ elicitation: { url: {} } })).toBe(false)
+    expect(elicitsForms({})).toBe(false)
+    expect(elicitsForms(undefined)).toBe(false)
   })
 })

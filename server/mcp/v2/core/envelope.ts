@@ -42,6 +42,8 @@ export interface V2Success<D = unknown> {
   warnings?: string[]
   /** JSON pointers (`*` = any key or index) of fields holding third-party or model text. */
   untrusted?: string[]
+  /** The person agreed inside the call, in the client's own dialog (MCP elicitation), instead of with a confirmToken. */
+  confirmed?: 'in_client'
 }
 
 export interface V2ErrorBody extends Omit<EnvelopeError, 'code'> {

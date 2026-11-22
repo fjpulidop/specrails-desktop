@@ -76,5 +76,6 @@
   "error.chain_active": "La milestone {{n}} ha già una catena attiva.",
   "error.not_conversation": "{{ref}} non è una conversazione con il Builder né una creazione di progetto.",
   "error.no_snapshot": "Il Builder non ha ancora un Blueprint da confermare; continua la conversazione.",
-  "error.engine_fields": "options richiede provider e model (effort facoltativo), oppure clear: true."
+  "error.engine_fields": "options richiede provider e model (effort facoltativo), oppure clear: true.",
+  "error.no_spec": "Non esiste la spec {{n}} della milestone 1: il blueprint ne ha {{count}}."
 }

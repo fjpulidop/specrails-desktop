@@ -76,5 +76,6 @@
   "error.chain_active": "El hito {{n}} ya tiene una cadena activa.",
   "error.not_conversation": "{{ref}} no es una conversación con el Constructor ni una creación de proyecto.",
   "error.no_snapshot": "El Constructor aún no tiene ningún Blueprint que confirmar; sigue la conversación.",
-  "error.engine_fields": "options necesita provider y model (effort opcional), o clear: true."
+  "error.engine_fields": "options necesita provider y model (effort opcional), o clear: true.",
+  "error.no_spec": "No hay una spec {{n}} en el hito 1: el blueprint tiene {{count}}."
 }

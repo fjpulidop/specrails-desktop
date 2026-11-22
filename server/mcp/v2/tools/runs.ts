@@ -9,6 +9,7 @@ import { shortHash } from '../core/canonical'
 import { decodeCursor, encodeCursor } from '../core/cursor'
 import { needsPerson, type DecisionState } from '../core/decision-state'
 import { V2ToolError, oneLine, result } from '../core/envelope'
+import { waitMsOf } from '../core/bus'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { formatRef, parseRef, type Ref, type Target } from '../core/refs'
 import { statusFromJob, type CanonicalStatus } from '../core/status-map'
@@ -384,9 +385,29 @@ function summaryOf(ctx: V2CallContext, title: string, state: DecisionState): str
   return state.hold ? ctx.v2.t('runs.summary.get_hold', { title, status: state.label, reason: state.hold.reason }) : ctx.v2.t('runs.summary.get', { title, status: state.label })
 }
 
+const PAUSE_WAIT_MS = 25_000
+const PAUSE_WAIT_MAX_MS = 45_000
+
+/** Re-reads the run (every second, ≤ `waitMs`) until it holds or ends; never throws. */
+async function untilHeld(ctx: V2CallContext, target: Target, waitMs: number): Promise<void> {
+  const deadline = Date.now() + waitMs
+  while (Date.now() < deadline && !ctx.signal?.aborted) {
+    const run = await loadRun(ctx, target).catch(() => null)
+    if (!run) return
+    const state = runState(ctx, run)
+    if (state.hold || !['running', 'queued'].includes(state.status)) return
+    await new Promise((resolve) => setTimeout(resolve, Math.min(1000, Math.max(0, deadline - Date.now()))))
+  }
+}
+
 /** A control's answer: the server's own response, plus the run's fresh state when it is cheap to read. */
-function accepted(ctx: V2CallContext, target: Target, label: string, data: Row): ReturnType<typeof result> {
-  return result({ ref: target.ref, ...data }, { summary: ctx.v2.t('runs.summary.accepted', { label }), refs: { run: target.ref } })
+async function accepted(ctx: V2CallContext, target: Target, label: string, data: Row): Promise<ReturnType<typeof result>> {
+  const accept = ctx.v2.t('runs.summary.accepted', { label })
+  // The run as it stands right after the control (status, hold, the moves it offers now), so no re-read is needed.
+  const fresh = target.kind === 'run' ? await loadRun(ctx, target).catch(() => null) : null
+  if (!fresh) return result({ ref: target.ref, ...data }, { summary: accept, refs: { run: target.ref } })
+  const state = runState(ctx, fresh)
+  return result({ ref: target.ref, ...data, status: state.status }, { summary: `${accept} ${summaryOf(ctx, titleOf(fresh.job), state)}`, refs: { run: target.ref }, state, untrusted: untrusted('/state/offers/*/label', '/state/offers/*/why') })
 }
 
 /** Refuses a call the run's current state does not offer (`held`, with the state). */
@@ -781,10 +802,13 @@ export const runsTool = defineTool({
       },
     },
     pause: {
-      tier: 'write', required: ['ref'], doc: 'a run or a rail ref (the rail\'s active run); Core finishes the step, then holds',
+      tier: 'write', required: ['ref'], doc: 'a run or a rail ref (the rail\'s active run); Core finishes the step, then holds. Answers once it holds (options.waitMs, default 25 s, max 45 s; 0 = at once)',
       handler: async (ctx, args) => {
         const { target } = await runOrRail(ctx, args)
-        return accepted(ctx, target, 'Pause', await api(ctx, 'POST', `${projectBase(target.project!)}/loop-runs/${encodeURIComponent(target.id)}/pause`))
+        const response = await api(ctx, 'POST', `${projectBase(target.project!)}/loop-runs/${encodeURIComponent(target.id)}/pause`)
+        // The pause lands when the current step ends: answer then (bounded), so no wait call is needed to see it.
+        await untilHeld(ctx, target, waitMsOf(optionsOf(args), PAUSE_WAIT_MS, PAUSE_WAIT_MAX_MS))
+        return await accepted(ctx, target, 'Pause', response)
       },
     },
     resume: {
@@ -805,7 +829,7 @@ export const runsTool = defineTool({
           if (!recover.length) recover = arr(run.runtime?.recoverableSteps).filter((step): step is string => typeof step === 'string')
           if (recover.length) body.recover = recover
         }
-        return accepted(ctx, target, 'Resume', await api(ctx, 'POST', resumePath(run), body))
+        return await accepted(ctx, target, 'Resume', await api(ctx, 'POST', resumePath(run), body))
       },
     },
     stop: {
@@ -814,7 +838,7 @@ export const runsTool = defineTool({
         const target = runTarget(ctx, args, ['run', 'rail'])
         const base = projectBase(target.project!)
         if (target.kind === 'rail') return result(await api(ctx, 'POST', `${base}/rails/${Number(target.id)}/stop`), { summary: ctx.v2.t('runs.summary.accepted', { label: 'Stop' }), refs: { rail: target.ref } })
-        return accepted(ctx, target, 'Stop', await api(ctx, 'POST', `${base}/jobs/${encodeURIComponent(target.id)}/cancel`))
+        return await accepted(ctx, target, 'Stop', await api(ctx, 'POST', `${base}/jobs/${encodeURIComponent(target.id)}/cancel`))
       },
     },
     cancel: {
@@ -830,7 +854,7 @@ export const runsTool = defineTool({
         const id = encodeURIComponent(run.target.id)
         const path = run.runtime?.canCancel === true ? `${base}/agent-runtime/runs/${id}/cancel`
           : run.loopRun?.engine_version === 2 ? `${base}/loop-runs/${id}/cancel` : `${base}/jobs/${id}/cancel`
-        return accepted(ctx, run.target, 'Cancel', await api(ctx, 'POST', path))
+        return await accepted(ctx, run.target, 'Cancel', await api(ctx, 'POST', path))
       },
     },
     answer: {
@@ -850,7 +874,7 @@ export const runsTool = defineTool({
         }
         const definition = resumePath(run).includes('/loop-runs/')
         const body = { answer, ...(definition && str(question.interruptId) ? { interruptId: question.interruptId } : {}), ...(definition && args.optionId !== undefined ? { optionId: args.optionId } : {}) }
-        return accepted(ctx, run.target, 'Answer', await api(ctx, 'POST', resumePath(run), body))
+        return await accepted(ctx, run.target, 'Answer', await api(ctx, 'POST', resumePath(run), body))
       },
     },
     approve: {
@@ -859,7 +883,7 @@ export const runsTool = defineTool({
         const run = await loadRun(ctx, runTarget(ctx, args), { runtime: true })
         requireOffer(ctx, runState(ctx, run), (offer) => offer.id === 'approve')
         const id = str(rec(run.job.question).interruptId) ?? str(rec(run.runtime?.pendingApproval).stepId)
-        return accepted(ctx, run.target, 'Approve', await api(ctx, 'POST', resumePath(run), id ? { approve: [id] } : {}))
+        return await accepted(ctx, run.target, 'Approve', await api(ctx, 'POST', resumePath(run), id ? { approve: [id] } : {}))
       },
     },
     reject: {
@@ -870,7 +894,7 @@ export const runsTool = defineTool({
         const reason = str(args.answer) ?? str(optionsOf(args).reason)
         if (!reason) throw new V2ToolError('invalid_input', ctx.v2.t('runs.error.reject_reason'))
         const id = str(rec(run.job.question).interruptId) ?? str(rec(run.runtime?.pendingApproval).stepId)
-        return accepted(ctx, run.target, 'Reject', await api(ctx, 'POST', resumePath(run), { reject: id, reason }))
+        return await accepted(ctx, run.target, 'Reject', await api(ctx, 'POST', resumePath(run), { reject: id, reason }))
       },
     },
     limit: {
@@ -895,7 +919,7 @@ export const runsTool = defineTool({
           body = { action: 'switch', provider, ...(str(args.model) ?? str(match?.model) ? { model: str(args.model) ?? match!.model } : {}),
             ...(str(args.effort) ?? str(match?.effort) ? { effort: str(args.effort) ?? match!.effort } : {}), ...(options.remember === true ? { remember: true } : {}) }
         } else throw new V2ToolError('invalid_input', `limit takes choice resume_now, auto or switch, not ${choice}.`)
-        return accepted(ctx, target, 'Limit', await api(ctx, 'POST', `${projectBase(run.project)}/loop-runs/${encodeURIComponent(target.id)}/limit`, body))
+        return await accepted(ctx, target, 'Limit', await api(ctx, 'POST', `${projectBase(run.project)}/loop-runs/${encodeURIComponent(target.id)}/limit`, body))
       },
     },
     remedy: {
@@ -937,7 +961,7 @@ export const runsTool = defineTool({
           if (body.optionId === undefined) body.remedy = 'continue'
           body.switch = { provider: args.provider, ...(str(args.model) ? { model: args.model } : {}), ...(str(args.effort) ? { effort: args.effort } : {}), ...(options.remember === true ? { remember: true } : {}) }
         }
-        return accepted(ctx, run.target, 'Continue', await api(ctx, 'POST', `${base}/loop-runs/${id}/remedy`, body))
+        return await accepted(ctx, run.target, 'Continue', await api(ctx, 'POST', `${base}/loop-runs/${id}/remedy`, body))
       },
     },
     fork: {
@@ -967,9 +991,9 @@ export const runsTool = defineTool({
         const id = encodeURIComponent(target.id)
         const text = String(args.message)
         const job = rec((await api(ctx, 'GET', `${base}/jobs/${id}`)).job)
-        if (job.interactiveAcceptingTurns === true && !isLoop(job)) return accepted(ctx, target, 'Steer', await api(ctx, 'POST', `${base}/jobs/${id}/messages`, { text }))
+        if (job.interactiveAcceptingTurns === true && !isLoop(job)) return await accepted(ctx, target, 'Steer', await api(ctx, 'POST', `${base}/jobs/${id}/messages`, { text }))
         const requestId = str(optionsOf(args).requestId) ?? `mcp-steer-${shortHash({ r: target.id, t: text })}`
-        return accepted(ctx, target, 'Steer', await api(ctx, 'POST', `${base}/agent-runtime/runs/${id}/steer`, { text, requestId }))
+        return await accepted(ctx, target, 'Steer', await api(ctx, 'POST', `${base}/agent-runtime/runs/${id}/steer`, { text, requestId }))
       },
     },
     diagnose: {
@@ -1044,14 +1068,14 @@ export const runsTool = defineTool({
       tier: 'write', required: ['ref'],
       handler: async (ctx, args) => {
         const target = runTarget(ctx, args)
-        return accepted(ctx, target, 'Settle', await api(ctx, 'POST', `${projectBase(target.project!)}/agent-runtime/runs/${encodeURIComponent(target.id)}/settle`))
+        return await accepted(ctx, target, 'Settle', await api(ctx, 'POST', `${projectBase(target.project!)}/agent-runtime/runs/${encodeURIComponent(target.id)}/settle`))
       },
     },
     dismiss: {
       tier: 'write', required: ['ref'],
       handler: async (ctx, args) => {
         const target = runTarget(ctx, args)
-        return accepted(ctx, target, 'Dismiss', await api(ctx, 'POST', `${projectBase(target.project!)}/agent-runtime/runs/${encodeURIComponent(target.id)}/dismiss`))
+        return await accepted(ctx, target, 'Dismiss', await api(ctx, 'POST', `${projectBase(target.project!)}/agent-runtime/runs/${encodeURIComponent(target.id)}/dismiss`))
       },
     },
     queue: {

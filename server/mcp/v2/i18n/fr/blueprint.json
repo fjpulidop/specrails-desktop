@@ -76,5 +76,6 @@
   "error.chain_active": "Le jalon {{n}} a déjà une chaîne active.",
   "error.not_conversation": "{{ref}} n'est ni une conversation avec le Constructeur ni une création de projet.",
   "error.no_snapshot": "Le Constructeur n'a pas encore de Blueprint à valider ; poursuivez la conversation.",
-  "error.engine_fields": "options requiert provider et model (effort facultatif), ou clear: true."
+  "error.engine_fields": "options requiert provider et model (effort facultatif), ou clear: true.",
+  "error.no_spec": "Il n'y a pas de spec {{n}} au jalon 1 : le blueprint en a {{count}}."
 }

@@ -76,5 +76,6 @@
   "error.chain_active": "Milestone {{n}} already has an active chain.",
   "error.not_conversation": "{{ref}} is not a Builder conversation or project commit.",
   "error.no_snapshot": "The Builder has no blueprint to commit yet; keep the conversation going.",
-  "error.engine_fields": "options needs provider and model (effort optional), or clear: true."
+  "error.engine_fields": "options needs provider and model (effort optional), or clear: true.",
+  "error.no_spec": "There is no Milestone-1 spec {{n}}: the blueprint has {{count}}."
 }

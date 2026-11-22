@@ -98,7 +98,7 @@
   "offer.chain.answer_run": "その実行の質問に答える",
   "offer.chain.integrate": "納品された spec を統合",
   "offer.chain.rebuild": "更新されたベース上で spec を再構築",
-  "confirm.required": "{{label}} には本人の確認が必要です: {{effect}} このプレビューを見せて確認を取り、confirm を付けて再送してください。",
+  "confirm.required": "本人の同意が必要です。preview.effect を見せて確認し、同意を得たら resend の呼び出しをそのまま実行してください。",
   "confirm.dry_run": "ドライランのため何も実行していません: {{label}} の内容: {{effect}}",
   "confirm.stale": "プレビューの後に状態が変わったため、この確認は無効です。新しいプレビューを見せて、もう一度確認してください。",
   "confirm.replayed": "この確認はすでに使われています。新しいプレビューを見せて、もう一度確認してください。",
@@ -131,5 +131,8 @@
   "specStatus.done": "完了",
   "specStatus.cancelled": "キャンセル",
   "specStatus.draft": "下書き",
-  "specStatus.on_review": "レビュー中"
+  "specStatus.on_review": "レビュー中",
+  "confirm.declined": "クライアントのダイアログで確認されませんでした（そこで拒否されたか、表示できないダイアログをクライアントが拒否しました）。何も実行されていません。チャットで本人に確認し、同意があった場合のみ resend の呼び出しを実行してください。",
+  "confirm.ask": "{{effect}} 実行しますか？",
+  "confirm.ask_field": "はい、実行する"
 }

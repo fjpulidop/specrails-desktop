@@ -1,10 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { getDesktopSetting } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { canonicalJson } from './canonical'
 import type { ConfirmClass } from './decision-state'
 import type { Ref } from './refs'
 import { CONTROL_FIELDS, CONTROL_OPTIONS } from './views'
+import type { Translate } from './lang'
+import type { ToolHandlerExtra } from '../../tools/types'
 
 /**
  * Bound confirmation (design §6). A confirmable call without `confirm` gets
@@ -33,6 +36,65 @@ export function readConfirmThreshold(db: DbInstance | undefined): number {
     return Number.isFinite(value) && value >= 0 ? value : DEFAULT_CONFIRM_ABOVE_USD
   } catch {
     return DEFAULT_CONFIRM_ABOVE_USD
+  }
+}
+
+/** desktop_settings key: "off" keeps confirmations in the chat (token flow) even when the client can ask in-call. */
+export const CONFIRM_IN_CLIENT_KEY = 'mcp_confirm_in_client'
+
+/** Whether a client that supports MCP elicitation may ask the person inside the call (default on). */
+export function readConfirmInClient(db: DbInstance | undefined): boolean {
+  if (!db) return true
+  try {
+    return String(getDesktopSetting(db, CONFIRM_IN_CLIENT_KEY) ?? '').trim().toLowerCase() !== 'off'
+  } catch {
+    return true
+  }
+}
+
+const SECRET_KEY = /secret|token|password|passphrase|api_?key|credential|private_?key/i
+
+/** Whether call arguments carry a write-only value (a webhook secret, an API token…) anywhere: such a call is never echoed back. */
+export function carriesSecret(value: unknown, depth = 0): boolean {
+  if (depth > 6 || !value || typeof value !== 'object') return false
+  return Object.entries(value as Record<string, unknown>).some(([key, item]) => (key !== 'confirm' && SECRET_KEY.test(key) && item !== undefined && item !== null && item !== '') || carriesSecret(item, depth + 1))
+}
+
+/** Whether the client declared form elicitation at initialize (`elicitation: {}` means form, per the spec). */
+export function elicitsForms(capabilities: { elicitation?: unknown } | undefined | null): boolean {
+  const elicitation = capabilities?.elicitation
+  if (!elicitation || typeof elicitation !== 'object') return false
+  const modes = elicitation as Record<string, unknown>
+  return Object.keys(modes).length === 0 || (typeof modes.form === 'object' && modes.form !== null)
+}
+
+/** How long the client's confirmation dialog may stay open before the call falls back to the token flow. */
+export const ASK_PERSON_TIMEOUT_MS = 5 * 60 * 1000
+
+type AskExtra = Pick<ToolHandlerExtra, 'signal'> & { sendRequest?: (request: { method: 'elicitation/create'; params: Record<string, unknown> }, schema: typeof ElicitResultSchema, options?: { signal?: AbortSignal; timeout?: number }) => Promise<{ action: string; content?: Record<string, unknown> }> }
+
+/**
+ * Asks the person through the client's own dialog (MCP `elicitation/create`, form mode) while the call is
+ * open, so a confirmation costs no extra model turn. Only an explicit accept with the box ticked is a yes;
+ * a decline is the person's no; anything else (no dialog: headless clients cancel, an error, a timeout) is
+ * null and the call falls back to the token flow. Never throws.
+ */
+export async function askPerson(extra: unknown, t: Translate, preview: Pick<Preview, 'effect'>): Promise<'accept' | 'decline' | null> {
+  const send = (extra as AskExtra | undefined)?.sendRequest
+  if (typeof send !== 'function') return null
+  try {
+    const answer = await send({
+      method: 'elicitation/create',
+      params: {
+        mode: 'form',
+        message: t('core.confirm.ask', { effect: preview.effect }),
+        requestedSchema: { type: 'object', properties: { confirm: { type: 'boolean', title: t('core.confirm.ask_field') } }, required: ['confirm'] },
+      },
+    }, ElicitResultSchema, { signal: (extra as AskExtra).signal, timeout: ASK_PERSON_TIMEOUT_MS })
+    if (answer.action === 'accept') return answer.content?.confirm === true ? 'accept' : 'decline'
+    return answer.action === 'decline' ? 'decline' : null
+  } catch {
+    return null
   }
 }
 

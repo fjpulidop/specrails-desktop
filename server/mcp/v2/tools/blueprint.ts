@@ -18,7 +18,7 @@ import { api, maybe } from '../core/loopback'
 import { listen, waitMsOf as waitMs } from '../core/bus'
 import { launchForecast, scaledCost, turnCostFromLedger } from '../core/forecast'
 import { rememberCommit, trackCommits, trackedCommit, type CommitTrack } from '../core/commit-tracker'
-import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
+import { F, WRITE_FIELDS, optionsOf, resolveFields, resolveView } from '../core/views'
 import { isActiveChain, projectChainState, projectMilestoneState, projectRailState, chainPhase } from '../projectors/chain-state'
 
 /**
@@ -102,6 +102,52 @@ function projectRefOf(ctx: V2CallContext, projectId: string | null): Ref | null 
   return row ? formatRef('project', row.slug) : null
 }
 
+/**
+ * The blueprint as an outline: product, stack, milestones and one line per Milestone-1 spec (its summary and how
+ * many acceptance criteria it has). A spec's full text is one more section away (`fields:["spec"]`,
+ * `options.spec: <n>`), so the common read stays small whatever the spec bodies weigh.
+ */
+export function blueprintOutline(raw: Row): Row {
+  const specs = arr(raw.m1Specs).map(rec)
+  return {
+    product: clipDeep(raw.product, 200), ...(str(raw.coreFlow) ? { coreFlow: clip(raw.coreFlow, 300) } : {}),
+    platform: clip(raw.platform, 80), stack: clipDeep(raw.stack, 80), assumptions: arr(raw.assumptions).slice(0, 8).map((a) => clip(a, 160)),
+    milestones: arr(raw.milestones).map(rec).map((m) => ({ id: m.id, title: clip(m.title, 80), goal: clip(m.goal, 200), plannedSpecs: arr(m.plannedSpecs).slice(0, 12).map((t) => clip(t, 80)) })),
+    m1Specs: specs.map((spec, i) => ({
+      n: i + 1, kind: spec.kind ?? null, title: clip(spec.title, 100), summary: clip(spec.shortSummary, 200),
+      criteria: arr(spec.acceptanceCriteria).length, labels: arr(spec.labels).slice(0, 6),
+      ...(typeof spec.dependsOnIndex === 'number' ? { dependsOn: spec.dependsOnIndex + 1 } : {}),
+    })),
+  }
+}
+
+/** One Milestone-1 spec in full (`n` is 1-based); `invalid_input` names the range when it does not exist. */
+function specDetail(ctx: V2CallContext, raw: Row, n: number): Row {
+  const specs = arr(raw.m1Specs).map(rec)
+  const spec = specs[n - 1]
+  if (!spec) throw new V2ToolError('invalid_input', ctx.v2.t('blueprint.error.no_spec', { n, count: specs.length }))
+  return {
+    n, of: specs.length, kind: spec.kind ?? null, title: clip(spec.title, 120), summary: clip(spec.shortSummary, 300),
+    description: clip(spec.description, 6000), acceptanceCriteria: arr(spec.acceptanceCriteria).slice(0, 20).map((c) => clip(c, 400)),
+    priority: spec.priority ?? null, labels: arr(spec.labels).slice(0, 8),
+  }
+}
+
+/**
+ * Sections of a Builder read: explicit `fields` (conversation, blueprint, spec), else view:"detail" adds the
+ * transcript and the outline. A Builder turn (start/send) answers lean unless fields are asked for explicitly:
+ * its reply and the snapshot (M1 titles) are what the agent needs to decide.
+ */
+function builderSections(args: Record<string, unknown>, turn: boolean): string[] {
+  if (Array.isArray(args.fields)) return resolveFields(args, ['conversation', 'blueprint', 'spec'])
+  return !turn && resolveView(args) === 'detail' ? ['conversation', 'blueprint'] : []
+}
+
+const specOf = (args: Record<string, unknown>) => {
+  const n = Number(optionsOf(args).spec ?? 1)
+  return Number.isSafeInteger(n) && n > 0 ? n : 1
+}
+
 interface BuilderView {
   data: Row
   state: DecisionState
@@ -111,7 +157,7 @@ interface BuilderView {
 }
 
 /** A Builder conversation from its rehydration payload (GET /blueprint/conversations/:id). */
-function builderView(ctx: V2CallContext, body: Row, writingHint: boolean | null, sections: readonly string[]): BuilderView {
+function builderView(ctx: V2CallContext, body: Row, writingHint: boolean | null, sections: readonly string[], specIndex = 1): BuilderView {
   const conversation = rec(body.conversation)
   const id = String(conversation.id)
   const ref = conversationRef(id)
@@ -147,7 +193,8 @@ function builderView(ctx: V2CallContext, body: Row, writingHint: boolean | null,
   if (sections.includes('conversation')) {
     data.transcript = messages.slice(-DETAIL_MESSAGES).map((m) => ({ role: m.role, text: clip(m.content, MESSAGE_CHARS), ...(str(m.intent) ? { intent: m.intent } : {}) }))
   }
-  if (sections.includes('blueprint')) data.blueprint = clipDeep(body.rawBlueprint ?? body.blueprint, 900, 12)
+  if (sections.includes('blueprint')) data.blueprint = blueprintOutline(rec(body.rawBlueprint ?? body.blueprint))
+  if (sections.includes('spec')) data.spec = specDetail(ctx, rec(body.rawBlueprint ?? body.blueprint), specIndex)
   if (quality.length && sections.length) data.issues = quality.slice(0, 10).map((issue) => clipDeep(issue, 200))
 
   const offers: OfferDraft[] = []
@@ -170,7 +217,7 @@ function builderView(ctx: V2CallContext, body: Row, writingHint: boolean | null,
   return { data, state, refs: { blueprint: ref, ...(projectRef ? { project: projectRef } : {}) }, title, writing }
 }
 
-const BUILDER_UNTRUSTED = untrusted('/data/title', '/data/reply', '/data/snapshot/*', '/data/snapshot/stack/*', '/data/snapshot/milestones/*', '/data/snapshot/m1/titles/*', '/data/transcript/*/text', '/data/blueprint', '/data/issues/*')
+const BUILDER_UNTRUSTED = untrusted('/data/title', '/data/reply', '/data/snapshot/*', '/data/snapshot/stack/*', '/data/snapshot/milestones/*', '/data/snapshot/m1/titles/*', '/data/transcript/*/text', '/data/blueprint', '/data/spec', '/data/issues/*')
 
 async function readConversation(ctx: V2CallContext, id: string): Promise<Row> {
   return api(ctx, 'GET', `/blueprint/conversations/${encodeURIComponent(id)}`)
@@ -182,7 +229,7 @@ async function builderTurnCall(ctx: V2CallContext, args: Record<string, unknown>
   try { await trigger() } catch (err) { wait.stop(); throw err }
   const outcome = await wait.promise
   const body = await readConversation(ctx, id)
-  const view = builderView(ctx, body, outcome.kind === 'timeout' ? true : false, resolveFields(args, ['conversation', 'blueprint']))
+  const view = builderView(ctx, body, outcome.kind === 'timeout' ? true : false, builderSections(args, true), specOf(args))
   const summary = outcome.kind === 'error'
     ? ctx.v2.t('blueprint.summary.failed_turn', { error: clip(outcome.msg?.error, 200) ?? '' })
     : outcome.kind === 'timeout' ? ctx.v2.t('blueprint.summary.writing') : ctx.v2.t('blueprint.summary.replied')
@@ -561,7 +608,7 @@ export const blueprintTool = defineTool({
   owner: 'WP6',
   fields: {
     ...WRITE_FIELDS,
-    fields: F.fields(['conversation', 'blueprint', 'milestones', 'specs', 'plan']),
+    fields: F.fields(['conversation', 'blueprint', 'spec', 'milestones', 'specs', 'plan']),
     message: z.string(),
     intent: z.enum(['message', 'surprise', 'approve']),
     from: z.enum(['recommended', 'failed_step', 'start']).describe('chain_resume'),
@@ -650,7 +697,7 @@ export const blueprintTool = defineTool({
     },
     get: {
       tier: 'read', required: ['ref'],
-      doc: 'A Builder conversation (fields conversation, blueprint) or a project commit; options.waitMs waits for a reply in progress.',
+      doc: 'A Builder conversation (fields conversation, blueprint = outline, spec = one M1 spec in full with options.spec n) or a project commit; options.waitMs waits for a reply in progress.',
       handler: async (ctx, args) => {
         trackCommits(ctx)
         const target = ctx.v2.target(args, 'blueprint')
@@ -661,12 +708,12 @@ export const blueprintTool = defineTool({
           if (err instanceof V2ToolError && err.code === 'not_found') throw new V2ToolError('not_found', ctx.v2.t('blueprint.error.not_conversation', { ref: target.ref }))
           throw err
         }
-        let view = builderView(ctx, body, null, resolveFields(args, ['conversation', 'blueprint']))
+        let view = builderView(ctx, body, null, builderSections(args, false), specOf(args))
         const waitMs = waitMsOf(args, 0)
         if (view.writing && waitMs > 0) {
           const outcome = await listen(ctx, builderTurn(target.id), waitMs).promise
           body = await readConversation(ctx, target.id)
-          view = builderView(ctx, body, outcome.kind === 'timeout' ? true : null, resolveFields(args, ['conversation', 'blueprint']))
+          view = builderView(ctx, body, outcome.kind === 'timeout' ? true : null, builderSections(args, false), specOf(args))
         }
         const summary = view.writing ? ctx.v2.t('blueprint.summary.writing') : ctx.v2.t('blueprint.summary.conversation', { title: view.title, status: view.state.label })
         return result(view.data, { summary, refs: view.refs, state: view.state, untrusted: BUILDER_UNTRUSTED })

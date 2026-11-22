@@ -76,5 +76,6 @@
   "error.chain_active": "Meilenstein {{n}} hat bereits eine aktive Kette.",
   "error.not_conversation": "{{ref}} ist keine Builder-Unterhaltung und kein Projekt-Commit.",
   "error.no_snapshot": "Der Builder hat noch keinen Blueprint zum Übernehmen; führe die Unterhaltung weiter.",
-  "error.engine_fields": "options braucht provider und model (effort optional) oder clear: true."
+  "error.engine_fields": "options braucht provider und model (effort optional) oder clear: true.",
+  "error.no_spec": "Es gibt keine Spec {{n}} in Meilenstein 1: Der Blueprint hat {{count}}."
 }

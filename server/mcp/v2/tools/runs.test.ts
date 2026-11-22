@@ -323,7 +323,12 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     routes.set(`POST ${P}/loop-runs/r1/pause`, { status: 202, body: { loopRunId: 'r1', pausing: true } })
     routes.set(`POST ${P}/rails/0/stop`, { body: { ok: true, loopRunIds: ['r1'] } })
     routes.set(`POST ${P}/jobs/r1/cancel`, { body: { status: 'canceling' } })
-    expect((await runs({ action: 'pause', ref: 'rail:shop-api/0' })).envelope.data).toMatchObject({ ref: RUN, pausing: true })
+    useJob(JOBS.working)
+    const paused = await runs({ action: 'pause', ref: 'rail:shop-api/0', options: { waitMs: 0 } })
+    expect(paused.envelope.data).toMatchObject({ ref: RUN, pausing: true, status: 'running' })
+    // The control answers with the run's fresh state, so the agent needs no get afterwards.
+    expect(paused.envelope.state).toMatchObject({ status: 'running', offers: expect.any(Array) })
+    expect(paused.envelope.summary).toMatch(/^Pause accepted\. .+: /)
     await runs({ action: 'stop', ref: 'rail:shop-api/0' })
     expect(posts().at(-1)?.path).toBe(`${P}/rails/0/stop`)
     await runs({ action: 'stop', ref: RUN })
@@ -333,7 +338,13 @@ describe('specrails_runs offers execute the run window\'s routes', () => {
     await act({ tool: 'specrails_runs', args: { action: 'resume', ref: 'rail:shop-api/0' } })
     expect(posts().at(-1)?.path).toBe(`${P}/loop-runs/r1/resume`)
     routes.set(`GET ${P}/rails`, { body: { rails: [{ railIndex: 0, ticketIds: [] }], activeJobs: {}, activeLoopRuns: {}, prDeliveries: {} } })
-    expect((await runs({ action: 'pause', ref: 'rail:shop-api/0' })).envelope.error.code).toBe('conflict')
+    expect((await runs({ action: 'pause', ref: 'rail:shop-api/0', options: { waitMs: 0 } })).envelope.error.code).toBe('conflict')
+    // By default the pause answers once the run holds (here at once), with that hold in its state.
+    routes.set(`GET ${P}/rails`, { body: { rails: [{ railIndex: 0, ticketIds: [12] }], activeJobs: {}, activeLoopRuns: { 0: { loopRunId: 'r1' } }, prDeliveries: {} } })
+    useJob({ ...JOBS.working, hold: { kind: 'paused', step: 'x', since: 's', byYou: true }, pauseControl: 'resume' })
+    const held = await runs({ action: 'pause', ref: RUN })
+    expect(held.envelope.state.hold).toMatchObject({ kind: 'paused' })
+    expect(held.envelope.state.offers.map((o: { id: string }) => o.id)).toContain('resume')
   })
 
   it('cancels only after confirmation, through the owning runtime', async () => {

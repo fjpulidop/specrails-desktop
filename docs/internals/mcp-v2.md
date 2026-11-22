@@ -325,14 +325,27 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
   `run-duration-range` cost for costly actions. Without a preview, the version is a hash of the arguments, so stale
   detection is impossible. Every confirmable action must ship a preview.
 - **Flow:**
-  1. A call without `confirm` returns `confirmation_required` with `preview` and `confirmToken`.
+  1. A call without `confirm` returns `confirmation_required` with `preview`, `confirmToken` and `resend` (the exact
+     confirming call: the same arguments without `dryRun`, plus `confirm`). The summary carries the effect once; the
+     message only says what to do. `resend` is left out when the arguments carry a write-only value (a secret key).
   2. The agent resends the call with `confirm: <token>`.
-  3. On success the token is consumed (single use).
+  3. On success the token is consumed (single use). The result is the outcome with the entity's fresh state (writes
+     answer with it, e.g. a run control reloads the run), so no re-read follows.
+  - **In-call confirmation.** When the client declared form elicitation at initialize (`elicitation: { form }`, or the
+    legacy empty object) and the desktop setting `mcp_confirm_in_client` is not `off`, a call that needs a yes first
+    asks the person in the client's own dialog (`elicitation/create`, the preview effect plus "Go ahead?", one boolean).
+    Only an accept with the box ticked executes, and the result says `confirmed: "in_client"`; a decline returns
+    `confirmation_required` with `reason: declined` and says to ask in the chat (a client that cannot show the dialog
+    may decline it too, so the token still confirms a later yes); a cancel,
+    an error or no answer within 5 minutes falls back to the token flow. No extra model turn is spent on a yes. Verified
+    against Claude Code 2.1.322 and Codex 0.171: both declare form elicitation; headless `claude -p` cancels (unless an
+    `Elicitation` hook answers) and `codex exec` declines, so both fall back to the token flow there. In-app turns never
+    elicit.
   - A token whose version no longer matches returns `stale`, with a fresh preview and token. A replay or expiry
     also returns `stale`, with `reason`.
   - A token for other arguments or another client returns `confirmation_required` with `reason: mismatch`; a cut or
     altered token returns it with `reason: malformed` and says to resend the whole token.
-  - `dryRun: true` always returns the preview, plus a token when one would be needed.
+  - `dryRun: true` always returns the preview, plus a token and `resend` when one would be needed.
 - **Token:** `ct1.<exp>.<nonce>.<version>.<hmac>`. The HMAC-SHA256 covers the client key, tool, canonical arguments
   (control fields `confirm`, `dryRun`, `lang`, `view`, `fields`, `cursor` and `limit` excluded, and the control
   options in `CONTROL_OPTIONS`, today `options.waitMs`), version and expiry, with a per-process secret and a 10-minute

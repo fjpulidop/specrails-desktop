@@ -98,7 +98,7 @@
   "offer.chain.answer_run": "Responder à pergunta da execução dela",
   "offer.chain.integrate": "Integrar a spec entregue",
   "offer.chain.rebuild": "Reconstruir a spec sobre a base atualizada",
-  "confirm.required": "{{label}} precisa da confirmação da pessoa: {{effect}} Mostre esta prévia, pergunte e reenvie com confirm.",
+  "confirm.required": "Precisa do sim da pessoa. Mostre-lhe preview.effect e pergunte; com um sim, faça a chamada de resend sem alterações.",
   "confirm.dry_run": "Simulação, nada foi executado: {{label}} faria: {{effect}}",
   "confirm.stale": "O estado mudou desde a prévia, então a confirmação não vale mais. Mostre a nova prévia e pergunte de novo.",
   "confirm.replayed": "Esta confirmação já foi usada. Mostre a nova prévia e pergunte de novo.",
@@ -131,5 +131,8 @@
   "specStatus.done": "Concluído",
   "specStatus.cancelled": "Cancelado",
   "specStatus.draft": "Rascunho",
-  "specStatus.on_review": "Em revisão"
+  "specStatus.on_review": "Em revisão",
+  "confirm.declined": "Não confirmado na caixa de diálogo do cliente (recusado lá, ou o cliente recusa diálogos que não consegue mostrar): nada foi feito. Pergunte à pessoa no chat; só com um sim faça a chamada de resend.",
+  "confirm.ask": "{{effect}} Avançar?",
+  "confirm.ask_field": "Sim, avançar"
 }

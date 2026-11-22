@@ -98,7 +98,7 @@
   "offer.chain.answer_run": "Répondre à la question de son exécution",
   "offer.chain.integrate": "Intégrer la spec livrée",
   "offer.chain.rebuild": "Reconstruire la spec sur la base mise à jour",
-  "confirm.required": "{{label}} nécessite la confirmation de la personne : {{effect}} Montrez cet aperçu, demandez, puis renvoyez avec confirm.",
+  "confirm.required": "Il faut l'accord de la personne. Montrez-lui preview.effect et demandez ; si elle accepte, faites l'appel de resend tel quel.",
   "confirm.dry_run": "Simulation, rien n'a été exécuté : {{label}} ferait : {{effect}}",
   "confirm.stale": "L'état a changé depuis l'aperçu, la confirmation ne s'applique donc plus. Montrez le nouvel aperçu et demandez de nouveau.",
   "confirm.replayed": "Cette confirmation a déjà été utilisée. Montrez le nouvel aperçu et demandez de nouveau.",
@@ -131,5 +131,8 @@
   "specStatus.done": "Terminé",
   "specStatus.cancelled": "Annulé",
   "specStatus.draft": "Brouillon",
-  "specStatus.on_review": "En revue"
+  "specStatus.on_review": "En revue",
+  "confirm.declined": "Non confirmé dans la boîte de dialogue du client (refusé là, ou le client refuse les dialogues qu'il ne peut pas afficher) : rien n'a été fait. Demandez à la personne dans le chat ; seulement si elle accepte, faites l'appel de resend.",
+  "confirm.ask": "{{effect}} On continue ?",
+  "confirm.ask_field": "Oui, continuer"
 }

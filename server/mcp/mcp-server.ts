@@ -18,7 +18,7 @@ import { registerV2GuideResources } from './v2/guide'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
 import { isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './v2'
 import { textModeFor } from './v2/core/envelope'
-import { confirmationKey } from './v2/core/confirm'
+import { confirmationKey, elicitsForms } from './v2/core/confirm'
 
 export interface McpServerManagerDeps {
   registry: ProjectRegistry
@@ -151,7 +151,12 @@ export class McpServerManager {
     const connectionKey = randomUUID()
     const inApp = options.inApp === true
     const sessionState = v2
-      ? { activeProjectId: null, get sessionKey() { return inApp ? connectionKey : confirmationKey(server.server.getClientVersion(), connectionKey) } }
+      ? {
+          activeProjectId: null,
+          get sessionKey() { return inApp ? connectionKey : confirmationKey(server.server.getClientVersion(), connectionKey) },
+          // Form elicitation (an empty `elicitation: {}` is form mode too); in-app turns confirm through their own cards.
+          elicitation: () => !inApp && elicitsForms(server.server.getClientCapabilities()),
+        }
       : { activeProjectId: null }
     const context = { ...this._ctx, sessionState }
     const specs = buildToolSpecs()
