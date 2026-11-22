@@ -238,7 +238,8 @@ export function leanItem(item: InboxItem, slug: string, state: DecisionState): R
     ...(item.detail && !/^(held|usage_limit):/.test(item.detail) ? { detail: item.detail } : {}),
     // The kind already says a question, an approval or a review waits; other holds say why.
     ...(state.hold && !LEAN_SELF_EXPLAINED.has(state.hold.kind) ? { why: state.hold.reason } : {}),
-    at: item.at,
+    // Second precision is enough to order and age an item.
+    at: typeof item.at === 'string' ? item.at.replace(/\.\d{3}Z$/, 'Z') : item.at,
     ...(subjectRefOf(item, slug) ? { subject: subjectRefOf(item, slug) } : {}),
     // Read offers (open the run or delivery) stay in the full state: the subject ref already names them.
     // The ids `act` takes, nothing more: labels and confirmation facts live in the item's full state

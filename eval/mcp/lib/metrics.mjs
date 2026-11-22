@@ -9,7 +9,8 @@ export const CONFIRM_REQUIRED = Object.freeze({
   specrails_runs: args => ['launch_all', 'recovery_check', 'delete_history'].includes(args.action) || (args.action === 'launch' && specCount(args) > 1),
   specrails_rails: args => args.action === 'remove',
   specrails_projects: args => ['unregister', 'repository_remove'].includes(args.action),
-  specrails_blueprint: args => ['commit', 'chain_launch'].includes(args.action),
+  // commit assembles the project offline (no AI turn, a $0 preview): it needs a token only when it creates a GitHub repository.
+  specrails_blueprint: args => args.action === 'chain_launch' || (args.action === 'commit' && Boolean(args.options?.githubRepo)),
   specrails_missions: args => ['delete', 'intent_discard'].includes(args.action),
   specrails_integrations: args => /^jira_(create_spec|connect)$/.test(String(args.action)),
 })

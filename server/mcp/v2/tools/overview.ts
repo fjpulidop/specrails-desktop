@@ -66,6 +66,8 @@ const record = asRecord
 
 const SOURCE_TIMEOUT_MS = 8_000
 /** Items per list in the summary view and in detail. */
+/** Needs-you items an app summary shows; `counts.needsYou` says how many wait in all. */
+const NEEDS_YOU_SUMMARY = 3
 const LIST = { summary: 5, detail: 15 } as const
 /** Running and delivered cards in the app glance. */
 const CARDS = { summary: 3, detail: 15 } as const
@@ -157,7 +159,8 @@ async function appOverview(ctx: V2CallContext, args: Row) {
   const limit = detail ? LIST.detail : LIST.summary
 
   const attention = attentionOf(ctx, board, null)
-  const shownItems = attention.slice(0, limit)
+  // The summary names the most urgent few (and `next` acts on them); specrails_inbox(list) pages the rest.
+  const shownItems = attention.slice(0, detail ? limit : NEEDS_YOU_SUMMARY)
   const facts = readInboxFacts(scope, shownItems)
   const states = new Map(shownItems.map((item) => [item.id, inboxItemState(ctx, item, scope.slugOf(item.projectId), facts.get(item.id))]))
   const needsYou = shownItems.map((item) => leanItem(item, scope.slugOf(item.projectId), states.get(item.id)!))
