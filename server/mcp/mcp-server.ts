@@ -13,6 +13,8 @@ import { buildToolSpecs } from './tools/catalog'
 import { registerTieredTool, type McpToolContext } from './tools/types'
 import { registerResources, registerResourceSubscriptions } from './resources'
 import { registerPrompts } from './prompts'
+import { registerV2Prompts } from './v2/prompts'
+import { registerV2GuideResources } from './v2/guide'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
 import { isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './v2'
 import { textModeFor } from './v2/core/envelope'
@@ -157,7 +159,12 @@ export class McpServerManager {
       }
     }
     registerResources(server, context, specs)
-    registerPrompts(server)
+    if (v2) {
+      registerV2Prompts(server)
+      registerV2GuideResources(server)
+    } else {
+      registerPrompts(server)
+    }
     const dispose = () => { disposeV2(); subscriptions() }
     return { server, dispose }
   }
