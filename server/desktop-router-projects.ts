@@ -11,7 +11,7 @@ import type { Router } from 'express'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
-import { cloneGithubRepository } from './github-clone'
+import { cloneGithubRepository, type CloneProgress } from './github-clone'
 import { registerOnboardingRoutes } from './modules/onboarding/adapters/http'
 import { loadPresetCandidates } from './modules/onboarding/adapters/providers'
 import { createSampleFiles, createSampleGit, createSampleSpecs, createSampleState } from './modules/onboarding/adapters/runtime'
@@ -184,8 +184,18 @@ export function registerProjectRoutes(router: Router, deps: {
     const controller = new AbortController()
     const abort = () => { if (!res.writableEnded) controller.abort() }
     res.on('close', abort)
+    // A caller-chosen `cloneId` (specrails_projects clone) gets throttled
+    // `repository.clone_progress` frames: phase and percent only.
+    const cloneId = typeof req.body?.cloneId === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(req.body.cloneId) ? req.body.cloneId : null
+    let last: { phase: string; percent: number } | null = null
+    const onProgress = cloneId ? (progress: CloneProgress) => {
+      if (last && last.phase === progress.phase && progress.percent < 100 && progress.percent - last.percent < 10) return
+      if (last && last.phase === progress.phase && last.percent === progress.percent) return
+      last = progress
+      broadcast({ type: 'repository.clone_progress', cloneId, phase: progress.phase, percent: progress.percent, timestamp: new Date().toISOString() } as unknown as WsMessage)
+    } : undefined
     try {
-      const clonedPath = await cloneGithubRepository(req.body ?? {}, isPathSafe, controller.signal)
+      const clonedPath = await cloneGithubRepository(req.body ?? {}, isPathSafe, controller.signal, undefined, onProgress)
       res.status(201).json({ path: clonedPath })
     } catch (err) {
       if (err instanceof RepositoryValidationError) res.status(err.status).json({ error: err.message, code: err.code })

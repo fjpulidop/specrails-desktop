@@ -36,5 +36,9 @@
   "offer.assemble": "Reintentar el montaje del espacio de trabajo",
   "error.no_destination": "clone necesita un destino: path (u options.destination), una carpeta nueva absoluta.",
   "error.no_sample": "No hay ningún proyecto de ejemplo que quitar.",
-  "error.repository_update_empty": "repository_update necesita al menos uno de path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update necesita al menos uno de path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "Clonando en {{path}} en segundo plano ({{ref}}); registra el proyecto al terminar. Síguelo con specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Sigue clonando en {{path}}{{progress}}. Síguelo con specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "La clonación en {{path}} ha fallado: {{reason}}",
+  "error.clone_unknown": "No se conoce la clonación {{ref}}: nunca empezó en este equipo o su registro ha caducado."
 }

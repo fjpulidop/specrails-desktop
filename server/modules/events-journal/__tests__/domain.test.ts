@@ -102,3 +102,16 @@ describe('classifyMessage', () => {
     expect(signatureOf(a)).toBe(signatureOf(classifyMessage({ type: 'loop.run_paused', projectId: 'p1', loopRunId: 'r1', question })[0]))
   })
 })
+
+describe('repository clones', () => {
+  it('turns clone frames into app-global clone rows: running with progress, completed with the project, failed with the reason', () => {
+    expect(classifyMessage({ type: 'repository.clone_started', cloneId: 'c1', path: '/tmp/repo' })[0]).toMatchObject({ projectId: null, refKind: 'clone', refId: 'c1', kind: 'clone.status', status: 'running', settled: false, detail: null, data: { path: '/tmp/repo' } })
+    expect(classifyMessage({ type: 'repository.clone_progress', cloneId: 'c1', phase: 'receiving', percent: 42.4 })[0]).toMatchObject({ status: 'running', detail: 'receiving 42%', data: { phase: 'receiving', percent: 42.4 } })
+    expect(classifyMessage({ type: 'repository.clone_done', cloneId: 'c1', path: '/tmp/repo', newProjectId: 'p9', slug: 'repo' })[0]).toMatchObject({ status: 'completed', settled: true, attention: null, data: { path: '/tmp/repo', projectId: 'p9', slug: 'repo' } })
+    expect(classifyMessage({ type: 'repository.clone_failed', cloneId: 'c1', error: 'Clone failed', code: 'clone_failed' })[0]).toMatchObject({ status: 'failed', settled: true, attention: 'failed', detail: 'Clone failed', data: { code: 'clone_failed' } })
+    expect(classifyMessage({ type: 'repository.clone_progress', phase: 'receiving', percent: 1 })).toEqual([])
+    // Each new percent is a new row; a repeat is not (same signature).
+    const a = classifyMessage({ type: 'repository.clone_progress', cloneId: 'c1', phase: 'receiving', percent: 10 })[0]
+    expect(signatureOf(a)).not.toBe(signatureOf(classifyMessage({ type: 'repository.clone_progress', cloneId: 'c1', phase: 'receiving', percent: 20 })[0]))
+  })
+})

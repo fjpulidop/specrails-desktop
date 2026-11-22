@@ -3,7 +3,7 @@ import { defineTool, type V2CallContext } from '../core/registry'
 import { WRITE_FIELDS, optionsOf } from '../core/views'
 import { asRecord } from '../core/text'
 import { result, V2ToolError } from '../core/envelope'
-import { formatRef, type Ref } from '../core/refs'
+import { formatRef, parseRef, type Ref } from '../core/refs'
 import { pageOf } from '../core/cursor'
 import { shortHash } from '../core/canonical'
 import { untrusted } from '../core/untrusted'
@@ -11,6 +11,9 @@ import { normalizeLang } from '../core/lang'
 import { apiCall } from '../../tools/types'
 import type { ProjectRow } from '../../../desktop-db'
 import { getProjectRepositories, type ProjectRepository } from '../../../project-repositories'
+import { refKey, type JournalEvent } from '../../../modules/events-journal'
+import { runningClones, settleInterruptedClones, settledWithin, startClone } from '../core/clone-jobs'
+import { waitMsOf } from '../core/bus'
 
 /**
  * WP2 `specrails_projects` (app level): the registered projects, the session
@@ -25,7 +28,9 @@ const str = (value: unknown): string | null => typeof value === 'string' && valu
 const strings = (value: unknown): string[] | undefined => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && !!item.trim()) : undefined
 
 const PROJECTS = 'specrails_projects'
-const CLONE_TIMEOUT_MS = 310_000
+/** A clone answers inline when it finishes within options.waitMs (default 20 s, max 45 s: under every client's call timeout). */
+const CLONE_WAIT_DEFAULT_MS = 20_000
+const CLONE_WAIT_MAX_MS = 45_000
 
 /** The project of a call; v1's `projectId` keeps working. */
 function projectOf(ctx: V2CallContext, args: Row): ProjectRow {
@@ -143,6 +148,38 @@ async function currentSample(ctx: V2CallContext): Promise<Row | null> {
   return sample.sample && typeof sample.sample === 'object' ? record(sample.sample) : null
 }
 
+const cloneRef = (id: string): Ref => formatRef('clone', id)
+
+/** A clone's journal row → its view (`specrails_projects(get, ref: clone:<id>)`, wait's next call). */
+function cloneView(ctx: V2CallContext, id: string, row: JournalEvent) {
+  const t = ctx.v2.t
+  const ref = cloneRef(id)
+  const data = row.data ?? {}
+  const path = data.path ?? ''
+  const project = data.slug ? formatRef('project', data.slug) : null
+  const status = row.status === 'completed' ? 'succeeded' : row.status === 'failed' ? 'failed' : 'running'
+  const view: Row = { ref, status, path, ...(data.phase ? { phase: data.phase } : {}), ...(typeof data.percent === 'number' ? { percent: data.percent } : {}), ...(project ? { project } : {}), since: row.at }
+  if (status === 'failed') {
+    view.reason = row.detail ?? ''
+    if (data.code) view.code = data.code
+    return result(view, { summary: t('projects.summary.clone_failed', { path, reason: row.detail ?? '' }), refs: { clone: ref }, untrusted: untrusted('/data/reason') })
+  }
+  if (status === 'succeeded') {
+    return result(view, {
+      summary: project ? t('projects.summary.cloned_added', { path, slug: data.slug ?? '' }) : t('projects.summary.cloned', { path }),
+      refs: { clone: ref, ...(project ? { project } : {}) },
+    })
+  }
+  const progress = data.phase ? ` (${row.detail ?? data.phase})` : ''
+  return result(view, { summary: t('projects.summary.clone_running', { path, progress, ref }), refs: { clone: ref } })
+}
+
+function cloneRow(ctx: V2CallContext, id: string): JournalEvent {
+  const row = settleInterruptedClones(ctx, [id]).get(refKey('clone', id))
+  if (!row) throw new V2ToolError('not_found', ctx.v2.t('projects.error.clone_unknown', { ref: cloneRef(id) }))
+  return row
+}
+
 export const projectsTool = defineTool({
   name: 'specrails_projects',
   title: 'Projects',
@@ -173,7 +210,9 @@ export const projectsTool = defineTool({
         const current = rows.find((row) => row.id === defaultId)
         const t = ctx.v2.t
         const queryText = query ? ` matching "${query}"` : ''
-        return result({ items, total: matching.length }, {
+        // Clones still running in this process (each becomes a project when it finishes).
+        const cloning = runningClones().map((job) => ({ ref: cloneRef(job.id), path: job.destination }))
+        return result({ items, total: matching.length, ...(cloning.length ? { cloning } : {}) }, {
           summary: matching.length ? t('projects.summary.list', { count: matching.length, query: queryText, default: current ? current.slug : t('projects.summary.none') }) : t('projects.summary.list_empty', { query: queryText }),
           page: page.page, pageBase: page.base,
           ...(current ? { refs: { default: projectRef(current) } } : {}),
@@ -182,8 +221,10 @@ export const projectsTool = defineTool({
     },
     get: {
       tier: 'read',
-      doc: 'project defaults to the session default. view detail adds settings, setup and integration branch.',
+      doc: 'project defaults to the session default. view detail adds settings, setup and integration branch. ref clone:<id>: that clone (progress, the new project, or why it failed).',
       handler: async (ctx, args) => {
+        const clone = parseRef(args.ref)
+        if (clone?.kind === 'clone') return cloneView(ctx, clone.id, cloneRow(ctx, clone.id))
         const row = projectOf(ctx, args)
         const data: Row = projectView(ctx, row)
         const warnings: string[] = []
@@ -247,23 +288,29 @@ export const projectsTool = defineTool({
     clone: {
       tier: 'write',
       required: ['url'],
-      doc: 'path (or options.destination): new absolute folder; then registers it (options.register: false to skip), name and options of add apply.',
+      doc: 'path (or options.destination): new absolute folder; then registers it (options.register: false to skip), name and options of add apply. Answers done inline within options.waitMs (default 20 s, max 45 s); a longer clone answers 202 with ref clone:<id>: follow it with specrails_wait(until, refs:[clone:<id>]).',
       handler: async (ctx, args) => {
         const options = optionsOf(args)
         const destination = str(options.destination) ?? str(args.path)
         if (!destination) throw new V2ToolError('invalid_input', ctx.v2.t('projects.error.no_destination'))
-        const cloned = record(await apiCall(ctx, 'POST', '/repositories/clone', { url: args.url, destination }, { timeoutMs: CLONE_TIMEOUT_MS }))
-        const path = String(cloned.path ?? destination)
-        if (options.register === false) return result({ path }, { summary: ctx.v2.t('projects.summary.cloned', { path }) })
-        const body: Row = { path }
-        if (str(args.name)) body.name = str(args.name)
-        const providers = strings(options.providers)
-        if (providers?.length) body.providers = providers
-        const project = record(record(await apiCall(ctx, 'POST', '/projects', body)).project)
-        const slug = String(project.slug ?? '')
-        if (options.select === true && typeof project.id === 'string') ctx.sessionState.activeProjectId = project.id
-        return result({ path, project: { ref: formatRef('project', slug), id: project.id, slug, name: project.name } }, {
-          summary: ctx.v2.t('projects.summary.cloned_added', { path, slug }), refs: { project: formatRef('project', slug) },
+        const job = startClone(ctx, {
+          url: args.url, destination, register: options.register !== false,
+          name: str(args.name), providers: strings(options.providers), select: options.select === true,
+        })
+        const settled = await settledWithin(job, waitMsOf(options, CLONE_WAIT_DEFAULT_MS, CLONE_WAIT_MAX_MS), ctx.signal)
+        const ref = cloneRef(job.id)
+        // Failing inside the wait (a bad URL, an existing folder): the route's own error, as before.
+        if (settled && job.error !== undefined) throw job.error
+        if (settled && job.outcome) {
+          const { path, project } = job.outcome
+          if (!project) return result({ path }, { summary: ctx.v2.t('projects.summary.cloned', { path }), refs: { clone: ref } })
+          return result({ path, project: { ref: formatRef('project', project.slug), id: project.id, slug: project.slug, name: project.name } }, {
+            summary: ctx.v2.t('projects.summary.cloned_added', { path, slug: project.slug }), refs: { clone: ref, project: formatRef('project', project.slug) },
+          })
+        }
+        return result({ ref, status: 'running', path: destination, accepted: true }, {
+          summary: ctx.v2.t('projects.summary.clone_started', { path: destination, ref }),
+          refs: { clone: ref },
         })
       },
     },

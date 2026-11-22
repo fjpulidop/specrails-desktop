@@ -153,6 +153,8 @@ Example — register a project that uses both Claude and Gemini:
 |--------|------|-------|
 | `GET` | `/analytics?period=&from=&to=` | Cross-project aggregated spending (the Desktop Analytics page; supports a custom `from`/`to` range): `{ period, kpi, projectBreakdown, costTimeline, byCategory }`. App-ledger turns (missions, Intent, Home and Blueprint chats) count in every figure — cost, estimated part, priced/unpriced counts, timeline and the five-category `byCategory` split. A turn pinned to a loaded project adds to that project's row (`agentTurns`); the rest form one `kind: 'app'` row with id `app:home-blueprint`. Job counts stay job-only |
 | `GET` | `/recent-jobs?limit=` | Recent jobs across all projects (1–50) |
+| `GET` | `/runs?limit=&after=&status=&from=` | The app-wide run sequence over the loaded projects (MCP `runs(list)` without a project): live runs (running, held, queued; `hold` as on `/projects/:id/jobs`) first, then history, each newest first; ties by project and run id. `limit` 1–100 (default 25), `after` is the previous page's `next` (400 when malformed), `status` one server status, `from` an ISO lower bound. Each project reads at most `limit + 1` rows per tier through `idx_jobs_started_at`. `{ runs[{…job, projectId, hold?}], next, projects: { loaded, notLoaded, failed[] } }`; projects still warming up are counted, never loaded |
+| `POST` | `/repositories/clone` | Clone a GitHub repository into a new absolute folder (`{ url, destination }` → 201 `{ path }`). With `cloneId` (8–64 of `[A-Za-z0-9-]`), broadcasts throttled `repository.clone_progress { cloneId, phase, percent }` frames while Git runs (only phase and percent leave the process) |
 
 ### Failure diagnosis
 

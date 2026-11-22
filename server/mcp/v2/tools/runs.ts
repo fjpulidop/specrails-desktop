@@ -661,6 +661,44 @@ const generates = (args: Row) => optionsOf(args).generate === true
 const remedySpawns = (args: Row) => args.choice !== 'edit_spec'
 
 /** WP3. Every run (jobs, loop and Intent runs): views, launch, control, answers, recovery. */
+/**
+ * `runs(list)` without a project: the app-wide read model (`GET /runs`) over
+ * every loaded project, live runs with their hold first, then history, paged
+ * with a keyset cursor. Same item shape and filters as a project's list.
+ */
+async function crossProjectList(ctx: V2CallContext, args: Row, opts: { limit: number; filter: Row; server: ReadonlySet<string | undefined>; keep: (status: CanonicalStatus, hold: unknown, job: Row) => boolean }) {
+  const key = shortHash({ app: 'runs', f: opts.filter })
+  const after = decodeCursor(args.cursor, key)?.inner
+  const query = new URLSearchParams({ limit: String(opts.limit) })
+  // needsYou: only live runs can need the person; reading the running tier keeps the page full of them.
+  const server = opts.server.size === 1 ? [...opts.server][0]! : opts.filter.needsYou === true && !opts.server.size ? 'running' : null
+  if (server) query.set('status', server)
+  if (str(opts.filter.since)) query.set('from', String(opts.filter.since))
+  if (after) query.set('after', after)
+  const listed = await api(ctx, 'GET', `/runs?${query}`)
+  const slugs = new Map(ctx.v2.projects().map((row) => [row.id, row.slug]))
+  const items = arr(listed.runs).map(rec).flatMap((job) => {
+    const slug = slugs.get(String(job.projectId))
+    if (!slug) return []
+    const hold = job.hold ? rec(job.hold) : null
+    const status = statusFromJob(String(job.status ?? ''), hold as never)
+    if (!opts.keep(status, hold, job)) return []
+    return [{
+      ref: formatRef('run', String(job.id), slug), project: formatRef('project', slug), title: titleOf(job), status,
+      ...(hold ? { hold: hold.kind } : {}), provider: job.provider ?? null, model: job.model ?? null,
+      costUsd: job.total_cost_usd ?? null, startedAt: job.started_at ?? null, finishedAt: job.finished_at ?? null,
+    }]
+  })
+  const next = str(listed.next)
+  const loading = num(rec(listed.projects).notLoaded) ?? 0
+  return result({ items }, {
+    summary: ctx.v2.t('runs.summary.list', { count: items.length, more: next ? ctx.v2.t('runs.summary.list_more') : '' }),
+    page: { cursor: next ? encodeCursor({ offset: 0, path: '/items', key, inner: next }) : null, truncated: next !== null },
+    ...(loading ? { warnings: [`${loading} project(s) still loading: their runs are not listed yet.`] } : {}),
+    untrusted: untrusted('/data/items/*/title'),
+  })
+}
+
 export const runsTool = defineTool({
   name: 'specrails_runs',
   title: 'Runs',
@@ -683,7 +721,7 @@ export const runsTool = defineTool({
   actions: {
     list: {
       tier: 'read',
-      doc: 'filter: status[] (v2 words), kind[] loop|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = recent runs app-wide',
+      doc: 'filter: status[] (v2 words), kind[] loop|job (intent: the Intent sessions, as missions(intent_list)), spec, since (ISO), needsYou, q (search the logs); no project = every project: live runs with their hold first, then history, paged',
       handler: async (ctx, raw) => {
         const args = compatArgs(raw)
         const filter = rec(args.filter)
@@ -709,20 +747,10 @@ export const runsTool = defineTool({
           && (!kinds.size || kinds.has(isLoop(job) ? 'loop' : 'job'))
           && (spec === null || job.ticketId === spec || arr(job.ticketIds).includes(spec))
           && (filter.needsYou !== true || needsPerson({ status, hold: hold ? { kind: rec(hold).kind } as never : undefined }))
-        if (!project) {
-          const recent = await api(ctx, 'GET', `/recent-jobs?limit=${Math.min(50, limit)}`)
-          const rows = ctx.v2.projects()
-          const items = arr(recent.jobs).map(rec).flatMap((job) => {
-            const row = rows.find((candidate) => candidate.id === job.projectId)
-            const status = statusFromJob(String(job.status ?? ''))
-            if (!row || !keep(status, null, job)) return []
-            return [{ ref: formatRef('run', String(job.id), row.slug), project: formatRef('project', row.slug), title: oneLine(neutralize(String(job.command ?? '')), 90), status, startedAt: job.started_at ?? null, finishedAt: job.finished_at ?? null, costUsd: job.total_cost_usd ?? null }]
-          })
-          return result({ items }, { summary: ctx.v2.t('runs.summary.list', { count: items.length, more: '' }), untrusted: untrusted('/data/items/*/title') })
-        }
         // One server status narrows the page when the v2 words map onto it.
         const JOB_STATUS: Partial<Record<CanonicalStatus, string>> = { queued: 'queued', running: 'running', paused: 'running', blocked: 'running', needs_you: 'running', failed: 'failed', succeeded: 'completed', cancelled: 'canceled' }
         const server = new Set([...wanted].map((status) => JOB_STATUS[status as CanonicalStatus]).filter(Boolean))
+        if (!project) return crossProjectList(ctx, args, { limit, filter, server, keep })
         const key = shortHash({ p: project.id, f: filter })
         const offset = decodeCursor(args.cursor, key)?.offset ?? 0
         const query2 = new URLSearchParams({ limit: String(limit), offset: String(offset) })

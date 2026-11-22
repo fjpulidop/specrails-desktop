@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { cloneGithubRepository, githubCloneUrl } from './github-clone'
+import { cloneGithubRepository, githubCloneUrl, parseCloneProgress, type CloneProgress } from './github-clone'
 
 const roots: string[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => fs.rm(root, { recursive: true, force: true }))) })
@@ -58,5 +58,28 @@ describe('GitHub clone', () => {
     await expect(cloneGithubRepository({ url: 'owner/repo', destination: path.join(destination, 'nested') }, () => true, undefined, run)).rejects.toThrow('parent folder')
     await expect(cloneGithubRepository({ url: 'owner/repo', destination: 'relative' }, () => true, undefined, run)).rejects.toThrow('absolute')
     expect(run).not.toHaveBeenCalled()
+  })
+
+  it('parses Git progress lines into phase and percent only', () => {
+    expect(parseCloneProgress('Receiving objects:  45% (450/1000), 1.20 MiB | 2.00 MiB/s')).toEqual({ phase: 'receiving', percent: 45 })
+    expect(parseCloneProgress('remote: Compressing objects: 100% (20/20), done.')).toEqual({ phase: 'compressing', percent: 100 })
+    expect(parseCloneProgress('Resolving deltas:   3% (1/30)')).toEqual({ phase: 'resolving', percent: 3 })
+    expect(parseCloneProgress("Cloning into '/tmp/x'...")).toBeNull()
+    expect(parseCloneProgress('remote: Username for https://github.com: 12%')).toBeNull()
+  })
+
+  it('reports progress from git clone --progress when asked, with the rest of the output discarded', async () => {
+    const destination = await target()
+    const bin = path.join(path.dirname(destination), 'bin')
+    await fs.mkdir(bin)
+    // A stand-in git: checks --progress, prints progress the way Git does (\r-separated) and a secret-looking line.
+    await fs.writeFile(path.join(bin, 'git'), '#!/bin/sh\ncase " $* " in *" --progress "*) ;; *) exit 3;; esac\nprintf "remote: token=abc\\nReceiving objects:  10%% (1/10)\\rReceiving objects:  60%% (6/10)\\rReceiving objects: 100%% (10/10), done.\\nResolving deltas: 100%% (2/2), done.\\n" >&2\n', { mode: 0o755 })
+    const saved = process.env.PATH
+    process.env.PATH = `${bin}:${saved}`
+    try {
+      const seen: CloneProgress[] = []
+      expect(await cloneGithubRepository({ url: 'owner/repo', destination }, () => true, undefined, undefined, (p) => seen.push(p))).toBe(destination)
+      expect(seen).toEqual([{ phase: 'receiving', percent: 10 }, { phase: 'receiving', percent: 60 }, { phase: 'receiving', percent: 100 }, { phase: 'resolving', percent: 100 }])
+    } finally { process.env.PATH = saved }
   })
 })

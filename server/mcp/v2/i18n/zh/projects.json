@@ -36,5 +36,9 @@
   "offer.assemble": "重试工作区组装",
   "error.no_destination": "clone 需要一个目标：path（或 options.destination），一个绝对路径的新文件夹。",
   "error.no_sample": "没有可移除的示例项目。",
-  "error.repository_update_empty": "repository_update 至少需要 path、name、options.integrationBranch、options.workspacePaths 中的一个。"
+  "error.repository_update_empty": "repository_update 至少需要 path、name、options.integrationBranch、options.workspacePaths 中的一个。",
+  "summary.clone_started": "正在后台克隆到 {{path}}（{{ref}}）；完成后会注册该项目。用 specrails_wait(until, refs:[\"{{ref}}\"]) 跟踪。",
+  "summary.clone_running": "仍在克隆到 {{path}}{{progress}}。用 specrails_wait(until, refs:[\"{{ref}}\"]) 跟踪。",
+  "summary.clone_failed": "克隆到 {{path}} 失败：{{reason}}",
+  "error.clone_unknown": "未知的克隆 {{ref}}：它从未在这台电脑上开始，或其记录已过期。"
 }

@@ -116,7 +116,7 @@ describe('add / clone / provision / install', () => {
     desktop.on('POST', '/projects', (req: Req, res: Res) => { res.status(201).json({ project: { id: 'p8', slug: 'repo', name: 'repo', path: req.body.path } }) })
     const { envelope } = await projects({ action: 'clone', url: 'https://github.com/acme/repo', path: '/tmp/clones/repo' })
     expect(envelope.data).toMatchObject({ path: '/tmp/clones/repo', project: { ref: 'project:repo' } })
-    expect(posts()).toEqual([['POST', '/repositories/clone', { url: 'https://github.com/acme/repo', destination: '/tmp/clones/repo' }], ['POST', '/projects', { path: '/tmp/clones/repo' }]])
+    expect(posts()).toEqual([['POST', '/repositories/clone', { url: 'https://github.com/acme/repo', destination: '/tmp/clones/repo', cloneId: expect.stringMatching(/^[0-9a-f-]{36}$/) }], ['POST', '/projects', { path: '/tmp/clones/repo' }]])
     const only = await projects({ action: 'clone', url: 'https://github.com/acme/repo', options: { destination: '/tmp/clones/two', register: false } })
     expect(only.envelope.data).toEqual({ path: '/tmp/clones/two' })
     expect((await projects({ action: 'clone', url: 'https://github.com/acme/repo' })).envelope.error.code).toBe('invalid_input')

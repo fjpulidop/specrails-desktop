@@ -36,5 +36,9 @@
   "offer.assemble": "Relancer l'assemblage de l'espace de travail",
   "error.no_destination": "clone requiert une destination : path (ou options.destination), un nouveau dossier absolu.",
   "error.no_sample": "Il n'y a aucun projet d'exemple à retirer.",
-  "error.repository_update_empty": "repository_update requiert au moins l'un de path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update requiert au moins l'un de path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "Clonage dans {{path}} en arrière-plan ({{ref}}) ; le projet est enregistré à la fin. Suivez-le avec specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Clonage toujours en cours dans {{path}}{{progress}}. Suivez-le avec specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "Le clonage dans {{path}} a échoué : {{reason}}",
+  "error.clone_unknown": "Aucun clonage {{ref}} connu : il n'a jamais démarré sur cet ordinateur ou son enregistrement a expiré."
 }

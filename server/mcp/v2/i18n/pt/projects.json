@@ -36,5 +36,9 @@
   "offer.assemble": "Tentar de novo a montagem do workspace",
   "error.no_destination": "clone precisa de um destino: path (ou options.destination), uma pasta nova absoluta.",
   "error.no_sample": "Não há projeto de exemplo para remover.",
-  "error.repository_update_empty": "repository_update precisa de pelo menos um entre path, name, options.integrationBranch, options.workspacePaths."
+  "error.repository_update_empty": "repository_update precisa de pelo menos um entre path, name, options.integrationBranch, options.workspacePaths.",
+  "summary.clone_started": "A clonar para {{path}} em segundo plano ({{ref}}); o projeto é registado no fim. Acompanha com specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_running": "Ainda a clonar para {{path}}{{progress}}. Acompanha com specrails_wait(until, refs:[\"{{ref}}\"]).",
+  "summary.clone_failed": "A clonagem para {{path}} falhou: {{reason}}",
+  "error.clone_unknown": "Não se conhece a clonagem {{ref}}: nunca começou neste computador ou o seu registo expirou."
 }
