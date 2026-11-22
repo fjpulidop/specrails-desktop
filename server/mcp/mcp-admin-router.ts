@@ -15,6 +15,7 @@ import { registrationCommand } from './connect/client-config'
 import { CONNECT_CLIENTS, ConnectError, connect, defaultConnectEnv, detectClients, type ConnectEnv } from './connect/connect'
 import { verifyBridge, type VerifyResult } from './connect/verify'
 import { stableNodeCommand, type StableNode } from './connect/node-path'
+import { findNodeOnPath } from '../core-node-runtime'
 import { runDoctor, type DoctorInput } from './connect/doctor'
 import { resolveBundledNodeExe } from '../path-resolver'
 import fs from 'fs'
@@ -62,7 +63,15 @@ function preferences(db: DbInstance): { confirmAboveUsd: number; v2: { enabled: 
  * packaged app uses its bundled runtime.
  */
 function defaultNodeSource(): StableNode {
-  return stableNodeCommand({ execPath: process.execPath, bundled: resolveBundledNodeExe(), env: process.env, platform: process.platform })
+  const packagedServer = Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg)
+  return stableNodeCommand({
+    execPath: process.execPath,
+    bundled: resolveBundledNodeExe(),
+    env: process.env,
+    platform: process.platform,
+    packagedServer,
+    nodeOnPath: packagedServer ? findNodeOnPath(process.env, process.platform) : null,
+  })
 }
 
 /**

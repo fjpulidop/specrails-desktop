@@ -32,6 +32,10 @@ export interface NodePathDeps {
   bundled: string | null
   env: Readonly<Record<string, string | undefined>>
   platform: NodeJS.Platform
+  /** True when this server runs as a pkg-built binary (its execPath is not a Node that runs scripts). */
+  packagedServer?: boolean
+  /** The first `node` on PATH, used when `packagedServer` has no bundled runtime. */
+  nodeOnPath?: string | null
   /** Resolved real path, or null when the file does not exist. */
   realpath?: (file: string) => string | null
   /** True for an existing executable file. */
@@ -77,6 +81,18 @@ function homebrewLinks(execPath: string): string[] {
 
 export function stableNodeCommand(deps: NodePathDeps): StableNode {
   if (deps.bundled) return { command: deps.bundled, source: 'bundled' }
+  // A pkg-built server's execPath is the server binary itself: given the bridge script it ignores it
+  // and starts a second Specrails server, so the client sees the connection close. Use a real Node.
+  if (deps.packagedServer) {
+    if (!deps.nodeOnPath) {
+      return {
+        command: deps.execPath,
+        source: 'versioned',
+        warning: 'No Node.js was found on PATH, and this Specrails server binary cannot run the MCP bridge itself. Install Node.js (or put `node` on PATH), then connect again.',
+      }
+    }
+    return stableNodeCommand({ ...deps, packagedServer: false, execPath: deps.nodeOnPath })
+  }
   const exec = deps.execPath
   if (!isVersionedNodePath(exec)) return { command: exec, source: 'exec_path' }
   const realpath = deps.realpath ?? defaultRealpath

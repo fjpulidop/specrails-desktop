@@ -37,6 +37,21 @@ describe('stableNodeCommand', () => {
     })
   })
 
+  it('never registers a pkg-built server binary: it ignores the bridge script and starts a second server', () => {
+    const server = '/Users/me/specrails-desktop/src-tauri/target/debug/specrails-server'
+    expect(stableNodeCommand(deps({ execPath: server, packagedServer: true, nodeOnPath: '/opt/homebrew/bin/node' }))).toEqual({
+      command: '/opt/homebrew/bin/node', source: 'exec_path',
+    })
+    // A versioned node on PATH still resolves to its stable link.
+    expect(stableNodeCommand(deps({
+      execPath: server, packagedServer: true, nodeOnPath: CELLAR, links: { '/opt/homebrew/bin/node': CELLAR },
+    }))).toEqual({ command: '/opt/homebrew/bin/node', source: 'stable_link' })
+    const none = stableNodeCommand(deps({ execPath: server, packagedServer: true, nodeOnPath: null }))
+    expect(none.warning).toMatch(/No Node\.js was found on PATH/)
+    // The bundled runtime still wins.
+    expect(stableNodeCommand(deps({ execPath: server, packagedServer: true, nodeOnPath: '/usr/bin/node', bundled: '/b/node' })).command).toBe('/b/node')
+  })
+
   it('keeps an execPath that is not versioned', () => {
     expect(stableNodeCommand(deps({ execPath: '/usr/bin/node' }))).toEqual({ command: '/usr/bin/node', source: 'exec_path' })
   })
