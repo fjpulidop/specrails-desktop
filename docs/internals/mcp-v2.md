@@ -162,6 +162,13 @@ Rules:
 - **Tier and class are per action.** Use a function of `args` for mixed actions (`specs.create` with `mode: request`
   is `ai-spawn` + `costly`; `deliveries.decide` reads `DECISION_POLICY`). A destructive tier always carries a
   confirmation class. A reversible soft delete is `write` with no class.
+- **Writes answer decision-ready.** A write returns the fresh status and `state` of what it changed (offers,
+  recommended, hold), so the agent never re-reads it: run controls reload the run (`accepted`), `pause` answers once the
+  run holds (`options.waitMs`, default 25 s), a triage offers the one-call launch of what it triaged. A common detour
+  answers directly instead of erroring: `specs(list)` for deleted specs serves the trash, `runs(list)` with kind
+  `intent` serves the Intent sessions. Provider words map to ids (`gpt`/`openai` → `codex`, `anthropic` → `claude`).
+- **Reads stay small.** A Builder turn answers lean (reply and snapshot); `blueprint(get)` detail is an outline (one
+  line per M1 spec), one spec in full is `fields:["spec"]` + `options.spec`.
 - **No new top-level field for a rare argument.** It goes in `options`, documented in `doc` and by
   `specrails_system(help)`. Field descriptions are at most 8 words.
 - Handlers return plain data or `result(data, meta)`. Throw `V2ToolError(code, message, extra)`. v1 errors
