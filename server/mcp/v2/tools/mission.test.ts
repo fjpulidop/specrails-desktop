@@ -2,18 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { initDesktopDb } from '../../desktop-db'
-import { registerAgentSteering, notifyAgentSteering } from '../../modules/missions/runtime/agent-steering'
-import { AGENT_CAPABILITY_HEADER } from '../../modules/missions/runtime/agent-tier'
-import { mintAgentCapability, revokeAgentCapability, _resetAgentCapabilitiesForTest } from '../agent-capability'
-import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './types'
+import { initDesktopDb } from '../../../desktop-db'
+import { registerAgentSteering, notifyAgentSteering } from '../../../modules/missions/runtime/agent-steering'
+import { AGENT_CAPABILITY_HEADER } from '../../../modules/missions/runtime/agent-tier'
+import { mintAgentCapability, revokeAgentCapability, _resetAgentCapabilitiesForTest } from '../../agent-capability'
+import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from '../../tools/types'
 import { missionTools } from './mission'
-import { watchTool } from './watch'
-import { MobileEventBus } from '../../mobile/mobile-event-bus'
-import { setAgentChatManager } from '../../modules/missions/runtime/agent-chat-registry'
-import type { AgentChatManager } from '../../modules/missions/runtime/agent-chat-manager'
+import { watchTool } from '../../tools/watch'
+import { MobileEventBus } from '../../../mobile/mobile-event-bus'
+import { setAgentChatManager } from '../../../modules/missions/runtime/agent-chat-registry'
+import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 
-vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'mission-tool-test-token' }))
+vi.mock('../../../auth', () => ({ loadOrGenerateToken: () => 'mission-tool-test-token' }))
 
 const databases: Array<ReturnType<typeof initDesktopDb>> = []
 type RegisteredHandler = (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<CallToolResult>
