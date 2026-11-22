@@ -5,24 +5,25 @@ decision-ready state, bound confirmations, one blocking `wait`, localized text a
 freezes the shared contracts built in WP0 (`server/mcp/v2/core/**`). Work packages WP1–WP14 build on them in parallel
 and must not change them. A contract change is a WP0 change: it goes through its own reviewed commit and this page.
 
-The v1 catalog (`server/mcp/tools/**`, [response envelope](mcp-response-envelope.md)) stays the default until the
-phase 4 cut-over.
+Since the phase 4 cut-over v2 is the default for external clients. The v1 catalog (`server/mcp/tools/**`,
+[response envelope](mcp-response-envelope.md)) stays as the escape hatch and as the in-app catalog.
 
 ## Feature flag
 
 | Switch | Effect |
 |---|---|
-| `desktop_settings.mcp_v2 = 'true'` | New MCP sessions get v2 |
+| unset (default) | New external MCP sessions get v2 |
+| `desktop_settings.mcp_v2 = 'false'` | Settings ▸ MCP ▸ **Simplified MCP tools** off: exactly the v1 catalog, no instructions, no v2 tool |
 | `SPECRAILS_MCP_V2=true` / `false` | Wins over the setting (tests, dogfooding, rollback) |
-| unset (default) | Exactly the v1 catalog. No instructions, no v2 tool, no change for current clients |
+| in-app turn (server-minted capability) | Always the v1 catalog, loaded up front: the mission/Intent prompts, operator guide topics and permission ladder name v1 tools (`specrails_guide`, `specrails_background`, `specrails_git`, …), and a client calls only what it was listed. `registerV2Surface({ inApp: true })` still works for a future migration of those prompts |
 
-With the flag on, `McpServerManager.buildServer` (`server/mcp/mcp-server.ts`) calls `registerV2Surface`
+For an external session with the flag on, `McpServerManager.buildServer` (`server/mcp/mcp-server.ts`) calls `registerV2Surface`
 (`server/mcp/v2/index.ts`). That call:
 
 - advertises the 15 v2 tools;
 - sends the server `instructions` (`v2/instructions.ts`, ≤ 600 tokens);
 - keeps every v1 tool callable but hidden from `tools/list` (`v2/legacy.ts`);
-- lists the first-party `specrails_mission` to in-app sessions only.
+- lists the first-party `specrails_mission` to in-app sessions only (when called with `inApp`, which production does not do today).
 
 `buildServer` also registers, with the flag on, the v2 prompts (`v2/prompts.ts`: start-my-day, review-waiting,
 ship-milestone, why-stuck — short recipes over the v2 tools, `prompts.test.ts`) and the v2 guide topics

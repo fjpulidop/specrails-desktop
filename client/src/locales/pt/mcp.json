@@ -136,8 +136,8 @@
     "threshold": "Perguntar antes de gastar",
     "thresholdHelp": "Uma IA conectada pergunta antes quando o trabalho que inicia pode custar mais que isso ou inicia mais de uma execução. PRs, merges e exclusões sempre perguntam.",
     "thresholdInvalid": "Digite um valor de 0 a {{max}}",
-    "v2": "Novas ferramentas MCP (prévia)",
-    "v2Help": "15 ferramentas com os próximos passos prontos, espera sem consultas repetidas e respostas no seu idioma. Vale para novas sessões do cliente.",
+    "v2": "Ferramentas MCP simplificadas",
+    "v2Help": "15 ferramentas com os próximos passos prontos, espera sem consultas repetidas e respostas no seu idioma. Ativadas por padrão; desative para dar aos clientes o conjunto de ferramentas anterior. Vale para novas sessões do cliente.",
     "v2Forced": "Definido por SPECRAILS_MCP_V2 no ambiente.",
     "saveFailed": "Não foi possível salvar a configuração do MCP"
   }

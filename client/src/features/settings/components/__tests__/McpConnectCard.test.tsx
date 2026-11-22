@@ -117,7 +117,7 @@ describe('McpConnectCard', () => {
 })
 
 describe('McpPreferencesCard', () => {
-  const VALUE = { confirmAboveUsd: 0.5, v2: { enabled: false, forcedByEnv: false } }
+  const VALUE = { confirmAboveUsd: 0.5, v2: { enabled: true, forcedByEnv: false } }
 
   it('saves the Ask before spending threshold on Enter and rejects bad amounts', async () => {
     const onChange = vi.fn()
@@ -138,13 +138,15 @@ describe('McpPreferencesCard', () => {
     expect(calls).toHaveLength(1)
   })
 
-  it('toggles the new MCP tools, and locks the switch when the environment sets it', async () => {
+  it('switches the simplified MCP tools off (on by default), and locks the switch when the environment sets it', async () => {
     const onChange = vi.fn()
-    mockFetch(() => ({ body: { ok: true, confirmAboveUsd: 0.5, v2: { enabled: true, forcedByEnv: false } } }))
+    mockFetch(() => ({ body: { ok: true, confirmAboveUsd: 0.5, v2: { enabled: false, forcedByEnv: false } } }))
     const { rerender } = render(<McpPreferencesCard value={VALUE} onChange={onChange} />)
-    fireEvent.click(screen.getByRole('switch', { name: 'New MCP tools (preview)' }))
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ confirmAboveUsd: 0.5, v2: { enabled: true, forcedByEnv: false } }))
-    expect(calls[0]!.body).toEqual({ v2: true })
+    const toggle = screen.getByRole('switch', { name: 'Simplified MCP tools' })
+    expect(toggle).toBeChecked()
+    fireEvent.click(toggle)
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ confirmAboveUsd: 0.5, v2: { enabled: false, forcedByEnv: false } }))
+    expect(calls[0]!.body).toEqual({ v2: false })
     rerender(<McpPreferencesCard value={{ ...VALUE, v2: { enabled: true, forcedByEnv: true } }} onChange={onChange} />)
     expect(screen.getByRole('switch')).toBeDisabled()
     expect(screen.getByText('Set by SPECRAILS_MCP_V2 in the environment.')).toBeInTheDocument()

@@ -136,8 +136,8 @@
     "threshold": "Vor dem Ausgeben fragen",
     "thresholdHelp": "Eine verbundene KI fragt dich zuerst, wenn die gestartete Arbeit mehr als diesen Betrag kosten könnte oder mehr als einen Lauf startet. PRs, Merges und Löschungen fragen immer.",
     "thresholdInvalid": "Gib einen Betrag von 0 bis {{max}} ein",
-    "v2": "Neue MCP-Tools (Vorschau)",
-    "v2Help": "15 Tools mit fertigen nächsten Schritten, Warten ohne Abfragen und Antworten in deiner Sprache. Gilt für neue Client-Sitzungen.",
+    "v2": "Vereinfachte MCP-Tools",
+    "v2Help": "15 Tools mit fertigen nächsten Schritten, Warten ohne Abfragen und Antworten in deiner Sprache. Standardmäßig an; schalte sie aus, um Clients den bisherigen Tool-Satz zu geben. Gilt für neue Client-Sitzungen.",
     "v2Forced": "Durch SPECRAILS_MCP_V2 in der Umgebung festgelegt.",
     "saveFailed": "Die MCP-Einstellung konnte nicht gespeichert werden"
   }

@@ -92,7 +92,11 @@ describe('createMcpAdminRouter', () => {
     try {
       const before = (await request(app).get('/api/mcp-admin/status')).body
       expect(before.confirmAboveUsd).toBe(0.5)
-      expect(before.v2).toEqual({ enabled: false, forcedByEnv: false })
+      expect(before.v2).toEqual({ enabled: true, forcedByEnv: false })
+      // The escape hatch: switching it off persists 'false' and serves the v1 catalog to new sessions.
+      const off = await request(app).patch('/api/mcp-admin/preferences').send({ v2: false })
+      expect(off.body).toMatchObject({ v2: { enabled: false, forcedByEnv: false } })
+      expect(manager.status().toolCount).toBeGreaterThan(15)
       const ok = await request(app).patch('/api/mcp-admin/preferences').send({ confirmAboveUsd: 2.555, v2: true })
       expect(ok.status).toBe(200)
       expect(ok.body).toMatchObject({ confirmAboveUsd: 2.56, v2: { enabled: true, forcedByEnv: false } })

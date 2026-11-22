@@ -136,8 +136,8 @@
     "threshold": "Demander avant de dépenser",
     "thresholdHelp": "Une IA connectée vous demande d'abord quand le travail qu'elle lance pourrait coûter plus que ce montant, ou lance plus d'une exécution. Les PR, fusions et suppressions demandent toujours.",
     "thresholdInvalid": "Saisissez un montant de 0 à {{max}}",
-    "v2": "Nouveaux outils MCP (aperçu)",
-    "v2Help": "15 outils avec les prochaines étapes prêtes, une attente sans interrogation répétée et des réponses dans votre langue. S'applique aux nouvelles sessions du client.",
+    "v2": "Outils MCP simplifiés",
+    "v2Help": "15 outils avec les prochaines étapes prêtes, une attente sans interrogation répétée et des réponses dans votre langue. Activés par défaut ; désactivez-les pour donner aux clients l'ancien jeu d'outils. S'applique aux nouvelles sessions du client.",
     "v2Forced": "Défini par SPECRAILS_MCP_V2 dans l'environnement.",
     "saveFailed": "Impossible d'enregistrer le réglage MCP"
   }

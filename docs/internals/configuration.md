@@ -379,8 +379,8 @@ its native key/config, and Kimi via `kimi login` or user-managed
 
 | Variable / key | Effect |
 |----------|--------|
-| `SPECRAILS_MCP_V2` | Default off. `true` makes new MCP sessions serve the v2 catalog (15 tools, envelope v2, server instructions) with every v1 tool kept as a hidden, deprecated alias; `false` forces v1. Wins over the stored key. See [MCP v2](mcp-v2.md). |
-| `desktop_settings.mcp_v2` | `'true'` turns v2 on when the variable is unset. |
+| `SPECRAILS_MCP_V2` | Default on (unset). New external MCP sessions get the v2 catalog (15 tools, envelope v2, server instructions) with every v1 tool kept as a hidden, deprecated alias; `false` forces the v1 catalog (the escape hatch), `true` forces v2 over a stored `'false'`. In-app mission/Intent turns always get v1. See [MCP v2](mcp-v2.md). |
+| `desktop_settings.mcp_v2` | `'false'` (Settings ▸ MCP ▸ Simplified MCP tools off) serves v1 to new external sessions when the variable is unset; anything else is v2. |
 | `desktop_settings.mcp_confirm_above_usd` | v2 "Ask before spending" threshold in USD (default `0.5`): a costly MCP call whose forecast exceeds it, or that starts more than one run, needs a confirmToken. |
 
 ### PR CI loop (pr-ci-loop)

@@ -73,7 +73,7 @@ Never launch a rail or create a spec as a connection test.
 
 ## Operate Specrails
 
-With **New MCP tools** on (Settings ▸ MCP, or `SPECRAILS_MCP_V2=true`), the server sends short instructions at `initialize`, 15 tools and the prompts below. The essentials:
+By default the server sends short instructions at `initialize`, 15 tools and the prompts below (with **Simplified MCP tools** switched off in Settings ▸ MCP, or `SPECRAILS_MCP_V2=false`, a client gets the previous catalog instead; see [docs/mcp.md](../mcp.md)). The essentials:
 
 - **Start** with `specrails_overview(app)`; `specrails_inbox(list)` orders what waits for the person.
 - **Refs**: name things by ref (`run:<project>/<id>`, `spec:…`, `delivery:…`). A ref needs no `project`.

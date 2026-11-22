@@ -24,9 +24,62 @@ loopback (`127.0.0.1`) and is authenticated by a token separate from the app's
 master token, so nothing off your machine can reach it. You can switch it off
 at any time in Settings — an explicit off stays off across upgrades.
 
-## What the MCP exposes
+## The tools (v2, the default)
 
-When enabled, the server registers a compact catalog of **domain-facade tools**
+A connected client gets the **v2 catalog** by default. It is built so a person
+can use all of Specrails from Claude Code or Codex without opening the app.
+Settings ▸ MCP ▸ **Simplified MCP tools** is the switch: turn it off (or start
+the app with `SPECRAILS_MCP_V2=false`) to give new client sessions the
+[previous tool set](#the-previous-tool-set-v1) instead. The app's own mission
+and Intent agents always use the previous tool set, which their instructions
+are written for.
+
+- **15 tools** named after what they manage (`specrails_overview`,
+  `specrails_inbox`, `specrails_wait`, `specrails_projects`, `specrails_specs`,
+  `specrails_blueprint`, `specrails_rails`, `specrails_runs`,
+  `specrails_deliveries`, `specrails_missions`, `specrails_insights`,
+  `specrails_settings`, `specrails_providers`, `specrails_integrations`,
+  `specrails_system`), about 6k tokens for the whole catalog. Claude Code loads
+  the six everyday ones up front.
+- **Short server instructions** at `initialize`: start with
+  `specrails_overview(app)`, use refs, wait instead of polling, prefer the
+  recommended offer, the confirmation protocol, language and untrusted fields.
+- **Decision-ready answers.** Runs, deliveries, chains and inbox items carry
+  their state: status, why they wait, the legal next moves (offers) and the
+  recommended one.
+- **Waiting without polling.** `specrails_wait(until, refs)` blocks up to 45
+  seconds and returns what changed; the agent calls it again with the cursor.
+- **Confirmations bound to what you saw.** Merges, PRs, deletions and other
+  irreversible or external actions always ask. Work that costs money asks when
+  its forecast is above **Ask before spending** (Settings ▸ MCP, default $0.50)
+  or when it starts more than one run. The agent shows you a preview; its
+  confirmation token only works for that exact action and expires if the state
+  changes.
+- **Your language.** Summaries, reasons and previews come back in the language
+  you speak to the agent (en, es, fr, de, pt, it, zh, ja).
+
+**Prompts** (slash commands in Claude Code, for example
+`/mcp__specrails__start-my-day`; prompts in Codex):
+
+| Prompt | What it does |
+|---|---|
+| `start-my-day` | What needs you, what runs and what it costs, one proposal per item |
+| `review-waiting` | Deliveries and questions waiting for you, one at a time |
+| `ship-milestone` | Generate, add and launch a blueprint milestone, then follow its chain |
+| `why-stuck` | Why a run waits, stopped or failed, and one next step |
+| `implement` | Launch specs after a cost preview and report when they settle |
+| `spend` | Spend, subscription usage and limits in plain words |
+
+Short guide topics are resources (`specrails://guide/<topic>`) and
+`specrails_system(help, topic)`. The full tool and action reference, generated
+from the catalog, is in [the agent page](agents/mcp.md#catalog-reference). The
+previous tools stay callable (hidden from the list), with a deprecation note
+pointing to the new call, so scripts written for them keep working.
+
+## The previous tool set (v1)
+
+With **Simplified MCP tools** off, and for the app's own mission agents, the
+server registers the previous catalog of **domain-facade tools**
 plus a few **meta tools**, a set of read-only **resources**, and a self-contained
 **guide** an LLM can read to learn the platform with no prior knowledge.
 
@@ -204,10 +257,10 @@ their own. A client without subscriptions polls `specrails_status` with
 
 ### Prompts
 
-Three short prompts chain the tools; they only describe calls and grant no
+Three short prompts chain the v1 tools; they only describe calls and grant no
 permission: `diagnose-failure` (`jobId?`, `projectId?`), `launch-spec`
-(`specId`, `projectId?`) and `triage-inbox`. With the new MCP tools on, the
-[v2 prompts](#new-mcp-tools-v2-preview) replace them.
+(`specId`, `projectId?`) and `triage-inbox`. With the v2 tools (the default), the
+[v2 prompts](#the-tools-v2-the-default) replace them.
 
 ### Async results — `specrails_watch`
 
@@ -255,54 +308,6 @@ Claude does not).
 `wire-schema.test.ts` holds the budget (≤ 60 KB model payload, ≤ 6.5 KB per
 tool, ≤ 80 KB `tools/list`) and checks that every shortened description is
 returned verbatim by `specrails_describe`.
-
-## New MCP tools (v2, preview)
-
-Settings ▸ MCP ▸ **New MCP tools** (or `SPECRAILS_MCP_V2=true`) serves the
-second catalog to new client sessions. It is built so a person can use all of
-Specrails from Claude Code or Codex without opening the app:
-
-- **15 tools** named after what they manage (`specrails_overview`,
-  `specrails_inbox`, `specrails_wait`, `specrails_projects`, `specrails_specs`,
-  `specrails_blueprint`, `specrails_rails`, `specrails_runs`,
-  `specrails_deliveries`, `specrails_missions`, `specrails_insights`,
-  `specrails_settings`, `specrails_providers`, `specrails_integrations`,
-  `specrails_system`), about 6k tokens for the whole catalog. Claude Code loads
-  the six everyday ones up front.
-- **Short server instructions** at `initialize`: start with
-  `specrails_overview(app)`, use refs, wait instead of polling, prefer the
-  recommended offer, the confirmation protocol, language and untrusted fields.
-- **Decision-ready answers.** Runs, deliveries, chains and inbox items carry
-  their state: status, why they wait, the legal next moves (offers) and the
-  recommended one.
-- **Waiting without polling.** `specrails_wait(until, refs)` blocks up to 45
-  seconds and returns what changed; the agent calls it again with the cursor.
-- **Confirmations bound to what you saw.** Merges, PRs, deletions and other
-  irreversible or external actions always ask. Work that costs money asks when
-  its forecast is above **Ask before spending** (Settings ▸ MCP, default $0.50)
-  or when it starts more than one run. The agent shows you a preview; its
-  confirmation token only works for that exact action and expires if the state
-  changes.
-- **Your language.** Summaries, reasons and previews come back in the language
-  you speak to the agent (en, es, fr, de, pt, it, zh, ja).
-
-**Prompts** (slash commands in Claude Code, for example
-`/mcp__specrails__start-my-day`; prompts in Codex):
-
-| Prompt | What it does |
-|---|---|
-| `start-my-day` | What needs you, what runs and what it costs, one proposal per item |
-| `review-waiting` | Deliveries and questions waiting for you, one at a time |
-| `ship-milestone` | Generate, add and launch a blueprint milestone, then follow its chain |
-| `why-stuck` | Why a run waits, stopped or failed, and one next step |
-| `implement` | Launch specs after a cost preview and report when they settle |
-| `spend` | Spend, subscription usage and limits in plain words |
-
-Short guide topics are resources (`specrails://guide/<topic>`) and
-`specrails_system(help, topic)`. The full tool and action reference, generated
-from the catalog, is in [the agent page](agents/mcp.md#catalog-reference). The
-older tools stay callable while the new ones are on, with a deprecation note
-pointing to the new call.
 
 ## Runtime runs and rail availability (mission-rail-cards)
 
@@ -509,10 +514,10 @@ one.)
   menu (or the OS truly quits the app). If the app isn't running, the bridge
   tells you to start it.
 
-## v1 limitations — what is *not* exposed
+## Limitations — what is *not* exposed
 
-The public tool catalog deliberately leaves the highest-risk execution vectors
-out of v1. None of these are reachable by an external MCP client authenticated
+Both tool sets deliberately leave the highest-risk execution vectors out. None
+of these are reachable by an external MCP client authenticated
 only with the scoped MCP token:
 
 - **Raw terminal shell execution.** The built-in terminal panel is not exposed

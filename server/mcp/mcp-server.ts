@@ -130,19 +130,23 @@ export class McpServerManager {
       enabled: this.isEnabledSetting(),
       running: this.isEnabledSetting(),
       activeSessions: this._sessions.size,
-      // Advertised to an external client: the v2 catalog while `mcp_v2` is on.
+      // Advertised to an external client: the v2 catalog while `mcp_v2` is on (the default).
       toolCount: isMcpV2Enabled(this._ctx.desktopDb) ? v2Catalog().tools.length : this._toolCount,
     }
   }
 
   /**
    * Build a fresh McpServer with the full tool, resource and prompt catalog
-   * registered. With `mcp_v2` on (off by default until the cut-over) it serves
-   * the v2 catalog, the v1 tools as hidden aliases and the server instructions;
-   * otherwise exactly the v1 catalog.
+   * registered. An external session with `mcp_v2` on (the default) gets the v2
+   * catalog, the v1 tools as hidden aliases and the server instructions; with
+   * it off, exactly the v1 catalog. An in-app (first-party) turn always gets the
+   * v1 catalog, loaded up front: the mission and Intent prompts, the operator
+   * guide topics and the permission ladder name v1 tools (`specrails_guide`,
+   * `specrails_background`, `specrails_git`, …), and a client only calls tools
+   * it was listed.
    */
   private buildServer(options: { inApp?: boolean; protocolVersion?: string } = {}): { server: McpServer; dispose: () => void } {
-    const v2 = isMcpV2Enabled(this._ctx.desktopDb)
+    const v2 = options.inApp !== true && isMcpV2Enabled(this._ctx.desktopDb)
     const server = new McpServer(
       { name: 'specrails-desktop', version: this._version },
       { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} }, ...(v2 ? { instructions: V2_INSTRUCTIONS } : {}) },

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import http from 'http'
 import type { AddressInfo } from 'net'
@@ -45,6 +45,9 @@ async function connectClient(url: URL): Promise<Client> {
   return client
 }
 
+// These cases pin the v1 catalog for external clients through the escape hatch
+// (`SPECRAILS_MCP_V2=false`); v2 is the default since the cut-over and has its
+// own suites under ./v2. In-app turns get the v1 catalog either way.
 describe('McpServerManager (embedded MCP server)', () => {
   let db: DbInstance
   let manager: McpServerManager
@@ -52,6 +55,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   let url: URL
 
   beforeEach(async () => {
+    vi.stubEnv('SPECRAILS_MCP_V2', 'false')
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     manager = new McpServerManager({ registry: makeRegistry(db), broadcast: () => {}, desktopPort: 4200 })
@@ -61,6 +65,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     await manager.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
@@ -119,6 +124,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   it('loads the Specrails tools up front for in-app agents only, keeping the integration tools deferred', async () => {
+    vi.stubEnv('SPECRAILS_MCP_V2', '')
     const capability = mintAgentCapability({ conversationId: 'conv-meta', tierLevel: 3 })
     const inApp = new Client({ name: 'in-app', version: '1' })
     await inApp.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }))
@@ -132,7 +138,18 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(loaded).not.toContain('specrails_jira')
     expect(loaded).not.toContain('specrails_plugins')
     expect(loaded.length).toBe(inAppTools.length - 2)
-    expect(alwaysLoad((await external.listTools()).tools)).toEqual([])
+    vi.stubEnv('SPECRAILS_MCP_V2', 'false')
+    const externalV1 = await connectClient(url)
+    expect(alwaysLoad((await externalV1.listTools()).tools)).toEqual([])
+    await externalV1.close()
+    // v2 is on by default: the external client gets the v2 catalog; the in-app turn keeps the v1 tools its prompts name.
+    const externalTools = (await external.listTools()).tools
+    expect(externalTools.map((tool) => tool.name)).toContain('specrails_overview')
+    expect(externalTools.map((tool) => tool.name)).not.toContain('specrails_guide')
+    for (const name of ['specrails_mission', 'specrails_background', 'specrails_git', 'specrails_code', 'specrails_runs', 'specrails_rails', 'specrails_specs_write']) {
+      expect(inAppTools.map((tool) => tool.name)).toContain(name)
+    }
+    expect(inApp.getInstructions()).toBeUndefined()
     await inApp.close()
     await external.close()
   })

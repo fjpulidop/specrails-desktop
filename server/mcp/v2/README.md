@@ -1,10 +1,10 @@
 # MCP v2 (`server/mcp/v2`)
 
 The second MCP surface: 15 resource-style tools, envelope v2, decision-ready
-state, bound confirmations, localized text and response budgets. Served only
-while the `mcp_v2` flag is on (`SPECRAILS_MCP_V2=true` or
-`desktop_settings.mcp_v2='true'`); otherwise the v1 catalog in `../tools` is
-served unchanged.
+state, bound confirmations, localized text and response budgets. Served to
+external clients by default; `SPECRAILS_MCP_V2=false` or
+`desktop_settings.mcp_v2='false'` serves the v1 catalog in `../tools`
+unchanged. In-app (first-party) mission turns always get the v1 catalog.
 
 Contracts, file ownership per work package, helper APIs, test patterns and
 budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).

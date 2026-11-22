@@ -13,20 +13,23 @@ import { buildToolSpecs } from '../tools/catalog'
 import { createHarness, call } from './__fixtures__/harness'
 import { MCP_V2_KEY, isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './index'
 
-// The `mcp_v2` flag: off (default) serves exactly the v1 catalog; on serves the
-// 15 v2 tools, the instructions, and every v1 tool as a hidden alias.
+// The `mcp_v2` flag: on (default) serves the 15 v2 tools, the instructions, and
+// every v1 tool as a hidden alias; off (the escape hatch) serves exactly the v1 catalog.
 
 const V1_NAMES = buildToolSpecs().map((spec) => spec.name)
 const V2_NAMES = v2Catalog().tools.map((tool) => tool.name)
 
 describe('mcp_v2 flag', () => {
-  it('is off by default; the setting or SPECRAILS_MCP_V2 turns it on, the env var wins', () => {
+  it('is on by default; the setting or SPECRAILS_MCP_V2=false turns it off, the env var wins', () => {
     const db = initDesktopDb(':memory:')
+    expect(isMcpV2Enabled(db, {})).toBe(true)
+    expect(isMcpV2Enabled(undefined, {})).toBe(true)
+    expect(isMcpV2Enabled(db, { SPECRAILS_MCP_V2: 'false' })).toBe(false)
+    setDesktopSetting(db, MCP_V2_KEY, 'false')
     expect(isMcpV2Enabled(db, {})).toBe(false)
+    expect(isMcpV2Enabled(db, { SPECRAILS_MCP_V2: 'true' })).toBe(true)
     setDesktopSetting(db, MCP_V2_KEY, 'true')
     expect(isMcpV2Enabled(db, {})).toBe(true)
-    expect(isMcpV2Enabled(db, { SPECRAILS_MCP_V2: 'false' })).toBe(false)
-    expect(isMcpV2Enabled(initDesktopDb(':memory:'), { SPECRAILS_MCP_V2: 'true' })).toBe(true)
   })
 })
 
@@ -66,7 +69,8 @@ describe('McpServerManager with and without v2', () => {
     return client
   }
 
-  it('flag off: the v1 catalog exactly, no instructions', async () => {
+  it('flag off (the escape hatch): the v1 catalog exactly, no instructions', async () => {
+    setDesktopSetting(db, MCP_V2_KEY, 'false')
     const c = await connect()
     expect((await c.listTools()).tools.map((tool) => tool.name)).toEqual(V1_NAMES)
     expect(c.getInstructions()).toBeUndefined()
@@ -75,8 +79,7 @@ describe('McpServerManager with and without v2', () => {
     expect(status.structuredContent?.warnings).toBeUndefined()
   })
 
-  it('flag on: 15 v2 tools and the instructions; v1 tools stay callable, hidden and deprecated', async () => {
-    setDesktopSetting(db, MCP_V2_KEY, 'true')
+  it('default (on): 15 v2 tools and the instructions; v1 tools stay callable, hidden and deprecated', async () => {
     const c = await connect()
     expect((await c.listTools()).tools.map((tool) => tool.name)).toEqual(V2_NAMES)
     expect(c.getInstructions()).toBe(V2_INSTRUCTIONS)

@@ -136,8 +136,8 @@
     "threshold": "Ask before spending",
     "thresholdHelp": "A connected AI asks you first when work it starts could cost more than this, or starts more than one run. PRs, merges and deletions always ask.",
     "thresholdInvalid": "Enter an amount from 0 to {{max}}",
-    "v2": "New MCP tools (preview)",
-    "v2Help": "15 tools with ready-made next steps, waiting without polling and answers in your language. Applies to new client sessions.",
+    "v2": "Simplified MCP tools",
+    "v2Help": "15 tools with ready-made next steps, waiting without polling and answers in your language. On by default; switch off to give clients the previous tool set. Applies to new client sessions.",
     "v2Forced": "Set by SPECRAILS_MCP_V2 in the environment.",
     "saveFailed": "Could not save the MCP setting"
   }

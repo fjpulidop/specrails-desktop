@@ -136,8 +136,8 @@
     "threshold": "Chiedi prima di spendere",
     "thresholdHelp": "Un'IA collegata ti chiede prima quando il lavoro che avvia potrebbe costare più di questo importo o avvia più di un'esecuzione. PR, merge ed eliminazioni chiedono sempre.",
     "thresholdInvalid": "Inserisci un importo da 0 a {{max}}",
-    "v2": "Nuovi strumenti MCP (anteprima)",
-    "v2Help": "15 strumenti con i prossimi passi già pronti, attesa senza interrogazioni ripetute e risposte nella tua lingua. Vale per le nuove sessioni del client.",
+    "v2": "Strumenti MCP semplificati",
+    "v2Help": "15 strumenti con i prossimi passi già pronti, attesa senza interrogazioni ripetute e risposte nella tua lingua. Attivi per impostazione predefinita; disattivali per dare ai client il set di strumenti precedente. Vale per le nuove sessioni del client.",
     "v2Forced": "Impostato da SPECRAILS_MCP_V2 nell'ambiente.",
     "saveFailed": "Impossibile salvare l'impostazione MCP"
   }
