@@ -33,6 +33,7 @@
     "prepack": "npm run build",
     "test:scripts": "node scripts/test-scripts.mjs",
     "benchmark": "node scripts/benchmark/index.mjs",
+    "eval:mcp": "node eval/mcp/index.mjs",
     "check:package": "node scripts/check-package.mjs",
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "build:mcp-bridge": "node scripts/build-mcp-bridge.mjs",
