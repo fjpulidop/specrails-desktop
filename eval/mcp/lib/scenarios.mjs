@@ -16,13 +16,19 @@ import { connectMcp } from './mcp-client.mjs'
 
 const ref = (kind, slug, id) => `${kind}:${slug}/${id}`
 
-/** Call; on `confirmation_required` resend once with the token (the person said yes). */
+/**
+ * Call; on `confirmation_required` make its resend call once (the person said yes). A decision point picked in
+ * the form answers with the chosen call's preview, so the resend (not the original arguments) is what confirms.
+ */
 export async function withConfirm(mcp, tool, args) {
   const first = await mcp.call(tool, args)
-  const token = first.envelope?.error?.confirmToken
-  if (first.envelope?.error?.code === 'confirmation_required' && token) return mcp.call(tool, { ...args, confirm: token })
+  const error = first.envelope?.error
+  if (error?.code === 'confirmation_required' && error.confirmToken) return error.resend ? mcp.call(error.resend.tool, error.resend.args) : mcp.call(tool, { ...args, confirm: error.confirmToken })
   return first
 }
+
+/** The person picked it in the client's form (the decision point ran it as its own call). */
+const chose = (calls, tool, action, pattern) => calls.filter(c => c.tool === tool && c.args?.action === action && pattern.test(String(c.envelope?.chosen ?? '')))
 
 async function waitFor(mcp, refs, forWhat = 'changed', timeoutMs = 25_000) {
   return mcp.call('specrails_wait', { action: 'until', refs, for: forWhat, timeoutMs })
@@ -65,7 +71,7 @@ export const SCENARIOS = [
   {
     id: 'S1', title: 'Blueprint → new project → launch M1', needs: ['specrails_blueprint'], referenceCalls: 5, referenceLogical: 3,
     prompt: { en: p => `Create a blueprint for a small todo app, commit it as a new project named "${p.name}" in ${p.location}, and launch milestone 1.` },
-    person: { confirm: 'Yes, go ahead.', question: 'Keep it minimal: a CLI todo list in Node.' },
+    person: { confirm: 'Yes, go ahead.', question: 'Keep it minimal: a CLI todo list in Node.', freeText: 'Keep it minimal: a CLI todo list in Node.', pick: /launch|lanza|commit|create|crea|approve|aprueba/i },
     seed: async ctx => { const name = `s1-todo-${ctx.tag}`; return { name, location: builderLocation(ctx.workDir, name) } },
     async reference(mcp, f) {
       await buildAndLaunch(mcp, { name: f.name, location: f.location, message: 'A minimal CLI todo list in Node: add, list, done.' })
@@ -88,7 +94,7 @@ export const SCENARIOS = [
   {
     id: 'S2', title: 'Answer the M1 chain question', needs: ['specrails_blueprint', 'specrails_inbox'], referenceCalls: 2, referenceLogical: 2,
     prompt: { en: p => `In project "${p.name}", the milestone 1 chain asked something. Answer it with option B.` },
-    person: { confirm: 'Yes.' },
+    person: { confirm: 'Yes.', pick: /answer\.b|^b$|\bB\b|option b/i },
     async seed(ctx) {
       const name = `s2-todo-${ctx.tag}`
       const built = await buildAndLaunch(ctx.mcp, { name, location: builderLocation(ctx.workDir, name), message: `A minimal CLI todo list in Node. ${seed.engineMarker('question')}` })
@@ -101,15 +107,15 @@ export const SCENARIOS = [
     async reference(mcp, f) {
       const list = await mcp.call('specrails_inbox', { action: 'list', project: f.slug })
       const item = list.envelope?.data?.items?.find(i => i.kind === 'question')
-      const offer = (item?.offers ?? []).map(o => typeof o === 'string' ? o : o.id).find(id => /^answer\.b$/i.test(id)) ?? 'answer.b'
-      await withConfirm(mcp, 'specrails_inbox', { action: 'act', ref: item?.ref, offerId: offer })
+      // The decision point: act without an offer shows the person the item's choices; they pick B from the keyboard.
+      await withConfirm(mcp, 'specrails_inbox', { action: 'act', ref: item?.ref })
     },
     async check({ api, facts, calls }) {
       const runId = String(facts.runRef ?? '').split('/').pop()
       const run = facts.project ? await seed.until(() => seed.loopRun(api, facts.project, runId), r => r && !JSON.stringify(r.runtime_status_json ?? r.runtimeStatus ?? '').includes('"kind":"question"'), { timeoutMs: 30_000 }).catch(() => null) : null
       return [
         // The inbox offer (act answer.b) and the direct answer action (answer, optionId b) both answer the question.
-        assertion('question answered with option B', okCalls(calls, 'specrails_inbox', 'act', a => /answer\.b/i.test(a.offerId ?? '')).length + okCalls(calls, 'specrails_inbox', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length + okCalls(calls, 'specrails_runs', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length > 0, ''),
+        assertion('question answered with option B', chose(calls, 'specrails_inbox', 'act', /^answer\.b$/i).filter(c => c.ok).length + okCalls(calls, 'specrails_inbox', 'act', a => /answer\.b/i.test(a.offerId ?? '')).length + okCalls(calls, 'specrails_inbox', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length + okCalls(calls, 'specrails_runs', 'answer', a => /^b$/i.test(String(a.optionId ?? a.option ?? a.answer ?? ''))).length > 0, ''),
         assertion('the question no longer waits', Boolean(run), run ? `${run.status}` : 'still asking'),
       ]
     },
@@ -117,7 +123,7 @@ export const SCENARIOS = [
   {
     id: 'S3', title: 'Pause and resume a running rail', needs: ['specrails_runs', 'specrails_wait'], referenceCalls: 5, referenceLogical: 4,
     prompt: { en: p => `In project "${p.project.name}" one rail is running. Pause it, then resume it, and tell me its state.` },
-    person: { confirm: 'Yes.' },
+    person: { confirm: 'Yes.', pick: /resume|reanud|yes|go ahead/i },
     seed: ctx => seed.seedRunningRun(ctx.api, ctx.workDir, `s3-${ctx.tag}`, { engineLog: ctx.engineLog }),
     async reference(mcp, f) {
       const run = ref('run', f.project.slug, f.runId)
@@ -145,12 +151,13 @@ export const SCENARIOS = [
   {
     id: 'S4', title: 'Provider limit → switch to Codex', needs: ['specrails_runs'], referenceCalls: 3, referenceLogical: 2,
     prompt: { en: p => `A run in project "${p.project.name}" hit the Claude limit. Switch it to Codex and continue.` },
-    person: { confirm: 'Yes, switch it.' },
+    person: { confirm: 'Yes, switch it.', pick: /codex|switch/i },
     seed: ctx => seed.seedLimitedRun(ctx.api, ctx.workDir, `s4-${ctx.tag}`),
     async reference(mcp, f) {
       const run = ref('run', f.project.slug, f.runId)
       await mcp.call('specrails_runs', { action: 'get', ref: run })
-      await withConfirm(mcp, 'specrails_runs', { action: 'limit', ref: run, choice: 'switch', provider: 'codex' })
+      // The decision point: the person picks "Continue on codex" in the form, then confirms the cost.
+      await withConfirm(mcp, 'specrails_runs', { action: 'limit', ref: run })
     },
     async check({ api, facts, calls }) {
       const run = await seed.loopRun(api, facts.project, facts.runId)
@@ -168,13 +175,14 @@ export const SCENARIOS = [
   {
     id: 'S5', title: 'Review a delivery and integrate it locally', needs: ['specrails_deliveries'], referenceCalls: 4, referenceLogical: 3,
     prompt: { en: p => `Review the delivery of the spec "${p.title}" in project "${p.project.name}" and integrate it locally.` },
-    person: { confirm: 'Yes, integrate it.' },
+    person: { confirm: 'Yes, integrate it.', pick: /merge_local|integrate locally|integrar/i },
     seed: async ctx => ({ ...(await seed.seedDelivery(ctx.api, ctx.workDir, `s5-${ctx.tag}`, 'Add the discount badge')), title: 'Add the discount badge' }),
     async reference(mcp, f) {
       const delivery = ref('delivery', f.project.slug, f.deliveryId)
       await mcp.call('specrails_deliveries', { action: 'list', project: f.project.slug })
       await mcp.call('specrails_deliveries', { action: 'get', ref: delivery })
-      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery, decision: 'merge_local' })
+      // The decision point: the delivery's choices in the form; the person picks "Integrate locally".
+      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery })
     },
     async check({ api, facts, calls }) {
       const p = await seed.packet(api, facts.project, facts.deliveryId)
@@ -188,12 +196,13 @@ export const SCENARIOS = [
   {
     id: 'S6', title: 'Request changes on a delivery', needs: ['specrails_deliveries'], referenceCalls: 3, referenceLogical: 2,
     prompt: { en: p => `On the delivery of "${p.title}" in project "${p.project.name}", ask for changes: the badge must be blue.` },
-    person: { confirm: 'Yes.' },
+    // Their one free-text answer: the change itself ("Something else — write it" in the form).
+    person: { confirm: 'Yes.', pick: /ask for changes|request.?changes|pedir cambios/i, freeText: 'The badge must be blue.' },
     seed: async ctx => ({ ...(await seed.seedDelivery(ctx.api, ctx.workDir, `s6-${ctx.tag}`, 'Add the discount badge')), title: 'Add the discount badge' }),
     async reference(mcp, f) {
       const delivery = ref('delivery', f.project.slug, f.deliveryId)
       await mcp.call('specrails_deliveries', { action: 'list', project: f.project.slug })
-      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery, decision: 'request_changes', note: 'The badge must be blue.' })
+      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery })
     },
     async check({ api, facts, calls }) {
       const p = await seed.packet(api, facts.project, facts.deliveryId)
@@ -207,7 +216,7 @@ export const SCENARIOS = [
   {
     id: 'S7', title: 'Diagnose a failed run and fix it the recommended way', needs: ['specrails_runs'], referenceCalls: 3, referenceLogical: 2,
     prompt: { en: p => `Why did the run of "Export the report as CSV" in project "${p.project.name}" fail? Fix it the recommended way.` },
-    person: { confirm: 'Yes, do it.' },
+    person: { confirm: 'Yes, do it.', pick: /continue|recommended|yes/i },
     // A passing provider error (like a real 500): the recommended Continue then completes the run.
     seed: ctx => seed.seedFailedRun(ctx.api, ctx.workDir, `s7-${ctx.tag}`, { mode: 'flaky' }),
     async reference(mcp, f) {
@@ -252,7 +261,7 @@ export const SCENARIOS = [
   {
     id: 'S9', title: 'Create 3 specs, triage, rails, launch all', needs: ['specrails_specs', 'specrails_runs'], referenceCalls: 6, referenceLogical: 5,
     prompt: { en: p => `In project "${p.project.name}": create 3 specs from this request — "a /health endpoint, request logging, and a rate limiter" — triage them, put them on rails and launch them all.` },
-    person: { confirm: 'Yes, launch them.' },
+    person: { confirm: 'Yes, launch them.', pick: /launch|lanza|yes/i },
     seed: async ctx => ({ project: await seed.seedProject(ctx.api, ctx.workDir, `s9-${ctx.tag}`) }),
     async reference(mcp, f) {
       const ids = []
@@ -305,7 +314,7 @@ export const SCENARIOS = [
   {
     id: 'S11', title: 'Mission on GPT, high effort, summarize the repo', needs: ['specrails_missions'], referenceCalls: 3, referenceLogical: 2,
     prompt: { en: p => `Start a mission in project "${p.project.name}" on GPT with high effort and ask it to summarize the repo.` },
-    person: { confirm: 'Yes.' },
+    person: { confirm: 'Yes.', pick: /start|send|yes|go ahead/i },
     seed: async ctx => ({ project: await seed.seedProject(ctx.api, ctx.workDir, `s11-b-${ctx.tag}`) }),
     async reference(mcp, f) {
       const created = await mcp.call('specrails_missions', { action: 'create', project: f.project.slug, provider: 'codex', effort: 'high', title: 'Repo summary' })
@@ -330,7 +339,7 @@ export const SCENARIOS = [
   {
     id: 'S12', title: 'Discard the Intent session, restore a spec from trash', needs: ['specrails_missions', 'specrails_specs'], referenceCalls: 4, referenceLogical: 3,
     prompt: { en: p => `In project "${p.project.name}": discard the Intent session and restore spec ${p.trashed} from the trash.` },
-    person: { confirm: 'Yes, discard it.' },
+    person: { confirm: 'Yes, discard it.', pick: /discard|restore|yes/i },
     async seed(ctx) {
       const project = await seed.seedProject(ctx.api, ctx.workDir, `s12-${ctx.tag}`)
       const ids = []
@@ -411,12 +420,12 @@ export const SCENARIOS = [
   {
     id: 'S14', title: 'Spanish: review and merge + costs', needs: ['specrails_deliveries', 'specrails_insights'], referenceCalls: 4, referenceLogical: 3, lang: 'es',
     prompt: { es: p => `Revisa la entrega de "${p?.title ?? 'la spec'}" en el proyecto "${p?.project?.name ?? ''}" y fusiónala en local. Después dime cuánto hemos gastado esta semana.` },
-    person: { confirm: 'Sí, adelante.' },
+    person: { confirm: 'Sí, adelante.', pick: /merge_local|integrar en local|fusiona|integra/i },
     seed: async ctx => ({ ...(await seed.seedDelivery(ctx.api, ctx.workDir, `s14-${ctx.tag}`, 'Añadir la insignia de descuento')), title: 'Añadir la insignia de descuento' }),
     async reference(mcp, f) {
       const delivery = ref('delivery', f.project.slug, f.deliveryId)
       await mcp.call('specrails_deliveries', { action: 'get', ref: delivery, lang: 'es' })
-      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery, decision: 'merge_local', lang: 'es' })
+      await withConfirm(mcp, 'specrails_deliveries', { action: 'decide', ref: delivery, lang: 'es' })
       await mcp.call('specrails_insights', { action: 'spend', options: { period: 'week' }, lang: 'es' })
     },
     async check({ api, facts, calls, finalText }) {
@@ -468,7 +477,7 @@ export const SCENARIOS = [
     // Bug report: "in Explore with an open Intent I could not continue from my agent, it sent me to the app".
     id: 'S16', title: 'Continue an open Intent from the agent and hand it off', needs: ['specrails_missions'], referenceCalls: 8, referenceLogical: 5,
     prompt: { en: p => `In project "${p.project.name}" I have an Intent session open. Continue it from here: ask it to also add a farewell function, answer its question if it asks one, then hand it off to a rail.` },
-    person: { confirm: 'Yes, go ahead.' },
+    person: { confirm: 'Yes, go ahead.', pick: /option\.0|start the app|hand.?off|send|yes/i },
     async seed(ctx) {
       const project = await seed.seedProject(ctx.api, ctx.workDir, `s16-${ctx.tag}`)
       const started = await withConfirm(ctx.mcp, 'specrails_missions', { action: 'intent_start', project: project.slug, message: 'Prototype a tiny greeting module.', provider: 'claude' })
@@ -487,7 +496,8 @@ export const SCENARIOS = [
       const sent = await withConfirm(mcp, 'specrails_missions', { action: 'send', ref: mission, message: 'Also add a farewell function.', options: { waitMs: 40_000 } })
       // The Intent agent may answer with choices (the send returns them): pick one, as the person would tap a chip.
       const chip = (sent.envelope?.data?.pendingCards ?? []).find(c => c.kind === 'options')
-      if (chip) await withConfirm(mcp, 'specrails_missions', { action: 'card_decide', ref: mission, cardId: chip.id, decision: '0', options: { waitMs: 40_000 } })
+      // The Intent's options block is a decision point: the person picks its first option in the form.
+      if (chip) await withConfirm(mcp, 'specrails_missions', { action: 'card_decide', ref: mission, cardId: chip.id, options: { waitMs: 40_000 } })
       if (sent.envelope?.data?.status === 'running') await waitFor(mcp, [mission], 'changed', 40_000)
       await withConfirm(mcp, 'specrails_missions', { action: 'intent_hand_off', ref: intent })
     },
@@ -505,7 +515,10 @@ export const SCENARIOS = [
         confirmedWithToken(calls, 'specrails_missions', 'intent_hand_off'),
         called(calls, 'specrails_missions', 'card_decide'),
         assertion('the Intent agent got the answer to its choice', messages.some(m => m.role === 'user' && /^(Start the app|Not now)$/.test(String(m.content ?? '').trim())), messages.filter(m => m.role === 'user').map(m => String(m.content).slice(0, 30)).join(' | ')),
-        assertion('the Intent was handed off to a rail', flow?.state === 'handed_off' || flow?.state === 'delivered', flow?.state ?? 'no flow'),
+        // The hand-off itself (a rail run started for the Intent). The scripted engine does not play the derive loop
+        // through verification, so that run later fails and the flow goes back to active; the hand-off answer is the proof.
+        assertion('the Intent was handed off to a rail', flow?.state === 'handed_off' || flow?.state === 'delivered'
+          || okCalls(calls, 'specrails_missions', 'intent_hand_off').some(c => c.envelope?.data?.state === 'handed_off' && (c.envelope?.data?.runs ?? []).length > 0), flow?.state ?? 'no flow'),
         neverCalled(calls, c => c.tool === 'specrails_missions' && c.args?.action === 'intent_discard', 'the Intent was never discarded'),
         // No dead end: neither the Intent agent nor the client sends the person to the app.
         assertion('nobody sent the person to the app', !messages.some(m => m.role === 'assistant' && toApp.test(String(m.content ?? ''))) && !toApp.test(finalText ?? ''), (finalText ?? '').slice(0, 120)),

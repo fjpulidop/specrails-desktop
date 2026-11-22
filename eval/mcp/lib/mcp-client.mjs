@@ -15,10 +15,14 @@ export function proxyCommand({ logFile, home, port, label }) {
   return { command: process.execPath, args: [path.join(EVAL_DIR, 'lib', 'proxy.mjs'), '--log', logFile, '--home', home, '--port', String(port), ...(label ? ['--label', label] : [])] }
 }
 
-/** Connect; returns `{ tools, call(name, args) → envelope, close() }`. */
-export async function connectMcp(proxy, { name = 'eval-replay' } = {}) {
-  const [{ Client }, { StdioClientTransport }] = await Promise.all([sdk('client/index.js'), sdk('client/stdio.js')])
-  const client = new Client({ name, version: '1' })
+/**
+ * Connect; returns `{ tools, call(name, args) → envelope, close() }`. With `onElicit(params) → { action, content? }`
+ * the client declares form elicitation and answers the server's forms with it (the replay's simulated person).
+ */
+export async function connectMcp(proxy, { name = 'eval-replay', onElicit = null } = {}) {
+  const [{ Client }, { StdioClientTransport }, types] = await Promise.all([sdk('client/index.js'), sdk('client/stdio.js'), onElicit ? sdk('types.js') : null])
+  const client = new Client({ name, version: '1' }, onElicit ? { capabilities: { elicitation: { form: {} } } } : undefined)
+  if (onElicit) client.setRequestHandler(types.ElicitRequestSchema, async request => onElicit(request.params ?? {}))
   await client.connect(new StdioClientTransport({ command: proxy.command, args: proxy.args, env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR ?? '', ...(proxy.env ?? {}) }, stderr: 'ignore' }))
   const listed = await client.listTools()
   return {

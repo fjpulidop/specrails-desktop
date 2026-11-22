@@ -34,13 +34,13 @@ const tomlString = s => JSON.stringify(String(s))
  * Write the client's temp home and MCP registration; returns `{ home, cwd, configFile, auth }`.
  * In session mode only the cwd (and Claude's MCP config file) are created, inside the work dir; HOME is the person's.
  */
-export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', effort = 'low', userHome = os.homedir(), dialog = null }) {
+export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', effort = 'low', userHome = os.homedir(), dialog = null, person = null }) {
   if (auth === 'session') {
     const scratch = assertClientHome(dir, root)
     const cwd = path.join(scratch, 'work')
     fs.mkdirSync(cwd, { recursive: true })
     if (client === 'claude') {
-      if (dialog) writePersonDialog(cwd, dialog, path.join(scratch, 'dialog.jsonl'))
+      if (dialog) writePersonDialog(cwd, dialog, path.join(scratch, 'dialog.jsonl'), person)
       const configFile = path.join(scratch, 'mcp.json')
       fs.writeFileSync(configFile, JSON.stringify({ mcpServers: { specrails: { command: proxy.command, args: proxy.args } } }, null, 2))
       return { home: userHome, cwd, configFile, auth }
@@ -51,7 +51,7 @@ export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', eff
   const cwd = path.join(home, 'work')
   fs.mkdirSync(cwd, { recursive: true })
   if (client === 'claude') {
-    if (dialog) writePersonDialog(cwd, dialog, path.join(home, 'dialog.jsonl'))
+    if (dialog) writePersonDialog(cwd, dialog, path.join(home, 'dialog.jsonl'), person)
     const configFile = path.join(home, 'mcp.json')
     fs.writeFileSync(configFile, JSON.stringify({ mcpServers: { specrails: { command: proxy.command, args: proxy.args } } }, null, 2))
     return { home, cwd, configFile, auth }
@@ -68,10 +68,13 @@ export function prepareClientHome({ client, dir, root, proxy, auth = 'temp', eff
  * scenario's temp cwd (loaded through `--setting-sources project,local`; never the person's settings) that gives
  * the scenario's yes/no, as the person would by clicking in the dialog. `dialog` is accept | decline | cancel.
  */
-export function writePersonDialog(cwd, dialog, logFile) {
+export function writePersonDialog(cwd, dialog, logFile, person = null) {
   const dir = path.join(cwd, '.claude')
   fs.mkdirSync(dir, { recursive: true })
-  const command = [process.execPath, PERSON_DIALOG, dialog, logFile].map(part => JSON.stringify(part)).join(' ')
+  // The person's choice-form answers (pick, free text) ride in a file next to the log (RegExp as its source).
+  const personFile = path.join(path.dirname(logFile), 'person.json')
+  if (person) fs.writeFileSync(personFile, JSON.stringify({ ...person, ...(person.pick instanceof RegExp ? { pick: person.pick.source } : {}) }))
+  const command = [process.execPath, PERSON_DIALOG, dialog, logFile, ...(person ? [personFile] : [])].map(part => JSON.stringify(part)).join(' ')
   fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({ hooks: { Elicitation: [{ hooks: [{ type: 'command', command }] }] } }, null, 2))
 }
 

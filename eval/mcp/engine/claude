@@ -75,6 +75,11 @@ if (flag('--input-format') === 'stream-json') {
   const answer = text => {
     if (!intent) return 'Done.'
     if (/(^|\n)\s*(Start the app|Not now)\s*$/.test(text)) return 'Noted. Decision: the app stays stopped for now.'
+    // The change it reports, really made in the Intent's worktree (the hand-off delivers it: an empty change set fails).
+    try {
+      fs.mkdirSync(path.join(process.cwd(), 'src'), { recursive: true })
+      fs.writeFileSync(path.join(process.cwd(), 'src', 'eval-intent-change.js'), `// Scripted Intent change (eval)\nexport const farewell = name => \`Goodbye, \${name}!\`\n`)
+    } catch { /* best effort */ }
     return 'Added it in the worktree and ran the tests (2 passed).\n\nDecision: scripted change.\n\nThe app can be tried now.\n\n```options\n["Start the app", "Not now"]\n```'
   }
   let n = 0

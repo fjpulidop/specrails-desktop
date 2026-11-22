@@ -138,7 +138,7 @@ test('a confirmation given in the client dialog counts only with the server mark
     ...askedCall('specrails_deliveries', { ...merge, ref: 'delivery:p/2' }, env(true, { confirmed: 'in_client' }), { action: 'decline' }),
   ]
   const { calls } = pairCalls(records)
-  assert.deepEqual(calls[0].elicitations, [{ message: 'Merges it. Go ahead?', action: 'accept', content: { confirm: true } }])
+  assert.deepEqual(calls[0].elicitations, [{ message: 'Merges it. Go ahead?', kind: 'confirm', options: [], action: 'accept', content: { confirm: true } }])
   assert.equal(confirmedInClient(calls[0]), true)
   assert.equal(confirmedInClient(calls[1]), false)
   const m = scenarioMetrics(records, tokens)

@@ -92,7 +92,7 @@ export function pairCalls(records) {
     } else if (r.d === 'out' && m.method === 'elicitation/create' && m.id !== undefined) {
       // A server-to-client request: it belongs to the most recent tool call still open.
       const owner = pending.get(open.at(-1) ?? '')
-      const entry = { message: m.params?.message ?? null, action: null, content: null }
+      const entry = { message: m.params?.message ?? null, kind: formKind(m.params), options: m.params?.requestedSchema?.properties?.choice?.enum ?? [], action: null, content: null }
       owner?.elicitations.push(entry)
       asked.set(`${m.id}`, entry)
     } else if (r.d === 'in' && !m.method && m.id !== undefined && asked.has(`${m.id}`)) {
@@ -121,6 +121,50 @@ export function pairCalls(records) {
     }
   }
   return { calls, catalog, instructions }
+}
+
+/** What a server form asks (pure): `choice` (a decision point: a select and/or free text) or `confirm` (a yes). */
+export function formKind(params) {
+  const props = params?.requestedSchema?.properties ?? {}
+  return props.choice || props.other ? 'choice' : 'confirm'
+}
+
+/** The call a decision point ran (pure): a delivery picked in the client's form runs as `decide` with that decision. */
+export function effectiveArgs(c) {
+  const chosen = typeof c?.envelope?.chosen === 'string' ? c.envelope.chosen : null
+  if (c?.tool === 'specrails_deliveries' && chosen?.startsWith('decide.') && !c.args?.decision) return { ...c.args, decision: chosen.slice('decide.'.length) }
+  return c?.args ?? {}
+}
+
+/** A menu of choices the server returned to the agent (a decision point without a form; pure). */
+export const returnedMenu = c => Boolean(c?.ok && Array.isArray(c.envelope?.data?.choices) && typeof c.envelope?.data?.question === 'string')
+
+/**
+ * How decisions reached the person and how they answered (pure).
+ * - points: the server's forms (choice or confirmation) plus the agent's turns that waited for the person;
+ *   `asChoices` counts the forms (always choices) and the turns whose message carried a numbered menu.
+ * - inputs: every answer the person gave after the first prompt: chat replies (`number` or `text`) and form answers
+ *   (`option`, `text`, `button`). Keyboard-only: no input is free text, except at most one.
+ * @param {object[]} calls pairCalls(...).calls
+ * @param {{ asked?: Array<{ menu: boolean }>, replies?: string[] }} conversation the live client's turns (none for replay)
+ */
+export function decisionMetrics(calls, { asked = [], replies = [] } = {}, isKeyboard = r => /^\s*\d{1,2}\s*\.?\s*$/.test(String(r ?? ''))) {
+  const forms = calls.flatMap(c => c.elicitations ?? [])
+  const formInputs = forms.filter(f => f.action === 'accept' || f.action === 'decline').map(f => f.kind === 'choice'
+    ? (typeof f.content?.other === 'string' && f.content.other.trim() ? 'text' : f.action === 'accept' ? 'option' : 'button')
+    : 'button')
+  const chatInputs = replies.map(r => isKeyboard(r) ? 'number' : 'text')
+  const inputs = [...chatInputs, ...formInputs]
+  const free = inputs.filter(kind => kind === 'text').length
+  return {
+    points: forms.length + asked.length,
+    asChoices: forms.length + asked.filter(a => a.menu).length,
+    forms: { choice: forms.filter(f => f.kind === 'choice').length, confirm: forms.filter(f => f.kind === 'confirm').length },
+    menusReturned: calls.filter(returnedMenu).length,
+    inputs,
+    freeText: free,
+    keyboardOnly: inputs.length > 0 && free <= 1,
+  }
 }
 
 /**
@@ -176,7 +220,7 @@ export function scenarioMetrics(records, tokens, { v1 = false } = {}) {
   const { calls, catalog, instructions } = pairCalls(records)
   const resultTokens = calls.map(c => tokens.count(c.text))
   const readMs = calls.filter(c => c.tool !== 'specrails_wait' && READ_ACTIONS.has(String(c.args?.action))).map(c => c.ms)
-  const confirmable = calls.map(c => ({ c, needs: CONFIRM_REQUIRED[c.tool]?.(c.args ?? {}) ?? false }))
+  const confirmable = calls.map(c => ({ c, needs: CONFIRM_REQUIRED[c.tool]?.(effectiveArgs(c)) ?? false }))
   const unconfirmed = confirmable.filter(({ c, needs }) => needs && c.ok && !c.args?.dryRun && !tokenOk(c.args?.confirm) && !confirmedInClient(c))
   const destructive = calls.filter(c => DESTRUCTIVE[c.tool]?.(c.args ?? {}))
   const waits = calls.filter(c => c.tool === 'specrails_wait')
@@ -196,7 +240,7 @@ export function scenarioMetrics(records, tokens, { v1 = false } = {}) {
       // Asked in the client's own dialog during the call (MCP elicitation), and what the person answered there.
       inClient: { asked: calls.reduce((a, c) => a + (c.elicitations?.length ?? 0), 0), accepted: calls.filter(confirmedInClient).length },
       required: confirmable.filter(x => x.needs && x.c.ok).length,
-      unconfirmed: unconfirmed.map(({ c }) => `${c.tool}.${c.args?.action}${c.args?.decision ? `:${c.args.decision}` : ''}`),
+      unconfirmed: unconfirmed.map(({ c }) => `${c.tool}.${c.args?.action}${effectiveArgs(c).decision ? `:${effectiveArgs(c).decision}` : ''}`),
     },
     destructiveCalls: destructive.map(c => `${c.tool}.${c.args?.action}${c.ok ? '' : ' (refused)'}`),
     tokens: {

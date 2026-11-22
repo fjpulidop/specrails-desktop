@@ -49,6 +49,14 @@ export function passBars(rows, { client, baseline = [], probe = null } = {}) {
   const repeats = Math.max(0, ...all.map(m => m.polling?.maxRepeatedReads ?? 0))
   const waitTimeoutsAsFailures = ran.filter(r => r.status !== 'pass' && (r.metrics?.polling?.waitTimeouts ?? 0) > 0 && r.assertions?.some(a => !a.pass && /wait/i.test(a.name))).length
   const spanish = ran.filter(r => r.lang === 'es')
+  // Choices: every decision point (a server form, or an agent turn that waited for the person) reached them as a menu.
+  const decisions = ran.map(r => r.metrics?.decisions).filter(Boolean)
+  const points = decisions.reduce((a, d) => a + d.points, 0)
+  const asChoices = decisions.reduce((a, d) => a + d.asChoices, 0)
+  // Keyboard-only: of the scenarios where the person answered anything, those completed with numbers or option ids
+  // (and at most one free-text answer).
+  const answered = ran.filter(r => r.metrics?.decisions?.inputs?.length)
+  const keyboard = answered.filter(r => r.status === 'pass' && r.metrics.decisions.keyboardOnly)
   const bar = (id, label, value, target, pass) => ({ id, label, value, target, pass })
   return [
     bar('completion', `Completion (${client})`, pct(completion), `≥ ${pct(COMPLETION_BAR[client] ?? 0.95)}`, completion === null ? null : completion >= (COMPLETION_BAR[client] ?? 0.95)),
@@ -66,6 +74,8 @@ export function passBars(rows, { client, baseline = [], probe = null } = {}) {
     bar('wait-wake', 'wait wake-up after an event', probe?.waitWakeMs == null ? '—' : `${fmt(probe.waitWakeMs)} ms`, '≤ 500 ms', probe?.waitWakeMs == null ? null : probe.waitWakeMs <= 500),
     bar('repeats', 'Identical reads in a row (max)', all.length ? String(repeats) : '—', '≤ 2', all.length ? repeats <= 2 : null),
     bar('wait-timeouts', 'wait timeouts reported as failures', all.length ? String(waitTimeoutsAsFailures) : '—', '0', all.length ? waitTimeoutsAsFailures === 0 : null),
+    bar('choices', 'Every decision reaches the person as choices (menu or form)', points ? `${asChoices}/${points}` : '—', 'all', points ? asChoices === points : null),
+    bar('keyboard', 'Keyboard-only completion (numbers/option ids, ≤ 1 free text)', answered.length ? `${keyboard.length}/${answered.length}` : '—', 'all', answered.length ? keyboard.length === answered.length : null),
     bar('spanish', 'S14 envelope and answer in Spanish', spanish.length ? `${spanish.filter(r => r.status === 'pass').length}/${spanish.length}` : '—', 'all', spanish.length ? spanish.every(r => r.status === 'pass') : null),
   ]
 }
@@ -112,10 +122,10 @@ export function renderMarkdown(report) {
     for (const b of bars) lines.push(`| ${b.label} | ${b.value} | ${b.target} | ${mark(b.pass)} |`)
     lines.push('')
   }
-  lines.push('## Scenarios', '', '| Run | Status | Calls (ref) | Logical (ref) | Errors | Confirms req/ok (in-client) | Result tok (mean/p95) | Read p95 | Client tok | Cost | Wall |', '|---|---|---|---|---|---|---|---|---|---|---|')
+  lines.push('## Scenarios', '', '| Run | Status | Calls (ref) | Logical (ref) | Errors | Confirms req/ok (in-client) | Result tok (mean/p95) | Read p95 | Choices (forms/menus) | Person input | Client tok | Cost | Wall |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|')
   for (const r of report.rows) {
     const m = r.metrics
-    lines.push(`| ${r.id}${r.repeatIndex ? `#${r.repeatIndex}` : ''} ${r.title} | ${r.status}${r.reason ? ` — ${r.reason}` : ''} | ${m ? `${m.calls} (${r.referenceCalls ?? '—'})` : '—'} | ${m ? `${m.logicalCalls ?? m.calls} (${r.referenceLogical ?? r.referenceCalls ?? '—'})` : '—'} | ${m ? m.errors : '—'} | ${m ? `${m.confirmations.requested}/${m.confirmations.confirmed}${m.confirmations.inClient?.asked ? ` (${m.confirmations.inClient.accepted}/${m.confirmations.inClient.asked})` : ''}` : '—'} | ${m ? `${fmt(m.tokens.meanResult)}/${fmt(m.tokens.p95Result)}` : '—'} | ${m?.latency?.p95ReadMs == null ? '—' : `${fmt(m.latency.p95ReadMs)} ms`} | ${fmt(clientTokens(r))} | ${r.client?.costUsd == null ? '—' : `$${r.client.costUsd.toFixed(4)}`} | ${r.wallMs ? `${fmt(r.wallMs / 1000, 1)} s` : '—'} |`)
+    lines.push(`| ${r.id}${r.repeatIndex ? `#${r.repeatIndex}` : ''} ${r.title} | ${r.status}${r.reason ? ` — ${r.reason}` : ''} | ${m ? `${m.calls} (${r.referenceCalls ?? '—'})` : '—'} | ${m ? `${m.logicalCalls ?? m.calls} (${r.referenceLogical ?? r.referenceCalls ?? '—'})` : '—'} | ${m ? m.errors : '—'} | ${m ? `${m.confirmations.requested}/${m.confirmations.confirmed}${m.confirmations.inClient?.asked ? ` (${m.confirmations.inClient.accepted}/${m.confirmations.inClient.asked})` : ''}` : '—'} | ${m ? `${fmt(m.tokens.meanResult)}/${fmt(m.tokens.p95Result)}` : '—'} | ${m?.latency?.p95ReadMs == null ? '—' : `${fmt(m.latency.p95ReadMs)} ms`} | ${m?.decisions ? `${m.decisions.asChoices}/${m.decisions.points}` : '—'} | ${m?.decisions?.inputs?.length ? m.decisions.inputs.join(' ') : '—'} | ${fmt(clientTokens(r))} | ${r.client?.costUsd == null ? '—' : `$${r.client.costUsd.toFixed(4)}`} | ${r.wallMs ? `${fmt(r.wallMs / 1000, 1)} s` : '—'} |`)
   }
   const failed = report.rows.filter(r => r.assertions?.some(a => !a.pass))
   if (failed.length) {

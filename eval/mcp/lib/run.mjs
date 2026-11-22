@@ -8,8 +8,8 @@ import { assertEvalTarget } from './isolation.mjs'
 import { bootInstance, EVAL_DIR } from './instance.mjs'
 import { connectMcp, proxyCommand } from './mcp-client.mjs'
 import { prepareClientHome, runTurn, mergeUsage, authProblem, dialogAnswer, DEFAULT_MODELS } from './clients.mjs'
-import { pairCalls, parseLog, scenarioMetrics } from './metrics.mjs'
-import { nextReply } from './person.mjs'
+import { decisionMetrics, pairCalls, parseLog, scenarioMetrics } from './metrics.mjs'
+import { formAnswer, isKeyboardReply, menuOf, nextReply } from './person.mjs'
 import { selectScenarios, pendingReason, promptOf, TOOL_PROBES } from './scenarios.mjs'
 import { passed } from './checks.mjs'
 import { tokenCounter } from './tokens.mjs'
@@ -130,6 +130,7 @@ export async function runEval(o, { log = console.log } = {}) {
           const records = fs.existsSync(logFile) ? parseLog(fs.readFileSync(logFile, 'utf8')) : []
           const { calls } = pairCalls(records)
           row.metrics = scenarioMetrics(records, tokens, { v1: o.v1 })
+          row.metrics.decisions = decisionMetrics(calls, conversation.person ?? {}, isKeyboardReply)
           row.assertions = o.v1 ? [] : await scenario.check({ api: instance.api, facts, calls, metrics: row.metrics, finalText: o.client === 'replay' ? null : conversation.finalText })
           row.status = o.v1 ? 'baseline' : passed(row.assertions) ? 'pass' : 'fail'
           row.finalText = conversation.finalText?.slice(0, 1500) ?? null
@@ -179,7 +180,9 @@ export async function runEval(o, { log = console.log } = {}) {
 }
 
 async function replayConversation(scenario, facts, proxy) {
-  const mcp = await connectMcp(proxy)
+  // The replay's person answers the server's choice forms from the keyboard (an option id, or their one free-text
+  // answer); confirmations stay on the token flow (the reference confirms with the token, as before).
+  const mcp = await connectMcp(proxy, { onElicit: params => formAnswer(scenario.person, params) })
   try { await scenario.reference(mcp, facts) } finally { await mcp.close() }
   return { client: null, turns: 0, finalText: null }
 }
@@ -187,13 +190,16 @@ async function replayConversation(scenario, facts, proxy) {
 async function agentConversation({ o, model, scenario, facts, proxy, dir, root }) {
   // Claude Code can show the server's in-call confirmation dialog; the simulated person answers it (--no-dialog: chat only).
   const dialog = o.client === 'claude' && !o.noDialog ? dialogAnswer(scenario.person) : null
-  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low', dialog })
+  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low', dialog, person: scenario.person })
   let usage = { input: null, output: null, cacheRead: null, cacheWrite: null, costUsd: null }
   let prompt = promptOf(scenario, facts)
   let session = null
   let finalText = ''
   let used = 0
+  let wrote = 0
   let turns = 0
+  const asked = []
+  const replies = []
   for (; turns < 6; turns++) {
     const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000, budgetUsd: o.client === 'claude' && o.maxCostUsd ? o.maxCostUsd : null })
     // Keep each turn's raw client stream next to the MCP log (where the tokens and the time went).
@@ -204,10 +210,15 @@ async function agentConversation({ o, model, scenario, facts, proxy, dir, root }
     session = turn.parsed.session ?? session
     finalText = turn.parsed.text || finalText
     const records = fs.existsSync(proxy.args[proxy.args.indexOf('--log') + 1]) ? parseLog(fs.readFileSync(proxy.args[proxy.args.indexOf('--log') + 1], 'utf8')) : []
-    const reply = session ? nextReply(scenario.person, { calls: pairCalls(records).calls, lastText: finalText, used }) : null
+    const lastText = turn.parsed.text || ''
+    const reply = session ? nextReply(scenario.person, { calls: pairCalls(records).calls, lastText, used, wrote }) : null
+    // A turn that waits for the person is a decision point: did it reach them as a menu?
+    if (reply) asked.push({ turn: turns + 1, menu: menuOf(lastText).length >= 2 })
     if (!reply) { turns++; break }
     used++
+    replies.push(reply)
+    if (!isKeyboardReply(reply)) wrote++
     prompt = reply
   }
-  return { client: { tokens: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite }, costUsd: usage.costUsd }, turns, finalText }
+  return { client: { tokens: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite }, costUsd: usage.costUsd }, turns, finalText, person: { asked, replies } }
 }
