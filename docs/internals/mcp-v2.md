@@ -39,10 +39,16 @@ The flag is read per session, so new sessions pick up a change without a restart
 
   **Rule for WPs:** when you implement a v2 action whose name collides with a v1 action of the same tool, the v2
   handler wins. The registry keeps the common v1 argument names working before the `required` check
-  (`normalizeV1Args`): `projectId` → `project`, `q` → `query`, and `id` / `jobId` / `itemId` / `runId` → a bare
-  `ref` (numbers become strings). An alias maps only when the tool declares the v2 field and not the alias, and only
-  when the v2 field is absent; the alias is then removed, so handlers and confirmation bindings see one shape. Any
-  other v1 name is the WP's to accept, or to drop and say so in its PR.
+  (`normalizeV1Args`): `projectId` → `project`, `q` → `query`, and `id` / `jobId` / `itemId` / `runId` /
+  `conversationId` → a bare `ref` (numbers become strings). A tool adds its own unambiguous names in `v1Aliases`
+  (missions: `text` and `question` → `message`), applied first under the same rules. An alias maps only when the tool
+  declares the v2 field and not the alias, and only when the v2 field is absent; the alias is then removed, so
+  handlers and confirmation bindings see one shape. Any other v1 name is the WP's to accept, or to drop and say so in
+  its PR. Dropped at phase 2: the v1 `settings` shapes (top-level fields on set, a flat get); v2 takes
+  `section` + `values`.
+- **Blank values:** the registry treats `""` (and whitespace) as absent, for `required`, `oneOf` and the aliases. No
+  v2 field gives `""` a meaning; a "default target" is a named value instead (`insights(preflight)` uses
+  `"primary"`). Keep that convention rather than special-casing empty strings.
 - **The deprecation table** is `V1_TO_V2` in `server/mcp/tools/actions.ts` (the alias bridge). `v2/aliases.test.ts`
   proves every v1 action maps to an existing v2 call and snapshots the table. A v2 action that is still a stub
   answers `not_implemented` and names the v1 call that serves it today (`v1EquivalentOf`).
@@ -55,18 +61,18 @@ test.
 
 | WP | Owns (create or edit only these) |
 |---|---|
-| WP0 | `v2/core/**`, `v2/{index,flag,legacy}.ts`, `v2/tools/index.ts`, `v2/i18n/{catalog.ts,sources.json,en/core.json,*/core.json}`, `v2/catalog-budget.test.ts`, `v2/{aliases,surface}.test.ts`, the alias bridge in `server/mcp/tools/actions.ts`, the v2 hook in `mcp-server.ts` |
+| WP0 | `v2/core/**` (phase 2 added `loopback`, `bus`, `forecast`, `commit-tracker`), `v2/{index,flag,legacy}.ts`, `v2/tools/index.ts`, `v2/i18n/{catalog.ts,sources.json,en/core.json,*/core.json}`, `v2/catalog-budget.test.ts`, `v2/{aliases,surface}.test.ts`, the alias bridge in `server/mcp/tools/actions.ts`, the v2 hook in `mcp-server.ts` |
 | WP1 events | `server/modules/events-journal/**`, `v2/tools/wait.ts`, `v2/i18n/en/wait.json` |
 | WP2 overview, inbox, projects | `v2/tools/{overview,inbox,projects}.ts`, `v2/i18n/en/{overview,inbox,projects}.json`, `server/mobile/mobile-inbox.ts` |
 | WP3 runs, rails | `v2/tools/{runs,rails}.ts`, `v2/projectors/run-state.ts`, `v2/i18n/en/{runs,rails}.json`, `server/modules/delivery/runtime/rails-launch-http.ts` |
 | WP4 deliveries | `v2/tools/deliveries.ts`, `v2/projectors/delivery-state.ts`, `v2/i18n/en/deliveries.json` |
 | WP5 specs | `v2/tools/specs.ts`, `v2/i18n/en/specs.json`, `server/project-router-tickets-bulk.ts` |
 | WP6 blueprint | `v2/tools/blueprint.ts`, `v2/projectors/chain-state.ts`, `v2/i18n/en/blueprint.json` |
-| WP7 missions | `v2/tools/missions.ts`, `v2/i18n/en/missions.json` (plus moving the first-party `mission.ts` unchanged) |
+| WP7 missions | `v2/tools/missions.ts`, `v2/projectors/mission-state.ts`, `v2/i18n/en/missions.json`, the first-party `v2/tools/mission.ts` (moved from `tools/mission.ts`) |
 | WP8 insights | `v2/tools/insights.ts`, `v2/i18n/en/insights.json` |
 | WP9 settings, providers | `v2/tools/{settings,providers}.ts`, `v2/i18n/en/{settings,providers}.json` |
 | WP10 integrations | `v2/tools/integrations.ts`, `v2/i18n/en/integrations.json` |
-| WP11 system | `v2/tools/system.ts`, `v2/i18n/en/system.json`, `server/desktop-router-updates.ts` |
+| WP11 system | `v2/tools/system.ts`, `v2/i18n/en/system.json`, `server/desktop-router-updates.ts`, `client/src/hooks/useDesktopUpdateRemote.ts` |
 | WP12 i18n | `v2/i18n/{es,fr,de,pt,it,zh,ja}/<area>.json` (except `core.json`, generated) and their imports in `catalog.ts` |
 | WP13 connect, docs | `cli/mcp-connect.ts`, `v2/instructions.ts` (wording; the protocol rules stay), `v2/prompts.ts`, `docs/mcp.md`, `docs/agents/mcp.md`, the MCP settings section |
 | WP14 eval | `eval/mcp/**` |
@@ -75,6 +81,18 @@ The design assigned no owner to `specrails_projects` and `specrails_rails`. WP0 
 reads, next to overview and inbox) and `rails` to WP3 (launch goes through runs). Server-side additions go into the
 owning domain module, one WP per module. A WP that needs a new shared helper asks WP0 for it and does not add it to
 `core/`.
+
+### One owner per setting (decided at phase 2)
+
+Where two tools reached the same data, one implements it and the other delegates through `ctx.v2.dispatch` (the
+target's tier, preview and confirmation apply; `confirm` / `dryRun` pass through, so the agent resends the call it
+made):
+
+| Data | Canonical | Delegates |
+|---|---|---|
+| Budgets and caps | `settings(set, section budget)` | `insights(budget_set)` maps `options.limits` onto it (a cap raise now confirms as costly); `insights(budget_get)` stays a read |
+| Webhooks, mobile gateway | `integrations(webhooks)`, `integrations(mobile)` (status, enable, disable, revoke) | `settings(get/set, section webhooks|mobile)` and `settings(webhook_test)` |
+| Machine-install approvals | `settings(section machine_installs)` | `system(machine_installs)` |
 
 ## The 15 tools
 
@@ -132,9 +150,17 @@ Rules:
   `specrails_system(help)`. Field descriptions are at most 8 words.
 - Handlers return plain data or `result(data, meta)`. Throw `V2ToolError(code, message, extra)`. v1 errors
   (`McpToolError`, `McpApiError`) map automatically.
-- Shared helpers live in core; do not copy them into a tool: `present`, `asRecord`, `clip`, `clipDeep`
-  (`core/text.ts`), `neutralize` and `reveal` (`core/untrusted.ts`; `reveal` shows invisible characters as
-  `⟦U+XXXX⟧` in diffs and file contents instead of removing them).
+- Shared helpers live in core; do not copy them into a tool:
+  - `present`, `asRecord`, `clip`, `clipDeep` (`core/text.ts`);
+  - `neutralize`, `reveal` (shows invisible characters as `⟦U+XXXX⟧` in diffs and file contents instead of removing
+    them) and `clipUntrusted` (`core/untrusted.ts`);
+  - `apiRow` / `api` / `maybe` for loopback routes (`core/loopback.ts`; `api` throws a typed `V2ToolError` with the
+    route's own text);
+  - `listen` and `waitMsOf` for a bounded wait on a bus frame (`core/bus.ts`; subscribe before you trigger);
+  - `launchForecast` / `scaledCost` for a launch's cost and `turnCostFromLedger` for a conversational turn's
+    (`core/forecast.ts`: runs, rails, blueprint chains, missions, Intent);
+  - `relay(envelope)` to serve a dispatched call's envelope as your result (`core/envelope.ts`);
+  - `registerTools(h, tools, options)` in tests that dispatch between tools (`__fixtures__/harness.ts`).
 
 ### Tiers decided at integration
 
@@ -144,6 +170,12 @@ Rules:
 | `deliveries(decide refresh_on_base)` | ai-spawn, costly | WP4: the resolver and verification run an agent |
 | `runs(recovery_check)` | destructive, irreversible | It executes the project's own commands in the run's worktree (v1's check was destructive too); its preview names the check and binds to the run's state version |
 | `inbox(act)` | read | The dispatched offer applies its own tier and confirmation |
+| `settings(set)` lowering a safeguard (subagents, env inherit, guardrails off, an MCP server, the confirm threshold) | write, risky | WP9 had `irreversible`, whose sentence ("cannot be undone") was wrong: the change can be set back |
+| `specs(bulk_update {trash: true})` over 20 specs | write, risky | Restorable, but many specs at once |
+| `integrations(mobile enable)` | write, risky | Opens a LAN listener; `disable` undoes it. `revoke` is destructive, irreversible (the device must pair again) |
+| `integrations(webhooks create)`, `update` with a `url` | write, external | The URL receives the app's events (settings' rule, kept at the canonical owner) |
+| `system(terminals run)`, `system(updates apply)` | destructive, irreversible | WP11: runs a command / installs an update |
+| `system(continuity resume)`, `blueprint(chain_resume)` | ai-spawn, costly | Unknown or launch forecast; `chain_resume` is free for `complete`, `follow_run`, `answer_run` |
 
 ### Handler context (`ctx.v2`)
 
@@ -157,6 +189,7 @@ Rules:
 | `target(args, kind, kinds?)` | entity from `ref` (a full ref wins) or a bare id; `{ kind, id, project, ref }` |
 | `state(input)` | `DecisionState` with this call's language, the catalog's policies and the spend threshold |
 | `confirmAboveUsd` | "Ask before spending" threshold |
+| `catalog` | the catalog this call was registered with (`system(help)` reads it; no import of `v2/index.ts`) |
 | `dispatch(call)` | runs another catalog call (an offer's `call`) through its registered callback, legacy delegate included, with this call's capability; returns the target's v2 envelope (a v1 result is read as v2). `inbox(act)` uses it |
 | `progress(progress, total?, message?)` | `notifications/progress` for the request's `_meta.progressToken`; a no-op without one (`wait(until)` reports elapsed ms) |
 
@@ -262,7 +295,8 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
 
 | Class | Rule |
 |---|---|
-| `irreversible` | always confirm |
+| `irreversible` | always confirm ("It cannot be undone.") |
+| `risky` | always confirm; reversible ("It can be undone, but until then it lowers a safeguard or changes many items at once.") |
 | `external` | always confirm |
 | `costly` | confirm when the forecast upper bound exceeds `mcp_confirm_above_usd` (default $0.50), when more than one run starts, or when the forecast is unknown |
 | none | execute; mutating calls broadcast `mcp.activity` |
@@ -336,28 +370,28 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
 
   The test prints the per-tool numbers. When you add to a tool, run it and keep the catalog below budget.
 
-After phase 1 (WP0–WP5 integrated) the catalog measures **5,981** tokens in the Codex shape (5,846 in the Claude
-shape; 6,004 / 5,869 at WP0). Per tool:
+After phase 2 (WP0–WP11 integrated) the catalog measures **6,124** tokens in the Codex shape (5,989 in the Claude
+shape; 5,981 / 5,846 after phase 1). Per tool:
 
-| Tool | Tokens |
-|---|---|
-| `specrails_overview` | 180 |
-| `specrails_inbox` | 355 |
-| `specrails_wait` | 211 |
-| `specrails_projects` | 348 |
-| `specrails_specs` | 560 |
-| `specrails_blueprint` | 454 |
-| `specrails_rails` | 360 |
-| `specrails_runs` | 608 |
-| `specrails_deliveries` | 423 |
-| `specrails_missions` | 643 |
-| `specrails_insights` | 268 |
-| `specrails_settings` | 299 |
-| `specrails_providers` | 430 |
-| `specrails_integrations` | 506 |
-| `specrails_system` | 336 |
+| Tool | Tokens | Phase 1 |
+|---|---|---|
+| `specrails_overview` | 180 | 180 |
+| `specrails_inbox` | 355 | 355 |
+| `specrails_wait` | 211 | 211 |
+| `specrails_projects` | 348 | 348 |
+| `specrails_specs` | 560 | 560 |
+| `specrails_blueprint` | 450 | 454 |
+| `specrails_rails` | 360 | 360 |
+| `specrails_runs` | 608 | 608 |
+| `specrails_deliveries` | 423 | 423 |
+| `specrails_missions` | 672 | 643 |
+| `specrails_insights` | 346 | 268 |
+| `specrails_settings` | 320 | 299 |
+| `specrails_providers` | 430 | 430 |
+| `specrails_integrations` | 525 | 506 |
+| `specrails_system` | 336 | 336 |
 
-That leaves about 520 tokens of headroom for phases 2–4.
+That leaves about 375 tokens of headroom for phases 3–4.
 
 ## Notifications
 
@@ -368,14 +402,20 @@ and `specrails://jobs/<id>`, a mission → `specrails://missions/<id>`) through 
 `McpServerManager` creates one subscription set per session (`registerResourceSubscriptions`, shared with the v1 bus
 events) and disposes both on session close.
 
-## Open after phase 1
+## Open after phase 2
 
 | Item | Note |
 |---|---|
-| `projects(clone)` longer than a client's 60 s call timeout | Still synchronous (up to 5 min). A 202 + `wait` needs a clone row in the event journal and a ref before the project exists; deferred |
-| A "large reversible" confirmation class (bulk trash) | Not added; `specs(delete)` and `bulk_update` stay `write` (trash is reversible), `purge` is always confirmed |
-| A cross-project run read model | `runs(list)` without a project uses `/recent-jobs` (50, no holds) |
-| Inbox items for mission cards and paused chains | WP6/WP7 |
+| `projects(clone)` longer than a client's 60 s call timeout | Still synchronous (up to 5 min). A 202 + `wait` needs a clone row in the event journal and a ref before the project exists |
+| A cross-project run read model | `runs(list)` without a project uses `/recent-jobs` (50, no holds); app-wide 7d/30d provider spend split in `insights` needs a server addition too |
+| Inbox items for mission cards and paused chains | The inbox read model (`server/modules/inbox`) has no chain or mission kind; adding them changes the app's inbox UI, so it is its own change. Until then `overview(live)` / `blueprint(chain_get)` / `missions(get)` show them |
+| `held` items in `insights` | Read through the full `/api/inbox` per call |
+| Blueprint commit tracking | In process only (`core/commit-tracker.ts`); a restart forgets running commits (the project they created stays readable) |
+| `missions(intent_hand_off)` | Needs `options.rail` (no auto-pick of a free rail) |
+| Chat refs, mission attachments | Chat refs need a project; mission attachments are bare `attachmentId`s (no ref kind) |
+| Stopping a mission's preview/dev servers | Goes through `system(background)`; missions has no shortcut |
+| `help(topic)` bodies | Still the v1 guide bodies (WP13 rewrites them) |
+| `_one` plural variants | WP12 translates the `tc` plural keys of `insights` |
 
 ## Not in WP0 (owned elsewhere)
 

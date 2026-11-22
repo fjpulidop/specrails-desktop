@@ -19,8 +19,8 @@ import type { AddressInfo } from 'net'
 import type { Server } from 'http'
 import express from 'express'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { call, createHarness, type Harness } from '../__fixtures__/harness'
-import { registerV2Tool } from '../core/registry'
+import { call, createHarness, registerTools, type Harness } from '../__fixtures__/harness'
+import { settingsTool } from './settings'
 import { approxTokens } from '../core/size-guard'
 import { v2Catalog } from '../index'
 import { systemTool, terminalText } from './system'
@@ -65,7 +65,8 @@ beforeEach(async () => {
   h = createHarness()
   h.ctx.desktopPort = port
   h.ctx.sessionState = { activeProjectId: 'p1', sessionKey: 'session-a' } as never
-  registerV2Tool(h.server, h.ctx, systemTool, { catalog: v2Catalog() })
+  // machine_installs is specrails_settings' section: system dispatches to it.
+  registerTools(h, [systemTool, settingsTool], { catalog: v2Catalog() })
   client = await h.connect()
 })
 
@@ -336,7 +337,8 @@ describe('machine installs and triage', () => {
   it('revokes a remembered install', async () => {
     route('GET /api/machine-installs', { body: { approvals: [{ command: 'brew install uv' }] } })
     route('DELETE /api/machine-installs', { body: { ok: true, approvals: [] } })
-    expect((await sys({ action: 'machine_installs' })).envelope.summary).toBe('1 remembered machine installs.')
+    // specrails_settings(machine_installs) serves it.
+    expect((await sys({ action: 'machine_installs' })).envelope.data.values.approvals).toEqual([{ command: 'brew install uv' }])
     await sys({ action: 'machine_installs', op: 'revoke', options: { command: 'brew install uv' } })
     expect(calls('DELETE /api/machine-installs')[0].body).toEqual({ command: 'brew install uv' })
   })

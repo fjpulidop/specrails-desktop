@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1919 source/build files. Nearby tests are linked where names
+Includes 1923 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1702,13 +1702,17 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/mcp/v2/core
 
+- [bus.ts](../../server/mcp/v2/core/bus.ts)
 - [canonical.ts](../../server/mcp/v2/core/canonical.ts)
+- [commit-tracker.ts](../../server/mcp/v2/core/commit-tracker.ts)
 - [confirm.ts](../../server/mcp/v2/core/confirm.ts) · [test](../../server/mcp/v2/core/confirm.test.ts)
 - [cursor.ts](../../server/mcp/v2/core/cursor.ts) · [test](../../server/mcp/v2/core/cursor.test.ts)
 - [decision-sources.ts](../../server/mcp/v2/core/decision-sources.ts) · [test](../../server/mcp/v2/core/decision-sources.test.ts)
 - [decision-state.ts](../../server/mcp/v2/core/decision-state.ts) · [test](../../server/mcp/v2/core/decision-state.test.ts)
 - [envelope.ts](../../server/mcp/v2/core/envelope.ts) · [test](../../server/mcp/v2/core/envelope.test.ts)
+- [forecast.ts](../../server/mcp/v2/core/forecast.ts) · [test](../../server/mcp/v2/core/forecast.test.ts)
 - [lang.ts](../../server/mcp/v2/core/lang.ts) · [test](../../server/mcp/v2/core/lang.test.ts)
+- [loopback.ts](../../server/mcp/v2/core/loopback.ts)
 - [refs.ts](../../server/mcp/v2/core/refs.ts) · [test](../../server/mcp/v2/core/refs.test.ts)
 - [registry.ts](../../server/mcp/v2/core/registry.ts) · [test](../../server/mcp/v2/core/registry.test.ts)
 - [size-guard.ts](../../server/mcp/v2/core/size-guard.ts) · [test](../../server/mcp/v2/core/size-guard.test.ts)

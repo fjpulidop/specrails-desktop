@@ -179,3 +179,17 @@ export function toCallToolResult(envelope: V2Envelope, mode: TextMode = 'json'):
 export const V2_OUTPUT_SCHEMA = z.looseObject({ v: z.literal(2).optional(), ok: z.boolean(), summary: z.string() }).meta({ $schema: undefined } as Record<string, unknown>)
 
 export type { NextCall }
+
+/**
+ * Re-serves another call's envelope (`ctx.v2.dispatch`) as this call's result:
+ * a success keeps its data and meta, a failure is rethrown with its code and
+ * extras (`preview`, `confirmToken`, `state`, `choices`…), so a delegated
+ * confirmation reaches the agent unchanged.
+ */
+export function relay(envelope: V2Envelope): V2Result {
+  if (envelope.ok) {
+    return result(envelope.data, { summary: envelope.summary, ...(envelope.refs ? { refs: envelope.refs } : {}), ...(envelope.state ? { state: envelope.state } : {}), ...(envelope.page ? { page: envelope.page } : {}), ...(envelope.warnings ? { warnings: envelope.warnings } : {}), ...(envelope.untrusted ? { untrusted: envelope.untrusted } : {}) })
+  }
+  const { code, message, ...extra } = envelope.error
+  throw new V2ToolError(code, message, extra)
+}

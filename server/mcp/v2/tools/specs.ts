@@ -30,6 +30,8 @@ import type { WsMessage } from '../../../types'
  */
 
 type Row = Record<string, unknown>
+/** `bulk_update {trash: true}` on more specs than this asks first (class risky). */
+const BULK_TRASH_CONFIRM_ABOVE = 20
 const asArray = (value: unknown): unknown[] => Array.isArray(value) ? value : []
 
 const AI_CREATE_MODES = new Set(['request'])
@@ -1005,9 +1007,11 @@ export const specsTool = defineTool({
     },
     bulk_update: {
       tier: 'write',
-      confirm: (args) => asRecord(args.patch).mergeInto !== undefined ? 'irreversible' : null,
+      // Merging cannot be undone; trashing many specs at once is restorable but always confirmed (risky).
+      confirm: (args) => asRecord(args.patch).mergeInto !== undefined ? 'irreversible'
+        : asRecord(args.patch).trash === true && Array.isArray(args.refs) && args.refs.length > BULK_TRASH_CONFIRM_ABOVE ? 'risky' : null,
       required: ['refs', 'patch'],
-      doc: 'One operation on up to 200 specs. patch: status, priority, labels, addLabels, removeLabels, assignee, milestone, rail; or {trash: true} (restorable), {restore: true}, {mergeInto: ref} (folds bodies into the target, trashes the rest; confirmed), {reorder: true} (execution order = refs order). Returns skipped specs with reasons and an undo call.',
+      doc: 'One operation on up to 200 specs. patch: status, priority, labels, addLabels, removeLabels, assignee, milestone, rail; or {trash: true} (restorable; over 20 specs confirmed), {restore: true}, {mergeInto: ref} (folds bodies into the target, trashes the rest; confirmed), {reorder: true} (execution order = refs order). Returns skipped specs with reasons and an undo call.',
       preview: (ctx, args) => bulkPreview(ctx, args),
       handler: bulkUpdate,
     },

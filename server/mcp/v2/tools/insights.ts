@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { present } from '../core/text'
 import type { ProjectRow } from '../../../desktop-db'
 import { periodEnd, periodStart, type CapPeriod } from '../../../modules/execution/domain/spend-caps'
 import { apiCall } from '../../tools/types'
 import { decodeCursor, encodeCursor } from '../core/cursor'
-import { V2ToolError, result } from '../core/envelope'
+import { V2ToolError, relay, result } from '../core/envelope'
 import { hasMessage, type Lang } from '../core/lang'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { defineTool, type V2CallContext } from '../core/registry'
@@ -31,7 +32,6 @@ const num = (value: unknown): number | null => typeof value === 'number' && Numb
 const str = (value: unknown): string | null => typeof value === 'string' && value.length > 0 ? value : null
 const cents = (value: number): number => Math.round(value * 100) / 100
 const money4 = (value: number | null): number | null => value === null ? null : Math.round(value * 10_000) / 10_000
-const present = (value: unknown) => value !== undefined && value !== null && value !== ''
 /** A 0..1 ratio as a percentage with one decimal. */
 const pct100 = (ratio: number | null): number | null => ratio === null ? null : Math.round(ratio * 1000) / 10
 
@@ -909,10 +909,11 @@ const LIMIT_ALIASES: Record<string, 'day' | 'week' | 'month' | 'run' | 'alert'> 
   run: 'run', runCapUsd: 'run',
   alert: 'alert', jobCostThresholdUsd: 'alert', costAlertThresholdUsd: 'alert',
 }
-const APP_FIELDS = { day: 'desktopDailyBudgetUsd', week: 'desktopWeeklyBudgetUsd', month: 'desktopMonthlyBudgetUsd', run: 'runCapUsd', alert: 'costAlertThresholdUsd' } as const
+// specrails_settings(budget) keys (settings owns budget writes; it renames the app ones for /budget).
+const APP_FIELDS = { day: 'dailyBudgetUsd', week: 'weeklyBudgetUsd', month: 'monthlyBudgetUsd', run: 'runCapUsd', alert: 'costAlertThresholdUsd' } as const
 const PROJECT_FIELDS = { day: 'dailyBudgetUsd', week: 'weeklyBudgetUsd', month: 'monthlyBudgetUsd', run: 'runCapUsd', alert: 'jobCostThresholdUsd' } as const
 
-/** `options.limits` → the PATCH body of the scope's budget route. Numbers > 0 set, null clears. */
+/** `options.limits` → `specrails_settings(set, section budget)` values. Numbers > 0 set, null clears. */
 export function budgetPatch(scope: 'app' | 'project', limits: unknown, message: string): Record<string, number | null> {
   const value = rec(limits)
   const entries = Object.entries(value)
@@ -992,10 +993,22 @@ async function budgetGet(ctx: V2CallContext, args: Record<string, unknown>) {
   })
 }
 
+/**
+ * Delegates to `specrails_settings(set, section budget)`, the one writer of
+ * budgets: its validation, cap-raise confirmation (costly) and activity apply.
+ * `confirm` / `dryRun` pass through, so the settings preview and token reach
+ * the agent unchanged and the resent budget_set confirms it.
+ */
 async function budgetSet(ctx: V2CallContext, args: Record<string, unknown>) {
   const scope: Scope = args.scope === 'project' ? { scope: 'project', project: ctx.v2.project(args) } : { scope: 'app', project: null }
-  const body = budgetPatch(scope.scope, optionsOf(args).limits, ctx.v2.t('insights.error.limits'))
-  await apiCall(ctx, 'PATCH', scope.project ? `${projectPath(scope.project)}/budget` : '/budget', body)
+  const values = budgetPatch(scope.scope, optionsOf(args).limits, ctx.v2.t('insights.error.limits'))
+  const delegated = await ctx.v2.dispatch({ tool: 'specrails_settings', args: {
+    action: 'set', section: 'budget', values,
+    ...(scope.project ? { project: scope.project.id } : {}),
+    ...(args.confirm !== undefined ? { confirm: args.confirm } : {}),
+    ...(args.dryRun !== undefined ? { dryRun: args.dryRun } : {}),
+  } })
+  if (!delegated.ok || args.dryRun === true) return relay(delegated)
   const read = await readBudget(ctx, scope)
   return result(read.data, {
     summary: join(ctx.v2.t('insights.summary.budget_saved', { scope: ctx.v2.t(`insights.scope.${scope.scope}`) }), budgetSummary(ctx, scope, read)),
@@ -1085,6 +1098,8 @@ export const insightsTool = defineTool({
     limit: F.limit,
     lang: F.lang,
     options: F.options,
+    confirm: F.confirm,
+    dryRun: F.dryRun,
   },
   actions: {
     spend: { tier: 'read', doc: 'Spend by period (default today), app-wide or per project: billed vs estimated, by category/provider, costliest projects/specs/missions, caps, projection.', handler: spend },
@@ -1097,7 +1112,7 @@ export const insightsTool = defineTool({
     forecast: { tier: 'read', doc: 'Duration and cost band of runs like this (options.loopId|command|provider|runs) plus the month-end projection.', handler: forecast },
     what_if: { tier: 'read', required: ['options.scenario'], doc: 'Re-price recorded usage: options.scenario {from:"claude:opus", to:"claude:sonnet", days?} or "list".', handler: whatIf },
     budget_get: { tier: 'read', doc: 'Caps (day/week/month/run, alert) with spend, resets and what they hold; scope app or project.', handler: budgetGet },
-    budget_set: { tier: 'write', required: ['scope', 'options.limits'], doc: 'options.limits {day, week, month, run, alert}: number > 0 sets, null clears.', handler: budgetSet },
+    budget_set: { tier: 'write', required: ['scope', 'options.limits'], doc: 'options.limits {day, week, month, run, alert}: number > 0 sets, null clears. Runs specrails_settings(set, budget); a raise confirms there.', handler: budgetSet },
     resources: { tier: 'read', doc: 'CPU and memory of everything Specrails launched; options.mission for one mission.', handler: resources },
   },
 })

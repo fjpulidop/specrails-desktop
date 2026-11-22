@@ -73,6 +73,8 @@ export interface V2ToolDef {
   alwaysLoad?: boolean
   /** Input fields besides `action` (use F.* from views.ts for the common ones). */
   fields: ZodRawShape
+  /** Tool-specific v1 argument names, applied before the global `V1_ARG_ALIASES` (same rules). */
+  v1Aliases?: ReadonlyArray<readonly [alias: string, field: string]>
   actions: Record<string, V2ActionDef>
 }
 
@@ -116,7 +118,7 @@ export function createCatalog(tools: readonly V2ToolDef[]): V2Catalog {
 
 // ── Wire schema ─────────────────────────────────────────────────────────────
 
-function fieldValue(args: Record<string, unknown>, path: string): unknown {
+export function fieldValue(args: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce<unknown>((value, key) => (value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined), args)
 }
 
@@ -131,12 +133,12 @@ function fieldValue(args: Record<string, unknown>, path: string): unknown {
 export const V1_ARG_ALIASES: ReadonlyArray<readonly [alias: string, field: string]> = [
   ['projectId', 'project'],
   ['q', 'query'],
-  ['id', 'ref'], ['jobId', 'ref'], ['itemId', 'ref'], ['runId', 'ref'],
+  ['id', 'ref'], ['jobId', 'ref'], ['itemId', 'ref'], ['runId', 'ref'], ['conversationId', 'ref'],
 ]
 
-export function normalizeV1Args(def: Pick<V2ToolDef, 'fields'>, args: Record<string, unknown>): Record<string, unknown> {
+export function normalizeV1Args(def: Pick<V2ToolDef, 'fields' | 'v1Aliases'>, args: Record<string, unknown>): Record<string, unknown> {
   let out = args
-  for (const [alias, field] of V1_ARG_ALIASES) {
+  for (const [alias, field] of [...(def.v1Aliases ?? []), ...V1_ARG_ALIASES]) {
     if (alias in def.fields || !(field in def.fields) || !present(out[alias])) continue
     if (out === args) out = { ...args }
     const value = out[alias]
@@ -210,6 +212,8 @@ export interface V2CallContext extends McpToolContext {
     /** Builds a DecisionState with this call's language, the catalog's policies and the spend threshold. */
     state(input: DecisionStateInput): DecisionState
     confirmAboveUsd: number
+    /** The catalog this call was registered with (help, describe, validate). */
+    catalog: V2Catalog
     /**
      * Runs another catalog call (an offer's `call`) through its registered
      * callback: the target's own tier, required fields, confirmation protocol,
@@ -344,6 +348,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
       project: (a) => requireProjectRow(rows(), scope(a), t),
       target: (a, defaultKind, kinds) => resolveTarget(rows(), { ...scope(a), ref: a.ref, defaultKind, kinds, label }, t),
       state: (input) => buildDecisionState(input, { translate: t, policyFor: options.catalog.policyFor, confirmAboveUsd }),
+      catalog: options.catalog,
       dispatch: async (call) => {
         if (!options.dispatch) throw new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`)
         return envelopeOfResult(await options.dispatch(call, extra))

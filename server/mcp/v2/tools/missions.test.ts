@@ -114,6 +114,7 @@ function stubProjectRoutes(): Router {
   router.post('/:projectId/rails', (req, res) => { log(req); res.status(201).json({ rail: { railIndex: 3 } }) })
   router.put('/:projectId/rails/:i/tickets', (req, res) => { log(req); res.json({ ok: true }) })
   router.post('/:projectId/rails/:i/launch', (req, res) => { log(req); res.status(202).json({ loopRunIds: ['run-9'], prDeliveryId: 'del-9' }) })
+  router.post('/:projectId/rails/launch-specs', (req, res) => { log(req); res.status(202).json({ loopRunIds: ['run-9'], prDeliveryId: 'del-9', railIndex: req.body.railIndex ?? 4 }) })
   router.post('/:projectId/rails/pr-ci-offer/dismiss', (req, res) => { log(req); res.json({ state: 'dismissed' }) })
   router.post('/:projectId/rails/:i/pr-ci', (req, res) => { log(req); res.status(202).json({ runId: 'ci-1' }) })
   router.get('/:projectId/missions/:chatId/resources', (_req, res) => { res.json({ supported: true, totals: { cpu: 1, rss: 10 }, entries: [{}], worktree: { path: '/tmp/wt' } }) })
@@ -361,14 +362,15 @@ describe('specrails_missions: get, cards and links', () => {
     expect(Number(shown.at(-1))).toBeLessThan(Number(first.envelope.data.messageList[0].text.split(' ')[1]))
   })
 
-  it('card_decide launches a rail proposal through the rail routes and records the decision', async () => {
+  it('card_decide launches a rail proposal through the one launch door (rails/launch-specs) and records the decision', async () => {
     const id = mission()
     seedCards(id)
     const card = (await missions({ action: 'get', ref: `mission:${id}` })).envelope.data.pendingCards.find((c: Row) => c.kind === 'rail-launch')
     const res = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: 'launch' })
     expect(res.envelope.data).toMatchObject({ rail: 'rail:shop-api/1', runs: ['run:shop-api/run-9'], delivery: 'delivery:shop-api/del-9' })
-    expect(routeLog.map((r) => `${r.method} ${r.path}`)).toEqual(['PUT /p1/rails/1/tickets', 'POST /p1/rails/1/launch'])
-    expect(routeLog[1].body).toMatchObject({ mode: 'implement', originConversationId: id, originSurface: 'agent-chat', aiEngine: 'claude' })
+    expect(routeLog.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /p1/rails/launch-specs'])
+    expect(routeLog[0].body).toMatchObject({ railIndex: 1, mode: 'implement', originConversationId: id, originSurface: 'agent-chat', aiEngine: 'claude' })
+    expect(Array.isArray(routeLog[0].body.specIds)).toBe(true)
     const after = (await missions({ action: 'get', ref: `mission:${id}`, fields: ['cards'] })).envelope.data.cards.find((c: Row) => c.id === card.id)
     expect(after).toMatchObject({ decided: 'launched' })
     // Decided: a second decision conflicts.

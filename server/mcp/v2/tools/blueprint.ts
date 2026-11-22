@@ -1,21 +1,23 @@
 import { z } from 'zod'
 import type { DbInstance } from '../../../db'
 import type { ProjectRow } from '../../../desktop-db'
-import type { MobileEventBus } from '../../../mobile/mobile-event-bus'
-import type { WsMessage } from '../../../types'
 import type { ChainOffer, ChainResumeFrom } from '../../../modules/builder/runtime/milestone-chain-reconcile'
 import type { MilestoneChainSnapshot, MilestoneProgress, MilestoneRail } from '../../../modules/builder/runtime/milestone-progress'
 import { parseBlueprintDraftBlocks } from '../../../modules/builder/runtime/blueprint-draft-parser'
 import { analyzeBuilderSpecBatch, type BuilderSpecBatchQualityReport } from '../../../modules/builder/runtime/blueprint-spec-quality'
 import type { Blueprint } from '../../../modules/builder/runtime/blueprint-types'
-import { apiCall, McpApiError } from '../../tools/types'
 import { shortHash } from '../core/canonical'
 import { pageOf } from '../core/cursor'
 import type { DecisionState, OfferDraft } from '../core/decision-state'
 import { V2ToolError, result } from '../core/envelope'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
-import { neutralize, untrusted } from '../core/untrusted'
+import { clipUntrusted, untrusted } from '../core/untrusted'
+import { asRecord, clipDeep, type Row } from '../core/text'
+import { api, maybe } from '../core/loopback'
+import { listen, waitMsOf as waitMs } from '../core/bus'
+import { launchForecast, scaledCost, turnCostFromLedger } from '../core/forecast'
+import { rememberCommit, trackCommits, trackedCommit, type CommitTrack } from '../core/commit-tracker'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
 import { isActiveChain, projectChainState, projectMilestoneState, projectRailState, chainPhase } from '../projectors/chain-state'
 
@@ -49,79 +51,20 @@ const WAIT_MAX_MS = 45_000
 const MESSAGE_CHARS = 1_500
 const DETAIL_MESSAGES = 12
 
-type Row = Record<string, unknown>
-const rec = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
 const arr = (value: unknown): unknown[] => Array.isArray(value) ? value : []
 const str = (value: unknown): string | null => typeof value === 'string' && value ? value : null
 const num = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null
-
-function clip(text: unknown, max: number): string | null {
-  if (typeof text !== 'string' || !text) return null
-  const clean = neutralize(text)
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
-}
-
-/** Bounded copy of model-written structured content (the blueprint). */
-function clipDeep(value: unknown, maxString = 500, maxItems = 12, depth = 0): unknown {
-  if (typeof value === 'string') return clip(value, maxString)
-  if (Array.isArray(value)) return value.slice(0, maxItems).map((item) => clipDeep(item, maxString, maxItems, depth + 1))
-  if (value && typeof value === 'object' && depth < 5) {
-    return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => [k, clipDeep(v, maxString, maxItems, depth + 1)]))
-  }
-  return value
-}
+const rec = asRecord
+const clip = clipUntrusted
 
 const projectBase = (project: ProjectRow) => `/projects/${encodeURIComponent(project.id)}`
 const milestoneId = (n: number) => `m${n}`
 const engineWord = (ctx: V2CallContext, engine: { provider?: unknown; model?: unknown; reasoningEffort?: unknown } | null | undefined) =>
   engine && str(engine.provider) ? [engine.provider, engine.model, engine.reasoningEffort].filter((part) => typeof part === 'string' && part).join(' · ') : ctx.v2.t('blueprint.engine.default')
 
-/** Loopback call; a route refusal becomes a typed v2 error carrying the route's own code. */
-async function api(ctx: V2CallContext, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<Row> {
-  try {
-    return rec(await apiCall(ctx, method, path, body))
-  } catch (err) {
-    if (!(err instanceof McpApiError)) throw err
-    const data = rec(err.data)
-    const text = [str(data.error), str(data.detail)].filter(Boolean).join(': ') || err.message
-    const code = err.status === 404 ? 'not_found' : err.status === 409 ? 'conflict' : err.status === 400 ? 'invalid_input' : err.status === 503 ? 'provider_unavailable' : 'internal'
-    throw new V2ToolError(code as never, text, { ...(err.status >= 500 ? { retryable: true } : {}) })
-  }
-}
-
-async function maybe(ctx: V2CallContext, path: string): Promise<Row | null> {
-  try { return await api(ctx, 'GET', path) } catch { return null }
-}
-
 // ── Waiting for a streamed turn ─────────────────────────────────────────────
 
-function waitMsOf(args: Record<string, unknown>, fallback = WAIT_DEFAULT_MS): number {
-  const raw = num(optionsOf(args).waitMs)
-  return Math.max(0, Math.min(raw ?? fallback, WAIT_MAX_MS))
-}
-
-type Waited = { kind: 'done' | 'error' | 'timeout'; msg?: Row }
-
-/** Subscribe BEFORE triggering the turn; resolves on the first matching frame or the timeout. */
-function listen(ctx: V2CallContext, match: (msg: Row) => 'done' | 'error' | null, timeoutMs: number): { promise: Promise<Waited>; stop: () => void } {
-  const bus = ctx.eventBus as MobileEventBus | undefined
-  let stop = () => {}
-  const promise = new Promise<Waited>((resolve) => {
-    if (!bus || timeoutMs <= 0) { resolve({ kind: 'timeout' }); return }
-    let off: (() => void) | null = null
-    const finish = (value: Waited) => { clearTimeout(timer); off?.(); ctx.signal?.removeEventListener('abort', onAbort); resolve(value) }
-    const onAbort = () => finish({ kind: 'timeout' })
-    const timer = setTimeout(() => finish({ kind: 'timeout' }), timeoutMs)
-    off = bus.onMessage((raw: WsMessage) => {
-      const msg = rec(raw)
-      const verdict = match(msg)
-      if (verdict) finish({ kind: verdict, msg })
-    })
-    ctx.signal?.addEventListener('abort', onAbort)
-    stop = () => finish({ kind: 'timeout' })
-  })
-  return { promise, stop: () => stop() }
-}
+const waitMsOf = (args: Record<string, unknown>, fallback = WAIT_DEFAULT_MS): number => waitMs(optionsOf(args), fallback, WAIT_MAX_MS)
 
 const builderTurn = (conversationId: string) => (msg: Row): 'done' | 'error' | null =>
   msg.conversationId !== conversationId ? null
@@ -131,104 +74,22 @@ const builderTurn = (conversationId: string) => (msg: Row): 'done' | 'error' | n
 const chatTurn = (conversationId: string) => (msg: Row): 'done' | 'error' | null =>
   msg.conversationId !== conversationId ? null : msg.type === 'chat_done' ? 'done' : msg.type === 'chat_error' ? 'error' : null
 
-// ── Orchestrated commit tracking (blueprint:<commitId>) ─────────────────────
-
-interface CommitTrack {
-  conversationId: string | null
-  name: string
-  status: 'running' | 'done' | 'failed'
-  step: string | null
-  steps: Array<{ step: string; status: string; code?: string }>
-  projectId: string | null
-  error: string | null
-  at: number
-}
-
-const COMMITS_KEPT = 50
-const commits = new Map<string, CommitTrack>()
-const tracked = new WeakSet<object>()
-
-function trackCommits(ctx: V2CallContext): void {
-  const bus = ctx.eventBus as MobileEventBus | undefined
-  if (!bus || tracked.has(bus)) return
-  tracked.add(bus)
-  bus.onMessage((raw: WsMessage) => {
-    const msg = rec(raw)
-    const id = str(msg.commitId)
-    if (!id || !String(msg.type).startsWith('blueprint.commit_')) return
-    let entry = commits.get(id)
-    if (!entry) {
-      entry = { conversationId: null, name: '', status: 'running', step: null, steps: [], projectId: null, error: null, at: Date.now() }
-      rememberCommit(id, entry)
-    }
-    entry.at = Date.now()
-    if (msg.type === 'blueprint.commit_progress') {
-      const step = str(msg.step) ?? '?'
-      const status = str(msg.status) ?? 'running'
-      const existing = entry.steps.find((s) => s.step === step)
-      const code = str(msg.code)
-      if (existing) { existing.status = status; if (code) existing.code = code } else entry.steps.push({ step, status, ...(code ? { code } : {}) })
-      entry.step = step
-    } else if (msg.type === 'blueprint.commit_done') {
-      entry.status = 'done'
-      entry.projectId = str(msg.projectId)
-    } else if (msg.type === 'blueprint.commit_failed') {
-      entry.status = 'failed'
-      entry.step = str(msg.step) ?? entry.step
-      entry.error = clip(msg.error, 300)
-    }
-  })
-}
-
-function rememberCommit(id: string, track: CommitTrack): void {
-  const seen = commits.get(id)
-  // Frames that arrived before the route answered are kept (the commit is async).
-  if (seen && seen !== track) { seen.conversationId = track.conversationId; seen.name = track.name; return }
-  commits.set(id, track)
-  while (commits.size > COMMITS_KEPT) commits.delete(commits.keys().next().value as string)
-}
-
-/** Test-only: forget tracked commits. */
-export function __resetBlueprintCommits(): void { commits.clear() }
-
 // ── Cost forecasts from the app's own ledgers ───────────────────────────────
 
-function costBand(rows: Array<{ cost: number | null }>): [number, number] | null {
-  const costs = rows.map((row) => row.cost).filter((cost): cost is number => typeof cost === 'number' && cost >= 0).sort((a, b) => a - b)
-  if (costs.length < 2) return null
-  const round = (usd: number) => Math.round(usd * 100) / 100
-  return [round(costs[0]), round(costs[costs.length - 1])]
-}
-
 /** Day-0 Builder turns (agent_invocations, project_id NULL, Builder conversations). */
-function builderTurnCost(db: DbInstance | undefined): [number, number] | null {
-  if (!db) return null
-  try {
-    return costBand(db.prepare(`SELECT total_cost_usd AS cost FROM agent_invocations
-      WHERE project_id IS NULL AND conversation_id IN (SELECT id FROM blueprint_conversations)
-      ORDER BY started_at DESC LIMIT 20`).all() as Array<{ cost: number | null }>)
-  } catch { return null }
-}
+const builderTurnCost = (db: DbInstance | undefined) => turnCostFromLedger(db, `SELECT total_cost_usd AS cost FROM agent_invocations
+  WHERE project_id IS NULL AND conversation_id IN (SELECT id FROM blueprint_conversations)
+  ORDER BY started_at DESC LIMIT 20`)
 
 /** Milestone generation turns (project ai_invocations of `kind: milestone` conversations). */
-function generationTurnCost(db: DbInstance | null): [number, number] | null {
-  if (!db) return null
-  try {
-    return costBand(db.prepare(`SELECT total_cost_usd AS cost FROM ai_invocations
-      WHERE COALESCE(conversation_id, surface_ref_id) IN (SELECT id FROM chat_conversations WHERE kind = 'milestone')
-      ORDER BY started_at DESC LIMIT 20`).all() as Array<{ cost: number | null }>)
-  } catch { return null }
-}
+const generationTurnCost = (db: DbInstance | null) => turnCostFromLedger(db, `SELECT total_cost_usd AS cost FROM ai_invocations
+  WHERE COALESCE(conversation_id, surface_ref_id) IN (SELECT id FROM chat_conversations WHERE kind = 'milestone')
+  ORDER BY started_at DESC LIMIT 20`)
 
 /** One implement run's forecast band (`launch-forecast`), times `runs`. */
 async function launchCost(ctx: V2CallContext, project: ProjectRow, provider: string | null, runs: number): Promise<[number, number] | null> {
   if (runs <= 0) return [0, 0]
-  const query = new URLSearchParams({ loopId: IMPLEMENT_LOOP, ...(provider ? { provider } : {}) })
-  const forecast = await maybe(ctx, `${projectBase(project)}/launch-forecast?${query}`)
-  const cost = rec(forecast?.cost)
-  const low = num(cost.lowUsd)
-  const high = num(cost.highUsd)
-  return low !== null && high !== null ? [Math.round(low * runs * 100) / 100, Math.round(high * runs * 100) / 100] : null
+  return scaledCost(await launchForecast(ctx, project, { loopId: IMPLEMENT_LOOP, provider }), runs)
 }
 
 // ── Day-0 Builder ───────────────────────────────────────────────────────────
@@ -632,9 +493,13 @@ function chainView(ctx: V2CallContext, args: Record<string, unknown>, project: P
   const ref = chainRef(project, chain.id)
   const state = chainStateOf(ctx, project, chain, rails)
   const plan = chain.plan
+  // A write accept (compact) keeps what `state` and `refs` do not already say: the phase, hold reason,
+  // engine and milestone live there (the 600-token accept budget).
+  const head = compact
+    ? { ref, status: chain.status, autoAdvance: chain.autoAdvance }
+    : { ...chainSummary(ctx, project, chain), milestone: milestoneRef(project, chain.milestoneN), n: chain.milestoneN, mode: chain.mode, launched: chain.launched.length }
   const data: Row = {
-    ...chainSummary(ctx, project, chain), milestone: milestoneRef(project, chain.milestoneN), n: chain.milestoneN,
-    mode: chain.mode, launched: chain.launched.length, total: plan?.total ?? chain.totalChunks, settled: plan?.settled ?? null,
+    ...head, total: plan?.total ?? chain.totalChunks, settled: plan?.settled ?? null,
     specs: compact ? undefined : (plan?.specs ?? []).map((spec) => ({
       spec: formatRef('spec', spec.ticketId, project.slug), title: clip(spec.title, 100), state: spec.state,
       ...(spec.runId ? { run: formatRef('run', spec.runId, project.slug) } : {}),
@@ -651,7 +516,7 @@ function chainView(ctx: V2CallContext, args: Record<string, unknown>, project: P
     summary: ctx.v2.t(summaryKey, { n: chain.milestoneN, status: state.label, phase: phase ? ` · ${phase}` : '' }),
     refs: { chain: ref, milestone: milestoneRef(project, chain.milestoneN) },
     state,
-    untrusted: untrusted('/data/specs/*/title', '/data/rails/*/name', '/data/pauseReason'),
+    untrusted: compact ? untrusted('/data/rails/*/name') : untrusted('/data/specs/*/title', '/data/rails/*/name', '/data/pauseReason'),
   })
 }
 
@@ -789,7 +654,7 @@ export const blueprintTool = defineTool({
       handler: async (ctx, args) => {
         trackCommits(ctx)
         const target = ctx.v2.target(args, 'blueprint')
-        const track = commits.get(target.id)
+        const track = trackedCommit(target.id)
         if (track) return commitTrackView(ctx, target.id, track)
         let body: Row
         try { body = await readConversation(ctx, target.id) } catch (err) {
@@ -826,10 +691,10 @@ export const blueprintTool = defineTool({
         const started = await api(ctx, 'POST', '/blueprint/commit', input)
         const commitId = String(started.commitId)
         rememberCommit(commitId, { conversationId: input.conversationId, name: input.name, status: 'running', step: null, steps: [], projectId: null, error: null, at: Date.now() })
-        if (commits.get(commitId)!.status === 'running') {
+        if (trackedCommit(commitId)!.status === 'running') {
           await listen(ctx, (msg) => msg.commitId === commitId && (msg.type === 'blueprint.commit_done' || msg.type === 'blueprint.commit_failed') ? 'done' : null, waitMsOf(args)).promise
         }
-        const track = commits.get(commitId)!
+        const track = trackedCommit(commitId)!
         const view = commitTrackView(ctx, commitId, track)
         if (track.status === 'running') view.summary = ctx.v2.t('blueprint.summary.commit_started', { name: input.name, ref: formatRef('blueprint', commitId) })
         return view

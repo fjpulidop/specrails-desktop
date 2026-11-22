@@ -154,16 +154,16 @@ export function registerRailLaunchRoutes(router: Router): void {
   }
   router.post(['/:railIndex/launch', '/:railIndex/relaunch'], launchRail)
 
-  // POST /rails/launch-specs { specIds, railIndex?, ...launch options } — assign
+  // POST /rails/launch-specs { specIds, railIndex?, railName?, ...launch options } — assign
   // and launch in one call (MCP v2 `specrails_runs(launch)`, scripts). Picks the
   // requested rail, else an idle rail already holding exactly these specs, else
-  // an idle empty rail, else a new rail; moves the specs off other idle rails;
+  // an idle empty rail, else a new rail (named railName); moves the specs off other idle rails;
   // then enters the ordinary launch door. A refused launch restores every rail
   // it touched (a rail it created is removed), so a failure leaves the board as
   // it was. The response is the launch response plus `railIndex`.
   router.post('/launch-specs', async (req: Request, res: Response) => {
     const c = ctx(req)
-    const { specIds, railIndex: requested, ...launchBody } = (req.body ?? {}) as Record<string, unknown>
+    const { specIds, railIndex: requested, railName, ...launchBody } = (req.body ?? {}) as Record<string, unknown>
     if (!Array.isArray(specIds) || specIds.length === 0 || specIds.length > 50 || specIds.some((id) => !Number.isSafeInteger(id) || (id as number) <= 0)) {
       res.status(400).json({ error: 'invalid_spec_ids', detail: 'specIds must be 1-50 positive spec ids' }); return
     }
@@ -184,7 +184,7 @@ export function registerRailLaunchRoutes(router: Router): void {
       if (empty) railIndex = empty.railIndex
       else {
         if (railCount(c.db) >= MAX_RAILS) { res.status(409).json({ error: 'no_free_rail', maxRails: MAX_RAILS, detail: 'Every rail is busy or holds other specs.' }); return }
-        railIndex = createRail(c.db, null).railIndex
+        railIndex = createRail(c.db, typeof railName === 'string' && railName.trim() ? railName.trim().slice(0, 80) : null).railIndex
         created = true
         broadcastRailUpdated(c, railIndex, 'name')
       }

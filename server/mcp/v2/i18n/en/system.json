@@ -33,8 +33,6 @@
   "summary.worktrees_sizes": "Sizes of {{count}} worktrees.",
   "summary.worktrees_removed": "Removed {{removed}} of {{count}} worktrees.",
   "summary.quarantines_removed": "Removed {{removed}} of {{count}} safety archives.",
-  "summary.machine_installs": "{{count}} remembered machine installs.",
-  "summary.machine_installs_revoked": "Forgot the approval for {{command}}; the next run that needs it asks again.",
   "summary.background": "{{running}} running background processes ({{count}} listed).",
   "summary.background_logs": "{{lines}} log lines of {{pid}} ({{status}}).",
   "summary.background_kill": "Stop requested for {{pid}} ({{status}}).",

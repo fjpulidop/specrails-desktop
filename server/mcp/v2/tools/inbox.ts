@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 import { defineTool, type V2CallContext } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf } from '../core/views'
 import { asRecord } from '../core/text'
-import { result, V2ToolError, type V2Envelope } from '../core/envelope'
+import { relay, result, V2ToolError, type V2Envelope } from '../core/envelope'
 import { formatRef, type Ref } from '../core/refs'
 import { pageOf } from '../core/cursor'
 import { untrusted } from '../core/untrusted'
@@ -367,14 +367,6 @@ const PASSTHROUGH = ['answer', 'optionId', 'confirm', 'dryRun', 'lang', 'view'] 
  */
 export function dispatchOffer(ctx: V2CallContext, call: OfferCall): Promise<V2Envelope> {
   return ctx.v2.dispatch(call)
-}
-
-function relay(envelope: V2Envelope) {
-  if (envelope.ok) {
-    return result(envelope.data, { summary: envelope.summary, ...(envelope.refs ? { refs: envelope.refs } : {}), ...(envelope.state ? { state: envelope.state } : {}), ...(envelope.page ? { page: envelope.page } : {}), ...(envelope.warnings ? { warnings: envelope.warnings } : {}), ...(envelope.untrusted ? { untrusted: envelope.untrusted } : {}) })
-  }
-  const { code, message, ...extra } = envelope.error
-  throw new V2ToolError(code, message, extra)
 }
 
 // ── Tool ────────────────────────────────────────────────────────────────────

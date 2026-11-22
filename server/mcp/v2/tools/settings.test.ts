@@ -2,9 +2,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 vi.mock('../../../auth', () => ({ loadOrGenerateToken: () => 'settings-test-token' }))
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
-import { call, createHarness, type Harness } from '../__fixtures__/harness'
+import { call, createHarness, registerTools, type Harness } from '../__fixtures__/harness'
 import { ConfirmationLedger, CONFIRM_ABOVE_USD_KEY } from '../core/confirm'
-import { createCatalog, registerV2Tool } from '../core/registry'
+import { createCatalog } from '../core/registry'
+import { integrationsTool } from './integrations'
 import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
 import { V2_TOOLS } from './index'
@@ -50,7 +51,8 @@ const routes: Array<[string, RegExp, Handler]> = [
 
 beforeAll(async () => {
   h = createHarness()
-  registerV2Tool(h.server, h.ctx, settingsTool, { catalog: createCatalog(V2_TOOLS), ledger: new ConfirmationLedger() })
+  // webhooks and mobile are specrails_integrations' sections: settings dispatches to it.
+  registerTools(h, [settingsTool, integrationsTool], { catalog: createCatalog(V2_TOOLS), ledger: new ConfirmationLedger() })
   client = await h.connect()
 })
 afterAll(async () => { await client.close() })
@@ -127,8 +129,9 @@ describe('specrails_settings get', () => {
   })
 
   it('never shows secrets: webhook secrets and external MCP env values', async () => {
+    // webhooks is specrails_integrations' section: settings answers with its list.
     const hooks = await call(client, T, { action: 'get', section: 'webhooks' })
-    expect(hooks.envelope.data.values.webhooks[0]).toMatchObject({ id: 'w1', hasSecret: true })
+    expect(hooks.envelope.data.items[0]).toMatchObject({ id: 'w1', hasSecret: true })
     const mcp = await call(client, T, { action: 'get', section: 'external_mcp' })
     expect(mcp.envelope.data.values.servers['c:files'].transport.env).toEqual({ API_TOKEN: '***' })
     expect(JSON.stringify([hooks.envelope, mcp.envelope])).not.toMatch(/s3cret|real-secret/)
@@ -291,8 +294,9 @@ describe('specrails_settings set', () => {
   it('confirms a webhook URL as external, keeps the secret write-only and deletes as destructive', async () => {
     const create = await call(client, T, { action: 'set', section: 'webhooks', values: { url: 'https://hooks.example.com/b', events: ['job.failed'], secret: 'abc' } })
     expect(create.envelope.error.code).toBe('confirmation_required')
-    expect(create.envelope.error.preview.external).toBe(true)
-    expect(create.envelope.error.preview.effect).toContain('secret: unset → ***')
+    expect(create.envelope.error.preview).toMatchObject({ label: 'specrails_integrations(webhooks)', external: true })
+    expect(create.envelope.error.preview.effect).toContain('hooks.example.com')
+    expect(JSON.stringify(create.envelope)).not.toContain('"abc"')
     const done = await call(client, T, { action: 'set', section: 'webhooks', values: { url: 'https://hooks.example.com/b', events: ['job.failed'], secret: 'abc' }, confirm: create.envelope.error.confirmToken })
     expect(done.envelope.ok).toBe(true)
     expect(JSON.stringify(done.envelope)).not.toContain('"abc"')
@@ -337,9 +341,10 @@ describe('specrails_settings env and webhooks', () => {
   it('webhook_test confirms as external and fails on an unknown webhook', async () => {
     const first = await call(client, T, { action: 'webhook_test', options: { webhookId: 'w1' } })
     expect(first.envelope.error.code).toBe('confirmation_required')
-    expect(first.envelope.error.preview.effect).toContain('https://hooks.example.com/a')
+    expect(first.envelope.error.preview).toMatchObject({ label: 'specrails_integrations(webhooks)', external: true })
+    expect(first.envelope.error.preview.effect).toContain('hooks.example.com')
     const done = await call(client, T, { action: 'webhook_test', options: { webhookId: 'w1' }, confirm: first.envelope.error.confirmToken })
-    expect(done.envelope.data).toEqual({ webhookId: 'w1', queued: true })
+    expect(done.envelope.ok).toBe(true)
     const missing = await call(client, T, { action: 'webhook_test', options: { webhookId: 'nope' } })
     expect(missing.envelope.error.code).toBe('not_found')
   })

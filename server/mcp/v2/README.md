@@ -20,10 +20,14 @@ budgets: [docs/internals/mcp-v2.md](../../../docs/internals/mcp-v2.md).
 | `core/confirm.ts` | confirmTokens (HMAC, single use, stale detection) and the spend threshold |
 | `core/lang.ts`, `i18n/**` | language resolution and message catalogs |
 | `core/text.ts` | shared value helpers (`present`, `asRecord`, `clip`, `clipDeep`) |
-| `core/untrusted.ts` | untrusted-content pointers |
+| `core/untrusted.ts` | untrusted-content pointers, `neutralize`, `reveal`, `clipUntrusted` |
+| `core/loopback.ts` | loopback routes: `apiRow` (v1 errors), `api` (typed `V2ToolError`), `maybe` |
+| `core/bus.ts` | bounded bus waits (`listen`, `waitMsOf`) |
+| `core/forecast.ts` | cost forecasts: `launchForecast`/`scaledCost` (launches), `turnCostBand`/`turnCostFromLedger` (turns) |
+| `core/commit-tracker.ts` | in-process `blueprint:<commitId>` tracking from `blueprint.commit_*` frames |
 | `tools/*.ts` | one file per tool, owned by its work package |
 | `legacy.ts` | v1 tools as hidden aliases while v2 is served |
-| `__fixtures__/harness.ts` | shared test harness |
+| `__fixtures__/harness.ts` | shared test harness (`registerTools` wires `dispatch` between tools) |
 
 Tests: `npx vitest run server/mcp/v2` (the budget test needs the `js-tiktoken`
 dev dependency).

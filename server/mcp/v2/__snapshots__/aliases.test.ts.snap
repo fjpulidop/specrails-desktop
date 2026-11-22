@@ -208,7 +208,7 @@ exports[`v1 → v2 alias bridge > snapshots the full deprecation table 1`] = `
   "specrails_jira(outbox) → specrails_integrations(jira_outbox)",
   "specrails_jira(retry_outbox) → specrails_integrations(jira_retry)",
   "specrails_jira(create_spec) → specrails_integrations(jira_create_spec)",
-  "specrails_jira(discard_spec) → specrails_specs(delete)",
+  "specrails_jira(discard_spec) → specrails_integrations(jira_transition, options.discard:true)",
   "specrails_jira(spec_details) → specrails_integrations(jira_links)",
   "specrails_jira(links) → specrails_integrations(jira_links)",
   "specrails_loops(list) → specrails_integrations(loops_list)",

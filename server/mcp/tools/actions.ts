@@ -159,6 +159,8 @@ export function validateActionArgs(tool: string, fields: Record<string, ActionFi
 export interface V2Target {
   tool: string
   action: string
+  /** Fixed arguments the v2 call needs to do what the v1 action did (`options.discard: true`). */
+  args?: Record<string, unknown>
 }
 
 interface V1Mapping {
@@ -269,7 +271,7 @@ export const V1_TO_V2: Record<string, V1Mapping> = {
     actions: {
       ...prefixed('jira_', 'connection', 'test', 'connect', 'disconnect', 'sync', 'outbox', 'create_spec', 'links'),
       discover_projects: 'jira_discover', discover_statuses: 'jira_discover', statuses: 'jira_discover', update_connection: 'jira_connect',
-      resume: 'jira_sync', retry_outbox: 'jira_retry', spec_details: 'jira_links', discard_spec: { tool: 'specrails_specs', action: 'delete' },
+      resume: 'jira_sync', retry_outbox: 'jira_retry', spec_details: 'jira_links', discard_spec: { tool: 'specrails_integrations', action: 'jira_transition', args: { options: { discard: true } } },
     },
   },
   specrails_loops: {
@@ -331,7 +333,16 @@ export function v2Equivalent(tool: string, action: string | null): V2Target | nu
 /** `specrails_runs(get)`: the v2 call to use instead of a v1 one. */
 export function deprecationTarget(tool: string, action: string | null): string | null {
   const target = v2Equivalent(tool, action)
-  return target ? `${target.tool}(${target.action})` : null
+  if (!target) return null
+  const fixed = flatArgs(target.args ?? {})
+  return `${target.tool}(${[target.action, ...fixed].join(', ')})`
+}
+
+/** `{ options: { discard: true } }` → `['options.discard:true']`. */
+function flatArgs(args: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(args).flatMap(([key, value]) => value && typeof value === 'object' && !Array.isArray(value)
+    ? flatArgs(value as Record<string, unknown>, `${prefix}${key}.`)
+    : [`${prefix}${key}:${JSON.stringify(value)}`])
 }
 
 /** A v1 call (`specrails_jobs(list)`) that serves what a stubbed v2 action will. */

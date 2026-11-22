@@ -68,5 +68,8 @@
   "confirm.webhooks_test": "Sends a test ping to {{url}}.",
   "error.headroom_provider": "Headroom needs options.provider: claude or codex.",
   "error.not_connected": "Jira is not connected for {{project}}. Connect it with jira_connect.",
-  "error.webhook_not_found": "No webhook {{id}}. List them with webhooks."
+  "error.webhook_not_found": "No webhook {{id}}. List them with webhooks.",
+  "confirm.mobile_enable": "Turns on the mobile gateway: a listener on the local network for paired phones.",
+  "confirm.mobile_revoke": "Revokes the paired device {{device}}; it must pair again.",
+  "confirm.webhooks_url": "Sends the app's events to {{url}} from now on."
 }

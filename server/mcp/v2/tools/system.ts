@@ -2,11 +2,12 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { z } from 'zod'
-import { defineTool, type PreviewInput, type V2CallContext, type V2ToolDef } from '../core/registry'
+import { defineTool, fieldValue, type PreviewInput, type V2CallContext, type V2ToolDef } from '../core/registry'
+import { asRecord, present } from '../core/text'
 import type { McpTier } from '../../mcp-tiers'
 import type { ConfirmClass } from '../core/decision-state'
 import { WRITE_FIELDS, optionsOf } from '../core/views'
-import { V2ToolError, result } from '../core/envelope'
+import { V2ToolError, relay, result } from '../core/envelope'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import { formatRef } from '../core/refs'
 import { neutralize, untrusted } from '../core/untrusted'
@@ -15,7 +16,6 @@ import { apiCall } from '../../tools/types'
 import { supportTools } from '../../tools/support'
 import { GUIDE_TOPICS, findGuideTopic } from '../../guide'
 import { buildZip } from '../../../util/zip'
-import { V2_TOOLS } from './index'
 import { getTerminalManager } from '../../../modules/terminals/runtime/terminal-manager'
 import type { ProjectRow } from '../../../desktop-db'
 
@@ -32,7 +32,6 @@ import type { ProjectRow } from '../../../desktop-db'
  */
 
 type Row = Record<string, unknown>
-const asRecord = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
 const asArray = (value: unknown): unknown[] => Array.isArray(value) ? value : []
 const str = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value.trim() : undefined
 const num = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -99,16 +98,13 @@ function pageText(text: string, cursor: unknown, key: string, size = PAGE_CHARS)
 
 // ── Help over the v2 catalog ────────────────────────────────────────────────
 
-/** The v2 tools. `./index` imports this file too, so read the binding only at call time. */
-function catalogTools(): readonly V2ToolDef[] {
-  return V2_TOOLS
-}
+/** The v2 tools of the catalog this call runs in (no import of `./index`, which imports this file). */
+const catalogTools = (ctx: V2CallContext): readonly V2ToolDef[] => ctx.v2.catalog.tools
 
-function findAction(target: string): { tool: V2ToolDef; action: string } | null {
+function findAction(ctx: V2CallContext, target: string): { tool: V2ToolDef; action: string } | null {
   const match = target.trim().match(/^(specrails_[a-z]+)?[.(\s:]*([a-z][a-z0-9_]*)?\)?$/)
   if (!match) return null
-  const tools = catalogTools()
-  const tool = tools.find((def) => def.name === match[1])
+  const tool = catalogTools(ctx).find((def) => def.name === match[1])
   if (!tool) return null
   const action = match[2] ?? ''
   return { tool, action }
@@ -119,8 +115,8 @@ function fieldDocs(tool: V2ToolDef): Array<{ name: string; description: string |
 }
 
 function describeAction(ctx: V2CallContext, target: string, sample: Row = {}): Row {
-  const found = findAction(target)
-  const tools = catalogTools()
+  const found = findAction(ctx, target)
+  const tools = catalogTools(ctx)
   if (!found) throw new V2ToolError('invalid_input', ctx.v2.t('system.error.unknown_tool', { target, tools: tools.map((tool) => tool.name).join(', ') }))
   const { tool, action } = found
   if (!action) {
@@ -139,17 +135,10 @@ function describeAction(ctx: V2CallContext, target: string, sample: Row = {}): R
   }
 }
 
-function present(value: unknown): boolean {
-  return value !== undefined && value !== null && !(typeof value === 'string' && !value.trim())
-}
-function fieldValue(args: Row, dotted: string): unknown {
-  return dotted.split('.').reduce<unknown>((value, key) => (value && typeof value === 'object' ? (value as Row)[key] : undefined), args)
-}
-
 function validateCall(ctx: V2CallContext, input: Row): Row {
   const target = `${String(input.tool ?? '')}.${String(input.action ?? asRecord(input.args).action ?? '')}`
-  const found = findAction(target)
-  if (!found?.action || !found.tool.actions[found.action]) return { valid: false, problems: [ctx.v2.t('system.error.unknown_tool', { target, tools: catalogTools().map((tool) => tool.name).join(', ') })] }
+  const found = findAction(ctx, target)
+  if (!found?.action || !found.tool.actions[found.action]) return { valid: false, problems: [ctx.v2.t('system.error.unknown_tool', { target, tools: catalogTools(ctx).map((tool) => tool.name).join(', ') })] }
   const { tool, action } = found
   const spec = tool.actions[action]
   const args = { ...asRecord(input.args), action }
@@ -167,11 +156,11 @@ function validateCall(ctx: V2CallContext, input: Row): Row {
   return { tool: tool.name, action, valid: problems.length === 0, problems, tier, confirm, ...(confirm ? { note: 'Confirmable: the first call returns a preview and confirmToken.' } : {}) }
 }
 
-function searchHelp(query: string): Array<Row> {
+function searchHelp(ctx: V2CallContext, query: string): Array<Row> {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   const score = (text: string) => words.filter((word) => text.toLowerCase().includes(word)).length
   const hits: Array<Row & { score: number }> = []
-  for (const tool of catalogTools()) {
+  for (const tool of catalogTools(ctx)) {
     for (const [action, spec] of Object.entries(tool.actions)) {
       const s = score(`${tool.name} ${action} ${spec.doc ?? ''}`)
       if (s) hits.push({ kind: 'action', describe: `${tool.name}.${action}`, doc: spec.doc ?? null, score: s })
@@ -403,10 +392,10 @@ export const systemTool = defineTool({
           return result({ topic: topic.id, title: topic.title, text: paged.text }, { summary: ctx.v2.t('system.summary.help_topic', { topic: topic.id, more: paged.page?.truncated ? ' (more: cursor)' : '' }), ...(paged.page ? { page: paged.page } : {}) })
         }
         if (str(args.query)) {
-          const hits = searchHelp(String(args.query))
+          const hits = searchHelp(ctx, String(args.query))
           return result({ items: hits }, { summary: ctx.v2.t('system.summary.help_search', { count: hits.length, query: neutralize(String(args.query)) }) })
         }
-        const tools = catalogTools().map((tool) => ({ tool: tool.name, actions: Object.keys(tool.actions).length }))
+        const tools = catalogTools(ctx).map((tool) => ({ tool: tool.name, actions: Object.keys(tool.actions).length }))
         return result({ tools, topics: GUIDE_TOPICS.map((topic) => ({ topic: topic.id, when: topic.when })), how: 'options.describe:"<tool>.<action>" for arguments; topic:"<id>" for a guide topic.' }, {
           summary: ctx.v2.t('system.summary.help_index', { tools: tools.length, topics: GUIDE_TOPICS.length }),
         })
@@ -609,17 +598,15 @@ export const systemTool = defineTool({
     },
     machine_installs: {
       ...byOp('machine_installs'),
-      doc: 'Machine-wide install approvals the person gave (e.g. a toolchain a run needed). op: list (default) | revoke (options.command; the next run that needs it asks again).',
+      doc: 'Machine-wide install approvals the person gave (e.g. a toolchain a run needed). op: list (default) | revoke (options.command; the next run that needs it asks again). Runs specrails_settings(machine_installs).',
       handler: async (ctx, args) => {
-        const sub = opFor(ctx, 'machine_installs', args)
-        if (sub === 'revoke') {
+        // specrails_settings(machine_installs) is the one implementation; this is its system-side entry.
+        if (opFor(ctx, 'machine_installs', args) === 'revoke') {
           const command = str(optionsOf(args).command) ?? str(args.id)
           if (!command) throw new V2ToolError('invalid_input', 'Pass the approved command in options.command.')
-          const out = await apiCall(ctx, 'DELETE', '/machine-installs', { command })
-          return result(out, { summary: ctx.v2.t('system.summary.machine_installs_revoked', { command }) })
+          return relay(await ctx.v2.dispatch({ tool: 'specrails_settings', args: { action: 'set', section: 'machine_installs', values: { revoke: command } } }))
         }
-        const approvals = asArray(asRecord(await apiCall(ctx, 'GET', '/machine-installs')).approvals)
-        return result({ items: approvals }, { summary: ctx.v2.t('system.summary.machine_installs', { count: approvals.length }) })
+        return relay(await ctx.v2.dispatch({ tool: 'specrails_settings', args: { action: 'get', section: 'machine_installs', ...(args.lang !== undefined ? { lang: args.lang } : {}) } }))
       },
     },
     background: {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
+import { apiRow } from '../core/loopback'
 import type { ProjectRow } from '../../../desktop-db'
-import { apiCall } from '../../tools/types'
 import { pageOf } from '../core/cursor'
 import { shortHash } from '../core/canonical'
 import { V2ToolError, result } from '../core/envelope'
@@ -33,9 +33,7 @@ function railTarget(ctx: V2CallContext, args: Row): Target {
 }
 const indexOf = (target: Target) => Number(target.id)
 
-async function api(ctx: V2CallContext, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<Row> {
-  return rec(await apiCall(ctx, method, path, body))
-}
+const api = apiRow
 
 function railItem(project: ProjectRow, snapshot: Row, rail: Row): Row {
   const index = Number(rail.railIndex)

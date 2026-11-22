@@ -1,4 +1,6 @@
 import fs from 'fs'
+import { asRecord, clip } from '../core/text'
+import { launchForecast, scaledCost, turnCostFromLedger } from '../core/forecast'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
@@ -38,10 +40,9 @@ import {
  */
 
 type Row = Record<string, unknown>
-const record = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
+const record = asRecord
 const rows = (value: unknown): Row[] => Array.isArray(value) ? value.map(record) : []
 const str = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim() : null
-const clip = (value: string, max: number) => value.length > max ? `${value.slice(0, max - 1)}…` : value
 const excerpt = (value: unknown, max = 200) => neutralize(oneLine(typeof value === 'string' ? value : '', max))
 const minute = (iso: unknown) => typeof iso === 'string' ? iso.replace(/:\d\d(\.\d+)?Z$/, 'Z') : iso
 const enc = encodeURIComponent
@@ -61,17 +62,8 @@ const AGENT = '/agent/conversations'
 
 // ── Targets ─────────────────────────────────────────────────────────────────
 
-/** v1 argument names keep working on the colliding actions (conversationId, text, question…). */
-function normalize(args: Row): Row {
-  const out: Row = { ...args }
-  if (out.ref === undefined && typeof out.conversationId === 'string') out.ref = out.conversationId
-  if (out.message === undefined && typeof out.text === 'string') out.message = out.text
-  if (out.message === undefined && typeof out.question === 'string') out.message = out.question
-  return out
-}
-
 function missionId(ctx: V2CallContext, args: Row): { id: string; ref: Ref } {
-  const target = ctx.v2.target(normalize(args), 'mission')
+  const target = ctx.v2.target(args, 'mission')
   return { id: target.id, ref: target.ref }
 }
 
@@ -264,16 +256,10 @@ async function sendAndWait(ctx: V2CallContext, conversationId: string, start: ()
  * which the confirmation protocol treats as above the threshold.
  */
 export function missionForecast(ctx: V2CallContext, conversationId: string): [number, number] | null {
-  let costs: number[]
-  try {
-    // agent_invocations (desktop DB): the mission's provider-billed turns, newest first.
-    costs = (ctx.desktopDb.prepare(
-      "SELECT total_cost_usd AS cost FROM agent_invocations WHERE conversation_id = ? AND surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
-    ).all(conversationId) as Array<{ cost: number }>).map((row) => row.cost)
-  } catch { return null }
-  if (costs.length < 3) return null
-  const sorted = [...costs].sort((a, b) => a - b)
-  return [sorted[Math.floor(sorted.length / 2)], sorted[sorted.length - 1]]
+  // agent_invocations (desktop DB): the mission's provider-billed turns, newest first.
+  return turnCostFromLedger(ctx.desktopDb,
+    "SELECT total_cost_usd AS cost FROM agent_invocations WHERE conversation_id = ? AND surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
+    [conversationId], { minSamples: 3, low: 'median' })
 }
 
 async function spendPreview(ctx: V2CallContext, args: Row, effectKey: string): Promise<PreviewInput> {
@@ -387,13 +373,22 @@ async function intentResult(ctx: V2CallContext, target: IntentTarget, flowValue:
   })
 }
 
-async function intentPreview(ctx: V2CallContext, args: Row, effectKey: string, costly: boolean): Promise<PreviewInput> {
+/**
+ * Cost of an Intent step (core forecast helpers): `turn` reopens the mission's
+ * agent session (its own billed turns), `launch` starts a rail run (the
+ * project's launch forecast for the loop, implement by default).
+ */
+async function intentPreview(ctx: V2CallContext, args: Row, effectKey: string, spend: 'turn' | 'launch' | null): Promise<PreviewInput> {
   const target = await intentTarget(ctx, args)
+  const options = optionsOf(args)
+  const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId)
+    : spend === 'launch' ? scaledCost(await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? 'factory:implement', provider: str(options.provider) }), 1)
+      : null
   return {
     effect: ctx.v2.t(effectKey, { ref: target.ref, branch: target.flow.branch ?? '—' }),
     refs: [target.ref],
     version: intentState(ctx, target).version,
-    ...(costly ? { cost: { forecastUsd: null, runs: 1 } } : {}),
+    ...(spend ? { cost: { forecastUsd, runs: 1 } } : {}),
   }
 }
 
@@ -455,16 +450,8 @@ async function decideCard(ctx: V2CallContext, args: Row): Promise<unknown> {
     const project = needRow()
     const proposal = coerceRailLaunch(proposalOf(read, card))
     if (!proposal) throw new V2ToolError('conflict', ctx.v2.t('missions.error.card_unreadable', { card: card.id }))
-    const base = `/projects/${enc(project.id)}/rails`
-    let railIndex = proposal.railIndex
     const name = proposal.newRail?.name ?? proposal.railName
-    if (railIndex === null) {
-      const created = record(record(await apiCall(ctx, 'POST', base, { name: name ?? null })).rail)
-      if (typeof created.railIndex !== 'number') throw new V2ToolError('internal', 'The rail could not be created.')
-      railIndex = created.railIndex
-    }
     const engine = proposal.aiEngine ? { aiEngine: proposal.aiEngine } : {}
-    await apiCall(ctx, 'PUT', `${base}/${railIndex}/tickets`, { ticketIds: proposal.ticketIds, mode: proposal.mode, profileName: proposal.profileName, ...engine })
     const launchBody: Row = {
       mode: proposal.mode, originConversationId: id, originSurface: 'agent-chat', ...engine,
       ...(proposal.loopId ? { loopId: proposal.loopId } : {}),
@@ -475,7 +462,12 @@ async function decideCard(ctx: V2CallContext, args: Row): Promise<unknown> {
       ...(proposal.targetPrNumber ? { targetPrNumber: proposal.targetPrNumber } : {}),
       ...(proposal.baseBranch ? { baseBranch: proposal.baseBranch } : {}),
     }
-    const launched = record(await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, launchBody))
+    // One door with runs(launch): assign + launch atomically (a refused launch restores the rails it touched).
+    const launched = record(await apiCall(ctx, 'POST', `/projects/${enc(project.id)}/rails/launch-specs`, {
+      specIds: proposal.ticketIds, ...(proposal.railIndex !== null ? { railIndex: proposal.railIndex } : {}), ...(name ? { railName: name } : {}), ...launchBody,
+    }))
+    if (typeof launched.railIndex !== 'number') throw new V2ToolError('internal', 'The rail launch answered without a rail.')
+    const railIndex = launched.railIndex
     const runIds = (Array.isArray(launched.loopRunIds) && launched.loopRunIds.length ? launched.loopRunIds : Array.isArray(launched.jobIds) && launched.jobIds.length ? launched.jobIds : launched.jobId ? [launched.jobId] : []).filter((x): x is string => typeof x === 'string')
     const prDeliveryId = typeof launched.prDeliveryId === 'string' ? launched.prDeliveryId : null
     await recordDecision(ctx, id, card, { status: 'launched', railIndex, runIds, prDeliveryId, config: { ...launchBody, ticketIds: proposal.ticketIds, railName: name ?? null } })
@@ -535,7 +527,7 @@ async function cardPreview(ctx: V2CallContext, args: Row): Promise<PreviewInput>
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?: boolean } = {}): Promise<unknown> {
-  const args = normalize(rawArgs)
+  const args = rawArgs
   const { id, ref } = missionId(ctx, args)
   if (!flags.skipSelf) refuseSelf(ctx, id)
   const options = optionsOf(args)
@@ -692,7 +684,7 @@ async function attachmentPreview(ctx: V2CallContext, args: Row): Promise<Preview
 // ── Legacy Explore chats (per project) ──────────────────────────────────────
 
 function chatTarget(ctx: V2CallContext, args: Row): { row: ProjectRow; id: string; ref: Ref } {
-  const target = ctx.v2.target(normalize(args), 'chat')
+  const target = ctx.v2.target(args, 'chat')
   const row = ctx.v2.project(args)
   return { row, id: target.id, ref: target.ref }
 }
@@ -748,6 +740,7 @@ export const missionsTool = defineTool({
   title: 'Missions',
   description: 'Missions (agent conversations): create, send, ask, queue, attachments, subagents, cards; intent_* sessions; chat_* legacy Explore chats.',
   owner: 'WP7',
+  v1Aliases: [['text', 'message'], ['question', 'message']],
   fields: {
     ...WRITE_FIELDS,
     fields: F.fields(MISSION_SECTIONS),
@@ -803,7 +796,7 @@ export const missionsTool = defineTool({
       doc: 'Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId.',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.ask'),
       handler: async (ctx, rawArgs) => {
-        const args = normalize(rawArgs)
+        const args = rawArgs
         const { id, ref } = missionId(ctx, args)
         refuseSelf(ctx, id)
         const options = optionsOf(args)
@@ -1084,10 +1077,10 @@ export const missionsTool = defineTool({
       },
     },
     intent_pause: { ...write, doc: 'Pauses (stops its dev servers, closes the agent session).', handler: simpleIntent('pause', 'missions.summary.intent_paused') },
-    intent_resume: { ...spend, doc: 'Resumes a paused Intent (reopens its agent session).', preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_resume', true), handler: simpleIntent('resume', 'missions.summary.intent_resumed') },
+    intent_resume: { ...spend, doc: 'Resumes a paused Intent (reopens its agent session).', preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_resume', 'turn'), handler: simpleIntent('resume', 'missions.summary.intent_resumed') },
     intent_hand_off: {
       ...spend, required: ['ref', 'options.rail'], doc: 'Hands the worktree to a rail (options.rail index or rail ref) that derives the spec and delivers; options.loopId, provider, model, effort.',
-      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_hand_off', true),
+      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_hand_off', 'launch'),
       handler: async (ctx, args) => {
         const target = await intentTarget(ctx, args)
         const options = optionsOf(args)
@@ -1108,7 +1101,7 @@ export const missionsTool = defineTool({
     },
     intent_relaunch: {
       ...spend, doc: 'Relaunches the Intent → Spec run on the same worktree, rail and engine (intent or delivery ref).',
-      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_relaunch', true),
+      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_relaunch', 'launch'),
       handler: async (ctx, args) => {
         const { target, deliveryId } = await byDelivery(ctx, args)
         const body = record(await apiCall(ctx, 'POST', `${flowBase(target.row)}/by-delivery/${enc(deliveryId)}/relaunch`))
@@ -1117,7 +1110,7 @@ export const missionsTool = defineTool({
     },
     intent_discard: {
       tier: 'destructive', confirm: 'irreversible', required: ['ref'], doc: 'Discards the Intent: removes its worktree and branch (a placeholder spec is deleted; an existing spec is restored). Always confirmed.',
-      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_discard', false),
+      preview: (ctx, args) => intentPreview(ctx, args, 'missions.preview.intent_discard', null),
       handler: simpleIntent('discard', 'missions.summary.intent_discarded'),
     },
     intent_close: { ...write, doc: 'Closes an Intent that needs review, keeping the branch and spec.', handler: simpleIntent('close', 'missions.summary.intent_closed') },

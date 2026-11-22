@@ -6,7 +6,7 @@ import { apiCall } from '../../tools/types'
 import { shortHash } from '../core/canonical'
 import { CONFIRM_ABOVE_USD_KEY, readConfirmThreshold } from '../core/confirm'
 import type { ConfirmClass } from '../core/decision-state'
-import { V2ToolError, result } from '../core/envelope'
+import { V2ToolError, relay, result } from '../core/envelope'
 import { formatRef } from '../core/refs'
 import { defineTool, type PreviewInput, type V2CallContext } from '../core/registry'
 import { untrusted } from '../core/untrusted'
@@ -184,7 +184,36 @@ function roleRoutes(config: Values | null): Values {
 
 const ENV_LIMIT_KEYS = ['SPECRAILS_MAX_ACTIVE_RUNS', 'SPECRAILS_MAX_RUNS_PER_PROJECT', 'SPECRAILS_MAX_RUNS_PER_PROVIDER', 'SPECRAILS_RUN_ADMISSION']
 
-const SECTIONS: Record<SectionId, SectionDef> = {
+/**
+ * Sections another tool owns: settings reads and writes them through that
+ * tool (`ctx.v2.dispatch`), so there is one implementation and one
+ * confirmation policy. specrails_integrations owns webhooks and the mobile gateway.
+ */
+type DelegatedSection = 'webhooks' | 'mobile'
+const DELEGATED: Record<DelegatedSection, { get: (args: Values) => Values; set: (values: Values) => Values }> = {
+  webhooks: {
+    get: () => ({ action: 'webhooks', options: { op: 'list' } }),
+    set: (values) => {
+      const { id, delete: remove, ...body } = values
+      const op = remove === true ? 'delete' : typeof id === 'string' && id ? 'update' : 'create'
+      return { action: 'webhooks', ...(typeof id === 'string' ? { id } : {}), ...(op === 'delete' ? {} : { values: body }), options: { op } }
+    },
+  },
+  mobile: {
+    get: () => ({ action: 'mobile' }),
+    set: (values) => typeof values.revokeDevice === 'string'
+      ? { action: 'mobile', id: values.revokeDevice, options: { op: 'revoke' } }
+      : { action: 'mobile', options: { op: values.enabled === true ? 'enable' : values.enabled === false ? 'disable' : 'status' } },
+  },
+}
+const isDelegated = (section: unknown): section is DelegatedSection => typeof section === 'string' && section in DELEGATED
+/** The delegated call, with this call's control fields (confirm, dryRun, lang, view) passed through. */
+function delegate(ctx: V2CallContext, args: Values, call: Values) {
+  const control = Object.fromEntries((['confirm', 'dryRun', 'lang', 'view'] as const).filter((key) => args[key] !== undefined).map((key) => [key, args[key]]))
+  return ctx.v2.dispatch({ tool: 'specrails_integrations', args: { ...call, ...control } })
+}
+
+const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
   app: {
     scope: 'app',
     keys: { autoContinueRuns: bool, resumeOnDailyReset: bool, allowSubagents: bool, subagentRuntime: objOrNull, updateChannel: oneOf('latest', 'stable') },
@@ -251,44 +280,6 @@ const SECTIONS: Record<SectionId, SectionDef> = {
       return { values, source: Object.fromEntries(Object.keys(values).map((key) => [key, key in override && override[key] !== null ? 'project' : 'app'])) }
     },
     async write({ ctx, base }, values) { await send(ctx, 'PATCH', base ? `${base}/terminal-settings` : '/terminal-settings', values) },
-  },
-  mobile: {
-    scope: 'app',
-    keys: { enabled: bool, revokeDevice: text(200) },
-    async read({ ctx }) {
-      const [status, devices] = await Promise.all([get(ctx, '/mobile/status'), get(ctx, '/mobile/devices').catch(() => ({ devices: [] }) as Values)])
-      const list = Array.isArray(devices.devices) ? devices.devices as Values[] : []
-      return {
-        values: { enabled: status.enabled === true },
-        source: { enabled: status.enabled === true ? 'app' : 'default' },
-        info: { running: status.running === true, port: status.port ?? null, devices: list.map((d) => pick(d, ['id', 'name', 'platform', 'lastSeenAt', 'createdAt'])) },
-      }
-    },
-    async write({ ctx }, values) {
-      if (typeof values.revokeDevice === 'string') await send(ctx, 'DELETE', `/mobile/devices/${encodeURIComponent(values.revokeDevice)}`)
-      if (typeof values.enabled === 'boolean') await send(ctx, 'POST', values.enabled ? '/mobile/enable' : '/mobile/disable')
-    },
-    risks: (v) => v.enabled === true ? ['mobile_on'] : [],
-    destructive: (v) => typeof v.revokeDevice === 'string',
-  },
-  webhooks: {
-    scope: 'app',
-    keys: { id: text(200), url: text(2000), events: list, secret: text(500), enabled: bool, projectId: text(200), delete: bool },
-    async read({ ctx }) {
-      const { webhooks } = await get(ctx, '/webhooks')
-      return { values: { webhooks: Array.isArray(webhooks) ? webhooks : [] } }
-    },
-    async write({ ctx }, values) {
-      const id = typeof values.id === 'string' ? values.id : null
-      const { id: _id, delete: remove, ...body } = values
-      if (remove === true) {
-        if (!id) fail('an id to delete')
-        await send(ctx, 'DELETE', `/webhooks/${encodeURIComponent(id!)}`)
-      } else if (id) await send(ctx, 'PATCH', `/webhooks/${encodeURIComponent(id)}`, body)
-      else await send(ctx, 'POST', '/webhooks', body)
-    },
-    external: (v) => typeof v.url === 'string',
-    destructive: (v) => v.delete === true,
   },
   external_mcp: {
     scope: 'app',
@@ -544,16 +535,13 @@ function envStatuses(raw: unknown): Values[] {
 
 function sectionOf(ctx: V2CallContext, args: Values): { id: SectionId; def: SectionDef } {
   const id = args.section as SectionId
-  const def = SECTIONS[id]
+  const def = isDelegated(id) ? undefined : SECTIONS[id]
   if (!def) throw new V2ToolError('invalid_input', ctx.v2.t('settings.error.unknown_section', { section: String(args.section), sections: [...APP_SECTIONS, ...PROJECT_SECTIONS].join(', ') }))
   return { id, def }
 }
 
-/** v1 `projectId` is the v2 `project`. */
-const normalized = (args: Values): Values => args.project === undefined && typeof args.projectId === 'string' ? { ...args, project: args.projectId } : args
-
 function ioFor(ctx: V2CallContext, args: Values, def: SectionDef): IO {
-  const a = normalized(args)
+  const a = args
   // Dual-scope sections use the project scope only when the call names a project.
   const project = def.scope === 'project' || (def.scope === 'either' && typeof a.project === 'string' && a.project.trim()) ? ctx.v2.project(a) : null
   return { ctx, project, base: project ? `/projects/${project.id}` : '', options: optionsOf(args) }
@@ -609,17 +597,19 @@ function riskCodes(def: SectionDef, values: Values): string[] {
 }
 
 function confirmFor(args: Values): ConfirmClass | null {
-  const def = SECTIONS[args.section as SectionId]
+  const def = isDelegated(args.section) ? undefined : SECTIONS[args.section as Exclude<SectionId, DelegatedSection>]
   if (!def) return null
   const values = rec(args.values)
-  if (def.destructive?.(values) || riskCodes(def, values).length) return 'irreversible'
+  if (def.destructive?.(values)) return 'irreversible'
+  // Lowering a safeguard can be set back, so it is risky (always confirmed), not "cannot be undone".
+  if (riskCodes(def, values).length) return 'risky'
   if (def.external?.(values)) return 'external'
   if ((def.caps ?? []).some((path) => at(values, path) !== undefined)) return 'costly'
   return null
 }
 
 function tierFor(args: Values): McpTier {
-  const def = SECTIONS[args.section as SectionId]
+  const def = isDelegated(args.section) ? undefined : SECTIONS[args.section as Exclude<SectionId, DelegatedSection>]
   return def?.destructive?.(rec(args.values)) ? 'destructive' : 'write'
 }
 
@@ -675,13 +665,6 @@ function sectionIndex(ctx: V2CallContext) {
   }, { summary: ctx.v2.t('settings.summary.index', { count: APP_SECTIONS.length + PROJECT_SECTIONS.length }) })
 }
 
-async function webhookRow(ctx: V2CallContext, id: string): Promise<Values> {
-  const { webhooks } = await get(ctx, '/webhooks')
-  const row = (Array.isArray(webhooks) ? webhooks as Values[] : []).find((w) => w.id === id)
-  if (!row) throw new V2ToolError('not_found', ctx.v2.t('settings.error.webhook_not_found', { id }), { next: [{ tool: 'specrails_settings', args: { action: 'get', section: 'webhooks' }, why: 'The configured webhooks.' }] })
-  return row
-}
-
 /** WP9. App and project settings by section; env scan; webhook test. Secrets are write-only. */
 export const settingsTool = defineTool({
   name: 'specrails_settings',
@@ -704,6 +687,7 @@ export const settingsTool = defineTool({
       doc: 'No section: the section index. Effective values plus source per key. terminal/budget: app-wide unless project is given.',
       handler: async (ctx, args) => {
         if (args.section === undefined || args.section === null || args.section === '') return sectionIndex(ctx)
+        if (isDelegated(args.section)) return relay(await delegate(ctx, args, DELEGATED[args.section].get(args)))
         const { id, def } = sectionOf(ctx, args)
         const io = ioFor(ctx, args, def)
         const read = await def.read(io)
@@ -722,6 +706,7 @@ export const settingsTool = defineTool({
       doc: 'Writes only the given keys; unknown keys fail. Lowering safety always confirms; raising a cap confirms above "Ask before spending".',
       preview: setPreview,
       handler: async (ctx, args) => {
+        if (isDelegated(args.section)) return relay(await delegate(ctx, args, DELEGATED[args.section].set(rec(args.values))))
         const { id, def } = sectionOf(ctx, args)
         const io = ioFor(ctx, args, def)
         const values = await checkedValues(ctx, id, def, io, args.values)
@@ -744,7 +729,7 @@ export const settingsTool = defineTool({
       required: ['project'],
       doc: 'Finds env var names the repo references. Add them with set(env, values.addScanned).',
       handler: async (ctx, args) => {
-        const project = ctx.v2.project(normalized(args))
+        const project = ctx.v2.project(args)
         const scan = scanWorktreeEnvRequirements(project.path)
         const settings = await get(ctx, `/projects/${project.id}/settings`)
         const configured = new Set(Array.isArray(settings.worktreeEnvPassthrough) ? settings.worktreeEnvPassthrough as string[] : [])
@@ -761,7 +746,7 @@ export const settingsTool = defineTool({
       required: ['project'],
       doc: 'options.recheck: true probes the login shell now.',
       handler: async (ctx, args) => {
-        const project = ctx.v2.project(normalized(args))
+        const project = ctx.v2.project(args)
         const base = `/projects/${project.id}`
         const raw = optionsOf(args).recheck === true ? await send(ctx, 'POST', `${base}/env-passthrough/recheck`) : await get(ctx, `${base}/env-passthrough/status`)
         const statuses = envStatuses(raw)
@@ -774,19 +759,9 @@ export const settingsTool = defineTool({
     },
     webhook_test: {
       tier: 'write',
-      confirm: 'external',
       required: ['options.webhookId'],
-      preview: async (ctx, args) => {
-        const id = String(optionsOf(args).webhookId)
-        const row = await webhookRow(ctx, id)
-        return { effect: ctx.v2.t('settings.effect.webhook_test', { url: String(row.url ?? '') }), version: `w${shortHash(row)}` }
-      },
-      handler: async (ctx, args) => {
-        const id = String(optionsOf(args).webhookId)
-        await webhookRow(ctx, id)
-        const body = await send(ctx, 'POST', `/webhooks/${encodeURIComponent(id)}/test`)
-        return result({ webhookId: id, queued: body.ok !== false }, { summary: ctx.v2.t('settings.summary.webhook_test') })
-      },
+      doc: 'Runs specrails_integrations(webhooks, op test): its preview and confirmation apply.',
+      handler: async (ctx, args) => relay(await delegate(ctx, args, { action: 'webhooks', id: String(optionsOf(args).webhookId), options: { op: 'test' } })),
     },
   },
 })

@@ -41,3 +41,10 @@ export function neutralize(text: string): string {
 export function reveal(text: string): string {
   return text.replace(HIDDEN, (ch) => `⟦U+${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}⟧`)
 }
+
+/** Third-party text for a short field: neutralized and cut to `max`; a non-string or empty value gives null. */
+export function clipUntrusted(value: unknown, max: number): string | null {
+  if (typeof value !== 'string' || !value) return null
+  const clean = neutralize(value)
+  return clean.length > max ? `${clean.slice(0, Math.max(0, max - 1))}…` : clean
+}

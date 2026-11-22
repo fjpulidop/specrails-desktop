@@ -410,6 +410,17 @@ function classify(type: string, msg: Record<string, unknown>, base: Base): Journ
       const id = str(msg.conversationId)
       return id ? [draft({ ...base, projectId: null }, { refKind: 'mission', refId: id, kind: 'mission.turn', status: 'completed', settled: true })] : []
     }
+    case 'agent_turn_done': {
+      // Core-session turns (background / steered) close with their own status.
+      const id = str(msg.conversationId)
+      if (!id) return []
+      const status = str(msg.status) ?? 'completed'
+      const failed = status === 'failed'
+      return [draft({ ...base, projectId: null }, {
+        refKind: 'mission', refId: id, kind: 'mission.turn', status: failed ? 'failed' : status === 'completed' ? 'completed' : 'cancelled', settled: true,
+        ...(failed ? { attention: 'failed' as const } : {}),
+      })]
+    }
     case 'agent_error': {
       const id = str(msg.conversationId)
       return id ? [draft({ ...base, projectId: null }, { refKind: 'mission', refId: id, kind: 'mission.turn', status: 'failed', settled: true, attention: 'failed', detail: clip(msg.error) })] : []

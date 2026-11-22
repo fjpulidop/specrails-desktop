@@ -93,9 +93,11 @@ describe('McpServerManager with and without v2', () => {
     expect(board.structuredContent.v).toBeUndefined()
     expect(board.structuredContent.error?.code).not.toBe('invalid_input')
 
-    // A v2 action that is still a stub names the v1 call that serves it today.
-    const triage = await call(c, 'specrails_system', { action: 'triage' })
-    expect(triage.envelope.error).toMatchObject({ code: 'not_implemented', message: expect.stringContaining('specrails_support(triage)') })
+  })
+
+  it('phase 2: every advertised v2 action has a handler (no stub answers not_implemented)', () => {
+    const stubs = v2Catalog().tools.flatMap((tool) => Object.entries(tool.actions).filter(([, spec]) => !spec.handler).map(([action]) => `${tool.name}(${action})`))
+    expect(stubs).toEqual([])
   })
 })
 

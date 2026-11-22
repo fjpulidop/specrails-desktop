@@ -106,6 +106,7 @@
   "confirm.mismatch": "The confirmation was issued for other arguments or another session. Show the new preview and ask again.",
   "confirm.effect.default": "{{label}} will run.",
   "confirm.class.irreversible": "It cannot be undone.",
+  "confirm.class.risky": "It can be undone, but until then it lowers a safeguard or changes many items at once.",
   "confirm.class.external": "It changes an external system.",
   "confirm.class.costly": "It starts AI work that costs money.",
   "confirm.cost": "Estimated cost {{low}}–{{high}} USD.",

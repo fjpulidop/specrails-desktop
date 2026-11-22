@@ -92,6 +92,11 @@ describe('v1 argument names on v2 actions', () => {
     expect(normalizeV1Args(target, { ref: 'run:x/1', jobId: 'other' })).toEqual({ ref: 'run:x/1' })
     expect(normalizeV1Args({ fields: { id: z.string(), ref: z.string() } }, { id: '7' })).toEqual({ id: '7' })
     expect(normalizeV1Args({ fields: { project: z.string() } }, { jobId: '7' })).toEqual({ jobId: '7' })
+    expect(normalizeV1Args({ fields: { ref: z.string() } }, { conversationId: 'c1' })).toEqual({ ref: 'c1' })
+    // Tool-specific aliases (missions: text / question → message) run first, under the same rules.
+    const missions = { fields: { ref: z.string(), message: z.string() }, v1Aliases: [['text', 'message'], ['question', 'message']] as const }
+    expect(normalizeV1Args(missions, { conversationId: 'c1', question: 'why?' })).toEqual({ ref: 'c1', message: 'why?' })
+    expect(normalizeV1Args(missions, { message: 'keep', text: 'drop' })).toEqual({ message: 'keep' })
     await call(client, 'specrails_target', { action: 'old', jobId: 'abc' })
     expect(legacyCalls[0]).toMatchObject({ jobId: 'abc' })
   })

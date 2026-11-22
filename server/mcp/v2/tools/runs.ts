@@ -1,7 +1,9 @@
 import { z } from 'zod'
+import { apiRow, maybe } from '../core/loopback'
+import { launchForecast, scaledCost } from '../core/forecast'
 import type { ProjectRow } from '../../../desktop-db'
 import { extractDisplayText } from '../../../util/stream-display'
-import { apiCall, McpApiError, originConversationDefaults } from '../../tools/types'
+import { McpApiError, originConversationDefaults } from '../../tools/types'
 import { findFailedStep, splitSteps, type LogStep } from '../../tools/job-logs'
 import { shortHash } from '../core/canonical'
 import { decodeCursor, encodeCursor } from '../core/cursor'
@@ -45,16 +47,7 @@ export function compatArgs(args: Row): Row {
   return args.project === undefined && typeof args.projectId === 'string' ? { ...args, project: args.projectId } : args
 }
 
-async function api(ctx: V2CallContext, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<Row> {
-  return rec(await apiCall(ctx, method, path, body))
-}
-/** A read that may legitimately be absent (404/409/503 on runs it does not apply to). */
-async function maybe(ctx: V2CallContext, path: string): Promise<Row | null> {
-  try { return await api(ctx, 'GET', path) } catch (err) {
-    if (err instanceof McpApiError && err.status >= 400 && err.status < 600) return null
-    throw err
-  }
-}
+const api = apiRow
 
 // ── Reading a run ───────────────────────────────────────────────────────────
 
@@ -483,13 +476,8 @@ const CHIP_WORD = (chip: Row) => chip.kind === 'provider' ? `${chip.providerId} 
 
 /** Forecast, preflight and capacity of a launch: the facts the app's launch dialog shows. */
 export async function launchPreview(ctx: V2CallContext, project: ProjectRow, input: { forecast: LaunchPlan['forecast']; provider: string | null; runs: number; effect: string; versionFacts: unknown }): Promise<PreviewInput> {
-  const base = projectBase(project)
-  const query = new URLSearchParams()
-  if (input.forecast?.loopId) query.set('loopId', input.forecast.loopId)
-  if (input.forecast?.command) query.set('command', input.forecast.command)
-  if (input.provider) query.set('provider', input.provider)
   const [forecast, preflight, capacity] = await Promise.all([
-    input.forecast ? maybe(ctx, `${base}/launch-forecast?${query}`) : null,
+    input.forecast ? launchForecast(ctx, project, { loopId: input.forecast.loopId, command: input.forecast.command, provider: input.provider }) : null,
     maybe(ctx, `/launch-preflight?${new URLSearchParams({ projectId: project.id, providers: input.provider ?? '' })}`),
     maybe(ctx, '/capacity'),
   ])
@@ -502,9 +490,7 @@ export async function launchPreview(ctx: V2CallContext, project: ProjectRow, inp
   if (failing.length) sentences.push(ctx.v2.t('runs.preview.blocking', { chips: failing.join(', ') }))
   if (warning.length) sentences.push(ctx.v2.t('runs.preview.warn', { chips: warning.join(', ') }))
   if (capacity?.enabled === true && arr(capacity.queued).length) sentences.push(ctx.v2.t('runs.preview.queue', { running: arr(capacity.running).length }))
-  const cost = rec(forecast?.cost)
-  const range: [number, number] | null = num(cost.lowUsd) !== null && num(cost.highUsd) !== null
-    ? [Math.round(Number(cost.lowUsd) * input.runs * 100) / 100, Math.round(Number(cost.highUsd) * input.runs * 100) / 100] : null
+  const range = scaledCost(forecast, input.runs)
   return { effect: sentences.join(' '), refs: [], version: `l${shortHash({ f: input.versionFacts, b: preflight?.blocking === true, n: input.runs })}`, cost: { forecastUsd: range, runs: input.runs } }
 }
 

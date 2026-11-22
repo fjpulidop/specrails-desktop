@@ -9,9 +9,10 @@ import { initialUsage, normalizeClaude, normalizeCodex, type UsageSnapshot } fro
 import type { CapStatus } from '../../../modules/execution/domain/spend-caps'
 import type { SpendOverview } from '../../../modules/execution/runtime/budget-overview'
 import type { DesktopAnalyticsResponse } from '../../../modules/accounting/runtime/desktop-analytics'
-import { call, createHarness, type Harness } from '../__fixtures__/harness'
+import { call, createHarness, registerTools, type Harness } from '../__fixtures__/harness'
 import { ConfirmationLedger } from '../core/confirm'
-import { createCatalog, registerV2Tool } from '../core/registry'
+import { createCatalog } from '../core/registry'
+import { settingsTool } from './settings'
 import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
 import { V2_TOOLS } from './index'
@@ -60,7 +61,8 @@ const inboxItem = (over: Partial<InboxItem>): InboxItem => ({
 
 beforeAll(async () => {
   h = createHarness({ projects: PROJECTS })
-  registerV2Tool(h.server, h.ctx, insightsTool, { catalog: createCatalog(V2_TOOLS), ledger: new ConfirmationLedger() })
+  // budget_set delegates to specrails_settings(set, budget): both are registered and dispatch to each other.
+  registerTools(h, [insightsTool, settingsTool], { catalog: createCatalog(V2_TOOLS), ledger: new ConfirmationLedger() })
   client = await h.connect()
 })
 afterAll(async () => { await client.close() })
@@ -96,7 +98,7 @@ describe('formatting helpers', () => {
     expect(scenarioOf({})).toBe('list')
     expect(scenarioOf({ from: 'opus' })).toBeNull()
     expect(budgetPatch('project', { day: 30, run: null, alert: 2 }, 'x')).toEqual({ dailyBudgetUsd: 30, runCapUsd: null, jobCostThresholdUsd: 2 })
-    expect(budgetPatch('app', { dailyBudgetUsd: 50, week: 200 }, 'x')).toEqual({ desktopDailyBudgetUsd: 50, desktopWeeklyBudgetUsd: 200 })
+    expect(budgetPatch('app', { dailyBudgetUsd: 50, week: 200 }, 'x')).toEqual({ dailyBudgetUsd: 50, weeklyBudgetUsd: 200 })
     expect(() => budgetPatch('app', { day: -1 }, 'x')).toThrow()
     expect(() => budgetPatch('app', { yearly: 3 }, 'x')).toThrow()
   })
@@ -377,19 +379,29 @@ describe('budgets', () => {
     expect(invalid.envelope.error.code).toBe('invalid_input')
     expect(requests).toHaveLength(0)
 
-    route(/^\/projects\/p1\/budget$/, () => ({ body: { ok: true } }))
+    // specrails_settings(budget) reads the current caps (app + project) before it writes.
+    route(/^\/budget$/, { desktopDailyBudgetUsd: null, costToday: 1 })
+    route(/^\/projects\/p1\/settings$/, { reviewWipLimit: null })
+    route(/^\/projects\/p1\/budget$/, (body) => ({ body: body ? { ok: true } : { dailyBudgetUsd: 20, runCapUsd: 5 } }))
     route(/^\/projects\/p1\/budget\?/, { dailyBudgetUsd: 30, runCapUsd: null, costToday: 21 })
     route(/^\/projects\/p1\/budget\/caps$/, overview([cap({ budgetUsd: 30, spentUsd: 21 })]))
     route(/^\/inbox$/, { items: [], projects: [], generatedAt: '' })
-    const { envelope, isError } = await call(client, T, { action: 'budget_set', scope: 'project', project: 'p1', options: { limits: { day: 30, run: null } } })
+    // Raising or removing a cap is settings' costly class: the delegated preview and token reach the agent.
+    const asked = await call(client, T, { action: 'budget_set', scope: 'project', project: 'p1', options: { limits: { day: 30, run: null } } })
+    expect(asked.envelope.error).toMatchObject({ code: 'confirmation_required', preview: { label: 'specrails_settings(set)', class: 'costly' } })
+    expect(asked.envelope.error.preview.effect).toMatch(/dailyBudgetUsd: 20 → 30; runCapUsd: 5 → null/)
+    expect(requests.some((r) => r.method === 'PATCH')).toBe(false)
+    const { envelope, isError } = await call(client, T, { action: 'budget_set', scope: 'project', project: 'p1', options: { limits: { day: 30, run: null } }, confirm: asked.envelope.error.confirmToken })
     expect(isError).toBe(false)
     expect(requests.find((r) => r.method === 'PATCH')).toMatchObject({ path: '/projects/p1/budget', body: { dailyBudgetUsd: 30, runCapUsd: null } })
     expect(envelope.summary).toMatch(/^Saved the project budget\. Project daily cap: 70% of \$30\.00 used/)
     expect(h.broadcasts.some((msg: any) => msg.type === 'mcp.activity' && msg.action === 'budget_set')).toBe(true)
 
-    route(/^\/budget$/, (body) => ({ body: body ? { ok: true } : { desktopDailyBudgetUsd: 50, costToday: 1 } }))
     route(/^\/budget\/caps$/, overview([]))
-    await call(client, T, { action: 'budget_set', scope: 'app', options: { limits: { daily: 50, alert: null } } })
+    // Lowering-only / clearing an alert on the app scope: no cap raised, written at once.
+    route(/^\/budget$/, (body) => ({ body: body ? { ok: true } : { desktopDailyBudgetUsd: 80, costAlertThresholdUsd: 3, costToday: 1 } }))
+    const app = await call(client, T, { action: 'budget_set', scope: 'app', options: { limits: { daily: 50, alert: null } } })
+    expect(app.isError).toBe(false)
     expect(requests.filter((r) => r.method === 'PATCH').at(-1)).toMatchObject({ path: '/budget', body: { desktopDailyBudgetUsd: 50, costAlertThresholdUsd: null } })
   })
 })

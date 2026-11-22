@@ -6,6 +6,7 @@ import { pageOf } from '../core/cursor'
 import { formatRef, parseRef } from '../core/refs'
 import { untrusted, neutralize } from '../core/untrusted'
 import { shortHash } from '../core/canonical'
+import { asRecord } from '../core/text'
 import { apiCall, McpApiError } from '../../tools/types'
 import { getProjectRepositories } from '../../../project-repositories'
 import { GIT_DIAGNOSTIC_ACTIONS, isGitDiagnosticAction } from '../../../git-diagnostics'
@@ -23,7 +24,6 @@ import type { ProjectRow } from '../../../desktop-db'
  */
 
 type Row = Record<string, unknown>
-const asRecord = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
 const asArray = (value: unknown): unknown[] => Array.isArray(value) ? value : []
 const str = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value.trim() : undefined
 const num = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -237,9 +237,10 @@ async function webhookRow(ctx: V2CallContext, id: string): Promise<Row> {
   if (!found) throw new V2ToolError('not_found', ctx.v2.t('integrations.error.webhook_not_found', { id }))
   return found
 }
-const WEBHOOK_MUTATING: Record<string, { tier: 'write' | 'destructive'; confirm: 'irreversible' | 'external' | null }> = {
-  create: { tier: 'write', confirm: null },
-  update: { tier: 'write', confirm: null },
+// A URL receives the app's events from then on: creating a webhook or changing its URL is external.
+const WEBHOOK_MUTATING: Record<string, { tier: 'write' | 'destructive'; confirm: 'irreversible' | 'external' | null | ((args: Row) => 'external' | null) }> = {
+  create: { tier: 'write', confirm: 'external' },
+  update: { tier: 'write', confirm: (args) => typeof valuesOf(args).url === 'string' ? 'external' : null },
   delete: { tier: 'destructive', confirm: 'irreversible' },
   test: { tier: 'write', confirm: 'external' },
 }
@@ -247,10 +248,36 @@ const WEBHOOK_MUTATING: Record<string, { tier: 'write' | 'destructive'; confirm:
 async function webhookPreview(ctx: V2CallContext, args: Row): Promise<PreviewInput> {
   const op = opOf(args, 'list')
   const id = str(args.id) ?? ''
+  const url = str(valuesOf(args).url)
+  if (op === 'create') return { effect: ctx.v2.t('integrations.confirm.webhooks_url', { url: hostOf(url) }), version: shortHash({ create: url }) }
   const hook = await webhookRow(ctx, id)
   return {
-    effect: ctx.v2.t(op === 'delete' ? 'integrations.confirm.webhooks_delete' : 'integrations.confirm.webhooks_test', { url: hostOf(hook.url) }),
+    effect: ctx.v2.t(op === 'delete' ? 'integrations.confirm.webhooks_delete' : op === 'update' ? 'integrations.confirm.webhooks_url' : 'integrations.confirm.webhooks_test', { url: hostOf(op === 'update' ? url : hook.url) }),
     version: shortHash({ id, url: hook.url, enabled: hook.enabled, events: hook.events }),
+  }
+}
+
+// ── Mobile gateway (app-global, /api/mobile) ────────────────────────────────
+
+const MOBILE_MUTATING: Record<string, { tier: 'write' | 'destructive'; confirm: 'irreversible' | 'risky' | null }> = {
+  enable: { tier: 'write', confirm: 'risky' },
+  disable: { tier: 'write', confirm: null },
+  revoke: { tier: 'destructive', confirm: 'irreversible' },
+}
+
+async function mobileFacts(ctx: V2CallContext): Promise<{ status: Row; devices: unknown[] }> {
+  const [status, devices] = await Promise.all([apiCall(ctx, 'GET', '/mobile/status'), apiCall(ctx, 'GET', '/mobile/devices').catch(() => ({ devices: [] }))])
+  return { status: asRecord(status), devices: asArray(asRecord(devices).devices ?? devices) }
+}
+
+async function mobilePreview(ctx: V2CallContext, args: Row): Promise<PreviewInput> {
+  const op = opOf(args, 'status')
+  const { status, devices } = await mobileFacts(ctx)
+  const id = str(args.id) ?? ''
+  const device = asRecord(devices.map(asRecord).find((d) => String(d.id) === id))
+  return {
+    effect: op === 'revoke' ? ctx.v2.t('integrations.confirm.mobile_revoke', { device: neutralize(String(device.name ?? id)).slice(0, 80) }) : ctx.v2.t('integrations.confirm.mobile_enable'),
+    version: shortHash({ enabled: status.enabled === true, devices: devices.map((d) => asRecord(d).id) }),
   }
 }
 
@@ -835,7 +862,7 @@ export const integrationsTool = defineTool({
     // ── Webhooks (app-global) ──
     webhooks: {
       tier: (args) => WEBHOOK_MUTATING[opOf(args, 'list')]?.tier ?? 'read',
-      confirm: (args) => WEBHOOK_MUTATING[opOf(args, 'list')]?.confirm ?? null,
+      confirm: (args) => { const c = WEBHOOK_MUTATING[opOf(args, 'list')]?.confirm ?? null; return typeof c === 'function' ? c(args) : c },
       doc: 'Outgoing webhooks. options.op: list (default) | create (values: url https, events, secret?, projectId?) | update (id, values: url, events, secret, enabled) | delete (id) | test (id; sends a ping).',
       preview: webhookPreview,
       handler: async (ctx, args) => {
@@ -856,16 +883,25 @@ export const integrationsTool = defineTool({
         return result(out, writeMeta(op === 'test' ? ctx.v2.t('integrations.summary.webhooks_test', { id: id! }) : ctx.v2.t('integrations.summary.webhooks_done', { op })))
       },
     },
-    // ── Mobile gateway (read-only status) ──
+    // ── Mobile gateway (canonical; specrails_settings(mobile) delegates here) ──
     mobile: {
-      tier: 'read',
-      doc: 'Mobile gateway status (listening, address) and paired devices. Pairing and enabling stay in the app (they open a LAN listener).',
-      handler: async (ctx) => {
-        const [status, devices] = await Promise.all([apiCall(ctx, 'GET', '/mobile/status'), apiCall(ctx, 'GET', '/mobile/devices').catch(() => ({ devices: [] }))])
-        const s = asRecord(status)
-        const list = asArray(asRecord(devices).devices ?? devices)
+      tier: (args) => MOBILE_MUTATING[opOf(args, 'status')]?.tier ?? 'read',
+      confirm: (args) => MOBILE_MUTATING[opOf(args, 'status')]?.confirm ?? null,
+      doc: 'Mobile gateway status and paired devices. options.op: status (default) | enable (opens a LAN listener; confirmed) | disable | revoke (id = device; it must pair again).',
+      preview: mobilePreview,
+      handler: async (ctx, args) => {
+        const op = opOf(args, 'status')
+        if (op !== 'status') {
+          if (!MOBILE_MUTATING[op]) throw new V2ToolError('invalid_input', 'options.op: status, enable, disable or revoke.')
+          const id = str(args.id)
+          if (op === 'revoke' && !id) throw new V2ToolError('invalid_input', 'options.op:revoke needs id (the device).')
+          if (op === 'revoke') await apiCall(ctx, 'DELETE', `/mobile/devices/${enc(id!)}`)
+          else await apiCall(ctx, 'POST', op === 'enable' ? '/mobile/enable' : '/mobile/disable')
+        }
+        const { status: s, devices: list } = await mobileFacts(ctx)
         const enabled = s.enabled === true || s.running === true || s.listening === true
-        return result({ ...s, devices: list }, { summary: ctx.v2.t('integrations.summary.mobile', { state: enabled ? ctx.v2.t('integrations.word.enabled') : ctx.v2.t('integrations.word.disabled'), devices: list.length }), untrusted: untrusted('/data/devices/*/name') })
+        const summary = ctx.v2.t('integrations.summary.mobile', { state: enabled ? ctx.v2.t('integrations.word.enabled') : ctx.v2.t('integrations.word.disabled'), devices: list.length })
+        return result({ ...s, devices: list }, { ...(op === 'status' ? { summary } : writeMeta(summary)), untrusted: untrusted('/data/devices/*/name') })
       },
     },
   },

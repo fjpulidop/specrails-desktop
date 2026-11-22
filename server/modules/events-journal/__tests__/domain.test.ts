@@ -77,6 +77,10 @@ describe('classifyMessage', () => {
     expect(classifyMessage({ type: 'setup_checkpoint', projectId: 'p1', checkpoint: 'install', status: 'running' })).toEqual([])
     expect(classifyMessage({ type: 'blueprint.commit_failed', commitId: 'b1', step: 'repo', error: 'exists', timestamp: 't' })[0]).toMatchObject({ refKind: 'blueprint', projectId: null, attention: 'failed' })
     expect(classifyMessage({ type: 'agent_done', conversationId: 'm1', fullText: 'secret text', timestamp: 't' })[0]).toMatchObject({ refKind: 'mission', status: 'completed', detail: null })
+    // Core-session turns settle the mission too (status from the turn).
+    expect(classifyMessage({ type: 'agent_turn_done', conversationId: 'm1', turnId: 't1', status: 'completed', fullText: 'x', timestamp: 't' } as never)[0]).toMatchObject({ refKind: 'mission', refId: 'm1', status: 'completed', settled: true, attention: null })
+    expect(classifyMessage({ type: 'agent_turn_done', conversationId: 'm1', turnId: 't2', status: 'failed', timestamp: 't' } as never)[0]).toMatchObject({ status: 'failed', attention: 'failed', settled: true })
+    expect(classifyMessage({ type: 'agent_turn_done', conversationId: 'm1', turnId: 't3', status: 'interrupted', timestamp: 't' } as never)[0]).toMatchObject({ status: 'cancelled', settled: true })
     expect(classifyMessage({ type: 'agent_limit_continue', conversationId: 'm1', at: 'z', timestamp: 't' })[0]).toMatchObject({ hold: 'provider_limit', attention: 'blocked' })
     expect(classifyMessage({ type: 'agent_run_failure', conversationId: 'm1', messageId: 'x', kind: 'run-failure', runId: 'r1', railIndex: 0, projectId: 'p1', prDeliveryId: 'd', ticketIds: [], code: 'tests_failed', detail: 'npm test', timestamp: 't' })[0])
       .toMatchObject({ refKind: 'run', refId: 'r1', attention: 'failed', detail: 'tests_failed: npm test' })

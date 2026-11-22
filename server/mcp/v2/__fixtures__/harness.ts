@@ -7,6 +7,7 @@ import type { ProjectContext, ProjectRegistry } from '../../../project-registry'
 import { MobileEventBus } from '../../../mobile/mobile-event-bus'
 import type { WsMessage } from '../../../types'
 import type { McpToolContext } from '../../tools/types'
+import { registerV2Tool, type RegisterOptions, type V2Callback, type V2Catalog, type V2ToolDef } from '../core/registry'
 
 /**
  * Test harness for v2 tools: an in-memory desktop DB with projects, a stub
@@ -56,4 +57,20 @@ export function createHarness(options: { projects?: Array<{ id: string; slug: st
 export async function call(client: Client, name: string, args: Record<string, unknown>): Promise<{ envelope: Record<string, any>; isError: boolean; text: string }> {
   const result = await client.callTool({ name, arguments: args }) as { structuredContent?: Record<string, any>; isError?: boolean; content?: Array<{ type: string; text?: string }> }
   return { envelope: result.structuredContent ?? {}, isError: result.isError === true, text: result.content?.[0]?.text ?? '' }
+}
+
+/**
+ * Registers several v2 tools on the harness server with `ctx.v2.dispatch`
+ * wired between them (a delegating action and its target, e.g. insights
+ * budget_set → settings set). Returns the callbacks by tool name.
+ */
+export function registerTools(h: Harness, tools: readonly V2ToolDef[], options: Omit<RegisterOptions, 'dispatch' | 'catalog'> & { catalog: V2Catalog }): Map<string, V2Callback> {
+  const callbacks = new Map<string, V2Callback>()
+  const dispatch: RegisterOptions['dispatch'] = (c, extra) => {
+    const target = callbacks.get(c.tool)
+    if (!target) throw new Error(`harness: ${c.tool} is not registered`)
+    return target(c.args, extra)
+  }
+  for (const tool of tools) callbacks.set(tool.name, registerV2Tool(h.server, h.ctx, tool, { ...options, dispatch }))
+  return callbacks
 }

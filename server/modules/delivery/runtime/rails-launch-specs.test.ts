@@ -88,9 +88,11 @@ describe('POST /rails/launch-specs', () => {
     expect(railExists(db, 3)).toBe(false)
     expect(getRails(db).length).toBe(before)
 
-    const ok = await request(appWith()).post('/rails/launch-specs').send({ specIds: [7] })
+    const ok = await request(appWith()).post('/rails/launch-specs').send({ specIds: [7], railName: '  Checkout  ' })
     expect(ok.status).toBe(202)
     expect(ok.body).toMatchObject({ railIndex: 3, railCreated: true })
+    // A new rail takes the proposal's name (mission rail-launch cards).
+    expect(getRail(db, 3).name).toBe('Checkout')
   })
 
   it('restores every touched rail when the launch is refused', async () => {

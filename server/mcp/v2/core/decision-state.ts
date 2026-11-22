@@ -19,7 +19,13 @@ import { appState, type AppRunState, type CanonicalStatus } from './status-map'
 export type HoldKind = RunHoldKind | 'chain' | 'pr_decision' | 'budget' | 'quota' | 'capacity'
 
 /** How a confirmable action is classified (§6 of the design). Null: no confirmation. */
-export type ConfirmClass = 'irreversible' | 'external' | 'costly'
+/**
+ * - irreversible: always confirm; it cannot be undone.
+ * - risky: always confirm; reversible, but it lowers a safeguard or touches a lot at once until undone.
+ * - external: always confirm; it changes a system outside Specrails.
+ * - costly: confirm above the spend threshold, for several runs, or when the forecast is unknown.
+ */
+export type ConfirmClass = 'irreversible' | 'risky' | 'external' | 'costly'
 
 export interface Hold {
   kind: HoldKind
@@ -130,7 +136,7 @@ export interface DecisionEnv {
 
 /** Whether a call of this class needs a confirmToken, given what its cost forecast says. */
 export function confirmNeeded(confirm: ConfirmClass | null, forecast: { highUsd?: number | null; runs?: number | null }, thresholdUsd: number): boolean {
-  if (confirm === 'irreversible' || confirm === 'external') return true
+  if (confirm === 'irreversible' || confirm === 'risky' || confirm === 'external') return true
   if (confirm !== 'costly') return false
   if ((forecast.runs ?? 1) > 1) return true
   // An unknown forecast is treated as above the threshold (conservative).

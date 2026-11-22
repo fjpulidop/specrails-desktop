@@ -12,7 +12,8 @@ import { matchesPointer } from '../core/untrusted'
 import { chainSnapshot, SCENARIOS } from '../projectors/__fixtures__/chain-plans'
 import { premiumSpec } from '../../../modules/builder/runtime/__fixtures__/blueprint-spec-fixtures'
 import { V2_TOOLS } from './index'
-import { __resetBlueprintCommits, blueprintTool } from './blueprint'
+import { blueprintTool } from './blueprint'
+import { __resetBlueprintCommits } from '../core/commit-tracker'
 
 // specrails_blueprint through the real v2 registry: every reconcile offer runs
 // as the exact chain route call, bound confirmations (cost forecasts, stale,
@@ -243,6 +244,7 @@ describe('chains: every reconcile offer runs as its exact call', () => {
         }
         const out = await confirmed(offer.call.args)
         expect(out.envelope.ok, JSON.stringify(out.envelope.error)).toBe(true)
+        expect(approxTokens(out.text), out.text).toBeLessThan(RESPONSE_BUDGET.writeAccept)
         expect(posted(/\/chains\/c1\/resume/)).toEqual([{ method: 'POST', path: '/projects/p1/blueprint/chains/c1/resume', body: { from: offer.call.args.from } }])
       }
     })
@@ -252,6 +254,8 @@ describe('chains: every reconcile offer runs as its exact call', () => {
     setChain(chainSnapshot({ plan: SCENARIOS.complete() }))
     const finish = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1' })
     expect(finish.envelope.ok).toBe(true)
+    // A write accept stays under its 600-token budget.
+    expect(approxTokens(finish.text)).toBeLessThan(RESPONSE_BUDGET.writeAccept)
     setChain(chainSnapshot({ plan: SCENARIOS.retry() }))
     const retry = await call(client, T, { action: 'chain_resume', ref: 'chain:shop-api/c1' })
     expect(retry.envelope.error).toMatchObject({ code: 'confirmation_required', preview: { cost: { runs: 3, forecastUsd: [0.6, 1.2] }, effect: expect.stringContaining('Retry the failed spec (#1)') } })
