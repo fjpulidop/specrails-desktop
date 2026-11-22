@@ -95,6 +95,9 @@ export function buildFailureBriefing(input: FailureBriefingInput): string {
   lines.push(`The card in this mission offers: ${options.join('; ')}.`)
   if (input.hasDelivery === false) lines.push('This run had no git isolation (shared project folder) — there is no PR phase.')
   if (input.prDeliveryId) lines.push(`Delivery id: ${input.prDeliveryId}.`)
+  if (input.failure.code === 'review_changes_requested') {
+    lines.push('Scope: what the person asked for or decided during the Intent is requested work. Never recommend reverting it, even when the review asks to. A review issue starting with "Unrequested change:" is a change nobody asked for: the person decides whether to keep it as a requirement or revert it (Back to Intent).')
+  }
   lines.push('')
   lines.push('Conduct: explain the failure in at most 6 short lines, name the ONE next action you recommend and why, and stop. Do NOT relaunch, resume or discard by yourself — the user decides on the card. Read specrails_runs(diagnose) (its `reviewer` field carries the reviewer verdict: approved, score, issues, summary, failing host checks and, for Intent → Spec, derivation coverage — quote it instead of guessing) and, as needed, specrails_jobs(get) / specrails_runs(evidence) before recommending recovery. canResume is not proof that retry fixes the cause. The next action may be diagnosis or a targeted repair, not a card button. If the same failure recurred, identify what must change before another attempt; do not default to Relaunch. This six-line limit applies only to this automatic turn.')
   return lines.join('\n')

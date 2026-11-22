@@ -51,3 +51,33 @@ it('names the derived change after the Intent spec title, never addenda, with no
   const run = vi.mocked(prepareCoreExecution).mock.calls[0]![0] as { run: { spec?: { description?: string } } }
   expect(run.run.spec?.description ?? '').not.toContain('DELTA OPENSPEC TARGET')
 })
+
+it('hands the accepted scope to the spec and to every step: deriver context, reviewer and fixer prompts', async () => {
+  const scope = '## Accepted scope (what the person asked for and decided during the Intent session)\n\n1. 2026-11-22 09:10 UTC — Person asked: "quiero las reglas de Switch"'
+  const flowRequest: LoopRunRequest = {
+    ...request,
+    flowDerivation: { ...request.flowDerivation!, acceptedScope: scope },
+    spec: { id: 11, title: 'Disposición horizontal', description: '### Constraints\n\n- No cambiar reglas ni lógica de juego', status: 'in_progress' } as never,
+    ticketId: 11,
+  }
+  await createLoopExecutors({ env: {} }).runDefinition!({ onLine: vi.fn(), onRuntimeEvent: vi.fn(), onSpawn: vi.fn(), request: flowRequest, runId: 'run-3' })
+  const run = vi.mocked(prepareCoreExecution).mock.calls[0]![0] as { run: { spec?: { description?: string } } }
+  const description = run.run.spec?.description ?? ''
+  // The scope follows the intent's constraint it supersedes.
+  expect(description.indexOf('No cambiar reglas')).toBeLessThan(description.indexOf(scope))
+  const invocation = vi.mocked(runAgentRuntimeInvocation).mock.calls[0]![0] as { prepareDefinition: (config: { roles: Record<string, unknown> }) => { nodes: Record<string, { params: Record<string, unknown> }> } }
+  const definition = invocation.prepareDefinition({ roles: {} })
+  for (const id of ['review', 'fix']) expect(String(definition.nodes[id]!.params.prompt), id).toContain(scope)
+})
+
+it('restores the conversation summary when a fork (Relaunch) resumes in a new pipeline directory', async () => {
+  const { readFrozenRuntimeHost } = await import('../../agent-runtime/runtime/agent-runtime-bridge')
+  vi.mocked(readFrozenRuntimeHost).mockReturnValue({ cwd: '/wt', env: {} } as never)
+  const fork = mkdtempSync(join(tmpdir(), 'flow-fork-'))
+  await createLoopExecutors({ env: {} }).runDefinition!({ onLine: vi.fn(), onRuntimeEvent: vi.fn(), onSpawn: vi.fn(), request, runId: 'fork-1', resume: true, contextPath: join(fork, 'desktop-context.json') } as never)
+  expect(readFileSync(join(fork, FLOW_SUMMARY_FILE), 'utf8')).toBe(request.flowDerivation!.summary)
+  // A run that is not Intent -> Spec gets no summary file.
+  const other = mkdtempSync(join(tmpdir(), 'flow-fork-'))
+  await createLoopExecutors({ env: {} }).runDefinition!({ onLine: vi.fn(), onRuntimeEvent: vi.fn(), onSpawn: vi.fn(), request: { ...request, flowDerivation: undefined }, runId: 'fork-2', resume: true, contextPath: join(other, 'desktop-context.json') } as never)
+  expect(() => readFileSync(join(other, FLOW_SUMMARY_FILE), 'utf8')).toThrow()
+})

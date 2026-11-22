@@ -618,6 +618,8 @@ export interface IntentTranscriptMessage {
   content: string
   /** Written by Specrails, not typed by the person (e.g. a run-failure briefing): never a user message. */
   automated?: boolean
+  /** When it was written (SQLite `datetime('now')` or ISO 8601): the provenance of a request or decision. */
+  at?: string | null
 }
 
 const DECISION_LINE = /^\s*(?:[-*]\s+)?(?:\*\*)?(?:Decision|Decisión)(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*$/i
@@ -631,10 +633,16 @@ function clip(text: string, cap: number): string {
   return clean.length <= cap ? clean : `${clean.slice(0, cap).trimEnd()}…`
 }
 
-/** "Decision:" lines the Intent persona records (deduplicated, in order). */
-export function extractFlowDecisions(messages: readonly IntentTranscriptMessage[]): string[] {
+/** One "Decision:" line the Intent persona recorded, with when it was written. */
+export interface IntentDecision {
+  text: string
+  at: string | null
+}
+
+/** "Decision:" lines the Intent persona records (deduplicated, in order), with their time. */
+export function flowDecisions(messages: readonly IntentTranscriptMessage[]): IntentDecision[] {
   const seen = new Set<string>()
-  const decisions: string[] = []
+  const decisions: IntentDecision[] = []
   for (const message of messages) {
     if (message.role !== 'assistant') continue
     for (const line of message.content.split('\n')) {
@@ -645,10 +653,15 @@ export function extractFlowDecisions(messages: readonly IntentTranscriptMessage[
       const key = clipped.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
-      decisions.push(clipped)
+      decisions.push({ text: clipped, at: message.at ?? null })
     }
   }
   return decisions
+}
+
+/** "Decision:" lines the Intent persona records (deduplicated, in order). */
+export function extractFlowDecisions(messages: readonly IntentTranscriptMessage[]): string[] {
+  return flowDecisions(messages).map((decision) => decision.text)
 }
 
 /** The first prose line of an agent reply (no decision line, fence or bare heading marker), bounded. */
@@ -696,6 +709,13 @@ interface SummaryTurn {
   user: string
   /** First line of the agent's final reply to this message, when there was one. */
   reply: string | null
+  at: string | null
+}
+
+/** `YYYY-MM-DD HH:MM UTC` of a stored timestamp (null when absent or unreadable). */
+export function provenanceTime(value: string | null | undefined): string | null {
+  const ms = value ? timestampMs(value) : null
+  return ms === null ? null : `${new Date(ms).toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
 /** The person's messages in order, each with the first line of the agent's last reply before the next message. */
@@ -706,7 +726,7 @@ function conversationTurns(messages: readonly IntentTranscriptMessage[]): Summar
   for (const message of messages) {
     if (message.role === 'user') {
       const user = message.automated ? '' : clip(message.content, SUMMARY_MESSAGE_CAP)
-      current = user ? { user, reply: null } : null
+      current = user ? { user, reply: null, at: message.at ?? null } : null
       if (current) turns.push(current)
     } else if (message.role === 'assistant' && current) {
       const reply = replyFirstLine(message.content)
@@ -714,6 +734,104 @@ function conversationTurns(messages: readonly IntentTranscriptMessage[]): Summar
     }
   }
   return turns
+}
+
+// ─── Accepted scope (what the person decided during the Intent) ─────────────
+
+/** Upper bound of the accepted scope every step of an Intent → Spec run receives. */
+export const FLOW_ACCEPTED_SCOPE_LIMIT_BYTES = 12 * 1024
+const SCOPE_ENTRY_CAP = 400
+const SCOPE_CONSTRAINT_CAP = 300
+/** Heading of the accepted scope block (also how a run's prompt is recognised in tests and evals). */
+export const ACCEPTED_SCOPE_HEADING = '## Accepted scope (what the person asked for and decided during the Intent session)'
+/** Issue prefix the reviewer uses for a change no request or decision supports. */
+export const UNREQUESTED_CHANGE_PREFIX = 'Unrequested change:'
+
+/** The rule every Intent → Spec step applies to the accepted scope (also in the summary and the review prompt). */
+export const ACCEPTED_SCOPE_PRECEDENCE = 'Every request and decision of the Intent session is REQUESTED scope, in the order it happened. A later one supersedes an earlier one, and any constraint of the intent, that it contradicts (for example, a constraint "do not change the rules" no longer holds for the rules the person later asked to change).'
+
+/** One thing the person asked for (their own words) or the agent recorded as decided, with when. */
+export interface AcceptedScopeEntry {
+  kind: 'request' | 'decision'
+  text: string
+  at: string | null
+}
+
+/**
+ * The accepted scope's entries, oldest first: every message the person typed
+ * (automated briefings excluded) and every `Decision:` line the agent
+ * recorded, each with its time. Ties keep the conversation order.
+ */
+export function acceptedScopeEntries(messages: readonly IntentTranscriptMessage[]): AcceptedScopeEntry[] {
+  const entries: AcceptedScopeEntry[] = []
+  const seen = new Set<string>()
+  for (const message of messages) {
+    if (message.role === 'user') {
+      const text = message.automated ? '' : clip(message.content, SCOPE_ENTRY_CAP)
+      if (text) entries.push({ kind: 'request', text, at: message.at ?? null })
+    } else if (message.role === 'assistant') {
+      for (const decision of flowDecisions([message])) {
+        const key = decision.text.toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        entries.push({ kind: 'decision', text: clip(decision.text, SCOPE_ENTRY_CAP), at: decision.at })
+      }
+    }
+  }
+  return entries
+}
+
+/** One line, double-quoted; `{{` is broken up because the scope rides step prompts that Core interpolates. */
+function quoted(text: string): string {
+  return `"${text.replace(/\s*\n\s*/g, ' ').replace(/"/g, '\'').replace(/\{\{/g, '{ {').replace(/\}\}/g, '} }')}"`
+}
+
+/**
+ * What the person accepted during the Intent session, frozen at hand-off and
+ * handed to EVERY step of the Intent → Spec run (deriver, reviewer, fixer)
+ * with the spec: the intent's constraints, then each request (quoted) and
+ * decision with its time, oldest first, where a later entry supersedes an
+ * earlier constraint it contradicts; then what each step does with it. At
+ * most `limit` bytes of UTF-8: the oldest requests give way first (the
+ * summary keeps every message), then the oldest decisions. '' when the
+ * session recorded nothing.
+ */
+export function buildAcceptedScope(input: { constraints?: readonly string[]; messages: readonly IntentTranscriptMessage[] }, limit = FLOW_ACCEPTED_SCOPE_LIMIT_BYTES): string {
+  let entries = acceptedScopeEntries(input.messages)
+  if (!entries.length) return ''
+  const constraints = (input.constraints ?? []).map((item) => clip(item, SCOPE_CONSTRAINT_CAP).replace(/\n+/g, ' ').replace(/\{\{/g, '{ {').replace(/\}\}/g, '} }')).filter(Boolean)
+  let omitted = 0
+  const render = (): string => [
+    ACCEPTED_SCOPE_HEADING,
+    '',
+    `The person built this work with an agent in an Intent session. ${ACCEPTED_SCOPE_PRECEDENCE}`,
+    '',
+    ...(constraints.length ? ['Intent constraints (each holds only where no later entry below contradicts it):', ...constraints.map((item) => `- ${item}`), ''] : []),
+    'Requests and decisions, oldest first:',
+    ...(omitted ? [`(${omitted} earlier request(s) omitted here; the conversation summary keeps them)`] : []),
+    ...entries.map((entry, index) => {
+      const at = provenanceTime(entry.at)
+      return `${index + 1}. ${at ? `${at} — ` : ''}${entry.kind === 'request' ? 'Person asked' : 'Decision recorded'}: ${quoted(entry.text)}`
+    }),
+    '',
+    'For every step of this run:',
+    '- Derive: describe these entries as requirements (ADDED or MODIFIED), never as out-of-scope change. A superseded constraint is not a Non-Goal: record it under design.md `## Assumptions` as superseded, quoting the entry that superseded it and its time.',
+    `- Review: never ask to revert, remove or restore behaviour an entry supports, whatever the original intent said; judge its correctness, tests and accessibility instead. A change no entry supports is an unrequested change: list it under \`unrequested\` and as an issue starting with "${UNREQUESTED_CHANGE_PREFIX}", naming the file and the behaviour, for the person to decide.`,
+    '- Fix: never revert behaviour an entry supports, and never revert an unrequested change yourself: the person decides.',
+  ].join('\n')
+  let text = render()
+  const drop = (kind: AcceptedScopeEntry['kind']): boolean => {
+    const index = entries.findIndex((entry) => entry.kind === kind)
+    if (index < 0) return false
+    entries = [...entries.slice(0, index), ...entries.slice(index + 1)]
+    if (kind === 'request') omitted += 1
+    return true
+  }
+  while (byteLength(text) > limit && drop('request')) text = render()
+  while (byteLength(text) > limit && drop('decision')) text = render()
+  if (byteLength(text) <= limit) return text
+  const bytes = new TextEncoder().encode(text).slice(0, limit)
+  return new TextDecoder().decode(bytes).replace(/\uFFFD+$/, '')
 }
 
 /**
@@ -730,8 +848,9 @@ export function buildFlowSummary(input: { idea: string | null; messages: readonl
   // outcome. It is never trimmed away; the transcript gives way first.
   const intent = input.intent?.trim() ? clip(input.intent, SUMMARY_INTENT_CAP) : null
   let turns = conversationTurns(input.messages)
-  let decisions = extractFlowDecisions(input.messages)
+  let decisions = flowDecisions(input.messages)
   const indent = (text: string) => text.replace(/\n/g, '\n   ')
+  const stamp = (at: string | null) => { const time = provenanceTime(at); return time ? `[${time}] ` : '' }
   const render = (): string => [
     '---',
     `transcriptTurns: ${turns.length}`,
@@ -740,15 +859,16 @@ export function buildFlowSummary(input: { idea: string | null; messages: readonl
     '',
     ...(intent ? [intent, ''] : []),
     ...(idea ? ['## Idea', '', idea, ''] : []),
+    ...(turns.length || decisions.length ? ['## Accepted scope', '', `${ACCEPTED_SCOPE_PRECEDENCE} The user messages and decisions below are that scope, with their time: describe them as requirements, never as out-of-scope change.`, ''] : []),
     '## User messages',
     '',
     ...(turns.length
-      ? turns.flatMap((turn, index) => [`${index + 1}. ${indent(turn.user)}`, ...(turn.reply ? [`   ↳ Agent: ${turn.reply}`] : [])])
+      ? turns.flatMap((turn, index) => [`${index + 1}. ${stamp(turn.at)}${indent(turn.user)}`, ...(turn.reply ? [`   ↳ Agent: ${turn.reply}`] : [])])
       : ['(none)']),
     '',
     '## Decisions',
     '',
-    ...(decisions.length ? decisions.map((text) => `- ${text}`) : ['(none recorded)']),
+    ...(decisions.length ? decisions.map((decision) => `- ${stamp(decision.at)}${decision.text}`) : ['(none recorded)']),
     '',
   ].join('\n')
   let text = render()
@@ -810,6 +930,17 @@ export const FLOW_UNEXPLAINED_FILES_CAP = 20
 /** Upper bound of the return briefing an Intent session turn carries. */
 export const FLOW_RETURN_BRIEFING_LIMIT = 8_000
 
+/** Whether a reviewer issue names a change no request or decision of the Intent supports. */
+export function isUnrequestedChange(issue: string): boolean {
+  return issue.trim().toLowerCase().startsWith(UNREQUESTED_CHANGE_PREFIX.toLowerCase())
+}
+
+/**
+ * Back to Intent never undoes what the person asked for: the scope rule the
+ * return briefing and the automatic return turn carry.
+ */
+export const RETURN_SCOPE_CONDUCT = 'Never revert, remove or restore anything the person asked for or decided in this Intent (their messages and your `Decision:` lines are the record), even when a finding asks for it or the original intent\'s constraints say otherwise: a later request supersedes an earlier constraint. Keep that behaviour and fix only its quality, tests and accessibility; for such a finding, say in one line that you keep it because the person asked for it. For each change you cannot trace to a request or decision, and whenever you are unsure, offer the choice as an `options` block BEFORE editing (keep it and record it as a requirement, or revert it) and wait for the answer.'
+
 /**
  * Back to Intent: the context the Intent agent receives on its next turn — why
  * Intent → Spec stopped, the reviewer's issues and the failing checks, and the
@@ -841,10 +972,16 @@ export function buildReturnBriefing(findings: IntentReviewFindings | null, deriv
     : 'The Intent → Spec run stopped: the host checks still fail after the automatic correction rounds.')
   lines.push('The worktree is back in this Intent with every change the run made (the derived OpenSpec change under openspec/changes/ included).')
   if (findings.summary) lines.push('', `Reviewer summary: ${clip(findings.summary, 1_200)}`)
-  if (findings.issues.length) {
+  const unrequested = findings.issues.filter(isUnrequestedChange)
+  const issues = findings.issues.filter((issue) => !isUnrequestedChange(issue))
+  if (issues.length) {
     lines.push('', 'Issues to address:')
-    findings.issues.forEach((issue, index) => lines.push(`${index + 1}. ${clip(issue, 600).replace(/\n/g, ' ')}`))
+    issues.forEach((issue, index) => lines.push(`${index + 1}. ${clip(issue, 600).replace(/\n/g, ' ')}`))
     if (findings.issuesOmitted > 0) lines.push(`(+${findings.issuesOmitted} more in the run's review)`)
+  }
+  if (unrequested.length) {
+    lines.push('', 'Changes the reviewer could not trace to any request or decision of this Intent (the person decides each one; never revert it on your own):')
+    unrequested.forEach((issue, index) => lines.push(`${index + 1}. ${clip(issue.trim().slice(UNREQUESTED_CHANGE_PREFIX.length).trim() || issue, 600).replace(/\n/g, ' ')}`))
   }
   if (findings.failingChecks.length) {
     lines.push('', `Failing checks: ${findings.failingChecks.map((check) => `${check.command}${check.exitCode !== null ? ` (exit ${check.exitCode})` : ''}`).join('; ')}`)
@@ -854,7 +991,7 @@ export function buildReturnBriefing(findings: IntentReviewFindings | null, deriv
     const more = derivation.unexplainedOmitted + Math.max(0, derivation.unexplainedFiles.length - listed.length)
     lines.push('', `Spec coverage: the derived change explains ${derivation.explained} of ${derivation.files} changed files.${listed.length ? ` Not explained by any requirement: ${listed.join(', ')}${more > 0 ? ` (+${more} more)` : ''}.` : ''}`)
   }
-  lines.push('', 'Conduct: in at most 2 short lines, say what you will fix, then start fixing it in this worktree. If the findings leave a genuine decision to the person (for example removing behaviour nobody asked for versus recording it as a requirement in the spec), offer it as an `options` block BEFORE editing and wait for the answer. Add the missing tests and tag each one with `[spec:<capability>/<requirement-slug>]` for the requirement it proves. A behaviour the person did not ask for is removed or explicitly confirmed by them, never kept silently. When the fixes are done, offer to hand off to Intent → Spec again.')
+  lines.push('', `Conduct: in at most 2 short lines, say what you will fix, then start fixing it in this worktree. ${RETURN_SCOPE_CONDUCT} Add the missing tests and tag each one with \`[spec:<capability>/<requirement-slug>]\` for the requirement it proves. When the fixes are done, offer to hand off to Intent → Spec again.`)
   const text = lines.join('\n')
   return text.length <= FLOW_RETURN_BRIEFING_LIMIT ? text : `${text.slice(0, FLOW_RETURN_BRIEFING_LIMIT - 1).trimEnd()}…`
 }

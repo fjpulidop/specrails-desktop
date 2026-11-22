@@ -329,6 +329,12 @@ export function createLoopExecutors(
       if (input.resume) {
         const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
         const host = frozenHost(contextPath,resolveEnv(),runId)
+        // Intent -> Spec: a fork (Relaunch) resumes in a NEW pipeline directory
+        // that Core's fork does not seed with the conversation summary; without
+        // it the forked deriver worked from the diff alone and lost the
+        // Intent's decisions. Restore it from the frozen request (never over an
+        // existing file).
+        if (request.flowDerivation) writeFlowSummary(dirname(contextPath), request.flowDerivation.summary)
         const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,optionId:input.optionId,approve:input.approve,reject:input.reject,reason:input.reason,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,routeOverrides:input.routeOverrides,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
@@ -340,7 +346,10 @@ export function createLoopExecutors(
       const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
         ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
         : undefined
-      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
+      // Intent -> Spec: the accepted scope rides the spec and every step, so a
+      // request made during the Intent is never judged against the intent's
+      // superseded constraints.
+      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing, request.flowDerivation?.acceptedScope?.trim()].filter(Boolean).join('\n\n')
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
       const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths,

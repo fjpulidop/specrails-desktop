@@ -112,7 +112,7 @@ export function startIsolatedRuns(stage: RunLaunchStageInput): RunLaunchStageRes
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
         // Intent hand-off: Core derives the change from the Intent reservation commit.
-        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '', ...(input.requiredFlowWorktree.changeId ? { changeId: input.requiredFlowWorktree.changeId } : {}) } } : {}),
+        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '', ...(input.requiredFlowWorktree.acceptedScope ? { acceptedScope: input.requiredFlowWorktree.acceptedScope } : {}), ...(input.requiredFlowWorktree.changeId ? { changeId: input.requiredFlowWorktree.changeId } : {}) } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
       if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)

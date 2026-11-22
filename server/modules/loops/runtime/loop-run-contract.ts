@@ -285,8 +285,11 @@ export interface LoopRunRequest {
   /** Intent -> Spec (Intent mode): the Intent reservation commit Core measures the
    *  change from (`repositories[].baseSha`) and the bounded conversation
    *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`.
-   *  `changeId`: the change this Intent's earlier run derived, re-derived in place. */
-  flowDerivation?: { baseSha: string | null; summary: string; changeId?: string | null }
+   *  `changeId`: the change this Intent's earlier run derived, re-derived in place.
+   *  `acceptedScope`: what the person asked for and decided during the Intent,
+   *  appended (like the addenda briefing) to the spec and EVERY ai-step prompt,
+   *  so the deriver, reviewer and fixer treat it as requested scope. */
+  flowDerivation?: { baseSha: string | null; summary: string; changeId?: string | null; acceptedScope?: string }
 }
 
 export type LoopStallReason = 'idle_timeout' | 'no_progress' | 'provider_limit'

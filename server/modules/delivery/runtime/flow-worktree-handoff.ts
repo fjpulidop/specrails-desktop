@@ -34,6 +34,10 @@ export interface RequiredFlowWorktree {
   /** Bounded conversation summary (user messages and decisions) that the
    * Intent -> Spec loop hands Core's derive-change piece. */
   summary?: string
+  /** What the person asked for and decided during the Intent (quoted, with
+   * times; later decisions supersede earlier intent constraints). Every step
+   * of the Intent -> Spec run receives it with the spec. Absent/'' ⇒ none. */
+  acceptedScope?: string
   /** The OpenSpec change this Intent's earlier Intent -> Spec run derived (still
    * active in the worktree): the run re-derives it in place. Null/absent ⇒ the
    * first derivation, named after the spec title. */

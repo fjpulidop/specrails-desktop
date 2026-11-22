@@ -9,7 +9,7 @@
 import type { DbInstance } from './db'
 import type { InternalApi } from './internal-api'
 import { createFlowService, type IntentService } from './modules/intent'
-import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, systemClock } from './modules/intent/adapters/bindings'
+import { createFlowHandOffAuthority, createFlowPorts, flowAcceptedScope, flowConversationSummary, systemClock } from './modules/intent/adapters/bindings'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/intent/adapters/sqlite'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { IntentHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
@@ -54,16 +54,16 @@ export function createProjectIntent(deps: {
   ctx.flow = flow
   deps.taps.flowService = flow
   const flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
-    // Intent -> Spec: the bounded conversation summary Core's derive-change reads.
+    // Intent -> Spec: the bounded conversation summary Core's derive-change reads,
+    // and the accepted scope (the person's requests and decisions) every step receives.
     (session) => {
       const ticket = session.ticketId !== null ? readFlowTicket(session.ticketId) : undefined
-      return flowConversationSummary(deps.desktopDb, {
-        conversationId: session.conversationId,
-        idea: ticket?.description ?? null,
-        intent: renderIntentForAgents(normalizeSpecIntent(ticket?.intent)),
-        from: session.createdAt,
-        to: null,
-      })
+      const intent = normalizeSpecIntent(ticket?.intent)
+      const window = { conversationId: session.conversationId, from: session.createdAt, to: null }
+      return {
+        summary: flowConversationSummary(deps.desktopDb, { ...window, idea: ticket?.description ?? null, intent: renderIntentForAgents(intent) }),
+        acceptedScope: flowAcceptedScope(deps.desktopDb, { ...window, constraints: intent?.constraints ?? [] }),
+      }
     })
   ctx.flowHandOff = flowHandOff
   return { flow, flowHandOff }

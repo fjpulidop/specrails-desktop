@@ -449,6 +449,7 @@ test compares node kinds, routing and the closed params:
 init → derive (derive-change) ─pass→ check (verify) ─pass→ review → review-policy ─true→ archive → verify → done
          │fail                       │fail                            │false
          └→ repair-guard (1 repair)  └──→ check-findings   review-findings ←┘
+                                                 │           └→ scope-gate ─unrequested change→ scope-decision
                                                  └──→ correction-budget ─exhausted→ changes-requested
                                                           │ (2 rounds)
                                           begin-correction → fix (developer, fixer stance, WRITE)
@@ -477,7 +478,17 @@ init → derive (derive-change) ─pass→ check (verify) ─pass→ review → 
 - Roles: `deriver` (always added for a `derive-change` node), `developer`
   (the fixer) and `reviewer`. The reviewer receives
   `{{outputs.derive.derivation}}` and treats every unexplained file as an
-  issue; the policy gate is `approved == true`.
+  issue; the policy gate is `approved == true` with an empty `unrequested`
+  list.
+- **Accepted scope.** What the person asked for or decided during the Intent
+  is requested scope, even where it departs from the intent's constraints (a
+  later request supersedes an earlier constraint it contradicts). The reviewer
+  never asks to revert it and the fixer never reverts behaviour. A change no
+  request or decision supports goes to the reviewer's `unrequested` list (and
+  an issue prefixed `Unrequested change:`); `scope-gate` then ends the run at
+  `scope-decision` without a correction round, and Back to Intent asks the
+  person (an `options` block: keep it as a requirement, or revert it). Core's
+  reviewer derivation section and deriver instructions carry the same rule.
 - Config: `change: 'new'`, `journal: 'ledger-only'`, `reviewerStepId: 'review'`.
 
 Before the run, Desktop prepares the derivation inputs:
@@ -508,7 +519,16 @@ Before the run, Desktop prepares the derivation inputs:
   reads as `summaryPath`. A summary failure never blocks the hand-off: Core
   then derives from the diff alone. When the spec has an intent, its agent
   block opens the summary (after the front matter, ≤ 8 KB) and is never
-  trimmed; the transcript gives way first.
+  trimmed; the transcript gives way first. An `## Accepted scope` paragraph
+  states the precedence, and each message and decision carries its time.
+  A resumed run (a fork from Relaunch lives in a new pipeline directory)
+  rewrites the file from the frozen request when it is missing.
+- **Accepted scope.** The hand-off also freezes `buildAcceptedScope`: the
+  intent's constraints, then every request (quoted) and `Decision:` line with
+  its time, oldest first, and what derive, review and fix do with them
+  (≤ 12 KB; the oldest requests give way first). It travels as
+  `flowDerivation.acceptedScope` and, like the addenda briefing, is appended
+  to the spec description and to every step prompt.
 
 ## Back to Intent and Relaunch
 
