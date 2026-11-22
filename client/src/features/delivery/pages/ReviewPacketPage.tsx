@@ -461,6 +461,14 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           ) : null}
         </div>
 
+        {/* Another surface (or the chain's automatic base refresh) is acting on this delivery: say what, while the verbs wait. */}
+        {delivery?.operation && !verbs.inFlight && !verbs.terminal && (
+          <p className="mt-4 flex items-center gap-2 text-sm text-accent-info" role="status" data-testid="packet-operation">
+            <RailTrack running className="w-12 shrink-0" />
+            {t(`dashboard:railPr.operation.${delivery.operation}`, { defaultValue: t('dashboard:railPr.operation.inProgress') })}
+          </p>
+        )}
+
         {verbs.fineControlOnly ? (
           <p className="mt-4 rounded-md border border-accent-warning/30 bg-accent-warning/5 px-3 py-2 text-xs text-accent-warning">
             {t('fineControlOnly')}

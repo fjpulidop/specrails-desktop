@@ -90,6 +90,11 @@ function interruptHold(kinds: string[]): RunHoldKind | null {
   return null
 }
 
+/** The hold of a run parked on a human decision: its pending interrupts name it (a question by default). */
+export function decisionHoldKind(pending: unknown): 'question' | 'approval' {
+  return interruptHold(interruptKinds(pending)) === 'approval' ? 'approval' : 'question'
+}
+
 /**
  * Null while the run genuinely works (or when it is not a loop run). Order:
  * what the live process parked, then what a retained (restart-surviving) pause

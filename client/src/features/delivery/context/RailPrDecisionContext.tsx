@@ -52,7 +52,7 @@ export interface RailPrActResult {
   snapshotApplication?: RailPrSnapshotApplication
   /** A concurrent surface currently owns the durable operation lease. */
   busy?: boolean
-  operation?: RailPrDecisionAction | 'checkout' | null
+  operation?: RailPrDecisionAction | 'checkout' | 'refresh-on-base' | null
 }
 
 export interface RailPrCheckoutResult {
@@ -115,7 +115,7 @@ function fromServerSnapshot(raw: ServerPrDeliverySnapshot, railIndex: number): R
 
 const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'discarded', 'completed', 'superseded'])
 const PR_OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'refresh-on-base',
 ])
 
 function snapshotsMatch(a: RailPrStateSnapshot, b: RailPrStateSnapshot): boolean {

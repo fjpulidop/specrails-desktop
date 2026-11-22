@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { deriveFrameActivity } from '../../browser/lib/frame-activity'
-import type { EventRow } from '../../../types'
+import type { EventRow, JobHoldKind } from '../../../types'
+import { HELD_RUN_STATE } from '../../jobs/lib/job-run-state'
 
 /**
  * Live per-rail execution metrics (elapsed start, steps, log lines) derived from
@@ -23,9 +24,31 @@ export interface RailExecMetric {
   heldMs: number
   /** Since when the run is held now (epoch ms), null while it works: the clock stops there. */
   heldSince: number | null
+  /** Why it is held now (the run-hold vocabulary), null while it works or when unknown. */
+  holdKind: JobHoldKind | null
 }
 
-interface RunMetric { railIndex: number; startedAt: number; steps: number; lines: number; heldMs: number; heldSince: number | null }
+interface RunMetric { railIndex: number; startedAt: number; steps: number; lines: number; heldMs: number; heldSince: number | null; holdKind: JobHoldKind | null }
+
+const isHoldKind = (value: unknown): value is JobHoldKind =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(HELD_RUN_STATE, value)
+
+/** The hold a `loop.run_paused` names: its `holdKind`, else what its older `pauseKind` implies (a decision otherwise). */
+export function pausedHoldKind(m: { holdKind?: unknown; pauseKind?: unknown; question?: { kind?: unknown } | null }): JobHoldKind {
+  if (isHoldKind(m.holdKind)) return m.holdKind
+  if (m.pauseKind === 'limit_paused') return 'provider_limit'
+  if (m.pauseKind === 'budget_paused') return 'budget'
+  if (m.pauseKind === 'user_paused') return 'paused'
+  return m.question?.kind === 'approval' ? 'approval' : 'question'
+}
+
+/** Several held runs on one rail: the rail names the hold that needs the person most. */
+const HOLD_URGENCY: Record<string, number> = { 'needs-input': 0, blocked: 1, paused: 2, queued: 3 }
+function moreUrgent(a: JobHoldKind | null, b: JobHoldKind | null): JobHoldKind | null {
+  if (!a) return b
+  if (!b) return a
+  return (HOLD_URGENCY[HELD_RUN_STATE[b]] ?? 9) < (HOLD_URGENCY[HELD_RUN_STATE[a]] ?? 9) ? b : a
+}
 
 interface WsLike {
   type?: string
@@ -36,6 +59,9 @@ interface WsLike {
   event_type?: string
   payload?: string
   processId?: string
+  holdKind?: string
+  pauseKind?: string
+  question?: { kind?: string } | null
 }
 
 const RailMetricsContext = createContext<Record<number, RailExecMetric>>({})
@@ -61,7 +87,7 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
     let cancelled = false
     fetch(`/api/projects/${activeProjectId}/rails`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { activeLoopRuns?: Record<string, { loopRunId?: string; startedAt?: string; steps?: number; lines?: number; heldMs?: number; hold?: { since?: string | null } | null }> } | null) => {
+      .then((data: { activeLoopRuns?: Record<string, { loopRunId?: string; startedAt?: string; steps?: number; lines?: number; heldMs?: number; hold?: { kind?: string; since?: string | null } | null }> } | null) => {
         if (cancelled || !data?.activeLoopRuns) return
         const seeded = new Map<string, RunMetric>()
         for (const [idxStr, run] of Object.entries(data.activeLoopRuns)) {
@@ -73,6 +99,7 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
             lines: run.lines ?? 0,
             heldMs: typeof run.heldMs === 'number' && run.heldMs > 0 ? run.heldMs : 0,
             heldSince: run.hold ? (run.hold.since ? new Date(run.hold.since).getTime() : Date.now()) : null,
+            holdKind: run.hold && isHoldKind(run.hold.kind) ? run.hold.kind : null,
           })
         }
         if (seeded.size === 0) return
@@ -94,22 +121,23 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       if (m.projectId !== projRef.current || !m.loopRunId) return
       setRuns((prev) => {
         const next = new Map(prev)
-        next.set(m.loopRunId!, { railIndex: m.railIndex ?? 0, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null })
+        next.set(m.loopRunId!, { railIndex: m.railIndex ?? 0, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null, holdKind: null })
         return next
       })
       return
     }
-    // A run waiting on the person (or a budget/limit) stops its clock until it resumes.
-    if (m.type === 'loop.run_paused' || m.type === 'loop.run_resumed') {
+    // A run waiting on the person (or a budget/limit, or for capacity) stops its clock until it resumes.
+    if (m.type === 'loop.run_paused' || m.type === 'loop.run_queued' || m.type === 'loop.run_resumed') {
       const runId = m.loopRunId
       if (!runId) return
       const now = Date.now()
+      const holdKind = m.type === 'loop.run_queued' ? 'queued' as const : m.type === 'loop.run_paused' ? pausedHoldKind(m) : null
       setRuns((prev) => {
         const cur = prev.get(runId)
         if (!cur) return prev
-        const next = m.type === 'loop.run_paused'
-          ? (cur.heldSince !== null ? cur : { ...cur, heldSince: now })
-          : (cur.heldSince === null ? cur : { ...cur, heldMs: cur.heldMs + Math.max(0, now - cur.heldSince), heldSince: null })
+        const next = holdKind
+          ? (cur.heldSince !== null ? (cur.holdKind === holdKind ? cur : { ...cur, holdKind }) : { ...cur, heldSince: now, holdKind })
+          : (cur.heldSince === null ? cur : { ...cur, heldMs: cur.heldMs + Math.max(0, now - cur.heldSince), heldSince: null, holdKind: null })
         if (next === cur) return prev
         const n = new Map(prev); n.set(runId, next); return n
       })
@@ -128,7 +156,7 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       if (m.projectId !== projRef.current || !m.jobId || m.railIndex == null) return
       setRuns((prev) => {
         const next = new Map(prev)
-        next.set(m.jobId!, { railIndex: m.railIndex!, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null })
+        next.set(m.jobId!, { railIndex: m.railIndex!, startedAt: Date.now(), steps: 0, lines: 0, heldMs: 0, heldSince: null, holdKind: null })
         return next
       })
       return
@@ -169,12 +197,14 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
     const out: Record<number, RailExecMetric> = {}
     for (const r of runs.values()) {
       const e = out[r.railIndex]
-      if (!e) out[r.railIndex] = { startedAt: r.startedAt, steps: r.steps, lines: r.lines, heldMs: r.heldMs, heldSince: r.heldSince }
+      if (!e) out[r.railIndex] = { startedAt: r.startedAt, steps: r.steps, lines: r.lines, heldMs: r.heldMs, heldSince: r.heldSince, holdKind: r.heldSince !== null ? r.holdKind : null }
       else {
         // Several runs on one rail: the rail works while any of them does.
         e.startedAt = Math.min(e.startedAt, r.startedAt); e.steps += r.steps; e.lines += r.lines
         e.heldMs = Math.min(e.heldMs, r.heldMs)
-        e.heldSince = e.heldSince !== null && r.heldSince !== null ? Math.max(e.heldSince, r.heldSince) : null
+        const bothHeld = e.heldSince !== null && r.heldSince !== null
+        e.holdKind = bothHeld ? moreUrgent(e.holdKind, r.holdKind) : null
+        e.heldSince = bothHeld ? Math.max(e.heldSince!, r.heldSince!) : null
       }
     }
     return out

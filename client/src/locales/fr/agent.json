@@ -317,7 +317,8 @@
       "reopen": "Réouverture…",
       "merge-local": "Intégration locale…",
       "recover-and-retry": "Création du commit et nouvelle tentative d’envoi du résultat préservé…",
-      "acknowledge-no-changes": "Marquage comme terminé…"
+      "acknowledge-no-changes": "Marquage comme terminé…",
+      "refresh-on-base": "Mise à jour sur la nouvelle base…"
     },
     "markDone": "Marquer comme terminées",
     "refine": "Affiner",

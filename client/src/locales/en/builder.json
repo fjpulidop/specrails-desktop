@@ -323,7 +323,7 @@
       "progress": "rail {{k}} of {{n}}",
       "waiting": "waiting for rail {{k}} to settle",
       "stackedOn": "next rail builds on {{branch}}",
-      "paused": "Paused — {{reason}}",
+      "paused": "Paused: {{reason}}",
       "completed": "All rails launched",
       "cancelled": "Chain cancelled",
       "resume": "Resume",
@@ -345,7 +345,7 @@
         "run_lost": "the running rail could not be found after a restart",
         "unknown": "paused",
         "provider_limit": "the provider's usage limit was reached",
-        "rail_limit_reached": "every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume",
+        "rail_limit_reached": "every rail holds a PR awaiting your decision; merge or discard pending PRs to free a rail, then resume",
         "integration_failed": "spec integration failed ({{detail}})"
       },
       "checkpoint": "Rail {{k}} of {{n}} delivered — launch rail {{next}}?",
@@ -358,7 +358,6 @@
       "autoOn": "Auto-continue on — the next rails launch on their own",
       "autoOff": "Auto-continue off — you'll be asked before each next rail",
       "autoFailed": "Could not update the chain",
-      "integrating": "integrating this spec before launching the next",
       "cancelFailed": "Couldn't cancel the chain",
       "offer": {
         "complete": "Finish the chain",
@@ -426,6 +425,12 @@
         "milestone": "This milestone’s own configuration",
         "usual": "Your usual configuration",
         "launch": "The configuration chosen at launch"
+      },
+      "integrationPhase": {
+        "integrating": "Integrating this spec before launching the next",
+        "refreshing": "It conflicts with what was integrated since. Updating it on the new base",
+        "resolving": "An agent is resolving its conflicts with the new base",
+        "reverifying": "Updated on the new base. Verifying it again before integrating"
       }
     },
     "toast": {

@@ -323,7 +323,7 @@
       "progress": "Rail {{k}} von {{n}}",
       "waiting": "wartet, bis Rail {{k}} abgeschlossen ist",
       "stackedOn": "das nächste Rail baut auf {{branch}} auf",
-      "paused": "Pausiert – {{reason}}",
+      "paused": "Pausiert: {{reason}}",
       "completed": "Alle Rails gestartet",
       "cancelled": "Kette abgebrochen",
       "resume": "Fortsetzen",
@@ -345,7 +345,7 @@
         "run_lost": "das laufende Rail wurde nach einem Neustart nicht gefunden",
         "unknown": "pausiert",
         "provider_limit": "das Nutzungslimit des Anbieters ist erreicht",
-        "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort",
+        "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet; merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort",
         "integration_failed": "die Integration der Spec ist fehlgeschlagen ({{detail}})"
       },
       "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
@@ -358,7 +358,6 @@
       "autoOn": "Automatisches Fortfahren an — die nächsten Rails starten von selbst",
       "autoOff": "Automatisches Fortfahren aus — vor jedem Rail wird gefragt",
       "autoFailed": "Kette konnte nicht aktualisiert werden",
-      "integrating": "diese Spec wird integriert, bevor die nächste startet",
       "cancelFailed": "Die Kette konnte nicht abgebrochen werden",
       "offer": {
         "complete": "Kette abschließen",
@@ -426,6 +425,12 @@
         "milestone": "Die eigene Konfiguration dieses Meilensteins",
         "usual": "Deine übliche Konfiguration",
         "launch": "Die beim Start gewählte Konfiguration"
+      },
+      "integrationPhase": {
+        "integrating": "Diese Spec wird integriert, bevor die nächste startet",
+        "refreshing": "Sie kollidiert mit dem seither Integrierten. Sie wird auf die neue Basis aktualisiert",
+        "resolving": "Ein Agent löst ihre Konflikte mit der neuen Basis",
+        "reverifying": "Auf die neue Basis aktualisiert. Sie wird vor der Integration erneut geprüft"
       }
     },
     "toast": {

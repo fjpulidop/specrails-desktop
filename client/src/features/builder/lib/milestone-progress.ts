@@ -523,6 +523,23 @@ export function chainPauseReason(reason: string | null): { key: string; detail: 
   return { key: reason.slice(0, idx), detail: reason.slice(idx + 1) }
 }
 
+/**
+ * Where an active chain's integration of a delivered spec stands (server `milestone-chain.ts`):
+ * the guarded merge (`integrating`), and when it conflicts with what was integrated since, the
+ * automatic base refresh: merging the base in (`refreshing`), an agent resolving the conflicted
+ * files (`resolving`), the merged candidate verified again (`reverifying`). Null otherwise.
+ */
+export type ChainIntegrationPhase = 'integrating' | 'refreshing' | 'resolving' | 'reverifying'
+export function chainIntegrationPhase(chain: { status: string; pauseReason: string | null }): ChainIntegrationPhase | null {
+  if (chain.status === 'waiting') {
+    if (chain.pauseReason === 'integration_pending') return 'integrating'
+    if (chain.pauseReason === 'integration_refreshing') return 'refreshing'
+    if (chain.pauseReason === 'integration_resolving') return 'resolving'
+  }
+  if (chain.status === 'running' && chain.pauseReason === 'integration_reverifying') return 'reverifying'
+  return null
+}
+
 /** The delivery a "Review" action should open for a milestone: the newest
  *  reviewable one (on_review first, then draft/ready), null when none. */
 export const REVIEWABLE_DECISIONS: ReadonlySet<string> = new Set(['on_review', 'no_changes', 'pr_draft', 'pr_ready', 'pr_failed', 'implementation_failed', 'pr_closed'])

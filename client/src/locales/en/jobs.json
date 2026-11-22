@@ -296,6 +296,7 @@
     "copyCommand": "Copy",
     "interrupted": "Interrupted",
     "waiting": "Waiting for the next step…",
+    "notStarted": "No step has run yet.",
     "stepMapAria": "Loop step map",
     "stalled": "Stalled",
     "stalledIdle_one": "No provider output for {{count}} minute — the app stopped this attempt",
@@ -477,5 +478,18 @@
       "other": "Waiting for capacity before it starts.",
       "position": "Position {{position}} in line; it starts by itself."
     }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "It stopped before its first step, so nothing has run yet.",
+    "beforeStep": "It stopped before {{step}}.",
+    "betweenSteps": "It stopped between two steps.",
+    "titleShared": "Run paused at a spending limit",
+    "limit": "Limit",
+    "spent": "Spent",
+    "left": "Left",
+    "nextStep": "Next step",
+    "about": "about {{usd}}",
+    "nextStepNote": "{{step}}, an estimate",
+    "failed": "Couldn't continue the run"
   }
 }

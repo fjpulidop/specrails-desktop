@@ -794,6 +794,16 @@ integrates it again (now a clean merge); a failed verification pauses as a faile
 that cannot run pauses `integration_failed:conflict_unresolved` / `conflict_refresh_limit` /
 `conflict`, and the reconcile offers stay *Run #k again on the updated base* and *Integrate #k*.
 
+Every surface shows where it stands. While the base is merged in (and the resolver works) the
+delivery holds the `refresh-on-base` operation lease, so no decision races the merge and the rail
+strip, the mission card and the review packet say *Updating it on the new base…*; the lease is
+released before the fork, which takes its own. WS `delivery.base_refresh` `{ deliveryId, phase }`
+reports `merging`, `resolving` (with the conflicted files), `verifying` (with the fork's
+`loopRunId`) and `refused` (with the reason). The chain row records the same steps in its
+`pause_reason`: `integration_pending` (the guarded merge), `integration_refreshing`,
+`integration_resolving` (status `waiting`) and `integration_reverifying` (status `running`, following
+the fork); the chain card draws each with the running lamp and its own sentence.
+
 ## Ticket lifecycle — `on_review`
 
 New status in `TicketStatus` / `VALID_STATUSES` (`server/modules/specs/runtime/ticket-store.ts`), between

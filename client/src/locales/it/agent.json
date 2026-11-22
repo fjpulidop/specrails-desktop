@@ -317,7 +317,8 @@
       "reopen": "Riapertura…",
       "merge-local": "Integrazione locale…",
       "recover-and-retry": "Creazione del commit e nuovo tentativo di push del risultato preservato…",
-      "acknowledge-no-changes": "Contrassegno come completato…"
+      "acknowledge-no-changes": "Contrassegno come completato…",
+      "refresh-on-base": "Aggiornamento sulla nuova base…"
     },
     "markDone": "Segna come completate",
     "refine": "Perfeziona",

@@ -22,28 +22,35 @@
     "disk": {
       "ok": "空き {{free}}",
       "warn": "空きは {{free}} のみ",
-      "fail": "空きは {{free}} のみ — 先に容量を空けてください",
+      "fail": "空きは {{free}} のみ",
+      "failHint": "worktree の保存先の空き容量を増やしてから、もう一度確認してください。",
       "unknown": "ディスク容量不明"
     },
     "provider": {
       "signed-in": "{{provider}} にサインイン済み",
-      "signed-out": "{{provider}} からサインアウト — 先にサインインしてください",
+      "signed-out": "{{provider}} からサインアウト",
       "missing": "{{provider}} が未インストール",
-      "unknown": "{{provider}} のサインイン状態不明"
+      "unknown": "{{provider}} のサインイン状態不明",
+      "signedOutHint": "起動する前に {{provider}} にサインインしてください。"
     },
     "github": {
       "signed-in": "GitHub にサインイン済み",
-      "signed-out": "GitHub からサインアウト — プルリクエストは開かれません",
-      "missing": "GitHub CLI が未インストール — プルリクエストは開かれません",
-      "unknown": "GitHub のサインイン状態不明"
+      "signed-out": "GitHub からサインアウト",
+      "missing": "GitHub CLI が未インストール",
+      "unknown": "GitHub のサインイン状態不明",
+      "signedOutHint": "プルリクエストは開かれません。gh auth login でサインインしてください。",
+      "missingHint": "プルリクエストは開かれません。開くには GitHub CLI をインストールしてください。"
     },
     "quota": {
       "ok": "{{provider}} {{percent}}% 使用",
       "warning": "{{provider}} {{percent}}% 使用",
       "critical": "{{provider}} {{percent}}% 使用",
       "rejected": "{{provider}} が上限",
-      "rejectedUntil": "{{provider}} が上限 — {{time}} にリセット",
-      "unknown": "{{provider}} の利用状況不明"
+      "rejectedUntil": "{{provider}} は {{time}} まで上限",
+      "unknown": "{{provider}} の利用状況不明",
+      "nearLimitHint": "実行は上限で一時停止することがあります。リセット後に自動で再開します。",
+      "rejectedHint": "今起動した実行は待機し、リセット後に動き始めます。",
+      "rejectedNoResetHint": "上限がいつリセットされるかは示されていません。それまで実行は待機します。"
     },
     "headless": {
       "ok": "実行中、{{framework}} のウィンドウは非表示のままです",

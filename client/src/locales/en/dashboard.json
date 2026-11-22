@@ -50,7 +50,8 @@
       "reopen": "Reopening…",
       "merge-local": "Integrating locally…",
       "recover-and-retry": "Committing and retrying the preserved result…",
-      "acknowledge-no-changes": "Marking done…"
+      "acknowledge-no-changes": "Marking done…",
+      "refresh-on-base": "Updating it on the new base…"
     },
     "readyForReview": "Ready for review",
     "openReview": "Review",
@@ -200,8 +201,14 @@
     "summary": {
       "running_one": "{{count}} running",
       "running_other": "{{count}} running",
+      "needsInput_one": "{{count}} needs you",
+      "needsInput_other": "{{count}} need you",
+      "blocked_one": "{{count}} blocked",
+      "blocked_other": "{{count}} blocked",
       "paused_one": "{{count}} paused",
       "paused_other": "{{count}} paused",
+      "waiting_one": "{{count}} waiting to start",
+      "waiting_other": "{{count}} waiting to start",
       "ready_one": "{{count}} ready",
       "ready_other": "{{count}} ready",
       "failed_one": "{{count}} failed",

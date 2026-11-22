@@ -50,7 +50,8 @@
       "reopen": "正在重新打开…",
       "merge-local": "正在本地集成…",
       "recover-and-retry": "正在提交并重新推送已保留的结果…",
-      "acknowledge-no-changes": "正在标记完成…"
+      "acknowledge-no-changes": "正在标记完成…",
+      "refresh-on-base": "正在基于新基线更新…"
     },
     "markDone": "标记为完成",
     "refine": "细化",
@@ -200,8 +201,14 @@
     "summary": {
       "running_one": "{{count}} 运行中",
       "running_other": "{{count}} 运行中",
+      "needsInput_one": "{{count}} 个等你回复",
+      "needsInput_other": "{{count}} 个等你回复",
+      "blocked_one": "{{count}} 个受阻",
+      "blocked_other": "{{count}} 个受阻",
       "paused_one": "{{count}} 个已暂停",
       "paused_other": "{{count}} 个已暂停",
+      "waiting_one": "{{count}} 个等待开始",
+      "waiting_other": "{{count}} 个等待开始",
       "ready_one": "{{count}} 就绪",
       "ready_other": "{{count}} 就绪",
       "failed_one": "{{count}} 失败",

@@ -381,7 +381,7 @@ describe('AgentRailLaunchCard', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     fireEvent.click(screen.getByTestId('rail-card-play'))
     expect(await screen.findByText('Fix the failed check before launching.')).toBeInTheDocument()
-    expect(screen.getByText(/signed out — sign in first/)).toBeInTheDocument()
+    expect(screen.getByText(/Claude signed out\. Sign in to Claude before launching\./)).toBeInTheDocument()
     expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
     expect(calls.find((c) => c.url.includes('/api/launch-preflight'))!.url).toContain('projectId=p1')
   })

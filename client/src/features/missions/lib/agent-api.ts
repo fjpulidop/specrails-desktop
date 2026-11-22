@@ -582,7 +582,7 @@ export interface AgentPrDecisionEnvelope {
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
   restoredFromDeliveryId?: string | null
-  operation?: AgentPrDecisionAction | 'checkout' | null
+  operation?: AgentPrDecisionAction | 'checkout' | 'refresh-on-base' | null
   cleanupWarnings?: string[]
   safetyArchives?: string[]
   units?: RailPrUnitOutcome[]

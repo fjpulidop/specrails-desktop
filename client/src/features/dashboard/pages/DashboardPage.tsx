@@ -58,7 +58,7 @@ export default function DashboardPage() {
   const { detailTicket, setDetailTicket } = useSpecDetailPlace(tickets, activeProjectId, refetch)
 
   // ── Board state ─────────────────────────────────────────────────────────────
-  const { rails, setRails, railsRef, updateRails, specOrderIds, updateSpecOrder, railWorktrees, setRailWorktrees } = useBoardRails(activeProjectId)
+  const { rails, setRails, railsRef, updateRails, syncRails, isTicketWritePending, specOrderIds, updateSpecOrder, railWorktrees, setRailWorktrees } = useBoardRails(activeProjectId)
   // Live per-rail execution metrics (elapsed/steps/lines) — app-level provider so
   // they survive Dashboard ⇄ Jobs navigation.
   const railMetrics = useRailMetrics()
@@ -71,10 +71,10 @@ export default function DashboardPage() {
   const pendingReview = useMemo(() => pendingReviewFromDecisions(railPrDecisions), [railPrDecisions])
   const { sortMode, sortDir, viewTier, handleSortChange, handleViewTierChange, resetSortAfterManualReorder } = useBoardViewPrefs(activeProjectId)
 
-  useRailServerSync(activeProjectId, connectionStatus, setRails)
+  useRailServerSync(activeProjectId, connectionStatus, setRails, isTicketWritePending)
   useStripFinishedRailTickets({ tickets, activeProjectId, rails, setRails, railPrDecisions, railPrDecisionsHydrated })
   const { handleAddRail, handleDeleteRail, handleRenameRail } = useRailCrud(rails, updateRails, updateSpecOrder)
-  useRailWsEvents({ activeProjectId, updateRails, setRailWorktrees, railPrDecisions })
+  useRailWsEvents({ activeProjectId, updateRails: syncRails, setRailWorktrees, railPrDecisions, isTicketWritePending })
 
   // ── Derived columns and ticket moves ────────────────────────────────────────
   const { ticketMap, allTicketLabels, specTickets, doneSpecTickets, continuableReviewTicketIds } = useBoardSpecColumns({

@@ -22,28 +22,35 @@
     "disk": {
       "ok": "{{free}} free",
       "warn": "Only {{free}} free",
-      "fail": "Only {{free}} free — free up space first",
+      "fail": "Only {{free}} free",
+      "failHint": "Free up space where the worktrees are kept, then check again.",
       "unknown": "Disk space unknown"
     },
     "provider": {
       "signed-in": "{{provider}} signed in",
-      "signed-out": "{{provider}} signed out — sign in first",
+      "signed-out": "{{provider}} signed out",
       "missing": "{{provider}} not installed",
-      "unknown": "{{provider}} sign-in unknown"
+      "unknown": "{{provider}} sign-in unknown",
+      "signedOutHint": "Sign in to {{provider}} before launching."
     },
     "github": {
       "signed-in": "GitHub signed in",
-      "signed-out": "GitHub signed out — pull requests will not open",
-      "missing": "GitHub CLI not installed — pull requests will not open",
-      "unknown": "GitHub sign-in unknown"
+      "signed-out": "GitHub signed out",
+      "missing": "GitHub CLI not installed",
+      "unknown": "GitHub sign-in unknown",
+      "signedOutHint": "Pull requests will not open. Sign in with gh auth login.",
+      "missingHint": "Pull requests will not open. Install the GitHub CLI to open them."
     },
     "quota": {
       "ok": "{{provider}} {{percent}}% used",
       "warning": "{{provider}} {{percent}}% used",
       "critical": "{{provider}} {{percent}}% used",
       "rejected": "{{provider}} limit reached",
-      "rejectedUntil": "{{provider}} limit reached — resets {{time}}",
-      "unknown": "{{provider}} usage unknown"
+      "rejectedUntil": "{{provider}} at its limit until {{time}}",
+      "unknown": "{{provider}} usage unknown",
+      "nearLimitHint": "Runs may pause at the limit. They resume on their own after the reset.",
+      "rejectedHint": "Runs launched now wait and start working after the reset.",
+      "rejectedNoResetHint": "It did not say when the limit resets. Runs wait until it does."
     },
     "headless": {
       "ok": "{{framework}} windows stay hidden during runs",

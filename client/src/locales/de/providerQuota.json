@@ -22,28 +22,35 @@
     "disk": {
       "ok": "{{free}} frei",
       "warn": "Nur {{free}} frei",
-      "fail": "Nur {{free}} frei – zuerst Speicher freigeben",
+      "fail": "Nur {{free}} frei",
+      "failHint": "Gib Speicher dort frei, wo die Worktrees liegen, und prüfe dann erneut.",
       "unknown": "Speicherplatz unbekannt"
     },
     "provider": {
       "signed-in": "{{provider}} angemeldet",
-      "signed-out": "{{provider}} abgemeldet – zuerst anmelden",
+      "signed-out": "{{provider}} abgemeldet",
       "missing": "{{provider}} nicht installiert",
-      "unknown": "Anmeldung bei {{provider}} unbekannt"
+      "unknown": "Anmeldung bei {{provider}} unbekannt",
+      "signedOutHint": "Melde dich vor dem Start bei {{provider}} an."
     },
     "github": {
       "signed-in": "GitHub angemeldet",
-      "signed-out": "GitHub abgemeldet – Pull Requests werden nicht geöffnet",
-      "missing": "GitHub CLI nicht installiert – Pull Requests werden nicht geöffnet",
-      "unknown": "GitHub-Anmeldung unbekannt"
+      "signed-out": "GitHub abgemeldet",
+      "missing": "GitHub CLI nicht installiert",
+      "unknown": "GitHub-Anmeldung unbekannt",
+      "signedOutHint": "Pull Requests werden nicht geöffnet. Melde dich mit gh auth login an.",
+      "missingHint": "Pull Requests werden nicht geöffnet. Installiere die GitHub CLI, um sie zu öffnen."
     },
     "quota": {
       "ok": "{{provider}} {{percent}} % genutzt",
       "warning": "{{provider}} {{percent}} % genutzt",
       "critical": "{{provider}} {{percent}} % genutzt",
       "rejected": "{{provider}} am Limit",
-      "rejectedUntil": "{{provider}} am Limit – Reset {{time}}",
-      "unknown": "{{provider}}-Nutzung unbekannt"
+      "rejectedUntil": "{{provider}} am Limit bis {{time}}",
+      "unknown": "{{provider}}-Nutzung unbekannt",
+      "nearLimitHint": "Läufe können am Limit pausieren. Nach dem Reset laufen sie von selbst weiter.",
+      "rejectedHint": "Jetzt gestartete Läufe warten und beginnen nach dem Reset.",
+      "rejectedNoResetHint": "Es hat nicht gesagt, wann das Limit zurückgesetzt wird. Läufe warten bis dahin."
     },
     "headless": {
       "ok": "{{framework}}-Fenster bleiben während der Läufe verborgen",

@@ -121,6 +121,30 @@ describe('glossary: other locales keep the spec noun where they translated it', 
   }
 })
 
+describe('glossary: launch preflight chips', () => {
+  // A chip names its check's state in a few words; what to do about it is its `*Hint` tooltip, a plain sentence.
+  const CHECKS = ['disk', 'provider', 'github', 'quota', 'headless']
+  for (const lang of ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja']) {
+    it(`${lang}: chips are short labels without dashes or appended advice, hints are sentences`, () => {
+      const preflight = JSON.parse(fs.readFileSync(path.join(LOCALES_DIR, lang, 'providerQuota.json'), 'utf8')).preflight
+      const bad: string[] = []
+      for (const check of CHECKS) {
+        for (const [key, raw] of Object.entries(preflight[check] as Record<string, string>)) {
+          const text = raw.replace(/\{\{[^}]*\}\}/g, 'x')
+          if (/[—–]/.test(text)) bad.push(`${check}.${key}: dash`)
+          if (key.endsWith('Hint')) {
+            if (!/[.。]$/.test(text)) bad.push(`${check}.${key}: not a sentence`)
+          } else {
+            if (/[:：]\s|\s:/.test(text)) bad.push(`${check}.${key}: advice after a colon`)
+            if (text.length > 64) bad.push(`${check}.${key}: ${text.length} chars`)
+          }
+        }
+      }
+      expect(bad).toEqual([])
+    })
+  }
+})
+
 describe('glossary: guide pages', () => {
   const GUIDE = path.resolve(__dirname, '../../../../docs/guide')
   function pages(lang: string, dir = path.join(GUIDE, lang), out: string[] = []): string[] {

@@ -22,28 +22,35 @@
     "disk": {
       "ok": "{{free}} libres",
       "warn": "Seulement {{free}} libres",
-      "fail": "Seulement {{free}} libres : libérez de l'espace d'abord",
+      "fail": "Seulement {{free}} libres",
+      "failHint": "Libérez de l'espace là où sont gardés les worktrees, puis vérifiez à nouveau.",
       "unknown": "Espace disque inconnu"
     },
     "provider": {
       "signed-in": "{{provider}} connecté",
-      "signed-out": "{{provider}} déconnecté : connectez-vous d'abord",
+      "signed-out": "{{provider}} déconnecté",
       "missing": "{{provider}} non installé",
-      "unknown": "Connexion de {{provider}} inconnue"
+      "unknown": "Connexion de {{provider}} inconnue",
+      "signedOutHint": "Connectez-vous à {{provider}} avant de lancer."
     },
     "github": {
       "signed-in": "GitHub connecté",
-      "signed-out": "GitHub déconnecté : les pull requests ne s'ouvriront pas",
-      "missing": "GitHub CLI non installé : les pull requests ne s'ouvriront pas",
-      "unknown": "Connexion GitHub inconnue"
+      "signed-out": "GitHub déconnecté",
+      "missing": "GitHub CLI non installé",
+      "unknown": "Connexion GitHub inconnue",
+      "signedOutHint": "Les pull requests ne s'ouvriront pas. Connectez-vous avec gh auth login.",
+      "missingHint": "Les pull requests ne s'ouvriront pas. Installez GitHub CLI pour les ouvrir."
     },
     "quota": {
       "ok": "{{provider}} {{percent}} % utilisé",
       "warning": "{{provider}} {{percent}} % utilisé",
       "critical": "{{provider}} {{percent}} % utilisé",
       "rejected": "{{provider}} à la limite",
-      "rejectedUntil": "{{provider}} à la limite : réinit. {{time}}",
-      "unknown": "Utilisation de {{provider}} inconnue"
+      "rejectedUntil": "{{provider}} à la limite jusqu'à {{time}}",
+      "unknown": "Utilisation de {{provider}} inconnue",
+      "nearLimitHint": "Les exécutions peuvent se mettre en pause à la limite. Elles reprennent seules après la réinitialisation.",
+      "rejectedHint": "Les exécutions lancées maintenant attendent et démarrent après la réinitialisation.",
+      "rejectedNoResetHint": "Il n'a pas indiqué quand la limite se réinitialise. Les exécutions attendent jusque-là."
     },
     "headless": {
       "ok": "Les fenêtres {{framework}} restent masquées pendant les exécutions",

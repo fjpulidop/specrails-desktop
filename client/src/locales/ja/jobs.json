@@ -296,6 +296,7 @@
     "copyCommand": "コピー",
     "interrupted": "中断",
     "waiting": "次のステップを待機中...",
+    "notStarted": "まだステップは実行されていません。",
     "stepMapAria": "ループのステップマップ",
     "stalled": "停止",
     "stalledIdle_one": "{{count}} 分間プロバイダーの出力がなく、アプリがこの試行を停止しました",
@@ -477,5 +478,18 @@
       "other": "開始前に空きを待っています。",
       "position": "待機順 {{position}} 番目。自動で開始します。"
     }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "最初のステップの前に停止したため、まだ何も実行されていません。",
+    "beforeStep": "{{step}} の前に停止しました。",
+    "betweenSteps": "2 つのステップの間で停止しました。",
+    "titleShared": "支出上限で実行が一時停止しました",
+    "limit": "上限",
+    "spent": "使用額",
+    "left": "残り",
+    "nextStep": "次のステップ",
+    "about": "約 {{usd}}",
+    "nextStepNote": "{{step}}（見積もり）",
+    "failed": "実行を続行できませんでした"
   }
 }

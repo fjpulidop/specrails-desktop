@@ -108,6 +108,54 @@ export function saveRails(projectId: string | null, rails: RailState[]) {
   } catch { /* non-fatal */ }
 }
 
+/** Same spec ids in the same order. */
+export function sameTicketIds(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i])
+}
+
+/** Set once a project's board has reconciled its idle rails against the server (see `reconcileIdleTickets`). */
+const SERVER_ASSIGNMENTS_KEY = (projectId: string) => `specrails-desktop:rails-server-assignments:${projectId}`
+
+export function serverAssignmentsAdopted(projectId: string | null): boolean {
+  if (!projectId) return false
+  try { return localStorage.getItem(SERVER_ASSIGNMENTS_KEY(projectId)) === '1' } catch { return false }
+}
+
+export function markServerAssignmentsAdopted(projectId: string | null): void {
+  if (!projectId) return
+  try { localStorage.setItem(SERVER_ASSIGNMENTS_KEY(projectId), '1') } catch { /* best effort: the next load reconciles again */ }
+}
+
+/**
+ * Which specs an IDLE rail holds after a reconcile with `GET /rails`. The server
+ * owns the assignment (the board writes every move through `PUT /rails/:i/tickets`,
+ * and the agent, the companion and other windows assign there too), so a fresh
+ * client or a cleared storage shows what the server has.
+ *
+ * - the server does not list the rail: keep the local row as it is;
+ * - the local assignment changed while the request was in flight (`before` differs),
+ *   or a write of it is still pending: keep it, its own write carries it;
+ * - a board that never reconciled before (`legacy`) keeps an assignment it made only
+ *   locally (older versions saved moves in this browser only) when the server has
+ *   nothing on that rail and none of its specs sits on another server rail, and
+ *   writes it up (`push`);
+ * - otherwise the server's assignment wins.
+ */
+export function reconcileIdleTickets(input: {
+  local: readonly number[]
+  before: readonly number[] | undefined
+  server: readonly number[] | undefined
+  pending: boolean
+  legacy: boolean
+  claimedElsewhere: ReadonlySet<number>
+}): { ticketIds: readonly number[]; push: boolean } {
+  const { local, before, server, pending, legacy, claimedElsewhere } = input
+  if (!server) return { ticketIds: local, push: false }
+  if (pending || (before && !sameTicketIds(before, local))) return { ticketIds: local, push: false }
+  if (legacy && server.length === 0 && local.length > 0 && local.every((id) => !claimedElsewhere.has(id))) return { ticketIds: local, push: true }
+  return { ticketIds: sameTicketIds(server, local) ? local : server, push: false }
+}
+
 /** Server railIndex for a rail id — identity mapping (`rail-N` → N-1), with a
  *  positional fallback for exotic ids. -1 when the rail doesn't exist. */
 export function serverRailIndex(rails: readonly RailState[], railId: string): number {

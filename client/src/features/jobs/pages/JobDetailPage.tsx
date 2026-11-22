@@ -39,6 +39,7 @@ import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 import { notifyError } from '../../../lib/notify-error'
 import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
+import { RunBudgetPause } from '../components/job-run/RunBudgetPause'
 import { RunPauseControl } from '../components/job-run/RunPauseControl'
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
@@ -441,6 +442,12 @@ export default function JobDetailPage() {
   const isInteractiveRunning = isInteractive && isRunning && !held
   // A Core definition run stops like in the run window: "Stop", confirmed with what it keeps.
   const isLoopRun = cancelKindForJob(job) === 'loop-run'
+  // Held at a spending limit: its card says what happened and how to go on (in place of the map before any step ran).
+  const budgetHeld = isRunning && (job.loopPauseKind === 'budget_paused' || jobHoldOf(job)?.kind === 'budget')
+  const stepsRan = events.some((event) => event.event_type === 'loop_step')
+  const budgetCard = (layout: 'docked' | 'centered') => budgetHeld && activeProjectId
+    ? <RunBudgetPause projectId={activeProjectId} runId={job.id} budget={job.loopPauseBudget} stepsRan={stepsRan} layout={layout} className={layout === 'docked' ? 'mx-3 mb-2 shrink-0' : undefined} />
+    : null
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
@@ -533,7 +540,7 @@ export default function JobDetailPage() {
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} />
+              <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} notStarted={budgetCard('centered')} />
             </>}
             logContent={navigation => isLoopJob ? <>
               {eventBuffer.omitted && (
@@ -659,6 +666,7 @@ export default function JobDetailPage() {
       {job && activeProjectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
         <RunLimitPause projectId={activeProjectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
       )}
+      {stepsRan && budgetCard('docked')}
       <ConfirmDialog
         open={confirmCancelHeld}
         onOpenChange={setConfirmCancelHeld}

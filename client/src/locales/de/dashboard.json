@@ -50,7 +50,8 @@
       "reopen": "Wird erneut geöffnet…",
       "merge-local": "Wird lokal integriert…",
       "recover-and-retry": "Gesichertes Ergebnis wird committet und erneut gepusht…",
-      "acknowledge-no-changes": "Wird als erledigt markiert…"
+      "acknowledge-no-changes": "Wird als erledigt markiert…",
+      "refresh-on-base": "Wird auf die neue Basis aktualisiert…"
     },
     "markDone": "Als erledigt markieren",
     "refine": "Verfeinern",
@@ -200,8 +201,14 @@
     "summary": {
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",
+      "needsInput_one": "{{count}} wartet auf dich",
+      "needsInput_other": "{{count}} warten auf dich",
+      "blocked_one": "{{count}} blockiert",
+      "blocked_other": "{{count}} blockiert",
       "paused_one": "{{count}} pausiert",
       "paused_other": "{{count}} pausiert",
+      "waiting_one": "{{count}} wartet auf den Start",
+      "waiting_other": "{{count}} warten auf den Start",
       "ready_one": "{{count}} bereit",
       "ready_other": "{{count}} bereit",
       "failed_one": "{{count}} fehlgeschlagen",

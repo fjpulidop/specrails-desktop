@@ -10,6 +10,9 @@ import { RunQuestionCard } from '../../../components/run-question/RunQuestionCar
 import { plainRunQuestion, readRunQuestion } from '../../../components/run-question/run-question'
 import { AgentRuntimeMetrics } from './AgentRuntimeMetrics'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
+import { HELD_RUN_STATE } from '../../jobs/lib/job-run-state'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import type { JobHoldKind } from '../../../types'
 
 /**
  * Settings "Saved executions" list (and the legacy contextual rail card). The
@@ -17,7 +20,11 @@ import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
  * `JobRunHeader`, which consumes the SAME `useRuntimeRuns` hook.
  * Explicit continuation keeps frozen scope; it never starts a fresh delivery.
  */
-export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false }: { projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean }) {
+export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false, hold = null }: {
+  projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean
+  /** The rail's run is held (a provider limit, the budget, your pause): it waits, so its card names the hold, never "Failed". */
+  hold?: JobHoldKind | null
+}) {
   const { t } = useTranslation('agentRuntime')
   const { runs, error, busy, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
 
@@ -29,13 +36,16 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     {error && <LoadError message={error} onRetry={refresh} />}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}{hold
+        ? <span className="inline-flex items-center gap-1.5 text-label" data-testid="runtime-run-hold"><RunStateDot state={HELD_RUN_STATE[hold] ?? 'paused'} />{t(`jobs:held.label.${hold}`)}</span>
+        : <span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span>}</div>
       {run.historical && <p className="text-xs text-muted-foreground">{t('evidence.historical')}</p>}
       {run.forkSuccessor && <p className="text-xs">{t('jobs:loopExplorer.openFork')}: <code>{run.forkSuccessor}</code></p>}
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
       {run.canResume && <p className="text-xs text-muted-foreground">{t('runs.preserveProgress')}</p>}
       {run.status === 'succeeded' && <p className="text-xs text-muted-foreground">{t('runs.reviewDelivery')}</p>}
-      {run.error && <p className="text-xs text-destructive">{run.error}</p>}
+      {/* A held run did not fail: what stopped it is information, not an error. */}
+      {run.error && <p className={hold ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}>{run.error}</p>}
       {run.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
       {run.status === 'expired' && <p className="text-xs text-muted-foreground">{t('retention.expired')}</p>}
       {run.status !== 'expired' && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}

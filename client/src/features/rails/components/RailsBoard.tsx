@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Layers, Plus, Rocket } from 'lucide-react'
 import { RailRow } from './RailRow'
 import { MAX_RAILS, railIdFromIndex, railIndexFromId } from '../lib/rail-id'
+import { HELD_SUMMARY_STATES, railRunState, type HeldSummaryState } from '../lib/rail-run-state'
 import type { RailMode, RailStatus } from './RailControls'
 import type { ReasoningEffort } from '../../agents/components/RailEffortSelector'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
@@ -158,6 +159,9 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 }
 
 /** One live-summary entry in the Rails context row. */
+/** The summary's words for each held state (`railsBoard.summary.*`). */
+const HELD_SUMMARY_KEY = { 'needs-input': 'needsInput', blocked: 'blocked', paused: 'paused', queued: 'waiting' } as const satisfies Record<HeldSummaryState, string>
+
 function SummaryItem({ state, label, testId }: { state: RunState; label: string; testId: string }) {
   return (
     <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
@@ -195,10 +199,17 @@ export const RAILS_COMPACT_THRESHOLD_PX = 320
 
 export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
-  // A held run (your pause, a limit, a question) is not running: the summary counts it apart.
-  const isHeld = (rail: RailState, pos: number) => rail.status === 'running' && railMetrics?.[railIndexFromId(rail.id) ?? pos]?.heldSince != null
-  const held = rails.filter((r, pos) => isHeld(r, pos)).length
-  const running = rails.filter((r, pos) => r.status === 'running' && !isHeld(r, pos)).length
+  // A held run (your pause, a limit, a question) is not running: the summary counts it apart, by
+  // what its hold means (a provider limit is blocked, a question needs you, a pause is paused).
+  const heldState = (rail: RailState, pos: number): HeldSummaryState | null => {
+    const metric = railMetrics?.[railIndexFromId(rail.id) ?? pos]
+    if (rail.status !== 'running' || metric?.heldSince == null) return null
+    const state = railRunState('running', metric.holdKind ?? 'paused')
+    return (HELD_SUMMARY_STATES as readonly string[]).includes(state) ? state as HeldSummaryState : 'paused'
+  }
+  const heldStates = rails.map((r, pos) => heldState(r, pos))
+  const heldCounts = HELD_SUMMARY_STATES.map((state) => [state, heldStates.filter((s) => s === state).length] as const).filter(([, count]) => count > 0)
+  const running = rails.filter((r, pos) => r.status === 'running' && heldStates[pos] === null).length
   const failed = rails.filter((r) => r.status === 'failed').length
   const ready = launchAllCount ?? 0
   const atLimit = rails.length >= MAX_RAILS
@@ -310,9 +321,9 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
             {running > 0 && (
               <SummaryItem state="working" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" />
             )}
-            {held > 0 && (
-              <SummaryItem state="paused" label={t('railsBoard.summary.paused', { count: held })} testId="rails-summary-paused" />
-            )}
+            {heldCounts.map(([state, count]) => (
+              <SummaryItem key={state} state={state} label={t(`railsBoard.summary.${HELD_SUMMARY_KEY[state]}`, { count })} testId={`rails-summary-${state}`} />
+            ))}
             {ready > 0 && (
               <SummaryItem state="queued" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
             )}

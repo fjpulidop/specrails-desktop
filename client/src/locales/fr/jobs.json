@@ -296,6 +296,7 @@
     "copyCommand": "Copier",
     "interrupted": "Interrompue",
     "waiting": "En attente de la prochaine étape…",
+    "notStarted": "Aucune étape n'a encore été exécutée.",
     "stepMapAria": "Carte des étapes de la boucle",
     "stalled": "Bloquée",
     "stalledIdle_one": "Aucune sortie du fournisseur pendant {{count}} minute — l'app a arrêté cette tentative",
@@ -477,5 +478,18 @@
       "other": "En attente de capacité avant de démarrer.",
       "position": "Position {{position}} dans la file ; il démarre tout seul."
     }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "Elle s'est arrêtée avant sa première étape : rien n'a encore été exécuté.",
+    "beforeStep": "Elle s'est arrêtée avant {{step}}.",
+    "betweenSteps": "Elle s'est arrêtée entre deux étapes.",
+    "titleShared": "Exécution en pause à une limite de dépenses",
+    "limit": "Limite",
+    "spent": "Dépensé",
+    "left": "Restant",
+    "nextStep": "Étape suivante",
+    "about": "environ {{usd}}",
+    "nextStepNote": "{{step}}, une estimation",
+    "failed": "Impossible de poursuivre l'exécution"
   }
 }

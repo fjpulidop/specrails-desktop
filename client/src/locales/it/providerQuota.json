@@ -22,28 +22,35 @@
     "disk": {
       "ok": "{{free}} liberi",
       "warn": "Solo {{free}} liberi",
-      "fail": "Solo {{free}} liberi: libera spazio prima",
+      "fail": "Solo {{free}} liberi",
+      "failHint": "Libera spazio dove sono conservati i worktree, poi controlla di nuovo.",
       "unknown": "Spazio su disco sconosciuto"
     },
     "provider": {
       "signed-in": "{{provider}} con accesso",
-      "signed-out": "{{provider}} senza accesso: accedi prima",
+      "signed-out": "{{provider}} senza accesso",
       "missing": "{{provider}} non installato",
-      "unknown": "Accesso a {{provider}} sconosciuto"
+      "unknown": "Accesso a {{provider}} sconosciuto",
+      "signedOutHint": "Accedi a {{provider}} prima di avviare."
     },
     "github": {
       "signed-in": "GitHub con accesso",
-      "signed-out": "GitHub senza accesso: le pull request non si apriranno",
-      "missing": "GitHub CLI non installata: le pull request non si apriranno",
-      "unknown": "Accesso a GitHub sconosciuto"
+      "signed-out": "GitHub senza accesso",
+      "missing": "GitHub CLI non installata",
+      "unknown": "Accesso a GitHub sconosciuto",
+      "signedOutHint": "Le pull request non si apriranno. Accedi con gh auth login.",
+      "missingHint": "Le pull request non si apriranno. Installa la GitHub CLI per aprirle."
     },
     "quota": {
       "ok": "{{provider}} {{percent}}% usato",
       "warning": "{{provider}} {{percent}}% usato",
       "critical": "{{provider}} {{percent}}% usato",
       "rejected": "{{provider}} al limite",
-      "rejectedUntil": "{{provider}} al limite: si azzera {{time}}",
-      "unknown": "Uso di {{provider}} sconosciuto"
+      "rejectedUntil": "{{provider}} al limite fino a {{time}}",
+      "unknown": "Uso di {{provider}} sconosciuto",
+      "nearLimitHint": "Le esecuzioni possono fermarsi al limite. Riprendono da sole dopo l’azzeramento.",
+      "rejectedHint": "Le esecuzioni avviate ora attendono e partono dopo l’azzeramento.",
+      "rejectedNoResetHint": "Non ha detto quando si azzera il limite. Le esecuzioni attendono fino ad allora."
     },
     "headless": {
       "ok": "Le finestre di {{framework}} restano nascoste durante le esecuzioni",

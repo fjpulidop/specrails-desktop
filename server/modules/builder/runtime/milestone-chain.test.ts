@@ -898,7 +898,7 @@ describe('incremental integration before the next spec', () => {
     settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
     expect(refresh).toHaveBeenCalledTimes(1)
     const following = listActiveChains(db)[0]
-    expect(following).toMatchObject({ status: 'running', current_delivery_id: 'd-3', pause_reason: null })
+    expect(following).toMatchObject({ status: 'running', current_delivery_id: 'd-3', pause_reason: 'integration_reverifying' })
     expect(JSON.parse(following.current_run_ids)).toEqual(['fork-1'])
     // The re-verified delivery is back on review: the chain integrates it and moves on.
     settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
@@ -930,6 +930,30 @@ describe('incremental integration before the next spec', () => {
     settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
     expect(f.launches[1].body).toMatchObject({ aiEngine: 'codex', model: 'gpt-6.2-sol' })
     expect(parseLaunched(getChain(db, chainId)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+  })
+  it('records where the base refresh stands: refreshing, then an agent resolving the conflicts, then re-verifying', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn(async () => conflict)
+    const seen: Array<string | null> = []
+    let release: () => void = () => {}
+    f.io.refreshDelivery = vi.fn(async (delivery) => {
+      seen.push(listActiveChains(db)[0].pause_reason)
+      // The refresh reports that an agent resolves the conflicted files (WS `delivery.base_refresh`).
+      mgr.observe({ type: 'delivery.base_refresh', projectId: 'p', deliveryId: delivery.id, phase: 'resolving', conflicts: ['cart.js'] } as never)
+      seen.push(listActiveChains(db)[0].pause_reason)
+      // Another delivery's phase never touches this chain.
+      mgr.observe({ type: 'delivery.base_refresh', projectId: 'p', deliveryId: 'other', phase: 'resolving' } as never)
+      await new Promise<void>((resolve) => { release = resolve })
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'building' })
+      return { ok: true as const, runId: 'fork-9' }
+    })
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(seen).toEqual(['integration_refreshing', 'integration_resolving'])
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'waiting', pause_reason: 'integration_resolving' })
+    release(); await flush(); await flush()
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'running', pause_reason: 'integration_reverifying' })
   })
   it('pauses with the conflict options when the automatic refresh cannot resolve it', async () => {
     const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)

@@ -296,6 +296,7 @@
     "copyCommand": "复制",
     "interrupted": "已中断",
     "waiting": "等待下一个步骤…",
+    "notStarted": "尚未运行任何步骤。",
     "stepMapAria": "循环步骤图",
     "stalled": "已停滞",
     "stalledIdle_one": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
@@ -477,5 +478,18 @@
       "other": "开始前正在等待容量。",
       "position": "排在第 {{position}} 位；会自动开始。"
     }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "它在第一步之前停止，因此尚未运行任何内容。",
+    "beforeStep": "它在 {{step}} 之前停止。",
+    "betweenSteps": "它在两个步骤之间停止。",
+    "titleShared": "运行因支出限额暂停",
+    "limit": "限额",
+    "spent": "已花费",
+    "left": "剩余",
+    "nextStep": "下一步",
+    "about": "约 {{usd}}",
+    "nextStepNote": "{{step}}，估算值",
+    "failed": "无法继续运行"
   }
 }

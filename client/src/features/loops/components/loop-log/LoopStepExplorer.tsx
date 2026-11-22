@@ -65,6 +65,8 @@ export interface LoopStepExplorerProps {
   focusStep?: { key: string; seq: number } | null
   /** Detail view: controls drawn at the start of the filter bar. */
   toolbarLeading?: ReactNode
+  /** Graph view of a held run that never ran a step: what the person sees instead of an empty map (the hold's own card). */
+  notStarted?: ReactNode
 }
 
 /** The run is live: the working lamp (info, pulsing; static under reduced motion). */
@@ -84,6 +86,7 @@ export function LoopStepExplorer({
   onShowStep,
   focusStep,
   toolbarLeading,
+  notStarted,
 }: LoopStepExplorerProps) {
   const { t, i18n: i18nInstance } = useTranslation('jobs')
   const [filter, setFilter] = useState('')
@@ -303,6 +306,20 @@ export function LoopStepExplorer({
   }
 
   const barPad = variant === 'glass' ? 'px-3 py-1.5' : 'px-4 py-2'
+
+  // Held before its first step: no step ran, so there is no map to draw yet. Say so (or show the hold's own card).
+  if (view === 'graph' && hold && model.segments.length === 0 && !model.completion) {
+    return (
+      <div data-testid="loop-step-explorer" data-view="graph" data-not-started className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-4">
+        {notStarted ?? (
+          <p className="inline-flex items-center gap-2 text-body text-muted-foreground" data-testid="loop-not-started">
+            <RunStateDot state={hold.state} />
+            <span><span className="text-foreground">{hold.label}</span>. {t('loopExplorer.notStarted')}</span>
+          </p>
+        )}
+      </div>
+    )
+  }
 
   if (view === 'graph') {
     return (

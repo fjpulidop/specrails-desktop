@@ -33,6 +33,20 @@ export function chipText(chip: PreflightChip, t: (key: string, options?: Record<
   }
 }
 
+/** What to do about a chip, said in its tooltip (the chip itself names only the state); undefined when nothing needs doing. */
+export function chipHint(chip: PreflightChip, t: (key: string, options?: Record<string, unknown>) => string, language: string): string | undefined {
+  switch (chip.kind) {
+    case 'disk': return chip.state === 'fail' ? t('preflight.disk.failHint') : undefined
+    case 'provider': return chip.status === 'signed-out' ? t('preflight.provider.signedOutHint', { provider: providerLabel(chip.providerId) }) : undefined
+    case 'github': return chip.status === 'signed-out' ? t('preflight.github.signedOutHint') : chip.status === 'missing' ? t('preflight.github.missingHint') : undefined
+    case 'headless': return chip.state === 'warn' ? t('preflight.headless.warnHint') : undefined
+    case 'quota': {
+      if (chip.level === 'rejected') return chip.rejectedUntil ? t('preflight.quota.rejectedHint', { time: formatResetTime(chip.rejectedUntil, language) }) : t('preflight.quota.rejectedNoResetHint')
+      return chip.level === 'warning' || chip.level === 'critical' ? t('preflight.quota.nearLimitHint') : undefined
+    }
+  }
+}
+
 const LOOK = {
   ok: { icon: CheckCircle2, className: 'border-accent-success/30 text-foreground', iconClass: 'text-accent-success' },
   warn: { icon: AlertTriangle, className: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning', iconClass: 'text-accent-warning' },
@@ -58,13 +72,15 @@ export function LaunchPreflightChips({ report, loading, onRecheck }: { report: P
           {report.chips.map((chip) => {
             const look = LOOK[chip.state]
             const Icon = look.icon
+            // A chip names the check in a few words; what to do about it is its tooltip (read out too).
+            const hint = chipHint(chip, t, i18n.language)
             return (
               <li key={chip.id} data-testid={`preflight-chip-${chip.id}`} data-state={chip.state}
-                // A chip names the check; what to do about a warning is its tooltip.
-                title={chip.kind === 'headless' && chip.state === 'warn' ? t('preflight.headless.warnHint') : undefined}
+                title={hint}
                 className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption', look.className)}>
                 <Icon className={cn('h-3 w-3 shrink-0', look.iconClass)} aria-hidden />
                 {chipText(chip, t, i18n.language)}
+                {hint && <span className="sr-only">. {hint}</span>}
               </li>
             )
           })}

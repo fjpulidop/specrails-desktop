@@ -56,6 +56,7 @@ import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 
 import { notifyError } from '../../../lib/notify-error'
 import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
+import { RunBudgetPause } from './job-run/RunBudgetPause'
 /** Short, human-readable job id for the title ("#1a2b3c4d"). */
 function shortJobId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id
@@ -315,6 +316,12 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
   // Held: stopped without settling (a restart, a limit, a question). Ending it is
   // "Cancel run" with its own consequence, not Stop of a live run.
   const held = !!jobHoldOf(job)
+  // Held at a spending limit: its card says what happened and how to go on (in place of the map before any step ran).
+  const budgetHeld = !!job && isRunning && (job.loopPauseKind === 'budget_paused' || jobHoldOf(job)?.kind === 'budget')
+  const stepsRan = events.some((event) => event.event_type === 'loop_step')
+  const budgetCard = (layout: 'docked' | 'centered') => budgetHeld && job && projectId
+    ? <RunBudgetPause projectId={projectId} runId={job.id} budget={job.loopPauseBudget} stepsRan={stepsRan} layout={layout} className={layout === 'docked' ? 'mx-3 mb-2 shrink-0' : undefined} />
+    : null
   const displayStatus = job ? jobDisplayStatus(job) : 'queued'
   const settledView = displayStatus !== 'running' && displayStatus !== 'queued'
   const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
@@ -456,7 +463,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
                           {t('logViewer.retainedTail')}
                         </p>
                       )}
-                      <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} />
+                      <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} view="graph" onShowStep={navigation.showStep} notStarted={budgetCard('centered')} />
                     </>}
                     logContent={navigation => job.command.startsWith('loop:') ? <>
                       {eventBuffer.omitted && (
@@ -549,6 +556,7 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
             {job && projectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
               <RunLimitPause projectId={projectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
             )}
+            {stepsRan && budgetCard('docked')}
             {!!job?.interactive && job.status === 'running' && !jobHoldOf(job) && (
               <InteractiveJobComposer
                 jobId={jobId}

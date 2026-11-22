@@ -50,7 +50,8 @@
       "reopen": "再オープン中…",
       "merge-local": "ローカルで統合中…",
       "recover-and-retry": "保存された結果をコミットして再プッシュしています…",
-      "acknowledge-no-changes": "完了に変更中…"
+      "acknowledge-no-changes": "完了に変更中…",
+      "refresh-on-base": "新しいベースで更新しています…"
     },
     "markDone": "完了にする",
     "refine": "改善する",
@@ -200,8 +201,14 @@
     "summary": {
       "running_one": "{{count}} 実行中",
       "running_other": "{{count}} 実行中",
+      "needsInput_one": "{{count}} 件があなたを待っています",
+      "needsInput_other": "{{count}} 件があなたを待っています",
+      "blocked_one": "{{count}} 件ブロック中",
+      "blocked_other": "{{count}} 件ブロック中",
       "paused_one": "{{count}} 件一時停止中",
       "paused_other": "{{count}} 件一時停止中",
+      "waiting_one": "{{count}} 件が開始待ち",
+      "waiting_other": "{{count}} 件が開始待ち",
       "ready_one": "{{count}} 準備完了",
       "ready_other": "{{count}} 準備完了",
       "failed_one": "{{count}} 失敗",

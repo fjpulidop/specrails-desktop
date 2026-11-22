@@ -323,7 +323,7 @@
       "progress": "rail {{k}} de {{n}}",
       "waiting": "esperando a que asiente el rail {{k}}",
       "stackedOn": "el siguiente rail parte de {{branch}}",
-      "paused": "En pausa — {{reason}}",
+      "paused": "En pausa: {{reason}}",
       "completed": "Todos los rails lanzados",
       "cancelled": "Cadena cancelada",
       "resume": "Reanudar",
@@ -345,7 +345,7 @@
         "run_lost": "no se encontró el rail en ejecución tras un reinicio",
         "unknown": "en pausa",
         "provider_limit": "se alcanzó el límite de uso del proveedor",
-        "rail_limit_reached": "todos los rails tienen un PR pendiente de tu decisión — fusiona o descarta PRs pendientes para liberar un rail y luego reanuda",
+        "rail_limit_reached": "todos los rails tienen un PR pendiente de tu decisión; fusiona o descarta PRs pendientes para liberar un rail y luego reanuda",
         "integration_failed": "no se pudo integrar la spec ({{detail}})"
       },
       "checkpoint": "Rail {{k}} de {{n}} entregado — ¿lanzar el rail {{next}}?",
@@ -358,7 +358,6 @@
       "autoOn": "Continuación automática activada — los siguientes rails se lanzan solos",
       "autoOff": "Continuación automática desactivada — se te preguntará antes de cada rail",
       "autoFailed": "No se pudo actualizar la cadena",
-      "integrating": "integrando la spec antes de lanzar la siguiente",
       "cancelFailed": "No se pudo cancelar la cadena",
       "offer": {
         "complete": "Terminar la cadena",
@@ -426,6 +425,12 @@
         "milestone": "La configuración propia de este hito",
         "usual": "Tu configuración habitual",
         "launch": "La configuración elegida al lanzar"
+      },
+      "integrationPhase": {
+        "integrating": "Integrando la spec antes de lanzar la siguiente",
+        "refreshing": "Choca con lo integrado desde entonces. Actualizándola sobre la nueva base",
+        "resolving": "Un agente está resolviendo sus conflictos con la nueva base",
+        "reverifying": "Actualizada sobre la nueva base. Verificándola otra vez antes de integrarla"
       }
     },
     "toast": {

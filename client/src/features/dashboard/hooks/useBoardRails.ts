@@ -1,13 +1,17 @@
 /**
- * The Dashboard's client-local board projection: rails, the spec drag order
- * and per-rail worktree progress, persisted per project in localStorage and
- * reloaded on project switch. Also strips finished specs off the rails.
+ * The Dashboard's board projection: rails, the spec drag order and per-rail
+ * worktree progress, cached per project in localStorage and reloaded on project
+ * switch. The spec-to-rail assignment belongs to the server: every move the
+ * person makes here is written through (`PUT /rails/:i/tickets`), and
+ * `useRailServerSync` adopts the server's assignment on load. Also strips
+ * finished specs off the rails.
  */
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { getApiBase } from '../../../lib/api'
 import type { RailState } from '../../rails/components/RailsBoard'
 import type { RailWorktreeMap } from '../../rails/lib/worktree-progress'
 import type { LocalTicket, RailPrStateSnapshot } from '../../../types'
-import { INITIAL_RAILS, loadRails, loadSpecOrder, saveRails, saveSpecOrder, ticketHasContinuablePr } from '../lib/board-rails'
+import { INITIAL_RAILS, loadRails, loadSpecOrder, sameTicketIds, saveRails, saveSpecOrder, serverRailIndex, ticketHasContinuablePr } from '../lib/board-rails'
 
 export type RailsUpdater = (updater: (prev: RailState[]) => RailState[]) => void
 export type SpecOrderUpdater = (updater: (prev: number[] | null) => number[] | null) => void
@@ -37,16 +41,75 @@ export function useBoardRails(activeProjectId: string | null) {
   const railsRef = useRef(rails)
   railsRef.current = rails
 
-  // Persist-aware rails updater
+  // Rails whose spec assignment the person changed here and the server has not been told yet.
+  const dirtyRailIdsRef = useRef(new Set<string>())
+  // Writes in flight per server railIndex: their echo (rail.updated) must not undo a newer local move.
+  const pendingWritesRef = useRef(new Map<number, number>())
+  const writeChainsRef = useRef(new Map<number, Promise<void>>())
+  const [writeTick, setWriteTick] = useState(0)
+  useEffect(() => { dirtyRailIdsRef.current.clear() }, [activeProjectId])
+
+  // The person's own changes: cached locally and written through to the server.
   const updateRails: RailsUpdater = useCallback((updater) => {
     setRails((prev) => {
       const next = updater(prev)
+      const before = new Map(prev.map((r) => [r.id, r.ticketIds]))
+      for (const r of next) {
+        const was = before.get(r.id)
+        if (was && !sameTicketIds(was, r.ticketIds)) dirtyRailIdsRef.current.add(r.id)
+      }
       saveRails(activeProjectId, next)
+      return next
+    })
+    setWriteTick((n) => n + 1)
+  }, [activeProjectId])
+
+  // What the server (or another client) already decided: cached locally, never written back.
+  const syncRails: RailsUpdater = useCallback((updater) => {
+    setRails((prev) => {
+      const next = updater(prev)
+      if (next !== prev) saveRails(activeProjectId, next)
       return next
     })
   }, [activeProjectId])
 
-  return { rails, setRails, railsRef, updateRails, specOrderIds, updateSpecOrder, railWorktrees, setRailWorktrees }
+  // Write each changed idle rail's assignment through, one write per rail at a
+  // time, always sending the rail's latest specs. A running rail's specs are the
+  // launch's (its launch already wrote them); the server owns them until it settles.
+  useEffect(() => {
+    if (!activeProjectId || dirtyRailIdsRef.current.size === 0) return
+    const projectBase = getApiBase()
+    for (const railId of [...dirtyRailIdsRef.current]) {
+      dirtyRailIdsRef.current.delete(railId)
+      const rail = railsRef.current.find((r) => r.id === railId)
+      if (!rail || rail.status === 'running') continue
+      const railIndex = serverRailIndex(railsRef.current, railId)
+      if (railIndex < 0) continue
+      const pending = pendingWritesRef.current
+      pending.set(railIndex, (pending.get(railIndex) ?? 0) + 1)
+      const previous = writeChainsRef.current.get(railIndex) ?? Promise.resolve()
+      const write = previous.then(async () => {
+        const latest = railsRef.current.find((r) => r.id === railId)
+        if (!latest || latest.status === 'running') return
+        try {
+          await fetch(`${projectBase}/rails/${railIndex}/tickets`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketIds: latest.ticketIds }),
+          })
+        } catch { /* the local cache keeps the move; the next move or launch writes it again */ }
+      }).finally(() => {
+        const left = (pending.get(railIndex) ?? 1) - 1
+        if (left > 0) pending.set(railIndex, left)
+        else pending.delete(railIndex)
+      })
+      writeChainsRef.current.set(railIndex, write)
+    }
+  }, [activeProjectId, rails, writeTick])
+
+  const isTicketWritePending = useCallback((railIndex: number) => (pendingWritesRef.current.get(railIndex) ?? 0) > 0, [])
+
+  return { rails, setRails, railsRef, updateRails, syncRails, isTicketWritePending, specOrderIds, updateSpecOrder, railWorktrees, setRailWorktrees }
 }
 
 /**

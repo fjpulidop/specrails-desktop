@@ -50,7 +50,8 @@
       "reopen": "Reabriendo…",
       "merge-local": "Integrando en local…",
       "recover-and-retry": "Creando el commit y reintentando el push del resultado conservado…",
-      "acknowledge-no-changes": "Marcando como hecho…"
+      "acknowledge-no-changes": "Marcando como hecho…",
+      "refresh-on-base": "Actualizándola sobre la nueva base…"
     },
     "readyForReview": "Listo para revisión",
     "openReview": "Revisar",
@@ -200,8 +201,14 @@
     "summary": {
       "running_one": "{{count}} en ejecución",
       "running_other": "{{count}} en ejecución",
+      "needsInput_one": "{{count}} te necesita",
+      "needsInput_other": "{{count}} te necesitan",
+      "blocked_one": "{{count}} bloqueado",
+      "blocked_other": "{{count}} bloqueados",
       "paused_one": "{{count}} en pausa",
       "paused_other": "{{count}} en pausa",
+      "waiting_one": "{{count}} esperando para empezar",
+      "waiting_other": "{{count}} esperando para empezar",
       "ready_one": "{{count}} listo",
       "ready_other": "{{count}} listos",
       "failed_one": "{{count}} fallido",

@@ -36,7 +36,7 @@ describe('a single rail launch', () => {
     const { result } = hook()
     await act(async () => { await result.current.handleToggle('rail-0') })
     expect(fetchMock.mock.calls[0][0]).toContain('/api/launch-preflight?projectId=p1&providers=claude')
-    expect(notify).toHaveBeenCalledWith('Fix the failed check before launching.', expect.objectContaining({ detail: 'Claude signed out — sign in first' }))
+    expect(notify).toHaveBeenCalledWith('Fix the failed check before launching.', expect.objectContaining({ detail: 'Claude signed out. Sign in to Claude before launching.' }))
     expect(fetchMock.mock.calls.some(([url]) => /\/rails\/\d+\/(tickets|launch)$/.test(String(url)))).toBe(false)
   })
 

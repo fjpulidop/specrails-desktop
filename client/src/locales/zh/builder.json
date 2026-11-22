@@ -323,7 +323,7 @@
       "progress": "第 {{k}}/{{n}} 条轨道",
       "waiting": "等待第 {{k}} 条轨道结束",
       "stackedOn": "下一条轨道基于 {{branch}}",
-      "paused": "已暂停 — {{reason}}",
+      "paused": "已暂停：{{reason}}",
       "completed": "所有轨道已启动",
       "cancelled": "链已取消",
       "resume": "恢复",
@@ -345,7 +345,7 @@
         "run_lost": "重启后找不到运行中的轨道",
         "unknown": "已暂停",
         "provider_limit": "已达到提供商用量限额",
-        "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续",
+        "rail_limit_reached": "每条轨道都有等待你决定的 PR，合并或放弃待处理的 PR 以释放轨道，然后继续",
         "integration_failed": "规格集成失败（{{detail}}）"
       },
       "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
@@ -358,7 +358,6 @@
       "autoOn": "已开启自动继续 — 后续轨道将自动启动",
       "autoOff": "已关闭自动继续 — 每条轨道启动前都会询问",
       "autoFailed": "无法更新链",
-      "integrating": "正在集成此规格，然后再启动下一个",
       "cancelFailed": "无法取消该链",
       "offer": {
         "complete": "完成该链",
@@ -426,6 +425,12 @@
         "milestone": "此里程碑的专属配置",
         "usual": "你的常用配置",
         "launch": "启动时选择的配置"
+      },
+      "integrationPhase": {
+        "integrating": "正在集成此规格，然后再启动下一个",
+        "refreshing": "它与之后集成的内容冲突。正在基于新基线更新",
+        "resolving": "代理正在解决它与新基线的冲突",
+        "reverifying": "已基于新基线更新。集成前再次验证"
       }
     },
     "toast": {

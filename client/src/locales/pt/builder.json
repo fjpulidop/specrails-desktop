@@ -323,7 +323,7 @@
       "progress": "rail {{k}} de {{n}}",
       "waiting": "à espera que o rail {{k}} termine",
       "stackedOn": "o próximo rail parte de {{branch}}",
-      "paused": "Em pausa — {{reason}}",
+      "paused": "Em pausa: {{reason}}",
       "completed": "Todos os rails lançados",
       "cancelled": "Cadeia cancelada",
       "resume": "Retomar",
@@ -345,7 +345,7 @@
         "run_lost": "o rail em execução não foi encontrado após um reinício",
         "unknown": "em pausa",
         "provider_limit": "o limite de utilização do fornecedor foi atingido",
-        "rail_limit_reached": "todos os rails têm um PR à espera da tua decisão — faz merge ou descarta PRs pendentes para libertar um rail e depois retoma",
+        "rail_limit_reached": "todos os rails têm um PR à espera da tua decisão; faz merge ou descarta PRs pendentes para libertar um rail e depois retoma",
         "integration_failed": "a integração da spec falhou ({{detail}})"
       },
       "checkpoint": "Rail {{k}} de {{n}} entregue — lançar o rail {{next}}?",
@@ -358,7 +358,6 @@
       "autoOn": "Continuação automática ligada — os próximos rails são lançados sozinhos",
       "autoOff": "Continuação automática desligada — será perguntado antes de cada rail",
       "autoFailed": "Não foi possível atualizar a cadeia",
-      "integrating": "a integrar esta spec antes de lançar a seguinte",
       "cancelFailed": "Não foi possível cancelar a cadeia",
       "offer": {
         "complete": "Concluir a cadeia",
@@ -426,6 +425,12 @@
         "milestone": "A configuração própria deste marco",
         "usual": "Sua configuração habitual",
         "launch": "A configuração escolhida ao lançar"
+      },
+      "integrationPhase": {
+        "integrating": "A integrar esta spec antes de lançar a seguinte",
+        "refreshing": "Entra em conflito com o que foi integrado entretanto. A atualizar sobre a nova base",
+        "resolving": "Um agente está a resolver os conflitos com a nova base",
+        "reverifying": "Atualizada sobre a nova base. A verificá-la de novo antes de a integrar"
       }
     },
     "toast": {

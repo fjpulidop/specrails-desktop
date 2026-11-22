@@ -317,7 +317,8 @@
       "reopen": "Reopening…",
       "merge-local": "Integrating locally…",
       "recover-and-retry": "Committing and retrying the preserved result…",
-      "acknowledge-no-changes": "Marking done…"
+      "acknowledge-no-changes": "Marking done…",
+      "refresh-on-base": "Updating it on the new base…"
     },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} spec",

@@ -17,6 +17,7 @@ import { clearUserPause, markUserPaused, USER_PAUSE_EVENT, USER_RESUME_LINE } fr
 import { scheduleLimitResume } from '../../provider-quota/runtime/quota-reports'
 import type { DefinitionInterrupt } from './loop-definition-run'
 import { runQuestionFrom } from '../../../shared/run-question'
+import { decisionHoldKind } from './loop-run-hold'
 
 export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pending?: DefinitionInterrupt[]): Promise<Exclude<PausedHumanDecision, { action: 'switch' }>> {
   const { host, req, runId, state, exactTicketIds } = ctx
@@ -37,6 +38,7 @@ export async function awaitHumanDecision(ctx: LoopRunContext, reason: string, pe
     railIndex: req.railIndex ?? null,
     reason,
     ticketIds: exactTicketIds,
+    holdKind: decisionHoldKind(pending),
     ...(question ? { question } : {}),
   })
   host.emit({
@@ -138,6 +140,7 @@ export async function awaitBudget(ctx: LoopRunContext, breach: LoopBudgetBreach)
       reason,
       ticketIds: exactTicketIds,
       pauseKind: BUDGET_PAUSED,
+      holdKind: 'budget',
       budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt,
         ...(current.nextStep ? { nextStep: { ...current.nextStep }, remainingUsd: current.remainingUsd } : {}) },
     })
@@ -220,7 +223,7 @@ export async function awaitUserPause(ctx: LoopRunContext, requestId: string): Pr
   ctx.events.emitRunEvent(USER_PAUSE_EVENT, { state: 'paused' })
   try { markUserPaused(host.db, runId, requestId, pausedAt) } catch { /* the in-memory pause still holds; a restart keeps the run paused anyway */ }
   pauseLoopRun(host.db, runId, runCounters(state), USER_PAUSED)
-  host.emit({ type: 'loop.run_paused', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, reason, ticketIds: exactTicketIds, pauseKind: USER_PAUSED })
+  host.emit({ type: 'loop.run_paused', projectId: req.projectId, loopRunId: runId, railIndex: req.railIndex ?? null, reason, ticketIds: exactTicketIds, pauseKind: USER_PAUSED, holdKind: 'paused' })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: false, pendingInterrupts: [], settleMode: 'auto', timestamp: pausedAt })
   ctx.capacity?.yieldSlot()
   const decision = await decisionPromise
@@ -300,6 +303,7 @@ export async function awaitProviderLimit(ctx: LoopRunContext, announced: Omit<Lo
     reason,
     ticketIds: exactTicketIds,
     pauseKind: LIMIT_PAUSED,
+    holdKind: 'provider_limit',
     limit: { ...pause },
   })
   host.emit({ type: 'job.interactive', projectId: req.projectId, jobId: runId, acceptingTurns: true, pendingInterrupts: [], settleMode: 'auto', timestamp: pause.pausedAt })

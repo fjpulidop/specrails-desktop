@@ -381,6 +381,7 @@ exports[`LoopRunManager characterization: full run traces > LOOP_BLOCKED pauses 
       "type": "log",
     },
     {
+      "holdKind": "question",
       "loopRunId": "trace-blocked",
       "projectId": "p1",
       "railIndex": 0,
@@ -1788,6 +1789,7 @@ exports[`LoopRunManager characterization: full run traces > budget pause between
         "scope": "project",
         "spentUsd": 12,
       },
+      "holdKind": "budget",
       "loopRunId": "trace-budget",
       "pauseKind": "budget_paused",
       "projectId": "p1",
@@ -3811,6 +3813,7 @@ exports[`LoopRunManager characterization: full run traces > provider limit pause
       "type": "log",
     },
     {
+      "holdKind": "provider_limit",
       "limit": {
         "autoResume": true,
         "message": "provider returned an error result — You've hit your session limit · resets 3am (Europe/Madrid)",
@@ -3921,6 +3924,7 @@ exports[`LoopRunManager characterization: full run traces > provider limit pause
       "type": "log",
     },
     {
+      "holdKind": "provider_limit",
       "limit": {
         "autoResume": true,
         "message": "provider returned an error result — You've hit your session limit · resets 3am (Europe/Madrid)",
@@ -4031,6 +4035,7 @@ exports[`LoopRunManager characterization: full run traces > provider limit pause
       "type": "log",
     },
     {
+      "holdKind": "provider_limit",
       "limit": {
         "autoResume": true,
         "message": "provider returned an error result — You've hit your session limit · resets 3am (Europe/Madrid)",
@@ -6984,6 +6989,7 @@ exports[`LoopRunManager characterization: traversal routing > a LOOP_BLOCKED ste
       "type": "log",
     },
     {
+      "holdKind": "question",
       "loopRunId": "ai-blocked-stop",
       "projectId": "p1",
       "railIndex": 0,
@@ -7462,6 +7468,7 @@ exports[`LoopRunManager characterization: traversal routing > a blocked decider 
       "type": "log",
     },
     {
+      "holdKind": "question",
       "loopRunId": "dec-blocked",
       "projectId": "p1",
       "railIndex": 0,

@@ -368,7 +368,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
             <span className="text-display num leading-none text-foreground">{elapsed}</span>
             {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
           <span className="sr-only"> ({t('statusPanel.duration')})</span></span>
-        ) : (
+        ) : elapsed === '—' && !isRunning ? null : (
+        // A missing figure renders nothing (DESIGN.md: no placeholders).
         <span
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : hold ? t('held.stoppedTime') : t('statusPanel.duration')}

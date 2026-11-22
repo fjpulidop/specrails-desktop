@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1941 source/build files. Nearby tests are linked where names
+Includes 1942 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -587,6 +587,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
 - [LoopRunDetail.tsx](../../client/src/features/jobs/components/job-run/LoopRunDetail.tsx)
+- [RunBudgetPause.tsx](../../client/src/features/jobs/components/job-run/RunBudgetPause.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/RunBudgetPause.test.tsx)
 - [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
 - [RunPauseControl.tsx](../../client/src/features/jobs/components/job-run/RunPauseControl.tsx)
 - [RunQuestionDock.tsx](../../client/src/features/jobs/components/job-run/RunQuestionDock.tsx)

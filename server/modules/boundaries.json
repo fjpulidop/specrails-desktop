@@ -3338,6 +3338,7 @@
         "./loop-limit-pauses",
         "./loop-run-context",
         "./loop-run-contract",
+        "./loop-run-hold",
         "./loop-run-vars",
         "./loop-runs-store",
         "./loop-user-pauses"

@@ -317,7 +317,8 @@
       "reopen": "正在重新打开…",
       "merge-local": "正在本地集成…",
       "recover-and-retry": "正在提交并重新推送已保留的结果…",
-      "acknowledge-no-changes": "正在标记完成…"
+      "acknowledge-no-changes": "正在标记完成…",
+      "refresh-on-base": "正在基于新基线更新…"
     },
     "markDone": "标记为完成",
     "refine": "细化",

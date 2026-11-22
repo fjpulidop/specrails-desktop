@@ -317,7 +317,8 @@
       "reopen": "再オープン中…",
       "merge-local": "ローカルで統合中…",
       "recover-and-retry": "保存された結果をコミットして再プッシュしています…",
-      "acknowledge-no-changes": "完了に変更中…"
+      "acknowledge-no-changes": "完了に変更中…",
+      "refresh-on-base": "新しいベースで更新しています…"
     },
     "markDone": "完了にする",
     "refine": "改善する",

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchLaunchPreflight, type PreflightReport } from './launch-preflight'
-import { chipText } from '../components/LaunchPreflightChips'
+import { chipHint, chipText } from '../components/LaunchPreflightChips'
 
 /**
  * The preflight of one dialog session: fetched when the dialog opens (and
@@ -42,7 +42,12 @@ export function useLaunchGuard(): (projectId: string, providers: readonly string
     let report: PreflightReport | null = null
     try { report = await fetchLaunchPreflight(projectId, providers.length ? providers : ['']) } catch { return null }
     if (!report?.blocking) return null
-    const failed = report.chips.filter((chip) => chip.state === 'fail').map((chip) => chipText(chip, (key, options) => String(t(key, options)), i18n.language))
+    // Outside the dialog there is no tooltip: each failed check says its state, then what to do.
+    const tr = (key: string, options?: Record<string, unknown>) => String(t(key, options))
+    const failed = report.chips.filter((chip) => chip.state === 'fail').map((chip) => {
+      const hint = chipHint(chip, tr, i18n.language)
+      return hint ? `${chipText(chip, tr, i18n.language)}. ${hint}` : chipText(chip, tr, i18n.language)
+    })
     return { message: String(t('preflight.blocking')), failed }
   }, [t, i18n.language])
 }

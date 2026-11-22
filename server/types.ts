@@ -911,6 +911,23 @@ export interface PrDeliveryLocalRestore {
   updatedAt: string
 }
 
+/**
+ * Progress of the automatic base refresh of a conflicted local delivery
+ * (`project-delivery-base-refresh.ts`): `merging` the updated base into the
+ * delivery, an agent `resolving` the conflicted files, `verifying` the merged
+ * candidate in a fork of the run (`loopRunId`), or `refused` (with its reason
+ * and the conflicts left): the chain then pauses with its options.
+ */
+export interface DeliveryBaseRefreshMessage {
+  type: 'delivery.base_refresh'
+  projectId: string
+  deliveryId: string
+  phase: 'merging' | 'resolving' | 'verifying' | 'refused'
+  conflicts?: string[]
+  loopRunId?: string
+  reason?: string
+}
+
 export interface RailPrStateMessage {
   executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
   repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
@@ -939,7 +956,7 @@ export interface RailPrStateMessage {
   /** Explicit allocation rollback: this active generation was restored after
    * the referenced replacement generation failed. */
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'checkout' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'refresh-on-base' | 'checkout' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{
@@ -1043,6 +1060,8 @@ export interface LoopRunPausedMessage {
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
   pauseKind?: 'budget_paused' | 'limit_paused' | 'user_paused'
+  /** Why the run is held, in the run-hold vocabulary (`RunHoldKind`): every surface names and colours it from this. */
+  holdKind: 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused'
   budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
   /** `limit_paused`: the provider refused on its usage limit; resumes at `resumeAt` when `autoResume`. */
   limit?: { providerId: string; resumeAt: string | null; autoResume: boolean; message: string; pausedAt: string; switchable: boolean }
@@ -1421,7 +1440,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailMergePreviewMessage | RailPrStateMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailMergePreviewMessage | RailPrStateMessage | DeliveryBaseRefreshMessage
   | IntentStateMessage
  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunQueuedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
@@ -1809,7 +1828,7 @@ export interface PrDecisionCardEnvelope {
   isContinuation: boolean
   supersedesDeliveryId: string | null
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'checkout' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'refresh-on-base' | 'checkout' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{

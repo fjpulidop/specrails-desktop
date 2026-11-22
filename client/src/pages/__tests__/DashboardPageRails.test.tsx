@@ -242,6 +242,69 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
     })
   })
 
+  it('a fresh client (or cleared storage) shows the server\'s assignment of IDLE rails', async () => {
+    mockActiveProjectId = 'proj-1'
+    global.fetch = railsResponse({
+      rails: [
+        { railIndex: 0, ticketIds: [1, 2] },
+        { railIndex: 1, ticketIds: [3] },
+        { railIndex: 2, ticketIds: [] },
+      ],
+      activeJobs: {},
+      activeLoopRuns: {},
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails.map((r: { ticketIds: number[]; status: string }) => [r.status, r.ticketIds])).toEqual([['idle', [1, 2]], ['idle', [3]], ['idle', []]])
+    })
+    expect(localStorage.getItem('specrails-desktop:rails-server-assignments:proj-1')).toBe('1')
+    // Adopting is reading: nothing is written back.
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')).toBe(false)
+  })
+
+  it('once reconciled, the server wins over a stale local idle assignment', async () => {
+    mockActiveProjectId = 'proj-1'
+    localStorage.setItem('specrails-desktop:rails-server-assignments:proj-1', '1')
+    localStorage.setItem('specrails-desktop:rails:proj-1', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [5], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ]))
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 0, ticketIds: [] }, { railIndex: 1, ticketIds: [5] }, { railIndex: 2, ticketIds: [] }],
+      activeJobs: {},
+      activeLoopRuns: {},
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[0].ticketIds).toEqual([])
+      expect(rails[1].ticketIds).toEqual([5])
+    })
+  })
+
+  it('a board that never reconciled writes its local-only assignment up once instead of dropping it', async () => {
+    mockActiveProjectId = 'proj-1'
+    localStorage.setItem('specrails-desktop:rails:proj-1', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [5], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ]))
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 0, ticketIds: [] }, { railIndex: 1, ticketIds: [] }, { railIndex: 2, ticketIds: [] }],
+      activeJobs: {},
+      activeLoopRuns: {},
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const put = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+      expect(put?.[0]).toBe('/api/rails/0/tickets')
+      expect(JSON.parse(String((put?.[1] as RequestInit).body))).toEqual({ ticketIds: [5] })
+    })
+    expect(JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)[0].ticketIds).toEqual([5])
+  })
+
   it('strips adopted tickets from OTHER rails (no ticket on two rails at once)', async () => {
     mockActiveProjectId = 'proj-1'
     // Ticket 7 was locally dragged onto rail-2, but the server launched it on slot 0.

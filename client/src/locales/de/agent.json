@@ -317,7 +317,8 @@
       "reopen": "Wird erneut geöffnet…",
       "merge-local": "Wird lokal integriert…",
       "recover-and-retry": "Gesichertes Ergebnis wird committet und erneut gepusht…",
-      "acknowledge-no-changes": "Wird als erledigt markiert…"
+      "acknowledge-no-changes": "Wird als erledigt markiert…",
+      "refresh-on-base": "Wird auf die neue Basis aktualisiert…"
     },
     "markDone": "Als erledigt markieren",
     "refine": "Verfeinern",

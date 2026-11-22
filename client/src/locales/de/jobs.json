@@ -296,6 +296,7 @@
     "copyCommand": "Kopieren",
     "interrupted": "Unterbrochen",
     "waiting": "Warte auf den nächsten Schritt…",
+    "notStarted": "Es lief noch kein Schritt.",
     "stepMapAria": "Loop-Schrittübersicht",
     "stalled": "Hängt",
     "stalledIdle_one": "{{count}} Minute ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
@@ -477,5 +478,18 @@
       "other": "Wartet auf Kapazität, bevor es beginnt.",
       "position": "Position {{position}} in der Warteschlange; es beginnt von selbst."
     }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "Er hat vor seinem ersten Schritt angehalten, es lief also noch nichts.",
+    "beforeStep": "Er hat vor {{step}} angehalten.",
+    "betweenSteps": "Er hat zwischen zwei Schritten angehalten.",
+    "titleShared": "Lauf an einem Ausgabenlimit pausiert",
+    "limit": "Limit",
+    "spent": "Ausgegeben",
+    "left": "Übrig",
+    "nextStep": "Nächster Schritt",
+    "about": "etwa {{usd}}",
+    "nextStepNote": "{{step}}, geschätzt",
+    "failed": "Der Lauf konnte nicht fortgesetzt werden"
   }
 }

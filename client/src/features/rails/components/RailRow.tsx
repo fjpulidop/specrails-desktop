@@ -124,8 +124,9 @@ export function RailRow({
   onModeChange, onProfileChange, onEngineChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs, launchBlockedReason,
 }: RailRowProps) {
-  // A held run (your pause, a limit, a question) is not working: the rail's lamp says paused.
-  const railHeld = status === 'running' && executionMetric?.heldSince != null
+  // A held run (your pause, a limit, a question) is not working: the rail's lamp names its hold
+  // (a provider limit is blocked, a question needs you, a pause or the budget is paused).
+  const railHold = status === 'running' && executionMetric?.heldSince != null ? executionMetric.holdKind ?? 'paused' : null
   const { t } = useTranslation('dashboard')
   const { activeProjectId, projects } = useDesktop()
   const repositories = projectRepositories(projects.find(project => project.id === activeProjectId))
@@ -469,7 +470,7 @@ export function RailRow({
           >
             <GripVertical className="w-3 h-3" />
           </button>
-          <RunStateDot state={railRunState(status, railHeld)} label={t(railHeld ? 'railRow.status.paused' : `railRow.status.${status}`)} />
+          <RunStateDot state={railRunState(status, railHold)} label={railHold ? t(`jobs:held.label.${railHold}`) : t(`railRow.status.${status}`)} />
           {editing ? (
             <form
               className="flex items-center gap-0.5 min-w-0 flex-1"
@@ -637,7 +638,7 @@ export function RailRow({
 
         {workspacePicker}
         {launchGuard.dialog}
-        {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
+        {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual hold={railHold} />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
           <div className="mt-1">
@@ -720,7 +721,7 @@ export function RailRow({
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <RunStateDot state={railRunState(status, railHeld)} label={t(railHeld ? 'railRow.status.paused' : `railRow.status.${status}`)} />
+            <RunStateDot state={railRunState(status, railHold)} label={railHold ? t(`jobs:held.label.${railHold}`) : t(`railRow.status.${status}`)} />
             {editing ? (
               <form
                 className="flex items-center gap-0.5"
@@ -811,7 +812,7 @@ export function RailRow({
 
           {workspacePicker}
           {launchGuard.dialog}
-          {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
+          {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual hold={railHold} />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
             <div className="px-3 pb-1.5">

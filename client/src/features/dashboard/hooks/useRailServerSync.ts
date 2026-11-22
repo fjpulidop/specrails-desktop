@@ -1,19 +1,22 @@
 /**
- * Server reconciliation of the client-local rails projection: the
- * bidirectional reconcile against `GET /rails` on mount / project switch /
- * reconnect, and adoption of server-side rail names (desktop ⇄ mobile sync).
+ * Server reconciliation of the board's rails: the bidirectional reconcile
+ * against `GET /rails` on mount / project switch / reconnect (the server owns
+ * which specs sit on which rail), and adoption of server-side rail names
+ * (desktop ⇄ mobile sync).
  */
 import { useEffect, type Dispatch, type SetStateAction } from 'react'
 import { getApiBase } from '../../../lib/api'
 import type { RailState } from '../../rails/components/RailsBoard'
 import { deriveRailMode, adoptedSelectedLoopId } from '../../rails/lib/rail-loops'
 import { railIdFromIndex, railIndexFromId } from '../../rails/lib/rail-id'
-import { INITIAL_RAILS, loadRails, saveRails, toRailMode } from '../lib/board-rails'
+import { INITIAL_RAILS, loadRails, markServerAssignmentsAdopted, reconcileIdleTickets, saveRails, serverAssignmentsAdopted, toRailMode } from '../lib/board-rails'
 
 export function useRailServerSync(
   activeProjectId: string | null,
   connectionStatus: string,
   setRails: Dispatch<SetStateAction<RailState[]>>,
+  /** A local move of the rail is still being written (`useBoardRails`): keep it. */
+  isTicketWritePending: (railIndex: number) => boolean = () => false,
 ) {
   // ── Reconcile rails against the server on mount / project switch / reconnect ─
   // The Kanban's rail state is a client-local projection (localStorage + live WS
@@ -24,7 +27,10 @@ export function useRailServerSync(
   //   • server-active rail, local idle  → ADOPT (running + activeJobId + the
   //     server's ticket assignment), so an agent-launched rail lights up here;
   //   • local running, server inactive  → CLEAR (finished while we were away);
-  //   • both running                    → restore a lost activeJobId only.
+  //   • both running                    → restore a lost activeJobId only;
+  //   • both idle                       → the SERVER's spec assignment (see
+  //     `reconcileIdleTickets`), so a fresh client or a cleared storage shows
+  //     the specs where they are.
   useEffect(() => {
     if (connectionStatus !== 'connected' || !activeProjectId) return
 
@@ -34,6 +40,8 @@ export function useRailServerSync(
     // response must not clear that optimistic state back to idle.
     const preRails = loadRails(activeProjectId) ?? INITIAL_RAILS
     const preById = new Map(preRails.map((p) => [p.id, p]))
+    // A board that never reconciled keeps (and writes up) what older versions saved only here.
+    const legacy = !serverAssignmentsAdopted(activeProjectId)
     fetch(`${getApiBase()}/rails`)
       .then((res) => res.ok ? res.json() : null)
       .then((data: {
@@ -57,6 +65,22 @@ export function useRailServerSync(
           serverTicketsByIndex.set(r.railIndex, Array.isArray(r.ticketIds) ? r.ticketIds : [])
         }
         const serverIndices = new Set(serverRails.map((r) => r.railIndex))
+        const claimedElsewhere = (idx: number) => {
+          const claimed = new Set<number>()
+          for (const [i, ids] of serverTicketsByIndex) if (i !== idx) for (const id of ids) claimed.add(id)
+          return claimed
+        }
+        // Assignments older versions kept only in this browser reach the server once
+        // (decided on the cached board, outside the state updater, which may run later).
+        const toPush: { railIndex: number; ticketIds: number[] }[] = []
+        if (legacy) {
+          for (const [pos, r] of (loadRails(activeProjectId) ?? INITIAL_RAILS).entries()) {
+            const idx = railIndexFromId(r.id) ?? pos
+            if (r.status === 'running' || activeIndices.has(idx)) continue
+            const { push, ticketIds } = reconcileIdleTickets({ local: r.ticketIds, before: undefined, server: serverTicketsByIndex.get(idx), pending: false, legacy, claimedElsewhere: claimedElsewhere(idx) })
+            if (push) toPush.push({ railIndex: idx, ticketIds: [...ticketIds] })
+          }
+        }
         setRails((prev) => {
           let changed = false
           const adoptedTickets = new Map<string, number[]>()
@@ -102,7 +126,21 @@ export function useRailServerSync(
                 ...(adoptedSelectedLoopId(loopRun?.loopId) ? { selectedLoopId: adoptedSelectedLoopId(loopRun?.loopId) } : {}),
               }
             }
-            if (r.status !== 'running') return r
+            if (r.status !== 'running') {
+              // Idle on both sides: the server says which specs the rail holds.
+              const { ticketIds } = reconcileIdleTickets({
+                local: r.ticketIds,
+                before: preById.get(r.id)?.ticketIds,
+                server: serverTicketsByIndex.get(idx),
+                pending: isTicketWritePending(idx),
+                legacy,
+                claimedElsewhere: claimedElsewhere(idx),
+              })
+              if (ticketIds === r.ticketIds) return r
+              adoptedTickets.set(r.id, [...ticketIds])
+              changed = true
+              return { ...r, ticketIds: [...ticketIds] }
+            }
             // Launched locally AFTER the fetch started (optimistic 202 state):
             // the response predates the launch — leave it alone.
             if (preById.get(r.id)?.status !== 'running') return r
@@ -172,11 +210,19 @@ export function useRailServerSync(
           saveRails(activeProjectId, deduped)
           return deduped
         })
+        for (const { railIndex, ticketIds } of toPush) {
+          fetch(`${getApiBase()}/rails/${railIndex}/tickets`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketIds }),
+          }).catch(() => {})
+        }
+        markServerAssignmentsAdopted(activeProjectId)
       })
       .catch(() => {})
 
     return () => { cancelled = true }
-  }, [activeProjectId, connectionStatus, setRails])
+  }, [activeProjectId, connectionStatus, setRails, isTicketWritePending])
 
   // ── Adopt server-side rail names on load/switch (desktop ⇄ mobile sync) ──────
   // Names only — never ticketIds — so a fresh load can't clobber locally-dragged

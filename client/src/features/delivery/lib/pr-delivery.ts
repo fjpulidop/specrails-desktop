@@ -24,7 +24,7 @@ const DELIVERY_OUTCOMES: ReadonlySet<string> = new Set([
   'retryable_failure', 'blocked', 'not_started', 'unknown',
 ])
 const OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'checkout',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'checkout', 'refresh-on-base',
 ])
 const STATUS_CODES: ReadonlySet<string> = new Set([
   'implementation_running', 'implementation_failed', 'run_stopped', 'ready_for_review', 'restart_pending',

@@ -19,6 +19,7 @@ import {
   chainIsLive,
   chainNextEngine,
   chainOfferParams,
+  chainIntegrationPhase,
   chainPauseReason,
   deliveredCount,
   milestoneLabelFor,
@@ -384,8 +385,14 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
   const paused = chain.status === 'paused'
   const checkpoint = chainAtCheckpoint(chain)
   const reason = chainPauseReason(chain.pauseReason)
+  // Integrating a delivered spec, and the automatic base refresh when it conflicts with what was integrated since.
+  const integrationPhase = !paused && !checkpoint ? chainIntegrationPhase(chain) : null
+  // A refused integration names why (a conflict the automatic base refresh could not settle), in words.
+  const reasonDetail = reason.key === 'integration_failed' && reason.detail
+    ? t(`milestoneProgress.chain.integrationDetails.${reason.detail}`, { defaultValue: reason.detail })
+    : reason.detail
   const reasonText = paused
-    ? t(`milestoneProgress.chain.reasons.${reason.key}`, { detail: reason.detail, defaultValue: chain.pauseReason ?? '' })
+    ? t(`milestoneProgress.chain.reasons.${reason.key}`, { detail: reasonDetail, defaultValue: chain.pauseReason ?? '' })
     : null
   const showToggle = chain.mode === 'sequential' && (live || paused || checkpoint) && Boolean(onSetAutoAdvance)
   // Paused on a spec that FAILED and ran as one run: it can continue from the failed step.
@@ -521,6 +528,12 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
               {t(`milestoneProgress.chain.held.${held.key}`, { k: held.chunk })}
             </span>
           </>
+        ) : integrationPhase ? (
+          // The base refresh of a conflicted delivery is work in progress: the running lamp and its step.
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground" data-testid="milestone-chain-integration" data-phase={integrationPhase}>
+            <RunStateDot state="working" />
+            <span className="min-w-0 leading-snug">{t(`milestoneProgress.chain.integrationPhase.${integrationPhase}`)}</span>
+          </span>
         ) : chain.status === 'running' ? (
           <>
             <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
@@ -537,7 +550,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
         ) : chain.status === 'cancelled' ? (
           <span className="flex items-center gap-1"><Ban className="h-3 w-3" aria-hidden />{t('milestoneProgress.chain.cancelled')}</span>
         ) : (
-          <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
+          <span>{t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
       {next && (

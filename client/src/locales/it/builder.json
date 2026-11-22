@@ -323,7 +323,7 @@
       "progress": "rail {{k}} di {{n}}",
       "waiting": "in attesa che il rail {{k}} termini",
       "stackedOn": "il rail successivo parte da {{branch}}",
-      "paused": "In pausa — {{reason}}",
+      "paused": "In pausa: {{reason}}",
       "completed": "Tutti i rail lanciati",
       "cancelled": "Catena annullata",
       "resume": "Riprendi",
@@ -345,7 +345,7 @@
         "run_lost": "il rail in esecuzione non è stato trovato dopo un riavvio",
         "unknown": "in pausa",
         "provider_limit": "raggiunto il limite d'uso del provider",
-        "rail_limit_reached": "ogni rail ha una PR in attesa della tua decisione — unisci o scarta le PR in sospeso per liberare un rail, poi riprendi",
+        "rail_limit_reached": "ogni rail ha una PR in attesa della tua decisione; unisci o scarta le PR in sospeso per liberare un rail, poi riprendi",
         "integration_failed": "l'integrazione della spec è fallita ({{detail}})"
       },
       "checkpoint": "Rail {{k}} di {{n}} consegnato — avviare il rail {{next}}?",
@@ -358,7 +358,6 @@
       "autoOn": "Continuazione automatica attiva — i prossimi rail partono da soli",
       "autoOff": "Continuazione automatica disattivata — ti verrà chiesto prima di ogni rail",
       "autoFailed": "Impossibile aggiornare la catena",
-      "integrating": "integrazione di questa spec prima di avviare la successiva",
       "cancelFailed": "Impossibile annullare la catena",
       "offer": {
         "complete": "Completa la catena",
@@ -426,6 +425,12 @@
         "milestone": "La configurazione propria di questa milestone",
         "usual": "La tua configurazione abituale",
         "launch": "La configurazione scelta al lancio"
+      },
+      "integrationPhase": {
+        "integrating": "Integrazione di questa spec prima di avviare la successiva",
+        "refreshing": "È in conflitto con quanto integrato da allora. Aggiornamento sulla nuova base",
+        "resolving": "Un agente sta risolvendo i suoi conflitti con la nuova base",
+        "reverifying": "Aggiornata sulla nuova base. Nuova verifica prima di integrarla"
       }
     },
     "toast": {

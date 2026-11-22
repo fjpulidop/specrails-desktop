@@ -80,6 +80,20 @@ export type ChainIoFailure = { ok: false; status: number; error: string; detail?
 export function isIntegrationConflict(failure: ChainIoFailure): boolean {
   return failure.error === 'merge_failed' && /\bCONFLICT\b/.test(failure.detail ?? '')
 }
+/**
+ * Where a chunk's integration stands while the chain waits (`status: 'waiting'`): the guarded
+ * merge (`integration_pending`), then, when it conflicts with what was integrated since, the base
+ * refresh: merging the base into the delivery (`integration_refreshing`) and an agent resolving the
+ * conflicted files (`integration_resolving`). While the merged candidate is verified again the
+ * chain runs (`integration_reverifying`). All keep the `integration_` prefix, so a restart
+ * integrates the delivery again (`recoverOnStartup`).
+ */
+export const INTEGRATION_PENDING = 'integration_pending'
+export const INTEGRATION_REFRESHING = 'integration_refreshing'
+export const INTEGRATION_RESOLVING = 'integration_resolving'
+export const INTEGRATION_REVERIFYING = 'integration_reverifying'
+const INTEGRATION_WAIT_REASONS: ReadonlySet<string> = new Set([INTEGRATION_PENDING, INTEGRATION_REFRESHING, INTEGRATION_RESOLVING])
+
 /** Why a conflicted integration paused after the automatic base refresh could not run (the pause detail). */
 const CONFLICT_REASON: Record<string, string> = {
   refresh_conflict_unresolved: 'conflict_unresolved',
@@ -633,7 +647,7 @@ export class MilestoneChainManager {
     if (snap.implementationOutcome === 'partially_succeeded' || snap.implementationOutcome === 'failed') { this.pauseFailedChunk(row, 'chunk_failed'); return }
     if (snap.decision === 'merged' || snap.decision === 'completed') { this.completeIntegrated(row); return }
     this.integrating.add(chainId)
-    updateChain(this.db, row.id, row.status, { status: 'waiting', pauseReason: 'integration_pending' }, this.now())
+    updateChain(this.db, row.id, row.status, { status: 'waiting', pauseReason: INTEGRATION_PENDING }, this.now())
     const pending = getChain(this.db, chainId)!
     this.emit(pending)
     try {
@@ -657,6 +671,9 @@ export class MilestoneChainManager {
    * failed-spec options. Only a refresh that cannot run pauses here, with its reason.
    */
   private async refreshConflicted(row: MilestoneChainRow, snap: PrDeliverySnapshot): Promise<void> {
+    // Every surface says the spec is being updated on the integrated base (then, with real conflicts,
+    // that an agent resolves them), not "integrating" while minutes of merge and agent work go by.
+    this.markIntegrationPhase(row.id, snap.id, INTEGRATION_REFRESHING)
     let refreshed: { ok: true; runId: string } | ChainIoFailure
     try { refreshed = await this.io.refreshDelivery!(snap) } catch (error) {
       refreshed = { ok: false, status: 409, error: 'refresh_rejected', detail: error instanceof Error ? error.message : String(error) }
@@ -668,8 +685,20 @@ export class MilestoneChainManager {
     // the rail was launched on), so following, adopting or resuming it keeps that engine.
     const runId = refreshed.runId
     const launched = parseLaunched(current).map((l) => l.deliveryId === snap.id && !l.runIds.includes(runId) ? { ...l, runIds: [...l.runIds, runId] } : l)
-    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [runId], pauseReason: null, launched }, this.now())) {
+    // `integration_reverifying`: the chain follows the run that verifies the merged candidate again.
+    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [runId], pauseReason: INTEGRATION_REVERIFYING, launched }, this.now())) {
       const fresh = getChain(this.db, current.id)
+      if (fresh) this.emit(fresh)
+    }
+  }
+
+  /** Record where the base refresh of the chain's waiting delivery stands (refreshing, then resolving). */
+  private markIntegrationPhase(chainId: string, deliveryId: string, reason: typeof INTEGRATION_REFRESHING | typeof INTEGRATION_RESOLVING): void {
+    const row = getChain(this.db, chainId)
+    if (!row || row.status !== 'waiting' || row.current_delivery_id !== deliveryId || row.pause_reason === reason) return
+    if (!row.pause_reason || !INTEGRATION_WAIT_REASONS.has(row.pause_reason)) return
+    if (updateChain(this.db, row.id, row.status, { pauseReason: reason }, this.now())) {
+      const fresh = getChain(this.db, row.id)
       if (fresh) this.emit(fresh)
     }
   }
@@ -680,7 +709,7 @@ export class MilestoneChainManager {
       if (row.current_delivery_id !== snap.id) continue
       if (snap.decision === 'building') continue
       if (this.io.integrateDelivery && SUCCESS_DECISIONS.has(snap.decision)) {
-        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === 'integration_pending') void this.integrateChunk(row.id).catch(logRejection('milestone chain integration'))
+        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === INTEGRATION_PENDING) void this.integrateChunk(row.id).catch(logRejection('milestone chain integration'))
         else if (row.pause_reason?.startsWith('integration_') && ['merged', 'completed'].includes(snap.decision)) this.completeIntegrated(row)
         continue
       }
@@ -713,6 +742,13 @@ export class MilestoneChainManager {
       if (chain && typeof chain.id === 'string' && chain.plan === undefined) {
         this.planSignatures.delete(chain.id)
         queueMicrotask(() => { try { this.refreshPlans() } catch { /* best effort */ } })
+      }
+      return
+    }
+    if (msg.type === 'delivery.base_refresh' && (msg as { phase?: unknown }).phase === 'resolving') {
+      const deliveryId = (msg as { deliveryId?: unknown }).deliveryId
+      if (typeof deliveryId === 'string') {
+        for (const row of listActiveChains(this.db)) if (row.current_delivery_id === deliveryId) this.markIntegrationPhase(row.id, deliveryId, INTEGRATION_RESOLVING)
       }
       return
     }

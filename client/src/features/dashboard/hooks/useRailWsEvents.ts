@@ -19,11 +19,14 @@ import type { RailsUpdater } from './useBoardRails'
 
 export function useRailWsEvents(opts: {
   activeProjectId: string | null
+  /** Applies what the server reports: cached, never written back (`useBoardRails.syncRails`). */
   updateRails: RailsUpdater
   setRailWorktrees: Dispatch<SetStateAction<RailWorktreeMap>>
   railPrDecisions: ReadonlyMap<number, RailPrStateSnapshot>
+  /** A local move of this rail is still being written: its echo must not undo a newer move. */
+  isTicketWritePending?: (railIndex: number) => boolean
 }) {
-  const { activeProjectId, updateRails, setRailWorktrees, railPrDecisions } = opts
+  const { activeProjectId, updateRails, setRailWorktrees, railPrDecisions, isTicketWritePending } = opts
   const { t } = useTranslation('dashboard')
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const activeProjectIdRef = useRef(activeProjectId)
@@ -95,7 +98,8 @@ export function useRailWsEvents(opts: {
         return prev.map((r) => {
           if (r.id !== railId) return r
           // A running rail keeps its launched ticket set; still adopt the name.
-          if (m.changed !== 'tickets' || r.status === 'running') return { ...r, label }
+          // While this board writes a newer move of the rail, the echo of an older write waits for it.
+          if (m.changed !== 'tickets' || r.status === 'running' || isTicketWritePending?.(idx)) return { ...r, label }
           return { ...r, label, ticketIds: serverTicketIds }
         })
       })
@@ -158,7 +162,7 @@ export function useRailWsEvents(opts: {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
       }
     }
-  }, [updateRails, setRailWorktrees, t])
+  }, [updateRails, setRailWorktrees, t, isTicketWritePending])
 
   useEffect(() => {
     registerHandler('dashboard-rails', handleRailWsMessage)

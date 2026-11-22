@@ -317,7 +317,8 @@
       "reopen": "Reabrindo…",
       "merge-local": "Integrando localmente…",
       "recover-and-retry": "A criar o commit e a tentar novamente o push do resultado preservado…",
-      "acknowledge-no-changes": "Marcando como concluído…"
+      "acknowledge-no-changes": "Marcando como concluído…",
+      "refresh-on-base": "A atualizar sobre a nova base…"
     },
     "markDone": "Marcar como concluídas",
     "refine": "Refinar",

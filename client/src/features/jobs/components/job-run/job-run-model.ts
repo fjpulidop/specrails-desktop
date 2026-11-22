@@ -21,7 +21,9 @@ export function formatWallClock(startedAt: string | null | undefined, finishedAt
     ? finishedAt
     : (parseJobTimestamp(finishedAt ?? null)?.getTime() ?? Number.NaN)
   // Time the run spent held (waiting for an answer, a restart, a limit) is not work.
-  const ms = endMs - (start?.getTime() ?? Number.NaN) - (Number.isFinite(heldMs) && heldMs > 0 ? heldMs : 0)
+  const raw = endMs - (start?.getTime() ?? Number.NaN) - (Number.isFinite(heldMs) && heldMs > 0 ? heldMs : 0)
+  // A hold recorded in whole seconds can sit a fraction before a millisecond start: that is no time, not an unknown one.
+  const ms = raw < 0 && raw > -1000 ? 0 : raw
   if (!Number.isFinite(ms) || ms < 0) return '—'
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`

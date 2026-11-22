@@ -393,3 +393,23 @@ describe('LoopStepExplorer', () => {
     expect(screen.getByText(/Loading logs/i)).toBeInTheDocument()
   })
 })
+
+describe('LoopStepExplorer graph view of a run held before its first step', () => {
+  const hold = { state: 'paused' as const, label: 'Spending limit' }
+  it('says no step ran instead of drawing a map of steps that never happened', () => {
+    render(<LoopStepExplorer events={[logEv('▶ Loop started'), graphEv()]} jobStatus="paused" hold={hold} view="graph" />)
+    expect(screen.getByTestId('loop-not-started')).toHaveTextContent('Spending limit. No step has run yet.')
+    expect(screen.queryByTestId('loop-overview-strip')).toBeNull()
+  })
+
+  it('shows the hold\'s own card when the surface gives one', () => {
+    render(<LoopStepExplorer events={[logEv('▶ Loop started'), graphEv()]} jobStatus="paused" hold={hold} view="graph" notStarted={<div data-testid="hold-card" />} />)
+    expect(screen.getByTestId('hold-card')).toBeInTheDocument()
+    expect(screen.queryByTestId('loop-not-started')).toBeNull()
+  })
+
+  it('draws the map as soon as a step ran', () => {
+    render(<LoopStepExplorer events={[graphEv(), stepEv(0, 'ai-step', 'Implement', { nodeId: 'ai1' })]} jobStatus="paused" hold={hold} view="graph" notStarted={<div data-testid="hold-card" />} />)
+    expect(screen.queryByTestId('hold-card')).toBeNull()
+  })
+})

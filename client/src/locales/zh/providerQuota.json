@@ -22,28 +22,35 @@
     "disk": {
       "ok": "可用 {{free}}",
       "warn": "仅剩 {{free}}",
-      "fail": "仅剩 {{free}} — 请先释放空间",
+      "fail": "仅剩 {{free}}",
+      "failHint": "请释放存放 worktree 的位置的空间，然后重新检查。",
       "unknown": "磁盘空间未知"
     },
     "provider": {
       "signed-in": "{{provider}} 已登录",
-      "signed-out": "{{provider}} 未登录 — 请先登录",
+      "signed-out": "{{provider}} 未登录",
       "missing": "{{provider}} 未安装",
-      "unknown": "{{provider}} 登录状态未知"
+      "unknown": "{{provider}} 登录状态未知",
+      "signedOutHint": "启动前请先登录 {{provider}}。"
     },
     "github": {
       "signed-in": "GitHub 已登录",
-      "signed-out": "GitHub 未登录 — 无法创建拉取请求",
-      "missing": "未安装 GitHub CLI — 无法创建拉取请求",
-      "unknown": "GitHub 登录状态未知"
+      "signed-out": "GitHub 未登录",
+      "missing": "未安装 GitHub CLI",
+      "unknown": "GitHub 登录状态未知",
+      "signedOutHint": "无法创建拉取请求。请使用 gh auth login 登录。",
+      "missingHint": "无法创建拉取请求。安装 GitHub CLI 后即可创建。"
     },
     "quota": {
       "ok": "{{provider}} 已用 {{percent}}%",
       "warning": "{{provider}} 已用 {{percent}}%",
       "critical": "{{provider}} 已用 {{percent}}%",
       "rejected": "{{provider}} 已达限额",
-      "rejectedUntil": "{{provider}} 已达限额 — {{time}} 重置",
-      "unknown": "{{provider}} 用量未知"
+      "rejectedUntil": "{{provider}} 已达限额，{{time}} 重置",
+      "unknown": "{{provider}} 用量未知",
+      "nearLimitHint": "运行可能在达到限额时暂停，重置后会自动继续。",
+      "rejectedHint": "现在启动的运行会等待，重置后开始工作。",
+      "rejectedNoResetHint": "它没有说明限额何时重置，运行会一直等待。"
     },
     "headless": {
       "ok": "运行期间 {{framework}} 窗口保持隐藏",

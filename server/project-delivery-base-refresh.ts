@@ -11,8 +11,8 @@
  * integration fast-forwards it. Anything this cannot do safely is refused with
  * a reason, and the chain pauses with its usual options.
  */
-import { createHash } from 'node:crypto'
-import { getPrDelivery, toPrDeliverySnapshot } from './modules/delivery/runtime/rail-pr-store'
+import { createHash, randomUUID } from 'node:crypto'
+import { claimPrDeliveryOperation, getPrDelivery, releasePrDeliveryOperation, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
 import { readIsolatedSettlementRecords } from './modules/delivery/runtime/isolated-settlement-store'
 import { forkDefinitionRun } from './modules/delivery/runtime/definition-fork'
 import { deliveryIntegrationTarget } from './modules/delivery/adapters/decisions/metadata'
@@ -30,6 +30,7 @@ import { getProviderDefault, isValidModelForProvider, type SpecProvider } from '
 import { hasAdapter } from './providers'
 import { defaultGitRunner, type GitRunner } from './worktree-manager'
 import type { ProjectContext } from './project-registry'
+import type { DeliveryBaseRefreshMessage } from './types'
 
 export type DeliveryBaseRefreshOutcome =
   | { status: 202; body: { ok: true; deliveryId: string; loopRunId: string; mergeSha: string; conflicts: string[] } }
@@ -72,7 +73,26 @@ function defaultResolver(c: ProjectContext, deliveryId: string, ticketId: number
   }
 }
 
+/** The delivery's current snapshot to every surface (its operation lease changed). */
+function publishDelivery(c: ProjectContext, deliveryId: string): void {
+  try {
+    const row = getPrDelivery(c.db, deliveryId)
+    if (row) c.broadcast(toRailPrStateMessage(c.project.id, toPrDeliverySnapshot(row)))
+  } catch { /* WS delivery is advisory */ }
+}
+
+/** Tell every surface (and the milestone chain) where the refresh stands; advisory, never fails the refresh. */
+function announce(c: ProjectContext, deliveryId: string, phase: DeliveryBaseRefreshMessage['phase'], extra: Pick<DeliveryBaseRefreshMessage, 'conflicts' | 'loopRunId' | 'reason'> = {}): void {
+  try { c.broadcast({ type: 'delivery.base_refresh', projectId: c.project.id, deliveryId, phase, ...extra }) } catch { /* WS delivery is advisory */ }
+}
+
 export async function refreshDeliveryOnBase(c: ProjectContext, deliveryId: string, io: DeliveryBaseRefreshIo = {}): Promise<DeliveryBaseRefreshOutcome> {
+  const outcome = await refreshDeliveryOnBaseSteps(c, deliveryId, io)
+  if (!outcome.body.ok && outcome.status !== 404) announce(c, deliveryId, 'refused', { reason: outcome.body.error, ...(outcome.body.conflicts?.length ? { conflicts: outcome.body.conflicts } : {}) })
+  return outcome
+}
+
+async function refreshDeliveryOnBaseSteps(c: ProjectContext, deliveryId: string, io: DeliveryBaseRefreshIo): Promise<DeliveryBaseRefreshOutcome> {
   const git = io.git ?? defaultGitRunner
   const row = getPrDelivery(c.db, deliveryId)
   if (!row) return refused(404, 'delivery_not_found', 'No such delivery in this project')
@@ -104,11 +124,28 @@ export async function refreshDeliveryOnBase(c: ProjectContext, deliveryId: strin
     try { spec = c.getTicketSpec(ticketId) } catch { spec = undefined }
     return { ticketId, title: spec?.title ?? null, description: spec?.description ?? null }
   })
-  const merged = await mergeBaseIntoDelivery({ git, resolve: io.resolve ?? defaultResolver(c, deliveryId, snap.ticketIds[0] ?? null, { provider: loopRun.provider ?? null, model: loopRun.model ?? null }) }, {
-    worktreePath: run.handle.worktreePath, branch: run.handle.branch, deliverySha, baseBranch, baseSha,
-    protectedBranches: [...new Set([baseBranch, row.base_branch, 'main', 'master'])], specs,
-    ticketRef: snap.ticketIds.length ? `${snap.ticketIds[0]}${snap.ticketIds.length > 1 ? ` +${snap.ticketIds.length - 1}` : ''}` : '',
-  })
+  // The delivery is busy while its worktree is merged: no decision (accept, discard...) races the merge,
+  // and every delivery surface says what is happening (its `operation`).
+  const lease = randomUUID()
+  if (!claimPrDeliveryOperation(c.db, deliveryId, 'on_review', 'refresh-on-base', lease)) return refused(409, 'refresh_busy', 'another action on this delivery is in progress')
+  publishDelivery(c, deliveryId)
+  announce(c, deliveryId, 'merging')
+  const resolver = io.resolve ?? defaultResolver(c, deliveryId, snap.ticketIds[0] ?? null, { provider: loopRun.provider ?? null, model: loopRun.model ?? null })
+  const resolve = async (input: ResolverInput) => {
+    announce(c, deliveryId, 'resolving', { conflicts: [...input.conflictPaths] })
+    await resolver(input)
+  }
+  let merged: Awaited<ReturnType<typeof mergeBaseIntoDelivery>>
+  try {
+    merged = await mergeBaseIntoDelivery({ git, resolve }, {
+      worktreePath: run.handle.worktreePath, branch: run.handle.branch, deliverySha, baseBranch, baseSha,
+      protectedBranches: [...new Set([baseBranch, row.base_branch, 'main', 'master'])], specs,
+      ticketRef: snap.ticketIds.length ? `${snap.ticketIds[0]}${snap.ticketIds.length > 1 ? ` +${snap.ticketIds.length - 1}` : ''}` : '',
+    })
+  } finally {
+    // Released before the re-verification forks the run: the fork takes the delivery's lease itself.
+    if (releasePrDeliveryOperation(c.db, deliveryId, lease)) publishDelivery(c, deliveryId)
+  }
   if (!merged.ok) return refused(merged.reason === 'git_failed' ? 502 : 409, `refresh_${merged.reason}`, merged.detail, merged.conflicts)
 
   // Re-verify the merged candidate: the run forks from its final verification, in the same worktree.
@@ -123,5 +160,6 @@ export async function refreshDeliveryOnBase(c: ProjectContext, deliveryId: strin
   const resume = io.resume ?? (await import('./project-router-loop-runs')).resumeDefinitionRunFromStop
   const resumed = await resume(c, loopRunId)
   if (!resumed.ok) console.warn(`[base-refresh] ${deliveryId}: the re-verification ${loopRunId} did not start (${resumed.error}); resume it from its run page`)
+  announce(c, deliveryId, 'verifying', { loopRunId, ...(merged.conflicts.length ? { conflicts: merged.conflicts } : {}) })
   return { status: 202, body: { ok: true, deliveryId, loopRunId, mergeSha: merged.mergeSha, conflicts: merged.conflicts } }
 }

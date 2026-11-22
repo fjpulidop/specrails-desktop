@@ -323,7 +323,7 @@
       "progress": "rail {{k}} sur {{n}}",
       "waiting": "en attente de la fin du rail {{k}}",
       "stackedOn": "le rail suivant part de {{branch}}",
-      "paused": "En pause — {{reason}}",
+      "paused": "En pause : {{reason}}",
       "completed": "Tous les rails lancés",
       "cancelled": "Chaîne annulée",
       "resume": "Reprendre",
@@ -345,7 +345,7 @@
         "run_lost": "le rail en cours est introuvable après un redémarrage",
         "unknown": "en pause",
         "provider_limit": "la limite d'utilisation du fournisseur a été atteinte",
-        "rail_limit_reached": "chaque rail porte une PR en attente de votre décision — fusionnez ou abandonnez des PR en attente pour libérer un rail, puis reprenez",
+        "rail_limit_reached": "chaque rail porte une PR en attente de votre décision ; fusionnez ou abandonnez des PR en attente pour libérer un rail, puis reprenez",
         "integration_failed": "l'intégration de la spec a échoué ({{detail}})"
       },
       "checkpoint": "Rail {{k}} sur {{n}} livré — lancer le rail {{next}} ?",
@@ -358,7 +358,6 @@
       "autoOn": "Continuation automatique activée — les rails suivants se lancent seuls",
       "autoOff": "Continuation automatique désactivée — on vous demandera avant chaque rail",
       "autoFailed": "Impossible de mettre à jour la chaîne",
-      "integrating": "intégration de cette spec avant de lancer la suivante",
       "cancelFailed": "Impossible d'annuler la chaîne",
       "offer": {
         "complete": "Terminer la chaîne",
@@ -426,6 +425,12 @@
         "milestone": "La configuration propre à ce jalon",
         "usual": "Votre configuration habituelle",
         "launch": "La configuration choisie au lancement"
+      },
+      "integrationPhase": {
+        "integrating": "Intégration de cette spec avant de lancer la suivante",
+        "refreshing": "Elle entre en conflit avec ce qui a été intégré depuis. Mise à jour sur la nouvelle base",
+        "resolving": "Un agent résout ses conflits avec la nouvelle base",
+        "reverifying": "Mise à jour sur la nouvelle base. Nouvelle vérification avant l'intégration"
       }
     },
     "toast": {

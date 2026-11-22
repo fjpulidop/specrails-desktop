@@ -22,28 +22,35 @@
     "disk": {
       "ok": "{{free}} livres",
       "warn": "Só {{free}} livres",
-      "fail": "Só {{free}} livres: liberta espaço primeiro",
+      "fail": "Só {{free}} livres",
+      "failHint": "Liberta espaço onde ficam os worktrees e volta a verificar.",
       "unknown": "Espaço em disco desconhecido"
     },
     "provider": {
       "signed-in": "{{provider}} com sessão iniciada",
-      "signed-out": "{{provider}} sem sessão: inicia sessão primeiro",
+      "signed-out": "{{provider}} sem sessão",
       "missing": "{{provider}} não instalado",
-      "unknown": "Sessão de {{provider}} desconhecida"
+      "unknown": "Sessão de {{provider}} desconhecida",
+      "signedOutHint": "Inicia sessão no {{provider}} antes de lançar."
     },
     "github": {
       "signed-in": "GitHub com sessão iniciada",
-      "signed-out": "GitHub sem sessão: os pull requests não vão abrir",
-      "missing": "GitHub CLI não instalado: os pull requests não vão abrir",
-      "unknown": "Sessão do GitHub desconhecida"
+      "signed-out": "GitHub sem sessão",
+      "missing": "GitHub CLI não instalado",
+      "unknown": "Sessão do GitHub desconhecida",
+      "signedOutHint": "Os pull requests não vão abrir. Inicia sessão com gh auth login.",
+      "missingHint": "Os pull requests não vão abrir. Instala o GitHub CLI para os abrir."
     },
     "quota": {
       "ok": "{{provider}} {{percent}}% usado",
       "warning": "{{provider}} {{percent}}% usado",
       "critical": "{{provider}} {{percent}}% usado",
       "rejected": "{{provider}} no limite",
-      "rejectedUntil": "{{provider}} no limite: repõe {{time}}",
-      "unknown": "Utilização de {{provider}} desconhecida"
+      "rejectedUntil": "{{provider}} no limite até {{time}}",
+      "unknown": "Utilização de {{provider}} desconhecida",
+      "nearLimitHint": "As execuções podem pausar no limite. Retomam sozinhas depois da reposição.",
+      "rejectedHint": "As execuções lançadas agora esperam e começam depois da reposição.",
+      "rejectedNoResetHint": "Não disse quando o limite é reposto. As execuções esperam até lá."
     },
     "headless": {
       "ok": "As janelas de {{framework}} ficam ocultas durante as execuções",

@@ -317,7 +317,8 @@
       "reopen": "Reabriendo…",
       "merge-local": "Integrando en local…",
       "recover-and-retry": "Creando el commit y reintentando el push del resultado conservado…",
-      "acknowledge-no-changes": "Marcando como hecho…"
+      "acknowledge-no-changes": "Marcando como hecho…",
+      "refresh-on-base": "Actualizándola sobre la nueva base…"
     },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} spec",

@@ -58,7 +58,7 @@ describe('MilestoneCard', () => {
     expect(screen.getByTestId('milestone-failed-note')).toHaveTextContent('1 spec failed its last attempt')
     const chainRow = screen.getByTestId('milestone-chain-row')
     expect(chainRow).toHaveAttribute('data-status', 'paused')
-    expect(chainRow).toHaveTextContent('Paused — the next rail could not launch (rail_limit_reached)')
+    expect(chainRow).toHaveTextContent('Paused: the next rail could not launch (rail_limit_reached)')
     await user.click(screen.getByTestId('milestone-chain-resume'))
     expect(onResume).toHaveBeenCalledWith('c1')
     const rows = screen.getAllByTestId('milestone-rail-row')
@@ -72,7 +72,7 @@ describe('MilestoneCard', () => {
 
   it('a chain paused at the rail limit explains how to free a rail', () => {
     render(<MilestoneCard progress={progress({ chain: chain({ status: 'paused', pauseReason: 'rail_limit_reached' }) })} onResume={vi.fn()} />)
-    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('Paused — every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume')
+    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('Paused: every rail holds a PR awaiting your decision; merge or discard pending PRs to free a rail, then resume')
   })
 
   it('hides a completed chain once no rail is live; a cancelled chain is not shown either', () => {
@@ -388,5 +388,31 @@ describe('engines on the chain and rail rows', () => {
     // Every spec launched and nothing to relaunch: no next-rail line.
     rerender(<MilestoneChainRow chain={chain({ nextChunk: 2, totalChunks: 2, launched: [launched(1, CLAUDE), launched(2, CODEX)], nextEngine: { ...CODEX, source: 'usual' } })} />)
     expect(screen.queryByTestId('milestone-chain-next-engine')).not.toBeInTheDocument()
+  })
+})
+
+describe('MilestoneChainRow: the base refresh of a conflicted delivery', () => {
+  const cases: Array<[Partial<MilestoneChainSnapshot>, string, string]> = [
+    [{ status: 'waiting', pauseReason: 'integration_pending' }, 'integrating', 'Integrating this spec before launching the next'],
+    [{ status: 'waiting', pauseReason: 'integration_refreshing' }, 'refreshing', 'It conflicts with what was integrated since. Updating it on the new base'],
+    [{ status: 'waiting', pauseReason: 'integration_resolving' }, 'resolving', 'An agent is resolving its conflicts with the new base'],
+    [{ status: 'running', pauseReason: 'integration_reverifying' }, 'reverifying', 'Updated on the new base. Verifying it again before integrating'],
+  ]
+  for (const [over, phase, text] of cases) {
+    it(`says it is ${phase} with the running lamp`, () => {
+      render(<MilestoneChainRow chain={chain(over)} />)
+      const line = screen.getByTestId('milestone-chain-integration')
+      expect(line).toHaveAttribute('data-phase', phase)
+      expect(line).toHaveTextContent(text)
+      expect(line.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'working')
+    })
+  }
+
+  it('a refused refresh pauses with its reason in one plain line', () => {
+    render(<MilestoneChainRow chain={chain({ status: 'paused', pauseReason: 'integration_failed:conflict_unresolved' })} />)
+    const row = screen.getByTestId('milestone-chain-row')
+    expect(row).toHaveTextContent('Paused: spec integration failed (it conflicts with the updated base and the automatic update could not resolve it)')
+    expect(row.textContent).not.toMatch(/—/)
+    expect(screen.queryByTestId('milestone-chain-integration')).toBeNull()
   })
 })

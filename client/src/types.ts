@@ -120,6 +120,8 @@ export interface JobSummary {
   loopPauseKind?: string | null
   /** `limit_paused`: the provider usage limit the run waits for. GET /jobs/:id only. */
   loopPauseLimit?: unknown
+  /** `budget_paused`: the limit the run is held at (`readDailyBudgetInfo`), with the next step's estimate at a per-run limit. GET /jobs/:id only. */
+  loopPauseBudget?: unknown
   pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
   /** The question card a paused run waits on (GET /jobs/:id). */
   question?: unknown
@@ -457,7 +459,8 @@ export interface RailPrStateSnapshot {
    * referenced replacement failed before allocation completed. */
   restoredFromDeliveryId?: string | null
   /** Leased in-flight decision-side effect owned by another surface/process. */
-  operation?: RailPrDecisionAction | 'checkout' | null
+  /** `refresh-on-base`: the automatic base refresh is merging the integrated base into it. */
+  operation?: RailPrDecisionAction | 'checkout' | 'refresh-on-base' | null
   /** Bounded cleanup failures that remain after a terminal action. */
   cleanupWarnings?: string[]
   /** Persistent same-filesystem overlay archives retained outside the PR so
