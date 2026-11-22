@@ -380,7 +380,14 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
 
     async function decide(point: ChoicePoint): Promise<CallToolResult> {
       const run = async (call: { tool: string; args: Record<string, unknown> }, chosen: string): Promise<CallToolResult> => {
-        const callArgs = { ...call.args, ...(args.lang !== undefined && call.args.lang === undefined ? { lang: args.lang } : {}) }
+        // The decision point's language and wait budget carry over to the chosen call (control fields only).
+        const waitMs = (args.options as Record<string, unknown> | undefined)?.waitMs
+        const callOptions = call.args.options && typeof call.args.options === 'object' ? call.args.options as Record<string, unknown> : {}
+        const callArgs = {
+          ...call.args,
+          ...(args.lang !== undefined && call.args.lang === undefined ? { lang: args.lang } : {}),
+          ...(waitMs !== undefined && callOptions.waitMs === undefined ? { options: { ...callOptions, waitMs } } : {}),
+        }
         const raw = call.tool === def.name ? await callback(callArgs, extra) : options.dispatch ? await options.dispatch({ tool: call.tool, args: callArgs }, extra) : null
         if (!raw) return fail(new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`))
         return reply({ ...envelopeOfResult(raw), chosen })

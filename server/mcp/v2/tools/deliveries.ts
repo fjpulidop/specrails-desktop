@@ -414,7 +414,8 @@ interface DiffHunk { header: string; lines: DiffLine[] }
  * that cap asks for the full diff.
  */
 async function readFileDiff(ctx: V2CallContext, l: Loaded, args: Record<string, unknown>) {
-  const filePath = str(args.path)
+  // `options.path` is what agents reach for next to options.repositoryId; the field is `path`.
+  const filePath = str(args.path) ?? str(optionsOf(args).path)
   if (!filePath) throw new V2ToolError('invalid_input', ctx.v2.t('deliveries.error.path_required'))
   const key = `diff:${shortHash({ id: l.row.id, path: filePath, repo: l.repositoryId })}`
   const offset = decodeCursor(args.cursor, key)?.offset ?? 0
@@ -464,7 +465,7 @@ async function readCi(ctx: V2CallContext, l: Loaded) {
 async function getDelivery(ctx: V2CallContext, args: Record<string, unknown>) {
   const l = loadDelivery(ctx, args)
   const fields = new Set<Section>(resolveFields(args, FIELDS))
-  if (str(args.path)) fields.add('file_diff')
+  if (str(args.path) ?? str(optionsOf(args).path)) fields.add('file_diff')
   const warnings: string[] = []
   const packetResponse = await readPacket(ctx, l)
   const packet = packetResponse?.packet ?? null

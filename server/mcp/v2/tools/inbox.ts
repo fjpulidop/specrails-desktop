@@ -536,7 +536,9 @@ export const inboxTool = defineTool({
         if (item.question?.kind === 'approval') throw new V2ToolError('invalid_input', ctx.v2.t('inbox.error.use_approve'))
         let answer: RunAnswer
         if (typeof args.optionId === 'string' && args.optionId) {
-          const option = item.question?.options.find((candidate) => candidate.id === args.optionId)
+          // The menu's choice id (`answer.<option>`) names the option too.
+          const wanted = args.optionId
+          const option = item.question?.options.find((candidate) => candidate.id === wanted) ?? item.question?.options.find((candidate) => `answer.${candidate.id}` === wanted)
           if (!option) throw new V2ToolError('invalid_input', ctx.v2.t('inbox.error.bad_option', { optionId: args.optionId, options: (item.question?.options ?? []).map((candidate) => candidate.id).join(', ') || '—' }))
           answer = { type: 'option', optionId: option.id, label: option.label }
         } else {

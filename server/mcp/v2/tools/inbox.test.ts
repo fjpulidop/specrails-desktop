@@ -224,6 +224,14 @@ describe('specrails_inbox(answer / approve / reject)', () => {
     expect(h.broadcasts.some((message) => (message as { type: string }).type === 'mcp.activity')).toBe(true)
   })
 
+  it('takes the menu\'s choice id (answer.<option>) as the option', async () => {
+    asking(alpha, 'p1', 'r-ask', QUESTION)
+    desktop.on('POST', '/projects/p1/jobs/r-ask/messages', { ok: true })
+    const { envelope } = await inbox({ action: 'answer', ref: 'inbox:p1:question:r-ask', optionId: 'answer.drop' })
+    expect(envelope.ok).toBe(true)
+    expect(desktop.calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([{ text: 'Drop 2.1', interruptId: 'q1', optionId: 'drop' }])
+  })
+
   it('falls back to resuming the retained run when no live turn door takes it', async () => {
     asking(alpha, 'p1', 'r-ask', QUESTION)
     desktop.on('POST', '/projects/p1/jobs/r-ask/messages', (_req: unknown, res: { status(code: number): { json(body: unknown): void } }) => { res.status(409).json({ error: 'not_paused_here' }) })

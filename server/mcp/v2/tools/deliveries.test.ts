@@ -222,6 +222,9 @@ describe(`specrails_${T}(get)`, () => {
     expect(requests.some((r) => r.path.includes('full=1'))).toBe(true)
     const p3 = await get(p2.page.cursor)
     expect(p3.data.file_diff.lines).toMatchObject({ from: 601, to: 700 })
+    // options.path (where agents put it next to options.repositoryId) reads the same file.
+    const viaOptions = (await call(client, 'specrails_deliveries', { action: 'get', ref: 'd1', view: 'detail', fields: ['file_diff'], options: { path: 'src/big.ts' } })).envelope
+    expect(viaOptions.data.file_diff.lines).toEqual({ from: 1, to: 300, total: 700 })
     expect(p3.page.cursor).toBeNull()
     expect(covered(p3, '/data/file_diff/hunks/0/text')).toBe(true)
     // A cursor minted for another file is refused.
