@@ -1019,6 +1019,8 @@ export const blueprintTool = defineTool({
         return result({
           usual: generation.selection ?? null, usualEfforts: efforts ?? [], launch: launch?.selection ?? null,
           onlyForMilestone: overrides, providers,
+          // Where each effective value comes from: the usual configuration is saved per project or follows the primary provider; M1's launch engine is chosen at launch (not stored).
+          source: { usual: generation.source === 'project' ? 'project' : 'default', launch: 'default', ...Object.fromEntries(Object.keys(overrides).map((id) => [`onlyForMilestone.${id}`, 'milestone'])) },
         }, { summary: ctx.v2.t('blueprint.summary.settings', { engine: engineWord(ctx, generation.selection as Row) }), refs: { project: formatRef('project', project.slug) } })
       },
     },

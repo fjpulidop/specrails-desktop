@@ -13,6 +13,7 @@ import { approxTokens, RESPONSE_BUDGET } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
 import { V2_TOOLS } from './index'
 import { settingsTool } from './settings'
+import { TERMINAL_DEFAULTS } from '../../../modules/terminals/runtime/terminal-settings'
 
 // specrails_settings through the real v2 registry against a fake of the
 // Settings routes (loopback `fetch` stubbed): sections, sources, GUI-like
@@ -53,6 +54,31 @@ const routes: Array<[string, RegExp, Handler]> = [
   ['PUT', /^\/projects\/p1\/agent-runtime\/config$/, (b) => { state.runtime = b; return { body: { configured: true, config: b } } }],
   ['PATCH', /^\/mcp-admin\/tiers$/, (b) => { for (const [key, tier] of [['write', 'write'], ['aiSpawn', 'ai-spawn'], ['destructive', 'destructive']] as const) if (key in b) setDesktopSetting(tierDb, TIER_SETTING_KEY[tier], b[key] ? 'true' : 'false'); return { body: { ok: true } } }],
   ['GET', /^\/projects\/p1\/rules$/, () => ({ body: { supported: true, running: false, state: 'missing' } })],
+  // "Ask before spending" and the in-client dialogs: the MCP window's route (its validation: 0–1000, booleans).
+  ['PATCH', /^\/mcp-admin\/preferences$/, (b) => {
+    if ('confirmAboveUsd' in b && !(typeof b.confirmAboveUsd === 'number' && b.confirmAboveUsd >= 0 && b.confirmAboveUsd <= 1000)) return { status: 400, body: { error: 'confirmAboveUsd must be a number from 0 to 1000' } }
+    if ('confirmAboveUsd' in b) setDesktopSetting(tierDb, CONFIRM_ABOVE_USD_KEY, String(Math.round(b.confirmAboveUsd * 100) / 100))
+    if ('v2' in b) setDesktopSetting(tierDb, 'mcp_v2', b.v2 ? 'true' : 'false')
+    if ('confirmInClient' in b) setDesktopSetting(tierDb, 'mcp_confirm_in_client', b.confirmInClient ? 'on' : 'off')
+    if ('choicesInClient' in b) setDesktopSetting(tierDb, 'mcp_choices_in_client', b.choicesInClient ? 'on' : 'off')
+    return { body: { ok: true } }
+  }],
+  ['GET', /^\/attention-prefs$/, () => ({ body: state.attention })],
+  ['PATCH', /^\/attention-prefs$/, (b) => Object.keys(b).every((k) => ['enabled', 'categories', 'sound', 'dockBadge', 'mutedProjects'].includes(k)) ? (Object.assign(state.attention, b, b.categories ? { categories: { ...state.attention.categories, ...b.categories } } : {}), { body: state.attention }) : { status: 400, body: { error: 'invalid_field', message: 'unknown field' } }],
+  ['GET', /^\/terminal-settings$/, () => ({ body: state.terminal })],
+  ['PATCH', /^\/terminal-settings$/, (b) => { Object.assign(state.terminal, b); for (const [k, v] of Object.entries(b)) setDesktopSetting(tierDb, `terminal.${k}`, JSON.stringify(v)); return { body: state.terminal } }],
+  ['GET', /^\/mission-connectors$/, () => ({ body: { providers: [{ provider: 'claude', detected: true, connectors: state.connectors }] } })],
+  ['PATCH', /^\/mission-connectors$/, (b) => { const row = state.connectors.find((c: any) => c.name === b.name); if (!row) return { status: 400, body: { error: 'unknown_connector' } }; row.enabled = b.enabled; return { body: { ok: true } } }],
+  ['GET', /^\/projects\/p1\/context-scope-last$/, () => ({ body: { scope: state.scope } })],
+  ['PATCH', /^\/projects\/p1\/context-scope-last$/, (b) => { Object.assign(state.scope, b); return { body: { scope: state.scope } } }],
+  ['GET', /^\/projects\/p1\/add-spec-quick-contract-refine-last$/, () => ({ body: { enabled: state.quick ?? false, configured: state.quick !== undefined } })],
+  ['PATCH', /^\/projects\/p1\/add-spec-quick-contract-refine-last$/, (b) => { state.quick = b.enabled; return { body: { ok: true } } }],
+  ['GET', /^\/projects\/p1\/agent-runtime\/loop-roles$/, () => ({ body: { roles: state.loopRoles } })],
+  ['GET', /^\/projects\/p1\/agent-runtime\/retention$/, () => ({ body: { policy: state.retention } })],
+  ['GET', /^\/projects\/p1\/agent-runtime\/verification-suggestions$/, () => ({ body: { suggestions: [{ name: 'test', command: 'npm test', reason: 'package.json' }] } })],
+  ['GET', /^\/mobile\/status$/, () => ({ body: { enabled: true, running: true } })],
+  ['GET', /^\/mobile\/devices$/, () => ({ body: { devices: state.devices } })],
+  ['POST', /^\/mobile\/cert\/rotate$/, () => { state.devices = []; return { body: { enabled: true } } }],
 ]
 
 beforeAll(async () => {
@@ -76,6 +102,13 @@ beforeEach(() => {
     projectBudget: { dailyBudgetUsd: 2, weeklyBudgetUsd: null, monthlyBudgetUsd: 200, runCapUsd: null, jobCostThresholdUsd: null },
     runtime: { schemaVersion: 1, enabled: true, providers: [], agents: { architect: { provider: 'claude', model: 'opus' }, developer: { provider: 'codex' }, reviewer: { provider: 'claude' } }, verification: [], guardrails: { 'scope-lock': false } },
     webhooks: [{ id: 'w1', url: 'https://hooks.example.com/a', events: ['job.completed'], enabled: true, secret: 's3cret' }],
+    attention: { enabled: true, categories: { question: true, review: true, failed: true, budget: true, done: false }, sound: true, dockBadge: true, mutedProjects: [] },
+    terminal: { ...TERMINAL_DEFAULTS },
+    connectors: [{ name: 'linear', kind: 'mcp-server', enabled: true }, { name: 'slack', kind: 'account-connector', enabled: false }],
+    scope: { specrails: true, openspec: false, full: false, mcp: false, contractRefine: true, userMcp: false },
+    loopRoles: { triage: { provider: 'codex', model: 'gpt-5.5' } },
+    retention: { days: 14 },
+    devices: [{ id: 'd1', name: 'Phone' }, { id: 'd2', name: 'Tablet' }],
     externalMcp: { 'c:files': { source: 'custom', name: 'files', providers: { claude: true }, transport: { command: 'npx', args: [], env: { API_TOKEN: 'real-secret' } } } },
   }
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -380,7 +413,7 @@ describe('specrails_settings section mcp (the permission tiers of MCP clients)',
 
   it('reads the tiers, and turns one on only with the person\'s yes in the client dialog, even while it is off', async () => {
     const got = await call(asking, T, { action: 'get', section: 'mcp' })
-    expect(got.envelope.data.values).toEqual({ write: true, aiSpawn: false, destructive: true })
+    expect(got.envelope.data.values).toEqual({ write: true, aiSpawn: false, destructive: true, confirmAboveUsd: 0.5, v2: true, confirmInClient: true, choicesInClient: true })
     answer = () => ({ action: 'accept', content: { confirm: true } })
     const on = await call(asking, T, { action: 'set', section: 'mcp', values: { aiSpawn: true } })
     expect(on.envelope).toMatchObject({ ok: true, confirmed: 'in_client', data: { values: { aiSpawn: true } } })
@@ -413,5 +446,136 @@ describe('specrails_settings section mcp (the permission tiers of MCP clients)',
       expect(blocked.envelope.error.message).toContain('mcp_tier_write')
       expect(blocked.envelope.error.next[0]).toMatchObject({ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { write: true } } })
     } finally { setDesktopSetting(own.db, TIER_SETTING_KEY.write, 'true') }
+  })
+})
+
+describe('specrails_settings coverage of the Settings window', () => {
+  it('names every setting only the window changes, with the reason, and refuses a set of one with it', async () => {
+    const index = await call(client, T, { action: 'get' })
+    expect(Object.keys(index.envelope.data.guiOnly)).toEqual(expect.arrayContaining(['appearance.density', 'appearance.reduceMotion', 'code.editor', 'mcp.enabled', 'mcp.connect', 'mcp.token', 'mobile.pair']))
+    expect(index.envelope.data.guiOnly['mobile.pair']).toContain('QR')
+    const density = await call(client, T, { action: 'set', section: 'appearance', values: { density: 'compact' } })
+    expect(density.envelope.error.code).toBe('invalid_input')
+    expect(density.envelope.error.message).toContain('window\'s own storage')
+    const pair = await call(client, T, { action: 'set', section: 'mobile', values: { pair: true } })
+    expect(pair.envelope.error.message).toContain('QR')
+    const es = await call(client, T, { action: 'set', section: 'mcp', values: { token: 'x' }, lang: 'es' })
+    expect(es.envelope.error.message).toContain('solo se cambia en la ventana de Specrails')
+    expect(writes()).toEqual([])
+  })
+
+  it('MCP preferences: "Ask before spending" and the in-client dialogs, with sources, through the MCP window\'s route', async () => {
+    const before = await call(client, T, { action: 'get', section: 'mcp' })
+    expect(before.envelope.data.values).toMatchObject({ confirmAboveUsd: 0.5, confirmInClient: true, choicesInClient: true })
+    expect(before.envelope.data.source).toMatchObject({ confirmAboveUsd: 'default', confirmInClient: 'default', choicesInClient: 'default', v2: 'default' })
+    const off = await call(client, T, { action: 'set', section: 'mcp', values: { choicesInClient: false } })
+    expect(off.envelope.ok).toBe(true)
+    expect(writes()).toEqual([{ method: 'PATCH', path: '/mcp-admin/preferences', body: { choicesInClient: false } }])
+    expect(off.envelope.data).toMatchObject({ values: { choicesInClient: false }, source: { choicesInClient: 'app' } })
+    setDesktopSetting(h.db, 'mcp_choices_in_client', '')
+    const tooHigh = await call(client, T, { action: 'set', section: 'mcp', values: { confirmAboveUsd: 5000 } })
+    expect(tooHigh.envelope.error.message).toContain('0 to 1000')
+    const raise = await call(client, T, { action: 'set', section: 'mcp', values: { confirmAboveUsd: 5 } })
+    expect(raise.envelope.error.code).toBe('confirmation_required')
+    expect(raise.envelope.error.preview.class).toBe('risky')
+    const always = await call(client, T, { action: 'set', section: 'mcp', values: { confirmAboveUsd: 0 } })
+    expect(always.envelope.ok).toBe(true)
+    expect(getDesktopSetting(h.db, CONFIRM_ABOVE_USD_KEY)).toBe('0')
+    const saved = process.env.SPECRAILS_MCP_V2
+    process.env.SPECRAILS_MCP_V2 = 'true'
+    try { expect((await call(client, T, { action: 'get', section: 'mcp' })).envelope.data.source.v2).toBe('env') } finally {
+      if (saved === undefined) delete process.env.SPECRAILS_MCP_V2; else process.env.SPECRAILS_MCP_V2 = saved
+    }
+  })
+
+  it('notifications: the source of each value; unknown fields fail at the route as in the GUI', async () => {
+    const { envelope } = await call(client, T, { action: 'get', section: 'notifications' })
+    expect(envelope.data.source).toMatchObject({ enabled: 'default', sound: 'app', dockBadge: 'default', 'categories.done': 'app', 'categories.question': 'default' })
+    const ok = await call(client, T, { action: 'set', section: 'notifications', values: { categories: { failed: false } } })
+    expect(ok.envelope.ok).toBe(true)
+    expect(state.attention.categories.failed).toBe(false)
+    const bad = await call(client, T, { action: 'set', section: 'notifications', values: { volume: 3 } })
+    expect(bad.envelope.error.code).toBe('invalid_input')
+  })
+
+  it('terminal: app-wide sources; the browser shortcut address confirms as external', async () => {
+    const got = await call(client, T, { action: 'get', section: 'terminal' })
+    expect(got.envelope.data.source).toMatchObject({ fontSize: 'default', fontFamily: 'default' })
+    const size = await call(client, T, { action: 'set', section: 'terminal', values: { fontSize: 15 } })
+    expect(size.envelope.data).toMatchObject({ values: { fontSize: 15 }, source: { fontSize: 'app' } })
+    const url = await call(client, T, { action: 'set', section: 'terminal', values: { browserShortcutUrl: 'https://evil.example' } })
+    expect(url.envelope.error.code).toBe('confirmation_required')
+    expect(url.envelope.error.preview).toMatchObject({ class: 'external', external: true })
+    expect(url.envelope.error.preview.effect).toContain('browser shortcut')
+  })
+
+  it('connectors: off by the person reads as app; turning one back on is risky', async () => {
+    const got = await call(client, T, { action: 'get', section: 'connectors' })
+    expect(got.envelope.data.source).toEqual({ 'claude/linear': 'default', 'claude/slack': 'app' })
+    const on = await call(client, T, { action: 'set', section: 'connectors', values: { provider: 'claude', name: 'slack', enabled: true } })
+    expect(on.envelope.error.preview.class).toBe('risky')
+    const off = await call(client, T, { action: 'set', section: 'connectors', values: { provider: 'claude', name: 'linear', enabled: false } })
+    expect(off.envelope.ok).toBe(true)
+  })
+
+  it('composer: the Add Spec remembered choices, booleans only; your own MCP servers in Explore is risky', async () => {
+    const got = await call(client, T, { action: 'get', section: 'composer' })
+    expect(got.envelope.data.values).toMatchObject({ contextScope: { specrails: true, userMcp: false }, quickContractRefine: false })
+    expect(got.envelope.data.source.quickContractRefine).toBe('default')
+    const bad = await call(client, T, { action: 'set', section: 'composer', values: { contextScope: { userMcp: 'yes' } } })
+    expect(bad.envelope.error.code).toBe('invalid_input')
+    const unknown = await call(client, T, { action: 'set', section: 'composer', values: { contextScope: { web: true } } })
+    expect(unknown.envelope.error.code).toBe('invalid_input')
+    const quick = await call(client, T, { action: 'set', section: 'composer', values: { quickContractRefine: true } })
+    expect(quick.envelope.data).toMatchObject({ values: { quickContractRefine: true }, source: { quickContractRefine: 'project' } })
+    const userMcp = await call(client, T, { action: 'set', section: 'composer', values: { contextScope: { userMcp: true } } })
+    expect(userMcp.envelope.error.preview.class).toBe('risky')
+    expect(userMcp.envelope.error.preview.effect).toContain('own MCP servers')
+  })
+
+  it('verification commands always confirm (they run on this machine), written as the window writes them', async () => {
+    const values = { verification: ['npm run lint', { label: 'Tests', command: 'npm test -- "--grep=a b"' }] }
+    const first = await call(client, T, { action: 'set', section: 'verification', values })
+    expect(first.envelope.error.code).toBe('confirmation_required')
+    expect(first.envelope.error.preview.class).toBe('risky')
+    expect(first.envelope.error.preview.effect).toContain('run on this machine')
+    const done = await call(client, T, { action: 'set', section: 'verification', values, confirm: first.envelope.error.confirmToken })
+    expect(done.envelope.ok).toBe(true)
+    // The window's line grammar, and the project's only repository.
+    expect(state.runtime.verification).toEqual([
+      { command: 'npm', args: ['run', 'lint'], repositoryId: 'primary-p1' },
+      { label: 'Tests', command: 'npm', args: ['test', '--', '--grep=a b'], repositoryId: 'primary-p1' },
+    ])
+    expect(done.envelope.data.source).toEqual({ verification: 'project' })
+    for (const bad of [['npm "test'], [{ command: 'npm', args: [], repositoryId: 'elsewhere' }], 'npm test']) {
+      const refused = await call(client, T, { action: 'set', section: 'verification', values: { verification: bad } })
+      expect(refused.envelope.error.code).toBe('invalid_input')
+    }
+  })
+
+  it('posting clarifications to Jira confirms as external; turning it off does not', async () => {
+    const on = await call(client, T, { action: 'set', section: 'general', values: { jiraPostClarifications: true } })
+    expect(on.envelope.error.preview).toMatchObject({ class: 'external' })
+    expect((await call(client, T, { action: 'set', section: 'general', values: { jiraPostClarifications: false } })).envelope.ok).toBe(true)
+  })
+
+  it('reports sources for loop roles, runtime retention and project sub-agents (on unless turned off)', async () => {
+    const roles = await call(client, T, { action: 'get', section: 'loop_roles' })
+    expect(roles.envelope.data.source).toEqual({ verifier: 'default', decider: 'default', triage: 'project' })
+    const retention = await call(client, T, { action: 'get', section: 'retention' })
+    expect(retention.envelope.data.source).toEqual({ agentAuditRetentionDays: 'default', runtimeArtifacts: 'project' })
+    state.project.allowSubagents = true
+    const sub = await call(client, T, { action: 'get', section: 'subagents' })
+    expect(sub.envelope.data.source.allowSubagents).toBe('default')
+  })
+
+  it('rotates the mobile certificate only as an irreversible change (every device pairs again)', async () => {
+    const first = await call(client, T, { action: 'set', section: 'mobile', values: { rotateCert: true } })
+    expect(first.envelope.error.code).toBe('confirmation_required')
+    expect(first.envelope.error.preview).toMatchObject({ class: 'irreversible', reversible: false })
+    expect(first.envelope.error.preview.effect).toContain('2 paired devices')
+    const done = await call(client, T, { action: 'set', section: 'mobile', values: { rotateCert: true }, confirm: first.envelope.error.confirmToken })
+    expect(done.envelope.ok).toBe(true)
+    expect(writes()).toEqual([{ method: 'POST', path: '/mobile/cert/rotate', body: null }])
   })
 })

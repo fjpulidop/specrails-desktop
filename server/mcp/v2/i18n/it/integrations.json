@@ -71,5 +71,6 @@
   "error.webhook_not_found": "Nessun webhook {{id}}. Elencali con webhooks.",
   "confirm.mobile_enable": "Attiva il gateway mobile: un listener sulla rete locale per i telefoni associati.",
   "confirm.mobile_revoke": "Revoca il dispositivo associato {{device}}; dovrà essere associato di nuovo.",
-  "confirm.webhooks_url": "Da ora in poi invia gli eventi dell'app a {{url}}."
+  "confirm.webhooks_url": "Da ora in poi invia gli eventi dell'app a {{url}}.",
+  "confirm.mobile_rotate": "Rinnova il certificato del gateway e revoca tutti i {{devices}} dispositivi abbinati; ognuno deve abbinarsi di nuovo."
 }

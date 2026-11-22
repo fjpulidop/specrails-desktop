@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} must be {{expected}}.",
   "error.guardrails_unsupported": "The installed Core has no configurable guardrails. Update Core first.",
   "risk.mcp_tier_on": "MCP clients can then make these calls without the app open; the person must say yes in this client’s own dialog.",
-  "error.tier_raise": "Turning on {{keys}} needs the person’s yes in this client’s own confirmation dialog (a confirm token is not enough, and in-app agents cannot do it). If this client shows no dialog, the person turns it on in Specrails Settings ▸ MCP."
+  "error.tier_raise": "Turning on {{keys}} needs the person’s yes in this client’s own confirmation dialog (a confirm token is not enough, and in-app agents cannot do it). If this client shows no dialog, the person turns it on in Specrails Settings ▸ MCP.",
+  "risk.commands_run": "These commands run on this machine at every verification.",
+  "risk.connector_on": "Mission agents can use this connector again.",
+  "risk.user_mcp_on": "Explore turns will start with your own MCP servers and their access.",
+  "risk.jira_post": "Clarifications will be posted to the project's Jira issues.",
+  "risk.browser_url": "The terminal's browser shortcut will open this address.",
+  "error.gui_only": "{{key}} changes only in the Specrails window: {{reason}}",
+  "gui_only.local_ui": "it is kept in the window's own storage, which the server cannot reach.",
+  "gui_only.mcp_enabled": "it is the MCP server this client talks through.",
+  "gui_only.mcp_connect": "it edits another app's configuration file; use Settings ▸ MCP ▸ Connect or specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "it is the secret this client signs in with; a new one closes the open sessions.",
+  "gui_only.pairing": "pairing needs a QR code scanned between the two devices."
 }

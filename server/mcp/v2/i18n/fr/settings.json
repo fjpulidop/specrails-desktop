@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} doit être {{expected}}.",
   "error.guardrails_unsupported": "Le Core installé n'a pas de garde-fous configurables. Mettez d'abord Core à jour.",
   "risk.mcp_tier_on": "Les clients MCP pourront alors faire ces appels sans ouvrir l’app ; la personne doit accepter dans la boîte de dialogue de ce client.",
-  "error.tier_raise": "Activer {{keys}} demande l’accord de la personne dans la boîte de confirmation de ce client (un jeton de confirmation ne suffit pas et les agents de l’app ne peuvent pas le faire). Si ce client n’affiche pas de dialogue, la personne l’active dans Réglages de Specrails ▸ MCP."
+  "error.tier_raise": "Activer {{keys}} demande l’accord de la personne dans la boîte de confirmation de ce client (un jeton de confirmation ne suffit pas et les agents de l’app ne peuvent pas le faire). Si ce client n’affiche pas de dialogue, la personne l’active dans Réglages de Specrails ▸ MCP.",
+  "risk.commands_run": "Ces commandes s'exécutent sur cette machine à chaque vérification.",
+  "risk.connector_on": "Les agents des missions pourront de nouveau utiliser ce connecteur.",
+  "risk.user_mcp_on": "Les tours d'exploration démarreront avec vos propres serveurs MCP et leurs accès.",
+  "risk.jira_post": "Les clarifications seront publiées dans les tickets Jira du projet.",
+  "risk.browser_url": "Le raccourci navigateur du terminal ouvrira cette adresse.",
+  "error.gui_only": "{{key}} ne se modifie que dans la fenêtre de Specrails : {{reason}}",
+  "gui_only.local_ui": "il est conservé dans le stockage propre de la fenêtre, inaccessible au serveur.",
+  "gui_only.mcp_enabled": "c'est le serveur MCP par lequel ce client communique.",
+  "gui_only.mcp_connect": "cela modifie le fichier de configuration d'une autre application ; utilisez Réglages ▸ MCP ▸ Connecter ou specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "c'est le secret avec lequel ce client s'identifie ; un nouveau ferme les sessions ouvertes.",
+  "gui_only.pairing": "l'appairage exige de scanner un code QR entre les deux appareils."
 }

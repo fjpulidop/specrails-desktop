@@ -105,10 +105,10 @@ test('simulated person: answers a pending preview, then stops', () => {
   assert.ok(asksPerson('I need your go-ahead first.\n\n' + 'Details. '.repeat(80) + 'If you want it merged as-is, say so and I will run it.'))
 })
 
-test('scenario catalogue: 16 scenarios, selection, pending reasons, prompts', () => {
-  assert.equal(SCENARIOS.length, 16)
-  assert.deepEqual(SCENARIOS.map(s => s.id), Array.from({ length: 16 }, (_, i) => `S${i + 1}`))
-  assert.equal(selectScenarios('all').length, 16)
+test('scenario catalogue: 17 scenarios, selection, pending reasons, prompts', () => {
+  assert.equal(SCENARIOS.length, 17)
+  assert.deepEqual(SCENARIOS.map(s => s.id), Array.from({ length: 17 }, (_, i) => `S${i + 1}`))
+  assert.equal(selectScenarios('all').length, 17)
   assert.deepEqual(selectScenarios('s3,S5').map(s => s.id), ['S3', 'S5'])
   assert.throws(() => selectScenarios('S99'), /Unknown scenario/)
   const s1 = SCENARIOS[0]

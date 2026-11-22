@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} muss {{expected}} sein.",
   "error.guardrails_unsupported": "Die installierte Core hat keine konfigurierbaren Schutzregeln. Aktualisiere zuerst Core.",
   "risk.mcp_tier_on": "MCP-Clients können diese Aufrufe dann ohne geöffnete App ausführen; die Person muss im eigenen Dialog dieses Clients zustimmen.",
-  "error.tier_raise": "Um {{keys}} einzuschalten, muss die Person im eigenen Bestätigungsdialog dieses Clients zustimmen (ein Bestätigungstoken reicht nicht, und App-Agenten können es nicht). Zeigt dieser Client keinen Dialog, schaltet die Person es in den Specrails-Einstellungen ▸ MCP ein."
+  "error.tier_raise": "Um {{keys}} einzuschalten, muss die Person im eigenen Bestätigungsdialog dieses Clients zustimmen (ein Bestätigungstoken reicht nicht, und App-Agenten können es nicht). Zeigt dieser Client keinen Dialog, schaltet die Person es in den Specrails-Einstellungen ▸ MCP ein.",
+  "risk.commands_run": "Diese Befehle laufen bei jeder Verifizierung auf diesem Rechner.",
+  "risk.connector_on": "Missions-Agenten können diesen Connector wieder verwenden.",
+  "risk.user_mcp_on": "Explore-Runden starten mit deinen eigenen MCP-Servern und deren Zugriff.",
+  "risk.jira_post": "Klärungen werden in den Jira-Vorgängen des Projekts veröffentlicht.",
+  "risk.browser_url": "Die Browser-Verknüpfung des Terminals öffnet diese Adresse.",
+  "error.gui_only": "{{key}} lässt sich nur im Specrails-Fenster ändern: {{reason}}",
+  "gui_only.local_ui": "es liegt im eigenen Speicher des Fensters, den der Server nicht erreicht.",
+  "gui_only.mcp_enabled": "es ist der MCP-Server, über den dieser Client spricht.",
+  "gui_only.mcp_connect": "es ändert die Konfigurationsdatei einer anderen App; nutze Einstellungen ▸ MCP ▸ Verbinden oder specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "es ist das Geheimnis, mit dem sich dieser Client anmeldet; ein neues schließt die offenen Sitzungen.",
+  "gui_only.pairing": "das Koppeln erfordert einen QR-Code, der zwischen beiden Geräten gescannt wird."
 }

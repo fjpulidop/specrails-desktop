@@ -36,12 +36,15 @@ export function milestoneGenerationCatalog(project: ProjectRow) {
 export function milestoneGenerationSettings(db: DbInstance, project: ProjectRow) {
   const providers = milestoneGenerationCatalog(project)
   const primary = providers.find((entry) => entry.provider === derivePrimaryProvider(project)) ?? providers[0]
+  const saved = readMilestoneGenerationSelection(db)
   return {
     providers,
     // Keep unavailable saved choices visible: never silently switch engines.
-    selection: readMilestoneGenerationSelection(db) ?? (primary
+    selection: saved ?? (primary
       ? { provider: primary.provider, model: primary.defaultModel, reasoningEffort: null }
       : null),
+    /** `project`: the person saved this usual configuration; `default`: the project's primary provider and its default model. */
+    source: saved ? 'project' as const : 'default' as const,
   }
 }
 

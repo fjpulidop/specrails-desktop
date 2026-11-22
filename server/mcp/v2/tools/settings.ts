@@ -1,10 +1,16 @@
 import { z } from 'zod'
-import { getDesktopSetting, setDesktopSetting, type ProjectRow } from '../../../desktop-db'
+import { getDesktopSetting, type ProjectRow } from '../../../desktop-db'
 import { scanWorktreeEnvRequirements } from '../../../worktree-env-discovery'
+import { getProjectRepositories } from '../../../project-repositories'
 import { isMcpEnabled, isTierEnabled, type McpTier } from '../../mcp-tiers'
 import { apiCall } from '../../tools/types'
 import { shortHash } from '../core/canonical'
-import { CONFIRM_ABOVE_USD_KEY, readConfirmThreshold } from '../core/confirm'
+import { CONFIRM_ABOVE_USD_KEY, CONFIRM_IN_CLIENT_KEY, readConfirmInClient, readConfirmThreshold } from '../core/confirm'
+import { CHOICES_IN_CLIENT_KEY, readChoicesInClient } from '../core/choices'
+import { MCP_V2_KEY, isMcpV2Enabled } from '../flag'
+import { ATTENTION_CATEGORIES, defaultAttentionPrefs } from '../../../modules/inbox/attention-prefs'
+import { TERMINAL_DEFAULTS, TERMINAL_SETTINGS_KEYS } from '../../../modules/terminals/runtime/terminal-settings'
+import { defaultBootScope } from '../../../modules/conversations/runtime/context-scope'
 import type { ConfirmClass } from '../core/decision-state'
 import { V2ToolError, relay, result } from '../core/envelope'
 import { formatRef } from '../core/refs'
@@ -13,7 +19,7 @@ import { untrusted } from '../core/untrusted'
 import { F, optionsOf } from '../core/views'
 
 export const APP_SECTIONS = ['app', 'appearance', 'language', 'notifications', 'code', 'terminal', 'mobile', 'webhooks', 'external_mcp', 'mcp', 'connectors', 'role_prompts', 'agent_defaults', 'machine_installs'] as const
-export const PROJECT_SECTIONS = ['general', 'runtime', 'subagents', 'branch', 'env', 'budget', 'telemetry', 'rules', 'retention', 'guardrails', 'loop_roles', 'verification', 'environment_plan'] as const
+export const PROJECT_SECTIONS = ['general', 'runtime', 'subagents', 'branch', 'env', 'budget', 'telemetry', 'rules', 'retention', 'guardrails', 'loop_roles', 'verification', 'environment_plan', 'composer'] as const
 type SectionId = (typeof APP_SECTIONS)[number] | (typeof PROJECT_SECTIONS)[number]
 
 /**
@@ -32,6 +38,9 @@ type SectionId = (typeof APP_SECTIONS)[number] | (typeof PROJECT_SECTIONS)[numbe
  *   spending"; a webhook URL confirms as external.
  * - Secrets are write-only: webhook secrets and external MCP env values never
  *   leave the server.
+ * - What only the window can change is named, with the reason (`GUI_ONLY`:
+ *   `get` without a section lists it; a `set` of it says why), never missing
+ *   silently. The coverage table: docs/internals/mcp-v2-settings-coverage.md.
  * - `terminal` and `budget` exist at both scopes: an explicit `project` selects
  *   the project scope; without it they are app-wide (never the session default).
  */
@@ -66,8 +75,8 @@ interface SectionDef {
   write?(io: IO, values: Values, current: SectionRead): Promise<void>
   /** Safety-lowering change (always confirmed). */
   risks?(values: Values): string[]
-  /** Sends data to a third party (confirmed as external). */
-  external?(values: Values): boolean
+  /** Sends data to a third party or opens an outside address (confirmed as external): the reason codes (`settings.risk.<code>`). */
+  external?(values: Values): string[]
   /** Numeric keys (dot paths into values) whose increase lets more money be spent. */
   caps?: readonly string[]
   destructive?(values: Values): boolean
@@ -86,8 +95,14 @@ const oneOf = (...allowed: string[]): Check => (v) => typeof v === 'string' && a
 const text = (max: number): Check => (v) => typeof v === 'string' && v.length <= max ? v : fail(`text up to ${max} characters`)
 const obj: Check = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : fail('an object')
 const objOrNull: Check = (v) => v === null ? null : obj(v)
-const list: Check = (v) => Array.isArray(v) ? v : fail('a list')
 const names: Check = (v) => Array.isArray(v) && v.every((n) => typeof n === 'string') ? v : fail('a list of variable names')
+/** "Ask before spending": the GUI's range (PATCH /mcp-admin/preferences rounds to cents). */
+const confirmUsd: Check = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000 ? v : fail('a USD amount from 0 to 1000')
+const boolsOf = (allowed: readonly string[]): Check => (v) => {
+  const value = obj(v) as Values
+  const bad = Object.keys(value).filter((key) => !allowed.includes(key) || typeof value[key] !== 'boolean')
+  return bad.length ? fail(`an object of true/false for ${allowed.join(', ')}`) : value
+}
 
 const rec = (v: unknown): Values => v && typeof v === 'object' && !Array.isArray(v) ? v as Values : {}
 const num = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -104,7 +119,7 @@ const mask = (key: string, value: unknown) => SECRET_KEY.test(key) && value !== 
 
 const PROJECT_DEFAULTS: Values = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [],
-  allowSubagents: false, subagentRuntime: null, reviewerFamilySuggestionDismissed: false, reviewWipLimit: null, agentEnvMode: 'inherit',
+  allowSubagents: true, subagentRuntime: null, reviewerFamilySuggestionDismissed: false, reviewWipLimit: null, agentEnvMode: 'inherit',
   agentAuditRetentionDays: 30, jiraPostClarifications: false, baselineOnTouch: false, worktreeEnvFiles: false,
 }
 
@@ -180,6 +195,59 @@ function roleRoutes(config: Values | null): Values {
   return routes
 }
 
+// ── Verification commands (the window's one-line editor) ────────────────────
+
+/** The window's command line grammar (`parseVerificationCommand` in the client): words, "double quotes", \\ escapes in quotes. */
+export function parseCommandLine(line: string): { command: string; args: string[] } | null {
+  const words: string[] = []
+  let current = '', quoted = false, hasWord = false
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (quoted) {
+      if (char === '\\' && i + 1 < line.length) { current += line[++i]; continue }
+      if (char === '"') { quoted = false; continue }
+      current += char
+      continue
+    }
+    if (char === '"') { quoted = true; hasWord = true; continue }
+    if (/\s/.test(char)) { if (hasWord) { words.push(current); current = ''; hasWord = false } continue }
+    current += char; hasWord = true
+  }
+  if (quoted) return null
+  if (hasWord) words.push(current)
+  return words.length && words[0] ? { command: words[0], args: words.slice(1) } : null
+}
+
+/**
+ * A list of host commands as the window saves them: each item is a line ("npm run lint"), or an entry whose
+ * `command` is a line when it has no `args` (`line` too); `repositoryId` defaults to the project's only repository.
+ * The route then applies the runtime config's own validation.
+ */
+function hostCommands(project: ProjectRow | null): Check {
+  const repositories = project ? getProjectRepositories(project) : []
+  return (v) => {
+    if (!Array.isArray(v)) return fail('a list of commands ("npm test", or {command, args, repositoryId, label})')
+    return v.map((item) => {
+      const entry: Values = typeof item === 'string' ? { line: item } : { ...rec(item) }
+      const line = typeof entry.line === 'string' ? entry.line : typeof entry.command === 'string' && !Array.isArray(entry.args) ? entry.command : null
+      if (line !== null) {
+        const parsed = parseCommandLine(line)
+        if (!parsed) return fail('a command line with closed quotes')
+        delete entry.line
+        Object.assign(entry, parsed)
+      }
+      if (typeof entry.command !== 'string' || !entry.command.trim() || !Array.isArray(entry.args)) return fail('a command with its arguments')
+      if (entry.repositoryId === undefined) {
+        if (repositories.length !== 1) return fail(`a command with repositoryId (one of ${repositories.map((r) => r.id).join(', ')})`)
+        entry.repositoryId = repositories[0].id
+      } else if (!repositories.some((r) => r.id === entry.repositoryId)) {
+        return fail(`a repositoryId of this project (${repositories.map((r) => r.id).join(', ')})`)
+      }
+      return entry
+    })
+  }
+}
+
 // ── Sections ────────────────────────────────────────────────────────────────
 
 const ENV_LIMIT_KEYS = ['SPECRAILS_MAX_ACTIVE_RUNS', 'SPECRAILS_MAX_RUNS_PER_PROJECT', 'SPECRAILS_MAX_RUNS_PER_PROVIDER', 'SPECRAILS_RUN_ADMISSION']
@@ -203,10 +271,30 @@ const DELEGATED: Record<DelegatedSection, { get: (args: Values) => Values; set: 
     get: () => ({ action: 'mobile' }),
     set: (values) => typeof values.revokeDevice === 'string'
       ? { action: 'mobile', id: values.revokeDevice, options: { op: 'revoke' } }
-      : { action: 'mobile', options: { op: values.enabled === true ? 'enable' : values.enabled === false ? 'disable' : 'status' } },
+      : values.rotateCert === true ? { action: 'mobile', options: { op: 'rotate' } }
+        : { action: 'mobile', options: { op: values.enabled === true ? 'enable' : values.enabled === false ? 'disable' : 'status' } },
   },
 }
 const isDelegated = (section: unknown): section is DelegatedSection => typeof section === 'string' && section in DELEGATED
+
+/**
+ * Settings only the Specrails window can change, by section and key, with the reason (`settings.gui_only.<reason>`).
+ * `get` without a section lists them; a `set` of one answers why instead of "unknown key".
+ */
+export const GUI_ONLY: Record<string, Record<string, 'local_ui' | 'mcp_enabled' | 'mcp_connect' | 'mcp_token' | 'pairing'>> = {
+  appearance: { density: 'local_ui', reduceMotion: 'local_ui', agentThinkingHalo: 'local_ui', windowLayout: 'local_ui' },
+  code: { editor: 'local_ui' },
+  mcp: { enabled: 'mcp_enabled', connect: 'mcp_connect', token: 'mcp_token' },
+  mobile: { pair: 'pairing' },
+}
+
+function guiOnlyRefusal(ctx: V2CallContext, section: string, values: Values): V2ToolError | null {
+  const hit = Object.keys(values).find((key) => GUI_ONLY[section]?.[key])
+  return hit ? new V2ToolError('invalid_input', ctx.v2.t('settings.error.gui_only', { key: `${section}.${hit}`, reason: ctx.v2.t(`settings.gui_only.${GUI_ONLY[section][hit]}`) })) : null
+}
+
+const TIER_KEYS = ['write', 'aiSpawn', 'destructive'] as const
+const MCP_PREFERENCE_KEYS = ['confirmAboveUsd', 'v2', 'confirmInClient', 'choicesInClient'] as const
 /** The delegated call, with this call's control fields (confirm, dryRun, lang, view) passed through. */
 function delegate(ctx: V2CallContext, args: Values, call: Values) {
   const control = Object.fromEntries((['confirm', 'dryRun', 'lang', 'view'] as const).filter((key) => args[key] !== undefined).map((key) => [key, args[key]]))
@@ -224,19 +312,40 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
    */
   mcp: {
     scope: 'app',
-    keys: { write: bool, aiSpawn: bool, destructive: bool },
+    keys: { write: bool, aiSpawn: bool, destructive: bool, confirmAboveUsd: confirmUsd, v2: bool, confirmInClient: bool, choicesInClient: bool },
+    caps: ['confirmAboveUsd'],
     async read({ ctx }) {
-      const values = Object.fromEntries(TIER_FIELDS.map(([key, tier]) => [key, isTierEnabled(ctx.desktopDb, tier)]))
-      return { values, source: bySame(values, { write: true, aiSpawn: true, destructive: true }, 'app'), info: { enabled: isMcpEnabled(ctx.desktopDb), read: true } }
+      const db = ctx.desktopDb
+      const tiers = Object.fromEntries(TIER_FIELDS.map(([key, tier]) => [key, isTierEnabled(db, tier)]))
+      const values: Values = { ...tiers, confirmAboveUsd: readConfirmThreshold(db), v2: isMcpV2Enabled(db), confirmInClient: readConfirmInClient(db), choicesInClient: readChoicesInClient(db) }
+      const envV2 = process.env.SPECRAILS_MCP_V2 === 'true' || process.env.SPECRAILS_MCP_V2 === 'false'
+      return {
+        values,
+        source: {
+          ...bySame(tiers, { write: true, aiSpawn: true, destructive: true }, 'app'),
+          confirmAboveUsd: stored(ctx, CONFIRM_ABOVE_USD_KEY) ? 'app' : 'default',
+          v2: envV2 ? 'env' : stored(ctx, MCP_V2_KEY) ? 'app' : 'default',
+          confirmInClient: stored(ctx, CONFIRM_IN_CLIENT_KEY) ? 'app' : 'default',
+          choicesInClient: stored(ctx, CHOICES_IN_CLIENT_KEY) ? 'app' : 'default',
+        },
+        info: { enabled: isMcpEnabled(db), read: true },
+      }
     },
     async write({ ctx }, values, current) {
-      const raising = Object.keys(values).filter((key) => values[key] === true && current.values[key] === false)
+      const tiers = pick(values, TIER_KEYS)
+      const raising = Object.keys(tiers).filter((key) => tiers[key] === true && current.values[key] === false)
       if (raising.length && (ctx.firstPartyAgent || !ctx.v2.confirmedInClient)) {
         throw new V2ToolError('unauthorized', ctx.v2.t('settings.error.tier_raise', { keys: raising.join(', ') }))
       }
-      await send(ctx, 'PATCH', '/mcp-admin/tiers', values)
+      if (Object.keys(tiers).length) await send(ctx, 'PATCH', '/mcp-admin/tiers', tiers)
+      const preferences = pick(values, MCP_PREFERENCE_KEYS)
+      if (Object.keys(preferences).length) await send(ctx, 'PATCH', '/mcp-admin/preferences', preferences)
     },
-    risks: (v) => Object.values(v).some((value) => value === true) ? ['mcp_tier_on'] : [],
+    risks: (v) => [
+      ...(TIER_KEYS.some((key) => v[key] === true) ? ['mcp_tier_on'] : []),
+      // The agent must not loosen its own confirmations silently: only "ask always" (0) skips the question.
+      ...(v.confirmAboveUsd !== undefined && v.confirmAboveUsd !== 0 ? ['threshold_change'] : []),
+    ],
   },
   app: {
     scope: 'app',
@@ -280,7 +389,14 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
   notifications: {
     scope: 'app',
     keys: '*',
-    async read({ ctx }) { return { values: await get(ctx, '/attention-prefs'), source: {} } },
+    async read({ ctx }) {
+      const values = await get(ctx, '/attention-prefs')
+      const defaults = defaultAttentionPrefs() as unknown as Values
+      const source: Record<string, Source> = {}
+      for (const key of ['enabled', 'sound', 'dockBadge', 'mutedProjects']) if (key in values) source[key] = JSON.stringify(values[key]) === JSON.stringify(defaults[key]) ? 'default' : 'app'
+      for (const category of ATTENTION_CATEGORIES) source[`categories.${category}`] = rec(values.categories)[category] === false ? 'app' : 'default'
+      return { values, source }
+    },
     async write({ ctx }, values) { await send(ctx, 'PATCH', '/attention-prefs', values) },
   },
   code: {
@@ -297,13 +413,18 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
     scope: 'either',
     keys: '*',
     async read({ ctx, base }) {
-      if (!base) return { values: await get(ctx, '/terminal-settings'), source: {} }
+      if (!base) {
+        const values = await get(ctx, '/terminal-settings')
+        return { values, source: Object.fromEntries(TERMINAL_SETTINGS_KEYS.filter((key) => key in values).map((key) => [key, stored(ctx, `terminal.${key}`) && JSON.stringify(values[key]) !== JSON.stringify(TERMINAL_DEFAULTS[key]) ? 'app' : 'default'])) }
+      }
       const body = await get(ctx, `${base}/terminal-settings`)
       const override = rec(body.override)
       const values = rec(body.resolved)
       return { values, source: Object.fromEntries(Object.keys(values).map((key) => [key, key in override && override[key] !== null ? 'project' : 'app'])) }
     },
     async write({ ctx, base }, values) { await send(ctx, 'PATCH', base ? `${base}/terminal-settings` : '/terminal-settings', values) },
+    // The browser shortcut opens this address: a link the person will follow.
+    external: (v) => typeof v.browserShortcutUrl === 'string' && v.browserShortcutUrl ? ['browser_url'] : [],
   },
   external_mcp: {
     scope: 'app',
@@ -333,8 +454,19 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
   connectors: {
     scope: 'app',
     keys: '*',
-    async read({ ctx, options }) { return { values: await get(ctx, `/mission-connectors${options.refresh === true ? '?refresh=1' : ''}`) } },
+    async read({ ctx, options }) {
+      const values = await get(ctx, `/mission-connectors${options.refresh === true ? '?refresh=1' : ''}`)
+      // A connector is on unless the person turned it off (the app-wide deny-list).
+      const source: Record<string, Source> = {}
+      for (const provider of Array.isArray(values.providers) ? values.providers as Values[] : []) {
+        for (const row of Array.isArray(provider.connectors) ? provider.connectors as Values[] : []) {
+          if (typeof row.name === 'string' && Object.keys(source).length < 50) source[`${String(provider.provider)}/${row.name}`] = row.enabled === false ? 'app' : 'default'
+        }
+      }
+      return { values, source }
+    },
     async write({ ctx }, values) { await send(ctx, 'PATCH', '/mission-connectors', values) },
+    risks: (v) => v.enabled === true ? ['connector_on'] : [],
   },
   role_prompts: {
     scope: 'app',
@@ -378,7 +510,7 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
   // Project scope ------------------------------------------------------------
   general: projectSettingsSection(
     { orchestratorModel: oneOf('sonnet', 'opus', 'haiku'), prePrompt: text(20_000), freestylePrePrompt: text(20_000), jiraPostClarifications: bool, baselineOnTouch: bool, reviewerFamilySuggestionDismissed: bool },
-    { untrusted: ['/data/values/prePrompt', '/data/values/freestylePrePrompt'] },
+    { untrusted: ['/data/values/prePrompt', '/data/values/freestylePrePrompt'], external: (v) => v.jiraPostClarifications === true ? ['jira_post'] : [] },
   ),
   subagents: projectSettingsSection({ allowSubagents: bool, subagentRuntime: objOrNull }, { risks: (v) => v.allowSubagents === true ? ['subagents_on'] : [] }),
   branch: projectSettingsSection({ integrationBranch: text(250) }, {
@@ -409,7 +541,7 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
     scope: 'either',
     keys: async (io): Promise<Record<string, Check>> => io.base
       ? { dailyBudgetUsd: capUsd, weeklyBudgetUsd: capUsd, monthlyBudgetUsd: capUsd, runCapUsd: capUsd, jobCostThresholdUsd: capUsd, reviewWipLimit: intIn(1, 100, true) }
-      : { dailyBudgetUsd: capUsd, weeklyBudgetUsd: capUsd, monthlyBudgetUsd: capUsd, runCapUsd: capUsd, costAlertThresholdUsd: capUsd, resumeOnDailyReset: bool, confirmAboveUsd: usdAtLeast0 },
+      : { dailyBudgetUsd: capUsd, weeklyBudgetUsd: capUsd, monthlyBudgetUsd: capUsd, runCapUsd: capUsd, costAlertThresholdUsd: capUsd, resumeOnDailyReset: bool, confirmAboveUsd: confirmUsd },
     caps: ['dailyBudgetUsd', 'weeklyBudgetUsd', 'monthlyBudgetUsd', 'runCapUsd', 'confirmAboveUsd'],
     // The agent must not loosen its own confirmations silently: only "ask always" (0) skips the question.
     risks: (v) => v.confirmAboveUsd !== undefined && v.confirmAboveUsd !== 0 ? ['threshold_change'] : [],
@@ -425,7 +557,8 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
       for (const [key, value] of Object.entries(caps)) renamed[APP_BUDGET_FIELD[key] ?? key] = value
       if (Object.keys(renamed).length) await send(ctx, 'PATCH', '/budget', renamed)
       if (resumeOnDailyReset !== undefined) await send(ctx, 'PUT', '/settings', { resumeOnDailyReset })
-      if (confirmAboveUsd !== undefined) setDesktopSetting(ctx.desktopDb, CONFIRM_ABOVE_USD_KEY, String(confirmAboveUsd))
+      // The MCP window's own route (Settings ▸ MCP ▸ Ask before spending): same range and rounding.
+      if (confirmAboveUsd !== undefined) await send(ctx, 'PATCH', '/mcp-admin/preferences', { confirmAboveUsd })
     },
   },
   retention: {
@@ -434,7 +567,11 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
     async read({ ctx, base }) {
       const [settings, runtime] = await Promise.all([get(ctx, `${base}/settings`), get(ctx, `${base}/agent-runtime/retention`).catch(() => ({}) as Values)])
       const days = settings.agentAuditRetentionDays
-      return { values: { runtimeArtifacts: runtime.policy ?? null, agentAuditRetentionDays: days }, source: { agentAuditRetentionDays: days === 30 ? 'default' : 'project' } }
+      const policy = runtime.policy && typeof runtime.policy === 'object' ? runtime.policy as Values : null
+      return {
+        values: { runtimeArtifacts: policy, agentAuditRetentionDays: days },
+        source: { agentAuditRetentionDays: days === 30 ? 'default' : 'project', runtimeArtifacts: policy && (policy.days ?? null) !== null ? 'project' : 'default' },
+      }
     },
     async write({ ctx, base }, values) {
       const { agentAuditRetentionDays, runtimeArtifacts } = values
@@ -477,7 +614,7 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
   },
   verification: {
     scope: 'project',
-    keys: { verification: list, setup: list, useSuggestions: bool },
+    keys: async (io) => ({ verification: hostCommands(io.project), setup: hostCommands(io.project), useSuggestions: bool }),
     async read(io) {
       const { config, info } = await readRuntime(io)
       const values = { verification: Array.isArray(config?.verification) ? config.verification as unknown[] : [], setup: Array.isArray(config?.setup) ? config.setup as unknown[] : [] }
@@ -492,11 +629,18 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
       }
       await writeRuntime(io, (config) => ({ ...config, ...rest }))
     },
+    // These commands run on this machine at every verification (and setup before it).
+    risks: () => ['commands_run'],
   },
   loop_roles: {
     scope: 'project',
     keys: '*',
-    async read({ ctx, base }) { const { roles } = await get(ctx, `${base}/agent-runtime/loop-roles`); return { values: rec(roles) } },
+    async read({ ctx, base }) {
+      const { roles } = await get(ctx, `${base}/agent-runtime/loop-roles`)
+      const values = rec(roles)
+      // A role without its own engine inherits the loop's (the GUI's "inherit").
+      return { values, source: Object.fromEntries(['verifier', 'decider', 'triage'].map((role) => [role, values[role] ? 'project' : 'default'])) }
+    },
     async write({ ctx, base }, values) {
       const { roles } = await get(ctx, `${base}/agent-runtime/loop-roles`)
       await send(ctx, 'PUT', `${base}/agent-runtime/loop-roles`, { roles: { ...rec(roles), ...rec(values.roles ?? values) } })
@@ -507,6 +651,29 @@ const SECTIONS: Record<Exclude<SectionId, DelegatedSection>, SectionDef> = {
     keys: { apply: text(200) },
     async read({ ctx, base }) { const { plans } = await get(ctx, `${base}/agent-runtime/environment-plan`); return { values: { plans: Array.isArray(plans) ? plans : [] } } },
     async write({ ctx, base }, values) { await send(ctx, 'POST', `${base}/agent-runtime/environment-plan/apply`, { repositoryId: values.apply }) },
+  },
+  /** The Add Spec composer's remembered choices (the next composer starts with them). */
+  composer: {
+    scope: 'project',
+    keys: { contextScope: boolsOf(['specrails', 'openspec', 'full', 'mcp', 'contractRefine', 'userMcp']), quickContractRefine: bool },
+    async read({ ctx, base }) {
+      const [scope, quick] = await Promise.all([get(ctx, `${base}/context-scope-last`), get(ctx, `${base}/add-spec-quick-contract-refine-last`)])
+      const contextScope = rec(scope.scope)
+      const boot = defaultBootScope('explore') as unknown as Values
+      return {
+        values: { contextScope, quickContractRefine: quick.enabled === true },
+        source: {
+          ...Object.fromEntries(Object.keys(contextScope).map((key) => [`contextScope.${key}`, contextScope[key] === boot[key] ? 'default' : 'project'])),
+          quickContractRefine: quick.configured === true ? 'project' : 'default',
+        },
+      }
+    },
+    async write({ ctx, base }, values) {
+      if (values.contextScope !== undefined) await send(ctx, 'PATCH', `${base}/context-scope-last`, values.contextScope)
+      if (values.quickContractRefine !== undefined) await send(ctx, 'PATCH', `${base}/add-spec-quick-contract-refine-last`, { enabled: values.quickContractRefine })
+    },
+    // Explore turns would start with the person's own MCP servers (their unrestricted access).
+    risks: (v) => rec(v.contextScope).userMcp === true ? ['user_mcp_on'] : [],
   },
   rules: {
     scope: 'project',
@@ -586,6 +753,8 @@ async function checkedValues(ctx: V2CallContext, id: SectionId, def: SectionDef,
   if (!keys) throw new V2ToolError('invalid_input', ctx.v2.t('settings.error.read_only', { section: id }))
   const values = rec(raw)
   if (!Object.keys(values).length) throw new V2ToolError('invalid_input', ctx.v2.t('settings.error.no_values', { section: id }))
+  const guiOnly = guiOnlyRefusal(ctx, id, values)
+  if (guiOnly) throw guiOnly
   if (keys === '*') return values
   const unknown = Object.keys(values).filter((key) => !(key in keys))
   if (unknown.length) throw new V2ToolError('invalid_input', ctx.v2.t('settings.error.unknown_keys', { section: id, keys: unknown.join(', '), allowed: Object.keys(keys).join(', ') }))
@@ -627,7 +796,7 @@ function confirmFor(args: Values): ConfirmClass | null {
   if (def.destructive?.(values)) return 'irreversible'
   // Lowering a safeguard can be set back, so it is risky (always confirmed), not "cannot be undone".
   if (riskCodes(def, values).length) return 'risky'
-  if (def.external?.(values)) return 'external'
+  if (def.external?.(values).length) return 'external'
   if ((def.caps ?? []).some((path) => at(values, path) !== undefined)) return 'costly'
   return null
 }
@@ -635,7 +804,7 @@ function confirmFor(args: Values): ConfirmClass | null {
 function tierFor(args: Values): McpTier {
   const def = isDelegated(args.section) ? undefined : SECTIONS[args.section as Exclude<SectionId, DelegatedSection>]
   // The tiers themselves: reachable while a tier is off (turning one on asks the person in the client's dialog).
-  if (args.section === 'mcp') return 'read'
+  if (args.section === 'mcp') return Object.keys(rec(args.values)).every((key) => (TIER_KEYS as readonly string[]).includes(key)) ? 'read' : 'write'
   return def?.destructive?.(rec(args.values)) ? 'destructive' : 'write'
 }
 
@@ -652,7 +821,7 @@ async function setPreview(ctx: V2CallContext, args: Values): Promise<PreviewInpu
   const current = await def.read(io)
   const changes = Object.entries(values).map(([key, value]) => `${key}: ${showValue(key, at(current.values, key))} → ${showValue(key, value)}`).join('; ')
   const sentences = [ctx.v2.t('settings.effect.change', { section: id, project: io.project?.name ?? ctx.v2.t('settings.scope.app'), changes })]
-  for (const code of riskCodes(def, values)) sentences.push(ctx.v2.t(`settings.risk.${code}`))
+  for (const code of [...riskCodes(def, values), ...(def.external?.(values) ?? [])]) sentences.push(ctx.v2.t(`settings.risk.${code}`))
   if (def.destructive?.(values)) sentences.push(ctx.v2.t('settings.risk.delete'))
   const increase = (def.caps ?? []).some((path) => at(values, path) !== undefined) ? capIncrease(def, current.values, values) : undefined
   if (increase === null) sentences.push(ctx.v2.t('settings.risk.cap_removed'))
@@ -688,6 +857,8 @@ function sectionIndex(ctx: V2CallContext) {
     project: PROJECT_SECTIONS,
     both: ['terminal', 'budget'],
     mcp: { enabled: isMcpEnabled(ctx.desktopDb), write: isTierEnabled(ctx.desktopDb, 'write'), aiSpawn: isTierEnabled(ctx.desktopDb, 'ai-spawn'), destructive: isTierEnabled(ctx.desktopDb, 'destructive'), confirmAboveUsd: ctx.v2.confirmAboveUsd },
+    // Only the Specrails window changes these, and why.
+    guiOnly: Object.fromEntries(Object.entries(GUI_ONLY).flatMap(([section, keys]) => Object.entries(keys).map(([key, reason]) => [`${section}.${key}`, ctx.v2.t(`settings.gui_only.${reason}`)]))),
   }, { summary: ctx.v2.t('settings.summary.index', { count: APP_SECTIONS.length + PROJECT_SECTIONS.length }) })
 }
 
@@ -710,7 +881,7 @@ export const settingsTool = defineTool({
   actions: {
     get: {
       tier: 'read',
-      doc: 'No section: the section index. Effective values plus source per key. terminal/budget: app-wide unless project is given.',
+      doc: 'No section: the section index and guiOnly (what only the window changes, and why). Effective values plus source per key. terminal/budget: app-wide unless project is given.',
       handler: async (ctx, args) => {
         if (args.section === undefined || args.section === null || args.section === '') return sectionIndex(ctx)
         if (isDelegated(args.section)) return relay(await delegate(ctx, args, DELEGATED[args.section].get(args)))
@@ -729,10 +900,14 @@ export const settingsTool = defineTool({
       tier: tierFor,
       confirm: confirmFor,
       required: ['section', 'values'],
-      doc: 'Writes only the given keys; unknown keys fail. Lowering safety always confirms; raising a cap confirms above "Ask before spending".',
+      doc: 'Writes only the given keys; unknown keys fail, window-only keys say why. Lowering safety or adding verification commands always confirms; raising a cap confirms above "Ask before spending"; an outside address confirms as external.',
       preview: setPreview,
       handler: async (ctx, args) => {
-        if (isDelegated(args.section)) return relay(await delegate(ctx, args, DELEGATED[args.section].set(rec(args.values))))
+        if (isDelegated(args.section)) {
+          const guiOnly = guiOnlyRefusal(ctx, args.section, rec(args.values))
+          if (guiOnly) throw guiOnly
+          return relay(await delegate(ctx, args, DELEGATED[args.section].set(rec(args.values))))
+        }
         const { id, def } = sectionOf(ctx, args)
         const io = ioFor(ctx, args, def)
         const values = await checkedValues(ctx, id, def, io, args.values)

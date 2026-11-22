@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
-import { initDesktopDb, type DbInstance } from '../desktop-db'
+import { getDesktopSetting, initDesktopDb, type DbInstance } from '../desktop-db'
+import { readConfirmThreshold } from './v2/core/confirm'
 import type { ProjectRegistry } from '../project-registry'
 import { McpServerManager } from './mcp-server'
 import { createMcpAdminRouter } from './mcp-admin-router'
@@ -105,7 +106,18 @@ describe('createMcpAdminRouter', () => {
       for (const bad of [{ confirmAboveUsd: -1 }, { confirmAboveUsd: '1' }, { confirmAboveUsd: 5000 }, { v2: 'yes' }, { confirmAboveUsd: 1, v2: 'no' }]) {
         expect((await request(app).patch('/api/mcp-admin/preferences').send(bad)).status).toBe(400)
       }
-      expect((await request(app).get('/api/mcp-admin/status')).body).toMatchObject({ confirmAboveUsd: 2.56, v2: { enabled: true } })
+      expect((await request(app).get('/api/mcp-admin/status')).body).toMatchObject({ confirmAboveUsd: 2.56, v2: { enabled: true }, confirmInClient: true, choicesInClient: true })
+      // The in-client dialogs (confirmations, choices): booleans only, stored as on/off.
+      for (const bad of [{ confirmInClient: 'off' }, { choicesInClient: 0 }, { confirmAboveUsd: 1, choicesInClient: null }]) {
+        expect((await request(app).patch('/api/mcp-admin/preferences').send(bad)).status).toBe(400)
+      }
+      expect(readConfirmThreshold(db)).toBe(2.56)
+      const dialogs = await request(app).patch('/api/mcp-admin/preferences').send({ confirmInClient: false, choicesInClient: false })
+      expect(dialogs.body).toMatchObject({ confirmInClient: false, choicesInClient: false })
+      expect(getDesktopSetting(db, 'mcp_confirm_in_client')).toBe('off')
+      expect(getDesktopSetting(db, 'mcp_choices_in_client')).toBe('off')
+      await request(app).patch('/api/mcp-admin/preferences').send({ confirmInClient: true })
+      expect(getDesktopSetting(db, 'mcp_confirm_in_client')).toBe('on')
       process.env.SPECRAILS_MCP_V2 = 'false'
       expect((await request(app).get('/api/mcp-admin/status')).body.v2).toEqual({ enabled: false, forcedByEnv: true })
     } finally {

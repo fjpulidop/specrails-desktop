@@ -26,14 +26,14 @@ Reports land in `eval/mcp/results/<date>-<client>[-v1]-<time>.{json,md}` (`--out
 | Logging proxy | `lib/proxy.mjs` | Stdio relay client ⇄ `mcp-bridge`, appending every JSON-RPC message with timestamps |
 | Clients | `lib/clients.mjs` | Claude: `claude -p --output-format stream-json --mcp-config <temp> --strict-mcp-config`, only `mcp__specrails` and `ToolSearch` allowed. Codex: `codex exec --json` with a temp `CODEX_HOME/config.toml` holding only the Specrails server (`tool_timeout_sec = 90`). Both run with `HOME` set to a fresh directory under the work dir and a scrubbed environment (`--auth session`: see Safety) |
 | Simulated person | `lib/person.mjs`, `lib/person-dialog.mjs` | Answers from the keyboard. Between turns (`--resume`): when the agent's message ends with a numbered menu, the number of the item the scenario wants (`person.pick`; yes/no for a preview; else the first, recommended one), never "Something else"; its one free-text answer (`person.freeText`) only where no item fits; without a menu, the old chat words (counted as free text). In the server's forms (MCP elicitation) it picks an option id or writes that free text (`formAnswer`): the replay client declares form elicitation and answers choice forms this way, cancelling confirmations so the token flow runs; Claude Code's project-level `Elicitation` hook (scenario's temp cwd) answers choice forms the same way and confirmations with the scenario's yes/no (`--no-dialog`: chat only). Codex `exec` declines forms, so it stays on the chat menus |
-| Scenarios | `lib/scenarios.mjs` | S1–S16 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
+| Scenarios | `lib/scenarios.mjs` | S1–S17 with seed, prompt, person, reference solution (`replay`), reference call count and checker |
 | Metrics | `lib/metrics.mjs` | calls and logical actions (a preview plus the call that confirms it count as one: the protocol requires both, the preview does no work and the person's decision sits between them; the calls bar uses logical actions against `referenceLogical`, raw calls are reported next to it), confirmations given in the client dialog (counted only when the server marks `confirmed: "in_client"` and the log shows the dialog's accept during that call), tool names, errors (invalid args, wrong tool), confirmations requested/used, irreversible calls without a confirmToken, destructive calls, response tokens (o200k), catalog tokens (Codex shape, as the budget test), read latency, `wait` use, repeated identical reads |
 | Report | `lib/report.mjs` | Pass bars of the plan, per-scenario table, failed assertions, savings vs v1, probe, quota. Two choice bars (`decisionMetrics`): **every decision reaches the person as choices** (each server form, choice or confirmation, plus each agent turn that waited for the person, which counts only when its message carried a numbered menu) and **keyboard-only completion** (of the scenarios where the person answered, those that passed with numbers, option ids or form buttons and at most one free-text answer) |
 | Load probe | `lib/probe.mjs` | Read mix over the 100-project seed (`--fleet n`), and `wait` wake-up after an HTTP change |
 
 ## Scenarios that need more than HTTP
 
-All 16 scenarios have a seed, a reference solution and an HTTP checker. A scenario is reported `pending` only when a
+All 17 scenarios have a seed, a reference solution and an HTTP checker. A scenario is reported `pending` only when a
 v2 tool it needs is not implemented on the instance (probed at start: a stub answers `not_implemented`, a v1 action
 served through the legacy bridge carries a deprecation warning).
 
@@ -47,6 +47,7 @@ served through the legacy bridge carries a deprecation warning).
   agent's ```options choice and hands it off (default rail, mission engine). The stand-in `claude` also plays Core
   agent sessions (`--input-format stream-json`: one scripted turn per input, with the CLI's `command_lifecycle`
   frames); an Intent turn answers a request with a choice. The checker fails if any reply sends the person to the app.
+- **S17 (change a few settings by talking):** the seed sets a $10 app daily cap and every notification on; the agent raises the cap to $25 (costly: confirmed), adds `npm test` as a verification command (risky: confirmed; the window's one-line grammar, the project's only repository) and turns off the finished-run notifications. The checker reads `/budget`, the project's runtime config and `/attention-prefs`.
 - **S13 (connect):** a second, throwaway instance (port 4402) runs with `HOME` set to a fresh directory, because
   `mcp connect` edits the client configuration of the server's home. The reference runs
   `specrails-desktop mcp connect --client claude --json`; the checker starts the entry it wrote, as a new client

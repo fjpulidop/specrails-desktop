@@ -71,5 +71,6 @@
   "error.webhook_not_found": "webhook {{id}} はありません。webhooks で一覧を表示してください。",
   "confirm.mobile_enable": "モバイルゲートウェイをオンにします: ペアリングしたスマートフォン向けにローカルネットワークで待ち受けます。",
   "confirm.mobile_revoke": "ペアリング済みのデバイス {{device}} を取り消します。再度ペアリングが必要になります。",
-  "confirm.webhooks_url": "今後、アプリのイベントを {{url}} に送ります。"
+  "confirm.webhooks_url": "今後、アプリのイベントを {{url}} に送ります。",
+  "confirm.mobile_rotate": "ゲートウェイの証明書を更新し、ペアリング済みの {{devices}} 台をすべて取り消します。各端末は再ペアリングが必要です。"
 }

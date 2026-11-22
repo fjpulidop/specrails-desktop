@@ -115,6 +115,12 @@ reads, next to overview and inbox) and `rails` to WP3 (launch goes through runs)
 owning domain module, one WP per module. A WP that needs a new shared helper asks WP0 for it and does not add it to
 `core/`.
 
+### Settings coverage
+
+Every setting the Settings window (and the toggles elsewhere that persist one) can change, its GUI location, the MCP
+call that reads and changes it, its confirmation class and `source`, and the few that only the window changes (with the
+reason, listed by `specrails_settings(get).guiOnly`): [mcp-v2-settings-coverage.md](mcp-v2-settings-coverage.md).
+
 ### One owner per setting (decided at phase 2)
 
 Where two tools reached the same data, one implements it and the other delegates through `ctx.v2.dispatch` (the
@@ -344,7 +350,11 @@ Offer { id, label, effect?, call: { tool, args }, tier, irreversible?, external?
 
 Every decision reaches the person as a menu (instructions, prompts and the `state-and-offers` guide say how agents
 present one: the client's question tool, else a numbered list, recommended first, last "Something else — write it";
-the person answers with a number, an option id or free text).
+the person answers with a number, an option id or free text). That last item is worded wholly in the person's language
+(`core.choose.other`: es "Otra cosa — escríbelo", fr "Autre chose — écrivez-la", …): every non-English answer that
+carries a menu (offers, `choices`, a confirmation, a held entity) adds `menuOther` with it, so the agent copies it instead
+of half-translating the English rule (`menuOtherOf`). `i18n/choices.test.ts` fails when a menu string of another
+language keeps English words or the numbered menus inside `confirm.*` / `choose.menu` disagree with `choose.other`.
 
 - **Lean lists** carry `choices: [{ id, label, effect?, recommended?, needs? }]` instead of offer ids
   (`inbox(list)`, `overview(app)` needsYou). The full `state` keeps the calls.
@@ -542,6 +552,13 @@ S5, S6, S14, S16; $0.056) presented every decision as a numbered menu or answere
 keyboard-only 6/6); Codex (low effort, S4–S6) asked yes/no in prose until the confirmation message itself asked for a
 menu, then answered menus by number (S5 once stopped without asking: it judged the scripted delivery incomplete).
 The client configuration files kept their sha256.
+
+### Settings coverage (replay)
+
+With the settings audit ([mcp-v2-settings-coverage.md](mcp-v2-settings-coverage.md)) and S17 ("change a few settings
+by talking": a daily cap raise, a verification command, one notification category, each confirmed as its class says):
+replay 17/17, catalog 6166 (`specrails_settings` 326), every decision as choices 21/21, keyboard-only 6/6, mean result
+tokens ≤ 767, load-probe p95 225 ms.
 
 ## Open after phase 2
 

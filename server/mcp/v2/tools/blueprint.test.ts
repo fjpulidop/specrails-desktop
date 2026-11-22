@@ -336,6 +336,10 @@ describe('settings', () => {
     const { envelope } = await call(client, T, { action: 'settings_get' })
     expect(envelope.data).toMatchObject({ usual: { provider: 'claude', model: 'sonnet' }, usualEfforts: ['low', 'high'], launch: { model: 'sonnet' }, onlyForMilestone: { m2: { provider: 'claude', model: 'opus', reasoningEffort: 'high' } }, providers: [{ provider: 'claude', models: ['sonnet', 'opus'] }] })
     expect(envelope.summary).toBe('Usual configuration: claude · sonnet.')
+    // Where each value comes from: nothing saved yet (the primary provider's default), M2 has its own.
+    expect(envelope.data.source).toEqual({ usual: 'default', launch: 'default', 'onlyForMilestone.m2': 'milestone' })
+    route(/\/blueprint\/generation-settings/, () => ({ body: { providers: [], selection: { provider: 'claude', model: 'opus', reasoningEffort: null }, source: 'project' } }))
+    expect((await call(client, T, { action: 'settings_get' })).envelope.data.source.usual).toBe('project')
   })
 
   it('saves the usual configuration, or one milestone\'s own (and clears it)', async () => {

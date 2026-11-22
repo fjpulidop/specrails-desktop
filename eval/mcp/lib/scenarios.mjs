@@ -1,4 +1,5 @@
-// The 16 scenarios of the MCP v2 evaluation plan (design §14, plus S16: continue an open Intent). Each one has a
+// The 17 scenarios of the MCP v2 evaluation plan (design §14, plus S16: continue an open Intent, and S17: change a
+// few settings by talking). Each one has a
 // natural-language task, a seed (HTTP API), a simulated person, a reference
 // solution (the calls a competent agent needs; the `replay` client runs it and
 // its call count is the 1.3× bar's denominator) and a checker that verifies the
@@ -522,6 +523,46 @@ export const SCENARIOS = [
         neverCalled(calls, c => c.tool === 'specrails_missions' && c.args?.action === 'intent_discard', 'the Intent was never discarded'),
         // No dead end: neither the Intent agent nor the client sends the person to the app.
         assertion('nobody sent the person to the app', !messages.some(m => m.role === 'assistant' && toApp.test(String(m.content ?? ''))) && !toApp.test(finalText ?? ''), (finalText ?? '').slice(0, 120)),
+      ]
+    },
+  },
+  {
+    // Settings by talking: a cap raise (costly), a verification command (risky: it runs on this machine) and one
+    // notification category (no confirmation), each through the same route the Settings window uses.
+    id: 'S17', title: 'Change a few settings by talking', needs: ['specrails_settings'], referenceCalls: 6, referenceLogical: 4,
+    prompt: { en: p => `Set the app's daily spending limit to $25, add "npm test" as a verification command in project "${p.project.name}", and stop notifying me when runs finish (keep the other notifications).` },
+    person: { confirm: 'Yes, go ahead.', pick: /yes|go ahead|s[ií]/i },
+    async seed(ctx) {
+      const project = await seed.seedProject(ctx.api, ctx.workDir, `s17-${ctx.tag}`)
+      // A daily cap of $10 to raise; every notification on (the defaults).
+      const budget = await ctx.api.patch('/budget', { desktopDailyBudgetUsd: 10 })
+      if (budget.status !== 200) throw new Error(`seed budget: ${budget.status}`)
+      const prefs = await ctx.api.patch('/attention-prefs', { enabled: true, categories: { question: true, review: true, failed: true, budget: true, done: true } })
+      if (prefs.status !== 200) throw new Error(`seed notifications: ${prefs.status}`)
+      return { project }
+    },
+    async reference(mcp, f) {
+      await withConfirm(mcp, 'specrails_settings', { action: 'set', section: 'budget', values: { dailyBudgetUsd: 25 } })
+      // "Add": keep what is there, then the new line (the window's grammar: "npm test").
+      const current = await mcp.call('specrails_settings', { action: 'get', section: 'verification', project: f.project.slug })
+      const existing = current.envelope?.data?.values?.verification ?? []
+      await withConfirm(mcp, 'specrails_settings', { action: 'set', section: 'verification', project: f.project.slug, values: { verification: [...existing, 'npm test'] } })
+      await mcp.call('specrails_settings', { action: 'set', section: 'notifications', values: { categories: { done: false } } })
+    },
+    async check({ api, facts, calls }) {
+      const budget = (await api.get('/budget')).data ?? {}
+      const runtime = (await api.get(`/projects/${facts.project.id}/agent-runtime/config`)).data ?? {}
+      const commands = runtime.config?.verification ?? []
+      const prefs = (await api.get('/attention-prefs')).data ?? {}
+      const others = ['question', 'review', 'failed', 'budget']
+      return [
+        assertion('daily limit is $25', budget.desktopDailyBudgetUsd === 25, String(budget.desktopDailyBudgetUsd)),
+        confirmedWithToken(calls, 'specrails_settings', 'set', a => a.section === 'budget' && a.values?.dailyBudgetUsd !== undefined),
+        assertion('"npm test" is a verification command', commands.some(c => c.command === 'npm' && (c.args ?? []).join(' ') === 'test'), JSON.stringify(commands).slice(0, 200)),
+        confirmedWithToken(calls, 'specrails_settings', 'set', a => a.section === 'verification'),
+        assertion('finished-run notifications off, the others kept', prefs.enabled === true && prefs.categories?.done === false && others.every(k => prefs.categories?.[k] === true), JSON.stringify(prefs.categories ?? {})),
+        // The window's own path: nothing outside specrails_settings changed a setting.
+        neverCalled(calls, c => DESTRUCTIVE[c.tool]?.(c.args ?? {}), 'nothing destructive'),
       ]
     },
   },

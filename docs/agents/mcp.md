@@ -361,8 +361,8 @@ App and project settings by section (get/set; secrets write-only), env scan and 
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `get` | read | — | No section: the section index. Effective values plus source per key. terminal/budget: app-wide unless project is given. |
-| `set` | per call | per call | Requires `section`, `values`. Writes only the given keys; unknown keys fail. Lowering safety always confirms; raising a cap confirms above "Ask before spending". |
+| `get` | read | — | No section: the section index and guiOnly (what only the window changes, and why). Effective values plus source per key. terminal/budget: app-wide unless project is given. |
+| `set` | per call | per call | Requires `section`, `values`. Writes only the given keys; unknown keys fail, window-only keys say why. Lowering safety or adding verification commands always confirms; raising a cap confirms above "Ask before spending"; an outside address confirms as external. |
 | `env_scan` | read | — | Requires `project`. Finds env var names the repo references. Add them with set(env, values.addScanned). |
 | `env_status` | read | — | Requires `project`. options.recheck: true probes the login shell now. |
 | `webhook_test` | write | — | Requires `options.webhookId`. Runs specrails_integrations(webhooks, op test): its preview and confirmation apply. |
@@ -444,7 +444,7 @@ jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, gi
 | `git_pr` | read | — | options.number: that PR's verified URL. Without it: gh pr view of the current branch (state, checks, review). |
 | `git_gh` | read | — | GitHub connectivity: the linked repository and gh sign-in. options.op: gh_repo \| gh_auth \| gh_pr_list runs just that. |
 | `webhooks` | per call | per call | Outgoing webhooks. options.op: list (default) \| create (values: url https, events, secret?, projectId?) \| update (id, values: url, events, secret, enabled) \| delete (id) \| test (id; sends a ping). |
-| `mobile` | per call | per call | Mobile gateway status and paired devices. options.op: status (default) \| enable (opens a LAN listener; confirmed) \| disable \| revoke (id = device; it must pair again). |
+| `mobile` | per call | per call | Mobile gateway status and paired devices. options.op: status (default) \| enable (opens a LAN listener; confirmed) \| disable \| revoke (id = device; it must pair again) \| rotate (new certificate; every device must pair again). Pairing itself needs the QR in the window. |
 
 ### `specrails_system`
 

@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} deve essere {{expected}}.",
   "error.guardrails_unsupported": "Il Core installato non ha guardrail configurabili. Aggiorna prima Core.",
   "risk.mcp_tier_on": "I client MCP potranno fare queste chiamate senza aprire l’app; la persona deve accettare nella finestra di dialogo di questo client.",
-  "error.tier_raise": "Attivare {{keys}} richiede il sì della persona nella finestra di conferma di questo client (un token di conferma non basta e gli agenti dell’app non possono farlo). Se questo client non mostra finestre, la persona lo attiva in Impostazioni di Specrails ▸ MCP."
+  "error.tier_raise": "Attivare {{keys}} richiede il sì della persona nella finestra di conferma di questo client (un token di conferma non basta e gli agenti dell’app non possono farlo). Se questo client non mostra finestre, la persona lo attiva in Impostazioni di Specrails ▸ MCP.",
+  "risk.commands_run": "Questi comandi vengono eseguiti su questa macchina a ogni verifica.",
+  "risk.connector_on": "Gli agenti delle missioni potranno di nuovo usare questo connettore.",
+  "risk.user_mcp_on": "I turni di Esplora partiranno con i tuoi server MCP e il loro accesso.",
+  "risk.jira_post": "I chiarimenti verranno pubblicati nelle issue Jira del progetto.",
+  "risk.browser_url": "La scorciatoia browser del terminale aprirà questo indirizzo.",
+  "error.gui_only": "{{key}} si cambia solo nella finestra di Specrails: {{reason}}",
+  "gui_only.local_ui": "è conservato nella memoria propria della finestra, che il server non raggiunge.",
+  "gui_only.mcp_enabled": "è il server MCP attraverso cui parla questo client.",
+  "gui_only.mcp_connect": "modifica il file di configurazione di un'altra app; usa Impostazioni ▸ MCP ▸ Connetti o specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "è il segreto con cui questo client si identifica; uno nuovo chiude le sessioni aperte.",
+  "gui_only.pairing": "l'abbinamento richiede di scansionare un codice QR tra i due dispositivi."
 }

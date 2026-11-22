@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} deve ser {{expected}}.",
   "error.guardrails_unsupported": "O Core instalado não tem proteções configuráveis. Atualize o Core primeiro.",
   "risk.mcp_tier_on": "Os clientes MCP poderão fazer essas chamadas sem abrir o app; a pessoa precisa aceitar no próprio diálogo deste cliente.",
-  "error.tier_raise": "Ativar {{keys}} exige que a pessoa aceite no próprio diálogo de confirmação deste cliente (um token de confirmação não basta e agentes do app não podem fazê-lo). Se este cliente não mostra diálogos, a pessoa ativa em Configurações do Specrails ▸ MCP."
+  "error.tier_raise": "Ativar {{keys}} exige que a pessoa aceite no próprio diálogo de confirmação deste cliente (um token de confirmação não basta e agentes do app não podem fazê-lo). Se este cliente não mostra diálogos, a pessoa ativa em Configurações do Specrails ▸ MCP.",
+  "risk.commands_run": "Estes comandos são executados nesta máquina em cada verificação.",
+  "risk.connector_on": "Os agentes das missões poderão voltar a usar este conector.",
+  "risk.user_mcp_on": "Os turnos de Explorar começarão com os seus próprios servidores MCP e o acesso deles.",
+  "risk.jira_post": "Os esclarecimentos serão publicados nas issues do Jira do projeto.",
+  "risk.browser_url": "O atalho de navegador do terminal abrirá este endereço.",
+  "error.gui_only": "{{key}} só se altera na janela do Specrails: {{reason}}",
+  "gui_only.local_ui": "fica guardado no armazenamento próprio da janela, que o servidor não alcança.",
+  "gui_only.mcp_enabled": "é o servidor MCP pelo qual este cliente se comunica.",
+  "gui_only.mcp_connect": "edita o arquivo de configuração de outro aplicativo; use Configurações ▸ MCP ▸ Conectar ou specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "é o segredo com que este cliente se identifica; um novo fecha as sessões abertas.",
+  "gui_only.pairing": "o pareamento exige escanear um código QR entre os dois dispositivos."
 }

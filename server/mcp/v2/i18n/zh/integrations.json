@@ -71,5 +71,6 @@
   "error.webhook_not_found": "没有 webhook {{id}}。使用 webhooks 列出它们。",
   "confirm.mobile_enable": "开启移动网关：在本地网络上为已配对的手机提供监听。",
   "confirm.mobile_revoke": "撤销已配对的设备 {{device}}；它必须重新配对。",
-  "confirm.webhooks_url": "从现在起将应用的事件发送到 {{url}}。"
+  "confirm.webhooks_url": "从现在起将应用的事件发送到 {{url}}。",
+  "confirm.mobile_rotate": "轮换网关证书并撤销全部 {{devices}} 台已配对设备；每台都需要重新配对。"
 }

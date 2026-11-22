@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} debe ser {{expected}}.",
   "error.guardrails_unsupported": "El Core instalado no tiene salvaguardas configurables. Actualiza Core primero.",
   "risk.mcp_tier_on": "Los clientes MCP podrán hacer estas llamadas sin abrir la app; la persona debe aceptarlo en el diálogo propio de este cliente.",
-  "error.tier_raise": "Activar {{keys}} requiere que la persona acepte en el diálogo de confirmación propio de este cliente (un token de confirmación no basta y los agentes de la app no pueden hacerlo). Si este cliente no muestra diálogos, la persona lo activa en Ajustes de Specrails ▸ MCP."
+  "error.tier_raise": "Activar {{keys}} requiere que la persona acepte en el diálogo de confirmación propio de este cliente (un token de confirmación no basta y los agentes de la app no pueden hacerlo). Si este cliente no muestra diálogos, la persona lo activa en Ajustes de Specrails ▸ MCP.",
+  "risk.commands_run": "Estos comandos se ejecutan en esta máquina en cada verificación.",
+  "risk.connector_on": "Los agentes de las misiones podrán volver a usar este conector.",
+  "risk.user_mcp_on": "Los turnos de Explorar empezarán con tus propios servidores MCP y su acceso.",
+  "risk.jira_post": "Las aclaraciones se publicarán en las incidencias de Jira del proyecto.",
+  "risk.browser_url": "El atajo de navegador del terminal abrirá esta dirección.",
+  "error.gui_only": "{{key}} solo se cambia en la ventana de Specrails: {{reason}}",
+  "gui_only.local_ui": "se guarda en el almacenamiento propio de la ventana, al que el servidor no llega.",
+  "gui_only.mcp_enabled": "es el servidor MCP a través del cual habla este cliente.",
+  "gui_only.mcp_connect": "edita el archivo de configuración de otra aplicación; usa Ajustes ▸ MCP ▸ Conectar o specrails-desktop mcp connect.",
+  "gui_only.mcp_token": "es el secreto con el que se identifica este cliente; uno nuevo cierra las sesiones abiertas.",
+  "gui_only.pairing": "el emparejamiento necesita escanear un código QR entre los dos dispositivos."
 }

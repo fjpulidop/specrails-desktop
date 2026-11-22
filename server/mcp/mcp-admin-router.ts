@@ -7,7 +7,8 @@ import { getMcpToken, mcpTokenPath, regenerateMcpToken } from './mcp-token'
 import { safeEqual } from '../auth'
 import { setDesktopSetting } from '../desktop-db'
 import { TIER_SETTING_KEY, isTierEnabled, type McpTier } from './mcp-tiers'
-import { CONFIRM_ABOVE_USD_KEY, readConfirmThreshold } from './v2/core/confirm'
+import { CONFIRM_ABOVE_USD_KEY, CONFIRM_IN_CLIENT_KEY, readConfirmInClient, readConfirmThreshold } from './v2/core/confirm'
+import { CHOICES_IN_CLIENT_KEY, readChoicesInClient } from './v2/core/choices'
 import { MCP_V2_KEY, isMcpV2Enabled } from './v2/flag'
 import { buildSpecrailsMcpEntry } from '../agent-mcp-config'
 import type { BridgeEntry, ConnectClient, ConnectScope } from './connect/client-config'
@@ -49,11 +50,14 @@ export interface McpAdminDeps {
 /** Highest "Ask before spending" threshold the panel accepts (USD). */
 export const MAX_CONFIRM_ABOVE_USD = 1000
 
-function preferences(db: DbInstance): { confirmAboveUsd: number; v2: { enabled: boolean; forcedByEnv: boolean } } {
+function preferences(db: DbInstance): { confirmAboveUsd: number; v2: { enabled: boolean; forcedByEnv: boolean }; confirmInClient: boolean; choicesInClient: boolean } {
   const override = process.env.SPECRAILS_MCP_V2
   return {
     confirmAboveUsd: readConfirmThreshold(db),
     v2: { enabled: isMcpV2Enabled(db), forcedByEnv: override === 'true' || override === 'false' },
+    // Whether a client that can show its own dialog asks the yes / the choice there (MCP elicitation; default on).
+    confirmInClient: readConfirmInClient(db),
+    choicesInClient: readChoicesInClient(db),
   }
 }
 
@@ -110,8 +114,9 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
     res.json({ ...manager.status(), tiers: tierState(desktopDb), tokenHint: redact(getMcpToken()), ...preferences(desktopDb) })
   })
 
-  // "Ask before spending" (the v2 confirmation threshold, USD) and the v2
-  // surface flag. Validated as a whole before anything is written.
+  // "Ask before spending" (the v2 confirmation threshold, USD), the v2
+  // surface flag and whether clients ask in their own dialogs (confirmations,
+  // choices). Validated as a whole before anything is written.
   router.patch('/preferences', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     if ('confirmAboveUsd' in body) {
@@ -121,13 +126,17 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
         return
       }
     }
-    if ('v2' in body && typeof body.v2 !== 'boolean') {
-      res.status(400).json({ error: 'v2 must be a boolean' })
-      return
+    for (const key of ['v2', 'confirmInClient', 'choicesInClient'] as const) {
+      if (key in body && typeof body[key] !== 'boolean') {
+        res.status(400).json({ error: `${key} must be a boolean` })
+        return
+      }
     }
     desktopDb.transaction(() => {
       if ('confirmAboveUsd' in body) setDesktopSetting(desktopDb, CONFIRM_ABOVE_USD_KEY, String(Math.round((body.confirmAboveUsd as number) * 100) / 100))
       if ('v2' in body) setDesktopSetting(desktopDb, MCP_V2_KEY, body.v2 ? 'true' : 'false')
+      if ('confirmInClient' in body) setDesktopSetting(desktopDb, CONFIRM_IN_CLIENT_KEY, body.confirmInClient ? 'on' : 'off')
+      if ('choicesInClient' in body) setDesktopSetting(desktopDb, CHOICES_IN_CLIENT_KEY, body.choicesInClient ? 'on' : 'off')
     })()
     res.json({ ok: true, ...preferences(desktopDb) })
   })

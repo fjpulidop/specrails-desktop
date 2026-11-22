@@ -226,9 +226,12 @@ describe('project-router', () => {
     it('[spec:blueprint-generation-settings/project-scoped-generation-preference] [spec:blueprint-generation-settings/compatible-configuration-catalog] [spec:milestone-lifecycle/generate-m2-as-project-level-grounded-generation] persists the preference per project and applies it only to milestone conversations', async () => {
       const { app, contexts } = setup()
       const url = '/api/projects/proj-1/blueprint/generation-settings'
+      // Nothing saved: the primary provider's default model, said as such (MCP reports it as the value's source).
+      expect((await request(app).get(url)).body.source).toBe('default')
       const saved = await request(app).put(url).send(preferred)
       expect(saved.status).toBe(200)
       expect(saved.body.selection).toEqual(preferred)
+      expect(saved.body.source).toBe('project')
       const execution = await request(app).get('/api/projects/proj-1/blueprint/launch-settings')
       expect(execution.status).toBe(200)
       expect(execution.body.selection.provider).toBe('claude')

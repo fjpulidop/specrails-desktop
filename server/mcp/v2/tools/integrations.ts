@@ -263,6 +263,8 @@ const MOBILE_MUTATING: Record<string, { tier: 'write' | 'destructive'; confirm: 
   enable: { tier: 'write', confirm: 'risky' },
   disable: { tier: 'write', confirm: null },
   revoke: { tier: 'destructive', confirm: 'irreversible' },
+  // A new certificate revokes every paired device (each must pair again by QR).
+  rotate: { tier: 'destructive', confirm: 'irreversible' },
 }
 
 async function mobileFacts(ctx: V2CallContext): Promise<{ status: Row; devices: unknown[] }> {
@@ -276,7 +278,9 @@ async function mobilePreview(ctx: V2CallContext, args: Row): Promise<PreviewInpu
   const id = str(args.id) ?? ''
   const device = asRecord(devices.map(asRecord).find((d) => String(d.id) === id))
   return {
-    effect: op === 'revoke' ? ctx.v2.t('integrations.confirm.mobile_revoke', { device: neutralize(String(device.name ?? id)).slice(0, 80) }) : ctx.v2.t('integrations.confirm.mobile_enable'),
+    effect: op === 'revoke' ? ctx.v2.t('integrations.confirm.mobile_revoke', { device: neutralize(String(device.name ?? id)).slice(0, 80) })
+      : op === 'rotate' ? ctx.v2.t('integrations.confirm.mobile_rotate', { devices: devices.length })
+        : ctx.v2.t('integrations.confirm.mobile_enable'),
     version: shortHash({ enabled: status.enabled === true, devices: devices.map((d) => asRecord(d).id) }),
   }
 }
@@ -887,15 +891,16 @@ export const integrationsTool = defineTool({
     mobile: {
       tier: (args) => MOBILE_MUTATING[opOf(args, 'status')]?.tier ?? 'read',
       confirm: (args) => MOBILE_MUTATING[opOf(args, 'status')]?.confirm ?? null,
-      doc: 'Mobile gateway status and paired devices. options.op: status (default) | enable (opens a LAN listener; confirmed) | disable | revoke (id = device; it must pair again).',
+      doc: 'Mobile gateway status and paired devices. options.op: status (default) | enable (opens a LAN listener; confirmed) | disable | revoke (id = device; it must pair again) | rotate (new certificate; every device must pair again). Pairing itself needs the QR in the window.',
       preview: mobilePreview,
       handler: async (ctx, args) => {
         const op = opOf(args, 'status')
         if (op !== 'status') {
-          if (!MOBILE_MUTATING[op]) throw new V2ToolError('invalid_input', 'options.op: status, enable, disable or revoke.')
+          if (!MOBILE_MUTATING[op]) throw new V2ToolError('invalid_input', 'options.op: status, enable, disable, revoke or rotate.')
           const id = str(args.id)
           if (op === 'revoke' && !id) throw new V2ToolError('invalid_input', 'options.op:revoke needs id (the device).')
           if (op === 'revoke') await apiCall(ctx, 'DELETE', `/mobile/devices/${enc(id!)}`)
+          else if (op === 'rotate') await apiCall(ctx, 'POST', '/mobile/cert/rotate')
           else await apiCall(ctx, 'POST', op === 'enable' ? '/mobile/enable' : '/mobile/disable')
         }
         const { status: s, devices: list } = await mobileFacts(ctx)

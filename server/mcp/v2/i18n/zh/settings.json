@@ -22,5 +22,16 @@
   "error.invalid_value": "{{key}} 必须是 {{expected}}。",
   "error.guardrails_unsupported": "已安装的 Core 没有可配置的防护措施。请先更新 Core。",
   "risk.mcp_tier_on": "MCP 客户端随后无需打开应用即可执行这些调用；必须由本人在此客户端自己的对话框中确认。",
-  "error.tier_raise": "开启 {{keys}} 需要本人在此客户端自己的确认对话框中同意（仅有确认令牌不够，应用内智能体也无法执行）。如果此客户端不显示对话框，请本人在 Specrails 设置 ▸ MCP 中开启。"
+  "error.tier_raise": "开启 {{keys}} 需要本人在此客户端自己的确认对话框中同意（仅有确认令牌不够，应用内智能体也无法执行）。如果此客户端不显示对话框，请本人在 Specrails 设置 ▸ MCP 中开启。",
+  "risk.commands_run": "每次验证时，这些命令都会在本机上运行。",
+  "risk.connector_on": "任务代理将可以再次使用此连接器。",
+  "risk.user_mcp_on": "探索轮次将带着你自己的 MCP 服务器及其访问权限启动。",
+  "risk.jira_post": "澄清内容将发布到项目的 Jira 问题中。",
+  "risk.browser_url": "终端的浏览器快捷方式将打开此地址。",
+  "error.gui_only": "{{key}} 只能在 Specrails 窗口中更改：{{reason}}",
+  "gui_only.local_ui": "它保存在窗口自己的存储中，服务器无法访问。",
+  "gui_only.mcp_enabled": "它就是此客户端通信所用的 MCP 服务器。",
+  "gui_only.mcp_connect": "它会编辑另一个应用的配置文件；请使用 设置 ▸ MCP ▸ 连接 或 specrails-desktop mcp connect。",
+  "gui_only.mcp_token": "它是此客户端登录所用的密钥；生成新密钥会关闭已打开的会话。",
+  "gui_only.pairing": "配对需要在两台设备之间扫描二维码。"
 }

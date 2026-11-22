@@ -71,5 +71,6 @@
   "error.webhook_not_found": "Kein Webhook {{id}}. Liste sie mit webhooks auf.",
   "confirm.mobile_enable": "Schaltet das mobile Gateway ein: ein Listener im lokalen Netzwerk für gekoppelte Telefone.",
   "confirm.mobile_revoke": "Widerruft das gekoppelte Gerät {{device}}; es muss sich erneut koppeln.",
-  "confirm.webhooks_url": "Sendet die Ereignisse der App ab jetzt an {{url}}."
+  "confirm.webhooks_url": "Sendet die Ereignisse der App ab jetzt an {{url}}.",
+  "confirm.mobile_rotate": "Erneuert das Zertifikat des Gateways und widerruft alle {{devices}} gekoppelten Geräte; jedes muss neu gekoppelt werden."
 }
