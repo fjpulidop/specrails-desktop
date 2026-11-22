@@ -1,9 +1,13 @@
-import { bold, dim, red, cliError } from './output'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { ansi, bold, dim, red, cliError } from './output'
+import { DEFAULT_PORT } from './args'
 import { detectWebManager, httpGet, httpPost } from './desktop-client'
 
 /**
- * `specrails-desktop mcp connect|status|disconnect`: register the Specrails MCP
- * server with Claude Code or Codex in one command.
+ * `specrails-desktop mcp connect|status|disconnect|doctor`: register the Specrails
+ * MCP server with Claude Code or Codex in one command, and diagnose it.
  *
  * The running app does the work (`/api/mcp-admin/connect`, loopback + master
  * token): it knows its bundled Node and bridge paths and edits only the
@@ -16,7 +20,7 @@ import { detectWebManager, httpGet, httpPost } from './desktop-client'
 export type McpClientArg = 'claude' | 'codex'
 
 export interface McpConnectOptions {
-  sub: 'connect' | 'disconnect' | 'status' | 'help'
+  sub: 'connect' | 'disconnect' | 'status' | 'doctor' | 'help'
   clients: McpClientArg[] | 'all' | null
   scope: 'user' | 'project'
   dryRun: boolean
@@ -33,12 +37,16 @@ export const MCP_HELP = `${bold('specrails-desktop mcp')} — connect Claude Cod
                                 [--dry-run] [--force] [--no-verify] [--json]
   specrails-desktop mcp disconnect --client claude|codex|all [--scope user|project]
   specrails-desktop mcp status                    Installed clients and their connection
+  specrails-desktop mcp doctor [--no-verify] [--json]
+                                                  Diagnose the connection end to end, with fixes
 
   Specrails must be running. Connect edits only the client's own config
   (${dim('~/.claude.json or .mcp.json; $CODEX_HOME/config.toml or .codex/config.toml')}),
   backs it up first, never writes a token, and verifies with tools/list.
   --scope project writes the config of the current directory.
   --force replaces a "specrails" entry that is not the Specrails bridge.
+  doctor only reads: the app, the token file, the bridge and its Node, every
+  client entry (user scope and the current directory) and one stdio round trip.
 `
 
 /** Parses the words after `mcp`; throws a usage message on bad input. */
@@ -46,7 +54,7 @@ export function parseMcpArgs(argv: string[]): McpConnectOptions {
   const args = [...argv]
   const first = args[0]
   const sub = first === undefined || first === 'help' || first === '--help' || first === '-h' ? 'help'
-    : first === 'connect' || first === 'disconnect' || first === 'status' ? first : null
+    : first === 'connect' || first === 'disconnect' || first === 'status' || first === 'doctor' ? first : null
   if (sub === null) throw new Error(`Unknown mcp command "${first}". Try: specrails-desktop mcp connect --client claude`)
   const options: McpConnectOptions = { sub, clients: null, scope: 'user', dryRun: false, force: false, verify: true, json: false }
   for (let i = 1; i < args.length; i++) {
@@ -123,8 +131,106 @@ export function describeConnect(body: ConnectBody, remove: boolean): string[] {
 
 type Out = (line: string) => void
 
+type CheckStatus = 'pass' | 'warn' | 'fail' | 'skip'
+interface DoctorCheck { id: string; status: CheckStatus; title: string; detail?: string; fix?: string }
+interface DoctorReport {
+  ok: boolean
+  port: number
+  checks: DoctorCheck[]
+  versions: { app: string; protocol: string; negotiatedProtocol?: string; catalog: string; advertisedTools: number; node?: string; server?: string }
+}
+
+const MARK: Record<CheckStatus, string> = { pass: ansi('32', 'ok  '), warn: ansi('33', 'warn'), fail: red('fail'), skip: dim('skip') }
+
+/** Human lines for a doctor report. */
+export function describeDoctor(report: DoctorReport): string[] {
+  const lines: string[] = [bold('Specrails MCP doctor')]
+  for (const check of report.checks) {
+    lines.push(`${MARK[check.status]}  ${check.title}`)
+    if (check.detail) lines.push(dim(`      ${check.detail}`))
+    if (check.fix && (check.status === 'warn' || check.status === 'fail')) lines.push(`      fix: ${check.fix}`)
+  }
+  const v = report.versions
+  const parts = [
+    v.app ? `app ${v.app}` : null,
+    v.server && v.server !== v.app ? `server reached ${v.server}` : null,
+    `protocol ${v.negotiatedProtocol ?? v.protocol}`,
+    v.catalog ? `catalog ${v.catalog} (${v.advertisedTools} tools)` : null,
+    v.node ? `node ${v.node}` : null,
+  ].filter(Boolean)
+  lines.push(dim(`versions: ${parts.join(' · ')}`))
+  const failed = report.checks.filter((check) => check.status === 'fail').length
+  const warned = report.checks.filter((check) => check.status === 'warn').length
+  lines.push(failed ? red(`${failed} problem${failed === 1 ? '' : 's'} to fix${warned ? `, ${warned} warning${warned === 1 ? '' : 's'}` : ''}.`)
+    : warned ? `No blocking problem; ${warned} warning${warned === 1 ? '' : 's'}.` : 'Everything checks out.')
+  return lines
+}
+
+/** The port doctor checks: --port, else SPECRAILS_MCP_PORT / SPECRAILS_PORT, else 4200. */
+export function doctorPort(port: number, env: Readonly<Record<string, string | undefined>>): number {
+  if (port !== DEFAULT_PORT) return port
+  for (const key of ['SPECRAILS_MCP_PORT', 'SPECRAILS_PORT']) {
+    const value = Number(env[key])
+    if (Number.isInteger(value) && value > 0 && value < 65536) return value
+  }
+  return port
+}
+
+/** What doctor can say without the app: it is not running, and whether the token file exists. Never reads the token's value. */
+function offlineReport(port: number, tokenFile: string): DoctorReport {
+  let token: DoctorCheck
+  try {
+    const stat = fs.statSync(tokenFile)
+    token = stat.size > 0
+      ? { id: 'token', status: 'pass', title: 'The MCP token file is present', detail: tokenFile }
+      : { id: 'token', status: 'fail', title: 'The MCP token file is empty', detail: tokenFile, fix: 'Start Specrails, then regenerate the token in Settings ▸ MCP.' }
+  } catch {
+    token = { id: 'token', status: 'warn', title: 'The MCP token file is missing', detail: tokenFile, fix: 'Start Specrails once: it writes the token file.' }
+  }
+  return {
+    ok: false, port,
+    checks: [
+      { id: 'app', status: 'fail', title: `Specrails is not running on port ${port}`, fix: 'Open the Specrails app (or run specrails-desktop start); if it uses another port, pass --port or set SPECRAILS_MCP_PORT.' },
+      token,
+      { id: 'clients', status: 'skip', title: 'Client entries and the connection test need the running app' },
+    ],
+    versions: { app: '', protocol: '2025-06-18', catalog: '', advertisedTools: 0 },
+  }
+}
+
+function defaultTokenFile(env: Readonly<Record<string, string | undefined>>): string {
+  return path.join(env.SPECRAILS_REGISTRY_HOME || os.homedir(), '.specrails', 'mcp.token')
+}
+
+async function runDoctorCommand(options: McpConnectOptions, port: number, io: { out: Out; err: Out; cwd?: string; env?: Readonly<Record<string, string | undefined>>; tokenFile?: string }): Promise<number> {
+  const env = io.env ?? process.env
+  const target = doctorPort(port, env)
+  const print = (report: DoctorReport) => { if (options.json) io.out(JSON.stringify(report, null, 2)); else describeDoctor(report).forEach(io.out) }
+  const detection = await detectWebManager(target)
+  if (!detection.running) {
+    print(offlineReport(target, io.tokenFile ?? defaultTokenFile(env)))
+    return 1
+  }
+  const query = new URLSearchParams({ projectDir: io.cwd ?? process.cwd(), ...(options.verify ? {} : { verify: 'false' }) })
+  const url = `${detection.baseUrl}/api/mcp-admin/doctor?${query.toString()}`
+  let res = await httpGet(url, 90_000)
+  if (res.status === 401) res = await httpGet(url, 90_000)
+  if (res.status === 401 || res.status === 403) {
+    io.err('Specrails refused the request: run this as the same user as the app (it reads ~/.specrails/desktop.token).')
+    return 1
+  }
+  if (res.status === 404) {
+    io.err('This Specrails version has no MCP doctor; update the app, or use specrails-desktop mcp status.')
+    return 1
+  }
+  if (res.status !== 200) { io.err(`Specrails answered ${res.status}: ${res.body.slice(0, 200)}`); return 1 }
+  const report = JSON.parse(res.body) as DoctorReport
+  print(report)
+  return report.ok ? 0 : 1
+}
+
 /** Runs `mcp …` against the app on `port`; returns the exit code. */
-export async function handleMcp(argv: string[], port: number, io: { out?: Out; err?: Out; cwd?: string } = {}): Promise<number> {
+export async function handleMcp(argv: string[], port: number, io: { out?: Out; err?: Out; cwd?: string; env?: Readonly<Record<string, string | undefined>>; tokenFile?: string } = {}): Promise<number> {
   const out = io.out ?? ((line: string) => process.stdout.write(`${line}\n`))
   const err = io.err ?? ((line: string) => cliError(line))
   let options: McpConnectOptions
@@ -133,6 +239,7 @@ export async function handleMcp(argv: string[], port: number, io: { out?: Out; e
     return 2
   }
   if (options.sub === 'help') { out(MCP_HELP); return 0 }
+  if (options.sub === 'doctor') return runDoctorCommand(options, port, { ...io, out, err })
   const detection = await detectWebManager(port)
   if (!detection.running) {
     err(`Specrails is not running on port ${port}. Open the Specrails app (or run specrails-desktop start), then try again.`)

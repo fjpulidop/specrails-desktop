@@ -53,11 +53,13 @@ On Linux, do not register a path inside a temporary AppImage mount (`/tmp/.mount
 
 - **Registered:** `specrails-desktop mcp status`, `claude mcp get specrails` or `codex mcp get specrails` shows the stdio command and arguments. This only proves the configuration was saved.
 - **Connected:** a real session completes `initialize`, `notifications/initialized` and `tools/list`. `specrails-desktop mcp connect` does this for you.
-- **Usable in this conversation:** call `specrails_overview` with `{"action":"app"}` and read the real result. With the older catalog (Settings ▸ MCP ▸ **New MCP tools** off), call `specrails_projects` with `{"action":"list"}` instead. An empty answer is still a successful connection.
+- **Usable in this conversation:** call `specrails_overview` with `{"action":"app"}` and read the real result. With the older catalog (Settings ▸ MCP ▸ **Simplified MCP tools** off), call `specrails_projects` with `{"action":"list"}` instead. An empty answer is still a successful connection.
 
 Never launch a rail or create a spec as a connection test.
 
 ## Troubleshooting
+
+Start with `specrails-desktop mcp doctor` (add `--json` to parse it). It only reads: whether the app answers on the port (`--port`, else `SPECRAILS_MCP_PORT`, `SPECRAILS_PORT`, 4200), MCP on, the token file (present, private, the one the app accepts; never printed), the bridge script and its Node (version, versioned Homebrew/nvm paths), every `specrails` entry for Claude Code (user, local and the current folder's `.mcp.json`) and Codex (user and `.codex/config.toml`), then one stdio round trip per distinct entry and the versions (app, protocol, catalog v1/v2). Each warn or fail line ends with the fix; run it, then run doctor again. It exits 1 while anything fails.
 
 | Symptom | Check |
 |---|---|
@@ -70,6 +72,7 @@ Never launch a rail or create a spec as a connection test.
 | 401 / missing token | Run the client as the same OS user as Specrails. After a token rotation, start a new session; the configuration does not change. Never copy the master `desktop.token`. |
 | Permission-tier error | The connection works; that action's tier is off in Settings ▸ MCP. |
 | Codex call times out | Check `tool_timeout_sec` (connect sets 90). |
+| Worked, then stopped after a Node upgrade | The entry pointed at one installed Node version (`/opt/homebrew/Cellar/node/<version>/…`, nvm). Run connect again: it now registers a stable link (`/opt/homebrew/bin/node`) or the bundled runtime. |
 
 ## Operate Specrails
 

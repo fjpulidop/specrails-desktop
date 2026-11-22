@@ -10,6 +10,7 @@ import os from 'os'
 import path from 'path'
 import type { BridgeEntry } from './connect/client-config'
 import type { VerifyResult } from './connect/verify'
+import { getMcpToken } from './mcp-token'
 
 function makeRegistry(db: DbInstance): ProjectRegistry {
   return { desktopDb: db, listContexts: () => [], getContext: () => undefined, getContextByPath: () => undefined, removeProject: () => undefined } as unknown as ProjectRegistry
@@ -131,6 +132,8 @@ describe('MCP admin connect routes (temp home)', () => {
         env: () => ({ home, env: { PATH: path.join(home, 'bin') }, platform: 'linux' }),
         entry: () => entry,
         verify: async (e): Promise<VerifyResult> => { verified.push(e); return { ok: true, toolCount: 15, approxTokens: 6000, ms: 5 } },
+        tokenFile: () => path.join(home, 'mcp.token'),
+        nodeVersion: async () => 'v22.11.0',
       },
     }))
     return app
@@ -193,5 +196,32 @@ describe('MCP admin connect routes (temp home)', () => {
     const res = await request(appWith()).post('/api/mcp-admin/connect').send({ client: 'codex' })
     expect(res.body).toMatchObject({ written: true, mcpEnabled: false })
     expect(res.body.verify).toBeUndefined()
+  })
+
+  it('GET /doctor diagnoses read-only: token, bridge, Node, client entries and the round trip', async () => {
+    const node = path.join(home, 'node', 'bin', 'node')
+    const bridge = path.join(home, 'binaries', 'specrails-mcp.js')
+    fs.mkdirSync(path.dirname(node), { recursive: true })
+    fs.writeFileSync(node, '#!/bin/sh\n', { mode: 0o755 })
+    fs.mkdirSync(path.dirname(bridge), { recursive: true })
+    fs.writeFileSync(bridge, '')
+    fs.writeFileSync(path.join(home, 'mcp.token'), getMcpToken(), { mode: 0o600 })
+    entry = { command: node, args: [bridge], env: { SPECRAILS_MCP_PORT: '4242' } }
+    fs.mkdirSync(path.join(home, '.codex'))
+    const app = appWith()
+    expect((await request(app).post('/api/mcp-admin/connect').send({ client: 'codex', verify: false })).body.outcome).toBe('create')
+    const before = fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')
+    const res = await request(app).get('/api/mcp-admin/doctor').query({ projectDir: home })
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+    const status = Object.fromEntries((res.body.checks as Array<{ id: string; status: string }>).map((check) => [check.id, check.status]))
+    expect(status).toMatchObject({ app: 'pass', mcp_enabled: 'pass', token: 'pass', bridge: 'pass', node: 'pass', 'client:claude': 'skip', 'client:codex': 'pass', verify: 'pass' })
+    expect(res.body.versions).toMatchObject({ app: '1.0.0', node: 'v22.11.0', advertisedTools: 15 })
+    expect(JSON.stringify(res.body)).not.toContain(getMcpToken())
+    expect(fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')).toBe(before)
+    verified = []
+    const quick = await request(app).get('/api/mcp-admin/doctor').query({ verify: 'false' })
+    expect(quick.body.checks.find((check: { id: string }) => check.id === 'verify').status).toBe('skip')
+    expect(verified).toEqual([])
   })
 })

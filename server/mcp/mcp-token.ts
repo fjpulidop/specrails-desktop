@@ -31,6 +31,11 @@ function tokenPath(): string {
   return path.join(tokenDir(), 'mcp.token')
 }
 
+/** Where the scoped token lives (`mcp doctor` checks it; the bridge reads it). */
+export function mcpTokenPath(): string {
+  return tokenPath()
+}
+
 let _mcpToken: string | null = null
 
 function generateToken(): string {

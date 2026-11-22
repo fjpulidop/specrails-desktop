@@ -125,6 +125,11 @@ export class McpServerManager {
     session.timer.unref?.()
   }
 
+  /** The version this server reports at `initialize`. */
+  get version(): string {
+    return this._version
+  }
+
   status(): McpServerStatus {
     return {
       enabled: this.isEnabledSetting(),

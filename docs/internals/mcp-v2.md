@@ -35,11 +35,27 @@ tokens). The person-facing agent reference `docs/agents/mcp.md` is generated fro
 One-command connect lives in `server/mcp/connect/` (`client-config.ts` edits only the `specrails` entry of
 `~/.claude.json` / `.mcp.json` or Codex `config.toml`, with a backup; `connect.ts` detects clients and applies;
 `verify.ts` runs the registered entry over stdio: `initialize`, `tools/list`, `specrails_overview(app)`), served by
-`/api/mcp-admin/connect` (`mcp-admin-router.ts`) for `specrails-desktop mcp connect|status|disconnect`
+`/api/mcp-admin/connect` (`mcp-admin-router.ts`) for `specrails-desktop mcp connect|status|disconnect|doctor`
 (`cli/mcp-connect.ts`) and **Settings ▸ MCP ▸ Connect**. The name `specrails` is reserved: Explore turns never load
 the person's own `specrails` entry (`server/user-mcp-config.ts` drops it from the approved servers and switches off a
 Codex `[mcp_servers.specrails]` table; the high Explore tier disallows `mcp__specrails`), because that entry carries
 their unrestricted access.
+
+The entry's Node (`connect/node-path.ts`, `stableNodeCommand`): the bundled runtime; in a source checkout this
+server's `process.execPath`, swapped for a stable link that resolves to the same file when the path is one installed
+version (Homebrew `Cellar/<formula>/<version>`, nvm, fnm, volta, asdf, mise, n, nodenv): `node` on PATH, then Homebrew's
+`opt/<formula>/bin/node`, then `<prefix>/bin/node`. With no such link it keeps the versioned path and connect returns a
+warning (`entryWarnings`).
+
+`specrails-desktop mcp doctor` (`GET /api/mcp-admin/doctor`, `connect/doctor.ts` `runDoctor`) is read-only: app and
+MCP state, the token file (present, mode, constant-time match with the running token; never in the report), the bridge
+script and its Node (`--version`, minimum 18, versioned path), each client's `specrails` entry read with
+`readClaudeEntry` / `readCodexEntry` (Claude user, local `projects[<cwd>]` and `<cwd>/.mcp.json`; Codex user and
+`<cwd>/.codex/config.toml`: command and bridge present, same bridge as this app, port, `SPECRAILS_REGISTRY_HOME`,
+Codex `tool_timeout_sec` ≥ 50), then `verifyBridge` once per distinct non-failing entry (at most 3; the expected entry
+when none is registered) and the versions (app, protocol asked and negotiated, catalog v1/v2, Node, the server version
+reached). Each check is `pass|warn|fail|skip` with a `fix`; the CLI exits 1 on any fail. Without the app the CLI reports
+only the port and whether the token file exists. Every path and process is a `DoctorInput` seam.
 
 The flag is read per session, so new sessions pick up a change without a restart.
 

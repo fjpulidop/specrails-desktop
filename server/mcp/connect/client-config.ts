@@ -217,3 +217,91 @@ export function registrationCommand(client: ConnectClient, entry: BridgeEntry, s
   const env = Object.entries(entry.env).map(([key, value]) => `--env ${q(`${key}=${value}`)}`)
   return ['codex mcp add', SERVER_NAME, ...env, '--', q(entry.command), ...entry.args.map(q)].join(' ')
 }
+
+// ── Reading a registered entry (mcp doctor) ─────────────────────────────────
+
+export interface RegisteredEntry {
+  command: string | null
+  args: string[]
+  env: Record<string, string>
+  /** Runs the Specrails bridge (any install path). */
+  ours: boolean
+  /** Codex `tool_timeout_sec`, when set. */
+  toolTimeoutSec?: number
+}
+
+export type ReadEntry = { state: 'missing' } | { state: 'invalid' } | { state: 'present'; entry: RegisteredEntry }
+
+function entryFrom(raw: Record<string, unknown>): RegisteredEntry {
+  const command = typeof raw.command === 'string' ? raw.command : null
+  const args = Array.isArray(raw.args) ? raw.args.filter((arg): arg is string => typeof arg === 'string') : []
+  const env: Record<string, string> = {}
+  if (raw.env && typeof raw.env === 'object' && !Array.isArray(raw.env)) {
+    for (const [key, value] of Object.entries(raw.env as Record<string, unknown>)) if (typeof value === 'string') env[key] = value
+  }
+  return { command, args, env, ours: looksLikeSpecrails(command, args) }
+}
+
+/**
+ * The `specrails` server in a Claude JSON config: `mcpServers.specrails`, or with
+ * `projectDir` the local-scope `projects[<dir>].mcpServers.specrails` of `~/.claude.json`.
+ */
+export function readClaudeEntry(text: string | null, options: { projectDir?: string } = {}): ReadEntry {
+  if (text === null || text.trim() === '') return { state: 'missing' }
+  let doc: unknown
+  try { doc = JSON.parse(text) } catch { return { state: 'invalid' } }
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return { state: 'invalid' }
+  let holder = doc as Record<string, unknown>
+  if (options.projectDir !== undefined) {
+    const projects = holder.projects as Record<string, unknown> | undefined
+    const project = projects && typeof projects === 'object' ? projects[options.projectDir] : undefined
+    if (!project || typeof project !== 'object') return { state: 'missing' }
+    holder = project as Record<string, unknown>
+  }
+  const servers = holder.mcpServers
+  if (!servers || typeof servers !== 'object' || Array.isArray(servers)) return { state: 'missing' }
+  const raw = (servers as Record<string, unknown>)[SERVER_NAME]
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw === undefined ? { state: 'missing' } : { state: 'invalid' }
+  return { state: 'present', entry: entryFrom(raw as Record<string, unknown>) }
+}
+
+/** TOML basic or literal strings in `value`, in order. */
+function tomlStrings(value: string): string[] {
+  return [...value.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((m) => {
+    if (m[2] !== undefined) return m[2]
+    try { return JSON.parse(`"${m[1]}"`) as string } catch { return m[1]! }
+  })
+}
+
+/** The `[mcp_servers.specrails]` table of a Codex config (the keys connect writes: command, args, env, tool_timeout_sec). */
+export function readCodexEntry(text: string | null): ReadEntry {
+  if (text === null || text.trim() === '') return { state: 'missing' }
+  const lines = text.split(/\r?\n/)
+  if (hasInlineDefinition(lines)) return { state: 'invalid' }
+  const section = findCodexSection(lines)
+  if (!section) return { state: 'missing' }
+  const raw: Record<string, unknown> = {}
+  let env: Record<string, string> | undefined
+  let inEnvTable = false
+  for (const line of lines.slice(section.start + 1, section.end)) {
+    const header = TABLE_HEADER.exec(line)
+    if (header) { inEnvTable = /\.\s*env$/.test(header[1]!.trim()); if (inEnvTable) env ??= {}; continue }
+    const kv = /^\s*([A-Za-z0-9_"'-]+)\s*=\s*(.+?)\s*$/.exec(line)
+    if (!kv) continue
+    const key = kv[1]!.replace(/^["']|["']$/g, '')
+    const value = kv[2]!
+    if (inEnvTable) { env![key] = tomlStrings(value)[0] ?? value; continue }
+    if (key === 'command') raw.command = tomlStrings(value)[0] ?? null
+    else if (key === 'args') raw.args = tomlStrings(value)
+    else if (key === 'tool_timeout_sec') raw.tool_timeout_sec = Number(value)
+    else if (key === 'env') {
+      env ??= {}
+      for (const pair of value.replace(/^\{|\}$/g, '').matchAll(/([A-Za-z0-9_-]+|"(?:[^"\\]|\\.)*")\s*=\s*("(?:[^"\\]|\\.)*"|'[^']*')/g)) {
+        env[pair[1]!.replace(/^"|"$/g, '')] = tomlStrings(pair[2]!)[0] ?? ''
+      }
+    }
+  }
+  if (env) raw.env = env
+  const entry = entryFrom(raw)
+  return { state: 'present', entry: Number.isFinite(raw.tool_timeout_sec) ? { ...entry, toolTimeoutSec: raw.tool_timeout_sec as number } : entry }
+}
