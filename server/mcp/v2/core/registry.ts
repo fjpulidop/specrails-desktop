@@ -300,7 +300,7 @@ const STALE_REASON: Record<VerifyFailure, { code: 'stale' | 'confirmation_requir
   replayed: { code: 'stale', key: 'core.confirm.replayed' },
   expired: { code: 'stale', key: 'core.confirm.expired' },
   mismatch: { code: 'confirmation_required', key: 'core.confirm.mismatch' },
-  malformed: { code: 'confirmation_required', key: 'core.confirm.mismatch' },
+  malformed: { code: 'confirmation_required', key: 'core.confirm.malformed' },
 }
 
 /** The call handler of one v2 tool (exported for tests; `registerV2Tool` wires it to a server). */

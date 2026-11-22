@@ -42,12 +42,14 @@ describe('McpServerManager with and without v2', () => {
     db = initDesktopDb(':memory:')
     addProject(db, { id: 'p1', slug: 'shop-api', name: 'Shop API', path: '/tmp/v2-surface-shop' })
     const registry = { desktopDb: db, listContexts: () => [], listProjects: () => listProjects(db), getProjectRow: (id: string) => getProject(db, id), getContext: () => undefined } as unknown as ProjectRegistry
-    manager = new McpServerManager({ registry, broadcast: () => {}, desktopPort: 4200 })
+    // An executed call reaches the app API on desktopPort: point it at this test's own server (it serves only /api/mcp).
+    manager = new McpServerManager({ registry, broadcast: () => {}, desktopPort: 0 })
     const app = express()
     app.use('/api/mcp', express.json({ limit: '4mb' }), (req, res) => { void manager.handleHttp(req, res) })
     server = http.createServer(app)
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     url = new URL(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/mcp`)
+    ;(manager as unknown as { _ctx: { desktopPort: number } })._ctx.desktopPort = (server.address() as AddressInfo).port
   })
 
   afterEach(async () => {
@@ -93,6 +95,45 @@ describe('McpServerManager with and without v2', () => {
     expect(board.structuredContent.v).toBeUndefined()
     expect(board.structuredContent.error?.code).not.toBe('invalid_input')
 
+  })
+
+  it('a confirmation survives a reconnect of the same client (headless resume), never another client', async () => {
+    setDesktopSetting(db, MCP_V2_KEY, 'true')
+    const open = async (name: string) => {
+      const c = new Client({ name, version: '1' })
+      await c.connect(new StreamableHTTPClientTransport(url))
+      return c
+    }
+    const unregister = { action: 'unregister', project: 'shop-api' }
+    const turn1 = await open('claude-code')
+    const preview = await turn1.callTool({ name: 'specrails_projects', arguments: unregister }) as { structuredContent: Record<string, any> }
+    expect(preview.structuredContent.error.code).toBe('confirmation_required')
+    const token = preview.structuredContent.error.confirmToken as string
+    await turn1.close()
+
+    // Another client cannot use it.
+    const other = await open('codex-mcp-client')
+    const refused = await other.callTool({ name: 'specrails_projects', arguments: { ...unregister, confirm: token } }) as { structuredContent: Record<string, any> }
+    expect(refused.structuredContent.error).toMatchObject({ code: 'confirmation_required', reason: 'mismatch' })
+    await other.close()
+
+    // The same client's next connection (the person said yes) gets past the confirmation; the call itself
+    // then reaches the app API (this test's own server, which answers 404).
+    client = await open('claude-code')
+    const confirmed = await client.callTool({ name: 'specrails_projects', arguments: { ...unregister, confirm: token } }) as { structuredContent: Record<string, any> }
+    expect(confirmed.structuredContent.error?.code).not.toBe('confirmation_required')
+    expect(confirmed.structuredContent.error?.reason).toBeUndefined()
+  })
+
+  it('a truncated confirm token is reported as incomplete, not as another session', async () => {
+    setDesktopSetting(db, MCP_V2_KEY, 'true')
+    const c = await connect()
+    const unregister = { action: 'unregister', project: 'shop-api' }
+    const preview = await c.callTool({ name: 'specrails_projects', arguments: unregister }) as { structuredContent: Record<string, any> }
+    const cut = String(preview.structuredContent.error.confirmToken).split('.').slice(0, 4).join('.')
+    const result = await c.callTool({ name: 'specrails_projects', arguments: { ...unregister, confirm: cut } }) as { structuredContent: Record<string, any> }
+    expect(result.structuredContent.error).toMatchObject({ code: 'confirmation_required', reason: 'malformed' })
+    expect(result.structuredContent.error.message).toMatch(/incomplete or altered/)
   })
 
   it('phase 2: every advertised v2 action has a handler (no stub answers not_implemented)', () => {

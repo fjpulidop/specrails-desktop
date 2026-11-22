@@ -104,6 +104,7 @@
   "confirm.replayed": "Questa conferma è già stata usata. Mostra la nuova anteprima e chiedi di nuovo.",
   "confirm.expired": "La conferma è scaduta. Mostra la nuova anteprima e chiedi di nuovo.",
   "confirm.mismatch": "La conferma è stata emessa per altri argomenti o un'altra sessione. Mostra la nuova anteprima e chiedi di nuovo.",
+  "confirm.malformed": "Il token di conferma è incompleto o alterato. Invia di nuovo la chiamata con il confirmToken completo, copiato esattamente (cinque parti separate da punti, compresa l'ultima).",
   "confirm.effect.default": "{{label}} verrà eseguito.",
   "confirm.class.irreversible": "Non si può annullare.",
   "confirm.class.risky": "Si può annullare, ma fino ad allora abbassa una protezione o cambia molti elementi insieme.",

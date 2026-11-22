@@ -210,7 +210,10 @@ Rules:
 | `progress(progress, total?, message?)` | `notifications/progress` for the request's `_meta.progressToken`; a no-op without one (`wait(until)` reports elapsed ms) |
 
 The v1 context (`registry`, `desktopDb`, `apiCall` through `ctx`, `requestProjectId`, `firstPartyAgent`, `signal`)
-stays available. `sessionState` adds `sessionKey` (confirmations bind to it) and `lang`.
+stays available. `sessionState` adds `sessionKey` (confirmations bind to it) and `lang`. For an external session the key
+is the client named at initialize (`client:<clientInfo.name>`, `confirmationKey`), not the connection: the person's yes
+arrives in the agent's next turn, and headless clients (`claude -p --resume`, `codex exec resume`) reconnect per turn.
+In-app sessions, and clients that announce no name, keep a per-connection key.
 
 ## Envelope v2 (`core/envelope.ts`)
 
@@ -327,9 +330,10 @@ Offer { id, label, call: { tool, args }, tier, irreversible, external, costHint?
   3. On success the token is consumed (single use).
   - A token whose version no longer matches returns `stale`, with a fresh preview and token. A replay or expiry
     also returns `stale`, with `reason`.
-  - A token for other arguments or another session returns `confirmation_required` with `reason: mismatch`.
+  - A token for other arguments or another client returns `confirmation_required` with `reason: mismatch`; a cut or
+    altered token returns it with `reason: malformed` and says to resend the whole token.
   - `dryRun: true` always returns the preview, plus a token when one would be needed.
-- **Token:** `ct1.<exp>.<nonce>.<version>.<hmac>`. The HMAC-SHA256 covers the MCP session, tool, canonical arguments
+- **Token:** `ct1.<exp>.<nonce>.<version>.<hmac>`. The HMAC-SHA256 covers the client key, tool, canonical arguments
   (control fields `confirm`, `dryRun`, `lang`, `view`, `fields`, `cursor` and `limit` excluded, and the control
   options in `CONTROL_OPTIONS`, today `options.waitMs`), version and expiry, with a per-process secret and a 10-minute
   TTL. The arguments are bound after v1 normalization, so `jobId: x` and `ref: x` confirm each other.

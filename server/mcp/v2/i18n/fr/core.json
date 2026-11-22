@@ -104,6 +104,7 @@
   "confirm.replayed": "Cette confirmation a déjà été utilisée. Montrez le nouvel aperçu et demandez de nouveau.",
   "confirm.expired": "La confirmation a expiré. Montrez le nouvel aperçu et demandez de nouveau.",
   "confirm.mismatch": "La confirmation a été émise pour d'autres arguments ou une autre session. Montrez le nouvel aperçu et demandez de nouveau.",
+  "confirm.malformed": "Le jeton de confirmation est incomplet ou altéré. Renvoyez l'appel avec le confirmToken complet, copié exactement (cinq parties séparées par des points, y compris la dernière).",
   "confirm.effect.default": "{{label}} va s'exécuter.",
   "confirm.class.irreversible": "C'est irréversible.",
   "confirm.class.risky": "C'est réversible, mais d'ici là cela abaisse une protection ou modifie de nombreux éléments à la fois.",

@@ -18,6 +18,7 @@ import { registerV2GuideResources } from './v2/guide'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
 import { isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './v2'
 import { textModeFor } from './v2/core/envelope'
+import { confirmationKey } from './v2/core/confirm'
 
 export interface McpServerManagerDeps {
   registry: ProjectRegistry
@@ -146,7 +147,13 @@ export class McpServerManager {
       { name: 'specrails-desktop', version: this._version },
       { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} }, ...(v2 ? { instructions: V2_INSTRUCTIONS } : {}) },
     )
-    const context = { ...this._ctx, sessionState: v2 ? { activeProjectId: null, sessionKey: randomUUID() } : { activeProjectId: null } }
+    // Confirmations bind to the client, not to this connection (see `confirmationKey`); in-app turns keep a per-connection key.
+    const connectionKey = randomUUID()
+    const inApp = options.inApp === true
+    const sessionState = v2
+      ? { activeProjectId: null, get sessionKey() { return inApp ? connectionKey : confirmationKey(server.server.getClientVersion(), connectionKey) } }
+      : { activeProjectId: null }
+    const context = { ...this._ctx, sessionState }
     const specs = buildToolSpecs()
     // One subscription set per session, shared by the v1 bus and the v2 journal.
     const subscriptions = registerResourceSubscriptions(server, context)

@@ -104,6 +104,7 @@
   "confirm.replayed": "此确认已被使用。请展示新的预览并再次询问。",
   "confirm.expired": "确认已过期。请展示新的预览并再次询问。",
   "confirm.mismatch": "该确认是为其他参数或其他会话签发的。请展示新的预览并再次询问。",
+  "confirm.malformed": "确认令牌不完整或已被修改。请重新发送调用，并完整、准确地复制 confirmToken（以点分隔的五个部分，包括最后一部分）。",
   "confirm.effect.default": "{{label}} 将会运行。",
   "confirm.class.irreversible": "此操作无法撤销。",
   "confirm.class.risky": "此操作可以撤销，但在撤销前会降低一项保护措施，或一次更改许多项目。",

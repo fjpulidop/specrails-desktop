@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initDesktopDb, setDesktopSetting } from '../../../desktop-db'
-import { CONFIRM_ABOVE_USD_KEY, ConfirmationLedger, bindingArgs, readConfirmThreshold } from './confirm'
+import { CONFIRM_ABOVE_USD_KEY, ConfirmationLedger, bindingArgs, confirmationKey, readConfirmThreshold } from './confirm'
 import { confirmNeeded } from './decision-state'
 
 const binding = { session: 's1', tool: 'specrails_deliveries', args: { action: 'decide', ref: 'delivery:shop/57', decision: 'merge_local' }, version: 'v1abc' }
@@ -73,5 +73,19 @@ describe('costly threshold', () => {
     expect(confirmNeeded('costly', { highUsd: 0.1, runs: 3 }, 0.5)).toBe(true)
     expect(confirmNeeded('costly', { highUsd: null }, 0.5)).toBe(true)
     expect(confirmNeeded(null, { highUsd: 100 }, 0.5)).toBe(false)
+  })
+})
+
+describe('confirmationKey', () => {
+  it('binds to the announced client so a reconnect of the same client still confirms', () => {
+    expect(confirmationKey({ name: 'claude-code' }, 'conn-1')).toBe('client:claude-code')
+    expect(confirmationKey({ name: 'claude-code' }, 'conn-2')).toBe(confirmationKey({ name: 'claude-code' }, 'conn-1'))
+    expect(confirmationKey({ name: 'codex-mcp-client' }, 'conn-1')).not.toBe(confirmationKey({ name: 'claude-code' }, 'conn-1'))
+  })
+
+  it('keeps the connection key when the client announced no name', () => {
+    expect(confirmationKey(undefined, 'conn-1')).toBe('conn-1')
+    expect(confirmationKey({ name: '  ' }, 'conn-1')).toBe('conn-1')
+    expect(confirmationKey({ name: 42 }, 'conn-1')).toBe('conn-1')
   })
 })

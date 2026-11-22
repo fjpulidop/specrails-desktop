@@ -104,6 +104,7 @@
   "confirm.replayed": "This confirmation was already used. Show the new preview and ask again.",
   "confirm.expired": "The confirmation expired. Show the new preview and ask again.",
   "confirm.mismatch": "The confirmation was issued for other arguments or another session. Show the new preview and ask again.",
+  "confirm.malformed": "The confirm token is incomplete or altered. Resend the call with the whole confirmToken copied exactly (five dot-separated parts, including the last one).",
   "confirm.effect.default": "{{label}} will run.",
   "confirm.class.irreversible": "It cannot be undone.",
   "confirm.class.risky": "It can be undone, but until then it lowers a safeguard or changes many items at once.",

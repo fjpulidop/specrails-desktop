@@ -104,6 +104,7 @@
   "confirm.replayed": "Esta confirmação já foi usada. Mostre a nova prévia e pergunte de novo.",
   "confirm.expired": "A confirmação expirou. Mostre a nova prévia e pergunte de novo.",
   "confirm.mismatch": "A confirmação foi emitida para outros argumentos ou outra sessão. Mostre a nova prévia e pergunte de novo.",
+  "confirm.malformed": "O token de confirmação está incompleto ou alterado. Reenvie a chamada com o confirmToken inteiro, copiado exatamente (cinco partes separadas por pontos, incluindo a última).",
   "confirm.effect.default": "{{label}} será executado.",
   "confirm.class.irreversible": "Não pode ser desfeito.",
   "confirm.class.risky": "Pode ser desfeito, mas até lá reduz uma proteção ou altera muitos itens de uma vez.",

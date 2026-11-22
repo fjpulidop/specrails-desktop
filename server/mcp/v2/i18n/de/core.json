@@ -104,6 +104,7 @@
   "confirm.replayed": "Diese Bestätigung wurde bereits verwendet. Zeige die neue Vorschau und frage erneut.",
   "confirm.expired": "Die Bestätigung ist abgelaufen. Zeige die neue Vorschau und frage erneut.",
   "confirm.mismatch": "Die Bestätigung wurde für andere Argumente oder eine andere Sitzung ausgestellt. Zeige die neue Vorschau und frage erneut.",
+  "confirm.malformed": "Das Bestätigungstoken ist unvollständig oder verändert. Sende den Aufruf erneut mit dem vollständigen, exakt kopierten confirmToken (fünf durch Punkte getrennte Teile, einschließlich des letzten).",
   "confirm.effect.default": "{{label}} wird ausgeführt.",
   "confirm.class.irreversible": "Das lässt sich nicht rückgängig machen.",
   "confirm.class.risky": "Das lässt sich rückgängig machen, senkt bis dahin aber eine Schutzmaßnahme oder ändert viele Elemente auf einmal.",

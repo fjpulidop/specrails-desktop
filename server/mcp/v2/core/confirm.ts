@@ -12,7 +12,7 @@ import { CONTROL_FIELDS, CONTROL_OPTIONS } from './views'
  * the preview, gets a yes and resends with `confirm: <token>`.
  *
  * The token is `ct1.<exp>.<nonce>.<version>.<mac>`, the MAC an HMAC-SHA256 over
- * (MCP session, tool, canonical arguments without control fields, the entity's
+ * (client key — see `confirmationKey` —, tool, canonical arguments without control fields, the entity's
  * state version, expiry) with a per-process secret. It is single use, expires
  * after 10 minutes, and dies with the process. A token whose version no longer
  * matches the entity fails with `stale` and a fresh preview (the generalization
@@ -73,6 +73,19 @@ export function bindingArgs(args: Record<string, unknown>): Record<string, unkno
     else delete out.options
   }
   return out
+}
+
+/**
+ * The key a confirmation binds to. The person's yes usually arrives in the agent's NEXT turn, and headless
+ * clients (`claude -p --resume`, `codex exec resume`, a bridge that reconnects) open a new MCP connection per
+ * turn, so a per-connection key would reject every legitimate confirmation. An external session therefore binds
+ * to the client it announced at initialize (`clientInfo.name`): a token minted for Claude Code still confirms in
+ * Claude Code's next connection, never in another client's. Without a name the connection's own key is kept.
+ * The token stays bound to the tool, the arguments, the state version, a 10-minute expiry and single use.
+ */
+export function confirmationKey(client: { name?: unknown } | undefined | null, connectionKey: string): string {
+  const name = typeof client?.name === 'string' ? client.name.trim() : ''
+  return name ? `client:${name.slice(0, 128)}` : connectionKey
 }
 
 const VERSION = /^[A-Za-z0-9_-]{1,64}$/
