@@ -4,7 +4,12 @@ import os from 'os'
 import path from 'path'
 import { CODEX_TOOL_TIMEOUT_SEC, codexTable, editClaudeJson, editCodexToml, looksLikeSpecrails, registrationCommand, shellQuote, type BridgeEntry } from './client-config'
 import { configPathFor, connect, detectClients, entryWarnings, findOnPath, type ConnectEnv } from './connect'
-import { verifyBridge } from './verify'
+import { catalogTokens, verifyBridge } from './verify'
+import { Tiktoken } from 'js-tiktoken/lite'
+import o200k from 'js-tiktoken/ranks/o200k_base'
+import { createHarness } from '../v2/__fixtures__/harness'
+import { registerV2Surface } from '../v2'
+import { buildToolSpecs } from '../tools/catalog'
 
 const ENTRY: BridgeEntry = {
   command: '/Applications/Specrails.app/Contents/Resources/runtimes/node/bin/node',
@@ -274,5 +279,19 @@ rl.on('line', (line) => { const msg = JSON.parse(line); ${body} })
     expect(exits).toMatchObject({ ok: false, error: 'boom' })
     const missing = await verifyBridge({ command: path.join(home, 'no-node'), args: [], env: {} }, { timeoutMs: 10_000 })
     expect(missing.ok).toBe(false)
+  })
+})
+
+describe('catalogTokens', () => {
+  it('stays within 15% of the real o200k count of the v2 catalog', async () => {
+    const harness = createHarness()
+    registerV2Surface(harness.server, harness.ctx, buildToolSpecs(), { inApp: false })
+    const client = await harness.connect()
+    const tools = (await client.listTools()).tools
+    const enc = new Tiktoken(o200k)
+    const real = tools.reduce((sum, tool) => sum + enc.encode(JSON.stringify({ type: 'function', name: `mcp__specrails__${tool.name}`, description: tool.description, parameters: tool.inputSchema })).length, 0)
+    const estimate = catalogTokens(tools)
+    expect(Math.abs(estimate - real) / real).toBeLessThan(0.15)
+    await client.close()
   })
 })

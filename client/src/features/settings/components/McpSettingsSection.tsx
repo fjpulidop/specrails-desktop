@@ -285,7 +285,11 @@ export function McpSettingsSection() {
           {status.confirmAboveUsd !== undefined && status.v2 && (
             <McpPreferencesCard
               value={{ confirmAboveUsd: status.confirmAboveUsd, v2: status.v2 }}
-              onChange={(next) => setStatus((prev) => (prev ? { ...prev, ...next } : prev))}
+              onChange={(next) => {
+                setStatus((prev) => (prev ? { ...prev, ...next } : prev))
+                // The v2 switch changes the advertised tool count.
+                void loadStatus()
+              }}
             />
           )}
 

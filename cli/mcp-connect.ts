@@ -139,7 +139,10 @@ export async function handleMcp(argv: string[], port: number, io: { out?: Out; e
     return 1
   }
   const base = detection.baseUrl
-  const status = await httpGet(`${base}/api/mcp-admin/connect`)
+  let status = await httpGet(`${base}/api/mcp-admin/connect`)
+  // The app mints ~/.specrails/desktop.token lazily (on its first authenticated
+  // request); a CLI that ran before that reads no token. Retry once after it exists.
+  if (status.status === 401) status = await httpGet(`${base}/api/mcp-admin/connect`)
   if (status.status === 401 || status.status === 403) {
     err('Specrails refused the request: run this as the same user as the app (it reads ~/.specrails/desktop.token).')
     return 1

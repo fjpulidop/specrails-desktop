@@ -1,6 +1,5 @@
 import { spawn } from 'child_process'
 import type { BridgeEntry } from './client-config'
-import { approxTokens } from '../v2/core/size-guard'
 
 /**
  * The connect verify step: run the exact registered entry as a client would
@@ -13,7 +12,7 @@ export interface VerifyResult {
   ok: boolean
   /** Advertised tools. */
   toolCount?: number
-  /** ≈ o200k tokens of the `tools/list` payload (conservative estimate). */
+  /** ≈ o200k tokens the advertised tools cost a model (conservative estimate, `catalogTokens`). */
   approxTokens?: number
   serverVersion?: string
   /** The server sent instructions (the v2 surface). */
@@ -25,6 +24,19 @@ export interface VerifyResult {
 }
 
 const PROTOCOL = '2025-06-18'
+
+/**
+ * What the catalog costs a model per turn: each tool in the function shape a
+ * client sends (name, description, input schema; the shape the budget test
+ * measures). Tool schemas average about 4.2 UTF-8 bytes per o200k token;
+ * connect.test.ts keeps this within 15% of the real tokenizer (a dev
+ * dependency the packaged app does not ship).
+ */
+export const SCHEMA_BYTES_PER_TOKEN = 4.2
+
+export function catalogTokens(tools: ReadonlyArray<{ name: string; description?: string; inputSchema?: unknown }>): number {
+  return Math.round(tools.reduce((sum, tool) => sum + Buffer.byteLength(JSON.stringify({ type: 'function', name: `mcp__specrails__${tool.name}`, description: tool.description, parameters: tool.inputSchema }), 'utf8'), 0) / SCHEMA_BYTES_PER_TOKEN)
+}
 
 export function verifyBridge(entry: BridgeEntry, options: { timeoutMs?: number; env?: NodeJS.ProcessEnv } = {}): Promise<VerifyResult> {
   const started = Date.now()
@@ -81,9 +93,9 @@ export function verifyBridge(entry: BridgeEntry, options: { timeoutMs?: number; 
       child.stdin?.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`)
       const listed = await request('tools/list', {})
       if (errorOf(listed)) return finish({ ok: false, error: errorOf(listed) })
-      const tools = ((listed.result as { tools?: Array<{ name: string }> } | undefined)?.tools) ?? []
+      const tools = ((listed.result as { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> } | undefined)?.tools) ?? []
       const base = {
-        ok: true, toolCount: tools.length, approxTokens: approxTokens(JSON.stringify(tools)),
+        ok: true, toolCount: tools.length, approxTokens: catalogTokens(tools),
         ...(initResult.serverInfo?.version ? { serverVersion: initResult.serverInfo.version } : {}),
         instructions: typeof initResult.instructions === 'string' && initResult.instructions.length > 0,
       }
