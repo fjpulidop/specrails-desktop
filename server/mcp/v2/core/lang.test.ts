@@ -28,7 +28,9 @@ describe('language resolution', () => {
 
   it('falls back to English, then to the key, and interpolates {{params}}', () => {
     expect(t('es', 'core.status.running')).toBe('En curso')
-    expect(t('es', 'core.hold.budget')).toBe(t('en', 'core.hold.budget'))
+    expect(t('es', 'core.hold.budget')).toBe('En pausa al llegar a su límite de gasto; elige cómo continuar.')
+    // A language without the key (none is missing today) falls back to English.
+    expect(t('xx' as never, 'core.hold.budget')).toBe(t('en', 'core.hold.budget'))
     expect(t('en', 'core.nope.missing')).toBe('core.nope.missing')
     expect(t('en', 'core.summary.done', { label: 'specrails_runs(get)' })).toBe('specrails_runs(get) done.')
     expect(interpolate('{{a}} and {{ b }} and {{c}}', { a: 1, b: 'two' })).toBe('1 and two and {{c}}')

@@ -151,7 +151,7 @@ export function requireProjectRow(rows: readonly ProjectRow[], input: Pick<Scope
  */
 export function resolveTarget(rows: readonly ProjectRow[], input: ScopeInput & { defaultKind: RefKind; kinds?: readonly RefKind[]; label: string }, translate: Translate): Target {
   const raw = typeof input.ref === 'number' ? String(input.ref) : input.ref
-  if (typeof raw !== 'string' || !raw.trim()) throw new V2ToolError('invalid_input', translate('core.error.missing_fields', { label: input.label, missing: 'missing "ref"', takes: 'ref' }))
+  if (typeof raw !== 'string' || !raw.trim()) throw new V2ToolError('invalid_input', translate('core.error.missing_fields', { label: input.label, missing: translate('core.error.missing_list', { fields: '"ref"' }), takes: 'ref' }))
   const parsed = parseRef(raw)
   if (!parsed && /^[a-z]+:/.test(raw.trim()) && isRefKind(raw.trim().split(':')[0])) {
     throw new V2ToolError('invalid_input', translate('core.error.bad_ref', { ref: raw }))

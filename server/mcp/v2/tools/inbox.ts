@@ -197,7 +197,7 @@ export function inboxStateInput(item: InboxItem, slug: string, facts: InboxFacts
     projected = {
       hold: {
         kind: 'budget', code: `${item.cap.scope}_${item.cap.period}`, reasonKey: 'inbox.hold.cap', since: item.at,
-        params: { scope: item.cap.scope === 'desktop' ? 'app-wide' : 'project', period: item.cap.period, spent: item.cap.spentUsd.toFixed(2), budget: item.cap.budgetUsd.toFixed(2), resetsAt: item.cap.resetsAt },
+        params: { scope: translate(`insights.scope.${scope}`), period: ['day', 'week', 'month', 'run'].includes(item.cap.period) ? translate(`insights.cap.${item.cap.period}`) : item.cap.period, spent: item.cap.spentUsd.toFixed(2), budget: item.cap.budgetUsd.toFixed(2), resetsAt: item.cap.resetsAt },
       },
       offers: [
         { id: 'budget.view', labelKey: 'inbox.offer.budget_view', call: { tool: INSIGHTS, args: { action: 'budget_get', scope, ...where } } },

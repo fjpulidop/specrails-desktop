@@ -34,7 +34,7 @@
   "offer.jira_retry": "Retry the Jira update",
   "offer.jira_outbox": "See the Jira outbox",
   "why.recommended_option": "The run recommends this answer.",
-  "hold.cap": "The {{scope}} {{period}} budget is reached: {{spent}} of {{budget}} USD; it resets {{resetsAt}}.",
+  "hold.cap": "The {{scope}} {{period}} spend limit is reached: {{spent}} of {{budget}} USD; it resets {{resetsAt}}.",
   "error.gone": "That inbox item is no longer waiting (it may have been handled).",
   "error.not_question": "This item is not a question; answer applies to questions only.",
   "error.not_approval": "This item asks for an answer, not an approval; use answer.",

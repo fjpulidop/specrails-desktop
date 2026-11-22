@@ -21,6 +21,22 @@ const placeholders = (text: string) => [...text.matchAll(/\{\{\s*([\w.-]+)\s*\}\
 /** Tool calls and names quoted in a message stay verbatim in every language. */
 const toolCalls = (text: string) => [...text.matchAll(/specrails_\w+(?:\([^)]*\))?/g)].map((match) => match[0]).sort()
 const AREAS = I18N_AREAS.filter((area) => area !== 'core')
+/**
+ * Values that are legitimately the same word as English in that language
+ * (cognates, product words). Everything else must differ from English, so a
+ * preview or summary is never mixed-language.
+ */
+const IDENTICAL_OK: Record<string, readonly string[]> = {
+  'inbox.kind.question': ['fr'], 'inbox.kind.review': ['de'], 'inbox.kinds.jira': ['fr', 'de', 'it'], 'inbox.kinds.question': ['fr'],
+  'inbox.summary.open': ['it'], 'insights.category.code': ['fr'], 'insights.category.missions': ['fr'], 'insights.category.specs': ['es', 'fr', 'pt'],
+  'insights.category.support': ['fr'], 'insights.usage.available': ['es', 'de', 'pt', 'it'], 'insights.where.project': ['de', 'it'],
+  'integrations.summary.loops_get': ['es', 'de', 'pt', 'it'], 'integrations.summary.loops_templates': ['es', 'fr', 'de', 'pt', 'it'],
+  'integrations.summary.webhooks_list': ['es', 'fr', 'pt'], 'integrations.word.ok': ['es', 'fr', 'de', 'pt', 'it'],
+  'providers.summary.catalog_get': ['fr', 'de'], 'system.summary.updates': ['es', 'de', 'pt', 'it'],
+  'integrations.summary.git_gh': ['es', 'de', 'pt', 'it'], 'integrations.summary.git_pr': ['es', 'de', 'pt', 'it'],
+}
+/** Only placeholders, numbers, symbols and product names: nothing to translate. */
+const nothingToTranslate = (text: string) => !/\p{L}{2,}/u.test(text.replace(/\{\{[^}]*\}\}|\b(USD|CPU|PR|gh|git|GitHub)\b/g, ''))
 
 describe('v2 translations', () => {
   it('has every English key in all eight languages, with the same placeholders and tool calls', () => {
@@ -40,11 +56,27 @@ describe('v2 translations', () => {
     }
   })
 
+  it('translates every key, core included: nothing stays English unless it is the same word in that language', () => {
+    const untranslated: string[] = []
+    for (const lang of SUPPORTED_LANGS.filter((code) => code !== 'en')) {
+      for (const area of I18N_AREAS) {
+        const english = CATALOGS.en[area] ?? {}
+        expect(Object.keys(CATALOGS[lang]?.[area] ?? {}).sort(), `${lang}/${area}.json keys`).toEqual(Object.keys(english).sort())
+        for (const [key, text] of Object.entries(english)) {
+          const translated = CATALOGS[lang]?.[area]?.[key]
+          if (translated !== text || nothingToTranslate(text) || IDENTICAL_OK[`${area}.${key}`]?.includes(lang)) continue
+          untranslated.push(`${lang}/${area}.${key}: ${text}`)
+        }
+      }
+    }
+    expect(untranslated).toEqual([])
+  })
+
   it('Spanish follows the app glossary: ejecución, spec, límite (never run, ticket, especificación, presupuesto)', () => {
     // `error.limits` lists the options.limits keys (day, week, month, run, alert): `run` there is a field name.
     const FIELD_NAMES = new Set(['insights.error.limits'])
     const bad: string[] = []
-    for (const area of AREAS) {
+    for (const area of I18N_AREAS) {
       for (const [key, raw] of Object.entries(CATALOGS.es[area] ?? {})) {
         if (FIELD_NAMES.has(`${area}.${key}`)) continue
         const text = raw.replace(/\{\{[^}]*\}\}|specrails_\w+(\([^)]*\))?|`[^`]*`/g, '')
@@ -58,7 +90,7 @@ describe('v2 translations', () => {
     const BUDGET = /\b(presupuesto|budget|orçamento)\b|预算|予算/i
     // settings.summary.index names the `budget` section (an enum value the agent passes as is).
     const SECTION_NAMES = new Set(['settings.summary.index'])
-    const bad = SUPPORTED_LANGS.filter((lang) => lang !== 'en').flatMap((lang) => AREAS.flatMap((area) =>
+    const bad = SUPPORTED_LANGS.filter((lang) => lang !== 'en').flatMap((lang) => I18N_AREAS.flatMap((area) =>
       Object.entries(CATALOGS[lang]?.[area] ?? {}).filter(([key]) => !SECTION_NAMES.has(`${area}.${key}`)).filter(([, text]) => BUDGET.test(text.replace(/\{\{[^}]*\}\}|specrails_\w+(\([^)]*\))?|`[^`]*`/g, ''))).map(([key, text]) => `${lang}/${area}.${key}: ${text}`)))
     expect(bad).toEqual([])
   })

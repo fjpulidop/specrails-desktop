@@ -13,7 +13,7 @@ describe('buildDecisionState', () => {
     expect(state).toMatchObject({ status: 'paused', appState: 'paused', label: 'En pausa', recommended: 'resume', hold: { kind: 'paused', since: '2026-11-21T10:00:00Z' } })
     expect(state.offers[0]).toMatchObject({ id: 'resume', tier: 'ai-spawn', irreversible: false, external: false, needsConfirm: true })
     expect(state.offers[1]).toMatchObject({ id: 'cancel', tier: 'destructive', irreversible: true, needsConfirm: true })
-    expect(state.hold?.reason).toBe('Paused.')
+    expect(state.hold?.reason).toBe('En pausa.')
   })
 
   it('decides needsConfirm for costly offers from their cost hint and the threshold', () => {

@@ -300,7 +300,9 @@ describe('inbox projection against the domain', () => {
     const failure = buildDecisionState(inboxStateInput(items[6], 'shop', {}, t), env)
     expect(failure.recommended).toBe('remedy.continue')
     const cap = buildDecisionState(inboxStateInput(items[8], 'shop', {}, t), env)
-    expect(cap.hold?.reason).toBe('The app-wide day budget is reached: 5.50 of 5.00 USD; it resets 2026-11-22T00:00:00.000Z.')
+    expect(cap.hold?.reason).toBe('The app-wide daily spend limit is reached: 5.50 of 5.00 USD; it resets 2026-11-22T00:00:00.000Z.')
+    // Scope and period words come translated, never as raw English inside another language.
+    expect(buildDecisionState(inboxStateInput(items[8], 'shop', {}, translator('es')), { ...env, translate: translator('es') }).hold?.reason).toBe('Se alcanzó un límite de gasto (de toda la app, diario): 5.50 de 5.00 USD; se reinicia 2026-11-22T00:00:00.000Z.')
     expect(cap.offers.map((offer) => [offer.id, offer.call.args.scope, offer.needs])).toEqual([['budget.view', 'app', undefined], ['budget.raise', 'app', ['options.limits']]])
     const jira = buildDecisionState(inboxStateInput(items[9], 'shop', {}, t), env)
     expect(jira.offers[0]).toMatchObject({ id: 'jira.retry', external: true, needsConfirm: true, call: { args: { project: 'shop', id: '12' } } })

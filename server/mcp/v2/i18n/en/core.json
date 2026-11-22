@@ -122,5 +122,7 @@
   "error.missing_fields": "{{label}} {{missing}}. It takes: {{takes}}.",
   "error.unknown_action": "Unknown action \"{{action}}\". Actions: {{actions}}.",
   "summary.done": "{{label}} done.",
-  "summary.deprecated": "deprecated: use {{target}}"
+  "summary.deprecated": "deprecated: use {{target}}",
+  "error.missing_list": "missing {{fields}}",
+  "error.needs_one_of": "needs one of {{fields}}"
 }

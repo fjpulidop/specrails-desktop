@@ -366,7 +366,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     const missing = (spec.required ?? []).filter((field) => !present(fieldValue(args, field)))
     const needsOne = spec.oneOf?.length && !spec.oneOf.some((field) => present(fieldValue(args, field)))
     if (missing.length || needsOne) {
-      const what = [...(missing.length ? [`missing ${missing.map((f) => `"${f}"`).join(', ')}`] : []), ...(needsOne ? [`needs one of ${spec.oneOf!.join(', ')}`] : [])].join('; ')
+      const what = [...(missing.length ? [t('core.error.missing_list', { fields: missing.map((f) => `"${f}"`).join(', ') })] : []), ...(needsOne ? [t('core.error.needs_one_of', { fields: spec.oneOf!.join(', ') })] : [])].join('; ')
       const takes = [...(spec.required ?? []), ...(spec.oneOf?.length ? [spec.oneOf.join('|')] : [])].join(', ')
       return fail(new V2ToolError('invalid_input', t('core.error.missing_fields', { label, missing: what, takes }), {
         next: [{ tool: 'specrails_system', args: { action: 'help', options: { describe: `${def.name}.${action}` } }, why: 'The arguments this action takes.' }],
