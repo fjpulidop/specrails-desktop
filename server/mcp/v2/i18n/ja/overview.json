@@ -1,0 +1,22 @@
+{
+  "mood.idle": "静かです: 実行中のものも、あなたを待っているものもありません",
+  "summary.app": "{{headline}}{{spend}}。",
+  "summary.running": "実行中 {{count}} 件",
+  "summary.needs_you": "あなたの対応待ち {{count}} 件",
+  "summary.failing": "失敗またはブロック中 {{count}} 件",
+  "summary.done_today": "今日完了 {{count}} 件",
+  "summary.spend": "、今日の支出 {{usd}} USD",
+  "summary.spend_estimated": "、今日の支出 {{usd}} USD（一部推定）",
+  "summary.top": " 最も緊急: {{project}} の「{{title}}」。",
+  "summary.project": "{{name}}: スペック {{specs}} 件（{{columns}}）、レール {{rails}} 本、実行中 {{running}} 件{{reviews}}{{queue}}。",
+  "summary.project_reviews": "、レビュー待ち {{count}} 件",
+  "summary.project_queue": "、キュー待ち {{count}} 件",
+  "summary.project_queue_paused": "（キューは一時停止中）",
+  "summary.live": "ライブボード: あなたの対応待ち {{needs}} 件、進行中 {{working}} 件、今日完了 {{done}} 件{{scope}}。",
+  "summary.context": "{{name}} の概要: スペック {{specs}} 件、レール {{rails}} 本、ブランチ {{branch}}{{dirty}}。",
+  "summary.context_dirty": "（コミットされていない変更あり）",
+  "next.act": "{{label}} — {{title}}",
+  "next.wait": "実行中の作業が落ち着くまで待つ",
+  "next.projects": "作業するプロジェクトを選ぶ",
+  "next.inbox": "あなたを待っているものをすべて見る"
+}

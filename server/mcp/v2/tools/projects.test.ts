@@ -215,9 +215,9 @@ describe('sample project and prerequisites', () => {
     expect(posts()[0]).toEqual(['POST', '/onboarding/sample', { locale: 'es', parentDir: '/tmp' }])
     desktop.on('GET', '/onboarding/sample', { sample: { sampleId: 'ttt', projectId: 'p7', path: '/tmp/ttt', specIds: [1] } })
     desktop.on('DELETE', '/onboarding/sample?deleteFolder=1', { ok: true, removed: true })
-    const first = await projects({ action: 'sample_remove', options: { deleteFolder: true } })
+    const first = await projects({ action: 'sample_remove', lang: 'en', options: { deleteFolder: true } })
     expect(first.envelope.error.preview.effect).toContain('deletes its folder /tmp/ttt')
-    const removed = await projects({ action: 'sample_remove', options: { deleteFolder: true }, confirm: first.envelope.error.confirmToken })
+    const removed = await projects({ action: 'sample_remove', lang: 'en', options: { deleteFolder: true }, confirm: first.envelope.error.confirmToken })
     expect(removed.envelope.summary).toBe('The sample project was removed and its folder deleted.')
   })
 

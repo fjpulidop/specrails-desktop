@@ -1,0 +1,22 @@
+{
+  "mood.idle": "一切安静：没有正在运行的内容，也没有等待你的事项",
+  "summary.app": "{{headline}}{{spend}}。",
+  "summary.running": "{{count}} 个正在运行",
+  "summary.needs_you": "{{count}} 个等待你处理",
+  "summary.failing": "{{count}} 个失败或受阻",
+  "summary.done_today": "今天完成 {{count}} 个",
+  "summary.spend": "；今天已花费 {{usd}} USD",
+  "summary.spend_estimated": "；今天已花费 {{usd}} USD（部分为估算）",
+  "summary.top": "最紧急：{{project}} 中的“{{title}}”。",
+  "summary.project": "{{name}}：{{specs}} 个规格（{{columns}}）；{{rails}} 个 rail，{{running}} 个正在运行{{reviews}}{{queue}}。",
+  "summary.project_reviews": "，{{count}} 个等待审阅",
+  "summary.project_queue": "；{{count}} 个排队中",
+  "summary.project_queue_paused": "（队列已暂停）",
+  "summary.live": "实时看板：{{needs}} 个需要你处理，{{working}} 个进行中，今天完成 {{done}} 个{{scope}}。",
+  "summary.context": "{{name}} 简报：{{specs}} 个规格，{{rails}} 个 rail，分支 {{branch}}{{dirty}}。",
+  "summary.context_dirty": "（有未提交的更改）",
+  "next.act": "{{label}}——{{title}}",
+  "next.wait": "等待正在运行的工作完成",
+  "next.projects": "选择一个要处理的项目",
+  "next.inbox": "查看所有等待你的事项"
+}

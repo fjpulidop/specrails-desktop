@@ -1,0 +1,19 @@
+{
+  "item": "{{ref}} は {{label}}",
+  "summary.fired_one": "{{item}}。",
+  "summary.fired": "変化 {{count}} 件。最初: {{item}}。",
+  "summary.timeout": "{{seconds}} 秒間変化はありませんでした。cursor を付けて再度 specrails_wait を呼び出してください。これは失敗ではありません。",
+  "summary.interrupted": "その人が新しいメッセージを送ったため、待機を早めに終了しました。",
+  "summary.events": "イベント {{count}} 件。",
+  "summary.no_events": "イベントはありません。",
+  "reason.stuck": "現在のステップでアクティビティがなくなりました。",
+  "reason.review": "あなたのレビューを待っています。",
+  "reason.failed": "失敗しました。診断するか、対処法を選んでください。",
+  "reason.budget": "支出の上限に達しました。上限を引き上げるか、リセットを待ってください。",
+  "reason.blocked": "あなたが対応するまでブロックされています。",
+  "warning.cursor_reset": "この cursor は別のジャーナルのものです。今から待機します。",
+  "warning.gap": "古いイベントは保持期間により削除されました。このページは保持されている最も古いイベントから始まります。",
+  "error.too_many_refs": "一度に待機できる ref は最大 {{max}} 件です。",
+  "error.kind": "{{kind}} の ref は待機で追跡できません。対応しているもの: {{kinds}}。",
+  "notice": "{{ref}} があなたの対応を必要としています。specrails_wait(until) を呼び出すか、開いてください。"
+}
