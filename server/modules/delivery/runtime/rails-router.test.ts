@@ -3016,6 +3016,28 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:implement')
   })
 
+  it('revises a delivery that released its rail on the delivery\'s frozen spec set (a local delivery ready for review)', async () => {
+    const id = mkOnReviewRail([1, 2])
+    // The real Core flow frees the slot once the delivery waits for review.
+    setRailTickets(db, 0, [])
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'make the badge blue' })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      ticketIds: [1, 2],
+      revision: { ofDeliveryId: id, decision: 'on_review', note: 'make the badge blue' },
+    }))
+    // The rail owns the revised specs again while the revision runs.
+    expect(getRail(db, 0).ticketIds).toEqual([1, 2])
+  })
+
+  it('still refuses an empty-rail launch that names another delivery, or none', async () => {
+    mkOnReviewRail([1, 2])
+    setRailTickets(db, 0, [])
+    expect((await launch({ revisionOfDeliveryId: 'some-other-id', revisionNote: 'x' })).status).toBe(400)
+    expect((await launch({})).status).toBe(400)
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
   it('still 409s an ordinary launch while the delivery is undecided', async () => {
     mkOnReviewRail()
     const res = await launch({})

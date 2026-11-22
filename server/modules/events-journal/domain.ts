@@ -41,6 +41,8 @@ export interface JournalData {
   scope?: 'project' | 'desktop'
   spentUsd?: number
   budgetUsd?: number
+  /** Content fingerprint of a spec (title, body, priority, labels): a content edit changes it. */
+  version?: string
 }
 
 /** What `classifyMessage` produces; the journal assigns `seq` and `at`. */
@@ -353,6 +355,7 @@ function classify(type: string, msg: Record<string, unknown>, base: Base): Journ
       return [draft(base, {
         refKind: 'spec', refId: String(ticket.id), kind: 'spec.status', status,
         settled: SETTLED_SPEC.has(status), title: clip(ticket.title, 120),
+        data: { version: specVersion(ticket) },
       })]
     }
     case 'ticket_deleted': {
@@ -436,7 +439,18 @@ function classify(type: string, msg: Record<string, unknown>, base: Base): Journ
 
 /** The signature a row is deduplicated by: the same signature twice in a row for one ref is one transition. */
 export function signatureOf(d: Pick<JournalDraft, 'kind' | 'status' | 'hold' | 'attention' | 'detail'> & { data?: JournalData | null }): string {
-  return [d.status, d.hold ?? '', d.attention ?? '', d.detail ?? '', d.data?.question?.interruptId ?? ''].join('|')
+  return [d.status, d.hold ?? '', d.attention ?? '', d.detail ?? '', d.data?.question?.interruptId ?? '', d.data?.version ?? ''].join('|')
+}
+
+/** FNV-1a over the fields a person edits: same content, same version (pure). */
+export function specVersion(ticket: Record<string, unknown>): string {
+  const text = JSON.stringify([ticket.title ?? null, ticket.description ?? null, ticket.priority ?? null, ticket.labels ?? null, ticket.acceptance_criteria ?? ticket.acceptanceCriteria ?? null])
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
 }
 
 export const refKey = (kind: string, id: string): string => `${kind}:${id}`

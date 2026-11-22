@@ -22,7 +22,8 @@ import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-
 import { isFactoryLoopId, RETIRED_FACTORY_REPLACEMENT_ID } from '../../loops/runtime/loop-factory'
 import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
-import { getActivePrDeliveryByRail } from './rail-pr-store'
+import { getActivePrDeliveryByRail, toPrDeliverySnapshot } from './rail-pr-store'
+import { revisionLaunchTicketIds } from './rail-delivery-revision'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError, type ProjectRepository } from '../../../project-repositories'
 import { resolveRepositoryDeliveryBases } from './multi-repo-bases'
@@ -42,7 +43,7 @@ export interface RailLaunchDoor {
 /** The frozen spec set and repository scope of one launch. */
 export interface RailLaunchScope {
   storedRail: RailState
-  /** Specs a PR CI launch continues on a rail its delivery released. */
+  /** Specs a PR CI or revision launch continues on a rail its delivery released. */
   prCiTickets: number[] | undefined
   /** The rail as launched: the slot, the relaunch source's specs or the CI loop's. */
   rail: RailState
@@ -116,7 +117,14 @@ export function resolveRailLaunchScope(door: RailLaunchDoor, prCiLaunchTickets: 
   const storedRail = getRail(c.db, railIndex)
   // A delivery that reached its PR may have released its rail: the CI loop
   // continues that delivery, so it runs on the delivery's frozen spec set.
-  const prCiTickets = !relaunchSource && storedRail.ticketIds.length === 0 ? prCiLaunchTickets : undefined
+  // A revision (request changes) of a delivery that released its rail runs on
+  // that delivery's frozen spec set too; the run stage gives the rail back to it.
+  const revisionTickets = !relaunchSource && storedRail.ticketIds.length === 0 && launch.revisionOfDeliveryId
+    ? revisionLaunchTicketIds([], (() => { const row = getActivePrDeliveryByRail(c.db, railIndex); return row ? toPrDeliverySnapshot(row) : null })(), launch.revisionOfDeliveryId)
+    : []
+  const prCiTickets = !relaunchSource && storedRail.ticketIds.length === 0
+    ? (prCiLaunchTickets?.length ? prCiLaunchTickets : revisionTickets.length ? revisionTickets : prCiLaunchTickets)
+    : undefined
   const rail = relaunchSource ? { ...storedRail, ticketIds: [...relaunchSource.ticketIds],
     profileName: typeof profileName === 'string' ? profileName : null,
     aiEngine: typeof aiEngine === 'string' ? aiEngine : null } : prCiTickets?.length ? { ...storedRail, ticketIds: [...prCiTickets] } : storedRail

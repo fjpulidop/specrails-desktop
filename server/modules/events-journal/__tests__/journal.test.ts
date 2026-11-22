@@ -44,6 +44,31 @@ describe('event journal', () => {
     expect(events.map((e) => e.seq)).toEqual([1, 2, 3])
   })
 
+  it('keeps the person\'s pause when Core then reports no pending question; a cleared question still clears', () => {
+    const { journal } = setup()
+    journal.ingest({ type: 'loop.run_started', projectId: 'p1', loopRunId: 'r1' })
+    journal.ingest({ type: 'loop.run_paused', projectId: 'p1', loopRunId: 'r1', reason: 'Paused by you' })
+    journal.ingest({ type: 'job.interactive', projectId: 'p1', jobId: 'r1', pendingInterrupts: [] })
+    journal.ingest(asked('r2'))
+    journal.ingest({ type: 'job.interactive', projectId: 'p1', jobId: 'r2', pendingInterrupts: [] })
+    const { events } = journal.read(0, {}, 50)
+    expect(events.map((e) => `${e.refId}:${e.kind}:${e.status}:${e.hold}`)).toEqual([
+      'r1:run.status:running:null', 'r1:run.hold:running:paused',
+      'r2:run.hold:running:question', 'r2:run.hold:running:null',
+    ])
+  })
+
+  it('records a spec content edit as spec.updated, and drops a broadcast that changes nothing', () => {
+    const { journal } = setup()
+    const ticket = { id: 9, title: 'Rate limiter', description: 'Limit to 10 rps', status: 'todo', priority: 'medium' }
+    journal.ingest({ type: 'ticket_created', projectId: 'p1', ticket })
+    journal.ingest({ type: 'ticket_updated', projectId: 'p1', ticket })
+    journal.ingest({ type: 'ticket_updated', projectId: 'p1', ticket: { ...ticket, description: 'Limit to 20 rps' } })
+    journal.ingest({ type: 'ticket_updated', projectId: 'p1', ticket: { ...ticket, description: 'Limit to 20 rps', status: 'in_progress' } })
+    const { events } = journal.read(0, {}, 50)
+    expect(events.map((e) => `${e.kind}:${e.status}`)).toEqual(['spec.status:todo', 'spec.updated:todo', 'spec.status:in_progress'])
+  })
+
   it('never lets a queue snapshot override a hold or a finished run', () => {
     const { journal } = setup()
     journal.ingest(asked('j1'))

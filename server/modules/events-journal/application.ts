@@ -82,7 +82,10 @@ export function matchesFilter(filter: JournalFilter, event: JournalEvent): boole
   return (refOk && matchOk) || (filter.alsoAttention === true && event.attention !== null)
 }
 
-interface Known { sig: string; status: string; settled: boolean }
+interface Known { sig: string; status: string; settled: boolean; hold: string | null }
+
+/** Holds a cleared question can end; any other hold (the person's pause, a limit, a cap) outlives it. */
+const QUESTION_HOLDS = new Set(['question', 'approval'])
 
 export function createEventJournal(deps: EventJournalDeps): EventJournal {
   const { store } = deps
@@ -110,7 +113,7 @@ export function createEventJournal(deps: EventJournalDeps): EventJournal {
     if (cached) return cached
     const row = store.latest([{ kind: draft.refKind, id: draft.refId }]).get(key)
     if (!row) return null
-    const value = { sig: signatureOf(row), status: row.status, settled: row.settled }
+    const value = { sig: signatureOf(row), status: row.status, settled: row.settled, hold: row.hold ?? null }
     remember(key, value)
     return value
   }
@@ -129,8 +132,13 @@ export function createEventJournal(deps: EventJournalDeps): EventJournal {
       if (last && last.sig === sig) continue
       // The queue snapshot only fills gaps: it never overrides a hold or a finished run.
       if (draft.source === 'queue' && last && (last.settled || last.status === draft.status)) continue
-      remember(refKey(draft.refKind, draft.refId), { sig, status: draft.status, settled: draft.settled })
-      pending.push({ ...draft, at: new Date(now()).toISOString(), prevStatus: last?.status ?? null })
+      // "No pending question" (job.interactive) clears a question, never the person's pause or a limit:
+      // Core settles its step after a pause and reports an empty interrupt list, which is not a resume.
+      if (draft.kind === 'run.hold' && draft.hold === null && last?.hold && !QUESTION_HOLDS.has(last.hold)) continue
+      remember(refKey(draft.refKind, draft.refId), { sig, status: draft.status, settled: draft.settled, hold: draft.hold })
+      // Same status, new content: the spec was edited (title, body, priority, labels).
+      const kind = draft.kind === 'spec.status' && last && last.status === draft.status ? 'spec.updated' : draft.kind
+      pending.push({ ...draft, kind, at: new Date(now()).toISOString(), prevStatus: last?.status ?? null })
     }
     if (pending.length) scheduleFlush()
   }

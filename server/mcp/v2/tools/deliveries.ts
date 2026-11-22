@@ -3,6 +3,7 @@ import type { DbInstance } from '../../../db'
 import type { ProjectRow } from '../../../desktop-db'
 import { getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, listTerminalPrDeliveries, readSpecSnapshot, toPrDeliverySnapshot, type PrDeliverySnapshot, type RailPrDeliveryRow } from '../../../modules/delivery/runtime/rail-pr-store'
 import { getRail } from '../../../modules/delivery/runtime/rails-store'
+import { revisionLaunchTicketIds } from '../../../modules/delivery/runtime/rail-delivery-revision'
 import { listRepositoryDeliveries } from '../../../modules/delivery/runtime/multi-repo-execution'
 import { PR_CI_LOOP_ID } from '../../../modules/delivery/runtime/pr-ci/pr-ci-target'
 import { resolveAcceptCapability, type AcceptTarget } from '../../../modules/execution/runtime/accept-ladder'
@@ -174,8 +175,10 @@ interface FactsHints {
 
 async function factsOf(ctx: V2CallContext, l: Pick<Loaded, 'project' | 'db' | 'row' | 'snap'>, hints: FactsHints = {}): Promise<DeliveryStateFacts> {
   const { row, snap, db, project } = l
+  const active = getActivePrDeliveryByRail(db, row.rail_index)?.id === row.id
   let railTicketIds: number[] = []
-  try { railTicketIds = getRail(db, row.rail_index).ticketIds } catch { /* no rail: no revision */ }
+  // The launch route's own rule: a delivery that released its rail is revised on its frozen spec set.
+  try { railTicketIds = revisionLaunchTicketIds(getRail(db, row.rail_index).ticketIds, active ? snap : null, row.id) } catch { /* no rail: no revision */ }
   const prOpen = (row.decision === 'pr_draft' || row.decision === 'pr_ready')
   const ci = prOpen && await ciAvailable(ctx, project)
     ? { ...row, operation: row.operation ?? null, repositories: row.execution_manifest ? listRepositoryDeliveries(db, row.id) : null }
@@ -183,7 +186,7 @@ async function factsOf(ctx: V2CallContext, l: Pick<Loaded, 'project' | 'db' | 'r
   const previews = hints.previews ?? (OPEN.has(row.decision) ? await mergePreviews(ctx, project, row.id) : new Map())
   return {
     snap,
-    active: getActivePrDeliveryByRail(db, row.rail_index)?.id === row.id,
+    active,
     railTicketIds,
     ci,
     mergePreview: summaryOf(previews.get(row.id)),

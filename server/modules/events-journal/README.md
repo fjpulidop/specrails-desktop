@@ -21,10 +21,11 @@ at boot by [server/index.ts](../../index.ts), and read by [v2/tools/wait.ts](../
 `events_journal` in `desktop.sqlite` (schema owned here, created idempotently):
 `seq` (AUTOINCREMENT, never reused), `at`, `project_id`, `ref_kind` + `ref_id` (run, delivery,
 chain, intent, spec, mission, project, blueprint, milestone), `kind` (`run.status`, `run.hold`,
-`delivery.decision`, …), the domain `status` word, `prev_status`, `hold`, `attention` (question,
+`delivery.decision`, `spec.updated` for a content edit that keeps the status, …), the domain `status` word, `prev_status`, `hold`, `attention` (question,
 approval, review, failed, blocked, budget — null when nobody has to act), `settled`, short
 untrusted `title`/`detail`, and small `data` (the compact question card, rail index, PR link,
-resume time, spend cap). `events_journal_meta` holds the `epoch` (cursors from another database
+resume time, spend cap, a spec's content `version`). A cleared question (`job.interactive` with no pending
+interrupt) never ends a non-question hold: the person's pause or a limit outlives it. `events_journal_meta` holds the `epoch` (cursors from another database
 are recognized) and the compaction high-water mark.
 
 ## Invariants

@@ -36,6 +36,25 @@ export function prDeliveryRevisionAllowed(
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
 }
 
+/**
+ * The spec set a revision launch of `revisionOfDeliveryId` runs on. A delivery
+ * waiting for review may have released its rail (the slot is free for other
+ * work, the delivery keeps its frozen spec set): the revision then continues
+ * exactly that set, as the CI loop does. A rail that still carries specs is
+ * taken as is, so `prDeliveryRevisionAllowed` keeps refusing a partial or
+ * different set. Only the rail's active generation qualifies.
+ */
+export function revisionLaunchTicketIds(
+  railTicketIds: readonly number[],
+  activeDelivery: Pick<PrDeliverySnapshot, 'id' | 'ticketIds' | 'decision'> | null | undefined,
+  revisionOfDeliveryId: unknown,
+): number[] {
+  if (railTicketIds.length > 0) return [...railTicketIds]
+  if (typeof revisionOfDeliveryId !== 'string' || !activeDelivery || activeDelivery.id !== revisionOfDeliveryId) return []
+  if (isTerminalPrDecision(activeDelivery.decision) || activeDelivery.decision === 'building') return []
+  return [...activeDelivery.ticketIds]
+}
+
 export function hasDeliveredWork(delivery: PrDeliverySnapshot): boolean {
   return Boolean((delivery.branch && delivery.deliverySha && ((delivery.prUrl && delivery.prState === 'pr-created') || (delivery.implementationOutcome !== 'failed' && delivery.deliveryOutcome !== 'blocked' && delivery.deliveryOutcome !== 'not_started' && delivery.deliveryOutcome !== 'no_changes')))
     || delivery.branches?.some(unit => unit.succeeded && unit.finalSha && unit.changed !== false && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked' && unit.deliveryOutcome !== 'not_started' && unit.deliveryOutcome !== 'no_changes')

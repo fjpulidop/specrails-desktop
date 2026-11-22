@@ -163,7 +163,7 @@ function itemOf(event: JournalEvent, from: string | null, slugs: Map<string, str
   const status = canonicalOf(event)
   const prev = from !== null ? canonicalOf({ ...event, status: from, hold: null }) : undefined
   const q = event.data?.question
-  const { question: _question, ...rest } = event.data ?? {}
+  const { question: _question, version: _version, ...rest } = event.data ?? {}
   const item: FiredItem = {
     ref, status, label: t(`core.status.${status}`),
     ...(prev && prev !== status ? { from: prev } : {}),

@@ -331,6 +331,13 @@ describe(`specrails_${T}(decide)`, () => {
     expect(done.refs).toMatchObject({ next: 'delivery:shop-api/d2', 'run.r2': 'run:shop-api/r2' })
   })
 
+  it('offers request_changes on a delivery that released its rail (local delivery ready for review)', async () => {
+    delivery('d1', 'on_review')
+    setRailTickets(db, 0, [])
+    const got = (await call(client, 'specrails_deliveries', { action: 'get', ref: 'd1' })).envelope
+    expect(got.state.offers.map((offer: { id: string }) => offer.id)).toContain('decide.request_changes')
+  })
+
   it('skips the cost confirmation when the forecast is under the threshold', async () => {
     delivery('d1', 'on_review')
     setRailTickets(db, 0, [7])
