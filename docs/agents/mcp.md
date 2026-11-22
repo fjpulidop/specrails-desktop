@@ -105,11 +105,11 @@ Generated from the catalog. Actions marked *not available yet* answer `not_imple
 | `specrails_rails` |  | 9 |
 | `specrails_runs` | yes | 25 |
 | `specrails_deliveries` | yes | 3 |
-| `specrails_missions` |  | 43 |
+| `specrails_missions` |  | 45 |
 | `specrails_insights` |  | 12 |
 | `specrails_settings` |  | 5 |
 | `specrails_providers` |  | 21 |
-| `specrails_integrations` |  | 41 |
+| `specrails_integrations` |  | 44 |
 | `specrails_system` |  | 15 |
 
 ### `specrails_overview`
@@ -181,7 +181,7 @@ Specs: list, get views, search, create (request=AI, draft, verbatim, idea), edit
 | `search` | read | — | Requires `query`. Ranked text search over title, summary, body, labels, addenda, comments (≤ 30). With filter it narrows list instead. |
 | `create` | per call | per call | Requires `mode`. mode request: the spec agent writes the spec from the person's request or problem (AI; waits up to options.waitMs, default 20 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine. |
 | `update` | write | — | Requires `ref`, `patch`. patch: title, body, status (done marks it done), priority, labels, addLabels, removeLabels, milestone (n or null), assignee, prerequisites, criteria, summary, intent, nonGoals, repositoryIds, metadata, regressionOf (delivery ref), rail (index/name; null removes). Returns an undo call. |
-| `bulk_update` | write | per call | Requires `refs`, `patch`. One operation on up to 200 specs. patch: status, priority, labels, addLabels, removeLabels, assignee, milestone, rail; or {trash: true} (restorable), {restore: true}, {mergeInto: ref} (folds bodies into the target, trashes the rest; confirmed), {reorder: true} (execution order = refs order). Returns skipped specs with reasons and an undo call. |
+| `bulk_update` | write | per call | Requires `refs`, `patch`. One operation on up to 200 specs. patch: status, priority, labels, addLabels, removeLabels, assignee, milestone, rail; or {trash: true} (restorable; over 20 specs confirmed), {restore: true}, {mergeInto: ref} (folds bodies into the target, trashes the rest; confirmed), {reorder: true} (execution order = refs order). Returns skipped specs with reasons and an undo call. |
 | `delete` | write | — | Requires `ref`. Moves to trash (restore undoes it). |
 | `restore` | write | — | Requires `ref`. |
 | `trash` | read | — | Recently deleted specs (newest first, paged) and their purge dates. |
@@ -205,23 +205,23 @@ Project builder: converse, commit into a project with milestone 1, generate mile
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `sessions` | read | — | (not available yet) |
-| `start` | ai-spawn | costly | (not available yet) Requires `message`. |
-| `send` | ai-spawn | costly | (not available yet) Requires `ref`, `message`. |
-| `repair` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `abort` | write | — | (not available yet) Requires `ref`. |
-| `get` | read | — | (not available yet) Requires `ref`. |
-| `commit` | ai-spawn | per call | (not available yet) Requires `ref`. |
-| `milestones` | read | — | (not available yet) Requires `project`. |
-| `milestone_generate` | ai-spawn | costly | (not available yet) Requires `project`. |
-| `milestone_commit` | write | — | (not available yet) Requires `project`, `milestone`. |
-| `chain_launch` | ai-spawn | costly | (not available yet) Requires `project`, `milestone`. |
-| `chain_get` | read | — | (not available yet) Requires `ref`. |
-| `chain_resume` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `chain_auto_advance` | write | — | (not available yet) Requires `ref`, `enabled`. |
-| `chain_cancel` | destructive | irreversible | (not available yet) Requires `ref`. |
-| `settings_get` | read | — | (not available yet) |
-| `settings_set` | write | — | (not available yet) Requires `options`. |
+| `sessions` | read | — | Builder conversations to resume (options.all: every one). |
+| `start` | ai-spawn | costly | New Builder conversation + first turn; options: provider, model, effort, waitMs. |
+| `send` | ai-spawn | costly | Requires `ref`. Builder turn (intent surprise\|approve sends the app text); options: model, effort, waitMs. |
+| `repair` | ai-spawn | costly | Requires `ref`. Re-ask a rejected/incomplete blueprint, or continue a halted spec generation. |
+| `abort` | write | — | Requires `ref`. Stop the Builder turn (blueprint ref) or a milestone generation (milestone ref). |
+| `get` | read | — | Requires `ref`. A Builder conversation (fields conversation, blueprint) or a project commit; options.waitMs waits for a reply in progress. |
+| `commit` | ai-spawn | per call | Requires `ref`. Create the project from the blueprint (202); options: name, location, providers[], githubRepo, waitMs. |
+| `milestones` | read | — | Milestones M1..Mn: state, counts, chain, next step; milestone or ref: one milestone with specs, rails, generation, engine. |
+| `milestone_generate` | ai-spawn | costly | Generate (options.fresh: regenerate) or refine (message) a planned milestone's specs; options: provider, model, effort (another than the usual = only this milestone), waitMs. |
+| `milestone_commit` | write | — | Add the generated milestone specs to the board as todo (options.specs: an edited batch). |
+| `chain_launch` | ai-spawn | costly | Launch milestone N one spec per rail; options: autoAdvance (default true), provider, model, effort. |
+| `chain_get` | read | — | Requires `ref`. Chain state: specs, held rails, next engine and the reconcile plan's offers (ref: chain or milestone). |
+| `chain_resume` | ai-spawn | costly | Requires `ref`. Execute the plan: from recommended (default), failed_step or start. |
+| `chain_auto_advance` | per call | per call | Requires `ref`, `enabled`. Continue automatically after each integrated rail (true) or stop for your go (false). |
+| `chain_cancel` | destructive | irreversible | Requires `ref`. Stop the chain; running rails keep going. |
+| `settings_get` | read | — | Usual configuration (provider, model, effort), the launch default, each milestone's own engine and the choices. |
+| `settings_set` | write | — | Requires `options`. options: provider, model, effort → the usual configuration; with milestone: only for that milestone (options.clear: follow the usual). |
 
 ### `specrails_rails`
 
@@ -287,49 +287,51 @@ Missions (agent conversations): create, send, ask, queue, attachments, subagents
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `list` | read | — | (not available yet) |
-| `search` | read | — | (not available yet) Requires `query`. |
-| `get` | read | — | (not available yet) Requires `ref`. |
-| `create` | write | — | (not available yet) |
-| `send` | ai-spawn | costly | (not available yet) Requires `ref`, `message`. |
-| `ask` | ai-spawn | costly | (not available yet) Requires `ref`, `message`. |
-| `abort` | write | — | (not available yet) Requires `ref`. |
-| `update` | write | — | (not available yet) Requires `ref`. |
-| `archive` | write | — | (not available yet) Requires `ref`. |
-| `unarchive` | write | — | (not available yet) Requires `ref`. |
-| `delete` | write | — | (not available yet) Requires `ref`. Moves to trash (restore undoes it). |
-| `restore` | write | — | (not available yet) Requires `ref`. |
-| `trash` | read | — | (not available yet) |
-| `branch` | write | — | (not available yet) Requires `ref`. |
-| `renew` | write | — | (not available yet) Requires `ref`. |
-| `queue_edit` | write | — | (not available yet) Requires `ref`, `options.queueId`, `message`. |
-| `queue_steer` | write | — | (not available yet) Requires `ref`, `options.queueId`. |
-| `queue_remove` | write | — | (not available yet) Requires `ref`, `options.queueId`. |
-| `attach` | write | — | (not available yet) Requires `ref`, `options.file`. |
-| `attachments` | read | — | (not available yet) Requires `ref`. |
-| `detach` | destructive | irreversible | (not available yet) Requires `ref`, `options.attachmentId`. |
-| `subagents` | read | — | (not available yet) Requires `ref`. |
-| `subagents_stop` | write | — | (not available yet) Requires `ref`. |
-| `card_decide` | write | — | (not available yet) Requires `ref`, `cardId`, `decision`. |
-| `limit_continue` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `intent_start` | ai-spawn | costly | (not available yet) |
-| `intent_get` | read | — | (not available yet) Requires `ref`. |
-| `intent_pause` | write | — | (not available yet) Requires `ref`. |
-| `intent_resume` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `intent_hand_off` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `intent_return` | write | — | (not available yet) Requires `ref`. |
-| `intent_relaunch` | ai-spawn | costly | (not available yet) Requires `ref`. |
-| `intent_discard` | destructive | irreversible | (not available yet) Requires `ref`. |
-| `intent_close` | write | — | (not available yet) Requires `ref`. |
-| `intent_diff` | read | — | (not available yet) Requires `ref`. |
-| `intent_cost` | read | — | (not available yet) Requires `ref`. |
-| `chat_list` | read | — | (not available yet) |
-| `chat_get` | read | — | (not available yet) Requires `ref`. |
-| `chat_create` | write | — | (not available yet) |
-| `chat_update` | write | — | (not available yet) Requires `ref`. |
-| `chat_send` | ai-spawn | costly | (not available yet) Requires `ref`, `message`. |
-| `chat_abort` | write | — | (not available yet) Requires `ref`. |
-| `chat_delete` | destructive | irreversible | (not available yet) Requires `ref`. |
+| `list` | read | — | Missions, running first. filter.project (or "home"), filter.archived (true \| "all"), filter.active, filter.pinned. |
+| `search` | read | — | Requires `query`. Full-text search over titles and messages. |
+| `get` | read | — | Requires `ref`. One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs). |
+| `create` | write | — | New mission. project pins it (omit for Home); provider, model, effort; title. Then send. |
+| `send` | ai-spawn | costly | Requires `ref`, `message`. Sends the person's message and waits up to options.waitMs (default 20000, max 45000) for the reply. Busy mission: queued (options.deliveryMode queue\|steer\|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) then get(options.after). |
+| `ask` | ai-spawn | costly | Requires `ref`, `message`. Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId. |
+| `abort` | write | — | Requires `ref`. Stops the running turn (queued messages stay). |
+| `update` | write | — | Requires `ref`. Rename (title), provider, model, effort, options.pin (project, or null for Home). The permission level stays the person's. |
+| `archive` | write | — | Requires `ref`. Archives (refused while the mission is live). |
+| `unarchive` | write | — | Requires `ref`. |
+| `delete` | write | — | Requires `ref`. Moves to trash (restore undoes it). Archives first; stops live work. Permanent: purge. |
+| `restore` | write | — | Requires `ref`. Restores a trashed mission. |
+| `trash` | read | — | Recently deleted missions (purged after the retention). filter.project. |
+| `purge` | destructive | irreversible | Requires `ref`. Deletes a mission permanently (history, attachments, process history). Always confirmed. |
+| `branch` | write | — | Requires `ref`. New mission from this one: options.mode fork (history up to options.throughMessageId, default the last message) or empty. |
+| `renew` | ai-spawn | costly | Requires `ref`. Starts fresh with a summary: writes a summary of the mission (AI) and the next turn opens a new provider session from it. Refused while busy or in Intent. |
+| `queue_edit` | write | — | Requires `ref`, `options.queueId`, `message`. Edits a queued message (refused once dispatched). |
+| `queue_steer` | write | — | Requires `ref`, `options.queueId`. Injects a queued message into the running turn now. |
+| `queue_remove` | write | — | Requires `ref`, `options.queueId`. Drops a queued message. |
+| `attach` | write | — | Requires `ref`, `options.file`. Uploads a local file (options.file path, ≤ 25 MB) or inline options.base64 (≤ 5 MB, options.file names it). Send it with send(options.attachmentIds). |
+| `attachments` | read | — | Requires `ref`. |
+| `detach` | destructive | irreversible | Requires `ref`, `options.attachmentId`. Deletes an attachment file. Always confirmed. |
+| `subagents` | read | — | Requires `ref`. Sub-agents of the mission's Core session; options.subagentId pages its activity (options.after seq, limit). |
+| `subagents_stop` | write | — | Requires `ref`. Stops sub-agents (options.subagentIds; default all of the mission). |
+| `card_decide` | per call | per call | Requires `ref`, `cardId`, `decision`. Decides a pending card (ids and decisions in get: pendingCards). options: option index or text; intent-draft: restated\|alternative\|delegate; rail-launch: launch\|dismiss; flow-offer: intent\|implement\|dismiss; pr-ci-offer: start\|dismiss. Delivery cards: specrails_deliveries. |
+| `limit_continue` | per call | per call | Requires `ref`. After a usage limit: continue by itself at the reset (options.at ISO; default the reset time) or cancel (options.at null). |
+| `intent_list` | read | — | Missions in Intent in a project, and whether Intent can run here (availability, missing capabilities). |
+| `intent_start` | ai-spawn | costly | Starts Intent (build in an isolated worktree, then hand off): message = the idea, or options.spec (start from that spec); ref = an existing mission (default: a new mission in project, with provider/model/effort); options.repository for multi-repository projects. |
+| `intent_get` | read | — | Requires `ref`. The Intent session (intent or mission ref): state, branch, spec, delivery, legal moves. view detail adds diff totals and cost. |
+| `intent_pause` | write | — | Requires `ref`. Pauses (stops its dev servers, closes the agent session). |
+| `intent_resume` | ai-spawn | costly | Requires `ref`. Resumes a paused Intent (reopens its agent session). |
+| `intent_hand_off` | ai-spawn | costly | Requires `ref`, `options.rail`. Hands the worktree to a rail (options.rail index or rail ref) that derives the spec and delivers; options.loopId, provider, model, effort. |
+| `intent_return` | write | — | Requires `ref`. Back to Intent: the stopped Intent → Spec run gives the worktree back (intent or delivery ref). |
+| `intent_relaunch` | ai-spawn | costly | Requires `ref`. Relaunches the Intent → Spec run on the same worktree, rail and engine (intent or delivery ref). |
+| `intent_discard` | destructive | irreversible | Requires `ref`. Discards the Intent: removes its worktree and branch (a placeholder spec is deleted; an existing spec is restored). Always confirmed. |
+| `intent_close` | write | — | Requires `ref`. Closes an Intent that needs review, keeping the branch and spec. |
+| `intent_diff` | read | — | Requires `ref`. Files changed on the Intent branch (paged). |
+| `intent_cost` | read | — | Requires `ref`. Provider-billed cost of the Intent turns (never estimated). |
+| `chat_list` | read | — | Legacy project chat and Explore Spec conversations (project). |
+| `chat_get` | read | — | Requires `ref`. One chat with its messages (paged) and the Explore spec draft. |
+| `chat_create` | write | — | New chat (options.kind sidebar\|explore, provider, model, options.contextScope). |
+| `chat_update` | write | — | Requires `ref`. Rename (title), model; options.minimize true\|false arms or cancels the Explore idle timer. |
+| `chat_send` | ai-spawn | costly | Requires `ref`, `message`. Sends a chat turn and waits (options.waitMs). options.lightweight, maxTurns, attachments {ticketKey, ids}. |
+| `chat_abort` | write | — | Requires `ref`. |
+| `chat_delete` | destructive | irreversible | Requires `ref`. Deletes a chat and its messages. Always confirmed. |
 
 ### `specrails_insights`
 
@@ -337,18 +339,18 @@ Spend and analytics, subscription usage and provider quotas, capacity, preflight
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `spend` | read | — | (not available yet) |
-| `analytics` | read | — | (not available yet) |
-| `export` | read | — | (not available yet) |
-| `usage` | per call | — | (not available yet) |
-| `quota` | read | — | (not available yet) |
-| `capacity` | read | — | (not available yet) |
-| `preflight` | read | — | (not available yet) Requires `options.target`. |
-| `forecast` | read | — | (not available yet) |
-| `what_if` | read | — | (not available yet) Requires `options.scenario`. |
-| `budget_get` | read | — | (not available yet) |
-| `budget_set` | write | — | (not available yet) Requires `scope`, `options.limits`. |
-| `resources` | read | — | (not available yet) |
+| `spend` | read | — | Spend by period (default today), app-wide or per project: billed vs estimated, by category/provider, costliest projects/specs/missions, caps, projection. |
+| `analytics` | read | — | report: dashboard (default), invocations (paged; options provider/model/surface/status/minCostUsd/sortBy/spec), ticket_summary (options.spec), decision_times, loop_economics, profiles. |
+| `export` | read | — | Analytics export inline; options.format csv\|json, options.mode summary\|raw. |
+| `usage` | per call | — | Subscription meters per provider (5-hour/weekly windows, resets); options.refresh asks the providers again; options.provider filters. |
+| `quota` | read | — | Provider usage-limit state and the runs waiting for a limit reset. |
+| `capacity` | read | — | Run admission: slots, queued runs and what each waits for, providers with room. |
+| `preflight` | read | — | Requires `options.target`. Would a launch start now? options.target: provider ids ("claude,codex", "primary") or {providers}; options.fresh re-probes. |
+| `forecast` | read | — | Duration and cost band of runs like this (options.loopId\|command\|provider\|runs) plus the month-end projection. |
+| `what_if` | read | — | Requires `options.scenario`. Re-price recorded usage: options.scenario {from:"claude:opus", to:"claude:sonnet", days?} or "list". |
+| `budget_get` | read | — | Caps (day/week/month/run, alert) with spend, resets and what they hold; scope app or project. |
+| `budget_set` | write | — | Requires `scope`, `options.limits`. options.limits {day, week, month, run, alert}: number > 0 sets, null clears. Runs specrails_settings(set, budget); a raise confirms there. |
+| `resources` | read | — | CPU and memory of everything Specrails launched; options.mission for one mission. |
 
 ### `specrails_settings`
 
@@ -356,11 +358,11 @@ App and project settings by section (get/set; secrets write-only), env scan and 
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `get` | read | — | (not available yet) Requires `section`. |
-| `set` | write | — | (not available yet) Requires `section`, `values`. |
-| `env_scan` | read | — | (not available yet) Requires `project`. |
-| `env_status` | read | — | (not available yet) Requires `project`. |
-| `webhook_test` | write | external | (not available yet) Requires `options.webhookId`. |
+| `get` | read | — | No section: the section index. Effective values plus source per key. terminal/budget: app-wide unless project is given. |
+| `set` | per call | per call | Requires `section`, `values`. Writes only the given keys; unknown keys fail. Lowering safety always confirms; raising a cap confirms above "Ask before spending". |
+| `env_scan` | read | — | Requires `project`. Finds env var names the repo references. Add them with set(env, values.addScanned). |
+| `env_status` | read | — | Requires `project`. options.recheck: true probes the login shell now. |
+| `webhook_test` | write | — | Requires `options.webhookId`. Runs specrails_integrations(webhooks, op test): its preview and confirmation apply. |
 
 ### `specrails_providers`
 
@@ -368,75 +370,78 @@ AI providers (sign-in, CLI versions), models, runtime providers, agent profiles 
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `list` | read | — | (not available yet) |
-| `models` | read | — | (not available yet) Requires `provider`. |
-| `test` | write | — | (not available yet) Requires `provider`. |
-| `runtime_list` | read | — | (not available yet) |
-| `runtime_save` | write | — | (not available yet) Requires `values`. |
-| `runtime_test` | write | — | (not available yet) Requires `id`. |
-| `profiles_list` | read | — | (not available yet) |
-| `profiles_get` | read | — | (not available yet) Requires `id`. |
-| `profiles_create` | write | — | (not available yet) Requires `name`. |
-| `profiles_update` | write | — | (not available yet) Requires `id`, `values`. |
-| `profiles_delete` | destructive | irreversible | (not available yet) Requires `id`. |
-| `profiles_duplicate` | write | — | (not available yet) Requires `id`. |
-| `profiles_rename` | write | — | (not available yet) Requires `id`, `name`. |
-| `catalog_list` | read | — | (not available yet) |
-| `catalog_get` | read | — | (not available yet) Requires `id`. |
-| `catalog_create` | write | — | (not available yet) Requires `values`. |
-| `catalog_update` | write | — | (not available yet) Requires `id`, `values`. |
-| `catalog_delete` | destructive | irreversible | (not available yet) Requires `id`. |
-| `catalog_generate` | ai-spawn | costly | (not available yet) Requires `message`. |
-| `catalog_test` | ai-spawn | costly | (not available yet) Requires `id`. |
-| `catalog_refine` | ai-spawn | costly | (not available yet) Requires `id`. options.step: start \| turn \| apply \| cancel \| list \| get |
+| `list` | read | — | Installed, signed-in, version, usage limit and default model/effort per provider. options.refresh: true re-detects. |
+| `models` | read | — | Requires `provider`. Models with their efforts, the built-in default and the app default (switch it with specrails_settings set agent_defaults). |
+| `test` | write | — | Requires `provider`. Re-detects a CLI provider (install, version, sign-in) or probes a local connection. |
+| `runtime_list` | read | — |  |
+| `runtime_save` | write | per call | Requires `values`. values.providers replaces the list; values.upsert {id,…} or values.remove (id) edits one. A remote baseUrl confirms. |
+| `runtime_test` | write | — | Requires `id`. Probes a saved connection by id (options.baseUrl/apiKeyEnv test an unsaved one; id is then a label). |
+| `profiles_list` | read | — |  |
+| `profiles_get` | read | — | Requires `id`. options.resolve: true previews which profile a rail would use (id = profile to try). |
+| `profiles_create` | write | — | Requires `name`. values: the profile body ({ orchestrator, agents, routing, … }); name wins. |
+| `profiles_update` | write | — | Requires `id`, `values`. values merge into the stored profile (top-level keys replace). |
+| `profiles_delete` | destructive | irreversible | Requires `id`. |
+| `profiles_duplicate` | write | — | Requires `id`. name: the copy (default <id>-copy). |
+| `profiles_rename` | write | — | Requires `id`, `name`. |
+| `catalog_list` | read | — |  |
+| `catalog_get` | read | — | Requires `id`. options.versions: true adds the edit history of a custom agent. |
+| `catalog_create` | write | — | Requires `values`. values: { id: custom-<name>, body }. |
+| `catalog_update` | write | — | Requires `id`, `values`. values.body: the new agent definition. |
+| `catalog_delete` | destructive | irreversible | Requires `id`. |
+| `catalog_generate` | ai-spawn | costly | Requires `message`. message: what the agent should do; name: custom-<name> id. Returns a draft; save it with catalog_create. |
+| `catalog_test` | ai-spawn | costly | Requires `id`. message: the sample task; values.draftBody tests an unsaved draft. |
+| `catalog_refine` | per call | per call | Requires `id`. options.step: start \| turn \| apply \| cancel \| list \| get; options.refineId for turn/apply/cancel/get; options.autoTest, options.force. |
 
 ### `specrails_integrations`
 
-jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, git_* read-only info.
+jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, git_* read-only info, webhooks, mobile.
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `jira_connection` | read | — | (not available yet) |
-| `jira_test` | read | — | (not available yet) |
-| `jira_discover` | read | — | (not available yet) |
-| `jira_connect` | write | external | (not available yet) Requires `values`. |
-| `jira_disconnect` | destructive | irreversible | (not available yet) |
-| `jira_sync` | write | — | (not available yet) |
-| `jira_outbox` | read | — | (not available yet) |
-| `jira_retry` | write | external | (not available yet) |
-| `jira_create_spec` | write | external | (not available yet) Requires `id`. |
-| `jira_links` | read | — | (not available yet) |
-| `plugins_list` | read | — | (not available yet) |
-| `plugins_preview` | read | — | (not available yet) Requires `id`. |
-| `plugins_install` | write | — | (not available yet) Requires `id`. |
-| `plugins_uninstall` | destructive | irreversible | (not available yet) Requires `id`. |
-| `plugins_activate` | write | — | (not available yet) Requires `id`. |
-| `plugins_deactivate` | write | — | (not available yet) Requires `id`. |
-| `plugins_update` | write | — | (not available yet) Requires `id`. |
-| `plugins_health` | read | — | (not available yet) |
-| `loops_list` | read | — | (not available yet) |
-| `loops_get` | read | — | (not available yet) Requires `id`. |
-| `loops_save` | write | — | (not available yet) Requires `values`. |
-| `loops_delete` | destructive | irreversible | (not available yet) Requires `id`. |
-| `loops_publish` | write | — | (not available yet) Requires `id`. |
-| `loops_templates` | read | — | (not available yet) |
-| `loops_constants` | per call | — | (not available yet) |
-| `loops_import` | write | — | (not available yet) Requires `values`. |
-| `code_tree` | read | — | (not available yet) |
-| `code_find` | read | — | (not available yet) Requires `query`. |
-| `code_search` | read | — | (not available yet) Requires `query`. |
-| `code_read` | read | — | (not available yet) Requires `path`. |
-| `code_summary` | per call | per call | (not available yet) Requires `path`. |
-| `code_story` | read | — | (not available yet) Requires `path`. |
-| `code_activity` | read | — | (not available yet) |
-| `code_provenance` | read | — | (not available yet) Requires `path`. |
-| `code_diff` | read | — | (not available yet) |
-| `git_info` | read | — | (not available yet) |
-| `git_status` | read | — | (not available yet) |
-| `git_log` | read | — | (not available yet) |
-| `git_diff` | read | — | (not available yet) |
-| `git_pr` | read | — | (not available yet) |
-| `git_gh` | read | — | (not available yet) |
+| `jira_connection` | read | — | The project's Jira connection (token never returned), sync state and outbox counts. view:detail adds the connected project's statuses. |
+| `jira_test` | read | — | Requires `values`. Checks credentials without saving. values: baseUrl, accountEmail (Cloud), token (secret; never returned). |
+| `jira_discover` | read | — | options.kind: projects (default; values: credentials, query) or statuses (values: credentials + projectKey; without values, the connected project's statuses). |
+| `jira_connect` | write | external | Requires `values`. With values.token: connect (baseUrl, accountEmail, token, jiraProjectKey, statusMap?, discardStatus?) and start the first sync. Without a token: update the saved connection (enabled, statusMap, discardStatus; enabled:false hands the backlog back to Specrails). |
+| `jira_disconnect` | destructive | irreversible | Removes the connection and its token; the local backlog becomes writable again. |
+| `jira_sync` | write | — | Full re-fetch of the board (imports every issue as a spec). options.resume:true instead drains the outbox parked after a 401 (after jira_connect with a fresh token). |
+| `jira_outbox` | read | — | Write-back operations to Jira. options.state: pending\|inflight\|done\|dead (default all). |
+| `jira_retry` | write | external | Requires `id`. Re-queues a failed (dead) outbox operation by its id from jira_outbox. |
+| `jira_create_spec` | write | external | Requires `values`. Creates a real Jira issue and its local spec. values: title, description, labels, priority, issueType (default Task). |
+| `jira_transition` | write | external | Moves a Jira-backed spec's issue: options.status (a raw Jira status name), or options.discard:true (the configured discard status; options.comment adds a reason). |
+| `jira_links` | read | — | The spec↔issue map. With ref/id (a spec): that issue's Jira fields and development panel. |
+| `plugins_list` | read | — | Project plugins (status, version, drift) plus the app-global Headroom proxy. options.provider picks the AI provider registry. |
+| `plugins_preview` | read | — | Requires `id`. Dry-run install: the config diff and requirements (Headroom: its status). |
+| `plugins_install` | write | — | Requires `id`. Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. |
+| `plugins_uninstall` | destructive | irreversible | Requires `id`. Reverts contributors and removes owned MCP servers, installed files and state. |
+| `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex). |
+| `plugins_deactivate` | write | — | Requires `id`. Turns a plugin off without uninstalling (Headroom: options.provider). |
+| `plugins_update` | write | — | Requires `id`. Applies manifest drift (Headroom: options.port changes the relay port). |
+| `plugins_health` | read | — | On-demand verify of one installed plugin (id), or Headroom diagnostics (id: headroom). |
+| `loops_list` | read | — | The app-wide loop library (built-ins included). Run a published loop with specrails_runs(launch, target:{loopId}). |
+| `loops_get` | read | — | Requires `id`. One loop; view:detail adds its graph. options.preview:true resolves tokens of its graph (or values.graph) without spawning (options.provider). |
+| `loops_save` | write | — | Saves a draft. No id: create (values: name, description?, graph?). id: update (values; reverts to Draft, 409 while running). options.from: template (id = template id) \| factory (fork a built-in) \| duplicate \| restore (reset a built-in); values.name optional. |
+| `loops_delete` | destructive | irreversible | Requires `id`. Deletes a loop (built-ins: use loops_save options.from:restore). |
+| `loops_publish` | write | — | Requires `id`. Publishes (graph-validated) so rails and runs can use it. options.unpublish:true reverts to Draft (built-ins cannot). |
+| `loops_templates` | read | — | options.kind: templates (default; use with loops_save from:template), factory (built-in loops), commands (AI step magic commands). |
+| `loops_constants` | per call | per call | Loop constants (tokens usable in loop prompts). options.op: list (default) \| create (values: name, value) \| update (id, values.value) \| delete (id). |
+| `loops_import` | write | — | Requires `values`. Imports loop export envelopes: values.loops (array). |
+| `code_tree` | read | — | The file tree, AI-touched files by default. options: filter (touched-by-ai\|all), withProvenance, ticketId, jobId. Pages with cursor. |
+| `code_find` | read | — | Requires `query`. Locates files by name, path suffix or fragment (ranked project-relative paths). Searches every repository when repository is omitted. |
+| `code_search` | read | — | Requires `query`. Literal source search (not regex). path narrows to a folder; options.caseSensitive. Searches every repository when repository is omitted. |
+| `code_read` | read | — | Requires `path`. A bounded page of a file with its content hash. options: startLine (default 1), endLine (default start+199, ≤ 500 lines), startColumn (resume a split line), expectedHash (refuse a changed file). Next page: nextLine. |
+| `code_summary` | per call | per call | Requires `path`. The stored plain-language summary of a file. options.regenerate:true asks the AI for a new one (async; budget-gated; options.overrideBudget). |
+| `code_story` | read | — | Requires `path`. The construction story of a file: the specs and runs that built it, oldest first. |
+| `code_activity` | read | — | Recent code changes made by runs in the project. |
+| `code_provenance` | read | — | Requires `path`. Which specs and runs touched a file (options.ticketId / options.jobId narrow). |
+| `code_diff` | read | — | Requires `path`. The stored unified diff a run (options.jobId) applied to path. |
+| `git_info` | read | — | Branch, commit and local branches. options.op: remote \| branch runs that fixed git command instead. |
+| `git_status` | read | — | git status --short --branch. |
+| `git_log` | read | — | The last 20 commits. |
+| `git_diff` | read | — | Uncommitted change summary (diffstat). |
+| `git_pr` | read | — | options.number: that PR's verified URL. Without it: gh pr view of the current branch (state, checks, review). |
+| `git_gh` | read | — | GitHub connectivity: the linked repository and gh sign-in. options.op: gh_repo \| gh_auth \| gh_pr_list runs just that. |
+| `webhooks` | per call | per call | Outgoing webhooks. options.op: list (default) \| create (values: url https, events, secret?, projectId?) \| update (id, values: url, events, secret, enabled) \| delete (id) \| test (id; sends a ping). |
+| `mobile` | per call | per call | Mobile gateway status and paired devices. options.op: status (default) \| enable (opens a LAN listener; confirmed) \| disable \| revoke (id = device; it must pair again). |
 
 ### `specrails_system`
 
@@ -444,21 +449,21 @@ health, help (topics, describe an action, validate args), triage, problem report
 
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
-| `health` | read | — | (not available yet) |
-| `help` | read | — | (not available yet) |
-| `triage` | read | — | (not available yet) |
-| `report` | write | — | (not available yet) |
-| `crashes` | read | — | (not available yet) |
-| `crashes_ack` | write | — | (not available yet) |
-| `stalls` | read | — | (not available yet) |
-| `updates` | per call | per call | (not available yet) |
-| `continuity` | per call | per call | (not available yet) |
-| `worktrees` | per call | per call | (not available yet) |
-| `machine_installs` | read | — | (not available yet) |
-| `background` | per call | per call | (not available yet) |
-| `terminals` | read | — | (not available yet) |
-| `browser` | read | — | (not available yet) |
-| `docs` | read | — | (not available yet) |
+| `health` | read | — | One-call health: versions, unexplained restarts, event-loop stalls, pending updates, interrupted work and running work. view:detail adds every probe. |
+| `help` | read | — | No args: the tool index and guide topics. topic: a guide topic (paged). query: search actions and topics. options.describe: "specrails_runs.get" (or a tool) → tier, confirmation, required fields and options doc. options.validate: { tool, action, args } → what is missing before you call. |
+| `triage` | read | — | Support triage for a setup or usage problem: query (the person's words), topic optional, project optional. Returns diagnostics, next steps and repair actions; never creates a spec. |
+| `report` | write | — | Builds the redacted "Report a problem" ZIP (logs, versions, settings without secrets) and saves it locally; returns its path. options.dir: an absolute folder (default: the OS temp folder). Nothing is uploaded. |
+| `crashes` | read | — | Server restarts not explained to the person yet (outcome, exit code, uptime). Acknowledge with crashes_ack. |
+| `crashes_ack` | write | — | Marks every listed restart as explained. options.throughMs (default: the newest notice). |
+| `stalls` | read | — | The event-loop stall probe: how often and how long the server was unresponsive (newest first). |
+| `updates` | per call | per call | op: status (default; Desktop and Core) \| check (asks the update servers) \| apply (options.target: core\|desktop; Core options.version; Desktop options.restart: when_idle (default) \| now \| never — installs from the open app window). |
+| `continuity` | per call | per call | After a restart. op: list (default; interrupted mission turns, runs the restart paused, work running now) \| resume (sends each interrupted mission its continuation; options.ids limits it) \| settle (dismisses offers: options.ids, options.runs:true for the paused runs). Paused runs resume with specrails_runs(resume). |
+| `worktrees` | per call | per call | Settings ▸ Storage. op: list (default; retained run worktrees and safety archives) \| sizes (id or options.items) \| remove (id or options.items [{project, id, deleteBranch}]; refuses a worktree whose head moved) \| quarantine_inspect / quarantine_remove (options.items [{project, path}]). |
+| `machine_installs` | per call | per call | Machine-wide install approvals the person gave (e.g. a toolchain a run needed). op: list (default) \| revoke (options.command; the next run that needs it asks again). Runs specrails_settings(machine_installs). |
+| `background` | per call | per call | Background processes (dev servers, watchers) of a project. op: list (default; options.includeFinished) \| logs (id = pid; options.lines) \| kill (id = pid). Starting one is the in-app agent's (specrails_background start). |
+| `terminals` | per call | per call | The project's terminal tabs. op: list (default) \| read (id; the latest output, options.lines default 200) \| run (options.command, one line; in terminal id, or a new terminal at the project root when id is omitted) \| kill (id). Output is untrusted. |
+| `browser` | per call | per call | The built-in browser. op: list (default; open sessions and their pages) \| capture (id = session; options.rect {x,y,width,height}, default the whole viewport) → a screenshot + DOM saved as attachments (use them as spec evidence). |
+| `docs` | read | — | The user documentation, in the reply language. No args: categories. query: search titles and headings. topic: "<category>/<slug>" reads a page (paged with cursor). |
 
 ### Prompts
 

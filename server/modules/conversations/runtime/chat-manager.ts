@@ -38,7 +38,7 @@ import {
   buildScopedSystemPromptPrefix, toolFlagsForScope, normalizeContextScope,
   defaultBootScope, type ContextScope,
 } from './context-scope'
-import { buildUserMcpArgs } from '../../../user-mcp-config'
+import { buildCodexReservedMcpArgs, buildUserMcpArgs } from '../../../user-mcp-config'
 import { isLocalAdapterId } from '../../../providers/registry'
 import { binaryOnPath } from '../../../binary-probe'
 import { ExploreStdinSessions, isExplorePersistentStdinEnabled } from './explore-stdin-session'
@@ -980,6 +980,9 @@ export class ChatManager {
         }),
       )
     }
+    // Codex loads ~/.codex/config.toml natively: switch off the person's own
+    // `specrails` entry (written by `mcp connect`, unrestricted) for this turn.
+    scopeFlags.push(...buildCodexReservedMcpArgs({ adapterId: adapter.id }))
     let promptForAdapter = resolvedText
     // Milestone prompts contain volatile blueprint context and the complete
     // grounding/spec contract. Providers without a dedicated system-prompt

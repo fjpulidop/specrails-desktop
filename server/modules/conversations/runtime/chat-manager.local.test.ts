@@ -6,10 +6,11 @@ import { Readable } from 'stream'
 
 vi.mock('child_process', () => ({ spawn: vi.fn(), execSync: vi.fn() }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
-vi.mock('../../../user-mcp-config', () => ({ buildUserMcpArgs: vi.fn(() => []) }))
+vi.mock('../../../user-mcp-config', () => ({ buildUserMcpArgs: vi.fn(() => []), buildCodexReservedMcpArgs: vi.fn(() => []) }))
 
 import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import { ChatManager } from './chat-manager'
+import { buildCodexReservedMcpArgs as mockBuildCodexReservedMcpArgs } from '../../../user-mcp-config'
 import { __resetBinaryProbeCacheForTest } from '../../../binary-probe'
 import { initDb, createConversation, getConversation, type DbInstance } from '../../../db'
 import { syncLocalAdapters } from '../../../providers/local-adapter-registry'
@@ -35,6 +36,7 @@ describe('ChatManager on a local engine', () => {
   let broadcast: ReturnType<typeof vi.fn>
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(mockBuildCodexReservedMcpArgs).mockReturnValue([])
     vi.spyOn(process, 'kill').mockImplementation(() => true)
     __resetBinaryProbeCacheForTest()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/node'))

@@ -31,6 +31,9 @@ import { resolveSpecrailsHome } from './util/specrails-home'
  *  to the app — it is passed straight through to the CLI via `--mcp-config`. */
 export type McpServerEntry = Record<string, unknown>
 
+/** The MCP server name Specrails owns (same as `RESERVED_SERVER_NAME` in external-mcp.ts). */
+export const RESERVED_MCP_SERVER_NAME = 'specrails'
+
 interface ClaudeConfigShape {
   mcpServers?: Record<string, McpServerEntry>
   projects?: Record<string, { mcpServers?: Record<string, McpServerEntry> }>
@@ -78,7 +81,55 @@ export function readUserClaudeMcpServers(
     projectEntry && typeof projectEntry.mcpServers === 'object' && projectEntry.mcpServers
       ? projectEntry.mcpServers
       : {}
-  return { ...userScope, ...localScope }
+  const merged: Record<string, McpServerEntry> = { ...userScope, ...localScope }
+  // `specrails` is reserved: an entry under that name is the person's own
+  // external bridge (`specrails-desktop mcp connect`), which carries their full,
+  // unrestricted access. Explore turns must never load it.
+  delete merged[RESERVED_MCP_SERVER_NAME]
+  return merged
+}
+
+/** Whether a Codex `config.toml` defines `mcp_servers.specrails` (as a table, a dotted key or inside `[mcp_servers]`). */
+export function codexDefinesReservedServer(text: string): boolean {
+  const name = `["']?${RESERVED_MCP_SERVER_NAME}["']?`
+  let table: string | null = null
+  for (const line of text.split(/\r?\n/)) {
+    const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(?:#.*)?$/.exec(line)
+    if (header) {
+      table = header[1]!.replace(/\s+/g, '')
+      if (new RegExp(`^mcp_servers\\.${name}$`).test(table)) return true
+      continue
+    }
+    if (table === null && new RegExp(`^\\s*mcp_servers\\s*\\.\\s*${name}\\s*[.=]`).test(line)) return true
+    if (table === 'mcp_servers' && new RegExp(`^\\s*${name}\\s*[.=]`).test(line)) return true
+  }
+  return false
+}
+
+/**
+ * Extra Codex args for a chat turn: Codex reads `~/.codex/config.toml`
+ * natively, so a `[mcp_servers.specrails]` table written by
+ * `specrails-desktop mcp connect` would give an Explore turn the person's
+ * unrestricted bridge. When that table exists, switch it off for this
+ * invocation (`-c mcp_servers.specrails.enabled=false`). Returns `[]` for
+ * other providers or when no such table exists. Never throws.
+ */
+export function buildCodexReservedMcpArgs(input: {
+  adapterId: string
+  homeDir?: string
+  env?: Readonly<Record<string, string | undefined>>
+}): string[] {
+  if (input.adapterId !== 'codex') return []
+  const env = input.env ?? process.env
+  const codexHome = env.CODEX_HOME?.trim() || path.join(input.homeDir ?? os.homedir(), '.codex')
+  let text: string
+  try {
+    text = fs.readFileSync(path.join(codexHome, 'config.toml'), 'utf-8')
+  } catch {
+    return []
+  }
+  if (!codexDefinesReservedServer(text)) return []
+  return ['-c', `mcp_servers.${RESERVED_MCP_SERVER_NAME}.enabled=false`]
 }
 
 /**
