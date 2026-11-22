@@ -229,17 +229,20 @@ export interface FailureDiagnosisCardProps {
   className?: string
 }
 
-/** The chain stopped the same way again: how many times, what it cost, and that the options below lead. */
-function RepeatNotice({ chain, optionsBelow }: { chain: ChainResolution; optionsBelow: boolean }) {
+/** The chain stopped the same way again: how many times, what it cost, and where the ways forward are. */
+function RepeatNotice({ chain, optionsBelow, analysisBelow }: { chain: ChainResolution; optionsBelow: boolean; analysisBelow: boolean }) {
   const { t, i18n } = useTranslation('recovery')
   const cost = chain.costUsd !== null && chain.costUsd > 0 ? formatUsd(chain.costUsd, i18n.language) : null
+  // "3 attempts so far" under "Stopped the same way 3 times" says nothing new: only a cost or a different count earns the line.
+  const spend = cost ? t('repeat.spend', { count: chain.attempts, cost: chain.costEstimated ? `~${cost}` : cost })
+    : chain.attempts !== chain.times ? t('repeat.attempts', { count: chain.attempts }) : null
+  // Point at the AI analysis only while there is one to read (it can still be running, or have failed).
+  const advice = optionsBelow ? t('repeat.advice') : analysisBelow ? t('repeat.adviceNoOptions') : t('repeat.adviceAlone')
   return (
     <div data-testid="failure-repeat" role="note" className="space-y-0.5 rounded-control border border-accent-warning/40 bg-background/40 px-3 py-2">
       <p className="text-label text-foreground">{t('repeat.title', { count: chain.times })}</p>
-      <p className="text-caption text-muted-foreground" data-testid="failure-repeat-spend">
-        {cost ? t('repeat.spend', { count: chain.attempts, cost: chain.costEstimated ? `~${cost}` : cost }) : t('repeat.attempts', { count: chain.attempts })}
-      </p>
-      <p className="text-caption text-muted-foreground">{optionsBelow ? t('repeat.advice') : t('repeat.adviceNoOptions')}</p>
+      {spend && <p className="text-caption text-muted-foreground num" data-testid="failure-repeat-spend">{spend}</p>}
+      <p className="text-caption text-muted-foreground">{advice}</p>
     </div>
   )
 }
@@ -343,7 +346,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts,
 
       {diagnosis.flakyTests && diagnosis.flakyTests.length > 0 && <FlakyTests tests={diagnosis.flakyTests} />}
 
-      {chain?.repeated && <RepeatNotice chain={chain} optionsBelow={continueMode === 'hidden'} />}
+      {chain?.repeated && <RepeatNotice chain={chain} optionsBelow={continueMode === 'hidden'} analysisBelow={ai?.state.status === 'ready'} />}
 
       {envOpen && diagnosis.kind === 'environment' && <EnvironmentPanel diagnosis={diagnosis} />}
 

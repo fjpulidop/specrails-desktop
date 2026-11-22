@@ -6,7 +6,7 @@ import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
 import { LoopRunDetail } from '../components/job-run/LoopRunDetail'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../../../lib/api'
-import { cancelJob } from '../lib/cancel-job'
+import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -439,6 +439,8 @@ export default function JobDetailPage() {
   const isInteractive = !!job.interactive
   // A held run (a restart, a limit, a question) has nothing to steer: its card or its Resume speaks for it.
   const isInteractiveRunning = isInteractive && isRunning && !held
+  // A Core definition run stops like in the run window: "Stop", confirmed with what it keeps.
+  const isLoopRun = cancelKindForJob(job) === 'loop-run'
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
@@ -631,14 +633,14 @@ export default function JobDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={held ? () => setConfirmCancelHeld(true) : handleCancel}
+                    onClick={held || isLoopRun ? () => setConfirmCancelHeld(true) : handleCancel}
                     className="h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
                   >
-                    {held ? t('held.cancelRun') : isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
+                    {held ? t('held.cancelRun') : isLoopRun ? t('dashboard:railControls.stop') : isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {t('detail.cancelJobTooltip')}
+                  {held ? t('held.cancelRunConfirmDescription') : isLoopRun ? t('modal.stopRunConfirmDescription') : t('detail.cancelJobTooltip')}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -661,10 +663,10 @@ export default function JobDetailPage() {
         open={confirmCancelHeld}
         onOpenChange={setConfirmCancelHeld}
         testId="job-cancel-held-confirm"
-        title={t('held.cancelRunConfirmTitle')}
-        description={t('held.cancelRunConfirmDescription')}
-        cancelLabel={t('held.keepPaused')}
-        confirmLabel={t('held.cancelRun')}
+        title={held ? t('held.cancelRunConfirmTitle') : t('modal.stopRunConfirmTitle')}
+        description={held ? t('held.cancelRunConfirmDescription') : t('modal.stopRunConfirmDescription')}
+        cancelLabel={held ? t('held.keepPaused') : t('modal.keepRunning')}
+        confirmLabel={held ? t('held.cancelRun') : t('modal.stopRun')}
         onConfirm={() => { setConfirmCancelHeld(false); void handleCancel() }}
       />
       {isInteractiveRunning && (

@@ -42,7 +42,7 @@ export function SelectionControls({ value, catalog, onChange, disabled, prefix }
   const entry = catalog.find((item) => item.provider === value.provider)
   const efforts = entry?.effortsByModel[value.model] ?? []
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1 [&>button]:text-label">
       <AgentToolbarSelector label={t('provider.label')} value={value.provider} icon={Bot}
         options={catalog.map((item) => ({ value: item.provider, label: t(`provider.${item.provider}`, { defaultValue: item.provider }) }))}
         onSelect={(provider) => {
@@ -145,9 +145,9 @@ export function MilestoneGenerationControls({ projectId, milestoneN, onGenerate 
       )}
       <button type="button" onClick={() => { if (available && selected) onGenerate({ ...selected }) }}
         disabled={!available || saving || changed}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-caption font-medium text-accent-highlight hover:bg-accent-highlight/10 disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1.5 text-caption font-medium text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
         data-testid="sidebar-generate-next">
-        <Sparkles className="h-3 w-3" />{t('sidebar.generateNext', { n: milestoneN })}
+        <Sparkles className="h-3 w-3" aria-hidden />{t('sidebar.generateNext', { n: milestoneN })}
       </button>
     </div>
   )

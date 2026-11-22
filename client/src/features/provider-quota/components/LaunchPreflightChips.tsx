@@ -4,7 +4,8 @@
  * launch; warnings are told plainly but never block.
  */
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, CheckCircle2, HelpCircle, Loader2, RotateCcw, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, HelpCircle, RotateCcw, XCircle } from 'lucide-react'
+import { LiveDot } from '../../../components/ui/live-dot'
 import { cn } from '../../../lib/utils'
 import { formatResetTime } from '../lib/format-reset'
 import { providerLabel } from '../lib/labels'
@@ -45,7 +46,7 @@ export function LaunchPreflightChips({ report, loading, onRecheck }: { report: P
     <div className="space-y-1.5" data-testid="launch-preflight">
       <div className="flex items-center gap-2 text-caption text-muted-foreground">
         <span className="font-medium">{t('preflight.label')}</span>
-        {loading && <span className="inline-flex items-center gap-1" role="status"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t('preflight.checking')}</span>}
+        {loading && <span className="inline-flex items-center gap-1.5" role="status"><LiveDot tone="info" size="xs" aria-hidden />{t('preflight.checking')}</span>}
         {!loading && onRecheck && (
           <button type="button" onClick={onRecheck} className="inline-flex cursor-pointer items-center gap-1 rounded-control px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
             <RotateCcw className="h-3 w-3" aria-hidden />{t('preflight.recheck')}

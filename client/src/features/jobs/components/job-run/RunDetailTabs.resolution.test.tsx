@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '../../../../test-utils'
+import { fireEvent, render, screen, waitFor, within } from '../../../../test-utils'
 import { RunDetailTabs, type RunDetailTabsProps, type RunResolution } from './RunDetailTabs'
 import { readFailureDiagnosis } from '../../../recovery/lib/failure-diagnosis'
 import type { JobSummary } from '../../../../types'
@@ -69,6 +69,18 @@ describe('the failed run window with resolution options', () => {
     expect(screen.queryByTestId('resolution-options')).toBeNull()
     const cont = within(card()).getByTestId('failure-remedy-continue')
     expect(cont).not.toHaveAttribute('data-primary')
-    expect(screen.getByTestId('failure-repeat-spend')).toHaveTextContent('3 attempts so far')
+    // "3 attempts so far" would only repeat the title's count.
+    expect(screen.getByTestId('failure-repeat')).toHaveTextContent('Stopped the same way 3 times in a row')
+    expect(screen.queryByTestId('failure-repeat-spend')).toBeNull()
+    // The analysis below is ready: the notice points at it.
+    expect(screen.getByTestId('failure-repeat')).toHaveTextContent('The AI analysis below suggests ways forward.')
+  })
+
+  it('a repeat whose AI analysis did not finish does not point at an analysis below', async () => {
+    setup({ chain: { attempts: 2, costUsd: null, costEstimated: false, repeated: true, times: 2 }, actions: choice() }, { status: 'error', error: 'analysis_failed', detail: 'failure analysis: no JSON object in the answer' })
+    const notice = await screen.findByTestId('failure-repeat')
+    await waitFor(() => expect(screen.getByTestId('failure-analysis')).toHaveAttribute('data-state', 'error'))
+    expect(notice).toHaveTextContent('Continuing unchanged will likely stop here again.')
+    expect(notice).not.toHaveTextContent('AI analysis below')
   })
 })

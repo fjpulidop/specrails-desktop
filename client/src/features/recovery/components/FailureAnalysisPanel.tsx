@@ -3,6 +3,7 @@ import { Gauge, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { Skeleton } from '../../../components/ui/skeleton'
 import { RailTrack } from '../../../components/brand/RailTrack'
+import { TechnicalDetail } from '../../../components/ui/technical-detail'
 import { cn } from '../../../lib/utils'
 import { stepAction, useFailureAnalysis, type AnalysisAction, type AnalysisActionKind, type AnalysisCategory, type FailureAnalysisController } from '../hooks/useFailureAnalysis'
 import type { RemedyHandler } from '../lib/failure-diagnosis'
@@ -66,16 +67,21 @@ export function FailureAnalysisPanel({ projectId, jobId, auto, known = [], contr
     )
   }
   if (state.status === 'idle' || state.status === 'error') {
+    // The server's own words (a parser or transport error) stay one click away, never in the sentence.
+    const technical = state.status === 'error' && state.detail && state.detail !== 'interrupted' ? state.detail : null
     return (
       <section data-testid="failure-analysis" data-state={state.status} className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border px-3.5 py-2.5 text-body">
         <Sparkles className="h-4 w-4 shrink-0 text-accent-primary" aria-hidden />
         <p className="min-w-0 flex-1 text-muted-foreground">
-          {state.status === 'error' ? (state.detail === 'interrupted' ? t('analysis.interrupted') : t('analysis.failed', { detail: state.detail ?? t('analysis.noDetail') })) : t('analysis.offer')}
+          {state.status === 'error' ? (state.detail === 'interrupted' ? t('analysis.interrupted') : t('analysis.failed')) : t('analysis.offer')}
         </p>
         <Button type="button" size="sm" variant="outline" onClick={() => void run()} data-testid="failure-analysis-run">
           <Sparkles className="mr-1 h-3 w-3" aria-hidden />
           {state.status === 'error' ? t('analysis.retry') : t('analysis.run')}
         </Button>
+        {technical && (
+          <TechnicalDetail summary={t('technicalDetails')} className="basis-full pl-6 text-caption" testId="failure-analysis-error-detail">{technical}</TechnicalDetail>
+        )}
       </section>
     )
   }

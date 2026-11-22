@@ -304,6 +304,21 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(history).toHaveTextContent('Failed with exit code 1 (2 s), before the fix that made it pass')
   })
 
+  it('words the measured counts in the singular or the plural, never "branch(es)"', async () => {
+    respond({ packet: packet({ proof: [
+      { tier: 'app-verified', code: 'proof.filesChanged', values: { files: 1, added: 4, removed: 0 } },
+      { tier: 'app-verified', code: 'proof.testFilesChanged', values: { count: 1 } },
+      { tier: 'app-verified', code: 'proof.commitsRecorded', values: { branches: 1 } },
+      { tier: 'app-verified', code: 'proof.commitsRecorded', values: { branches: 3 } },
+    ] }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('How it was checked'))
+    expect(await screen.findByText('1 file changed (+4 / −0 lines)')).toBeInTheDocument()
+    expect(screen.getByText('1 test file was changed')).toBeInTheDocument()
+    expect(screen.getByText('Work was recorded on 1 branch')).toBeInTheDocument()
+    expect(screen.getByText('Work was recorded on 3 branches')).toBeInTheDocument()
+  })
+
   it('says the reviewer score is unavailable rather than implying a good one', async () => {
     respond({ packet: packet({ confidence: null }) })
     renderPage()

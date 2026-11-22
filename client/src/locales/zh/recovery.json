@@ -109,8 +109,7 @@
     "run": "用 AI 分析",
     "retry": "重试",
     "running": "正在阅读日志查找停止原因…",
-    "failed": "无法完成分析：{{detail}}",
-    "noDetail": "无详细信息",
+    "failed": "AI 分析未能完成。",
     "evidence": "日志摘录",
     "nextSteps": "解决计划",
     "failedStep": "步骤：{{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "目前 {{count}} 次尝试",
     "attempts_other": "目前 {{count}} 次尝试",
     "advice": "不做改变就继续，很可能还会停在这里。请从下面选择一种继续方式。",
-    "adviceNoOptions": "不做改变就继续，很可能还会停在这里。下面的 AI 分析会给出继续的方式。"
+    "adviceNoOptions": "不做改变就继续，很可能还会停在这里。下面的 AI 分析会给出继续的方式。",
+    "adviceAlone": "不做改变就继续，很可能还会停在这里。"
   },
   "flaky": {
     "title_one": "这个测试似乎不稳定",

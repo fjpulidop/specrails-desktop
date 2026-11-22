@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
-    "testFilesChanged": "テストファイル {{count}} 件を変更",
+    "filesChanged_one": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
+    "filesChanged_other": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged_one": "テストファイル {{count}} 件を変更",
+    "testFilesChanged_other": "テストファイル {{count}} 件を変更",
     "noTestFilesChanged": "テストファイルの変更はありません。",
-    "commitsRecorded": "作業は {{branches}} 本のブランチに記録されました",
+    "commitsRecorded_one": "作業は {{branches}} 本のブランチに記録されました",
+    "commitsRecorded_other": "作業は {{branches}} 本のブランチに記録されました",
     "verificationPassed": "AI は検査に合格したと報告しました（{{count}}）",
     "verificationFailed": "AI は検査が失敗したと報告しました（{{count}}）",
     "noVerificationReported": "AI は検証を報告しませんでした。",

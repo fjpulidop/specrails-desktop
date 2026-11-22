@@ -48,7 +48,10 @@ describe('FailureAnalysisPanel', () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => init?.method === 'POST' ? reply({ error: 'analysis_failed', detail: 'model not supported' }, false) : reply({ status: 'none' }))
     render(<FailureAnalysisPanel projectId="p1" jobId="j1" auto={false} />)
     fireEvent.click(await screen.findByTestId('failure-analysis-run'))
-    expect(await screen.findByText(/model not supported/)).toBeInTheDocument()
+    // The sentence stays plain; the server's own words wait behind "Technical details".
+    expect(await screen.findByText('The AI analysis did not finish.')).toBeInTheDocument()
+    expect(screen.getByTestId('failure-analysis-error-detail')).toHaveTextContent('model not supported')
+    expect(screen.getByTestId('failure-analysis-error-detail').tagName).toBe('DETAILS')
     expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: /Try again/ }))
     await waitFor(() => expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2))

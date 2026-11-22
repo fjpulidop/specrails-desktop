@@ -109,8 +109,7 @@
     "run": "Analizar con IA",
     "retry": "Reintentar",
     "running": "Leyendo el registro para encontrar por qué se detuvo…",
-    "failed": "No se pudo hacer el análisis: {{detail}}",
-    "noDetail": "sin detalle",
+    "failed": "El análisis con IA no terminó.",
     "evidence": "Del registro",
     "nextSteps": "El plan para resolverlo",
     "failedStep": "paso: {{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "{{count}} intento hasta ahora",
     "attempts_other": "{{count}} intentos hasta ahora",
     "advice": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí. Elige una de las opciones de abajo.",
-    "adviceNoOptions": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí. El análisis con IA de abajo propone cómo seguir."
+    "adviceNoOptions": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí. El análisis con IA de abajo propone cómo seguir.",
+    "adviceAlone": "Si sigues sin cambiar nada, lo más probable es que vuelva a pararse aquí."
   },
   "flaky": {
     "title_one": "Esta prueba parece inestable",

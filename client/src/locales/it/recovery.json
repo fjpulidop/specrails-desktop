@@ -109,8 +109,7 @@
     "run": "Analizza con l’IA",
     "retry": "Riprova",
     "running": "Lettura del log per trovare la causa…",
-    "failed": "Impossibile eseguire l’analisi: {{detail}}",
-    "noDetail": "nessun dettaglio",
+    "failed": "L’analisi IA non è stata completata.",
     "evidence": "Dal log",
     "nextSteps": "Il piano per risolverlo",
     "failedStep": "passo: {{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "{{count}} tentativo finora",
     "attempts_other": "{{count}} tentativi finora",
     "advice": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui. Scegli una delle strade qui sotto.",
-    "adviceNoOptions": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui. L'analisi IA qui sotto propone come proseguire."
+    "adviceNoOptions": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui. L'analisi IA qui sotto propone come proseguire.",
+    "adviceAlone": "Proseguire senza cambiare nulla probabilmente la fermerà di nuovo qui."
   },
   "flaky": {
     "title_one": "Questo test sembra instabile",

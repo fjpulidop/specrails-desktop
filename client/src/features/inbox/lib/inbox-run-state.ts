@@ -26,5 +26,7 @@ export function inboxKindRunState(kind: InboxKind): RunState {
 export function inboxItemRunState(item: { kind: InboxKind; detail: string | null; chain?: { status: string } | null }): RunState {
   // A chain at a checkpoint waits for the person's go-ahead (a review of what the last rail delivered).
   if (item.kind === 'chain' && item.chain?.status === 'awaiting_approval') return 'review'
+  // A provider's usage limit (`usage_limit:<provider>:…`) is outside the person's hands: blocked, as in the run window.
+  if (item.kind === 'budget' && item.detail?.startsWith('usage_limit:')) return 'blocked'
   return item.kind === 'blocked' && item.detail?.startsWith('held:') ? 'paused' : INBOX_KIND_RUN_STATE[item.kind]
 }

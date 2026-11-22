@@ -63,10 +63,13 @@ const TIER_ACCENT: Record<ProofTier, string> = {
 
 function ProofRow({ item }: { item: PacketProofItem }) {
   const { t } = useTranslation('packet')
+  const values = item.values ?? {}
+  // A measured count (files, branches) picks the singular or plural sentence ("1 branch", not "1 branch(es)").
+  const count = values.count ?? values.files ?? values.branches
   return (
     <li className="flex flex-col gap-1 py-1.5">
       <span className="text-sm text-foreground">
-        {t(item.code, { ...(item.values ?? {}), defaultValue: item.code })}
+        {t(item.code, { ...values, ...(typeof count === 'number' ? { count } : {}), defaultValue: item.code })}
       </span>
       {item.rawExcerpt ? (
         <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">

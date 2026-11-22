@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
-    "testFilesChanged": "改动了 {{count}} 个测试文件",
+    "filesChanged_one": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
+    "filesChanged_other": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged_one": "改动了 {{count}} 个测试文件",
+    "testFilesChanged_other": "改动了 {{count}} 个测试文件",
     "noTestFilesChanged": "没有改动测试文件。",
-    "commitsRecorded": "工作已记录在 {{branches}} 个分支上",
+    "commitsRecorded_one": "工作已记录在 {{branches}} 个分支上",
+    "commitsRecorded_other": "工作已记录在 {{branches}} 个分支上",
     "verificationPassed": "AI 报告其检查通过（{{count}}）",
     "verificationFailed": "AI 报告其检查失败（{{count}}）",
     "noVerificationReported": "AI 未报告任何验证。",

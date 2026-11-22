@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} fichiers modifiés (+{{added}} / −{{removed}} lignes)",
-    "testFilesChanged": "{{count}} fichiers de test modifiés",
+    "filesChanged_one": "{{files}} fichier modifié (+{{added}} / −{{removed}} lignes)",
+    "filesChanged_other": "{{files}} fichiers modifiés (+{{added}} / −{{removed}} lignes)",
+    "testFilesChanged_one": "{{count}} fichier de test modifié",
+    "testFilesChanged_other": "{{count}} fichiers de test modifiés",
     "noTestFilesChanged": "Aucun fichier de test modifié.",
-    "commitsRecorded": "Le travail a été enregistré sur {{branches}} branche(s)",
+    "commitsRecorded_one": "Le travail a été enregistré sur {{branches}} branche",
+    "commitsRecorded_other": "Le travail a été enregistré sur {{branches}} branches",
     "verificationPassed": "L'IA a rapporté que ses vérifications ont réussi ({{count}})",
     "verificationFailed": "L'IA a rapporté que ses vérifications ont ÉCHOUÉ ({{count}})",
     "noVerificationReported": "L'IA n'a rapporté aucune vérification.",

@@ -109,8 +109,7 @@
     "run": "Analyze with AI",
     "retry": "Try again",
     "running": "Reading the log to find why it stopped…",
-    "failed": "The analysis could not run: {{detail}}",
-    "noDetail": "no detail",
+    "failed": "The AI analysis did not finish.",
     "evidence": "From the log",
     "nextSteps": "The plan to fix it",
     "failedStep": "step: {{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "{{count}} attempt so far",
     "attempts_other": "{{count}} attempts so far",
     "advice": "Continuing unchanged will likely stop here again. Pick one of the ways forward below.",
-    "adviceNoOptions": "Continuing unchanged will likely stop here again. The AI analysis below suggests ways forward."
+    "adviceNoOptions": "Continuing unchanged will likely stop here again. The AI analysis below suggests ways forward.",
+    "adviceAlone": "Continuing unchanged will likely stop here again."
   },
   "flaky": {
     "title_one": "This test looks flaky",

@@ -109,8 +109,7 @@
     "run": "Analyser avec l’IA",
     "retry": "Réessayer",
     "running": "Lecture du journal pour trouver la cause…",
-    "failed": "L’analyse n’a pas pu s’exécuter : {{detail}}",
-    "noDetail": "aucun détail",
+    "failed": "L’analyse IA n’a pas abouti.",
     "evidence": "Extrait du journal",
     "nextSteps": "Le plan pour le résoudre",
     "failedStep": "étape : {{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "{{count}} tentative jusqu'ici",
     "attempts_other": "{{count}} tentatives jusqu'ici",
     "advice": "Continuer sans rien changer l'arrêtera probablement encore ici. Choisis une des pistes ci-dessous.",
-    "adviceNoOptions": "Continuer sans rien changer l'arrêtera probablement encore ici. L'analyse IA ci-dessous propose des pistes."
+    "adviceNoOptions": "Continuer sans rien changer l'arrêtera probablement encore ici. L'analyse IA ci-dessous propose des pistes.",
+    "adviceAlone": "Continuer sans rien changer l'arrêtera probablement encore ici."
   },
   "flaky": {
     "title_one": "Ce test semble instable",

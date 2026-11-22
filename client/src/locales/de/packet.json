@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} Dateien geändert (+{{added}} / −{{removed}} Zeilen)",
-    "testFilesChanged": "{{count}} Testdateien geändert",
+    "filesChanged_one": "{{files}} Datei geändert (+{{added}} / −{{removed}} Zeilen)",
+    "filesChanged_other": "{{files}} Dateien geändert (+{{added}} / −{{removed}} Zeilen)",
+    "testFilesChanged_one": "{{count}} Testdatei geändert",
+    "testFilesChanged_other": "{{count}} Testdateien geändert",
     "noTestFilesChanged": "Keine Testdateien geändert.",
-    "commitsRecorded": "Arbeit wurde auf {{branches}} Branch(es) festgehalten",
+    "commitsRecorded_one": "Arbeit wurde auf {{branches}} Branch festgehalten",
+    "commitsRecorded_other": "Arbeit wurde auf {{branches}} Branches festgehalten",
     "verificationPassed": "Die KI berichtete, ihre Prüfungen seien bestanden ({{count}})",
     "verificationFailed": "Die KI berichtete, ihre Prüfungen seien FEHLGESCHLAGEN ({{count}})",
     "noVerificationReported": "Die KI berichtete keine Verifizierung.",

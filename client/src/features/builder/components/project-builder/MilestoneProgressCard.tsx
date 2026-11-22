@@ -155,7 +155,7 @@ function HeldRailStatus({ rail, now, onOpenRail, onResumeRun }: Pick<MilestoneRa
             setBusy(true)
             try { await onResumeRun(rail.runId!) } finally { setBusy(false) }
           }}
-          className={cn(buttonClass, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}
+          className={cn(buttonClass, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}
           data-testid="milestone-rail-resume"
         >
           {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
@@ -204,7 +204,7 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail, onResumeRun 
           {name}
         </button>
         {rail.engine && (
-          <span className="truncate text-caption text-muted-foreground" data-testid="milestone-rail-engine">
+          <span className="truncate text-caption text-muted-foreground" title={engineLabel(t, rail.engine)} data-testid="milestone-rail-engine">
             <span className="sr-only">{t('milestoneProgress.rail.engine', { engine: engineLabel(t, rail.engine) })}</span>
             <span aria-hidden>{engineLabel(t, rail.engine)}</span>
           </span>
@@ -267,7 +267,7 @@ export function MilestoneAutoAdvanceToggle({
       title={hint}
       className={cn(
         'group inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-caption transition-colors disabled:opacity-50',
-        checked ? 'border-accent-success/40 bg-accent-success/10 text-accent-success' : 'border-border/50 text-muted-foreground hover:text-foreground',
+        checked ? 'border-accent-primary/40 bg-accent-primary/5 text-foreground' : 'border-border/50 text-muted-foreground hover:text-foreground',
         compact ? 'py-0.5' : 'w-full',
       )}
       data-testid={testId}
@@ -277,12 +277,12 @@ export function MilestoneAutoAdvanceToggle({
         aria-hidden
         className={cn(
           'relative inline-flex h-3 w-5 shrink-0 items-center rounded-full transition-colors',
-          checked ? 'bg-accent-success/70' : 'bg-muted-foreground/30',
+          checked ? 'bg-primary' : 'bg-muted-foreground/30',
         )}
       >
         <span className={cn('absolute h-2 w-2 rounded-full bg-background shadow transition-transform', checked ? 'translate-x-2.5' : 'translate-x-0.5')} />
       </span>
-      {checked ? <Zap className="h-3 w-3 shrink-0" aria-hidden /> : <Flag className="h-3 w-3 shrink-0" aria-hidden />}
+      {checked ? <Zap className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden /> : <Flag className="h-3 w-3 shrink-0" aria-hidden />}
       <span className="min-w-0 flex-1 truncate font-medium">{t('milestoneProgress.chain.autoAdvance')}</span>
       {!compact && <span className="hidden truncate text-caption font-normal text-muted-foreground group-hover:inline">{hint}</span>}
     </button>
@@ -315,7 +315,7 @@ function ChainOfferControls({ chain, busy, testId, onResume }: { chain: Mileston
   const label = (o: ChainOffer) => t(`milestoneProgress.chain.offer.${o.kind}`, chainOfferParams(o, chain.plan))
   const hint = (o: ChainOffer) => t(`milestoneProgress.chain.offerHint.${o.kind}`, chainOfferParams(o, chain.plan))
   const PrimaryIcon = OFFER_ICON[primary.kind]
-  const buttonClass = 'inline-flex min-w-0 items-center gap-1 border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50'
+  const buttonClass = 'inline-flex min-w-0 items-center gap-1 border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 font-medium text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50'
   return (
     <span className="inline-flex w-full min-w-0 items-stretch">
       <button
@@ -407,7 +407,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
         paused || (held && held.key !== 'queued')
           ? 'border-accent-warning/40 bg-accent-warning/5'
           : checkpoint
-            ? 'border-accent-success/40 bg-accent-success/5'
+            ? 'border-accent-review/40 bg-accent-review/5'
             : live ? 'border-accent-info/30 bg-accent-info/5' : 'border-border/30 bg-surface/40',
       )}
       data-testid="milestone-chain-row"
@@ -428,7 +428,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
             type="button"
             disabled={busy}
             onClick={() => onResume(chain.id)}
-            className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 font-medium text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
             data-testid="milestone-chain-launch-next"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
@@ -441,7 +441,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={busy}
-              className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 font-medium text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
               data-testid="milestone-chain-resume"
             >
               {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
@@ -470,7 +470,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
             type="button"
             disabled={busy}
             onClick={() => onResume(chain.id)}
-            className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-1.5 py-0.5 font-medium text-accent-success hover:bg-accent-success/20 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 font-medium text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
             data-testid="milestone-chain-resume"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
@@ -484,6 +484,7 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
             onClick={() => onCancel(chain.id)}
             className="inline-flex items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
             title={t('milestoneProgress.chain.cancel')}
+            aria-label={t('milestoneProgress.chain.cancel')}
             data-testid="milestone-chain-cancel"
           >
             <XIcon className="h-3 w-3" aria-hidden />
@@ -498,8 +499,8 @@ export function MilestoneChainRow({ chain, rails = [], onOpenRail, busy = false,
           </>
         ) : checkpoint ? (
           <>
-            <Flag className="h-3 w-3 shrink-0 text-accent-success" aria-hidden />
-            <span className="text-accent-success" data-testid="milestone-chain-checkpoint">
+            <Flag className="h-3 w-3 shrink-0 text-accent-review" aria-hidden />
+            <span className="text-accent-review" data-testid="milestone-chain-checkpoint">
               {t('milestoneProgress.chain.checkpoint', { k: chain.nextChunk, next: chain.nextChunk + 1, n: chain.totalChunks })}
             </span>
             {chain.headBranch && (

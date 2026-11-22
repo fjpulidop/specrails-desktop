@@ -109,8 +109,7 @@
     "run": "Mit KI analysieren",
     "retry": "Erneut versuchen",
     "running": "Protokoll wird gelesen, um die Ursache zu finden…",
-    "failed": "Die Analyse konnte nicht laufen: {{detail}}",
-    "noDetail": "keine Details",
+    "failed": "Die KI-Analyse wurde nicht abgeschlossen.",
     "evidence": "Aus dem Protokoll",
     "nextSteps": "Der Plan zur Behebung",
     "failedStep": "Schritt: {{step}}",
@@ -230,7 +229,8 @@
     "attempts_one": "Bisher {{count}} Versuch",
     "attempts_other": "Bisher {{count}} Versuche",
     "advice": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Wähle unten einen Weg nach vorn.",
-    "adviceNoOptions": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Die KI-Analyse unten schlägt Wege nach vorn vor."
+    "adviceNoOptions": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Die KI-Analyse unten schlägt Wege nach vorn vor.",
+    "adviceAlone": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier."
   },
   "flaky": {
     "title_one": "Dieser Test wirkt instabil",
