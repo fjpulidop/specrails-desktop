@@ -293,12 +293,12 @@ each action has an `id`, i18n label, `group`, icon, `shortcut` (shown through `k
   - **Settings registry** ([`settings/lib/settings-registry.ts`](settings/lib/settings-registry.ts)): one typed entry per
     settings block (`id`, `scope` app\|project, `section`). Copy lives in `commands:palette.settings.entries.<id>.label|keywords`
     (all 8 locales, keywords per locale). Each block carries `data-setting-id="<id>"` (`SettingAnchor`, or `data-setting-id` on
-    `SettingsCard`). Selecting a row calls `openAppSettings(section, id)` / `openProjectSettings(section, id)` (`/settings?setting=<id>`);
-    the dialog or page then runs `focusSettingAnchor` (waits for the pane to be visible, scrolls,
+    `SettingsCard`). Selecting a row calls `openAppSettings(section, id)` / `openProjectSettings(section, id)`.
+    the dialog then runs `focusSettingAnchor` (waits for the pane to be visible, scrolls,
     focuses the first control, outlines the block for ~2 s). `lib/__tests__/settings-registry.test.tsx` mounts both surfaces and
     fails on a registry id without an anchor (or an anchor without an entry). **Adding a setting block:** add the anchor, the
     registry entry and its label/keywords in the 8 locales.
 - **Settings sections** are deep links: `openAppSettings(section)` and
   `openProjectSettings(section)` ([`lib/app-settings-events.ts`](../lib/app-settings-events.ts));
-  project settings are the `/settings` route in both UI modes (Mission mode: it replaces the mission surface). The page
-  keeps a sticky section index (a select below 900px) with scroll-spy; `?setting=<id>` still lands on a block.
+  both use native surfaces on desktop and in-app modals in web. The project dialog keeps a sticky section index
+  (a select below 900px) with scroll-spy. Legacy `/settings` links still open the corresponding section or block.

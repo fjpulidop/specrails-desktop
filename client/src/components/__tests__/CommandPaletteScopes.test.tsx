@@ -286,14 +286,16 @@ describe('CommandPalette — scoped search', () => {
     expect(screen.queryByTestId('palette-group-projects')).toBeNull()
   })
 
-  it('/ sends Board mode to /settings?setting= and hides project settings without a project', async () => {
+  it('/ opens project settings at the selected block in Board mode and hides them without a project', async () => {
     uiMode = 'kanban'
+    const listener = vi.fn()
+    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, listener, { once: true })
     const user = userEvent.setup()
     render(<CommandPalette />)
     const input = await openPalette(user)
     await user.type(input, '/integration')
     await user.click(await screen.findByTestId('palette-setting-integrationBranch'))
-    expect(navigate).toHaveBeenCalledWith('/settings?setting=integrationBranch')
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ detail: { section: 'branch', settingId: 'integrationBranch' } }))
 
     activeProjectId = null
     await user.keyboard('{Meta>}k{/Meta}')

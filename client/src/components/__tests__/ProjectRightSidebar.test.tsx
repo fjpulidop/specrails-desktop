@@ -22,7 +22,7 @@ describe('ProjectRightSidebar', () => {
     expect(screen.getByRole('complementary', { name: 'Project navigation' })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Project' })).toBeInTheDocument()
     // Expanded navigation keeps accessible names.
-    expect(screen.getByRole('link', { name: 'Project settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Project settings' })).toBeInTheDocument()
   })
 
   it('reveals the auto-hidden sidebar on keyboard focus without an icon rail', () => {
@@ -30,7 +30,7 @@ describe('ProjectRightSidebar', () => {
     const sidebar = screen.getByRole('complementary', { name: 'Project navigation' })
     expect(sidebar).toHaveAttribute('tabindex', '0')
     act(() => sidebar.focus())
-    expect(screen.getByRole('link', { name: 'Project settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Project settings' })).toBeInTheDocument()
     expect(screen.getByTestId('project-right-sidebar-panel')).not.toHaveAttribute('inert')
   })
 
@@ -41,7 +41,7 @@ describe('ProjectRightSidebar', () => {
     fireEvent.mouseEnter(sidebar)
     act(() => sidebar.focus())
     expect(panel).not.toHaveAttribute('inert')
-    fireEvent.click(screen.getByRole('link', { name: 'Project settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Project settings' }))
     expect(panel).toHaveAttribute('inert')
   })
 

@@ -28,6 +28,10 @@ const snapshot = (patch: Partial<AppResourcesSnapshot> = {}): AppResourcesSnapsh
 })
 
 const flush = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve() }) }
+const idleSnapshot = () => snapshot({
+  categories: [snapshot().categories[3]!],
+  totals: { cpuPercent: 3, memoryBytes: 200 * MB, processCount: 1 },
+})
 
 beforeEach(() => { vi.useFakeTimers(); vi.mocked(getAppResources).mockReset().mockResolvedValue(snapshot()) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -43,16 +47,56 @@ describe('AppResourcesFooter', () => {
     expect(trigger).toHaveAttribute('aria-label', 'App resources: 9 processes running. Show details')
   })
 
-  it('is absent while nothing but the server runs, and where the platform cannot be measured', async () => {
-    vi.mocked(getAppResources).mockResolvedValue(snapshot({ categories: [snapshot().categories[3]!], totals: { cpuPercent: 3, memoryBytes: 200 * MB, processCount: 1 } }))
-    const view = render(<AppResourcesFooter />)
+  it('opens before the first measurement with a neutral name and no count', () => {
+    vi.mocked(getAppResources).mockImplementation(() => new Promise(() => {}))
+    render(<AppResourcesFooter />)
+    const trigger = screen.getByRole('button', { name: 'App resources' })
+    expect(trigger).toHaveTextContent(/^$/)
+    fireEvent.click(trigger)
+    expect(screen.getByText('Measuring…')).toBeInTheDocument()
+  })
+
+  it('opens at zero work processes and still lists the server', async () => {
+    vi.mocked(getAppResources).mockResolvedValue(idleSnapshot())
+    render(<AppResourcesFooter />)
     await flush()
-    expect(view.container).toBeEmptyDOMElement()
-    cleanup()
+    const trigger = screen.getByRole('button', { name: 'App resources: 0 processes running. Show details' })
+    expect(trigger).toHaveTextContent(/^0$/)
+    fireEvent.click(trigger)
+    expect(screen.getByTestId('app-resources-category-server')).toBeInTheDocument()
+  })
+
+  it('stays visible when the last work process ends with the panel closed', async () => {
+    vi.mocked(getAppResources).mockResolvedValueOnce(snapshot()).mockResolvedValue(idleSnapshot())
+    render(<AppResourcesFooter />)
+    await flush()
+    const trigger = screen.getByTestId('app-resources-trigger')
+    expect(trigger).toHaveTextContent(/^9$/)
+    await act(async () => { vi.advanceTimersByTime(APP_RESOURCES_IDLE_POLL_MS) })
+    expect(screen.getByTestId('app-resources-trigger')).toBe(trigger)
+    expect(trigger).toHaveTextContent(/^0$/)
+  })
+
+  it('opens with a neutral name when measurement is unsupported', async () => {
     vi.mocked(getAppResources).mockResolvedValue(snapshot({ supported: false, categories: [], totals: { cpuPercent: 0, memoryBytes: 0, processCount: 0 } }))
-    const second = render(<AppResourcesFooter />)
+    render(<AppResourcesFooter />)
     await flush()
-    expect(second.container).toBeEmptyDOMElement()
+    const trigger = screen.getByRole('button', { name: 'App resources' })
+    expect(trigger).toHaveTextContent(/^$/)
+    fireEvent.click(trigger)
+    expect(screen.getByText('Resource usage is not available on this system.')).toBeInTheDocument()
+  })
+
+  it('omits a stale count after a refresh error and leaves the error accessible', async () => {
+    vi.mocked(getAppResources).mockResolvedValueOnce(snapshot()).mockRejectedValue(new Error('offline'))
+    render(<AppResourcesFooter />)
+    await flush()
+    await act(async () => { vi.advanceTimersByTime(APP_RESOURCES_IDLE_POLL_MS) })
+    const trigger = screen.getByRole('button', { name: 'App resources' })
+    expect(trigger).toHaveTextContent(/^$/)
+    fireEvent.click(trigger)
+    await flush()
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not read resources: offline')
   })
 
   it('workProcessCount ignores the server', () => {

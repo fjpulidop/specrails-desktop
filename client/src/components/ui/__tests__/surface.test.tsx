@@ -97,6 +97,26 @@ describe('Surface: web fallback', () => {
 })
 
 describe('Surface: native window in Tauri', () => {
+  it('opens Project Settings for the requested project and block and returns focus on close', async () => {
+    setTauri(true)
+    invoke.mockImplementation(async (_cmd: string, args: { requestId: string }) => ({ windowLabel: 'surface-project-settings-1', requestId: args.requestId, reused: false }))
+    const onClose = vi.fn()
+    const { rerender } = render(<button>Project settings</button>)
+    const trigger = screen.getByRole('button', { name: 'Project settings' })
+    trigger.focus()
+    rerender(<><button>Project settings</button><Surface id="project-settings" open params={{ projectId: 'p1', settingId: 'recentlyDeleted' }} onClose={onClose}>
+      <SettingsModal open onClose={onClose} />
+    </Surface></>)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('surface_window_open', expect.objectContaining({
+      surface: 'project-settings', params: { projectId: 'p1', settingId: 'recentlyDeleted' },
+    })))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const requestId = invoke.mock.calls[0][1].requestId as string
+    await act(async () => { emitted?.({ payload: { kind: 'closed', surface: 'project-settings', requestId, windowLabel: 'surface-project-settings-1' } }) })
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Project settings' })).toHaveFocus()
+  })
+
   it('opens a window with serializable params instead of the modal, and closes on the closed event', async () => {
     setTauri(true)
     invoke.mockImplementation(async (_cmd: string, args: { requestId: string }) => ({ windowLabel: 'surface-app-settings-1', requestId: args.requestId, reused: false }))
@@ -169,6 +189,36 @@ describe('SurfaceWindowFrame: dialog as window content', () => {
     expect(frame.querySelector('[data-dialog-header] button[aria-label]')).toBeNull()
     expect(confirm.hasAttribute('data-surface-window')).toBe(false)
     expect(confirm.getAttribute('data-dialog-size')).toBe('confirm')
+  })
+})
+
+describe('SurfaceWindowFrame: remounted content', () => {
+  // The window content can unmount and mount again while its project data refreshes. It used to
+  // lose the frame (the first dialog's id stayed the owner), so the window fell back to the
+  // in-page modal: scrim, centered `h-[82vh]` panel and a header without the title-bar inset.
+  it('stays the window content after the dialog unmounts and mounts again', () => {
+    function Probe({ show }: { show: boolean }) {
+      return (
+        <SurfaceWindowFrame>
+          {show && (
+            <Dialog open>
+              <DialogContent size="workspace" movableResizable>
+                <DialogHeader><DialogTitle>Settings</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader>
+              </DialogContent>
+            </Dialog>
+          )}
+        </SurfaceWindowFrame>
+      )
+    }
+    const { rerender } = render(<Probe show />)
+    expect(screen.getByRole('dialog').hasAttribute('data-surface-window')).toBe(true)
+    rerender(<Probe show={false} />)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    rerender(<Probe show />)
+    const frame = screen.getByRole('dialog')
+    expect(frame.hasAttribute('data-surface-window')).toBe(true)
+    expect(frame.className).toContain('inset-0')
+    expect(frame.querySelector('[data-dialog-header]')?.hasAttribute('data-tauri-drag-region')).toBe(true)
   })
 })
 

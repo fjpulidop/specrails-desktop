@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { Settings } from 'lucide-react'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
@@ -20,10 +22,45 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
   return null
 }
 
-export default function SettingsPage() {
+interface SettingsTarget {
+  section?: string
+  settingId?: string
+  anchor?: string
+}
+
+export function ProjectSettingsDialog({ target, onClose }: { target: SettingsTarget; onClose: () => void }) {
+  const { t } = useTranslation('settings')
+  const { projects, activeProjectId } = useDesktop()
+  const project = projects.find(({ id }) => id === activeProjectId)
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
+        size="workspace"
+        movableResizable
+        persistKey="specrails.modal.project-settings"
+        className="data-[surface-window]:grid data-[surface-window]:h-dvh data-[surface-window]:grid-rows-[auto_minmax(0,1fr)]"
+      >
+        <DialogHeader icon={<Settings />}>
+          <DialogTitle>{project ? t('projectDialog.title', { name: project.name }) : t('page.title')}</DialogTitle>
+          <DialogDescription>{t('projectDialog.description')}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="overscroll-none p-0" data-testid="project-settings-scroll">
+          <SettingsPage target={target} />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export default function SettingsPage({ target }: { target?: SettingsTarget } = {}) {
   const { t } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
   const location = useLocation()
+  const anchor = target ? target.anchor : location.hash.slice(1)
+  const settingId = target ? target.settingId : new URLSearchParams(location.search).get(SETTING_PARAM)
+  const requestedSection = target ? target.section : new URLSearchParams(location.search).get(PROJECT_SETTINGS_SECTION_PARAM)
+  const locationKey = target ? undefined : location.key
+  const contentRef = useRef<HTMLDivElement>(null)
   // SettingsPage is only mounted in Super mode; telemetry toggle is Super-mode-only
   const isSuperMode = activeProjectId !== null
 
@@ -33,13 +70,12 @@ export default function SettingsPage() {
   // anchored field after its fetch resolves, so we poll for the element with a
   // 3s budget instead of trying once.
   useEffect(() => {
-    if (!location.hash) return
-    const id = location.hash.slice(1)
+    if (!anchor) return
     let cancelled = false
     const deadline = Date.now() + 3000
     const tryScroll = (): void => {
       if (cancelled) return
-      const el = document.getElementById(id)
+      const el = document.getElementById(anchor)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
         el.classList.add('ring-2', 'ring-accent-primary/60', 'rounded')
@@ -54,14 +90,7 @@ export default function SettingsPage() {
     }
     tryScroll()
     return () => { cancelled = true }
-  }, [location.hash, location.key])
-
-  // ⌘K `/` in Board mode: /settings?setting=<id> lands on that block once it has mounted.
-  const settingId = new URLSearchParams(location.search).get(SETTING_PARAM)
-  useEffect(() => {
-    if (!settingId) return
-    return focusSettingAnchor(settingId)
-  }, [settingId, location.key])
+  }, [anchor, locationKey])
 
   const [config, setConfig] = useState<ProjectConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -100,6 +129,11 @@ export default function SettingsPage() {
     void loadConfig(activeProjectId)
   }, [activeProjectId, loadConfig])
 
+  useEffect(() => {
+    if (isLoading || !settingId || !contentRef.current) return
+    return focusSettingAnchor(settingId, contentRef.current)
+  }, [isLoading, settingId, locationKey])
+
   // Sections that render at least one pane (telemetry is Super-mode only).
   const sections = useMemo(() => PROJECT_SETTINGS_SECTIONS
     .map((section) => ({ ...section, panes: section.panes.filter((Pane) => isSuperMode || Pane !== ProjectTelemetrySection) }))
@@ -112,8 +146,7 @@ export default function SettingsPage() {
   // ignores those until the scroll settles (`scrollend`, else a short time budget).
   const spyLockedUntil = useRef(0)
 
-  // Scroll-spy. The page scrolls inside an `overflow-auto` ancestor of the app shell, not the
-  // window, so the observer is rooted there. The section whose top has crossed the upper third
+  // Scroll-spy uses the dialog body as its root. The section whose top has crossed the upper third
   // is current; at the very bottom the last section is, however short it is (it can never
   // reach the upper third on its own).
   useEffect(() => {
@@ -162,14 +195,11 @@ export default function SettingsPage() {
     sectionEls.current.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [])
 
-  // `/settings?section=<id>` (openProjectSettings from a run's "Configure", a Job
-  // detail window) lands on that section once the page has rendered it.
-  const requestedSection = new URLSearchParams(location.search).get(PROJECT_SETTINGS_SECTION_PARAM)
   useEffect(() => {
-    if (isLoading || !requestedSection || !sections.some((section) => section.id === requestedSection)) return
+    if (isLoading || settingId || anchor || !requestedSection || !sections.some((section) => section.id === requestedSection)) return
     const frame = requestAnimationFrame(() => goToSection(requestedSection))
     return () => cancelAnimationFrame(frame)
-  }, [isLoading, requestedSection, sections, goToSection, location.key])
+  }, [isLoading, settingId, anchor, requestedSection, sections, goToSection, locationKey])
 
   if (isLoading) {
     return (
@@ -182,9 +212,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div ref={contentRef} className="mx-auto max-w-5xl px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-headline">{t('page.title')}</h1>
+        {!target && <h1 className="text-headline">{t('page.title')}</h1>}
         {config && (
           <p className="text-caption text-muted-foreground mt-1">
             {config.project.name}

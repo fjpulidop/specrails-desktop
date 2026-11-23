@@ -12,7 +12,9 @@ export const SETTING_PARAM = 'setting'
 
 export function findSettingAnchor(id: string, root: ParentNode = document): HTMLElement | null {
   const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(id) : id.replace(/"/g, '\\"')
-  const el = root.querySelector<HTMLElement>(`[data-setting-id="${escaped}"]`)
+  // Terminal shortcut fields are addressed by their own anchor (`id` + `data-terminal-settings-anchor`),
+  // not by registry entries.
+  const el = root.querySelector<HTMLElement>(`[data-setting-id="${escaped}"], [data-terminal-settings-anchor][id="${escaped}"]`)
   if (!el) return null
   // A pane that is not the active section is mounted but `hidden`.
   return el.closest('.hidden, [hidden]') ? null : el

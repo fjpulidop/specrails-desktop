@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '../../test-utils'
-import { useLocation } from 'react-router-dom'
+import { OPEN_PROJECT_SETTINGS_EVENT } from '../../lib/app-settings-events'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
 import type { AgentConversation, ArchiveScope } from '../../features/missions/lib/agent-api'
@@ -395,14 +395,12 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(overlay?.className).toContain('opacity-100')
   })
 
-  it('hover gear opens the project settings ROUTE (one container, not a modal twin) and selects the project', async () => {
-    function Where() { return <span data-testid="where">{useLocation().pathname}</span> }
-    render(<><ArcSidebar {...defaultProps} /><Where /></>)
+  it('requests the selected project’s settings from the hover gear', () => {
+    const listener = vi.fn()
+    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, listener, { once: true })
+    render(<ArcSidebar {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: 'Settings for Project Alpha' }))
-    expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-1')
-    expect(screen.getByTestId('where')).toHaveTextContent('/settings')
-    expect(screen.queryByTestId('project-settings-dialog')).toBeNull()
-    // The gear never selects the row itself.
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ detail: { projectId: 'proj-1', section: 'general' } }))
     expect(mockSelectConversation).not.toHaveBeenCalled()
   })
 

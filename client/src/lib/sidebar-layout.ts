@@ -4,19 +4,24 @@
  * toggles a sidebar that is not on screen.
  */
 
-/** A global (cross-project) route that takes over the centre. Docs is global
+function isProjectSettingsRoute(pathname: string): boolean {
+  return pathname === '/settings' || pathname === '/settings/'
+}
+
+/** A route that takes over the centre. Docs is global
  *  in both modes; Loops and Plugins are board pages in Kanban mode but modal
  *  surfaces over the current mission in Agent Mode. */
 export function isGlobalRoute(pathname: string, uiMode: string): boolean {
   if (pathname.startsWith('/docs')) return true
   // Project settings are a route; in Mission mode it replaces the mission surface (no modal twin).
-  if (uiMode === 'agent' && pathname.startsWith('/settings')) return true
+  if (uiMode === 'agent' && isProjectSettingsRoute(pathname)) return true
   return uiMode !== 'agent' && (pathname.startsWith('/loops') || pathname.startsWith('/plugins'))
 }
 
-/** Agent Mode shows the "On workspace" rail; Kanban shows the project sidebar
- *  only with an active project. Neither shows on a global route. */
+/** Project Settings keeps the current mode's sidebar while replacing the centre.
+ *  Other routes that take over the centre hide the sidebar. */
 export function hasRightSidebar(opts: { uiMode: string; pathname: string; hasActiveProject: boolean }): boolean {
+  if (isProjectSettingsRoute(opts.pathname)) return opts.hasActiveProject
   if (isGlobalRoute(opts.pathname, opts.uiMode)) return false
   return opts.uiMode === 'agent' || opts.hasActiveProject
 }
