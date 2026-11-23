@@ -49,10 +49,10 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
         if std::time::Instant::now()>origin_deadline { return Err("main interface did not commit the application origin".into()); }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into()))?;
+    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into())).await?;
     let editor=app.webview_windows().into_values().find(|window| window.label().starts_with("loops-")).ok_or("loop editor missing")?;
     await_window_state("loop editor did not load its target", || Ok(editor.url().map_err(|e|e.to_string())?.query_pairs().any(|(key,value)| key=="loopId" && value=="factory:implement"))).await?;
-    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into()))?;
+    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into())).await?;
     assert_eq!(app.webview_windows().values().filter(|window| window.label().starts_with("loops-")).count(),1,"reopening must focus the existing draft");
     assert!(loop_windows::permits_command(editor.label(), "desktop_save_text"));
     assert!(!loop_windows::permits_command(editor.label(), "restart_app"));
@@ -64,10 +64,10 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     await_window_state("loop editor must actually close", || Ok(app.get_webview_window(editor.label()).is_none() && !loop_windows::permits_command(editor.label(), "desktop_save_text"))).await?;
     assert!(!loop_windows::permits_command(editor.label(), "desktop_save_text"));
     println!("PASS independent loop editor target, reuse, isolation, close and privilege cleanup");
-    loop_windows::plugin_window_open(app.clone(), main_view.clone())?;
+    loop_windows::plugin_window_open(app.clone(), main_view.clone()).await?;
     let plugins=app.webview_windows().into_values().find(|window| window.label().starts_with("plugins-")).ok_or("Plugins manager missing")?;
     await_window_state("Plugins manager did not load", || Ok(plugins.url().map_err(|e|e.to_string())?.query_pairs().any(|(key,value)| key=="pluginsWindow" && value=="1"))).await?;
-    loop_windows::plugin_window_open(app.clone(), main_view.clone())?;
+    loop_windows::plugin_window_open(app.clone(), main_view.clone()).await?;
     assert_eq!(app.webview_windows().values().filter(|window| window.label().starts_with("plugins-")).count(),1,"reopening Plugins must preserve its forms");
     assert!(!loop_windows::permits_command(plugins.label(), "restart_app"));
     plugins.close().map_err(|e|e.to_string())?;
