@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.1](https://github.com/fjpulidop/specrails-desktop/compare/v3.6.0...v3.6.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **windows:** native windows no longer freeze the app; quota meters stay visible ([#896](https://github.com/fjpulidop/specrails-desktop/issues/896)) ([88a0bd4](https://github.com/fjpulidop/specrails-desktop/commit/88a0bd41de7cd156825a7314f3c61ef7c9c10ad7))
+
 ## [3.6.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.5.0...v3.6.0) (2026-11-23)
 
 
