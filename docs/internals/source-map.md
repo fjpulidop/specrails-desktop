@@ -2517,7 +2517,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [codex.ts](../../server/modules/subscription-usage/adapters/codex.ts) · [test](../../server/modules/subscription-usage/adapters/codex.test.ts)
 - [errors.ts](../../server/modules/subscription-usage/adapters/errors.ts)
 - [http.ts](../../server/modules/subscription-usage/adapters/http.ts) · [test](../../server/modules/subscription-usage/adapters/http.test.ts)
-- [local-auth.ts](../../server/modules/subscription-usage/adapters/local-auth.ts)
+- [local-auth.ts](../../server/modules/subscription-usage/adapters/local-auth.ts) · [test](../../server/modules/subscription-usage/adapters/local-auth.test.ts)
 
 ## server/modules/subscription-usage/runtime
 

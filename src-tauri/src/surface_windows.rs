@@ -167,8 +167,11 @@ fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow
     placed.ok()
 }
 
+// `async`: a synchronous command runs on the main thread, and building a
+// webview window there deadlocks on Windows (WebView2 needs that thread's
+// event loop), so the window never appears. Async commands run off it.
 #[tauri::command]
-pub fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: String, request_id: String, params: Option<HashMap<String, String>>, geometry: Option<Geometry>, background: Option<[u8; 3]>) -> Result<Opened, String> {
+pub async fn surface_window_open(app: tauri::AppHandle, webview: Webview, surface: String, request_id: String, params: Option<HashMap<String, String>>, geometry: Option<Geometry>, background: Option<[u8; 3]>) -> Result<Opened, String> {
     let owner = webview.label().to_string();
     if owner != webview.window().label() || !crate::mission_windows::is_trusted_interface(&owner) {
         return Err("Only a Specrails interface can open a surface window.".into());
@@ -333,6 +336,12 @@ mod tests {
         let converted = desktop_frame(2880.0, 100.0, 2400.0, 1600.0, 2.0);
         if DESKTOP_IS_LOGICAL { assert_eq!(converted, frame(1440.0, 50.0, 1200.0, 800.0)); }
         else { assert_eq!(converted, frame(2880.0, 100.0, 2400.0, 1600.0)); }
+    }
+    #[test]
+    fn window_opening_commands_are_async_so_windows_does_not_deadlock() {
+        assert!(include_str!("surface_windows.rs").contains("pub async fn surface_window_open("));
+        let loops = include_str!("loop_windows.rs");
+        assert!(loops.contains("pub async fn loop_window_open(") && loops.contains("pub async fn plugin_window_open("));
     }
     #[test]
     fn surface_navigation_stays_on_its_own_surface() {

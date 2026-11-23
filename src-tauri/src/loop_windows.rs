@@ -16,12 +16,14 @@ fn allowed_navigation(origin: &tauri::Url, target: &tauri::Url, surface: &str) -
         && matches!(target.path(), "/" | "/index.html")
         && target.query_pairs().any(|(key, value)| key == surface && value == "1")
 }
+// Async on purpose: building a window inside a synchronous command deadlocks
+// on Windows (see `surface_window_open`).
 #[tauri::command]
-pub fn loop_window_open(app: tauri::AppHandle, webview: Webview, project_id: Option<String>, loop_id: Option<String>) -> Result<(), String> {
+pub async fn loop_window_open(app: tauri::AppHandle, webview: Webview, project_id: Option<String>, loop_id: Option<String>) -> Result<(), String> {
     open_editor_window(app, webview, project_id, loop_id, "loopsWindow", "Loops")
 }
 #[tauri::command]
-pub fn plugin_window_open(app: tauri::AppHandle, webview: Webview) -> Result<(), String> {
+pub async fn plugin_window_open(app: tauri::AppHandle, webview: Webview) -> Result<(), String> {
     open_editor_window(app, webview, None, None, "pluginsWindow", "Plugins")
 }
 fn open_editor_window(app: tauri::AppHandle, webview: Webview, project_id: Option<String>, loop_id: Option<String>, surface: &'static str, title: &str) -> Result<(), String> {

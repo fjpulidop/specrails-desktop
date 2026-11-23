@@ -101,6 +101,21 @@ it('does not query a detected CLI which is disabled or incompatible', async () =
   expect(read).not.toHaveBeenCalled(); expect(context).not.toHaveBeenCalled()
   expect(service.snapshot().providers.every(p => p.installed === true && p.availability === 'unsupported-cli')).toBe(true)
 })
+it('looks again after a CLI check that failed once (slow cold start on Windows)', async () => {
+  let clock = Date.parse('2030-01-01T00:00:00Z')
+  const eligible = vi.fn().mockResolvedValue(false)
+  const read = vi.fn().mockResolvedValue(result), context = vi.fn().mockResolvedValue('account-a')
+  const service = createUsageService({ installed: async () => true, eligible, now: () => clock, readers: { claude: { read, context }, codex: { read, context } } })
+  service.refresh(); await service.settled()
+  expect(service.snapshot().providers[0]!.issue).toEqual({ code: 'unsupported-cli', retryable: true })
+  eligible.mockResolvedValue(true)
+  // A manual refresh looks again at once, like a missing CLI.
+  service.refresh('claude'); await service.settled()
+  expect(service.snapshot().providers[0]).toMatchObject({ availability: 'available', issue: null })
+  // Automatic reads recover too once the retry window passes.
+  clock += 120_000; service.refresh(undefined, true); await service.settled()
+  expect(service.snapshot().providers.every(p => p.availability === 'available')).toBe(true)
+})
 describe('provider billing', () => {
   it('resolves billing: waits for the first read it starts, never for longer than its bound', async () => {
     const f = fixture()

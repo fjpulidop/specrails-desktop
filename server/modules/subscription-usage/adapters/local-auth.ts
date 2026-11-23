@@ -14,7 +14,11 @@ export async function readAuthFile(file: string): Promise<string | null> {
     if (bytesRead > 1024 * 1024) throw new UsageError('credentials-unreadable')
     return buffer.toString('utf8', 0, bytesRead)
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') return null
+    // Windows locks the file while the CLI rewrites it (token refresh): a
+    // transient lock is retried instead of hiding the row for the session.
+    if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') throw new UsageError('credentials-unreadable', true)
     throw new UsageError('credentials-unreadable')
   } finally { await handle?.close() }
 }

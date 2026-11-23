@@ -521,7 +521,10 @@ function extractClaudeResult(events: readonly AdapterEvent[]): NormalisedResult 
 
 async function detectClaudeInstalled(): Promise<DetectionResult> {
   // Shared non-blocking PATH + `--version` probe (binary-probe.ts).
-  const probe = await probeCliBinary('claude', { versionTimeoutMs: 3000 })
+  // Cold `--version` on Windows (cmd.exe → npm shim → node, Defender scanning)
+  // often exceeds 3 s at app start; a timeout here reports the CLI as not
+  // executable, so Windows gets the same generous budget as gemini.
+  const probe = await probeCliBinary('claude', { versionTimeoutMs: process.platform === 'win32' ? 20_000 : 3000 })
   if (!probe.executable) return probe
   const raw = probe.versionOutput
   const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)

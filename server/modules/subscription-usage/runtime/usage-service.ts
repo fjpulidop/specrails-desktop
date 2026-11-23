@@ -30,7 +30,9 @@ export function createUsageService(deps: UsageDependencies) {
       // PATH the first detection missed), so automatic reads keep checking at the
       // detection cache's pace instead of reporting "not detected" for the session.
       if (!installed) { clear(id); rows.set(id, { ...rows.get(id)!, refreshState: 'idle', retryAt: new Date(now() + CLI_MISSING_RETRY_MS).toISOString(), issue: { code: 'cli-missing', retryable: true } }); return }
-      if (deps.eligible && !await deps.eligible(id)) throw new UsageError('unsupported-cli')
+      // Retryable too: a slow first `--version` (cold start on Windows) can report
+      // the CLI as not executable once; the next detection usually succeeds.
+      if (deps.eligible && !await deps.eligible(id)) throw new UsageError('unsupported-cli', true, CLI_MISSING_RETRY_MS)
       if (signal.aborted) return
       const before = await reader.context(signal)
       if (signal.aborted) return
@@ -66,7 +68,7 @@ export function createUsageService(deps: UsageDependencies) {
       const row = rows.get(id)!
       if (running.has(id)) { scheduled = true; continue }
       // "Install a CLI, then refresh": a manual refresh looks for a missing CLI at once.
-      const lookAgain = !automatic && row.issue?.code === 'cli-missing'
+      const lookAgain = !automatic && (row.issue?.code === 'cli-missing' || row.issue?.code === 'unsupported-cli')
       if (!lookAgain && row.retryAt && Date.parse(row.retryAt) > now()) continue
       if (automatic && row.issue && !row.issue.retryable) continue
       const controller = new AbortController()
